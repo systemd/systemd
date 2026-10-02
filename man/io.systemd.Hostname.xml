@@ -1,0 +1,259 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Hostname"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Hostname</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Hostname</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Hostname</refname>
+    <refpurpose>APIs for querying and changing the system hostname and related machine metadata.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+    <para><interfacename>io.systemd.Hostname</interfacename> is the Varlink counterpart of
+    <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    served by <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/io.systemd.Hostname</filename> socket.
+    <function>Describe()</function> returns hostname, kernel, OS release, hardware, firmware and
+    machine metadata in a single call; the individual fields carry detailed documentation inline.
+    The remaining methods change machine state: <function>SetHostname()</function> sets the
+    transient hostname, <function>SetStaticHostname()</function> updates
+    <filename>/etc/hostname</filename>, and <function>SetPrettyHostname()</function>,
+    <function>SetIconName()</function>, <function>SetChassis()</function>,
+    <function>SetDeployment()</function> and <function>SetLocation()</function> edit fields of
+    <filename>/etc/machine-info</filename>; <function>SetTags()</function> maintains the machine
+    tag list stored in the <varname>TAGS=</varname> field of
+    <filename>/etc/machine-info</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+        <title>Security</title>
+
+    <para><function>Describe()</function> is unprivileged, except that some hardware identifiers
+    are masked out for unprivileged callers. The setters authenticate via polkit:
+    <function>SetHostname()</function> requires
+    <varname>org.freedesktop.hostname1.set-hostname</varname>,
+    <function>SetStaticHostname()</function> requires
+    <varname>org.freedesktop.hostname1.set-static-hostname</varname> — which also covers
+    <function>SetPrettyHostname()</function>, since the pretty hostname is always changed together
+    with the static one —, and the machine-info related calls (<function>SetIconName()</function>,
+    <function>SetChassis()</function>, <function>SetDeployment()</function>,
+    <function>SetLocation()</function>, <function>SetTags()</function>) require
+    <varname>org.freedesktop.hostname1.set-machine-info</varname>. All accept the
+    <varname>allowInteractiveAuthentication</varname> input field to enable interactive
+    authentication.</para>
+
+  </refsect1>
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Hostname">
+<emphasis role="varlink-comment"># APIs for querying and changing the system hostname and related machine metadata.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Hostname
+
+<emphasis role="varlink-comment"># Returns hostname, kernel, OS, hardware, firmware and other machine metadata in one call.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Describe(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># The current system hostname.</emphasis>
+	Hostname: string,
+	<emphasis role="varlink-comment"># The statically configured hostname, from /etc/hostname. Null if none is configured.</emphasis>
+	StaticHostname: ?string,
+	<emphasis role="varlink-comment"># The pretty (free-form, UTF-8) hostname. Null if none is configured.</emphasis>
+	PrettyHostname: ?string,
+	<emphasis role="varlink-comment"># The fallback hostname used when neither a static nor a transient hostname is set.</emphasis>
+	DefaultHostname: ?string,
+	<emphasis role="varlink-comment"># Indicates where the current hostname originates from, one of 'static', 'transient' or 'default'.</emphasis>
+	HostnameSource: string,
+	<emphasis role="varlink-comment"># The name of an icon representing this system, following the XDG icon naming spec. Null if none is configured.</emphasis>
+	IconName: ?string,
+	<emphasis role="varlink-comment"># The chassis type of this system, e.g. 'desktop', 'laptop', 'server', 'vm', … Null if unknown.</emphasis>
+	Chassis: ?string,
+	<emphasis role="varlink-comment"># An unique identifier of the system chassis.</emphasis>
+	ChassisAssetTag: ?string,
+	<emphasis role="varlink-comment"># The deployment environment of this system, e.g. 'production' or 'staging'. Null if none is configured.</emphasis>
+	Deployment: ?string,
+	<emphasis role="varlink-comment"># A human-readable description of the physical location of this system. Null if none is configured.</emphasis>
+	Location: ?string,
+	<emphasis role="varlink-comment"># The operating system kernel name, as reported by uname(2), e.g. 'Linux'.</emphasis>
+	KernelName: string,
+	<emphasis role="varlink-comment"># The kernel release string, as reported by uname(2).</emphasis>
+	KernelRelease: string,
+	<emphasis role="varlink-comment"># The kernel version string, as reported by uname(2).</emphasis>
+	KernelVersion: string,
+	<emphasis role="varlink-comment"># 'Pretty' name of the OS. This is the primary OS identifier that is suitable for presentation to the user. Typically includes a version too, but doesn't have to.</emphasis>
+	OperatingSystemPrettyName: ?string,
+	<emphasis role="varlink-comment"># 'Fancy' name of the OS; may contain non-ASCII Unicode chars, as well as basic ANSI sequences. This is similar to 'OperatingSystemPrettyName', but is preferably used on terminals that support ANSI sequences and full Unicode.</emphasis>
+	OperatingSystemFancyName: ?string,
+	<emphasis role="varlink-comment"># The CPE name of the OS, from the CPE_NAME= field of os-release.</emphasis>
+	OperatingSystemCPEName: ?string,
+	<emphasis role="varlink-comment"># The home URL of the OS, from the HOME_URL= field of os-release.</emphasis>
+	OperatingSystemHomeURL: ?string,
+	<emphasis role="varlink-comment"># The end-of-support time of the OS, in µs since the UNIX epoch. Null if not known.</emphasis>
+	OperatingSystemSupportEnd: ?int,
+	<emphasis role="varlink-comment"># The full contents of os-release, as an array of 'KEY=VALUE' strings.</emphasis>
+	OperatingSystemReleaseData: ?[]string,
+	<emphasis role="varlink-comment"># The OS image identifier, from the IMAGE_ID= field of os-release.</emphasis>
+	OperatingSystemImageID: ?string,
+	<emphasis role="varlink-comment"># The OS image version, from the IMAGE_VERSION= field of os-release.</emphasis>
+	OperatingSystemImageVersion: ?string,
+	<emphasis role="varlink-comment"># The full contents of /etc/machine-info, as an array of 'KEY=VALUE' strings.</emphasis>
+	MachineInformationData: ?[]string,
+	<emphasis role="varlink-comment"># The machine tags, from the TAGS= field of /etc/machine-info with any invalid tags filtered out. Empty if none are configured.</emphasis>
+	MachineTags: ?[]string,
+	<emphasis role="varlink-comment"># The hardware vendor of this system. Null if not known.</emphasis>
+	HardwareVendor: ?string,
+	<emphasis role="varlink-comment"># The hardware model of this system. Null if not known.</emphasis>
+	HardwareModel: ?string,
+	<emphasis role="varlink-comment"># The hardware serial number of this system. Reading it requires privileges. Null if not known.</emphasis>
+	HardwareSerial: ?string,
+	<emphasis role="varlink-comment"># The hardware SKU (stock keeping unit) of this system. Null if not known.</emphasis>
+	HardwareSKU: ?string,
+	<emphasis role="varlink-comment"># The hardware version of this system. Null if not known.</emphasis>
+	HardwareVersion: ?string,
+	<emphasis role="varlink-comment"># The firmware version of this system. Null if not known.</emphasis>
+	FirmwareVersion: ?string,
+	<emphasis role="varlink-comment"># The firmware vendor of this system. Null if not known.</emphasis>
+	FirmwareVendor: ?string,
+	<emphasis role="varlink-comment"># The firmware build date, in µs since the UNIX epoch. Null if not known.</emphasis>
+	FirmwareDate: ?int,
+	<emphasis role="varlink-comment"># The 128-bit machine ID of this system, formatted as a hexadecimal string.</emphasis>
+	MachineID: string,
+	<emphasis role="varlink-comment"># The 128-bit boot ID of the current boot, formatted as a hexadecimal string.</emphasis>
+	BootID: string,
+	<emphasis role="varlink-comment"># The DMI product UUID of this system. Reading it requires privileges. Null if not known.</emphasis>
+	ProductUUID: ?string,
+	<emphasis role="varlink-comment"># The AF_VSOCK context ID (CID) of this system. Null if not known.</emphasis>
+	VSockCID: ?int
+)
+
+<emphasis role="varlink-comment"># Sets the transient (runtime) hostname.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetHostname(
+	<emphasis role="varlink-comment"># The transient (runtime) hostname to set. If null the transient hostname is reset, so that the static hostname is used again.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the static hostname, stored in /etc/hostname.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetStaticHostname(
+	<emphasis role="varlink-comment"># The static hostname to set, stored in /etc/hostname. If null the static hostname is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the pretty (free-form, UTF-8) hostname.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetPrettyHostname(
+	<emphasis role="varlink-comment"># The pretty (free-form, UTF-8) hostname to set. If null the pretty hostname is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the icon name representing this system.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetIconName(
+	<emphasis role="varlink-comment"># The icon name to set. If null the icon name is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the chassis type of this system.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetChassis(
+	<emphasis role="varlink-comment"># The chassis type to set. If null the chassis type is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the deployment environment of this system.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDeployment(
+	<emphasis role="varlink-comment"># The deployment environment to set. If null the deployment is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the physical location of this system.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetLocation(
+	<emphasis role="varlink-comment"># The physical location to set. If null the location is removed.</emphasis>
+	newValue: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Edits the machine tag list: optionally resets it to 'set', then adds 'add' and removes 'remove'.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetTags(
+	<emphasis role="varlink-comment"># If specified, the machine tag list is first reset to exactly these tags, before the 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead.</emphasis>
+	set: ?[]string,
+	<emphasis role="varlink-comment"># Machine tags to add to the list.</emphasis>
+	add: ?[]string,
+	<emphasis role="varlink-comment"># Machine tags to remove from the list.</emphasis>
+	remove: ?[]string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Hostname"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetStaticHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetPrettyHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetIconName()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetChassis()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDeployment()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetLocation()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetTags()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Query all machine metadata in one call</title>
+
+      <programlisting>$ varlinkctl call /run/systemd/io.systemd.Hostname \
+    io.systemd.Hostname.Describe '{}'</programlisting>
+
+    </example>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Hostname interface was added in version 255.</para><para><function>Describe()</function> was added in version 255.</para><para><function>SetChassis()</function>, <function>SetDeployment()</function>, <function>SetHostname()</function>, <function>SetIconName()</function>, <function>SetLocation()</function>, <function>SetPrettyHostname()</function>, <function>SetStaticHostname()</function>, and <function>SetTags()</function> were added in version 261.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

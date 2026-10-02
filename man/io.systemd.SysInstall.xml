@@ -1,0 +1,213 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.SysInstall"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.SysInstall</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.SysInstall</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.SysInstall</refname>
+    <refpurpose>API for installing the OS to another block device.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.SysInstall</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>API for installing the OS to another block device.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.SysInstall">
+<emphasis role="varlink-comment"># API for installing the OS to another block device.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.SysInstall
+
+<emphasis role="varlink-comment"># Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProgressPhase(
+	encrypt_credentials,
+	install_partitions,
+	mount_partitions,
+	install_kernel,
+	install_bootloader,
+	unmount_partitions
+)
+
+<emphasis role="varlink-comment"># Description about the fit of an OS on a block device.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DeviceFit(
+	enough_free_space,
+	insufficent_free_space,
+	disk_too_small,
+	conflicting_disk_label_present
+)
+
+<emphasis role="varlink-comment"># Discriminator on streamed ListCandidateDevices replies in subscribe mode.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> BlockDeviceAction(
+	<emphasis role="varlink-comment"># The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect).</emphasis>
+	add,
+	<emphasis role="varlink-comment"># The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently.</emphasis>
+	remove,
+	<emphasis role="varlink-comment"># Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields.</emphasis>
+	ready
+)
+
+<emphasis role="varlink-comment"># A credential to install to target OS.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Credential(
+	<emphasis role="varlink-comment"># The id of the credential.</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># The value of the credential in base64 encoding.</emphasis>
+	value: string
+)
+
+<emphasis role="varlink-comment"># Invoke the actual installation of the OS. If invoked with 'more' enabled will report progress, otherwise will just report completion.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Run(
+	<emphasis role="varlink-comment"># Full path to the block device node to operate on.</emphasis>
+	node: string,
+	<emphasis role="varlink-comment"># Path to directory containing definition files.</emphasis>
+	definitions: ?[]string,
+	<emphasis role="varlink-comment"># If true, fully erase the target block device.</emphasis>
+	erase: bool,
+	<emphasis role="varlink-comment"># If true, EFI variables are modified to register the installed boot loader in the firmware's boot options database.</emphasis>
+	variables: ?bool,
+	<emphasis role="varlink-comment"># The path to a kernel image, if missing the current kernel is detected and used.</emphasis>
+	kernelImagePath: ?string,
+	<emphasis role="varlink-comment"># If true, the current locale is copied to target system</emphasis>
+	copyLocale: ?bool,
+	<emphasis role="varlink-comment"># If true, the current keymap is copied to target system</emphasis>
+	copyKeymap: ?bool,
+	<emphasis role="varlink-comment"># If true, the current timezone is copied to target system</emphasis>
+	copyTimezone: ?bool,
+	<emphasis role="varlink-comment"># A list of credentials to be installed to target system.</emphasis>
+	credentials: ?[]Credential
+) -&gt; (
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a phase identifier is sent in progress updates.</emphasis>
+	phase: ?ProgressPhase,
+	<emphasis role="varlink-comment"># If used with the 'more' flag, an object identifier string is sent in progress updates.</emphasis>
+	object: ?string,
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a progress percentage (specific to the work done for the specified phase+object is sent in progress updates).</emphasis>
+	progress: ?int
+)
+
+<emphasis role="varlink-comment"># Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListCandidateDevices(
+	<emphasis role="varlink-comment"># Path to directory containing definition files, used to evaluate the fit of the target OS for each block device.</emphasis>
+	definitions: ?[]string,
+	<emphasis role="varlink-comment"># If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false.</emphasis>
+	subscribe: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration.</emphasis>
+	action: ?BlockDeviceAction,
+	<emphasis role="varlink-comment"># The device node path of the block device.</emphasis>
+	node: ?string,
+	<emphasis role="varlink-comment"># List of symlinks pointing to the device node, if any.</emphasis>
+	symlinks: ?[]string,
+	<emphasis role="varlink-comment"># The Linux kernel disk sequence number identifying the medium.</emphasis>
+	diskseq: ?int,
+	<emphasis role="varlink-comment"># The size of the block device in bytes.</emphasis>
+	sizeBytes: ?int,
+	<emphasis role="varlink-comment"># The device vendor string if known.</emphasis>
+	vendor: ?string,
+	<emphasis role="varlink-comment"># The device model string if known.</emphasis>
+	model: ?string,
+	<emphasis role="varlink-comment"># The subsystem the block device belongs to if known.</emphasis>
+	subsystem: ?string,
+	<emphasis role="varlink-comment"># The fit indicating whether the OS would have enough available space on the device.</emphasis>
+	fit: ?DeviceFit,
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Additional free space needed for the installation.</emphasis>
+	needFreeBytes: ?int,
+	<emphasis role="varlink-comment"># Current allocated size of this block device.</emphasis>
+	currentSizeBytes: ?int
+)
+
+<emphasis role="varlink-comment"># An incompatible disk label present, and not told to erase it.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ConflictingDiskLabelPresent()
+
+<emphasis role="varlink-comment"># The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> InsufficientFreeSpace(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Additional free space needed on the selected disk.</emphasis>
+	needFreeBytes: ?int,
+	<emphasis role="varlink-comment"># Size of the selected block device.</emphasis>
+	currentSizeBytes: ?int
+)
+
+<emphasis role="varlink-comment"># The target disk is too small to fit the installation. (Regardless if emptied or not.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> DiskTooSmall(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Actual size of the selected block device.</emphasis>
+	currentSizeBytes: ?int
+)
+
+<emphasis role="varlink-comment"># Not a single candidate block device could be found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoCandidateDevices()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.SysInstall"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProgressPhase"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DeviceFit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BlockDeviceAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Credential"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Run()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ConflictingDiskLabelPresent"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InsufficientFreeSpace"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DiskTooSmall"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListCandidateDevices()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoCandidateDevices"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysInstall</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysInstall.Run '{}'</screen>
+    invokes its <function>Run()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.SysInstall interface was added in version 262.</para><para><varname>BlockDeviceAction</varname>, <varname>ConflictingDiskLabelPresent</varname>, <varname>Credential</varname>, <varname>DeviceFit</varname>, <varname>DiskTooSmall</varname>, <varname>InsufficientFreeSpace</varname>, <function>ListCandidateDevices()</function>, <varname>NoCandidateDevices</varname>, <varname>ProgressPhase</varname>, and <function>Run()</function> were added in version 262.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

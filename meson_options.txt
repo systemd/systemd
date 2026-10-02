@@ -209,6 +209,8 @@ option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
 option('dbus-interfaces-dir', type : 'string',
        description : 'export D-Bus introspection XML as standalone files')
+option('varlink-interfaces-dir', type : 'string',
+       description : 'export Varlink IDL interface definitions as standalone files')
 option('default-timeout-sec', type : 'integer', value : 90,
        description : 'default timeout for system unit start/stop')
 option('default-user-timeout-sec', type : 'integer', value : 90,

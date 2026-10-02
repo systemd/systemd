@@ -1,0 +1,182 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.CryptEnroll"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.CryptEnroll</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.CryptEnroll</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.CryptEnroll</refname>
+    <refpurpose>API for enrolling credentials into LUKS2 volumes via systemd-cryptenroll.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.CryptEnroll</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>API for enrolling credentials into LUKS2 volumes via systemd-cryptenroll.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.CryptEnroll">
+<emphasis role="varlink-comment"># API for enrolling credentials into LUKS2 volumes via systemd-cryptenroll.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.CryptEnroll
+
+<emphasis role="varlink-comment"># The credential types this interface knows about, used both as the enrollment mechanism and as the slot type reported by ListSlots.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> EnrollMechanism(
+	<emphasis role="varlink-comment"># A regular passphrase</emphasis>
+	password,
+	<emphasis role="varlink-comment"># A randomly generated recovery key</emphasis>
+	recovery,
+	<emphasis role="varlink-comment"># A PKCS#11 security token (not enrollable via this interface)</emphasis>
+	pkcs11,
+	<emphasis role="varlink-comment"># A FIDO2 security token</emphasis>
+	fido2,
+	<emphasis role="varlink-comment"># A TPM2 device (not enrollable via this interface)</emphasis>
+	tpm2
+)
+
+<emphasis role="varlink-comment"># Enroll a credential into a LUKS2 volume. When enrolling a FIDO2 token that requires user presence, the call must be made with the 'more' flag, so that the server can report when a touch is required via a 'touch' state notification.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Enroll(
+	<emphasis role="varlink-comment"># Path to the LUKS2 block device or image to operate on.</emphasis>
+	node: string,
+	<emphasis role="varlink-comment"># Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently.</emphasis>
+	mechanism: EnrollMechanism,
+	<emphasis role="varlink-comment"># How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set.</emphasis>
+	unlockPassword: ?string,
+	<emphasis role="varlink-comment"># Path to a key file to unlock the volume with.</emphasis>
+	unlockKeyFile: ?string,
+	<emphasis role="varlink-comment"># Index into the file descriptors passed along with this call, identifying a key file to unlock the volume with.</emphasis>
+	unlockKeyFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># Path to a FIDO2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.</emphasis>
+	unlockFido2Device: ?string,
+	<emphasis role="varlink-comment"># Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.</emphasis>
+	unlockTpm2Device: ?string,
+	<emphasis role="varlink-comment"># The passphrase to enroll, when mechanism is 'password'. Contains key material.</emphasis>
+	password: ?string,
+	<emphasis role="varlink-comment"># A recovery key to enroll, when mechanism is 'recovery'. The key must be in the normalized form and have high entropy. Use MakeRecoveryKey() to generate the recovery key. Contains key material.</emphasis>
+	recoveryKey: ?string,
+	<emphasis role="varlink-comment"># Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device.</emphasis>
+	fido2Device: ?string,
+	<emphasis role="varlink-comment"># The FIDO2 token PIN to use for enrollment. Contains key material.</emphasis>
+	fido2Pin: ?string,
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require a client PIN. Defaults to true.</emphasis>
+	fido2WithClientPin: ?bool,
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require user presence (touch). Defaults to true.</emphasis>
+	fido2WithUserPresence: ?bool,
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require user verification. Defaults to false.</emphasis>
+	fido2WithUserVerification: ?bool,
+	<emphasis role="varlink-comment"># Explicit list of keyslot indexes to wipe after enrolling.</emphasis>
+	wipeSlots: ?[]int,
+	<emphasis role="varlink-comment"># Wipe all already-enrolled slots of these types after enrolling.</emphasis>
+	wipeTypes: ?[]EnrollMechanism,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># The keyslot the new credential was enrolled into. Set on the terminating reply only.</emphasis>
+	slot: ?int,
+	<emphasis role="varlink-comment"># The keyslots wiped as part of this call, if any.</emphasis>
+	wipedSlots: ?[]int,
+	<emphasis role="varlink-comment"># The generated recovery key or the provided recovery key, when mechanism is 'recovery'. Contains key material.</emphasis>
+	recoveryKey: ?string,
+	<emphasis role="varlink-comment"># Progress indicator, only sent on intermediate replies when 'more' was set. Currently the only value is 'touch', signalling that the FIDO2 token is waiting for a touch. Unset on the terminating reply.</emphasis>
+	state: ?string
+)
+
+<emphasis role="varlink-comment"># Enumerate the keyslots currently enrolled in a LUKS2 volume, one per reply. Must be called with the 'more' flag.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListSlots(
+	<emphasis role="varlink-comment"># Path to the LUKS2 block device or image to operate on.</emphasis>
+	node: string
+) -&gt; (
+	<emphasis role="varlink-comment"># A currently enrolled keyslot index.</emphasis>
+	slot: ?int,
+	<emphasis role="varlink-comment"># The type of the keyslot.</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: ?EnrollMechanism
+)
+
+<emphasis role="varlink-comment"># Generate a recovery key that can be enrolled using the 'recovery' mechanism in Enroll().</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MakeRecoveryKey() -&gt; (
+	<emphasis role="varlink-comment"># The generated recovery key.</emphasis>
+	recoveryKey: string
+)
+
+<emphasis role="varlink-comment"># The volume is managed by another subsystem (e.g. systemd-homed) and may not be enrolled into directly.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> VolumeUnderForeignManagement()
+
+<emphasis role="varlink-comment"># A password is required to unlock the volume, but none was provided.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PasswordRequired()
+
+<emphasis role="varlink-comment"># The provided password did not unlock the volume.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PasswordIncorrect()
+
+<emphasis role="varlink-comment"># No matching FIDO2 device was found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> FidoDeviceNotFound()
+
+<emphasis role="varlink-comment"># The FIDO2 token was not interacted with in time.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> FidoActionTimeout()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.CryptEnroll"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EnrollMechanism"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Enroll()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListSlots()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MakeRecoveryKey()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="VolumeUnderForeignManagement"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="PasswordRequired"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="PasswordIncorrect"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="FidoDeviceNotFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="FidoActionTimeout"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.CryptEnroll</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.CryptEnroll.Enroll '{}'</screen>
+    invokes its <function>Enroll()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.CryptEnroll interface was added in version 262.</para><para><function>Enroll()</function>, <varname>EnrollMechanism</varname>, <varname>FidoActionTimeout</varname>, <varname>FidoDeviceNotFound</varname>, <function>ListSlots()</function>, <varname>PasswordIncorrect</varname>, <varname>PasswordRequired</varname>, and <varname>VolumeUnderForeignManagement</varname> were added in version 262.</para><para><function>MakeRecoveryKey()</function> was added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

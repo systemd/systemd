@@ -1,0 +1,2415 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Unit"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Unit</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Unit</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Unit</refname>
+    <refpurpose>Varlink interface io.systemd.Unit</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Unit</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Unit">
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Unit
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupDevicePolicy(
+	auto,
+	closed,
+	strict
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ManagedOOMMode(
+	auto,
+	kill
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ManagedOOMPreference(
+	none,
+	avoid,
+	omit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupPressureWatch(
+	no,
+	yes,
+	auto,
+	skip
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupController(
+	cpu,
+	cpuacct,
+	cpuset,
+	io,
+	blkio,
+	memory,
+	devices,
+	pids,
+	bpf_firewall,
+	bpf_devices,
+	bpf_foreign,
+	bpf_socket_bind,
+	bpf_restrict_network_interfaces,
+	bpf_bind_network_interface
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CPUSetPartition(
+	member,
+	root,
+	isolated
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecInputType(
+	null,
+	tty,
+	tty_force,
+	tty_fail,
+	socket,
+	fd,
+	data,
+	file
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecOutputType(
+	inherit,
+	null,
+	tty,
+	kmsg,
+	kmsg_console,
+	journal,
+	journal_console,
+	socket,
+	fd,
+	file,
+	append,
+	truncate
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecUtmpMode(
+	init,
+	login,
+	user
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecPreserveMode(
+	no,
+	yes,
+	restart,
+	on_success
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecKeyringMode(
+	inherit,
+	private,
+	shared
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MemoryTHP(
+	inherit,
+	disable,
+	madvise,
+	system
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProtectProc(
+	default,
+	noaccess,
+	invisible,
+	ptraceable
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProcSubset(
+	all,
+	pid
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProtectSystem(
+	no,
+	yes,
+	full,
+	strict
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProtectHome(
+	no,
+	yes,
+	read_only,
+	tmpfs
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PrivateTmp(
+	no,
+	connected,
+	disconnected
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PrivateUsers(
+	no,
+	self,
+	identity,
+	full,
+	managed
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProtectHostname(
+	no,
+	yes,
+	private
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ProtectControlGroups(
+	no,
+	yes,
+	private,
+	strict
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PrivatePIDs(
+	no,
+	yes
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PrivateBPF(
+	no,
+	yes
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CPUSchedulingPolicy(
+	other,
+	batch,
+	idle,
+	fifo,
+	ext,
+	rr
+)
+
+<emphasis role="varlink-keyword">type</emphasis> IOSchedulingClass(
+	none,
+	realtime,
+	best_effort,
+	idle
+)
+
+<emphasis role="varlink-keyword">type</emphasis> NUMAPolicy(
+	default,
+	preferred,
+	bind,
+	interleave,
+	local,
+	preferred_many,
+	weighted_interleave
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MountPropagationFlag(
+	shared,
+	slave,
+	private
+)
+
+<emphasis role="varlink-keyword">type</emphasis> KillMode(
+	control_group,
+	process,
+	mixed,
+	none
+)
+
+<emphasis role="varlink-keyword">type</emphasis> AutomountResult(
+	success,
+	resources,
+	start_limit_hit,
+	mount_start_limit_hit,
+	unmounted
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MountResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit,
+	protocol
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PathType(
+	PathExists,
+	PathExistsGlob,
+	DirectoryNotEmpty,
+	PathChanged,
+	PathModified
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PathResult(
+	success,
+	resources,
+	start_limit_hit,
+	unit_start_limit_hit,
+	trigger_limit_hit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> OOMPolicy(
+	continue,
+	stop,
+	kill
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ScopeResult(
+	success,
+	resources,
+	timeout,
+	oom_kill
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketBindIPv6Only(
+	default,
+	both,
+	ipv6_only
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketTimestamping(
+	off,
+	us,
+	ns
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketDeferTrigger(
+	no,
+	yes,
+	patient
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit,
+	trigger_limit_hit,
+	service_start_limit_hit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SwapResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TimerBase(
+	OnActiveUSec,
+	OnBootUSec,
+	OnStartupUSec,
+	OnUnitActiveUSec,
+	OnUnitInactiveUSec,
+	OnCalendar
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TimerResult(
+	success,
+	resources,
+	start_limit_hit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CollectMode(
+	inactive,
+	inactive_or_failed
+)
+
+<emphasis role="varlink-keyword">type</emphasis> EmergencyAction(
+	none,
+	exit,
+	exit_force,
+	reboot,
+	reboot_force,
+	reboot_immediate,
+	poweroff,
+	poweroff_force,
+	poweroff_immediate,
+	soft_reboot,
+	soft_reboot_force,
+	kexec,
+	kexec_force,
+	halt,
+	halt_force,
+	halt_immediate
+)
+
+<emphasis role="varlink-keyword">type</emphasis> NotifyAccess(
+	none,
+	all,
+	exec,
+	main
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceExitType(
+	main,
+	cgroup
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceRestart(
+	no,
+	on_success,
+	on_failure,
+	on_abnormal,
+	on_watchdog,
+	on_abort,
+	always
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceRestartMode(
+	normal,
+	direct,
+	debug
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceResult(
+	success,
+	resources,
+	protocol,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	watchdog,
+	start_limit_hit,
+	oom_kill,
+	exec_condition
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceTimeoutFailureMode(
+	terminate,
+	abort,
+	kill
+)
+
+<emphasis role="varlink-comment"># Service type</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ServiceType(
+	simple,
+	exec,
+	forking,
+	oneshot,
+	dbus,
+	notify,
+	<emphasis role="varlink-comment"># Like notify, but also implements a reload protocol via SIGHUP.</emphasis>
+	notify_reload,
+	idle
+)
+
+<emphasis role="varlink-comment"># Job mode</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobMode(
+	fail,
+	lenient,
+	replace,
+	replace_irreversibly,
+	isolate,
+	flush,
+	ignore_dependencies,
+	ignore_requirements,
+	triggering,
+	restart_dependencies
+)
+
+<emphasis role="varlink-comment"># Job type (defined in io.systemd.Job)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobType(
+	start,
+	verify_active,
+	stop,
+	reload,
+	reload_or_start,
+	restart,
+	try_restart,
+	try_reload,
+	nop
+)
+
+<emphasis role="varlink-comment"># Job state (defined in io.systemd.Job)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobState(
+	waiting,
+	running,
+	finished
+)
+
+<emphasis role="varlink-comment"># Job result (defined in io.systemd.Job)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobResult(
+	done,
+	canceled,
+	timeout,
+	failed,
+	dependency,
+	skipped,
+	invalid,
+	assert,
+	unsupported,
+	collected,
+	once,
+	frozen,
+	concurrency
+)
+
+<emphasis role="varlink-keyword">type</emphasis> RateLimit(
+	<emphasis role="varlink-comment"># The ratelimit interval</emphasis>
+	intervalUSec: ?int,
+	<emphasis role="varlink-comment"># The ratelimit burst</emphasis>
+	burst: ?int
+)
+
+<emphasis role="varlink-comment"># An object to represent a unit's conditions</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Condition(
+	<emphasis role="varlink-comment"># The condition type</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	<emphasis role="varlink-comment"># Whether the condition is a triggering condition</emphasis>
+	trigger: bool,
+	<emphasis role="varlink-comment"># Whether the result of the condition is negated</emphasis>
+	negate: bool,
+	<emphasis role="varlink-comment"># The parameter passed to the condition</emphasis>
+	parameter: ?string
+)
+
+<emphasis role="varlink-comment"># An object to represent a unit's context</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> UnitContext(
+	<emphasis role="varlink-comment"># The unit type</emphasis>
+	Type: ?string,
+	<emphasis role="varlink-comment"># The unit ID</emphasis>
+	ID: string,
+	<emphasis role="varlink-comment"># The aliases of this unit</emphasis>
+	Names: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Description=</emphasis>
+	Description: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Documentation=</emphasis>
+	Documentation: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Wants=</emphasis>
+	Wants: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#WantedBy=</emphasis>
+	WantedBy: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Requires=</emphasis>
+	Requires: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#WantedBy=</emphasis>
+	RequiredBy: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Requisite=</emphasis>
+	Requisite: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Requisite=</emphasis>
+	RequisiteOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#BindsTo=</emphasis>
+	BindsTo: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#BindsTo=</emphasis>
+	BoundBy: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PartOf=</emphasis>
+	PartOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PartOf=</emphasis>
+	ConsistsOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Upholds=</emphasis>
+	Upholds: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#WantedBy=</emphasis>
+	UpheldBy: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Conflicts=</emphasis>
+	Conflicts: ?[]string,
+	<emphasis role="varlink-comment"># The ConflictedBy= dependencies of this unit</emphasis>
+	ConflictedBy: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Before=</emphasis>
+	Before: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#Before=</emphasis>
+	After: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#OnFailure=</emphasis>
+	OnFailure: ?[]string,
+	<emphasis role="varlink-comment"># The OnFailureOf= dependencies of this unit</emphasis>
+	OnFailureOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#OnSuccess=</emphasis>
+	OnSuccess: ?[]string,
+	<emphasis role="varlink-comment"># The OnSuccessOf= dependencies of this unit</emphasis>
+	OnSuccessOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PropagatesReloadTo=</emphasis>
+	PropagatesReloadTo: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PropagatesReloadTo=</emphasis>
+	ReloadPropagatedFrom: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PropagatesStopTo=</emphasis>
+	PropagatesStopTo: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#PropagatesStopTo=</emphasis>
+	StopPropagatedFrom: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#JoinsNamespaceOf=</emphasis>
+	JoinsNamespaceOf: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#RequiresMountsFor=</emphasis>
+	RequiresMountsFor: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#WantsMountsFor=</emphasis>
+	WantsMountsFor: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#OnSuccessJobMode=</emphasis>
+	OnSuccessJobMode: ?JobMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#OnSuccessJobMode=</emphasis>
+	OnFailureJobMode: ?JobMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#IgnoreOnIsolate=</emphasis>
+	IgnoreOnIsolate: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#StopWhenUnneeded=</emphasis>
+	StopWhenUnneeded: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#RefuseManualStart=</emphasis>
+	RefuseManualStart: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#RefuseManualStart=</emphasis>
+	RefuseManualStop: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#AllowIsolate=</emphasis>
+	AllowIsolate: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#DefaultDependencies=</emphasis>
+	DefaultDependencies: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#SurviveFinalKillSignal=</emphasis>
+	SurviveFinalKillSignal: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#CollectMode=</emphasis>
+	CollectMode: ?CollectMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#FailureAction=</emphasis>
+	FailureAction: ?EmergencyAction,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#FailureAction=</emphasis>
+	SuccessAction: ?EmergencyAction,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#FailureActionExitStatus=</emphasis>
+	FailureActionExitStatus: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#FailureActionExitStatus=</emphasis>
+	SuccessActionExitStatus: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#JobTimeoutSec=</emphasis>
+	JobTimeoutUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#JobTimeoutSec=</emphasis>
+	JobRunningTimeoutUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#JobTimeoutAction=</emphasis>
+	JobTimeoutAction: ?EmergencyAction,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#JobTimeoutAction=</emphasis>
+	JobTimeoutRebootArgument: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#StartLimitIntervalSec=interval</emphasis>
+	StartLimit: ?RateLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#StartLimitIntervalSec=interval</emphasis>
+	StartLimitAction: ?EmergencyAction,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#RebootArgument=</emphasis>
+	RebootArgument: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.unit.html#SourcePath=</emphasis>
+	SourcePath: ?string,
+	<emphasis role="varlink-comment"># The conditions of this unit</emphasis>
+	Conditions: ?[]Condition,
+	<emphasis role="varlink-comment"># The asserts of this unit</emphasis>
+	Asserts: ?[]Condition,
+	<emphasis role="varlink-comment"># The Triggers= dependencies of this unit</emphasis>
+	Triggers: ?[]string,
+	<emphasis role="varlink-comment"># The TriggeredBy= dependencies of this unit</emphasis>
+	TriggeredBy: ?[]string,
+	<emphasis role="varlink-comment"># The SELinux context that is used to control access to the unit</emphasis>
+	AccessSELinuxContext: ?string,
+	<emphasis role="varlink-comment"># The unit file path this unit was read from</emphasis>
+	FragmentPath: ?string,
+	<emphasis role="varlink-comment"># The paths from which drop-in files were read for this unit</emphasis>
+	DropInPaths: ?[]string,
+	<emphasis role="varlink-comment"># The unit file preset for this unit</emphasis>
+	UnitFilePreset: ?string,
+	<emphasis role="varlink-comment"># Whether this unit is transient</emphasis>
+	Transient: ?bool,
+	<emphasis role="varlink-comment"># Whether this unit is perpetual</emphasis>
+	Perpetual: ?bool,
+	<emphasis role="varlink-comment"># When true, logs about this unit will be at debug level regardless of other log level settings</emphasis>
+	DebugInvocation: ?bool,
+	<emphasis role="varlink-comment"># The cgroup context of the unit</emphasis>
+	CGroup: ?CGroupContext,
+	<emphasis role="varlink-comment"># The exec context of the unit</emphasis>
+	Exec: ?ExecContext,
+	<emphasis role="varlink-comment"># The kill context of the unit</emphasis>
+	Kill: ?KillContext,
+	<emphasis role="varlink-comment"># The service context of the unit (only for .service units)</emphasis>
+	Service: ?ServiceContext,
+	<emphasis role="varlink-comment"># The automount context of the unit</emphasis>
+	Automount: ?AutomountContext,
+	<emphasis role="varlink-comment"># The mount context of the unit</emphasis>
+	Mount: ?MountContext,
+	<emphasis role="varlink-comment"># The path context of the unit</emphasis>
+	Path: ?PathContext,
+	<emphasis role="varlink-comment"># The scope context of the unit</emphasis>
+	Scope: ?ScopeContext,
+	<emphasis role="varlink-comment"># The socket context of the unit</emphasis>
+	Socket: ?SocketContext,
+	<emphasis role="varlink-comment"># The swap context of the unit</emphasis>
+	Swap: ?SwapContext,
+	<emphasis role="varlink-comment"># The timer context of the unit</emphasis>
+	Timer: ?TimerContext
+)
+
+<emphasis role="varlink-comment"># An object to represent a unit's runtime information</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> UnitRuntime(
+	<emphasis role="varlink-comment"># If not empty, the field contains the name of another unit that this unit follows in state</emphasis>
+	Following: ?string,
+	<emphasis role="varlink-comment"># Reflects whether the configuration file of this unit has been loaded</emphasis>
+	LoadState: ?string,
+	<emphasis role="varlink-comment"># Reflects whether the unit is currently active or not</emphasis>
+	ActiveState: ?string,
+	<emphasis role="varlink-comment"># Reflects whether the unit is currently frozen or not</emphasis>
+	FreezerState: ?string,
+	<emphasis role="varlink-comment"># Reflect more fine-grained state that is unit-type-specific</emphasis>
+	SubState: ?string,
+	<emphasis role="varlink-comment"># Reflects the install state of the unit file</emphasis>
+	UnitFileState: ?string,
+	<emphasis role="varlink-comment"># Timestamp when the firmware first began execution</emphasis>
+	StateChangeTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the unit entered active state</emphasis>
+	ActiveEnterTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the unit exited active state</emphasis>
+	ActiveExitTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the unit entered inactive state</emphasis>
+	InactiveEnterTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the unit exited inactive state</emphasis>
+	InactiveExitTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Reflects whether the unit can be started or not</emphasis>
+	CanStart: ?bool,
+	<emphasis role="varlink-comment"># Reflects whether the unit can be stopped or not</emphasis>
+	CanStop: ?bool,
+	<emphasis role="varlink-comment"># Reflects whether the unit can be reloaded or not</emphasis>
+	CanReload: ?bool,
+	<emphasis role="varlink-comment"># Reflects whether the unit may be started in isolation mode</emphasis>
+	CanIsolate: ?bool,
+	<emphasis role="varlink-comment"># Returns which unit resources can be cleaned up</emphasis>
+	CanClean: ?[]string,
+	<emphasis role="varlink-comment"># Whether the unit supports the freeze operation</emphasis>
+	CanFreeze: ?bool,
+	<emphasis role="varlink-comment"># Whether the unit supports live mounting</emphasis>
+	CanLiveMount: ?bool,
+	<emphasis role="varlink-comment"># The job ID of the job currently scheduled or being executed for this unit, if there is any.</emphasis>
+	JobId: ?int,
+	<emphasis role="varlink-comment"># Whether the configuration file this unit is loaded from (i.e. FragmentPath or SourcePath) has changed since the configuration was read and hence whether a configuration reload is recommended</emphasis>
+	NeedDaemonReload: ?bool,
+	<emphasis role="varlink-comment"># Condition result of the last time the configured conditions of this unit were checked</emphasis>
+	ConditionResult: ?bool,
+	<emphasis role="varlink-comment"># Assert result of the last time the configured asserts of this unit were checked</emphasis>
+	AssertResult: ?bool,
+	<emphasis role="varlink-comment"># The last time the configured conditions of the unit have been checked</emphasis>
+	ConditionTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># The last time the configured asserts of the unit have been checked</emphasis>
+	AssertTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Current invocation ID</emphasis>
+	InvocationID: ?string,
+	<emphasis role="varlink-comment"># Reflects whether the unit has been marked for reload, restart, etc.</emphasis>
+	Markers: ?[]string,
+	<emphasis role="varlink-comment"># Provides details about why a unit was activated</emphasis>
+	ActivationDetails: ?[]ActivationDetails,
+	<emphasis role="varlink-comment"># The cgroup runtime of the unit</emphasis>
+	CGroup: ?CGroupRuntime,
+	<emphasis role="varlink-comment"># The automount runtime of the unit</emphasis>
+	Automount: ?AutomountRuntime,
+	<emphasis role="varlink-comment"># The mount runtime of the unit</emphasis>
+	Mount: ?MountRuntime,
+	<emphasis role="varlink-comment"># The path runtime of the unit</emphasis>
+	Path: ?PathRuntime,
+	<emphasis role="varlink-comment"># The scope runtime of the unit</emphasis>
+	Scope: ?ScopeRuntime,
+	<emphasis role="varlink-comment"># The service runtime of the unit</emphasis>
+	Service: ?ServiceRuntime,
+	<emphasis role="varlink-comment"># The socket runtime of the unit</emphasis>
+	Socket: ?SocketRuntime,
+	<emphasis role="varlink-comment"># The swap runtime of the unit</emphasis>
+	Swap: ?SwapRuntime,
+	<emphasis role="varlink-comment"># The timer runtime of the unit</emphasis>
+	Timer: ?TimerRuntime
+)
+
+<emphasis role="varlink-comment"># A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Timestamp(
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_REALTIME clock (wallclock)</emphasis>
+	realtime: ?int,
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_MONOTONIC clock</emphasis>
+	monotonic: ?int
+)
+
+<emphasis role="varlink-comment"># An object to represent a unit's activation details</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ActivationDetails(
+	<emphasis role="varlink-comment"># Trigger unit type</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	<emphasis role="varlink-comment"># Trigger unit name</emphasis>
+	name: string
+)
+
+<emphasis role="varlink-comment"># An object for referencing UNIX processes</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProcessId(
+	<emphasis role="varlink-comment"># Numeric UNIX PID value</emphasis>
+	pid: int,
+	<emphasis role="varlink-comment"># 64bit inode number of pidfd if known</emphasis>
+	pidfdId: ?int,
+	<emphasis role="varlink-comment"># Boot ID of the system the inode number belongs to</emphasis>
+	bootId: ?string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupTasksMax(
+	<emphasis role="varlink-comment"># The maximum amount of tasks</emphasis>
+	value: int,
+	<emphasis role="varlink-comment"># The scaling factor</emphasis>
+	scale: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupIODeviceWeight(
+	<emphasis role="varlink-comment"># The device path</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># The device IO weight</emphasis>
+	weight: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupIODeviceLimit(
+	<emphasis role="varlink-comment"># The device path</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># The device IO limit</emphasis>
+	limit: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupIODeviceLatency(
+	<emphasis role="varlink-comment"># The device path</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># The device target latency</emphasis>
+	targetUSec: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupAddressPrefix(
+	<emphasis role="varlink-comment"># The address family</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># The address</emphasis>
+	address: []int,
+	<emphasis role="varlink-comment"># The address prefix length</emphasis>
+	prefixLength: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupSocketBind(
+	<emphasis role="varlink-comment"># The address family</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># The address protocol</emphasis>
+	protocol: string,
+	<emphasis role="varlink-comment"># The number of ports</emphasis>
+	numberOfPorts: int,
+	<emphasis role="varlink-comment"># The minimum port</emphasis>
+	minimumPort: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupRestrictNetworkInterfaces(
+	<emphasis role="varlink-comment"># Whether this is an allow list</emphasis>
+	isAllowList: bool,
+	<emphasis role="varlink-comment"># The list of interfaces</emphasis>
+	interfaces: []string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupNFTSet(
+	<emphasis role="varlink-comment"># The source of this NFT set</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The NFT protocol for this NFT set</emphasis>
+	protocol: string,
+	<emphasis role="varlink-comment"># The NFT table associated with this NFT set</emphasis>
+	table: string,
+	<emphasis role="varlink-comment"># The name of the NFT set</emphasis>
+	set: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupBPFProgram(
+	<emphasis role="varlink-comment"># The BPF program attach type</emphasis>
+	attachType: string,
+	<emphasis role="varlink-comment"># The path to the BPF program</emphasis>
+	path: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CGroupDeviceAllow(
+	<emphasis role="varlink-comment"># The device path</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># The device permissions</emphasis>
+	permissions: string
+)
+
+<emphasis role="varlink-comment"># CGroup context of a unit</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> CGroupContext(
+	<emphasis role="varlink-comment"># Slice of the CGroup</emphasis>
+	Slice: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUWeight=weight</emphasis>
+	CPUWeight: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUWeight=weight</emphasis>
+	StartupCPUWeight: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUQuota=</emphasis>
+	CPUQuotaPerSecUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUQuotaPeriodSec=</emphasis>
+	CPUQuotaPeriodUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#AllowedCPUs=</emphasis>
+	AllowedCPUs: ?[]int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#AllowedCPUs=</emphasis>
+	StartupAllowedCPUs: ?[]int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUSetPartition=</emphasis>
+	CPUSetPartition: ?CPUSetPartition,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryAccounting=</emphasis>
+	MemoryAccounting: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes</emphasis>
+	MemoryMin: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes</emphasis>
+	MemoryLow: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes</emphasis>
+	StartupMemoryLow: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryHigh=bytes</emphasis>
+	MemoryHigh: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryHigh=bytes</emphasis>
+	StartupMemoryHigh: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryMax=bytes</emphasis>
+	MemoryMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryMax=bytes</emphasis>
+	StartupMemoryMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemorySwapMax=bytes</emphasis>
+	MemorySwapMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemorySwapMax=bytes</emphasis>
+	StartupMemorySwapMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryZSwapMax=bytes</emphasis>
+	MemoryZSwapMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryZSwapMax=bytes</emphasis>
+	StartupMemoryZSwapMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryZSwapWriteback=</emphasis>
+	MemoryZSwapWriteback: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#AllowedMemoryNodes=</emphasis>
+	AllowedMemoryNodes: ?[]int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#AllowedMemoryNodes=</emphasis>
+	StartupAllowedMemoryNodes: ?[]int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#TasksAccounting=</emphasis>
+	TasksAccounting: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#TasksMax=N</emphasis>
+	TasksMax: ?CGroupTasksMax,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOAccounting=</emphasis>
+	IOAccounting: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOWeight=weight</emphasis>
+	IOWeight: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOWeight=weight</emphasis>
+	StartupIOWeight: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IODeviceWeight=device%20weight</emphasis>
+	IODeviceWeight: ?[]CGroupIODeviceWeight,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes</emphasis>
+	IOReadBandwidthMax: ?[]CGroupIODeviceLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes</emphasis>
+	IOWriteBandwidthMax: ?[]CGroupIODeviceLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS</emphasis>
+	IOReadIOPSMax: ?[]CGroupIODeviceLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS</emphasis>
+	IOWriteIOPSMax: ?[]CGroupIODeviceLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IODeviceLatencyTargetSec=device%20target</emphasis>
+	IODeviceLatencyTargetUSec: ?[]CGroupIODeviceLatency,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IPAccounting=</emphasis>
+	IPAccounting: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6</emphasis>
+	IPAddressAllow: ?[]CGroupAddressPrefix,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6</emphasis>
+	IPAddressDeny: ?[]CGroupAddressPrefix,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#SocketBindAllow=bind-rule</emphasis>
+	SocketBindAllow: ?[]CGroupSocketBind,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#SocketBindAllow=bind-rule</emphasis>
+	SocketBindDeny: ?[]CGroupSocketBind,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#RestrictNetworkInterfaces=</emphasis>
+	RestrictNetworkInterfaces: ?CGroupRestrictNetworkInterfaces,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#BindNetworkInterface=</emphasis>
+	BindNetworkInterface: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#NFTSet=family:table:set</emphasis>
+	NFTSet: ?[]CGroupNFTSet,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH</emphasis>
+	IPIngressFilterPath: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH</emphasis>
+	IPEgressFilterPath: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#BPFProgram=type:program-path</emphasis>
+	BPFProgram: ?[]CGroupBPFProgram,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#DeviceAllow=</emphasis>
+	DeviceAllow: ?[]CGroupDeviceAllow,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#DevicePolicy=auto%7Cclosed%7Cstrict</emphasis>
+	DevicePolicy: CGroupDevicePolicy,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#Delegate=</emphasis>
+	Delegate: bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#DelegateSubgroup=</emphasis>
+	DelegateSubgroup: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#DisableControllers=</emphasis>
+	DelegateControllers: ?[]CGroupController,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#DisableControllers=</emphasis>
+	DisableControllers: ?[]CGroupController,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill</emphasis>
+	ManagedOOMSwap: ManagedOOMMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill</emphasis>
+	ManagedOOMMemoryPressure: ManagedOOMMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#ManagedOOMMemoryPressureLimit=</emphasis>
+	ManagedOOMMemoryPressureLimit: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#ManagedOOMMemoryPressureDurationSec=</emphasis>
+	ManagedOOMMemoryPressureDurationUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#ManagedOOMPreference=none%7Cavoid%7Comit</emphasis>
+	ManagedOOMPreference: ManagedOOMPreference,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#OOMRules=</emphasis>
+	OOMRules: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryPressureWatch=</emphasis>
+	MemoryPressureWatch: CGroupPressureWatch,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#MemoryPressureThresholdSec=</emphasis>
+	MemoryPressureThresholdUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUPressureWatch=</emphasis>
+	CPUPressureWatch: CGroupPressureWatch,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#CPUPressureThresholdSec=</emphasis>
+	CPUPressureThresholdUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOPressureWatch=</emphasis>
+	IOPressureWatch: CGroupPressureWatch,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.resource-control.html#IOPressureThresholdSec=</emphasis>
+	IOPressureThresholdUSec: ?int,
+	<emphasis role="varlink-comment"># Reflects whether to forward coredumps for processes that crash within this cgroup</emphasis>
+	CoredumpReceive: bool
+)
+
+<emphasis role="varlink-comment"># CGroup runtime of a unit</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> CGroupRuntime(
+	<emphasis role="varlink-comment"># ID of the CGroup</emphasis>
+	ID: ?int,
+	<emphasis role="varlink-comment"># Path of the CGroup</emphasis>
+	Path: ?string,
+	<emphasis role="varlink-comment"># The current amount of memory used by the cgroup, in bytes</emphasis>
+	MemoryCurrent: ?int,
+	<emphasis role="varlink-comment"># The peak amount of memory used by the cgroup since its creation, in bytes</emphasis>
+	MemoryPeak: ?int,
+	<emphasis role="varlink-comment"># The current amount of swap space used by the cgroup, in bytes</emphasis>
+	MemorySwapCurrent: ?int,
+	<emphasis role="varlink-comment"># The peak amount of swap space used by the cgroup since its creation, in bytes</emphasis>
+	MemorySwapPeak: ?int,
+	<emphasis role="varlink-comment"># The current amount of zswap space used by the cgroup, in bytes</emphasis>
+	MemoryZSwapCurrent: ?int,
+	<emphasis role="varlink-comment"># The available memory for the cgroup, in bytes.</emphasis>
+	MemoryAvailable: ?int,
+	<emphasis role="varlink-comment"># The effective maximum amount of memory allowed for the cgroup, in bytes</emphasis>
+	EffectiveMemoryMax: ?int,
+	<emphasis role="varlink-comment"># The effective high watermark for memory usage by the cgroup, in bytes</emphasis>
+	EffectiveMemoryHigh: ?int,
+	<emphasis role="varlink-comment"># Memory NUMA nodes that the cgroup is allowed to use</emphasis>
+	EffectiveMemoryNodes: ?[]int,
+	<emphasis role="varlink-comment"># The total CPU usage time in nanoseconds (ns) for the cgroup</emphasis>
+	CPUUsageNSec: ?int,
+	<emphasis role="varlink-comment"># NUMA nodes that the cgroup is allowed to use</emphasis>
+	EffectiveCPUs: ?[]int,
+	<emphasis role="varlink-comment"># The current number of tasks (i.e., processes or threads) running within the cgroup</emphasis>
+	TasksCurrent: ?int,
+	<emphasis role="varlink-comment"># The maximum number of tasks that the cgroup is allowed to run concurrently</emphasis>
+	EffectiveTasksMax: ?int,
+	<emphasis role="varlink-comment"># The total number of bytes received by the cgroup's IP stack</emphasis>
+	IPIngressBytes: ?int,
+	<emphasis role="varlink-comment"># The total number of incoming packets received by the cgroup's IP stack</emphasis>
+	IPIngressPackets: ?int,
+	<emphasis role="varlink-comment"># iThe total number of bytes sent by the cgroup's IP stack</emphasis>
+	IPEgressBytes: ?int,
+	<emphasis role="varlink-comment"># The total number of outgoing packets sent by the cgroup's IP stack</emphasis>
+	IPEgressPackets: ?int,
+	<emphasis role="varlink-comment"># The total number of bytes read from block devices by the cgroup</emphasis>
+	IOReadBytes: ?int,
+	<emphasis role="varlink-comment"># The total number of read operations performed on block devices by the cgroup</emphasis>
+	IOReadOperations: ?int,
+	<emphasis role="varlink-comment"># The total number of bytes written to block devices by the cgroup</emphasis>
+	IOWriteBytes: ?int,
+	<emphasis role="varlink-comment"># The total number of write operations performed on block devices by the cgroup</emphasis>
+	IOWriteOperations: ?int,
+	<emphasis role="varlink-comment"># The number of processes of this unit killed by the kernel OOM killer</emphasis>
+	OOMKills: ?int,
+	<emphasis role="varlink-comment"># The number of processes of this unit killed by systemd-oomd</emphasis>
+	ManagedOOMKills: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> WorkingDirectory(
+	<emphasis role="varlink-comment"># The path to the working directory. Mutually exclusive with 'home'</emphasis>
+	path: ?string,
+	<emphasis role="varlink-comment"># If true, use the configured user's home directory as the working directory. Mutually exclusive with 'path'</emphasis>
+	home: ?bool,
+	<emphasis role="varlink-comment"># Whether the path to the working directory is allowed to not exist</emphasis>
+	missingOK: ?bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PartitionMountOptions(
+	<emphasis role="varlink-comment"># The partition designator to which the options apply</emphasis>
+	partitionDesignator: string,
+	<emphasis role="varlink-comment"># The mount options for this partition</emphasis>
+	options: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> BindPath(
+	<emphasis role="varlink-comment"># The mount source path</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The mount destination path</emphasis>
+	destination: string,
+	<emphasis role="varlink-comment"># Whether a missing source path should be ignored</emphasis>
+	ignoreEnoent: bool,
+	<emphasis role="varlink-comment"># Mount options</emphasis>
+	options: []string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MountImage(
+	<emphasis role="varlink-comment"># The path to the image to mount</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The destination path where to mount the image</emphasis>
+	destination: string,
+	<emphasis role="varlink-comment"># Whether failure to find the image is considered fatal</emphasis>
+	ignoreEnoent: bool,
+	<emphasis role="varlink-comment"># The mount options to use for the partitions of the image</emphasis>
+	mountOptions: ?[]PartitionMountOptions
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExtensionImage(
+	<emphasis role="varlink-comment"># The path to the extension image</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># Whether failure to find the extension image is considered fatal</emphasis>
+	ignoreEnoent: bool,
+	<emphasis role="varlink-comment"># The mount options to use for the partitions of the extension image</emphasis>
+	mountOptions: ?[]PartitionMountOptions
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SELinuxContext(
+	<emphasis role="varlink-comment"># Whether failure to set the SELinux context is ignored</emphasis>
+	ignore: bool,
+	<emphasis role="varlink-comment"># The SELinux context</emphasis>
+	context: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> AppArmorProfile(
+	<emphasis role="varlink-comment"># Whether failure to configure the apparmor profile will be ignored</emphasis>
+	ignore: bool,
+	<emphasis role="varlink-comment"># The AppArmor profile</emphasis>
+	profile: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SmackProcessLabel(
+	<emphasis role="varlink-comment"># Whether failure to configure the smack process label will be ignored</emphasis>
+	ignore: bool,
+	<emphasis role="varlink-comment"># The smack process label</emphasis>
+	label: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ResourceLimit(
+	<emphasis role="varlink-comment"># The soft resource limit. RLIM_INFINITY is mapped to unset value</emphasis>
+	soft: ?int,
+	<emphasis role="varlink-comment"># The hard resource limit. RLIM_INFINITY is mapped to unset value</emphasis>
+	hard: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ResourceLimitTable(
+	<emphasis role="varlink-comment"># See setrlimit(2) for details</emphasis>
+	CPU: ?ResourceLimit,
+	FSIZE: ?ResourceLimit,
+	DATA: ?ResourceLimit,
+	STACK: ?ResourceLimit,
+	CORE: ?ResourceLimit,
+	RSS: ?ResourceLimit,
+	NOFILE: ?ResourceLimit,
+	AS: ?ResourceLimit,
+	NPROC: ?ResourceLimit,
+	MEMLOCK: ?ResourceLimit,
+	LOCKS: ?ResourceLimit,
+	SIGPENDING: ?ResourceLimit,
+	MSGQUEUE: ?ResourceLimit,
+	NICE: ?ResourceLimit,
+	RTPRIO: ?ResourceLimit,
+	RTTIME: ?ResourceLimit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> CPUAffinity(
+	<emphasis role="varlink-comment"># CPU affinity of the executed processes</emphasis>
+	affinity: []int,
+	<emphasis role="varlink-comment"># CPU affinity from NUMA</emphasis>
+	fromNUMA: bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecDirectoryQuota(
+	<emphasis role="varlink-comment"># Whether the quota is accounted</emphasis>
+	accounting: bool,
+	<emphasis role="varlink-comment"># Whether the quota is enforced</emphasis>
+	enforce: bool,
+	<emphasis role="varlink-comment"># The absolute quota in bytes</emphasis>
+	quotaAbsolute: int,
+	<emphasis role="varlink-comment"># The scaling factor for the quota</emphasis>
+	quotaScale: int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecDirectoryPath(
+	<emphasis role="varlink-comment"># The path to the directory</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># A list of symlinks pointing to the directory</emphasis>
+	symlinks: ?[]string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecDirectory(
+	<emphasis role="varlink-comment"># Exec directory paths</emphasis>
+	paths: []ExecDirectoryPath,
+	<emphasis role="varlink-comment"># The access mode of the directory</emphasis>
+	mode: int,
+	<emphasis role="varlink-comment"># The quota for the directory</emphasis>
+	quota: ExecDirectoryQuota
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TemporaryFilesystem(
+	<emphasis role="varlink-comment"># The destination path where the temporary filesystem should be mounted</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># The mount options for the temporary filesystem</emphasis>
+	options: ?string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> AddressFamilyList(
+	<emphasis role="varlink-comment"># Whether the list of address families is an allow list</emphasis>
+	isAllowList: bool,
+	<emphasis role="varlink-comment"># The list of address families</emphasis>
+	addressFamilies: []string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> FilesystemList(
+	<emphasis role="varlink-comment"># Whether the list of filesystems is an allow list</emphasis>
+	isAllowList: bool,
+	<emphasis role="varlink-comment"># The list of filesystems</emphasis>
+	filesystems: []string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SystemCallList(
+	<emphasis role="varlink-comment"># Whether the list of system calls is an allow list</emphasis>
+	isAllowList: bool,
+	<emphasis role="varlink-comment"># The list of system calls</emphasis>
+	systemCalls: []string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> EnvironmentFile(
+	<emphasis role="varlink-comment"># The path to the environment file</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># Whether failure to read the environment file is fatal or not</emphasis>
+	graceful: bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> LogFilterPattern(
+	<emphasis role="varlink-comment"># Whether this pattern is an allow pattern</emphasis>
+	isAllowList: bool,
+	<emphasis role="varlink-comment"># The filtering pattern</emphasis>
+	pattern: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> LoadCredential(
+	<emphasis role="varlink-comment"># The credential ID</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># The credential path</emphasis>
+	path: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ImportCredential(
+	<emphasis role="varlink-comment"># The glob pattern to find credentials</emphasis>
+	glob: string,
+	<emphasis role="varlink-comment"># The rename pattern to which matching credentials should be renamed</emphasis>
+	rename: ?string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SetCredential(
+	<emphasis role="varlink-comment"># The credential ID</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># The credential value encoded in base64</emphasis>
+	value: string
+)
+
+<emphasis role="varlink-comment"># Exec context of a unit</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ExecContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ExecSearchPath=</emphasis>
+	ExecSearchPath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#WorkingDirectory=</emphasis>
+	WorkingDirectory: ?WorkingDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootDirectory=</emphasis>
+	RootDirectory: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootImage=</emphasis>
+	RootImage: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootMStack=</emphasis>
+	RootMStack: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootImageOptions=</emphasis>
+	RootImageOptions: ?[]PartitionMountOptions,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootEphemeral=</emphasis>
+	RootEphemeral: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootHash=</emphasis>
+	RootHash: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootHash=</emphasis>
+	RootHashPath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootHashSignature=</emphasis>
+	RootHashSignature: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootHashSignature=</emphasis>
+	RootHashSignaturePath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootVerity=</emphasis>
+	RootVerity: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootImagePolicy=</emphasis>
+	RootImagePolicy: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootImagePolicy=</emphasis>
+	MountImagePolicy: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RootImagePolicy=</emphasis>
+	ExtensionImagePolicy: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MountAPIVFS=</emphasis>
+	MountAPIVFS: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BindLogSockets=</emphasis>
+	BindLogSockets: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectProc=</emphasis>
+	ProtectProc: ?ProtectProc,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProcSubset=</emphasis>
+	ProcSubset: ?ProcSubset,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BindPaths=</emphasis>
+	BindPaths: ?[]BindPath,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BindPaths=</emphasis>
+	BindReadOnlyPaths: ?[]BindPath,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MountImages=</emphasis>
+	MountImages: ?[]MountImage,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ExtensionImages=</emphasis>
+	ExtensionImages: ?[]ExtensionImage,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ExtensionDirectories=</emphasis>
+	ExtensionDirectories: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#User=</emphasis>
+	User: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#User=</emphasis>
+	Group: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#DynamicUser=</emphasis>
+	DynamicUser: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SupplementaryGroups=</emphasis>
+	SupplementaryGroups: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SetLoginEnvironment=</emphasis>
+	SetLoginEnvironment: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PAMName=</emphasis>
+	PAMName: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CapabilityBoundingSet=</emphasis>
+	CapabilityBoundingSet: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#AmbientCapabilities=</emphasis>
+	AmbientCapabilities: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#NoNewPrivileges=</emphasis>
+	NoNewPrivileges: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SecureBits=</emphasis>
+	SecureBits: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SELinuxContext=</emphasis>
+	SELinuxContext: ?SELinuxContext,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#AppArmorProfile=</emphasis>
+	AppArmorProfile: ?AppArmorProfile,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SmackProcessLabel=</emphasis>
+	SmackProcessLabel: ?SmackProcessLabel,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LimitCPU=</emphasis>
+	Limits: ?ResourceLimitTable,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#UMask=</emphasis>
+	UMask: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CoredumpFilter=</emphasis>
+	CoredumpFilter: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#KeyringMode=</emphasis>
+	KeyringMode: ?ExecKeyringMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#OOMScoreAdjust=</emphasis>
+	OOMScoreAdjust: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TimerSlackNSec=</emphasis>
+	TimerSlackNSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#Personality=</emphasis>
+	Personality: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#IgnoreSIGPIPE=</emphasis>
+	IgnoreSIGPIPE: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#Nice=</emphasis>
+	Nice: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CPUSchedulingPolicy=</emphasis>
+	CPUSchedulingPolicy: ?CPUSchedulingPolicy,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CPUSchedulingPriority=</emphasis>
+	CPUSchedulingPriority: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CPUSchedulingResetOnFork=</emphasis>
+	CPUSchedulingResetOnFork: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#CPUAffinity=</emphasis>
+	CPUAffinity: ?CPUAffinity,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#NUMAPolicy=</emphasis>
+	NUMAPolicy: ?NUMAPolicy,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#NUMAMask=</emphasis>
+	NUMAMask: ?[]int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#IOSchedulingClass=</emphasis>
+	IOSchedulingClass: ?IOSchedulingClass,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#IOSchedulingPriority=</emphasis>
+	IOSchedulingPriority: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MemoryKSM=</emphasis>
+	MemoryKSM: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MemoryTHP=</emphasis>
+	MemoryTHP: ?MemoryTHP,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectSystem=</emphasis>
+	ProtectSystem: ?ProtectSystem,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectHome=</emphasis>
+	ProtectHome: ?ProtectHome,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectory=</emphasis>
+	RuntimeDirectory: ?ExecDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectory=</emphasis>
+	StateDirectory: ?ExecDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectory=</emphasis>
+	CacheDirectory: ?ExecDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectory=</emphasis>
+	LogsDirectory: ?ExecDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectory=</emphasis>
+	ConfigurationDirectory: ?ExecDirectory,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RuntimeDirectoryPreserve=</emphasis>
+	RuntimeDirectoryPreserve: ?ExecPreserveMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TimeoutCleanSec=</emphasis>
+	TimeoutCleanUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ReadWritePaths=</emphasis>
+	ReadWritePaths: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ReadWritePaths=</emphasis>
+	ReadOnlyPaths: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ReadWritePaths=</emphasis>
+	InaccessiblePaths: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ReadWritePaths=</emphasis>
+	ExecPaths: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ReadWritePaths=</emphasis>
+	NoExecPaths: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TemporaryFileSystem=</emphasis>
+	TemporaryFileSystem: ?[]TemporaryFilesystem,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateTmp=</emphasis>
+	PrivateTmp: ?PrivateTmp,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateDevices=</emphasis>
+	PrivateDevices: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateNetwork=</emphasis>
+	PrivateNetwork: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#NetworkNamespacePath=</emphasis>
+	NetworkNamespacePath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateIPC=</emphasis>
+	PrivateIPC: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#IPCNamespacePath=</emphasis>
+	IPCNamespacePath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivatePIDs=</emphasis>
+	PrivatePIDs: ?PrivatePIDs,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateUsers=</emphasis>
+	PrivateUsers: ?PrivateUsers,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#UserNamespacePath=</emphasis>
+	UserNamespacePath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectHostname=</emphasis>
+	ProtectHostname: ?ProtectHostname,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectClock=</emphasis>
+	ProtectClock: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectKernelTunables=</emphasis>
+	ProtectKernelTunables: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectKernelModules=</emphasis>
+	ProtectKernelModules: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectKernelLogs=</emphasis>
+	ProtectKernelLogs: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ProtectControlGroups=</emphasis>
+	ProtectControlGroups: ?ProtectControlGroups,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RestrictAddressFamilies=</emphasis>
+	RestrictAddressFamilies: ?AddressFamilyList,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RestrictFileSystems=</emphasis>
+	RestrictFilesystems: ?FilesystemList,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RestrictNamespaces=</emphasis>
+	RestrictNamespaces: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#DelegateNamespaces=</emphasis>
+	DelegateNamespaces: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivatePBF=</emphasis>
+	PrivatePBF: ?PrivateBPF,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BPFDelegateCommands=</emphasis>
+	BPFDelegateCommands: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BPFDelegateMaps=</emphasis>
+	BPFDelegateMaps: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BPFDelegatePrograms=</emphasis>
+	BPFDelegatePrograms: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#BPFDelegateAttachments=</emphasis>
+	BPFDelegateAttachments: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LockPersonality=</emphasis>
+	LockPersonality: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MemoryDenyWriteExecute=</emphasis>
+	MemoryDenyWriteExecute: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RestrictRealtime=</emphasis>
+	RestrictRealtime: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#RestrictSUIDSGID=</emphasis>
+	RestrictSUIDSGID: ?bool,
+	<emphasis role="varlink-comment"># Whether to remove all System V and POSIX IPC objects owned by the user and group this unit runs under</emphasis>
+	RemoveIPC: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PrivateMounts=</emphasis>
+	PrivateMounts: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#MountFlags=</emphasis>
+	MountFlags: ?MountPropagationFlag,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SystemCallFilter=</emphasis>
+	SystemCallFilter: ?SystemCallList,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SystemCallErrorNumber=</emphasis>
+	SystemCallErrorNumber: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SystemCallArchitectures=</emphasis>
+	SystemCallArchitectures: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SystemCallLog=</emphasis>
+	SystemCallLog: ?SystemCallList,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#Environment=</emphasis>
+	Environment: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#EnvironmentFile=</emphasis>
+	EnvironmentFiles: ?[]EnvironmentFile,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#PassEnvironment=</emphasis>
+	PassEnvironment: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#UnsetEnvironment=</emphasis>
+	UnsetEnvironment: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#StandardInput=</emphasis>
+	StandardInput: ?ExecInputType,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#StandardOutput=</emphasis>
+	StandardOutput: ?ExecOutputType,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#StandardError=</emphasis>
+	StandardError: ?ExecOutputType,
+	<emphasis role="varlink-comment"># The file descriptor name to connect standard input to</emphasis>
+	StandardInputFileDescriptorName: ?string,
+	<emphasis role="varlink-comment"># The file descriptor name to connect standard output to</emphasis>
+	StandardOutputFileDescriptorName: ?string,
+	<emphasis role="varlink-comment"># The file descriptor name to connect standard error to</emphasis>
+	StandardErrorFileDescriptorName: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#StandardInputText=</emphasis>
+	StandardInputData: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LogLevelMax=</emphasis>
+	LogLevelMax: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LogExtraFields=</emphasis>
+	LogExtraFields: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LogRateLimitIntervalSec=</emphasis>
+	LogRateLimit: ?RateLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LogFilterPatterns=</emphasis>
+	LogFilterPatterns: ?[]LogFilterPattern,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LogNamespace=</emphasis>
+	LogNamespace: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SyslogIdentifier=</emphasis>
+	SyslogIdentifier: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SyslogFacility=</emphasis>
+	SyslogFacility: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SyslogLevel=</emphasis>
+	SyslogLevel: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SyslogLevelPrefix=</emphasis>
+	SyslogLevelPrefix: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYPath=</emphasis>
+	TTYPath: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYReset=</emphasis>
+	TTYReset: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYVHangup=</emphasis>
+	TTYVHangup: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYRows=</emphasis>
+	TTYRows: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYRows=</emphasis>
+	TTYColumns: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#TTYVTDisallocate=</emphasis>
+	TTYVTDisallocate: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LoadCredential=ID:PATH</emphasis>
+	LoadCredential: ?[]LoadCredential,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#LoadCredential=ID:PATH</emphasis>
+	LoadCredentialEncrypted: ?[]LoadCredential,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#ImportCredential=GLOB</emphasis>
+	ImportCredential: ?[]ImportCredential,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SetCredential=ID:VALUE</emphasis>
+	SetCredential: ?[]SetCredential,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#SetCredential=ID:VALUE</emphasis>
+	SetCredentialEncrypted: ?[]SetCredential,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#UtmpIdentifier=</emphasis>
+	UtmpIdentifier: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man263systemd.exec.html#UtmpMode=</emphasis>
+	UtmpMode: ?ExecUtmpMode
+)
+
+<emphasis role="varlink-keyword">type</emphasis> KillContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#KillMode=</emphasis>
+	KillMode: ?KillMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#KillSignal=</emphasis>
+	KillSignal: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#RestartKillSignal=</emphasis>
+	RestartKillSignal: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#SendSIGHUP=</emphasis>
+	SendSIGHUP: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#SendSIGKILL=</emphasis>
+	SendSIGKILL: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#FinalKillSignal=</emphasis>
+	FinalKillSignal: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.kill.html#WatchdogSignal=</emphasis>
+	WatchdogSignal: ?string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> AutomountContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.automount.html#Where=</emphasis>
+	Where: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.automount.html#ExtraOptions=</emphasis>
+	ExtraOptions: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.automount.html#DirectoryMode=</emphasis>
+	DirectoryMode: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.automount.html#TimeoutIdleSec=</emphasis>
+	TimeoutIdleUSec: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> AutomountRuntime(
+	<emphasis role="varlink-comment"># Result of automount operation</emphasis>
+	Result: AutomountResult
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecCommand(
+	<emphasis role="varlink-comment"># Path</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># Arguments</emphasis>
+	arguments: ?[]string,
+	<emphasis role="varlink-comment"># Ignore failure of the command</emphasis>
+	ignoreFailure: ?bool,
+	<emphasis role="varlink-comment"># Run with full privileges</emphasis>
+	privileged: ?bool,
+	<emphasis role="varlink-comment"># Skip setuid handling</emphasis>
+	noSetuid: ?bool,
+	<emphasis role="varlink-comment"># Skip environment variable expansion</emphasis>
+	noEnvExpand: ?bool,
+	<emphasis role="varlink-comment"># Run via shell</emphasis>
+	viaShell: ?bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExecCommandStatus(
+	<emphasis role="varlink-comment"># Process ID</emphasis>
+	PID: ProcessId,
+	<emphasis role="varlink-comment"># Timestamp when the process started</emphasis>
+	StartTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the process exited</emphasis>
+	ExitTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Timestamp when the process was handed off to the executor</emphasis>
+	HandoffTimestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># Termination reason (si_code): CLD_EXITED, CLD_KILLED, CLD_DUMPED</emphasis>
+	Code: ?int,
+	<emphasis role="varlink-comment"># Exit code or signal number (si_status), meaning depends on Code</emphasis>
+	Status: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MountContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#What=</emphasis>
+	What: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#Where=</emphasis>
+	Where: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#Type=</emphasis>
+	Type: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#Options=</emphasis>
+	Options: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#SloppyOptions=</emphasis>
+	SloppyOptions: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#LazyUnmount=</emphasis>
+	LazyUnmount: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#ReadWriteOnly=</emphasis>
+	ReadWriteOnly: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#ForceUnmount=</emphasis>
+	ForceUnmount: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#DirectoryMode=</emphasis>
+	DirectoryMode: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.mount.html#TimeoutSec=</emphasis>
+	TimeoutUSec: ?int,
+	<emphasis role="varlink-comment"># Mount command</emphasis>
+	ExecMount: ?ExecCommand,
+	<emphasis role="varlink-comment"># Unmount command</emphasis>
+	ExecUnmount: ?ExecCommand,
+	<emphasis role="varlink-comment"># Remount command</emphasis>
+	ExecRemount: ?ExecCommand
+)
+
+<emphasis role="varlink-keyword">type</emphasis> MountRuntime(
+	<emphasis role="varlink-comment"># PID of the current mount/remount/etc process running</emphasis>
+	ControlPID: ?ProcessId,
+	<emphasis role="varlink-comment"># Result of mount operation</emphasis>
+	Result: MountResult,
+	<emphasis role="varlink-comment"># Result of remount operation</emphasis>
+	ReloadResult: MountResult,
+	<emphasis role="varlink-comment"># Result of cleaning operation</emphasis>
+	CleanResult: MountResult,
+	<emphasis role="varlink-comment"># Reference UID</emphasis>
+	UID: ?int,
+	<emphasis role="varlink-comment"># Reference GID</emphasis>
+	GID: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PathSpec(
+	<emphasis role="varlink-comment"># Path spec type</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: PathType,
+	<emphasis role="varlink-comment"># Path</emphasis>
+	path: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PathContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.path.html#PathExists=</emphasis>
+	Paths: ?[]PathSpec,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.path.html#Unit=</emphasis>
+	Unit: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.path.html#MakeDirectory=</emphasis>
+	MakeDirectory: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.path.html#DirectoryMode=</emphasis>
+	DirectoryMode: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.path.html#TriggerLimitIntervalSec=</emphasis>
+	TriggerLimit: ?RateLimit
+)
+
+<emphasis role="varlink-keyword">type</emphasis> PathRuntime(
+	<emphasis role="varlink-comment"># Result of path operation</emphasis>
+	Result: PathResult
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ScopeContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.scope.html#OOMPolicy=</emphasis>
+	OOMPolicy: ?OOMPolicy,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.scope.html#RuntimeMaxSec=</emphasis>
+	RuntimeMaxUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.scope.html#RuntimeRandomizedExtraSec=</emphasis>
+	RuntimeRandomizedExtraUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.scope.html#TimeoutStopSec=</emphasis>
+	TimeoutStopUSec: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ScopeRuntime(
+	<emphasis role="varlink-comment"># Result of scope operation</emphasis>
+	Result: ScopeResult
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketListen(
+	<emphasis role="varlink-comment"># Socket type</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	<emphasis role="varlink-comment"># Socket address</emphasis>
+	address: string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ListenStream=</emphasis>
+	Listen: ?[]SocketListen,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SocketProtocol=</emphasis>
+	SocketProtocol: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#BindIPv6Only=</emphasis>
+	BindIPv6Only: ?SocketBindIPv6Only,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Backlog=</emphasis>
+	Backlog: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#BindToDevice=</emphasis>
+	BindToDevice: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SocketUser=</emphasis>
+	SocketUser: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SocketUser=</emphasis>
+	SocketGroup: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SocketMode=</emphasis>
+	SocketMode: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#DirectoryMode=</emphasis>
+	DirectoryMode: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Accept=</emphasis>
+	Accept: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Writable=</emphasis>
+	Writable: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#FlushPending=</emphasis>
+	FlushPending: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#MaxConnections=</emphasis>
+	MaxConnections: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#MaxConnectionsPerSource=</emphasis>
+	MaxConnectionsPerSource: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#KeepAlive=</emphasis>
+	KeepAlive: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#KeepAliveTimeSec=</emphasis>
+	KeepAliveTimeUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#KeepAliveIntervalSec=</emphasis>
+	KeepAliveIntervalUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#KeepAliveProbes=</emphasis>
+	KeepAliveProbes: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#NoDelay=</emphasis>
+	NoDelay: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Priority=</emphasis>
+	Priority: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#DeferAcceptSec=</emphasis>
+	DeferAcceptUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ReceiveBuffer=</emphasis>
+	ReceiveBuffer: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SendBuffer=</emphasis>
+	SendBuffer: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#IPTOS=</emphasis>
+	IPTOS: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#IPTTL=</emphasis>
+	IPTTL: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Mark=</emphasis>
+	Mark: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ReusePort=</emphasis>
+	ReusePort: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SmackLabel=</emphasis>
+	SmackLabel: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SmackLabelIPIn=</emphasis>
+	SmackLabelIPIn: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SmackLabelIPOut=</emphasis>
+	SmackLabelIPOut: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#SELinuxContextFromNet=</emphasis>
+	SELinuxContextFromNet: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PipeSize=</emphasis>
+	PipeSize: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#MessageQueueMaxMessages=</emphasis>
+	MessageQueueMaxMessages: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#MessageQueueMessageSize=</emphasis>
+	MessageQueueMessageSize: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#FreeBind=</emphasis>
+	FreeBind: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Transparent=</emphasis>
+	Transparent: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Broadcast=</emphasis>
+	Broadcast: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PassCredentials=</emphasis>
+	PassCredentials: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PassPIDFD=</emphasis>
+	PassPIDFD: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PassSecurity=</emphasis>
+	PassSecurity: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PassPacketInfo=</emphasis>
+	PassPacketInfo: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#AcceptFileDescriptors=</emphasis>
+	AcceptFileDescriptors: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Timestamping=</emphasis>
+	Timestamping: ?SocketTimestamping,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#TCPCongestion=</emphasis>
+	TCPCongestion: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ExecStartPre=</emphasis>
+	ExecStartPre: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ExecStartPost=</emphasis>
+	ExecStartPost: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ExecStopPre=</emphasis>
+	ExecStopPre: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#ExecStopPost=</emphasis>
+	ExecStopPost: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#TimeoutSec=</emphasis>
+	TimeoutUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#RemoveOnStop=</emphasis>
+	RemoveOnStop: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#Symlinks=</emphasis>
+	Symlinks: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#FileDescriptorName=</emphasis>
+	FileDescriptorName: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#TriggerLimitIntervalSec=</emphasis>
+	TriggerLimit: ?RateLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PollLimitIntervalSec=</emphasis>
+	PollLimit: ?RateLimit,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#DeferTrigger=</emphasis>
+	DeferTrigger: ?SocketDeferTrigger,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#DeferTriggerMaxSec=</emphasis>
+	DeferTriggerMaxUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.socket.html#PassFileDescriptorsToExec=</emphasis>
+	PassFileDescriptorsToExec: ?bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SocketRuntime(
+	<emphasis role="varlink-comment"># PID of the current socket control process</emphasis>
+	ControlPID: ?ProcessId,
+	<emphasis role="varlink-comment"># Result of socket operation</emphasis>
+	Result: SocketResult,
+	<emphasis role="varlink-comment"># Result of cleaning operation</emphasis>
+	CleanResult: SocketResult,
+	<emphasis role="varlink-comment"># Number of current connections</emphasis>
+	NConnections: ?int,
+	<emphasis role="varlink-comment"># Number of accepted connections</emphasis>
+	NAccepted: ?int,
+	<emphasis role="varlink-comment"># Number of refused connections</emphasis>
+	NRefused: ?int,
+	<emphasis role="varlink-comment"># Reference UID</emphasis>
+	UID: ?int,
+	<emphasis role="varlink-comment"># Reference GID</emphasis>
+	GID: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SwapContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.swap.html#What=</emphasis>
+	What: string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.swap.html#Priority=</emphasis>
+	Priority: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.swap.html#Options=</emphasis>
+	Options: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.swap.html#TimeoutSec=</emphasis>
+	TimeoutUSec: ?int,
+	<emphasis role="varlink-comment"># Activate command</emphasis>
+	ExecActivate: ?ExecCommand,
+	<emphasis role="varlink-comment"># Deactivate command</emphasis>
+	ExecDeactivate: ?ExecCommand
+)
+
+<emphasis role="varlink-keyword">type</emphasis> SwapRuntime(
+	<emphasis role="varlink-comment"># PID of the current swap control process</emphasis>
+	ControlPID: ?ProcessId,
+	<emphasis role="varlink-comment"># Result of swap operation</emphasis>
+	Result: SwapResult,
+	<emphasis role="varlink-comment"># Result of cleaning operation</emphasis>
+	CleanResult: SwapResult,
+	<emphasis role="varlink-comment"># Reference UID</emphasis>
+	UID: ?int,
+	<emphasis role="varlink-comment"># Reference GID</emphasis>
+	GID: ?int
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TimerSpec(
+	<emphasis role="varlink-comment"># Timer base type</emphasis>
+	base: TimerBase,
+	<emphasis role="varlink-comment"># Timer value in microseconds (for monotonic timers)</emphasis>
+	usec: ?int,
+	<emphasis role="varlink-comment"># Calendar specification string (for calendar timers)</emphasis>
+	calendar: ?string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TimerContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#OnActiveSec=</emphasis>
+	Timers: ?[]TimerSpec,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#Unit=</emphasis>
+	Unit: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#OnClockChange=</emphasis>
+	OnClockChange: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#OnClockChange=</emphasis>
+	OnTimezoneChange: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#AccuracySec=</emphasis>
+	AccuracyUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#RandomizedDelaySec=</emphasis>
+	RandomizedDelayUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#RandomizedOffsetSec=</emphasis>
+	RandomizedOffsetUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#FixedRandomDelay=</emphasis>
+	FixedRandomDelay: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#Persistent=</emphasis>
+	Persistent: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#WakeSystem=</emphasis>
+	WakeSystem: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#RemainAfterElapse=</emphasis>
+	RemainAfterElapse: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.timer.html#DeferReactivation=</emphasis>
+	DeferReactivation: ?bool
+)
+
+<emphasis role="varlink-keyword">type</emphasis> TimerRuntime(
+	<emphasis role="varlink-comment"># Result of timer operation</emphasis>
+	Result: TimerResult,
+	<emphasis role="varlink-comment"># Next elapse time in realtime clock</emphasis>
+	NextElapseUSecRealtime: ?int,
+	<emphasis role="varlink-comment"># Next elapse time in monotonic clock</emphasis>
+	NextElapseUSecMonotonic: ?int,
+	<emphasis role="varlink-comment"># Last time the timer triggered</emphasis>
+	LastTriggerUSec: ?Timestamp
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ExitStatusSet(
+	<emphasis role="varlink-comment"># Exit status codes</emphasis>
+	statuses: ?[]int,
+	<emphasis role="varlink-comment"># Signal names</emphasis>
+	signals: ?[]string
+)
+
+<emphasis role="varlink-keyword">type</emphasis> OpenFile(
+	<emphasis role="varlink-comment"># Path to the file to open</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># Name for the file descriptor</emphasis>
+	fileDescriptorName: string,
+	<emphasis role="varlink-comment"># Open file flags</emphasis>
+	flags: ?int
+)
+
+<emphasis role="varlink-comment"># Service-specific context</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ServiceContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#Type=</emphasis>
+	Type: ?ServiceType,
+	<emphasis role="varlink-comment"># Index of a file descriptor passed along with the method call to connect to the service's standard input. Only settable at unit creation time via StartTransient(); never set in unit descriptions returned by List().</emphasis>
+	StandardInputFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># Index of a file descriptor passed along with the method call to connect to the service's standard output. Only settable at unit creation time via StartTransient().</emphasis>
+	StandardOutputFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># Index of a file descriptor passed along with the method call to connect to the service's standard error. Only settable at unit creation time via StartTransient().</emphasis>
+	StandardErrorFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExitType=</emphasis>
+	ExitType: ?ServiceExitType,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#Restart=</emphasis>
+	Restart: ?ServiceRestart,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartMode=</emphasis>
+	RestartMode: ?ServiceRestartMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#PIDFile=</emphasis>
+	PIDFile: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartSec=</emphasis>
+	RestartUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartSteps=</emphasis>
+	RestartSteps: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartMaxDelaySec=</emphasis>
+	RestartMaxDelayUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartRandomizedDelaySec=</emphasis>
+	RestartRandomizedDelayUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#TimeoutStartSec=</emphasis>
+	TimeoutStartUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#TimeoutStopSec=</emphasis>
+	TimeoutStopUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#TimeoutStartFailureMode=</emphasis>
+	TimeoutStartFailureMode: ?ServiceTimeoutFailureMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#TimeoutStopFailureMode=</emphasis>
+	TimeoutStopFailureMode: ?ServiceTimeoutFailureMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RuntimeMaxSec=</emphasis>
+	RuntimeMaxUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RuntimeRandomizedExtraSec=</emphasis>
+	RuntimeRandomizedExtraUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#WatchdogSec=</emphasis>
+	WatchdogUSec: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RemainAfterExit=</emphasis>
+	RemainAfterExit: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RootDirectoryStartOnly=</emphasis>
+	RootDirectoryStartOnly: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#GuessMainPID=</emphasis>
+	GuessMainPID: ?bool,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#SuccessExitStatus=</emphasis>
+	SuccessExitStatus: ?ExitStatusSet,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartPreventExitStatus=</emphasis>
+	RestartPreventExitStatus: ?ExitStatusSet,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RestartForceExitStatus=</emphasis>
+	RestartForceExitStatus: ?ExitStatusSet,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#BusName=</emphasis>
+	BusName: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#NotifyAccess=</emphasis>
+	NotifyAccess: ?NotifyAccess,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#FileDescriptorStoreMax=</emphasis>
+	FileDescriptorStoreMax: ?int,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#FileDescriptorStorePreserve=</emphasis>
+	FileDescriptorStorePreserve: ?ExecPreserveMode,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#USBFunctionDescriptors=</emphasis>
+	USBFunctionDescriptors: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#USBFunctionStrings=</emphasis>
+	USBFunctionStrings: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#OOMPolicy=</emphasis>
+	OOMPolicy: ?OOMPolicy,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#OpenFile=</emphasis>
+	OpenFile: ?[]OpenFile,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExtraFileDescriptorNames=</emphasis>
+	ExtraFileDescriptorNames: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ReloadSignal=</emphasis>
+	ReloadSignal: ?string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#RefreshOnReload=</emphasis>
+	RefreshOnReload: ?[]string,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecCondition=</emphasis>
+	ExecCondition: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecStart=</emphasis>
+	ExecStart: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecStartPre=</emphasis>
+	ExecStartPre: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecStartPost=</emphasis>
+	ExecStartPost: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecReload=</emphasis>
+	ExecReload: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecReloadPost=</emphasis>
+	ExecReloadPost: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecStop=</emphasis>
+	ExecStop: ?[]ExecCommand,
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd.service.html#ExecStopPost=</emphasis>
+	ExecStopPost: ?[]ExecCommand
+)
+
+<emphasis role="varlink-keyword">type</emphasis> ServiceRuntime(
+	<emphasis role="varlink-comment"># Main process PID</emphasis>
+	MainPID: ?ProcessId,
+	<emphasis role="varlink-comment"># Control process PID</emphasis>
+	ControlPID: ?ProcessId,
+	<emphasis role="varlink-comment"># Status text set by the service</emphasis>
+	StatusText: ?string,
+	<emphasis role="varlink-comment"># Status errno set by the service</emphasis>
+	StatusErrno: ?int,
+	<emphasis role="varlink-comment"># Status D-Bus error set by the service</emphasis>
+	StatusBusError: ?string,
+	<emphasis role="varlink-comment"># Status Varlink error set by the service</emphasis>
+	StatusVarlinkError: ?string,
+	<emphasis role="varlink-comment"># Result of service operation</emphasis>
+	Result: ServiceResult,
+	<emphasis role="varlink-comment"># Result of reload operation</emphasis>
+	ReloadResult: ServiceResult,
+	<emphasis role="varlink-comment"># Result of cleaning operation</emphasis>
+	CleanResult: ServiceResult,
+	<emphasis role="varlink-comment"># Result of live mount operation</emphasis>
+	LiveMountResult: ServiceResult,
+	<emphasis role="varlink-comment"># Number of file descriptors in the store</emphasis>
+	NFileDescriptorStore: ?int,
+	<emphasis role="varlink-comment"># Number of restarts</emphasis>
+	NRestarts: ?int,
+	<emphasis role="varlink-comment"># Next restart delay</emphasis>
+	RestartUSecNext: ?int,
+	<emphasis role="varlink-comment"># Timeout for abort</emphasis>
+	TimeoutAbortUSec: ?int,
+	<emphasis role="varlink-comment"># Main process execution status</emphasis>
+	ExecMain: ?ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecCondition commands</emphasis>
+	ExecConditionStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecStartPre commands</emphasis>
+	ExecStartPreStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecStart commands</emphasis>
+	ExecStartStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecStartPost commands</emphasis>
+	ExecStartPostStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecReload commands</emphasis>
+	ExecReloadStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecReloadPost commands</emphasis>
+	ExecReloadPostStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecStop commands</emphasis>
+	ExecStopStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Execution status of ExecStopPost commands</emphasis>
+	ExecStopPostStatus: ?[]ExecCommandStatus,
+	<emphasis role="varlink-comment"># Reference UID</emphasis>
+	UID: ?int,
+	<emphasis role="varlink-comment"># Reference GID</emphasis>
+	GID: ?int
+)
+
+<emphasis role="varlink-comment"># A job object (defined in io.systemd.Job)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Job(
+	<emphasis role="varlink-comment"># The numeric job ID</emphasis>
+	Id: int,
+	<emphasis role="varlink-comment"># The unit name this job operates on</emphasis>
+	Unit: ?string,
+	<emphasis role="varlink-comment"># The job type</emphasis>
+	JobType: JobType,
+	<emphasis role="varlink-comment"># Current job state. 'finished' indicates the job has completed; in that case Result is also set.</emphasis>
+	State: ?JobState,
+	<emphasis role="varlink-comment"># Job result. Only set once the job has reached the 'finished' state.</emphasis>
+	Result: ?JobResult,
+	<emphasis role="varlink-comment"># Activation details describing what triggered this job, as key-value pairs</emphasis>
+	ActivationDetails: ?[string]string
+)
+
+<emphasis role="varlink-comment"># List units</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> List(
+	<emphasis role="varlink-comment"># If non-null the name of a unit.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a unit. Special value 0 means to take pid of the caller.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># If non-null the cgroup of a unit</emphasis>
+	cgroup: ?string,
+	<emphasis role="varlink-comment"># If non-null the invocation ID of a unit</emphasis>
+	invocationID: ?string
+) -&gt; (
+	<emphasis role="varlink-comment"># Configuration of the unit</emphasis>
+	context: UnitContext,
+	<emphasis role="varlink-comment"># Runtime information of the unit</emphasis>
+	runtime: UnitRuntime
+)
+
+<emphasis role="varlink-comment"># Set unit properties</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetProperties(
+	<emphasis role="varlink-comment"># The name of the unit to operate on.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Whether to apply the change ephemerally or persistently.</emphasis>
+	runtime: bool,
+	<emphasis role="varlink-comment"># The runtime properties to set.</emphasis>
+	properties: UnitRuntime
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Create a transient unit and start it</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> StartTransient(
+	<emphasis role="varlink-comment"># Unit context. Must include ID (the unit name). Only the subset of fields settable at creation time is accepted; supplying any other field returns PropertyNotSupported.</emphasis>
+	context: UnitContext,
+	<emphasis role="varlink-comment"># Job mode. Defaults to replace.</emphasis>
+	mode: ?JobMode,
+	<emphasis role="varlink-comment"># If true and 'more' is set, stream job state change notifications. Defaults to false.</emphasis>
+	notifyJobChanges: ?bool,
+	<emphasis role="varlink-comment"># If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false.</emphasis>
+	notifyUnitChanges: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Unit context. Set in the final reply.</emphasis>
+	context: ?UnitContext,
+	<emphasis role="varlink-comment"># Unit runtime state. Set in the final reply and in intermediate streaming notifications when notifyUnitChanges is true.</emphasis>
+	runtime: ?UnitRuntime,
+	<emphasis role="varlink-comment"># The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true.</emphasis>
+	job: ?Job
+)
+
+<emphasis role="varlink-comment"># No matching unit found</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchUnit(
+	parameter: ?string
+)
+
+<emphasis role="varlink-comment"># The unit is masked</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UnitMasked()
+
+<emphasis role="varlink-comment"># Unit is in a fatal error state</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UnitError()
+
+<emphasis role="varlink-comment"># The named property cannot be set (via SetProperties() or at creation time via StartTransient())</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PropertyNotSupported(
+	property: ?string
+)
+
+<emphasis role="varlink-comment"># Job for the unit may only be enqueued by dependencies</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> OnlyByDependency()
+
+<emphasis role="varlink-comment"># A unit that requires D-Bus cannot be started as D-Bus is shutting down</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> DBusShuttingDown()
+
+<emphasis role="varlink-comment"># A unit with this name already exists</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UnitExists()
+
+<emphasis role="varlink-comment"># This unit type does not support transient units</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UnitTypeNotSupported()
+
+<emphasis role="varlink-comment"># The unit file content contains invalid settings</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadUnitSetting()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Unit"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="List()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetProperties()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="StartTransient()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="RateLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Condition"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UnitContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UnitRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ActivationDetails"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupDevicePolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagedOOMMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupPressureWatch"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupTasksMax"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceWeight"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceLatency"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupAddressPrefix"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupSocketBind"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupRestrictNetworkInterfaces"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupNFTSet"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupBPFProgram"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupController"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupDeviceAllow"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUSetPartition"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecInputType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecOutputType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecUtmpMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecPreserveMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecKeyringMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MemoryTHP"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectProc"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcSubset"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectSystem"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectHome"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateUsers"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectControlGroups"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivatePIDs"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUSchedulingPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="IOSchedulingClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NUMAPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountPropagationFlag"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="WorkingDirectory"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PartitionMountOptions"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BindPath"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExtensionImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SELinuxContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AppArmorProfile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SmackProcessLabel"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimitTable"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUAffinity"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectoryQuota"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectoryPath"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectory"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TemporaryFilesystem"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AddressFamilyList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="FilesystemList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SystemCallList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EnvironmentFile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LogFilterPattern"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ImportCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SetCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="KillMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="KillContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecCommand"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecCommandStatus"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathSpec"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="OOMPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketBindIPv6Only"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketTimestamping"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketDeferTrigger"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketListen"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerBase"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerSpec"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CollectMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EmergencyAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExitStatusSet"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NotifyAccess"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="OpenFile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceExitType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRestart"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRestartMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceTimeoutFailureMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Job"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchUnit"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitMasked"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitError"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="PropertyNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="OnlyByDependency"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DBusShuttingDown"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitTypeNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadUnitSetting"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Unit</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Unit.List '{}'</screen>
+    invokes its <function>List()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Unit interface was added in version 258.</para><para><varname>ActivationDetails</varname>, <varname>CGroupAddressPrefix</varname>, <varname>CGroupBPFProgram</varname>, <varname>CGroupContext</varname>, <varname>CGroupDeviceAllow</varname>, <varname>CGroupIODeviceLatency</varname>, <varname>CGroupIODeviceLimit</varname>, <varname>CGroupIODeviceWeight</varname>, <varname>CGroupNFTSet</varname>, <varname>CGroupRestrictNetworkInterfaces</varname>, <varname>CGroupRuntime</varname>, <varname>CGroupSocketBind</varname>, <varname>CGroupTasksMax</varname>, <varname>Condition</varname>, <function>List()</function>, <varname>NoSuchUnit</varname>, <varname>ProcessId</varname>, <varname>RateLimit</varname>, <varname>Timestamp</varname>, <varname>UnitContext</varname>, and <varname>UnitRuntime</varname> were added in version 258.</para><para><varname>AddressFamilyList</varname>, <varname>AppArmorProfile</varname>, <varname>BindPath</varname>, <varname>CPUAffinity</varname>, <varname>EnvironmentFile</varname>, <varname>ExecContext</varname>, <varname>ExecDirectory</varname>, <varname>ExecDirectoryPath</varname>, <varname>ExecDirectoryQuota</varname>, <varname>ExtensionImage</varname>, <varname>FilesystemList</varname>, <varname>ImportCredential</varname>, <varname>LoadCredential</varname>, <varname>LogFilterPattern</varname>, <varname>MountImage</varname>, <varname>PartitionMountOptions</varname>, <varname>ResourceLimit</varname>, <varname>ResourceLimitTable</varname>, <varname>SELinuxContext</varname>, <varname>SetCredential</varname>, <varname>SmackProcessLabel</varname>, <varname>SystemCallList</varname>, <varname>TemporaryFilesystem</varname>, and <varname>WorkingDirectory</varname> were added in version 259.</para><para><varname>DBusShuttingDown</varname>, <varname>OnlyByDependency</varname>, <varname>PropertyNotSupported</varname>, <function>SetProperties()</function>, <varname>UnitError</varname>, and <varname>UnitMasked</varname> were added in version 260.</para><para><varname>AutomountContext</varname>, <varname>AutomountResult</varname>, <varname>AutomountRuntime</varname>, <varname>BadUnitSetting</varname>, <varname>CGroupController</varname>, <varname>CGroupDevicePolicy</varname>, <varname>CGroupPressureWatch</varname>, <varname>CPUSchedulingPolicy</varname>, <varname>CPUSetPartition</varname>, <varname>CollectMode</varname>, <varname>EmergencyAction</varname>, <varname>ExecCommand</varname>, <varname>ExecCommandStatus</varname>, <varname>ExecInputType</varname>, <varname>ExecKeyringMode</varname>, <varname>ExecOutputType</varname>, <varname>ExecPreserveMode</varname>, <varname>ExecUtmpMode</varname>, <varname>ExitStatusSet</varname>, <varname>IOSchedulingClass</varname>, <varname>Job</varname>, <varname>JobMode</varname>, <varname>JobResult</varname>, <varname>JobState</varname>, <varname>JobType</varname>, <varname>KillContext</varname>, <varname>KillMode</varname>, <varname>ManagedOOMMode</varname>, <varname>ManagedOOMPreference</varname>, <varname>MemoryTHP</varname>, <varname>MountContext</varname>, <varname>MountPropagationFlag</varname>, <varname>MountResult</varname>, <varname>MountRuntime</varname>, <varname>NUMAPolicy</varname>, <varname>NotifyAccess</varname>, <varname>OOMPolicy</varname>, <varname>OpenFile</varname>, <varname>PathContext</varname>, <varname>PathResult</varname>, <varname>PathRuntime</varname>, <varname>PathSpec</varname>, <varname>PathType</varname>, <varname>PrivateBPF</varname>, <varname>PrivatePIDs</varname>, <varname>PrivateTmp</varname>, <varname>PrivateUsers</varname>, <varname>ProcSubset</varname>, <varname>ProtectControlGroups</varname>, <varname>ProtectHome</varname>, <varname>ProtectHostname</varname>, <varname>ProtectProc</varname>, <varname>ProtectSystem</varname>, <varname>ScopeContext</varname>, <varname>ScopeResult</varname>, <varname>ScopeRuntime</varname>, <varname>ServiceContext</varname>, <varname>ServiceExitType</varname>, <varname>ServiceRestart</varname>, <varname>ServiceRestartMode</varname>, <varname>ServiceResult</varname>, <varname>ServiceRuntime</varname>, <varname>ServiceTimeoutFailureMode</varname>, <varname>ServiceType</varname>, <varname>SocketBindIPv6Only</varname>, <varname>SocketContext</varname>, <varname>SocketDeferTrigger</varname>, <varname>SocketListen</varname>, <varname>SocketResult</varname>, <varname>SocketRuntime</varname>, <varname>SocketTimestamping</varname>, <function>StartTransient()</function>, <varname>SwapContext</varname>, <varname>SwapResult</varname>, <varname>SwapRuntime</varname>, <varname>TimerBase</varname>, <varname>TimerContext</varname>, <varname>TimerResult</varname>, <varname>TimerRuntime</varname>, <varname>TimerSpec</varname>, <varname>UnitExists</varname>, and <varname>UnitTypeNotSupported</varname> were added in version 261.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
