@@ -1011,11 +1011,18 @@ int bus_image_acquire(
 
         /* Acquires an 'Image' object if not acquired yet, and enforces necessary authentication while doing so. */
 
+        /* The image is identified by its name, or by its path if it's not in the search path */
+        const char *details[] = {
+                "image", image ? image->name : name_or_path,
+                "class", image_class_to_string(IMAGE_PORTABLE),
+                NULL
+        };
+
         if (mode == BUS_IMAGE_AUTHENTICATE_ALL && m->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = bus_verify_polkit_async(
                                 message,
                                 polkit_action,
-                                /* details= */ NULL,
+                                details,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -1066,7 +1073,7 @@ int bus_image_acquire(
                         r = bus_verify_polkit_async(
                                         message,
                                         polkit_action,
-                                        /* details= */ NULL,
+                                        details,
                                         &m->polkit_registry,
                                         error);
                         if (r < 0)
