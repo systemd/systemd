@@ -1824,10 +1824,15 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
+        const char *details[] = {
+                "device", sysfs,
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.login1.attach-device",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
