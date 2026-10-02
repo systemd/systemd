@@ -30,6 +30,7 @@
 #include "dlopen-note.h"
 #include "edit-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
@@ -1559,10 +1560,14 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
         return show_table(table, "images");
 }
 
-static int print_image_hostname(sd_bus *bus, const char *name) {
+static int acquire_image_hostname(sd_bus *bus, const char *name, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *hn;
         int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
 
         r = bus_call_method(bus, bus_machine_mgr, "GetImageHostname", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
@@ -1572,34 +1577,32 @@ static int print_image_hostname(sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        if (!isempty(hn))
-                printf("\tHostname: %s\n", hn);
-
-        return 0;
+        return strdup_to(ret, empty_to_null(hn));
 }
 
-static int print_image_machine_id(sd_bus *bus, const char *name) {
+static int acquire_image_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        sd_id128_t id;
         int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
 
         r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineID", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
-        r = bus_message_read_id128(reply, &id);
-        if (r < 0)
-                return r;
-
-        if (!sd_id128_is_null(id))
-                printf("      Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
-
-        return 0;
+        return bus_message_read_id128(reply, ret);
 }
 
-static int print_image_machine_info(sd_bus *bus, const char *name) {
+static int acquire_image_deployment(sd_bus *bus, const char *name, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *deployment = NULL;
         int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
 
         r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineInfo", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
@@ -1618,18 +1621,24 @@ static int print_image_machine_info(sd_bus *bus, const char *name) {
                 if (r == 0)
                         break;
 
-                if (streq(p, "DEPLOYMENT"))
-                        printf("      Deployment: %s\n", q);
+                if (streq(p, "DEPLOYMENT")) {
+                        r = free_and_strdup(&deployment, q);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
 
+        *ret = TAKE_PTR(deployment);
         return 0;
 }
 
 typedef struct ImageStatusInfo {
+        sd_bus_message *message; /* Owns the strings below that are acquired from properties */
+
         const char *name;
         const char *path;
         const char *type;
@@ -1640,10 +1649,55 @@ typedef struct ImageStatusInfo {
         uint64_t limit;
         uint64_t usage_exclusive;
         uint64_t limit_exclusive;
+
+        /* Metadata, acquired with separate method calls that require authorization */
+        int metadata_error;
+        char *hostname;
+        sd_id128_t machine_id;
+        char *deployment;
+        char *pretty_os;
 } ImageStatusInfo;
 
-static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
+static void image_status_info_done(ImageStatusInfo *i) {
+        assert(i);
+
+        i->message = sd_bus_message_unref(i->message);
+        i->hostname = mfree(i->hostname);
+        i->deployment = mfree(i->deployment);
+        i->pretty_os = mfree(i->pretty_os);
+}
+
+static void image_status_info_array_free(ImageStatusInfo *infos, size_t n_infos) {
+        FOREACH_ARRAY(i, infos, n_infos)
+                image_status_info_done(i);
+
+        free(infos);
+}
+
+static void acquire_image_metadata(sd_bus *bus, ImageStatusInfo *i) {
+        int r;
+
         assert(bus);
+        assert(i);
+
+        if (!i->name)
+                return;
+
+        /* The metadata calls all require the same polkit action, and by default a successful authentication
+         * is kept for a while, so the user is asked at most once. If the first call fails with a permission
+         * error, remember that, and don't try (and possibly ask for authentication for) the others. */
+        r = acquire_image_hostname(bus, i->name, &i->hostname);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                i->metadata_error = r;
+                return;
+        }
+
+        (void) acquire_image_machine_id(bus, i->name, &i->machine_id);
+        (void) acquire_image_deployment(bus, i->name, &i->deployment);
+        (void) call_get_os_release(bus, "GetImageOSRelease", i->name, "PRETTY_NAME\0", &i->pretty_os, NULL);
+}
+
+static void print_image_status_info(const ImageStatusInfo *i) {
         assert(i);
 
         if (i->name) {
@@ -1657,11 +1711,21 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
 
-        (void) print_image_hostname(bus, i->name);
-        (void) print_image_machine_id(bus, i->name);
-        (void) print_image_machine_info(bus, i->name);
+        if (i->metadata_error < 0)
+                log_notice_errno(i->metadata_error, "Cannot show metadata of image '%s': %m", strna(i->name));
+        else {
+                if (i->hostname)
+                        printf("\tHostname: %s\n", i->hostname);
 
-        print_os_release(bus, "GetImageOSRelease", i->name, "\t      OS: ");
+                if (!sd_id128_is_null(i->machine_id))
+                        printf("      Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(i->machine_id));
+
+                if (i->deployment)
+                        printf("      Deployment: %s\n", i->deployment);
+
+                if (i->pretty_os)
+                        printf("\t      OS: %s\n", i->pretty_os);
+        }
 
         printf("\t      RO: %s%s%s\n",
                i->read_only ? ansi_highlight_red() : "",
@@ -1693,7 +1757,7 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         }
 }
 
-static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
+static int acquire_image_status_info(sd_bus *bus, const char *path, ImageStatusInfo *ret) {
         static const struct bus_properties_map map[]  = {
                 { "Name",                  "s",  NULL, offsetof(ImageStatusInfo, name)            },
                 { "Path",                  "s",  NULL, offsetof(ImageStatusInfo, path)            },
@@ -1709,13 +1773,12 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        ImageStatusInfo info = {};
+        _cleanup_(image_status_info_done) ImageStatusInfo info = {};
         int r;
 
         assert(bus);
         assert(path);
-        assert(new_line);
+        assert(ret);
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.machine1",
@@ -1723,18 +1786,15 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                                    map,
                                    BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
-                                   &m,
+                                   &info.message,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
-        if (*new_line)
-                printf("\n");
-        *new_line = true;
+        acquire_image_metadata(bus, &info);
 
-        print_image_status_info(bus, &info);
-
-        return r;
+        *ret = TAKE_STRUCT(info);
+        return 0;
 }
 
 typedef struct PoolStatusInfo {
@@ -1808,17 +1868,73 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
         return r;
 }
 
+static int get_image_object_path(sd_bus *bus, const char *name, char **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *path;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
+
+        r = bus_call_method(bus, bus_machine_mgr, "GetImage", &error, &reply, "s", name);
+        if (r < 0)
+                return log_error_errno(r, "Could not get path to image: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = strdup_to(ret, path);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 VERB(verb_show_image, "image-status", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show image details");
 VERB(verb_show_image, "show-image", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of image");
 static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        ImageStatusInfo *infos = NULL;
+        size_t n_infos = 0;
         bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
-        int r = 0;
+        int r, ret = 0;
+
+        CLEANUP_ARRAY(infos, n_infos, image_status_info_array_free);
 
         properties = !strstr(argv[0], "status");
+
+        if (!properties && argc > 1) {
+                /* Showing the image metadata requires authorization. Acquire everything before opening the
+                 * pager, so that the polkit agent doesn't have to share the TTY with it. */
+                (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+                infos = new0(ImageStatusInfo, argc - 1);
+                if (!infos)
+                        return log_oom();
+
+                for (int i = 1; i < argc; i++) {
+                        _cleanup_free_ char *path = NULL;
+
+                        r = get_image_object_path(bus, argv[i], &path);
+                        if (r < 0)
+                                return r;
+
+                        r = acquire_image_status_info(bus, path, infos + n_infos);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        n_infos++;
+                }
+
+                polkit_agent_close();
+        }
 
         pager_open(arg_pager_flags);
 
@@ -1835,25 +1951,29 @@ static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userda
                         return r;
         }
 
-        for (int i = 1; i < argc; i++) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                const char *path = NULL;
+        if (!properties) {
+                FOREACH_ARRAY(i, infos, n_infos) {
+                        if (new_line)
+                                putchar('\n');
+                        new_line = true;
 
-                r = bus_call_method(bus, bus_machine_mgr, "GetImage", &error, &reply, "s", argv[i]);
-                if (r < 0)
-                        return log_error_errno(r, "Could not get path to image: %s", bus_error_message(&error, r));
+                        print_image_status_info(i);
+                }
 
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (properties)
-                        r = show_image_properties(bus, path, &new_line);
-                else
-                        r = show_image_info(bus, path, &new_line);
+                return ret;
         }
 
-        return r;
+        for (int i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                r = get_image_object_path(bus, argv[i], &path);
+                if (r < 0)
+                        return r;
+
+                RET_GATHER(ret, show_image_properties(bus, path, &new_line));
+        }
+
+        return ret;
 }
 
 static int normalize_nspawn_filename(const char *name, char **ret_file) {
