@@ -35,6 +35,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
 char** taint_strv(void) {
         const char *stage[11] = {};
         size_t n = 0;
+        int r;
 
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
          * runtime should be tagged here. For stuff that is known during compilation, emit a warning in the
@@ -42,15 +43,18 @@ char** taint_strv(void) {
 
         _cleanup_free_ char *bin = NULL, *usr_sbin = NULL, *var_run = NULL;
 
-        if (readlink_malloc("/bin", &bin) < 0 || !PATH_IN_SET(bin, "usr/bin", "/usr/bin"))
+        r = readlink_malloc("/bin", &bin);
+        if (r != -ENOENT && (r < 0 || !PATH_IN_SET(bin, "usr/bin", "/usr/bin")))
                 stage[n++] = "unmerged-usr";
 
         /* Note that the check is different from default_PATH(), as we want to taint on uncanonical symlinks
          * too. */
-        if (readlink_malloc("/usr/sbin", &usr_sbin) < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin"))
+        r = readlink_malloc("/usr/sbin", &usr_sbin);
+        if (r != -ENOENT && (r < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin")))
                 stage[n++] = "unmerged-bin";
 
-        if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
+        r = readlink_malloc("/var/run", &var_run);
+        if (r != -ENOENT && (r < 0 || !PATH_IN_SET(var_run, "../run", "/run")))
                 stage[n++] = "var-run-bad";
 
         if (clock_is_localtime(NULL) > 0)
