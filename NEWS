@@ -79,6 +79,13 @@ CHANGES WITH 263 in spe:
         * systemd-portabled now asks polkit before it inspects extension
           images that are specified by path.
 
+        * systemd-machined's D-Bus methods CleanPool() and SetPoolLimit() now
+          require the org.freedesktop.machine1.manage-images polkit action
+          instead of org.freedesktop.machine1.manage-machines, like their
+          Varlink counterparts io.systemd.MachineImage.CleanPool() and
+          SetPoolLimit() already do. Polkit rules that grant manage-machines
+          in order to permit these calls need to grant manage-images instead.
+
         * systemd-veritysetup no longer fails if root-hash-signature=auto
           finds no signature. It gained a root-hash-signature-required=
           option, which systemd-gpt-auto-generator enables if
