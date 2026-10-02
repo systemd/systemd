@@ -3,13 +3,19 @@
 #include "bus-polkit.h"
 #include "logind.h"
 #include "logind-polkit.h"
+#include "logind-seat.h"
 
-int check_polkit_chvt(sd_bus_message *message, Manager *manager, sd_bus_error *error) {
+int check_polkit_chvt(sd_bus_message *message, Manager *manager, Seat *seat, sd_bus_error *error) {
 #if ENABLE_POLKIT
+        const char *details[] = {
+                "seat", seat ? seat->id : NULL,
+                NULL
+        };
+
         return bus_verify_polkit_async(
                         message,
                         "org.freedesktop.login1.chvt",
-                        /* details= */ NULL,
+                        seat ? details : NULL,
                         &manager->polkit_registry,
                         error);
 #else
