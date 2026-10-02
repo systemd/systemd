@@ -132,10 +132,15 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
+        const char *details[] = {
+                "seat", s->id,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
+                        details,
                         &s->manager->polkit_registry,
                         error);
         if (r < 0)
