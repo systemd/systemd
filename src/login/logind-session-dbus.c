@@ -251,7 +251,13 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
 
-        r = check_polkit_chvt(message, s->manager, error);
+        /* Refuse early, before possibly prompting for authorization, since session_activate() would fail
+         * anyway. */
+        if (!s->seat)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Session %s is not on a seat, refusing activation.", s->id);
+
+        r = check_polkit_chvt(message, s->seat, error);
         if (r < 0)
                 return r;
         if (r == 0)
