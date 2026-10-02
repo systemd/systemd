@@ -266,25 +266,25 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
 
 int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
+        bool lock;
         int r;
 
         assert(message);
 
-        r = bus_verify_polkit_async_full(
+        lock = strstr(sd_bus_message_get_member(message), "Lock");
+
+        r = session_verify_polkit_async(
+                        s,
                         message,
                         "org.freedesktop.login1.lock-sessions",
-                        /* details= */ NULL,
-                        s->user->user_record->uid,
-                        /* flags= */ 0,
-                        &s->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
+                        lock ? "lock" : "unlock",
                         error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_send_lock(s, /* lock= */ strstr(sd_bus_message_get_member(message), "Lock"));
+        r = session_send_lock(s, lock);
         if (r == -ENOTTY)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session does not support lock screen.");
         if (r < 0)

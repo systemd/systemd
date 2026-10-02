@@ -1488,14 +1488,22 @@ static int method_lock_session(sd_bus_message *message, void *userdata, sd_bus_e
 
 static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
+        bool lock;
         int r;
 
         assert(message);
 
+        lock = streq(sd_bus_message_get_member(message), "LockSessions");
+
+        const char *details[] = {
+                "verb", lock ? "lock" : "unlock",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.login1.lock-sessions",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1503,7 +1511,7 @@ static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_send_lock_all(m, streq(sd_bus_message_get_member(message), "LockSessions"));
+        r = session_send_lock_all(m, lock);
         if (r < 0)
                 return r;
 
