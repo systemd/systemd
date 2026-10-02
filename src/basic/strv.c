@@ -853,19 +853,30 @@ char** strv_sort(char **l) {
         return l;
 }
 
-char** strv_sort_uniq(char **l) {
+char** strv_sort_uniq_full(char **l, int (*compare)(char * const *a, char * const *b)) {
+        assert(compare);
+
         if (strv_isempty(l))
                 return l;
 
-        char **tail = strv_sort(l), *prev = NULL;
-        STRV_FOREACH(i, l)
-                if (streq_ptr(*i, prev))
+        /* Sorts with the given comparison function, then drops entries that compare equal to the previous
+         * one. The comparison function hence must only return 0 for entries that are to be merged. */
+
+        typesafe_qsort(l, strv_length(l), compare);
+
+        char **tail = l + 1;
+        STRV_FOREACH(i, l + 1)
+                if (compare(i, tail - 1) == 0)
                         free(*i);
                 else
-                        *(tail++) = prev = *i;
+                        *(tail++) = *i;
 
         *tail = NULL;
         return l;
+}
+
+char** strv_sort_uniq(char **l) {
+        return strv_sort_uniq_full(l, str_compare);
 }
 
 int strv_compare(char * const *a, char * const *b) {
