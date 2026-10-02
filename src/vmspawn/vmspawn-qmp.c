@@ -2081,7 +2081,14 @@ static int on_cont_complete(
 }
 
 int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
+        int r;
+
         assert(bridge);
+
+        /* Device setup is asynchronous, let it complete before the guest runs. */
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up boot-time devices: %m");
 
         return qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "cont", /* args= */ NULL, on_cont_complete, bridge);
 }

@@ -45,7 +45,8 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event);
  * are consumed by vmspawn_qmp_setup_drives(). */
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge);
 
-/* Phase 3: Resume vCPUs. All commands are async — responses arrive during sd_event_loop(). */
+/* Phase 3: Wait for device setup to complete, then resume vCPUs. The resume reply and all later
+ * commands are async — responses arrive during sd_event_loop(). */
 int vmspawn_qmp_start(VmspawnQmpBridge *bridge);
 
 typedef enum QmpDriveFlags {
