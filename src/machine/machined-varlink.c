@@ -541,7 +541,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.machine1.inspect-machines",
-                                (const char**) STRV_MAKE("name", strna(p.name)),
+                                (const char**) STRV_MAKE("machine", strna(p.name)),
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
@@ -699,7 +699,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.machine1.inspect-images",
-                                (const char**) STRV_MAKE("name", strna(p.image_name)),
+                                (const char**) STRV_MAKE("image", strna(p.image_name)),
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
