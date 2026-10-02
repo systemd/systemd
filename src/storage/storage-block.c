@@ -294,6 +294,7 @@ static int vl_method_acquire(
 
         const char *details[] = {
                 "name", p.name,
+                "device", p.name,
                 NULL
         };
 
