@@ -2003,6 +2003,37 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         return 0;
 }
 
+/* Canonical sync-on-async pump, matching varlink_call_internal(): drive the QMP client until all
+ * outstanding command replies have been delivered and all pending jobs have concluded. The client
+ * tracks outstanding replies in its own slots set. Callbacks of fatal boot-time errors request
+ * the event loop to exit, which isn't running yet, so stop on that, too. */
+static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
+        int r;
+
+        assert(bridge);
+
+        sd_event *event = qmp_client_get_event(bridge->qmp);
+
+        for (;;) {
+                int code;
+                if (sd_event_get_exit_code(event, &code) >= 0)
+                        return code < 0 ? code : -ECANCELED;
+
+                if (qmp_client_is_idle(bridge->qmp) && hashmap_isempty(bridge->pending_jobs))
+                        return 0;
+
+                r = qmp_client_process(bridge->qmp);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+}
+
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         int r;
 
@@ -2018,19 +2049,9 @@ int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue schema probe: %m");
 
-        /* Canonical sync-on-async pump, matching varlink_call_internal(). The QMP client tracks
-         * outstanding replies in its own slots set; drain until it's idle. */
-        while (!qmp_client_is_idle(bridge->qmp)) {
-                r = qmp_client_process(bridge->qmp);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe pump failed: %m");
-                if (r > 0)
-                        continue;
-
-                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe wait failed: %m");
-        }
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return log_error_errno(r, "QMP feature probing failed: %m");
 
         /* If fail_pending() drained the slots (transport dropped mid-probe), features can't be
          * trusted and we have no QMP channel for device setup anyway. */
