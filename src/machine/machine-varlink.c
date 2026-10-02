@@ -483,20 +483,21 @@ inline static const char* machine_open_polkit_action(MachineOpenMode mode, Machi
         }
 }
 
-inline static char** machine_open_polkit_details(MachineOpenMode mode, const char *machine_name, const char *user, const char *path, const char *command_line) {
-        assert(machine_name);
+inline static char** machine_open_polkit_details(MachineOpenMode mode, Machine *machine, const char *user, const char *path, const char *command_line) {
+        assert(machine);
 
         switch (mode) {
                 case MACHINE_OPEN_MODE_TTY:
-                        return strv_new("machine", machine_name);
+                        return strv_new("machine", machine->name, "owner_uid", FORMAT_UID(machine->uid));
                 case MACHINE_OPEN_MODE_LOGIN:
-                        return strv_new("machine", machine_name, "verb", "login");
+                        return strv_new("machine", machine->name, "owner_uid", FORMAT_UID(machine->uid), "verb", "login");
                 case MACHINE_OPEN_MODE_SHELL:
                         assert(user);
                         assert(path);
                         assert(command_line);
                         return strv_new(
-                                        "machine", machine_name,
+                                        "machine", machine->name,
+                                        "owner_uid", FORMAT_UID(machine->uid),
                                         "verb", "shell",
                                         "user", user,
                                         "program", path,
@@ -582,7 +583,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
                 _cleanup_strv_free_ char **polkit_details = NULL;
 
-                polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
+                polkit_details = machine_open_polkit_details(p.mode, machine, user, path, command_line);
                 r = varlink_verify_polkit_async_full(
                                 link,
                                 manager->system_bus,
