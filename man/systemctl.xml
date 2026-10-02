@@ -2858,6 +2858,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>--completion-names</option></term>
+
+        <listitem>
+          <para>When used with <command>list-units</command> or <command>list-unit-files</command>, print
+          only the names of the listed units, one per line, as is useful for shell completion. Since unit
+          names without a suffix are taken to refer to service units, the name of each
+          <literal>.service</literal> unit is followed by its name without that suffix, e.g.
+          <literal>foo</literal> after <literal>foo.service</literal>, and <literal>foo@</literal> after
+          the template <literal>foo@.service</literal>. Implies <option>--plain</option>,
+          <option>--legend=no</option> and <option>--no-pager</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--timestamp=</option></term>
 
         <listitem>

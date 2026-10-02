@@ -78,6 +78,7 @@ const char *arg_host = NULL;
 unsigned arg_lines = 10;
 OutputMode arg_output = OUTPUT_SHORT;
 bool arg_plain = false;
+bool arg_completion_names = false;
 bool arg_firmware_setup = false;
 usec_t arg_boot_loader_menu = USEC_INFINITY;
 const char *arg_boot_loader_entry = NULL;
@@ -751,6 +752,11 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         arg_plain = true;
                         break;
 
+                OPTION_LONG("completion-names", NULL,
+                            "Print only unit names and .service base names (list-units, list-unit-files)"):
+                        arg_completion_names = true;
+                        break;
+
                 OPTION_LONG("timestamp", "FORMAT",
                             "Change format of printed timestamps (pretty, unix, us, utc, us+utc)"):
                         if (streq(opts.arg, "help"))
@@ -877,6 +883,18 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        /* Without a verb, list-units is implied */
+        if (arg_completion_names && args[0] && !STR_IN_SET(args[0], "list-units", "list-unit-files"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--completion-names may only be used with 'list-units' or 'list-unit-files'.");
+
+        /* Completion output is consumed by scripts, regardless of where on the command line the flag was */
+        if (arg_completion_names) {
+                arg_plain = true;
+                arg_legend = 0;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
 
         if (remaining_args)
                 *remaining_args = args;
