@@ -696,12 +696,18 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
+        if (p.image_name && !image_name_is_valid(p.image_name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
         if (m->runtime_scope != RUNTIME_SCOPE_USER && should_acquire_metadata(p.acquire_metadata)) {
+                /* When listing all images, we act on the whole pool, hence pass only its class */
                 r = varlink_verify_polkit_async(
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.machine1.inspect-images",
-                                (const char**) STRV_MAKE("image", strna(p.image_name)),
+                                p.image_name ? (const char**) STRV_MAKE("image", p.image_name,
+                                                                        "class", image_class_to_string(IMAGE_MACHINE))
+                                             : (const char**) STRV_MAKE("class", image_class_to_string(IMAGE_MACHINE)),
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
@@ -713,9 +719,6 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
 
         if (p.image_name) {
                 _cleanup_(image_unrefp) Image *found = NULL;
-
-                if (!image_name_is_valid(p.image_name))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
 
                 r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root= */ NULL, &found);
                 if (r == -ENOENT)

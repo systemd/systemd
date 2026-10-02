@@ -298,6 +298,7 @@ static int image_verify_inspect(sd_bus_message *message, Image *image, sd_bus_er
 
         const char *details[] = {
                 "image", image->name,
+                "class", image_class_to_string(image->class),
                 NULL
         };
 
