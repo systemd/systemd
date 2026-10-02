@@ -1975,6 +1975,18 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SubscribeJobs,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("If true, include the unit's runtime state in finished-job notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(withRuntime, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Set once, on the notification concluding the initial snapshot: the subscription is registered and job state changes from before this notification cannot be observed anymore."),
+                SD_VARLINK_DEFINE_OUTPUT(ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The job this notification is about; unset on the ready notification. On subscription one notification per currently queued job is sent, then job state changes stream as they happen. A notification with State=finished and Result set is the last one for a job. A short-lived job may be observed as a single, already finished notification: unlike the D-Bus JobNew/JobRemoved pair, no preceding notification is guaranteed, and the finished notification is self-contained."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime snapshot, taken when the job finished. Set on finished-job notifications when withRuntime was true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
@@ -1993,6 +2005,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
                 &vl_method_StartTransient,
+                SD_VARLINK_SYMBOL_COMMENT("Subscribe to job state changes"),
+                &vl_method_SubscribeJobs,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
