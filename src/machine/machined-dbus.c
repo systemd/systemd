@@ -281,6 +281,7 @@ static int machine_add_from_params(
         case RUNTIME_SCOPE_SYSTEM: {
                 const char *details[] = {
                         "machine", name,
+                        "owner_uid", FORMAT_UID(uid),
                         "class", machine_class_to_string(c),
                         NULL
                 };
