@@ -169,7 +169,7 @@ static int synthesize_change_one(Manager *manager, sd_device *dev) {
         }
 
         sd_id128_t uuid;
-        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
+        r = device_trigger_with_timestamp(dev, SD_DEVICE_CHANGE, manager->device_trigger_args, &uuid);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
@@ -245,7 +245,7 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
                 return r;
         if (r == 0) {
                 /* child */
-                (void) reread_partition_table(dev, REREADPT_FORCE_UEVENT|REREADPT_BSD_LOCK);
+                (void) reread_partition_table(dev, REREADPT_FORCE_UEVENT|REREADPT_BSD_LOCK, manager->device_trigger_args);
                 _exit(EXIT_SUCCESS);
         }
 

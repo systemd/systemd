@@ -8872,7 +8872,7 @@ static int context_partscan(Context *context) {
                 log_info("Informing kernel about changed partitions...");
                 (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
 
-                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0, /* args= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else

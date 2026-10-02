@@ -2812,7 +2812,7 @@ _public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr
 }
 
 _public_ int sd_device_trigger(sd_device *device, sd_device_action_t action) {
-        return sd_device_trigger_with_uuid(device, action, NULL);
+        return sd_device_trigger_with_args(device, action, /* args= */ NULL, /* ret_uuid= */ NULL);
 }
 
 _public_ int sd_device_trigger_with_uuid(
@@ -2820,23 +2820,50 @@ _public_ int sd_device_trigger_with_uuid(
                 sd_device_action_t action,
                 sd_id128_t *ret_uuid) {
 
-        const char *s, *j;
-        sd_id128_t u;
+        return sd_device_trigger_with_args(device, action, /* args= */ NULL, ret_uuid);
+}
+
+_public_ int sd_device_trigger_with_args(
+                sd_device *device,
+                sd_device_action_t action,
+                char * const *args, /* KEY VALUE pairs */
+                sd_id128_t *ret_uuid) {
+
         int r;
 
         assert_return(device, -EINVAL);
 
-        s = device_action_to_string(action);
-        if (!s)
+        const char *a = device_action_to_string(action);
+        if (!a)
                 return -EINVAL;
 
+        if (strv_length(args) % 2 != 0)
+                return -EINVAL;
+
+        /* The kernel requests that both keys and values are alphanumerical. See action_arg_word_end() in
+         * lib/kobject_uevent.c and Documentation/ABI/testing/sysfs-uevent in the kernel. */
+        STRV_FOREACH(s, args)
+                if (isempty(*s) || !in_charset(*s, ALPHANUMERICAL))
+                        return -EINVAL;
+
+        sd_id128_t u;
         r = sd_id128_randomize(&u);
         if (r < 0)
                 return r;
 
-        j = strjoina(s, " ", SD_ID128_TO_UUID_STRING(u));
+        const char *j = strjoina(a, " ", SD_ID128_TO_UUID_STRING(u));
 
-        r = sd_device_set_sysattr_value(device, "uevent", j);
+        _cleanup_free_ char *joined = NULL;
+        STRV_FOREACH_PAIR(k, v, args) {
+                if (!joined) {
+                        joined = strjoin(j, " ", *k, "=", *v);
+                        if (!joined)
+                                return -ENOMEM;
+                } else if (!strextend(&joined, " ", *k, "=", *v))
+                        return -ENOMEM;
+        }
+
+        r = sd_device_set_sysattr_value(device, "uevent", joined ?: j);
         if (r < 0)
                 return r;
 

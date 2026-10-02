@@ -1719,7 +1719,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         }
 
         FOREACH_DEVICE(e, d) {
-                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, m->device_trigger_args, /* ret_uuid= */ NULL);
                 if (r < 0)
                         log_device_debug_errno(d, r, "Failed to trigger device, ignoring: %m");
         }
