@@ -762,6 +762,32 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
         return NULL;
 }
 
+static int verify_polkit_for_image(
+                Manager *m,
+                sd_bus_message *msg,
+                const char *action,
+                ImageClass class,
+                const char *local,
+                sd_bus_error *error) {
+
+        assert(m);
+        assert(msg);
+        assert(action);
+        assert(local);
+
+        if (m->runtime_scope == RUNTIME_SCOPE_USER)
+                return 1;
+
+        /* Image names are only unique within their class */
+        const char *details[] = {
+                "image", local,
+                "class", image_class_to_string(class),
+                NULL
+        };
+
+        return bus_verify_polkit_async(msg, action, details, &m->polkit_registry, error);
+}
+
 static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
@@ -773,19 +799,6 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         int fd, r;
 
         assert(msg);
-
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.import",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -829,6 +842,12 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local image name %s is invalid", local);
+
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.import", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (class == IMAGE_MACHINE) {
                 r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
@@ -877,19 +896,6 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 
         assert(msg);
 
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.import",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
-
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
 
@@ -930,6 +936,12 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local image name %s is invalid", local);
+
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.import", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (class == IMAGE_MACHINE) {
                 r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
