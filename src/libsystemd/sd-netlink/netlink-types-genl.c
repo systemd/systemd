@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/batman_adv.h>
+#include <linux/ethtool_netlink.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if.h>
@@ -14,6 +15,7 @@
 #include "missing-network.h"
 #include "netlink-genl.h"
 #include "netlink-types-internal.h"
+#include "string-util.h"
 
 /***************** genl ctrl type systems *****************/
 static const NLAPolicy genl_ctrl_mcast_group_policies[] = {
@@ -107,6 +109,74 @@ static const NLAPolicy genl_batadv_policies[] = {
         [BATADV_ATTR_ORIG_INTERVAL]                 = BUILD_POLICY(U32),
         [BATADV_ATTR_ELP_INTERVAL]                  = BUILD_POLICY(U32),
         [BATADV_ATTR_THROUGHPUT_OVERRIDE]           = BUILD_POLICY(U32),
+};
+
+/***************** genl ethtool type systems *****************/
+static const NLAPolicy genl_ethtool_header_policies[] = {
+        [ETHTOOL_A_HEADER_DEV_INDEX] = BUILD_POLICY(U32),
+        [ETHTOOL_A_HEADER_DEV_NAME]  = BUILD_POLICY_WITH_SIZE(STRING, ALTIFNAMSIZ - 1),
+        [ETHTOOL_A_HEADER_FLAGS]     = BUILD_POLICY(U32),
+        [ETHTOOL_A_HEADER_PHY_INDEX] = BUILD_POLICY(U32),
+};
+
+DEFINE_POLICY_SET(genl_ethtool_header);
+
+static const NLAPolicy genl_ethtool_irq_moderation_policies[] = {
+        [ETHTOOL_A_IRQ_MODERATION_USEC]  = BUILD_POLICY(U32),
+        [ETHTOOL_A_IRQ_MODERATION_PKTS]  = BUILD_POLICY(U32),
+        [ETHTOOL_A_IRQ_MODERATION_COMPS] = BUILD_POLICY(U32),
+};
+
+DEFINE_POLICY_SET(genl_ethtool_irq_moderation);
+
+static const NLAPolicy genl_ethtool_profile_policies[] = {
+        [ETHTOOL_A_PROFILE_IRQ_MODERATION] = BUILD_POLICY_NESTED(genl_ethtool_irq_moderation),
+};
+
+DEFINE_POLICY_SET(genl_ethtool_profile);
+
+static const NLAPolicy genl_ethtool_coalesce_policies[] = {
+        [ETHTOOL_A_COALESCE_HEADER]               = BUILD_POLICY_NESTED(genl_ethtool_header),
+        [ETHTOOL_A_COALESCE_RX_USECS]             = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_MAX_FRAMES]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_USECS_IRQ]         = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_MAX_FRAMES_IRQ]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_USECS]             = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_MAX_FRAMES]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_USECS_IRQ]         = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_MAX_FRAMES_IRQ]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_STATS_BLOCK_USECS]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_USE_ADAPTIVE_RX]      = BUILD_POLICY(U8),
+        [ETHTOOL_A_COALESCE_USE_ADAPTIVE_TX]      = BUILD_POLICY(U8),
+        [ETHTOOL_A_COALESCE_PKT_RATE_LOW]         = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_USECS_LOW]         = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_MAX_FRAMES_LOW]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_USECS_LOW]         = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_MAX_FRAMES_LOW]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_PKT_RATE_HIGH]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_USECS_HIGH]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_MAX_FRAMES_HIGH]   = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_USECS_HIGH]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_MAX_FRAMES_HIGH]   = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RATE_SAMPLE_INTERVAL] = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_USE_CQE_MODE_TX]      = BUILD_POLICY(U8),
+        [ETHTOOL_A_COALESCE_USE_CQE_MODE_RX]      = BUILD_POLICY(U8),
+        [ETHTOOL_A_COALESCE_TX_AGGR_MAX_BYTES]    = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_AGGR_MAX_FRAMES]   = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_TX_AGGR_TIME_USECS]   = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_PROFILE]           = BUILD_POLICY_NESTED(genl_ethtool_profile),
+        [ETHTOOL_A_COALESCE_TX_PROFILE]           = BUILD_POLICY_NESTED(genl_ethtool_profile),
+        [ETHTOOL_A_COALESCE_RX_CQE_FRAMES]        = BUILD_POLICY(U32),
+        [ETHTOOL_A_COALESCE_RX_CQE_NSECS]         = BUILD_POLICY(U32),
+};
+
+DEFINE_POLICY_SET(genl_ethtool_coalesce);
+
+/* Unlike the other families, the attributes of ethtool depend on the command. Hence, the policy set of
+ * ethtool is indexed by the (userspace to kernel) command, and each entry refers to the policy set of the
+ * attributes for that command. See genl_family_is_indexed_by_command(). */
+static const NLAPolicy genl_ethtool_policies[] = {
+        [ETHTOOL_MSG_COALESCE_SET] = BUILD_POLICY_NESTED(genl_ethtool_coalesce),
 };
 
 /***************** genl fou type systems *****************/
@@ -236,6 +306,7 @@ static const NLAPolicy genl_wireguard_policies[] = {
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
         BUILD_UNION_ELEMENT_BY_STRING(BATADV_NL_NAME,               genl_batadv),
+        BUILD_UNION_ELEMENT_BY_STRING(ETHTOOL_GENL_NAME,            genl_ethtool),
         BUILD_UNION_ELEMENT_BY_STRING(FOU_GENL_NAME,                genl_fou),
         BUILD_UNION_ELEMENT_BY_STRING(L2TP_GENL_NAME,               genl_l2tp),
         BUILD_UNION_ELEMENT_BY_STRING(MACSEC_GENL_NAME,             genl_macsec),
@@ -249,4 +320,8 @@ DEFINE_POLICY_SET_UNION(genl, 0);
 
 const NLAPolicySet *genl_get_policy_set_by_name(const char *name) {
         return policy_set_union_get_policy_set_by_string(&genl_policy_set_union, name);
+}
+
+bool genl_family_is_indexed_by_command(const char *name) {
+        return streq(name, ETHTOOL_GENL_NAME);
 }
