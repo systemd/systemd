@@ -2574,7 +2574,7 @@ int home_create_luks(
 
         if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
-                (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0);
+                (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0, /* args= */ NULL);
         else {
                 assert(setup->temporary_image_path);
 
@@ -3548,7 +3548,7 @@ int home_resize_luks(
                         log_info("Growing of partition completed.");
 
                 if (S_ISBLK(st.st_mode))
-                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0);
+                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0, /* args= */ NULL);
 
                 /* Tell LUKS about the new bigger size too */
                 /* libcrypsetup uses units of 512B sectors for size */
@@ -3650,7 +3650,7 @@ int home_resize_luks(
                         log_info("Shrinking of partition completed.");
 
                 if (S_ISBLK(st.st_mode))
-                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0);
+                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0, /* args= */ NULL);
 
         } else { /* → Grow */
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
