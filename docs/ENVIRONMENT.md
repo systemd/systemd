@@ -402,7 +402,7 @@ All tools:
 
 * `$SYSTEMD_LOCALE_DIRECTORY=` — The directory must be absolute and normalized.
   If unset, the default locale directory of the C library (`/usr/lib/locale/`
-  for glibc and `/usr/share/i18n/locales/musl/` for musl) will be used.
+  for glibc and `/usr/share/musl/locale/` for musl) will be used.
 
 `systemd-resolved`:
 
