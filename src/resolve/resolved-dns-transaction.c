@@ -34,6 +34,80 @@
 
 #define TRANSACTIONS_MAX 4096
 
+static int dnssec_result_to_ede_rcode(DnssecResult result) {
+        switch (result) {
+
+        case DNSSEC_INVALID:
+                return DNS_EDE_RCODE_DNSSEC_BOGUS;
+
+        case DNSSEC_SIGNATURE_EXPIRED:
+                return DNS_EDE_RCODE_SIG_EXPIRED;
+
+        case DNSSEC_UNSUPPORTED_ALGORITHM:
+                return DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG;
+
+        case DNSSEC_TOO_MANY_VALIDATIONS:
+        case DNSSEC_FAILED_AUXILIARY:
+                return DNS_EDE_RCODE_DNSSEC_INDETERMINATE;
+
+        case DNSSEC_NO_SIGNATURE:
+                return DNS_EDE_RCODE_RRSIG_MISSING;
+
+        case DNSSEC_MISSING_KEY:
+                return DNS_EDE_RCODE_DNSKEY_MISSING;
+
+        case DNSSEC_UNSIGNED:
+                return DNS_EDE_RCODE_DNSSEC_INDETERMINATE;
+
+        case DNSSEC_NSEC_MISMATCH:
+                return DNS_EDE_RCODE_NSEC_MISSING;
+
+        case DNSSEC_INCOMPATIBLE_SERVER:
+                return DNS_EDE_RCODE_NOT_SUPPORTED;
+
+        default:
+                return _DNS_EDE_RCODE_INVALID;
+        }
+}
+
+static bool dns_ede_rcode_is_cacheable(int ede_rcode) {
+        return dns_ede_rcode_is_dnssec(ede_rcode) ||
+                IN_SET(ede_rcode,
+                       DNS_EDE_RCODE_FORGED_ANSWER,
+                       DNS_EDE_RCODE_BLOCKED,
+                       DNS_EDE_RCODE_CENSORED,
+                       DNS_EDE_RCODE_FILTERED,
+                       DNS_EDE_RCODE_PROHIBITED);
+}
+
+static int dns_transaction_copy_cacheable_ede(DnsTransaction *t, DnsPacket *p) {
+        _cleanup_free_ char *ede_msg = NULL;
+        int ede_rcode, r;
+
+        assert(t);
+        assert(p);
+
+        r = dns_packet_ede_rcode(p, &ede_rcode, &ede_msg);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        if (!dns_ede_rcode_is_cacheable(ede_rcode))
+                return 0;
+
+        t->answer_ede_rcode = ede_rcode;
+        return free_and_strdup(&t->answer_ede_msg, ede_msg);
+}
+
+static void dns_transaction_set_stale_ede(DnsTransaction *t) {
+        assert(t);
+
+        if (t->answer_rcode != DNS_RCODE_SUCCESS)
+                return;
+
+        t->answer_ede_rcode = DNS_EDE_RCODE_STALE_ANSWER;
+        t->answer_ede_msg = mfree(t->answer_ede_msg);
+}
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -414,6 +488,9 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         assert(!DNS_TRANSACTION_IS_LIVE(state));
 
         if (state == DNS_TRANSACTION_DNSSEC_FAILED) {
+                if (t->answer_ede_rcode < 0)
+                        t->answer_ede_rcode = dnssec_result_to_ede_rcode(t->answer_dnssec_result);
+
                 dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str);
 
                 log_struct(LOG_NOTICE,
@@ -860,8 +937,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       dns_transaction_key(t),
                       t->answer_rcode,
                       t->answer,
-                      /* If neither DO nor EDE is set, the full packet isn't useful to cache */
-                      dns_packet_do(t->received) || t->answer_ede_rcode > 0 || t->answer_ede_msg ? t->received : NULL,
+                      /* If neither DO nor a cacheable EDE is set, the full packet isn't useful to cache */
+                      dns_packet_do(t->received) || dns_ede_rcode_is_cacheable(t->answer_ede_rcode) ? t->received : NULL,
                       t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
@@ -1843,7 +1920,9 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                  * packet. */
                                 dns_transaction_reset_answer(t);
                         else {
-                                if (t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)) {
+                                bool serve_stale = t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE);
+
+                                if (serve_stale) {
 
                                         if (t->answer_rcode == DNS_RCODE_SUCCESS) {
                                                 if (t->seen_timeout)
@@ -1859,14 +1938,15 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 }
 
                                 t->answer_source = DNS_TRANSACTION_CACHE;
+                                if (t->received)
+                                        (void) dns_transaction_copy_cacheable_ede(t, t->received);
+                                if (serve_stale)
+                                        dns_transaction_set_stale_ede(t);
+
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
-                                else {
-                                        if (t->received)
-                                                (void) dns_packet_ede_rcode(t->received, &t->answer_ede_rcode, &t->answer_ede_msg);
-
+                                else
                                         dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
-                                }
                                 return 0;
                         }
                 }
