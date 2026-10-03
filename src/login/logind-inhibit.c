@@ -460,7 +460,7 @@ const char* inhibit_what_to_string(InhibitWhat w) {
             "handle-suspend-key:"
             "handle-hibernate-key:"
             "handle-lid-switch:"
-            "handle-reboot-key")+1];
+            "handle-reboot-key:")+1];
         char *p;
 
         if (!inhibit_what_is_valid(w))
