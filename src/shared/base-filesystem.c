@@ -139,6 +139,14 @@ static const BaseFilesystem table[] = {
 #elif defined(__s390__)
         /* s390-linux-gnu */
 #elif defined(__sparc__)
+#  if defined(__sparc64__)
+        /* sparc64-linux-gnu */
+        { "lib64",    0, "usr/lib64\0"
+                         "usr/lib\0",                "ld-linux.so.2" },
+#else
+        /* sparc-linux-gnu */
+        /* No /lib32 or /lib64 on SPARC (32-bit). The linker is /lib/ld-linux.so.2. */
+#    define KNOW_LIB64_DIRS 1
 #endif
         /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
 };
