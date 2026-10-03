@@ -1560,8 +1560,8 @@ testcase_unpriv_gidmap() {
     touch "$root/file"
     chown -R 54321:12345 "$root"
 
-    permissions="$(run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no --link-journal=no -D "$root" stat -c %u:%g /file)"
-    assert_eq "$permissions" "0:65534"
+    permissions="$(run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no -D "$root" stat -c %u:%g /file)"
+    assert_eq "$permissions" "0:0"
 
     rm -rf "$root"
 }

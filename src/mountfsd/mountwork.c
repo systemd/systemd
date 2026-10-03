@@ -1115,6 +1115,11 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
+        gid_t peer_gid;
+        r = sd_varlink_get_peer_gid(link, &peer_gid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client GID: %m");
+
         /* Get path of the fd, to improve logging */
         _cleanup_free_ char *directory_path = NULL;
         (void) fd_get_path(directory_fd, &directory_path);
@@ -1271,11 +1276,16 @@ static int vl_method_mount_directory(
                 } else
                         start = 0;
 
-                _cleanup_free_ char *new_uid_map = NULL;
+                _cleanup_free_ char *new_uid_map = NULL, *new_gid_map = NULL;
                 switch (p.mode) {
                 case MOUNT_MAP_ROOT:
                         r = strextendf(&new_uid_map, UID_FMT " " UID_FMT " " UID_FMT,
                                        peer_uid, start, (uid_t) 1);
+
+                        if (r >= 0)
+                                r = strextendf(&new_gid_map, GID_FMT " " GID_FMT " " GID_FMT,
+                                               peer_gid, start, (gid_t) 1);
+
                         break;
                 case MOUNT_MAP_FOREIGN:
                         r = strextendf(&new_uid_map, UID_FMT " " UID_FMT " " UID_FMT,
@@ -1287,7 +1297,7 @@ static int vl_method_mount_directory(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
+                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_gid_map ?: new_uid_map, /* setgroups_deny= */ true);
                 if (idmap_userns_fd < 0)
                         return log_debug_errno(idmap_userns_fd, "Failed to acquire user namespace for id mapping: %m");
 
