@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "blkid-util.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
@@ -24,6 +25,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
@@ -40,6 +42,7 @@
 #include "pkcs11-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -124,6 +127,8 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static bool arg_wipe = false;
+static bool arg_wipe_implied = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -642,7 +647,9 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
-        } else if (!streq(option, "x-initrd.attach"))
+        } else if (streq(option, "wipe"))
+                arg_wipe = true;
+        else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -684,6 +691,15 @@ static int parse_crypt_config(const char *options) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Password cache is not supported for PKCS#11 security tokens.");
         }
+
+        if (arg_wipe && arg_readonly)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The 'wipe' and 'read-only' options cannot be combined.");
+#if !HAVE_BLKID
+        if (arg_wipe)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Cannot wipe fs and partition signatures, libblkid support is not compiled in.");
+#endif
 
         return 0;
 }
@@ -1089,6 +1105,109 @@ static int log_external_activation(int r, const char *volume) {
         return 0;
 }
 
+static int wipe_fs_superblock(const char *name) {
+#if HAVE_BLKID
+        _cleanup_free_ char *device = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+        int r, level;
+
+        assert(name);
+
+        /* implied wipe must not break previously working crypttab entries */
+        if (arg_wipe_implied && arg_readonly) {
+                log_debug("Skipping implied wipe, volume is read-only.");
+                return 0;
+        }
+
+        level = arg_wipe_implied ? LOG_WARNING : LOG_ERR;
+
+        r = dlopen_libblkid(level);
+        if (r < 0)
+                goto finish_wipe;
+
+        device = path_join(sym_crypt_get_dir(), name);
+        if (!device)
+                return log_oom();
+
+        fd = open(device, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_EXCL);
+        if (fd < 0) {
+                r = log_full_errno(level, errno, "Failed to open device %s: %m", device);
+                goto finish_wipe;
+        }
+
+        r = fd_verify_block(fd);
+        if (r < 0) {
+                r = log_full_errno(level, r, "Verification that '%s' is actually a block device failed: %m", device);
+                goto finish_wipe;
+        }
+
+        probe = sym_blkid_new_probe();
+        if (!probe)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(probe, fd, /* off= */ 0, /* size= */ 0);
+        if (r < 0) {
+                r = log_full_errno(level, errno_or_else(EIO), "Failed to allocate device probe for wiping.");
+                goto finish_wipe;
+        }
+
+        errno = 0;
+        if (sym_blkid_probe_enable_superblocks(probe, true) < 0 ||
+            sym_blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
+            sym_blkid_probe_enable_partitions(probe, true) < 0 ||
+            sym_blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0) {
+                r = log_full_errno(level, errno_or_else(EIO), "Failed to enable superblock and partition probing.");
+                goto finish_wipe;
+        }
+
+        /* We have a counter here for robustness not allowing blkid stuck */
+        for (unsigned n = 0;; n++) {
+                errno = 0;
+                r = sym_blkid_do_probe(probe);
+                if (r < 0) {
+                        r = log_full_errno(level, errno_or_else(EIO), "Failed to probe for file systems.");
+                        goto finish_wipe;
+                }
+                if (r > 0) {
+                        if (n > 0)
+                                log_info("Successfully wiped file system and partition signatures from %s.", device);
+                        break;
+                }
+
+                if (n >= 5) {
+                        r = log_full_errno(level, SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to fully wipe file system signatures after %u attempts, giving up.", n);
+                        goto finish_wipe;
+                }
+
+                errno = 0;
+                if (sym_blkid_do_wipe(probe, false) < 0) {
+                        r = log_full_errno(level, errno_or_else(EIO), "Failed to wipe file system signature.");
+                        goto finish_wipe;
+                }
+        }
+
+        r = 0;
+
+finish_wipe:
+        if (arg_wipe_implied)
+                return 0;
+        /* avoid callers mapping -EPERM/-EAGAIN to another try, we already mapped the volume */
+        if (IN_SET(r, -EPERM, -EAGAIN))
+                r = -ENOTRECOVERABLE;
+        return r;
+#else
+        if (arg_wipe_implied) {
+                log_warning("Cannot wipe signatures, libblkid support is not compiled in, skipping.");
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot wipe fs and partition signatures, libblkid support is not compiled in.");
+#endif
+}
+
 static int measured_crypt_activate_by_volume_key(
                 struct crypt_device *cd,
                 const char *name,
@@ -1129,6 +1248,12 @@ static int measured_crypt_activate_by_volume_key(
                 return log_external_activation(r, name);
         if (r < 0)
                 return r;
+
+        if (arg_wipe) {
+                r = wipe_fs_superblock(name);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_tpm2_measure_pcr == UINT_MAX) {
                 log_debug("Not measuring volume key, deactivated.");
@@ -1191,6 +1316,12 @@ shortcut:
                 return log_external_activation(keyslot, name);
         if (keyslot < 0)
                 return keyslot;
+
+        if (arg_wipe) {
+                r = wipe_fs_superblock(name);
+                if (r < 0)
+                        return r;
+        }
 
         (void) measure_keyslot(cd, name, mechanism, keyslot);
         return keyslot;
@@ -1472,8 +1603,15 @@ static int crypt_activate_by_token_pin_ask_password(
         int r;
 
         r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
-        if (r > 0) /* returns unlocked keyslot id on success */
+        if (r >= 0) {
+                /* returns unlocked keyslot id on success */
+                if (arg_wipe) {
+                        r = wipe_fs_superblock(name);
+                        if (r < 0)
+                                return r;
+                }
                 return 0;
+        }
         if (r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -1485,8 +1623,15 @@ static int crypt_activate_by_token_pin_ask_password(
 
         STRV_FOREACH(p, pins) {
                 r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
-                if (r > 0) /* returns unlocked keyslot id on success */
+                if (r >= 0) {
+                        /* returns unlocked keyslot id on success */
+                        if (arg_wipe) {
+                                r = wipe_fs_superblock(name);
+                                if (r < 0)
+                                        return r;
+                        }
                         return 0;
+                }
                 if (r == -EEXIST) /* volume is already active */
                         return log_external_activation(r, name);
                 if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -1515,8 +1660,15 @@ static int crypt_activate_by_token_pin_ask_password(
 
                 STRV_FOREACH(p, pins) {
                         r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
-                        if (r > 0) /* returns unlocked keyslot id on success */
+                        if (r >= 0) {
+                                /* returns unlocked keyslot id on success */
+                                if (arg_wipe) {
+                                        r = wipe_fs_superblock(name);
+                                        if (r < 0)
+                                                return r;
+                                }
                                 return 0;
+                        }
                         if (r == -EEXIST) /* volume is already active */
                                 return log_external_activation(r, name);
                         if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -1582,6 +1734,9 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         for (;;) {
                 if (use_libcryptsetup_plugin && !arg_fido2_cid) {
                         r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_fido2_device, flags);
+                        /* Mapped but still an error: wipe (or similar) after activate.*/
+                        if (r < 0 && IN_SET(sym_crypt_status(cd, name), CRYPT_ACTIVE, CRYPT_BUSY))
+                                return r;
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1704,12 +1859,17 @@ static int attach_luks2_by_pkcs11_via_plugin(
         };
 
         r = sym_crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
-        if (r > 0) /* returns unlocked keyslot id on success */
-                r = 0;
         if (r == -EEXIST) /* volume is already active */
-                r = log_external_activation(r, name);
+                return log_external_activation(r, name);
+        if (r < 0)
+                return r;
+        if (arg_wipe) {
+                r = wipe_fs_superblock(name);
+                if (r < 0)
+                        return r;
+        }
 
-        return r;
+        return 0;
 #else
         return -EOPNOTSUPP;
 #endif
@@ -2002,6 +2162,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         r = attach_luks2_by_tpm2_via_plugin(cd, name, until, flags);
                         if (r >= 0)
                                 return 0;
+                        /* Mapped but still an error: wipe (or similar) after activate. Don't call it a TPM2 failure. */
+                        if (IN_SET(sym_crypt_status(cd, name), CRYPT_ACTIVE, CRYPT_BUSY))
+                                return r;
                         /* EAGAIN     means: no tpm2 chip found
                          * EOPNOTSUPP means: no libcryptsetup plugins support */
                         if (r == -ENXIO)
@@ -2285,6 +2448,8 @@ static int attach_luks_or_plain_or_bitlk_by_passphrase(
                         r = measured_crypt_activate_by_passphrase(cd, name, /* mechanism= */ NULL, arg_key_slot, *p, strlen(*p), flags);
                 if (r >= 0)
                         break;
+                if (r != -EPERM) /* Retry only on passphrase incorrect */
+                        break;
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
@@ -2519,6 +2684,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return r;
         }
 
+        if (key_file && random_is_rng_device(key_file) && !arg_wipe) {
+                arg_wipe = true;
+                arg_wipe_implied = true;
+                log_info("RNG device is used as key file. Enabling wipe mode.");
+        }
+
         log_debug("%s %s ← %s type=%s cipher=%s", __func__,
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
@@ -2606,6 +2777,10 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                 log_debug("Volume %s activated with a LUKS token.", volume);
                                 return 0;
                         }
+                        /* Wipe failure: volume is already mapped. Falling through would hit -EEXIST on the next
+                         * attempt and log_external_activation() would report success. Return the error. */
+                        if (IN_SET(sym_crypt_status(cd, volume), CRYPT_ACTIVE, CRYPT_BUSY))
+                                return r;
 
                         log_debug_errno(r, "Token activation unsuccessful for device %s: %m", sym_crypt_get_device_name(cd));
                 }
@@ -2763,6 +2938,7 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(required);
         LIBFIDO2_NOTE(suggested);
