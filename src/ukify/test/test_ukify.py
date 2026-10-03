@@ -1433,5 +1433,27 @@ def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
     shutil.rmtree(tmp_path)
 
 
+def test_parse_args_hyp_only_default_output():
+    opts = ukify.parse_args(['build', '--hyp=hyp.efi'])
+
+    assert opts.linux is None
+    assert opts.hyp == pathlib.Path('hyp.efi')
+    assert opts.output == 'hyp.efi.unsigned.efi'
+
+
+def test_parse_args_hyp_vm_sections():
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--hyp=hyp.efi',
+            '--section=.vm1.lnx:@linux.efi',
+            '--section=.vmA.lnx:@linux-a.efi',
+        ]
+    )
+
+    assert opts.hyp == pathlib.Path('hyp.efi')
+    assert [section.name for section in opts.sections] == ['.vm1.lnx', '.vmA.lnx']
+
+
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))
