@@ -15,17 +15,17 @@
 #include "strv.h"
 
 #if HAVE_OPENSSL
-#  include <openssl/kdf.h>
-#  include <openssl/provider.h>
-#  include <openssl/store.h>
+#        include <openssl/kdf.h>
+#        include <openssl/provider.h>
+#        include <openssl/store.h>
 
-#  if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
-#    include <openssl/engine.h>
-#  endif
+#        if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#                include <openssl/engine.h>
+#        endif
 
-#  ifndef OPENSSL_NO_UI_CONSOLE
-#    include <openssl/ui.h>
-#  endif
+#        ifndef OPENSSL_NO_UI_CONSOLE
+#                include <openssl/ui.h>
+#        endif
 
 /* Forward declarations for OpenSSL thread pool API (optional, available in OpenSSL >= 3.2). These
  * are resolved at runtime via DLSYM_OPTIONAL later. */
@@ -37,13 +37,54 @@ struct OpenSSLAskPasswordUI {
         UI_METHOD *method;
 };
 
+/* addition start*/
+DLSYM_PROTOTYPE(ASN1_INTEGER_new) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_set_uint64) = NULL;
+DLSYM_PROTOTYPE(OBJ_txt2nid) = NULL;
+DLSYM_PROTOTYPE(RAND_bytes) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_free) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_new) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_algo) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_msg) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_free) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_new) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_cert_req) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_msg_imprint) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_nonce) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_version) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_free) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_status_info) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_token) = NULL;
+DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_status) = NULL;
+DLSYM_PROTOTYPE(X509_ALGOR_new) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_get) = NULL;
+DLSYM_PROTOTYPE(d2i_TS_RESP) = NULL;
+DLSYM_PROTOTYPE(i2d_TS_REQ) = NULL;
+
+DLSYM_PROTOTYPE(X509_STORE_new) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_free) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_set_default_paths) = NULL;
+
+DLSYM_PROTOTYPE(TS_REQ_to_TS_VERIFY_CTX) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_set0_store) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_free) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_add_flags) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_verify_response) = NULL;
+
+DLSYM_PROTOTYPE(TS_TST_INFO_get_time) = NULL;
+DLSYM_PROTOTYPE(ASN1_TIME_to_tm) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_tst_info) = NULL;
+
+DLSYM_PROTOTYPE(X509_STORE_load_file) = NULL;
+/*addition end */
+
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_BIT_STRING_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_BMPSTRING_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_BMPSTRING_new) = NULL;
 DLSYM_PROTOTYPE(ASN1_IA5STRING_it) = NULL;
 static DLSYM_PROTOTYPE(ASN1_INTEGER_dup) = NULL;
-static DLSYM_PROTOTYPE(ASN1_INTEGER_free) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_free) = NULL; // removed static
 static DLSYM_PROTOTYPE(ASN1_INTEGER_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_OBJECT_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_OCTET_STRING_free) = NULL;
@@ -285,7 +326,7 @@ DLSYM_PROTOTYPE(PKCS7_sign) = NULL;
 DLSYM_PROTOTYPE(PKCS7_verify) = NULL;
 DLSYM_PROTOTYPE(SHA512) = NULL;
 DLSYM_PROTOTYPE(X509_ALGOR_free) = NULL;
-static DLSYM_PROTOTYPE(X509_ALGOR_set0) = NULL;
+DLSYM_PROTOTYPE(X509_ALGOR_set0) = NULL; // removed static
 DLSYM_PROTOTYPE(X509_ATTRIBUTE_free) = NULL;
 DLSYM_PROTOTYPE(X509_NAME_free) = NULL;
 DLSYM_PROTOTYPE(X509_NAME_oneline) = NULL;
@@ -316,12 +357,12 @@ static DLSYM_PROTOTYPE(i2d_PublicKey) = NULL;
 DLSYM_PROTOTYPE(i2d_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_X509_NAME) = NULL;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_CTX*, sym_OSSL_STORE_close, OSSL_STORE_closep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_INFO*, sym_OSSL_STORE_INFO_free, OSSL_STORE_INFO_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_KDF*, sym_EVP_KDF_free, EVP_KDF_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_KDF_CTX*, sym_EVP_KDF_CTX_free, EVP_KDF_CTX_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_CTX *, sym_OSSL_STORE_close, OSSL_STORE_closep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_INFO *, sym_OSSL_STORE_INFO_free, OSSL_STORE_INFO_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_KDF *, sym_EVP_KDF_free, EVP_KDF_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_KDF_CTX *, sym_EVP_KDF_CTX_free, EVP_KDF_CTX_freep, NULL);
 
-#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#        if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 static DLSYM_PROTOTYPE(ENGINE_by_id) = NULL;
 static DLSYM_PROTOTYPE(ENGINE_free) = NULL;
@@ -329,10 +370,10 @@ static DLSYM_PROTOTYPE(ENGINE_init) = NULL;
 static DLSYM_PROTOTYPE(ENGINE_load_private_key) = NULL;
 REENABLE_WARNING;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ENGINE*, sym_ENGINE_free, ENGINE_freep, NULL);
-#endif
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ENGINE *, sym_ENGINE_free, ENGINE_freep, NULL);
+#        endif
 
-#ifndef OPENSSL_NO_UI_CONSOLE
+#        ifndef OPENSSL_NO_UI_CONSOLE
 static DLSYM_PROTOTYPE(UI_OpenSSL) = NULL;
 static DLSYM_PROTOTYPE(UI_create_method) = NULL;
 static DLSYM_PROTOTYPE(UI_destroy_method) = NULL;
@@ -347,8 +388,8 @@ static DLSYM_PROTOTYPE(UI_method_set_reader) = NULL;
 static DLSYM_PROTOTYPE(UI_set_default_method) = NULL;
 static DLSYM_PROTOTYPE(UI_set_result) = NULL;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_destroy_methodp, NULL);
-#endif
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD *, sym_UI_destroy_method, UI_destroy_methodp, NULL);
+#        endif
 
 #endif
 
@@ -361,285 +402,334 @@ int dlopen_libcrypto(int log_level) {
 
         FOREACH_STRING(soname, "libcrypto.so.4", "libcrypto.so.3") {
                 r = dlopen_many_sym_or_warn(
-                        &libcrypto_dl,
-                        soname,
-                        LOG_DEBUG,
-                        DLSYM_ARG(ASN1_ANY_it),
-                        DLSYM_ARG(ASN1_BIT_STRING_it),
-                        DLSYM_ARG(ASN1_BMPSTRING_it),
-                        DLSYM_ARG(ASN1_BMPSTRING_new),
-                        DLSYM_ARG(ASN1_IA5STRING_it),
-                        DLSYM_ARG(ASN1_INTEGER_dup),
-                        DLSYM_ARG(ASN1_INTEGER_free),
-                        DLSYM_ARG(ASN1_INTEGER_set),
-                        DLSYM_ARG(ASN1_OBJECT_it),
-                        DLSYM_ARG(ASN1_OCTET_STRING_free),
-                        DLSYM_ARG(ASN1_OCTET_STRING_it),
-                        DLSYM_ARG(ASN1_OCTET_STRING_set),
-                        DLSYM_ARG(ASN1_STRING_get0_data),
-                        DLSYM_ARG(ASN1_STRING_length),
-                        DLSYM_ARG(ASN1_STRING_new),
-                        DLSYM_ARG(ASN1_STRING_set),
-                        DLSYM_ARG(ASN1_STRING_set0),
-                        DLSYM_ARG(ASN1_TIME_free),
-                        DLSYM_ARG(ASN1_TIME_set),
-                        DLSYM_ARG(ASN1_TYPE_new),
-                        DLSYM_ARG(ASN1_get_object),
-                        DLSYM_ARG(ASN1_item_d2i),
-                        DLSYM_ARG(ASN1_item_free),
-                        DLSYM_ARG(ASN1_item_i2d),
-                        DLSYM_ARG(ASN1_item_new),
-                        DLSYM_ARG(BIO_ctrl),
-                        DLSYM_ARG(BIO_find_type),
-                        DLSYM_ARG(BIO_free),
-                        DLSYM_ARG(BIO_free_all),
-                        DLSYM_ARG(BIO_new),
-                        DLSYM_ARG(BIO_new_mem_buf),
-                        DLSYM_ARG(BIO_new_socket),
-                        DLSYM_ARG(BIO_s_mem),
-                        DLSYM_ARG(BIO_write),
-                        DLSYM_ARG(BN_CTX_free),
-                        DLSYM_ARG(BN_CTX_new),
-                        DLSYM_ARG(BN_CTX_secure_new),
-                        DLSYM_ARG(BN_add),
-                        DLSYM_ARG(BN_add_word),
-                        DLSYM_ARG(BN_bin2bn),
-                        DLSYM_ARG(BN_bn2bin),
-                        DLSYM_ARG(BN_bn2binpad),
-                        DLSYM_ARG(BN_bn2nativepad),
-                        DLSYM_ARG(BN_check_prime),
-                        DLSYM_ARG(BN_clear_free),
-                        DLSYM_ARG(BN_cmp),
-                        DLSYM_ARG(BN_copy),
-                        DLSYM_ARG(BN_free),
-                        DLSYM_ARG(BN_is_negative),
-                        DLSYM_ARG(BN_mod_exp),
-                        DLSYM_ARG(BN_mod_inverse),
-                        DLSYM_ARG(BN_mod_lshift1_quick),
-                        DLSYM_ARG(BN_mod_mul),
-                        DLSYM_ARG(BN_mod_sqr),
-                        DLSYM_ARG(BN_mod_sub),
-                        DLSYM_ARG(BN_mul),
-                        DLSYM_ARG(BN_new),
-                        DLSYM_ARG(BN_nnmod),
-                        DLSYM_ARG(BN_num_bits),
-                        DLSYM_ARG(BN_secure_new),
-                        DLSYM_ARG(BN_set_word),
-                        DLSYM_ARG(BN_sub_word),
-                        DLSYM_ARG(CRYPTO_free),
-                        DLSYM_ARG(ECDSA_SIG_free),
-                        DLSYM_ARG(ECDSA_SIG_get0_r),
-                        DLSYM_ARG(ECDSA_SIG_get0_s),
-                        DLSYM_ARG(ECDSA_SIG_new),
-                        DLSYM_ARG(ECDSA_SIG_set0),
-                        DLSYM_ARG(EC_GROUP_free),
-                        DLSYM_ARG(EC_GROUP_get0_generator),
-                        DLSYM_ARG(EC_GROUP_get0_order),
-                        DLSYM_ARG(EC_GROUP_get_curve),
-                        DLSYM_ARG(EC_GROUP_get_curve_name),
-                        DLSYM_ARG(EC_GROUP_get_degree),
-                        DLSYM_ARG(EC_GROUP_get_field_type),
-                        DLSYM_ARG(EC_GROUP_new_by_curve_name),
-                        DLSYM_ARG(EC_POINT_free),
-                        DLSYM_ARG(EC_POINT_new),
-                        DLSYM_ARG(EC_POINT_oct2point),
-                        DLSYM_ARG(EC_POINT_point2buf),
-                        DLSYM_ARG(EC_POINT_point2oct),
-                        DLSYM_ARG(EC_POINT_set_affine_coordinates),
-                        DLSYM_ARG(ERR_clear_error),
-                        DLSYM_ARG(ERR_error_string),
-                        DLSYM_ARG(ERR_error_string_n),
-                        DLSYM_ARG(ERR_get_error),
-                        DLSYM_ARG(ERR_peek_last_error),
-                        DLSYM_ARG(EVP_CIPHER_CTX_ctrl),
-                        DLSYM_ARG(EVP_CIPHER_CTX_free),
-                        DLSYM_ARG(EVP_CIPHER_CTX_get_block_size),
-                        DLSYM_ARG(EVP_CIPHER_CTX_get_tag_length),
-                        DLSYM_ARG(EVP_CIPHER_CTX_new),
-                        DLSYM_ARG(EVP_CIPHER_fetch),
-                        DLSYM_ARG(EVP_CIPHER_free),
-                        DLSYM_ARG(EVP_CIPHER_get_block_size),
-                        DLSYM_ARG(EVP_CIPHER_get_iv_length),
-                        DLSYM_ARG(EVP_CIPHER_get_key_length),
-                        DLSYM_ARG(EVP_DecryptFinal_ex),
-                        DLSYM_ARG(EVP_DecryptInit_ex),
-                        DLSYM_ARG(EVP_DecryptUpdate),
-                        DLSYM_ARG(EVP_Digest),
-                        DLSYM_ARG(EVP_DigestFinal_ex),
-                        DLSYM_ARG(EVP_DigestInit_ex),
-                        DLSYM_ARG(EVP_DigestSign),
-                        DLSYM_ARG(EVP_DigestSignInit),
-                        DLSYM_ARG(EVP_DigestUpdate),
-                        DLSYM_ARG(EVP_DigestVerify),
-                        DLSYM_ARG(EVP_DigestVerifyInit),
-                        DLSYM_ARG(EVP_EncryptFinal_ex),
-                        DLSYM_ARG(EVP_EncryptInit),
-                        DLSYM_ARG(EVP_EncryptInit_ex),
-                        DLSYM_ARG(EVP_EncryptUpdate),
-                        DLSYM_ARG(EVP_KDF_CTX_free),
-                        DLSYM_ARG(EVP_KDF_CTX_new),
-                        DLSYM_ARG(EVP_KDF_derive),
-                        DLSYM_ARG(EVP_KDF_fetch),
-                        DLSYM_ARG(EVP_KDF_free),
-                        DLSYM_ARG(EVP_MAC_CTX_free),
-                        DLSYM_ARG(EVP_MAC_CTX_get_mac_size),
-                        DLSYM_ARG(EVP_MAC_CTX_new),
-                        DLSYM_ARG(EVP_MAC_fetch),
-                        DLSYM_ARG(EVP_MAC_final),
-                        DLSYM_ARG(EVP_MAC_free),
-                        DLSYM_ARG(EVP_MAC_init),
-                        DLSYM_ARG(EVP_MAC_update),
-                        DLSYM_ARG(EVP_MD_CTX_copy_ex),
-                        DLSYM_ARG(EVP_MD_CTX_free),
-                        DLSYM_ARG(EVP_MD_CTX_get0_md),
-                        DLSYM_ARG(EVP_MD_CTX_new),
-                        DLSYM_ARG(EVP_MD_CTX_set_pkey_ctx),
-                        DLSYM_ARG(EVP_MD_fetch),
-                        DLSYM_ARG(EVP_MD_free),
-                        DLSYM_ARG(EVP_MD_get0_name),
-                        DLSYM_ARG(EVP_MD_get_size),
-                        DLSYM_ARG(EVP_MD_get_type),
-                        DLSYM_ARG(EVP_PKEY_CTX_free),
-                        DLSYM_ARG(EVP_PKEY_CTX_new),
-                        DLSYM_ARG(EVP_PKEY_CTX_new_from_name),
-                        DLSYM_ARG(EVP_PKEY_CTX_new_id),
-                        DLSYM_ARG(EVP_PKEY_CTX_set0_rsa_oaep_label),
-                        DLSYM_ARG(EVP_PKEY_CTX_set_ec_paramgen_curve_nid),
-                        DLSYM_ARG(EVP_PKEY_CTX_set_rsa_keygen_bits),
-                        DLSYM_ARG(EVP_PKEY_CTX_set_rsa_oaep_md),
-                        DLSYM_ARG(EVP_PKEY_CTX_set_rsa_padding),
-                        DLSYM_ARG(EVP_PKEY_CTX_set_signature_md),
-                        DLSYM_ARG(EVP_PKEY_derive),
-                        DLSYM_ARG(EVP_PKEY_derive_init),
-                        DLSYM_ARG(EVP_PKEY_derive_set_peer),
-                        DLSYM_ARG(EVP_PKEY_encrypt),
-                        DLSYM_ARG(EVP_PKEY_encrypt_init),
-                        DLSYM_ARG(EVP_PKEY_eq),
-                        DLSYM_ARG(EVP_PKEY_free),
-                        DLSYM_ARG(EVP_PKEY_fromdata),
-                        DLSYM_ARG(EVP_PKEY_fromdata_init),
-                        DLSYM_ARG(EVP_PKEY_generate),
-                        DLSYM_ARG(EVP_PKEY_get1_encoded_public_key),
-                        DLSYM_ARG(EVP_PKEY_get_base_id),
-                        DLSYM_ARG(EVP_PKEY_get_bits),
-                        DLSYM_ARG(EVP_PKEY_get_bn_param),
-                        DLSYM_ARG(EVP_PKEY_get_group_name),
-                        DLSYM_ARG(EVP_PKEY_get_id),
-                        DLSYM_ARG(EVP_PKEY_get_octet_string_param),
-                        DLSYM_ARG(EVP_PKEY_get_size),
-                        DLSYM_ARG(EVP_PKEY_get_utf8_string_param),
-                        DLSYM_ARG(EVP_PKEY_keygen),
-                        DLSYM_ARG(EVP_PKEY_keygen_init),
-                        DLSYM_ARG(EVP_PKEY_new),
-                        DLSYM_ARG(EVP_PKEY_new_raw_public_key),
-                        DLSYM_ARG(EVP_PKEY_public_check),
-                        DLSYM_ARG(EVP_PKEY_sign),
-                        DLSYM_ARG(EVP_PKEY_sign_init),
-                        DLSYM_ARG(EVP_PKEY_verify),
-                        DLSYM_ARG(EVP_PKEY_verify_init),
-                        DLSYM_ARG(EVP_aes_256_ctr),
-                        DLSYM_ARG(EVP_aes_256_gcm),
-                        DLSYM_ARG(EVP_get_cipherbyname),
-                        DLSYM_ARG(EVP_get_digestbyname),
-                        DLSYM_ARG(EVP_sha1),
-                        DLSYM_ARG(EVP_sha256),
-                        DLSYM_ARG(EVP_sha384),
-                        DLSYM_ARG(EVP_sha512),
-                        DLSYM_ARG(HMAC),
-                        DLSYM_ARG(OBJ_nid2obj),
-                        DLSYM_ARG(OBJ_nid2sn),
-                        DLSYM_ARG(OBJ_sn2nid),
-                        DLSYM_ARG(OBJ_txt2obj),
-                        DLSYM_ARG(OPENSSL_sk_new_null),
-                        DLSYM_ARG(OPENSSL_sk_num),
-                        DLSYM_ARG(OPENSSL_sk_pop_free),
-                        DLSYM_ARG(OPENSSL_sk_push),
-                        DLSYM_ARG(OPENSSL_sk_value),
-                        DLSYM_ARG(OSSL_EC_curve_nid2name),
-                        DLSYM_ARG(OSSL_PARAM_BLD_free),
-                        DLSYM_ARG(OSSL_PARAM_BLD_new),
-                        DLSYM_ARG(OSSL_PARAM_BLD_push_BN),
-                        DLSYM_ARG(OSSL_PARAM_BLD_push_octet_string),
-                        DLSYM_ARG(OSSL_PARAM_BLD_push_uint),
-                        DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
-                        DLSYM_ARG(OSSL_PARAM_BLD_to_param),
-                        DLSYM_ARG(OSSL_PARAM_construct_BN),
-                        DLSYM_ARG(OSSL_PARAM_construct_end),
-                        DLSYM_ARG(OSSL_PARAM_construct_octet_string),
-                        DLSYM_ARG(OSSL_PARAM_construct_utf8_string),
-                        DLSYM_ARG(OSSL_PARAM_free),
-                        DLSYM_ARG(OSSL_PROVIDER_try_load),
-                        DLSYM_ARG(OSSL_STORE_INFO_free),
-                        DLSYM_ARG(OSSL_STORE_INFO_get1_CERT),
-                        DLSYM_ARG(OSSL_STORE_INFO_get1_PKEY),
-                        DLSYM_ARG(OSSL_STORE_close),
-                        DLSYM_ARG(OSSL_STORE_expect),
-                        DLSYM_ARG(OSSL_STORE_load),
-                        DLSYM_ARG(OSSL_STORE_open),
-                        DLSYM_ARG(PEM_read_PUBKEY),
-                        DLSYM_ARG(PEM_read_PrivateKey),
-                        DLSYM_ARG(PEM_read_X509),
-                        DLSYM_ARG(PEM_read_bio_PrivateKey),
-                        DLSYM_ARG(PEM_read_bio_X509),
-                        DLSYM_ARG(PEM_write),
-                        DLSYM_ARG(PEM_write_PUBKEY),
-                        DLSYM_ARG(PEM_write_PrivateKey),
-                        DLSYM_ARG(PEM_write_X509),
-                        DLSYM_ARG(PKCS5_PBKDF2_HMAC),
-                        DLSYM_ARG(PKCS7_ATTR_SIGN_it),
-                        DLSYM_ARG(PKCS7_SIGNER_INFO_free),
-                        DLSYM_ARG(PKCS7_SIGNER_INFO_new),
-                        DLSYM_ARG(PKCS7_SIGNER_INFO_set),
-                        DLSYM_ARG(PKCS7_add0_attrib_signing_time),
-                        DLSYM_ARG(PKCS7_add1_attrib_digest),
-                        DLSYM_ARG(PKCS7_add_attrib_content_type),
-                        DLSYM_ARG(PKCS7_add_attrib_smimecap),
-                        DLSYM_ARG(PKCS7_add_certificate),
-                        DLSYM_ARG(PKCS7_add_signed_attribute),
-                        DLSYM_ARG(PKCS7_add_signer),
-                        DLSYM_ARG(PKCS7_content_new),
-                        DLSYM_ARG(PKCS7_ctrl),
-                        DLSYM_ARG(PKCS7_dataFinal),
-                        DLSYM_ARG(PKCS7_dataInit),
-                        DLSYM_ARG(PKCS7_free),
-                        DLSYM_ARG(PKCS7_get_signer_info),
-                        DLSYM_ARG(PKCS7_new),
-                        DLSYM_ARG(PKCS7_set_content),
-                        DLSYM_ARG(PKCS7_set_type),
-                        DLSYM_ARG(PKCS7_sign),
-                        DLSYM_ARG(PKCS7_verify),
-                        DLSYM_ARG(SHA512),
-                        DLSYM_ARG(X509_ALGOR_free),
-                        DLSYM_ARG(X509_ALGOR_set0),
-                        DLSYM_ARG(X509_ATTRIBUTE_free),
-                        DLSYM_ARG(X509_NAME_free),
-                        DLSYM_ARG(X509_NAME_oneline),
-                        DLSYM_ARG(X509_NAME_set),
-                        DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
-                        DLSYM_ARG(X509_VERIFY_PARAM_set1_ip),
-                        DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
-                        DLSYM_ARG(X509_free),
-                        DLSYM_ARG(X509_get0_pubkey),
-                        DLSYM_ARG(X509_get0_serialNumber),
-                        DLSYM_ARG(X509_get_issuer_name),
-                        DLSYM_ARG(X509_get_pubkey),
-                        DLSYM_ARG(X509_get_signature_info),
-                        DLSYM_ARG(X509_get_subject_name),
-                        DLSYM_ARG(X509_gmtime_adj),
-                        DLSYM_ARG(d2i_ASN1_OCTET_STRING),
-                        DLSYM_ARG(d2i_ECDSA_SIG),
-                        DLSYM_ARG(d2i_ECPKParameters),
-                        DLSYM_ARG(d2i_PKCS7),
-                        DLSYM_ARG(d2i_PUBKEY),
-                        DLSYM_ARG(d2i_X509),
-                        DLSYM_ARG(i2d_ASN1_INTEGER),
-                        DLSYM_ARG(i2d_ECDSA_SIG),
-                        DLSYM_ARG(i2d_PKCS7),
-                        DLSYM_ARG(i2d_PKCS7_fp),
-                        DLSYM_ARG(i2d_PUBKEY),
-                        DLSYM_ARG(i2d_PublicKey),
-                        DLSYM_ARG(i2d_X509),
-                        DLSYM_ARG(i2d_X509_NAME));
+                                &libcrypto_dl,
+                                soname,
+                                LOG_DEBUG,
+                                /*addition start*/
+                                DLSYM_ARG(X509_STORE_load_file),
+                                DLSYM_ARG(TS_REQ_new),
+                                DLSYM_ARG(TS_MSG_IMPRINT_new),
+                                DLSYM_ARG(TS_REQ_set_version),
+                                DLSYM_ARG(TS_MSG_IMPRINT_set_algo),
+                                DLSYM_ARG(TS_MSG_IMPRINT_set_msg),
+                                DLSYM_ARG(TS_REQ_set_msg_imprint),
+                                DLSYM_ARG(TS_REQ_set_cert_req),
+                                DLSYM_ARG(TS_REQ_set_nonce),
+
+                                DLSYM_ARG(ASN1_INTEGER_new),
+                                DLSYM_ARG(ASN1_INTEGER_set_uint64),
+                                DLSYM_ARG(OBJ_txt2nid),
+                                DLSYM_ARG(RAND_bytes),
+                                DLSYM_ARG(TS_MSG_IMPRINT_free),
+                                DLSYM_ARG(TS_MSG_IMPRINT_new),
+                                DLSYM_ARG(TS_MSG_IMPRINT_set_algo),
+                                DLSYM_ARG(TS_MSG_IMPRINT_set_msg),
+                                DLSYM_ARG(TS_REQ_free),
+                                DLSYM_ARG(TS_REQ_new),
+                                DLSYM_ARG(TS_REQ_set_cert_req),
+                                DLSYM_ARG(TS_REQ_set_msg_imprint),
+                                DLSYM_ARG(TS_REQ_set_nonce),
+                                DLSYM_ARG(TS_REQ_set_version),
+                                DLSYM_ARG(X509_ALGOR_new),
+                                DLSYM_ARG(TS_RESP_free),
+                                DLSYM_ARG(TS_RESP_get_status_info),
+                                DLSYM_ARG(TS_RESP_get_token),
+                                DLSYM_ARG(TS_STATUS_INFO_get0_status),
+                                DLSYM_ARG(ASN1_INTEGER_get),
+                                DLSYM_ARG(d2i_TS_RESP),
+                                DLSYM_ARG(i2d_TS_REQ),
+
+                                DLSYM_ARG(X509_STORE_new),
+                                DLSYM_ARG(X509_STORE_free),
+                                DLSYM_ARG(X509_STORE_set_default_paths),
+
+                                DLSYM_ARG(TS_REQ_to_TS_VERIFY_CTX),
+                                DLSYM_ARG(TS_VERIFY_CTX_free),
+                                DLSYM_ARG(TS_VERIFY_CTX_set0_store),
+                                DLSYM_ARG(TS_VERIFY_CTX_add_flags),
+                                DLSYM_ARG(TS_RESP_verify_response),
+
+                                DLSYM_ARG(TS_TST_INFO_get_time),
+                                DLSYM_ARG(ASN1_TIME_to_tm),
+                                DLSYM_ARG(TS_RESP_get_tst_info),
+                                /*addition end*/
+
+                                DLSYM_ARG(ASN1_ANY_it),
+                                DLSYM_ARG(ASN1_BIT_STRING_it),
+                                DLSYM_ARG(ASN1_BMPSTRING_it),
+                                DLSYM_ARG(ASN1_BMPSTRING_new),
+                                DLSYM_ARG(ASN1_IA5STRING_it),
+                                DLSYM_ARG(ASN1_INTEGER_dup),
+                                DLSYM_ARG(ASN1_INTEGER_free),
+                                DLSYM_ARG(ASN1_INTEGER_set),
+                                DLSYM_ARG(ASN1_OBJECT_it),
+                                DLSYM_ARG(ASN1_OCTET_STRING_free),
+                                DLSYM_ARG(ASN1_OCTET_STRING_it),
+                                DLSYM_ARG(ASN1_OCTET_STRING_set),
+                                DLSYM_ARG(ASN1_STRING_get0_data),
+                                DLSYM_ARG(ASN1_STRING_length),
+                                DLSYM_ARG(ASN1_STRING_new),
+                                DLSYM_ARG(ASN1_STRING_set),
+                                DLSYM_ARG(ASN1_STRING_set0),
+                                DLSYM_ARG(ASN1_TIME_free),
+                                DLSYM_ARG(ASN1_TIME_set),
+                                DLSYM_ARG(ASN1_TYPE_new),
+                                DLSYM_ARG(ASN1_get_object),
+                                DLSYM_ARG(ASN1_item_d2i),
+                                DLSYM_ARG(ASN1_item_free),
+                                DLSYM_ARG(ASN1_item_i2d),
+                                DLSYM_ARG(ASN1_item_new),
+                                DLSYM_ARG(BIO_ctrl),
+                                DLSYM_ARG(BIO_find_type),
+                                DLSYM_ARG(BIO_free),
+                                DLSYM_ARG(BIO_free_all),
+                                DLSYM_ARG(BIO_new),
+                                DLSYM_ARG(BIO_new_mem_buf),
+                                DLSYM_ARG(BIO_new_socket),
+                                DLSYM_ARG(BIO_s_mem),
+                                DLSYM_ARG(BIO_write),
+                                DLSYM_ARG(BN_CTX_free),
+                                DLSYM_ARG(BN_CTX_new),
+                                DLSYM_ARG(BN_CTX_secure_new),
+                                DLSYM_ARG(BN_add),
+                                DLSYM_ARG(BN_add_word),
+                                DLSYM_ARG(BN_bin2bn),
+                                DLSYM_ARG(BN_bn2bin),
+                                DLSYM_ARG(BN_bn2binpad),
+                                DLSYM_ARG(BN_bn2nativepad),
+                                DLSYM_ARG(BN_check_prime),
+                                DLSYM_ARG(BN_clear_free),
+                                DLSYM_ARG(BN_cmp),
+                                DLSYM_ARG(BN_copy),
+                                DLSYM_ARG(BN_free),
+                                DLSYM_ARG(BN_is_negative),
+                                DLSYM_ARG(BN_mod_exp),
+                                DLSYM_ARG(BN_mod_inverse),
+                                DLSYM_ARG(BN_mod_lshift1_quick),
+                                DLSYM_ARG(BN_mod_mul),
+                                DLSYM_ARG(BN_mod_sqr),
+                                DLSYM_ARG(BN_mod_sub),
+                                DLSYM_ARG(BN_mul),
+                                DLSYM_ARG(BN_new),
+                                DLSYM_ARG(BN_nnmod),
+                                DLSYM_ARG(BN_num_bits),
+                                DLSYM_ARG(BN_secure_new),
+                                DLSYM_ARG(BN_set_word),
+                                DLSYM_ARG(BN_sub_word),
+                                DLSYM_ARG(CRYPTO_free),
+                                DLSYM_ARG(ECDSA_SIG_free),
+                                DLSYM_ARG(ECDSA_SIG_get0_r),
+                                DLSYM_ARG(ECDSA_SIG_get0_s),
+                                DLSYM_ARG(ECDSA_SIG_new),
+                                DLSYM_ARG(ECDSA_SIG_set0),
+                                DLSYM_ARG(EC_GROUP_free),
+                                DLSYM_ARG(EC_GROUP_get0_generator),
+                                DLSYM_ARG(EC_GROUP_get0_order),
+                                DLSYM_ARG(EC_GROUP_get_curve),
+                                DLSYM_ARG(EC_GROUP_get_curve_name),
+                                DLSYM_ARG(EC_GROUP_get_degree),
+                                DLSYM_ARG(EC_GROUP_get_field_type),
+                                DLSYM_ARG(EC_GROUP_new_by_curve_name),
+                                DLSYM_ARG(EC_POINT_free),
+                                DLSYM_ARG(EC_POINT_new),
+                                DLSYM_ARG(EC_POINT_oct2point),
+                                DLSYM_ARG(EC_POINT_point2buf),
+                                DLSYM_ARG(EC_POINT_point2oct),
+                                DLSYM_ARG(EC_POINT_set_affine_coordinates),
+                                DLSYM_ARG(ERR_clear_error),
+                                DLSYM_ARG(ERR_error_string),
+                                DLSYM_ARG(ERR_error_string_n),
+                                DLSYM_ARG(ERR_get_error),
+                                DLSYM_ARG(ERR_peek_last_error),
+                                DLSYM_ARG(EVP_CIPHER_CTX_ctrl),
+                                DLSYM_ARG(EVP_CIPHER_CTX_free),
+                                DLSYM_ARG(EVP_CIPHER_CTX_get_block_size),
+                                DLSYM_ARG(EVP_CIPHER_CTX_get_tag_length),
+                                DLSYM_ARG(EVP_CIPHER_CTX_new),
+                                DLSYM_ARG(EVP_CIPHER_fetch),
+                                DLSYM_ARG(EVP_CIPHER_free),
+                                DLSYM_ARG(EVP_CIPHER_get_block_size),
+                                DLSYM_ARG(EVP_CIPHER_get_iv_length),
+                                DLSYM_ARG(EVP_CIPHER_get_key_length),
+                                DLSYM_ARG(EVP_DecryptFinal_ex),
+                                DLSYM_ARG(EVP_DecryptInit_ex),
+                                DLSYM_ARG(EVP_DecryptUpdate),
+                                DLSYM_ARG(EVP_Digest),
+                                DLSYM_ARG(EVP_DigestFinal_ex),
+                                DLSYM_ARG(EVP_DigestInit_ex),
+                                DLSYM_ARG(EVP_DigestSign),
+                                DLSYM_ARG(EVP_DigestSignInit),
+                                DLSYM_ARG(EVP_DigestUpdate),
+                                DLSYM_ARG(EVP_DigestVerify),
+                                DLSYM_ARG(EVP_DigestVerifyInit),
+                                DLSYM_ARG(EVP_EncryptFinal_ex),
+                                DLSYM_ARG(EVP_EncryptInit),
+                                DLSYM_ARG(EVP_EncryptInit_ex),
+                                DLSYM_ARG(EVP_EncryptUpdate),
+                                DLSYM_ARG(EVP_KDF_CTX_free),
+                                DLSYM_ARG(EVP_KDF_CTX_new),
+                                DLSYM_ARG(EVP_KDF_derive),
+                                DLSYM_ARG(EVP_KDF_fetch),
+                                DLSYM_ARG(EVP_KDF_free),
+                                DLSYM_ARG(EVP_MAC_CTX_free),
+                                DLSYM_ARG(EVP_MAC_CTX_get_mac_size),
+                                DLSYM_ARG(EVP_MAC_CTX_new),
+                                DLSYM_ARG(EVP_MAC_fetch),
+                                DLSYM_ARG(EVP_MAC_final),
+                                DLSYM_ARG(EVP_MAC_free),
+                                DLSYM_ARG(EVP_MAC_init),
+                                DLSYM_ARG(EVP_MAC_update),
+                                DLSYM_ARG(EVP_MD_CTX_copy_ex),
+                                DLSYM_ARG(EVP_MD_CTX_free),
+                                DLSYM_ARG(EVP_MD_CTX_get0_md),
+                                DLSYM_ARG(EVP_MD_CTX_new),
+                                DLSYM_ARG(EVP_MD_CTX_set_pkey_ctx),
+                                DLSYM_ARG(EVP_MD_fetch),
+                                DLSYM_ARG(EVP_MD_free),
+                                DLSYM_ARG(EVP_MD_get0_name),
+                                DLSYM_ARG(EVP_MD_get_size),
+                                DLSYM_ARG(EVP_MD_get_type),
+                                DLSYM_ARG(EVP_PKEY_CTX_free),
+                                DLSYM_ARG(EVP_PKEY_CTX_new),
+                                DLSYM_ARG(EVP_PKEY_CTX_new_from_name),
+                                DLSYM_ARG(EVP_PKEY_CTX_new_id),
+                                DLSYM_ARG(EVP_PKEY_CTX_set0_rsa_oaep_label),
+                                DLSYM_ARG(EVP_PKEY_CTX_set_ec_paramgen_curve_nid),
+                                DLSYM_ARG(EVP_PKEY_CTX_set_rsa_keygen_bits),
+                                DLSYM_ARG(EVP_PKEY_CTX_set_rsa_oaep_md),
+                                DLSYM_ARG(EVP_PKEY_CTX_set_rsa_padding),
+                                DLSYM_ARG(EVP_PKEY_CTX_set_signature_md),
+                                DLSYM_ARG(EVP_PKEY_derive),
+                                DLSYM_ARG(EVP_PKEY_derive_init),
+                                DLSYM_ARG(EVP_PKEY_derive_set_peer),
+                                DLSYM_ARG(EVP_PKEY_encrypt),
+                                DLSYM_ARG(EVP_PKEY_encrypt_init),
+                                DLSYM_ARG(EVP_PKEY_eq),
+                                DLSYM_ARG(EVP_PKEY_free),
+                                DLSYM_ARG(EVP_PKEY_fromdata),
+                                DLSYM_ARG(EVP_PKEY_fromdata_init),
+                                DLSYM_ARG(EVP_PKEY_generate),
+                                DLSYM_ARG(EVP_PKEY_get1_encoded_public_key),
+                                DLSYM_ARG(EVP_PKEY_get_base_id),
+                                DLSYM_ARG(EVP_PKEY_get_bits),
+                                DLSYM_ARG(EVP_PKEY_get_bn_param),
+                                DLSYM_ARG(EVP_PKEY_get_group_name),
+                                DLSYM_ARG(EVP_PKEY_get_id),
+                                DLSYM_ARG(EVP_PKEY_get_octet_string_param),
+                                DLSYM_ARG(EVP_PKEY_get_size),
+                                DLSYM_ARG(EVP_PKEY_get_utf8_string_param),
+                                DLSYM_ARG(EVP_PKEY_keygen),
+                                DLSYM_ARG(EVP_PKEY_keygen_init),
+                                DLSYM_ARG(EVP_PKEY_new),
+                                DLSYM_ARG(EVP_PKEY_new_raw_public_key),
+                                DLSYM_ARG(EVP_PKEY_public_check),
+                                DLSYM_ARG(EVP_PKEY_sign),
+                                DLSYM_ARG(EVP_PKEY_sign_init),
+                                DLSYM_ARG(EVP_PKEY_verify),
+                                DLSYM_ARG(EVP_PKEY_verify_init),
+                                DLSYM_ARG(EVP_aes_256_ctr),
+                                DLSYM_ARG(EVP_aes_256_gcm),
+                                DLSYM_ARG(EVP_get_cipherbyname),
+                                DLSYM_ARG(EVP_get_digestbyname),
+                                DLSYM_ARG(EVP_sha1),
+                                DLSYM_ARG(EVP_sha256),
+                                DLSYM_ARG(EVP_sha384),
+                                DLSYM_ARG(EVP_sha512),
+                                DLSYM_ARG(HMAC),
+                                DLSYM_ARG(OBJ_nid2obj),
+                                DLSYM_ARG(OBJ_nid2sn),
+                                DLSYM_ARG(OBJ_sn2nid),
+                                DLSYM_ARG(OBJ_txt2obj),
+                                DLSYM_ARG(OPENSSL_sk_new_null),
+                                DLSYM_ARG(OPENSSL_sk_num),
+                                DLSYM_ARG(OPENSSL_sk_pop_free),
+                                DLSYM_ARG(OPENSSL_sk_push),
+                                DLSYM_ARG(OPENSSL_sk_value),
+                                DLSYM_ARG(OSSL_EC_curve_nid2name),
+                                DLSYM_ARG(OSSL_PARAM_BLD_free),
+                                DLSYM_ARG(OSSL_PARAM_BLD_new),
+                                DLSYM_ARG(OSSL_PARAM_BLD_push_BN),
+                                DLSYM_ARG(OSSL_PARAM_BLD_push_octet_string),
+                                DLSYM_ARG(OSSL_PARAM_BLD_push_uint),
+                                DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
+                                DLSYM_ARG(OSSL_PARAM_BLD_to_param),
+                                DLSYM_ARG(OSSL_PARAM_construct_BN),
+                                DLSYM_ARG(OSSL_PARAM_construct_end),
+                                DLSYM_ARG(OSSL_PARAM_construct_octet_string),
+                                DLSYM_ARG(OSSL_PARAM_construct_utf8_string),
+                                DLSYM_ARG(OSSL_PARAM_free),
+                                DLSYM_ARG(OSSL_PROVIDER_try_load),
+                                DLSYM_ARG(OSSL_STORE_INFO_free),
+                                DLSYM_ARG(OSSL_STORE_INFO_get1_CERT),
+                                DLSYM_ARG(OSSL_STORE_INFO_get1_PKEY),
+                                DLSYM_ARG(OSSL_STORE_close),
+                                DLSYM_ARG(OSSL_STORE_expect),
+                                DLSYM_ARG(OSSL_STORE_load),
+                                DLSYM_ARG(OSSL_STORE_open),
+                                DLSYM_ARG(PEM_read_PUBKEY),
+                                DLSYM_ARG(PEM_read_PrivateKey),
+                                DLSYM_ARG(PEM_read_X509),
+                                DLSYM_ARG(PEM_read_bio_PrivateKey),
+                                DLSYM_ARG(PEM_read_bio_X509),
+                                DLSYM_ARG(PEM_write),
+                                DLSYM_ARG(PEM_write_PUBKEY),
+                                DLSYM_ARG(PEM_write_PrivateKey),
+                                DLSYM_ARG(PEM_write_X509),
+                                DLSYM_ARG(PKCS5_PBKDF2_HMAC),
+                                DLSYM_ARG(PKCS7_ATTR_SIGN_it),
+                                DLSYM_ARG(PKCS7_SIGNER_INFO_free),
+                                DLSYM_ARG(PKCS7_SIGNER_INFO_new),
+                                DLSYM_ARG(PKCS7_SIGNER_INFO_set),
+                                DLSYM_ARG(PKCS7_add0_attrib_signing_time),
+                                DLSYM_ARG(PKCS7_add1_attrib_digest),
+                                DLSYM_ARG(PKCS7_add_attrib_content_type),
+                                DLSYM_ARG(PKCS7_add_attrib_smimecap),
+                                DLSYM_ARG(PKCS7_add_certificate),
+                                DLSYM_ARG(PKCS7_add_signed_attribute),
+                                DLSYM_ARG(PKCS7_add_signer),
+                                DLSYM_ARG(PKCS7_content_new),
+                                DLSYM_ARG(PKCS7_ctrl),
+                                DLSYM_ARG(PKCS7_dataFinal),
+                                DLSYM_ARG(PKCS7_dataInit),
+                                DLSYM_ARG(PKCS7_free),
+                                DLSYM_ARG(PKCS7_get_signer_info),
+                                DLSYM_ARG(PKCS7_new),
+                                DLSYM_ARG(PKCS7_set_content),
+                                DLSYM_ARG(PKCS7_set_type),
+                                DLSYM_ARG(PKCS7_sign),
+                                DLSYM_ARG(PKCS7_verify),
+                                DLSYM_ARG(SHA512),
+                                DLSYM_ARG(X509_ALGOR_free),
+                                DLSYM_ARG(X509_ALGOR_set0),
+                                DLSYM_ARG(X509_ATTRIBUTE_free),
+                                DLSYM_ARG(X509_NAME_free),
+                                DLSYM_ARG(X509_NAME_oneline),
+                                DLSYM_ARG(X509_NAME_set),
+                                DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
+                                DLSYM_ARG(X509_VERIFY_PARAM_set1_ip),
+                                DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
+                                DLSYM_ARG(X509_free),
+                                DLSYM_ARG(X509_get0_pubkey),
+                                DLSYM_ARG(X509_get0_serialNumber),
+                                DLSYM_ARG(X509_get_issuer_name),
+                                DLSYM_ARG(X509_get_pubkey),
+                                DLSYM_ARG(X509_get_signature_info),
+                                DLSYM_ARG(X509_get_subject_name),
+                                DLSYM_ARG(X509_gmtime_adj),
+                                DLSYM_ARG(d2i_ASN1_OCTET_STRING),
+                                DLSYM_ARG(d2i_ECDSA_SIG),
+                                DLSYM_ARG(d2i_ECPKParameters),
+                                DLSYM_ARG(d2i_PKCS7),
+                                DLSYM_ARG(d2i_PUBKEY),
+                                DLSYM_ARG(d2i_X509),
+                                DLSYM_ARG(i2d_ASN1_INTEGER),
+                                DLSYM_ARG(i2d_ECDSA_SIG),
+                                DLSYM_ARG(i2d_PKCS7),
+                                DLSYM_ARG(i2d_PKCS7_fp),
+                                DLSYM_ARG(i2d_PUBKEY),
+                                DLSYM_ARG(i2d_PublicKey),
+                                DLSYM_ARG(i2d_X509),
+                                DLSYM_ARG(i2d_X509_NAME));
                 if (r >= 0)
                         break;
         }
@@ -648,7 +738,7 @@ int dlopen_libcrypto(int log_level) {
                 return -EOPNOTSUPP; /* turn into recognizable error */
         }
 
-#ifndef OPENSSL_NO_UI_CONSOLE
+#        ifndef OPENSSL_NO_UI_CONSOLE
         /* Load UI API optionally so we don't fail to load libcrypto.so lacking UI support,
          * even if systemd is built with UI support enabled in the headers. */
         DLSYM_OPTIONAL(libcrypto_dl, UI_OpenSSL);
@@ -664,16 +754,16 @@ int dlopen_libcrypto(int log_level) {
         DLSYM_OPTIONAL(libcrypto_dl, UI_method_set_reader);
         DLSYM_OPTIONAL(libcrypto_dl, UI_set_default_method);
         DLSYM_OPTIONAL(libcrypto_dl, UI_set_result);
-#endif
+#        endif
 
-#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#        if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         /* Load ENGINE API optionally so we don't fail when loading libcrypto.so.4 even if systemd is built
          * with openssl-3 headers. */
         DLSYM_OPTIONAL(libcrypto_dl, ENGINE_by_id);
         DLSYM_OPTIONAL(libcrypto_dl, ENGINE_init);
         DLSYM_OPTIONAL(libcrypto_dl, ENGINE_free);
         DLSYM_OPTIONAL(libcrypto_dl, ENGINE_load_private_key);
-#endif
+#        endif
 
         /* Optional thread pool API (OpenSSL >= 3.2). These symbols are resolved at runtime — if the
          * running libcrypto doesn't provide them, the function pointers stay NULL and threading is
@@ -682,8 +772,7 @@ int dlopen_libcrypto(int log_level) {
         DLSYM_OPTIONAL(libcrypto_dl, OSSL_get_max_threads);
         return r;
 #else
-        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                              "libcrypto support is not compiled in.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "libcrypto support is not compiled in.");
 #endif
 }
 
@@ -692,7 +781,8 @@ bool dlopen_libcrypto_has_argon2id(void) {
         if (dlopen_libcrypto(LOG_DEBUG) < 0)
                 return false;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
+        _cleanup_(EVP_KDF_freep)
+                        EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
         return !!kdf;
 #else
         return false;
@@ -720,9 +810,9 @@ int openssl_to_errno(unsigned long e) {
 
         case ERR_R_PASSED_NULL_PARAMETER:
         case ERR_R_PASSED_INVALID_ARGUMENT:
-#ifdef ERR_R_INVALID_PROPERTY_DEFINITION
+#        ifdef ERR_R_INVALID_PROPERTY_DEFINITION
         case ERR_R_INVALID_PROPERTY_DEFINITION:
-#endif
+#        endif
                 return -EINVAL;
 
         case ERR_R_UNSUPPORTED:
@@ -734,10 +824,10 @@ int openssl_to_errno(unsigned long e) {
         case ERR_R_MISSING_ASN1_EOS:
                 return -EBADMSG;
 
-#ifdef ERR_R_INTERRUPTED_OR_CANCELLED
+#        ifdef ERR_R_INTERRUPTED_OR_CANCELLED
         case ERR_R_INTERRUPTED_OR_CANCELLED:
                 return -EINTR;
-#endif
+#        endif
 
         default:
                 /* Includes the internal/should-not-happen reasons (ERR_R_INTERNAL_ERROR,
@@ -782,7 +872,14 @@ int log_openssl_errors_internal(int level, const char *file, int line, const cha
         }
 
         if (ret == 0) /* The queue was empty. */
-                return log_internal(level, SYNTHETIC_ERRNO(ENOTRECOVERABLE), file, line, func, "%s: No OpenSSL errors.", prefix);
+                return log_internal(
+                                level,
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                file,
+                                line,
+                                func,
+                                "%s: No OpenSSL errors.",
+                                prefix);
 
         return ret;
 }
@@ -801,11 +898,12 @@ int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
                 pem_size = strlen(pem);
 
         _cleanup_fclose_ FILE *f = NULL;
-        f = fmemopen((void*) pem, pem_size, "r");
+        f = fmemopen((void *) pem, pem_size, "r");
         if (!f)
                 return log_oom_debug();
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = sym_PEM_read_PUBKEY(f, /* x= */ NULL, /* pam_password_cb= */ NULL, /* userdata= */ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = sym_PEM_read_PUBKEY(
+                        f, /* x= */ NULL, /* pam_password_cb= */ NULL, /* userdata= */ NULL);
         if (!pkey)
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse PEM");
 
@@ -850,8 +948,8 @@ int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
 
         _cleanup_(EVP_MD_freep) EVP_MD *md = sym_EVP_MD_fetch(NULL, digest_alg, NULL);
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Digest algorithm '%s' not supported.", digest_alg);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP), "Digest algorithm '%s' not supported.", digest_alg);
 
         size_t digest_size = sym_EVP_MD_get_size(md);
         if (digest_size == 0)
@@ -884,8 +982,8 @@ int openssl_digest_many(
 
         _cleanup_(EVP_MD_freep) EVP_MD *md = sym_EVP_MD_fetch(NULL, digest_alg, NULL);
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Digest algorithm '%s' not supported.", digest_alg);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP), "Digest algorithm '%s' not supported.", digest_alg);
 
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
         if (!ctx)
@@ -946,8 +1044,8 @@ int openssl_hmac_many(
 
         _cleanup_(EVP_MD_freep) EVP_MD *md = sym_EVP_MD_fetch(NULL, digest_alg, NULL);
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Digest algorithm '%s' not supported.", digest_alg);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP), "Digest algorithm '%s' not supported.", digest_alg);
 
         _cleanup_(EVP_MAC_freep) EVP_MAC *mac = sym_EVP_MAC_fetch(NULL, "HMAC", NULL);
         if (!mac)
@@ -961,7 +1059,7 @@ int openssl_hmac_many(
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, (char*) digest_alg, 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, (char *) digest_alg, 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to set HMAC OSSL_MAC_PARAM_DIGEST");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
@@ -1035,8 +1133,8 @@ int openssl_cipher_many(
 
         _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = sym_EVP_CIPHER_fetch(NULL, cipher_alg, NULL);
         if (!cipher)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Cipher algorithm '%s' not supported.", cipher_alg);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP), "Cipher algorithm '%s' not supported.", cipher_alg);
 
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *ctx = sym_EVP_CIPHER_CTX_new();
         if (!ctx)
@@ -1046,8 +1144,10 @@ int openssl_cipher_many(
         int cipher_key_length = sym_EVP_CIPHER_get_key_length(cipher);
         assert(cipher_key_length >= 0);
         if ((size_t) cipher_key_length > key_size)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough key bytes provided, require %d", cipher_key_length);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Not enough key bytes provided, require %d",
+                                cipher_key_length);
 
         /* Verify enough IV data was provided or, if no IV was provided, use a zeroed buffer for IV data. */
         int cipher_iv_length = sym_EVP_CIPHER_get_iv_length(cipher);
@@ -1062,8 +1162,10 @@ int openssl_cipher_many(
                 iv_size = (size_t) cipher_iv_length;
         }
         if ((size_t) cipher_iv_length > iv_size)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough IV bytes provided, require %d", cipher_iv_length);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Not enough IV bytes provided, require %d",
+                                cipher_iv_length);
 
         if (!sym_EVP_EncryptInit(ctx, cipher, key, iv))
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize EVP_CIPHER_CTX.");
@@ -1141,18 +1243,18 @@ int kdf_ss_derive(
         if (!buf)
                 return log_oom_debug();
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char *) digest, 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-SS OSSL_KDF_PARAM_DIGEST");
 
-        if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+        if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char *) key, key_size))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-SS OSSL_KDF_PARAM_KEY");
 
         if (salt)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char *) salt, salt_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-SS OSSL_KDF_PARAM_SALT");
 
         if (info)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char *) info, info_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-SS OSSL_KDF_PARAM_INFO");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
@@ -1214,29 +1316,29 @@ int kdf_kb_hmac_derive(
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MAC, (char*) "HMAC", 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MAC, (char *) "HMAC", 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_MAC");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MODE, (char*) mode, 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MODE, (char *) mode, 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_MODE");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char *) digest, 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_DIGEST");
 
         if (key)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char *) key, key_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_KEY");
 
         if (salt)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char *) salt, salt_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_SALT");
 
         if (info)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char *) info, info_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_INFO");
 
         if (seed)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SEED, (char*) seed, seed_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SEED, (char *) seed, seed_size))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add KDF-KB OSSL_KDF_PARAM_SEED");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
@@ -1276,7 +1378,8 @@ int kdf_argon2id_derive(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
+        _cleanup_(EVP_KDF_freep)
+                        EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
         if (!kdf)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_KDF for ARGON2ID");
 
@@ -1297,7 +1400,8 @@ int kdf_argon2id_derive(
         if (!buf)
                 return log_oom_debug();
 
-        if (password && !sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", password->iov_base, password->iov_len))
+        if (password &&
+            !sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", password->iov_base, password->iov_len))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID pass");
 
         if (salt && !sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", salt->iov_base, salt->iov_len))
@@ -1306,7 +1410,10 @@ int kdf_argon2id_derive(
         uint64_t memcost_kb = params->memcost_bytes / 1024;
 
         if (memcost_kb > UINT_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory cost too large: %"PRIu64" bytes", params->memcost_bytes);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Argon2id memory cost too large: %" PRIu64 " bytes",
+                                params->memcost_bytes);
 
         if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost_kb))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID memcost");
@@ -1318,7 +1425,8 @@ int kdf_argon2id_derive(
                 return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID lanes");
 
         /* FIXME: drop sym_OSSL_set_max_threads() conditionalization once OpenSSL 3.2 becomes the minimum baseline */
-        if (params->lanes > 1 && sym_OSSL_set_max_threads && !sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
+        if (params->lanes > 1 && sym_OSSL_set_max_threads &&
+            !sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID threads");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *openssl_params = sym_OSSL_PARAM_BLD_to_param(bld);
@@ -1375,7 +1483,8 @@ int kdf_hkdf_derive(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* libctx= */ NULL, "HKDF", /* properties= */ NULL);
+        _cleanup_(EVP_KDF_freep)
+                        EVP_KDF *kdf = sym_EVP_KDF_fetch(/* libctx= */ NULL, "HKDF", /* properties= */ NULL);
         if (!kdf)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_KDF");
 
@@ -1387,18 +1496,20 @@ int kdf_hkdf_derive(
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, /* bsize= */ 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char *) digest, /* bsize= */ 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add HKDF OSSL_KDF_PARAM_DIGEST");
 
         if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, key->iov_base, key->iov_len))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add HKDF OSSL_KDF_PARAM_KEY");
 
         if (iovec_is_set(salt))
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, salt->iov_base, salt->iov_len))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(
+                                    bld, OSSL_KDF_PARAM_SALT, salt->iov_base, salt->iov_len))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add HKDF OSSL_KDF_PARAM_SALT");
 
         if (iovec_is_set(info))
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, info->iov_base, info->iov_len))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(
+                                    bld, OSSL_KDF_PARAM_INFO, info->iov_base, info->iov_len))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add HKDF OSSL_KDF_PARAM_INFO");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
@@ -1453,10 +1564,10 @@ int rsa_oaep_encrypt_bytes(
 
         _cleanup_(EVP_MD_freep) EVP_MD *md = sym_EVP_MD_fetch(NULL, digest_alg, NULL);
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Digest algorithm '%s' not supported.", digest_alg);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP), "Digest algorithm '%s' not supported.", digest_alg);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new((EVP_PKEY *) pkey, NULL);
         if (!ctx)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_PKEY_CTX");
 
@@ -1497,9 +1608,7 @@ int rsa_oaep_encrypt_bytes(
         return 0;
 }
 
-int rsa_pkey_to_suitable_key_size(
-                EVP_PKEY *pkey,
-                size_t *ret_suitable_key_size) {
+int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size) {
 
         size_t suitable_key_size;
         int bits, r;
@@ -1515,7 +1624,8 @@ int rsa_pkey_to_suitable_key_size(
                 return r;
 
         if (sym_EVP_PKEY_get_base_id(pkey) != EVP_PKEY_RSA)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "X.509 certificate does not refer to RSA key.");
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EBADMSG), "X.509 certificate does not refer to RSA key.");
 
         bits = sym_EVP_PKEY_get_bits(pkey);
         log_debug("Bits in RSA key: %i", bits);
@@ -1585,12 +1695,7 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
 }
 
 /* Get the "n" and "e" values from the pkey. The values are returned in "bin" format, i.e. BN_bn2bin(). */
-int rsa_pkey_to_n_e(
-                const EVP_PKEY *pkey,
-                void **ret_n,
-                size_t *ret_n_size,
-                void **ret_e,
-                size_t *ret_e_size) {
+int rsa_pkey_to_n_e(const EVP_PKEY *pkey, void **ret_n, size_t *ret_n_size, void **ret_e, size_t *ret_e_size) {
 
         int r;
 
@@ -1630,12 +1735,7 @@ int rsa_pkey_to_n_e(
 
 /* Generate ECC public key from provided curve ID and x/y points. */
 int ecc_pkey_from_curve_x_y(
-                int curve_id,
-                const void *x,
-                size_t x_size,
-                const void *y,
-                size_t y_size,
-                EVP_PKEY **ret) {
+                int curve_id, const void *x, size_t x_size, const void *y, size_t y_size, EVP_PKEY **ret) {
 
         int r;
 
@@ -1677,12 +1777,14 @@ int ecc_pkey_from_curve_x_y(
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME, (char*) sym_OSSL_EC_curve_nid2name(curve_id), 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(
+                            bld, OSSL_PKEY_PARAM_GROUP_NAME, (char *) sym_OSSL_EC_curve_nid2name(curve_id), 0))
                 return log_openssl_errors(LOG_DEBUG, "Failed to add ECC OSSL_PKEY_PARAM_GROUP_NAME");
 
         _cleanup_(OPENSSL_freep) void *pbuf = NULL;
         size_t pbuf_len = 0;
-        pbuf_len = sym_EC_POINT_point2buf(group, point, POINT_CONVERSION_UNCOMPRESSED, (unsigned char**) &pbuf, NULL);
+        pbuf_len = sym_EC_POINT_point2buf(
+                        group, point, POINT_CONVERSION_UNCOMPRESSED, (unsigned char **) &pbuf, NULL);
         if (pbuf_len == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECC point to buffer");
 
@@ -1761,10 +1863,12 @@ int ecc_pkey_to_curve_x_y(
                 return log_oom_debug();
 
         if (sym_BN_bn2binpad(bn_x, x, size) < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point x to %zu bytes.", size);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point x to %zu bytes.", size);
 
         if (sym_BN_bn2binpad(bn_y, y, size) < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point y to %zu bytes.", size);
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point y to %zu bytes.", size);
 
         if (ret_curve_id)
                 *ret_curve_id = curve_id;
@@ -1830,14 +1934,15 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new((EVP_PKEY*) private_pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep)
+                        EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new((EVP_PKEY *) private_pkey, NULL);
         if (!ctx)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_PKEY_CTX");
 
         if (sym_EVP_PKEY_derive_init(ctx) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize EVP_PKEY_CTX");
 
-        if (sym_EVP_PKEY_derive_set_peer(ctx, (EVP_PKEY*) peer_pkey) <= 0)
+        if (sym_EVP_PKEY_derive_set_peer(ctx, (EVP_PKEY *) peer_pkey) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to set ECC derive peer");
 
         size_t shared_secret_size;
@@ -1848,7 +1953,7 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
         if (!shared_secret)
                 return log_oom_debug();
 
-        if (sym_EVP_PKEY_derive(ctx, (unsigned char*) shared_secret, &shared_secret_size) <= 0)
+        if (sym_EVP_PKEY_derive(ctx, (unsigned char *) shared_secret, &shared_secret_size) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to derive ECC shared secret");
 
         *ret_shared_secret = TAKE_PTR(shared_secret);
@@ -1858,7 +1963,7 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
 }
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *m = NULL;
         _cleanup_free_ void *h = NULL;
         int lsz, msz;
         unsigned umsz;
@@ -1876,7 +1981,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
                 return r;
 
         _cleanup_(OPENSSL_freep) void *d = NULL;
-        lsz = sym_i2d_PublicKey(pk, (unsigned char**) &d);
+        lsz = sym_i2d_PublicKey(pk, (unsigned char **) &d);
         if (lsz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
 
@@ -1885,7 +1990,8 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_MD_CTX");
 
         if (sym_EVP_DigestInit_ex(m, md, NULL) != 1)
-                return log_openssl_errors(LOG_DEBUG, "Failed to initialize %s context", sym_EVP_MD_get0_name(md));
+                return log_openssl_errors(
+                                LOG_DEBUG, "Failed to initialize %s context", sym_EVP_MD_get0_name(md));
 
         if (sym_EVP_DigestUpdate(m, d, lsz) != 1)
                 return log_openssl_errors(LOG_DEBUG, "Failed to run %s context", sym_EVP_MD_get0_name(md));
@@ -1909,11 +2015,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         return 0;
 }
 
-int digest_and_sign(
-                const EVP_MD *md,
-                EVP_PKEY *privkey,
-                const void *data, size_t size,
-                void **ret, size_t *ret_size) {
+int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size) {
 
         int r;
 
@@ -1934,7 +2036,7 @@ int digest_and_sign(
                         size = strlen(data);
         }
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = sym_EVP_MD_CTX_new();
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mdctx = sym_EVP_MD_CTX_new();
         if (!mdctx)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_MD_CTX");
 
@@ -1966,7 +2068,11 @@ int digest_and_sign(
         return 0;
 }
 
-int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorithm, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si) {
+int pkcs7_new(X509 *certificate,
+              EVP_PKEY *private_key,
+              const char *hash_algorithm,
+              PKCS7 **ret_p7,
+              PKCS7_SIGNER_INFO **ret_si) {
         int r;
 
         assert(certificate);
@@ -2001,8 +2107,10 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorit
 
         const EVP_MD *md = sym_EVP_get_digestbyname(hash_algorithm ?: "SHA256");
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported digest algorithm '%s'",
-                                       hash_algorithm ?: "SHA256");
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "Unsupported digest algorithm '%s'",
+                                hash_algorithm ?: "SHA256");
 
         _cleanup_(PKCS7_SIGNER_INFO_freep) PKCS7_SIGNER_INFO *si = sym_PKCS7_SIGNER_INFO_new();
         if (!si)
@@ -2015,7 +2123,8 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorit
                 if (sym_ASN1_INTEGER_set(si->version, 1) == 0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to set signer info version");
 
-                if (sym_X509_NAME_set(&si->issuer_and_serial->issuer, sym_X509_get_issuer_name(certificate)) == 0)
+                if (sym_X509_NAME_set(&si->issuer_and_serial->issuer, sym_X509_get_issuer_name(certificate)) ==
+                    0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to set signer info issuer");
 
                 sym_ASN1_INTEGER_free(si->issuer_and_serial->serial);
@@ -2023,10 +2132,13 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorit
                 if (!si->issuer_and_serial->serial)
                         return log_openssl_errors(LOG_DEBUG, "Failed to set signer info serial");
 
-                if (sym_X509_ALGOR_set0(si->digest_alg, sym_OBJ_nid2obj(sym_EVP_MD_get_type(md)), V_ASN1_NULL, NULL) == 0)
+                if (sym_X509_ALGOR_set0(
+                                    si->digest_alg, sym_OBJ_nid2obj(sym_EVP_MD_get_type(md)), V_ASN1_NULL, NULL) ==
+                    0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to set signer info digest algorithm");
 
-                if (sym_X509_ALGOR_set0(si->digest_enc_alg, sym_OBJ_nid2obj(x509_pknid), V_ASN1_NULL, NULL) == 0)
+                if (sym_X509_ALGOR_set0(si->digest_enc_alg, sym_OBJ_nid2obj(x509_pknid), V_ASN1_NULL, NULL) ==
+                    0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to set signer info signing algorithm");
         }
 
@@ -2043,11 +2155,7 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorit
         return 0;
 }
 
-int string_hashsum(
-                const char *s,
-                size_t len,
-                const char *md_algorithm,
-                char **ret) {
+int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
 
         _cleanup_free_ void *hash = NULL;
         size_t hash_size;
@@ -2112,9 +2220,10 @@ static int ecc_pkey_generate_volume_keys(
         /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
            See https://github.com/openssl/openssl/discussions/22835 */
         _cleanup_(OPENSSL_freep) void *buf = NULL;
-        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, (unsigned char**) &buf);
+        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, (unsigned char **) &buf);
         if (saved_key_size == 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to convert the generated public key to SEC1 format");
+                return log_openssl_errors(
+                                LOG_DEBUG, "Failed to convert the generated public key to SEC1 format");
 
         /* 'buf' is allocated by OpenSSL and must be freed via OPENSSL_free(). We duplicate it here so the
          * caller can safely use standard free(). */
@@ -2166,8 +2275,10 @@ static int rsa_pkey_generate_volume_keys(
                         pkey,
                         digest_alg,
                         /* label= */ NULL, /* matches PKCS#11 CKZ_DATA_SPECIFIED with empty source */
-                        decrypted_key, decrypted_key_size,
-                        &saved_key, &saved_key_size);
+                        decrypted_key,
+                        decrypted_key_size,
+                        &saved_key,
+                        &saved_key_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to RSA-OAEP encrypt random key: %m");
 
@@ -2202,16 +2313,30 @@ int pkey_generate_volume_keys(
         switch (type) {
 
         case EVP_PKEY_RSA:
-                return rsa_pkey_generate_volume_keys(pkey, rsa_oaep_digest_alg ?: "SHA-1", ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+                return rsa_pkey_generate_volume_keys(
+                                pkey,
+                                rsa_oaep_digest_alg ?: "SHA-1",
+                                ret_decrypted_key,
+                                ret_decrypted_key_size,
+                                ret_saved_key,
+                                ret_saved_key_size);
 
         case EVP_PKEY_EC:
-                return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+                return ecc_pkey_generate_volume_keys(
+                                pkey,
+                                ret_decrypted_key,
+                                ret_decrypted_key_size,
+                                ret_saved_key,
+                                ret_saved_key_size);
 
         case NID_undef:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key.");
 
         default:
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", sym_OBJ_nid2sn(type));
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "Unsupported public key type: %s",
+                                sym_OBJ_nid2sn(type));
         }
 }
 
@@ -2263,18 +2388,16 @@ static int load_key_from_engine(
                 UI_METHOD *ui_method, /* can be NULL */
                 EVP_PKEY **ret) {
 
-#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#        if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         assert(engine);
         assert(private_key_uri);
         assert(ret);
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-        if (!sym_ENGINE_by_id ||
-            !sym_ENGINE_free ||
-            !sym_ENGINE_init ||
-            !sym_ENGINE_load_private_key)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "ENGINE API is not available in the loaded OpenSSL library.");
+        if (!sym_ENGINE_by_id || !sym_ENGINE_free || !sym_ENGINE_init || !sym_ENGINE_load_private_key)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "ENGINE API is not available in the loaded OpenSSL library.");
 
         _cleanup_(ENGINE_freep) ENGINE *e = sym_ENGINE_by_id(engine);
         if (!e)
@@ -2283,7 +2406,8 @@ static int load_key_from_engine(
         if (sym_ENGINE_init(e) == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = sym_ENGINE_load_private_key(e, private_key_uri, ui_method, /* callback_data= */ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = sym_ENGINE_load_private_key(
+                        e, private_key_uri, ui_method, /* callback_data= */ NULL);
         if (!private_key)
                 return log_openssl_errors(LOG_DEBUG, "Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -2291,9 +2415,9 @@ static int load_key_from_engine(
         *ret = TAKE_PTR(private_key);
 
         return 0;
-#else
+#        else
         return -EOPNOTSUPP;
-#endif
+#        endif
 }
 
 static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
@@ -2307,10 +2431,15 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
         assert(ret);
 
         r = read_full_file_full(
-                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        AT_FDCWD,
+                        path,
+                        UINT64_MAX,
+                        SIZE_MAX,
+                        READ_FULL_FILE_SECURE | READ_FULL_FILE_WARN_WORLD_READABLE |
+                                        READ_FULL_FILE_CONNECT_SOCKET,
                         NULL,
-                        &rawkey, &rawkeysz);
+                        &rawkey,
+                        &rawkeysz);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read key file '%s': %m", path);
 
@@ -2328,41 +2457,31 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
 }
 
 static bool openssl_ui_supported(void) {
-#ifndef OPENSSL_NO_UI_CONSOLE
-        return
-                sym_UI_OpenSSL &&
-                sym_UI_create_method &&
-                sym_UI_destroy_method &&
-                sym_UI_get0_output_string &&
-                sym_UI_get_default_method &&
-                sym_UI_get_method &&
-                sym_UI_get_string_type &&
-                sym_UI_method_get_ex_data &&
-                sym_UI_method_get_reader &&
-                sym_UI_method_set_ex_data &&
-                sym_UI_method_set_reader &&
-                sym_UI_set_default_method &&
-                sym_UI_set_result;
-#else
+#        ifndef OPENSSL_NO_UI_CONSOLE
+        return sym_UI_OpenSSL && sym_UI_create_method && sym_UI_destroy_method && sym_UI_get0_output_string &&
+                        sym_UI_get_default_method && sym_UI_get_method && sym_UI_get_string_type &&
+                        sym_UI_method_get_ex_data && sym_UI_method_get_reader && sym_UI_method_set_ex_data &&
+                        sym_UI_method_set_reader && sym_UI_set_default_method && sym_UI_set_result;
+#        else
         return false;
-#endif
+#        endif
 }
 
-OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
+OpenSSLAskPasswordUI *openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
         if (!ui)
                 return NULL;
 
         assert(openssl_ui_supported());
 
-#ifndef OPENSSL_NO_UI_CONSOLE
+#        ifndef OPENSSL_NO_UI_CONSOLE
         assert(sym_UI_get_default_method() == ui->method);
         sym_UI_set_default_method(sym_UI_OpenSSL());
         sym_UI_destroy_method(ui->method);
-#endif
+#        endif
         return mfree(ui);
 }
 
-#ifndef OPENSSL_NO_UI_CONSOLE
+#        ifndef OPENSSL_NO_UI_CONSOLE
 static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         int r;
 
@@ -2371,14 +2490,15 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         switch (sym_UI_get_string_type(uis)) {
         case UIT_PROMPT: {
                 /* If no ask password request was configured use the default openssl UI. */
-                AskPasswordRequest *req = (AskPasswordRequest*) sym_UI_method_get_ex_data(sym_UI_get_method(ui), 0);
+                AskPasswordRequest *req = (AskPasswordRequest *) sym_UI_method_get_ex_data(
+                                sym_UI_get_method(ui), 0);
                 if (!req)
                         return (sym_UI_method_get_reader(sym_UI_OpenSSL()))(ui, uis);
 
                 req->message = sym_UI_get0_output_string(uis);
 
                 _cleanup_strv_free_ char **l = NULL;
-                r = ask_password_auto(req, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
+                r = ask_password_auto(req, ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE, &l);
                 if (r < 0) {
                         log_error_errno(r, "Failed to query for PIN: %m");
                         return 0;
@@ -2400,7 +2520,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
                 return (sym_UI_method_get_reader(sym_UI_OpenSSL()))(ui, uis);
         }
 }
-#endif
+#        endif
 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
         assert(request);
@@ -2412,7 +2532,7 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
                 return 0;
         }
 
-#ifndef OPENSSL_NO_UI_CONSOLE
+#        ifndef OPENSSL_NO_UI_CONSOLE
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = sym_UI_create_method("systemd-ask-password");
         if (!method)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize openssl user interface");
@@ -2424,7 +2544,7 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         if (!ui)
                 return log_oom_debug();
 
-        *ui = (OpenSSLAskPasswordUI) {
+        *ui = (OpenSSLAskPasswordUI){
                 .method = TAKE_PTR(method),
                 .request = *request,
         };
@@ -2436,9 +2556,9 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
 
         *ret = TAKE_PTR(ui);
         return 0;
-#else
+#        else
         assert_not_reached();
-#endif
+#        endif
 }
 
 int openssl_load_private_key(
@@ -2474,14 +2594,16 @@ int openssl_load_private_key(
                 if (r < 0)
                         return r;
 
-                r = load_key_from_engine(private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
+                r = load_key_from_engine(
+                                private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
                 break;
         case OPENSSL_KEY_SOURCE_PROVIDER:
                 r = openssl_ask_password_ui_new(request, &ui);
                 if (r < 0)
                         return r;
 
-                r = load_key_from_provider(private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
+                r = load_key_from_provider(
+                                private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
                 break;
         default:
                 assert_not_reached();
@@ -2504,7 +2626,7 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
                 return r;
 
         _cleanup_(OPENSSL_freep) void *buf = NULL;
-        int len = sym_i2d_PUBKEY(private_key, (unsigned char**) &buf);
+        int len = sym_i2d_PUBKEY(private_key, (unsigned char **) &buf);
         if (len < 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to extract public key in DER format");
 
@@ -2526,10 +2648,14 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
         assert(ret);
 
         r = read_full_file_full(
-                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
+                        AT_FDCWD,
+                        path,
+                        UINT64_MAX,
+                        SIZE_MAX,
                         READ_FULL_FILE_CONNECT_SOCKET,
                         NULL,
-                        &rawcert, &rawcertsz);
+                        &rawcert,
+                        &rawcertsz);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read certificate file '%s': %m", path);
 
@@ -2539,8 +2665,10 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
 
         cert = sym_PEM_read_bio_X509(cb, NULL, NULL, NULL);
         if (!cert)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "Failed to parse X.509 certificate: %s",
+                                sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         *ret = TAKE_PTR(cert);
 
@@ -2594,7 +2722,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         if (r < 0)
                 return r;
 
-        dersz = sym_i2d_X509(cert, (unsigned char**) &der);
+        dersz = sym_i2d_X509(cert, (unsigned char **) &der);
         if (dersz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert PEM certificate to DER format");
 
@@ -2690,9 +2818,7 @@ int parse_openssl_certificate_source_argument(
 }
 
 int parse_openssl_key_source_argument(
-                const char *argument,
-                char **private_key_source,
-                KeySourceType *private_key_source_type) {
+                const char *argument, char **private_key_source, KeySourceType *private_key_source_type) {
 
         KeySourceType type;
         const char *e = NULL;
