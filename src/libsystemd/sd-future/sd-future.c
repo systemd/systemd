@@ -48,8 +48,9 @@ struct sd_future {
 
         /* Opaque per-future state owned by the future implementation (the code that called
          * sd_future_new()). The ops callbacks and external code access this state via
-         * sd_future_get_private(). */
-        void *private;
+         * sd_future_get_private(). The element type max_align_t aligns this array for any struct that a
+         * future implementation stores in it. */
+        max_align_t private[];
 };
 
 static int slot_dispatch_handler(sd_event_source *src, void *userdata) {
@@ -172,28 +173,18 @@ int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret) {
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(ops, -EINVAL);
         assert_return(ops->size >= endoffsetof_field(sd_future_ops, set_priority), -EINVAL);
-        assert_return(ops->alloc, -EINVAL);
-        assert_return(ops->free, -EINVAL);
         assert_return(ops->cancel, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_future *f = new(sd_future, 1);
+        sd_future *f = malloc0(offsetof(sd_future, private) + ops->private_size);
         if (!f)
                 return -ENOMEM;
 
-        *f = (sd_future) {
-                .n_ref = 1,
-                .state = SD_FUTURE_PENDING,
-                .ops = ops,
-        };
-
-        f->private = ops->alloc();
-        if (!f->private) {
-                free(f);
-                return -ENOMEM;
-        }
-
+        f->n_ref = 1;
+        f->state = SD_FUTURE_PENDING;
+        f->ops = ops;
         f->event = sd_event_ref(e);
+
         *ret = f;
         return 0;
 }
@@ -216,7 +207,12 @@ int sd_future_result(sd_future *f) {
 
 void* sd_future_get_private(sd_future *f) {
         assert_return(f, NULL);
-        return f->private;
+        return f->ops->private_size > 0 ? f->private : NULL;
+}
+
+sd_future* sd_future_from_private(void *p) {
+        assert_return(p, NULL);
+        return container_of(p, sd_future, private);
 }
 
 const sd_future_ops* sd_future_get_ops(sd_future *f) {

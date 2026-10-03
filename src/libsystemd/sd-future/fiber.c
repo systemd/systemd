@@ -484,10 +484,6 @@ static int fiber_on_exit(sd_event_source *s, void *userdata) {
         return fiber_run(f);
 }
 
-static void* fiber_alloc(void) {
-        return new0(Fiber, 1);
-}
-
 static void fiber_free(sd_future *f) {
         Fiber *fiber = fiber_get(f);
 
@@ -520,7 +516,6 @@ static void fiber_free(sd_future *f) {
         sd_event_source_disable_unref(fiber->exit_event_source);
 
         free(fiber->name);
-        free(fiber);
 }
 
 sd_future* sd_fiber_get_current(void) {
@@ -655,7 +650,7 @@ int sd_fiber_resume(sd_future *f, int result) {
  * fiber resolves its own future when it finishes running; cancellation only queues an interruption. */
 static const sd_future_ops fiber_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = fiber_alloc,
+        .private_size = sizeof(Fiber),
         .free = fiber_free,
         .cancel = fiber_cancel,
         .set_priority = fiber_set_priority,
