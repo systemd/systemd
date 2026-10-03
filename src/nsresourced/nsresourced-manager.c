@@ -336,7 +336,7 @@ static void manager_release_userns_by_info(Manager *m, UserNamespaceInfo *info) 
         /* Before tearing anything down, confirm by namespace id that the namespace we're releasing is
          * actually dead. The kernel may have recycled this inode for a freshly created live namespace
          * (e.g. between a BPF death event firing and us getting here); proceeding in that case would
-         * clobber the new namespace's BPF allowlist, fdstore fd and registry entry. */
+         * clobber the new namespace's BPF allowlist and registry entry. */
         if (info->userns_id != 0) {
                 _cleanup_close_ int probe_fd = namespace_open_by_id(info->userns_id);
                 if (probe_fd >= 0) {
@@ -514,12 +514,11 @@ static int manager_make_listen_socket(Manager *m) {
         return 1;
 }
 
-static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
+static int manager_scan_listen_fds(Manager *m) {
         _cleanup_strv_free_ char **names = NULL;
         int n, r;
 
         assert(m);
-        assert(fdstore_inodes);
 
         n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
@@ -527,29 +526,6 @@ static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
 
         for (int i = 0; i < n; i++) {
                 _cleanup_close_ int fd = SD_LISTEN_FDS_START + i; /* Take possession */
-                const char *e;
-
-                /* If this is a BPF allowlist related fd, just close it, but remember which start UIDs this covers */
-                e = startswith(names[i], "userns-");
-                if (e) {
-                        uint64_t inode;
-
-                        r = safe_atou64(e, &inode);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to parse UID from fd name '%s', ignoring: %m", e);
-                                continue;
-                        }
-
-                        if (inode > UINT32_MAX) {
-                                log_warning("Inode number outside of 32bit range, ignoring");
-                                continue;
-                        }
-
-                        if (set_ensure_put(fdstore_inodes, NULL, UINT32_TO_PTR(inode)) < 0)
-                                return log_oom();
-
-                        continue;
-                }
 
                 /* We don't check the name for the stream socket, for compatibility with older versions */
                 r = sd_is_socket(fd, AF_UNIX, SOCK_STREAM, 1);
@@ -677,7 +653,7 @@ static int manager_attach_bpf(Manager *m) {
 #endif
 
 int manager_startup(Manager *m) {
-        _cleanup_set_free_ Set *fdstore_inodes = NULL, *registry_inodes = NULL;
+        _cleanup_set_free_ Set *registry_inodes = NULL;
         void *p;
         int r;
 
@@ -693,7 +669,7 @@ int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_scan_listen_fds(m, &fdstore_inodes);
+        r = manager_scan_listen_fds(m);
         if (r < 0)
                 return r;
 
@@ -701,25 +677,11 @@ int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
-        /* If there are resources tied to UIDs not found in the registry, then release them */
-        SET_FOREACH(p, fdstore_inodes)  {
-                uint64_t inode;
-
-                if (set_contains(registry_inodes, p))
-                        continue;
-
-                inode = PTR_TO_UINT32(p);
-
-                log_debug("Found stale fd store entry for user namespace %" PRIu64 ", removing.", inode);
-                manager_release_userns_by_inode(m, inode);
-        }
-
         /* Walk the registry entries for two purposes: reap the dead ones, and re-establish the
          * BPF-LSM policy for the live ones.
          *
          * A namespace may have died without us getting a BPF notification — e.g. because the BPF ring
-         * buffer overflowed, the kprobe is missing, or something else dropped the fd store entry without
-         * going through our cleanup path. Each registry entry stores the kernel's unique namespace
+         * buffer overflowed or the kprobe is missing. Each registry entry stores the kernel's unique namespace
          * identifier; ask the kernel to open the namespace by that identifier and release the entry if
          * the lookup fails. Entries written by older versions don't carry the identifier, and old kernels
          * (or running outside the initial user namespace) don't support lookup by it — in those cases we
