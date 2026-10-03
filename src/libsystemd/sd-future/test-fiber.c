@@ -2271,6 +2271,31 @@ TEST(future_resolve_twice) {
         ASSERT_EQ(count, 1);
 }
 
+TEST(future_resolve_after_fork) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
+        int r;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
+        ASSERT_OK(sd_fiber_new(e, "await-fork", await_borrowed_fiber, target, /* destroy= */ NULL, &waiter));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* In the child, the event loop belongs to the parent. sd_future_resolve() and sd_fiber_resume()
+         * must still return 0 there instead of aborting. */
+        r = ASSERT_OK(pidref_safe_fork("(resolve)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK_ZERO(sd_future_resolve(target, 42));
+                ASSERT_OK_ZERO(sd_fiber_resume(waiter, 0));
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK_ZERO(sd_future_resolve(target, 42));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_result(waiter), 42);
+}
+
 TEST(future_resolve_after_event_finished) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
@@ -2283,8 +2308,8 @@ TEST(future_resolve_after_event_finished) {
         ASSERT_OK(sd_event_exit(e, 0));
         ASSERT_OK(sd_event_loop(e));
 
-        /* Resolution is final even when its notification cannot be scheduled on a finished loop. */
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_resolve(f, 42)), ESTALE);
+        /* A finished loop never runs the callback, so resolving succeeds without scheduling it. */
+        ASSERT_OK_ZERO(sd_future_resolve(f, 42));
         ASSERT_EQ(sd_future_result(f), 42);
         ASSERT_EQ(count, 0);
 }
