@@ -174,9 +174,20 @@ testcase_virtio_scsi_basic() {
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
 }
 
+diskhealth_list() {
+    systemctl start systemd-report-diskhealth.socket
+    varlinkctl call --more /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {}
+}
+
+diskhealth_value() {
+    local metrics="${1:?}" metric="${2:?}" object="${3:?}"
+
+    echo "$metrics" | jq --seq -r --arg n "io.systemd.DiskHealth.$metric" --arg o "$object" 'select(.name == $n and .object == $o) | .value | tostring'
+}
+
 testcase_nvme_basic() {
     local expected_symlinks=()
-    local i
+    local i metrics name metric
 
     for i in {0..2}; do
         expected_symlinks+=(
@@ -223,6 +234,21 @@ testcase_nvme_basic() {
 
     lsblk --noheadings | grep "^nvme"
     [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 12 ]]
+
+    # The disk health report must cover the NVMe disks, including the SMART data of the (healthy) emulated
+    # controllers.
+    metrics="$(diskhealth_list)"
+    for i in {0..2}; do
+        name="$(basename "$(readlink -f /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1)")"
+        [[ "$(diskhealth_value "$metrics" DiskSerial "$name")" == "deadbeef$i" ]]
+        [[ "$(diskhealth_value "$metrics" DiskModel "$name")" == "QEMU NVMe Ctrl" ]]
+        [[ "$(diskhealth_value "$metrics" DiskSizeBytes "$name")" == "$((1024 * 1024))" ]]
+        [[ "$(diskhealth_value "$metrics" NVMeCriticalWarning "$name")" == 0 ]]
+        [[ "$(diskhealth_value "$metrics" NVMeMediaErrors "$name")" == 0 ]]
+        for metric in NVMeAvailableSparePercent NVMePercentageUsed DiskPowerCycles DiskPowerOnHours; do
+            [[ "$(diskhealth_value "$metrics" "$metric" "$name")" =~ ^[0-9]+$ ]]
+        done
+    done
 }
 
 testcase_nvme_subsystem() {
@@ -236,6 +262,16 @@ testcase_nvme_subsystem() {
     )
 
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+
+    # If the kernel supports native NVMe multipath, the shared namespaces are exposed as block devices below
+    # the (virtual) NVMe subsystem device, which must be reported by the disk health report nonetheless.
+    local i metrics name
+    metrics="$(diskhealth_list)"
+    for i in /dev/disk/by-path/*pci*-nvme-16 /dev/disk/by-path/*pci*-nvme-17; do
+        name="$(basename "$(readlink -f "$i")")"
+        [[ "$(diskhealth_value "$metrics" DiskSizeBytes "$name")" == "$((1024 * 1024))" ]]
+        [[ "$(diskhealth_value "$metrics" NVMeCriticalWarning "$name")" == 0 ]]
+    done
 }
 
 testcase_virtio_scsi_identically_named_partitions() {
