@@ -393,12 +393,23 @@ EOF
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/sb.key -out /tmp/sb.crt
 
-    # This will fail if there are already keys in the ESP, so we remove them first
+    # Start without keys, so that the first installation creates them
     rm -rf "$(bootctl --print-esp-path)/loader/keys/auto"
 
     bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb.crt --private-key /tmp/sb.key
     for var in PK KEK db; do
         test -f "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth"
+    done
+
+    # Installing again with a different certificate replaces the existing files instead of failing
+    openssl req -config /tmp/openssl.conf -subj="/CN=waldo2" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout /tmp/sb2.key -out /tmp/sb2.crt
+    bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb2.crt --private-key /tmp/sb2.key
+    local cert_hex
+    cert_hex="$(openssl x509 -in /tmp/sb2.crt -outform DER | od -An -v -tx1 | tr -d ' \n')"
+    for var in PK KEK db; do
+        od -An -v -tx1 "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth" | tr -d ' \n' | grep -F "$cert_hex" >/dev/null
     done
     bootctl remove
 }
