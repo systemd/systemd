@@ -5852,6 +5852,14 @@ static void service_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_
                 r = unit_watch_pidref(u, &s->main_pid, /* exclusive= */ true);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to watch new main PID " PID_FMT ": %m", s->main_pid.pid);
+
+                /* If we are already stopping the service, the signal went to the parent we just forgot
+                 * about, and with KillMode=mixed to nobody else. Repeat it for the child, or we'd wait for
+                 * a process nobody signalled until the stop timeout. */
+                if (IN_SET(s->state,
+                           SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                           SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
+                        (void) unit_kill_main_pid(u, state_to_kill_operation(s, s->state));
         } else if (pidref_equal(&s->control_pid, parent_pidref)) {
                 service_unwatch_control_pid(s);
                 s->control_pid = TAKE_PIDREF(*child_pidref);

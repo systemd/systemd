@@ -986,6 +986,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
 int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const char *format, ...) _printf_(4,5);
 
 int unit_kill_context(Unit *u, KillOperation k);
+int unit_kill_main_pid(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
 int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error);
