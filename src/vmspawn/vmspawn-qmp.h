@@ -183,3 +183,6 @@ int vmspawn_qmp_replace_block_device(
                 const char *id,
                 int fd,
                 QmpDriveFlags fd_flags);
+
+/* Translate a QMP async completion into a varlink error reply */
+int vmspawn_qmp_reply_error(sd_varlink *link, const char *error_desc, int error);
