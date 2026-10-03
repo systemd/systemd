@@ -692,7 +692,8 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         return 0;
 }
 
-static int reply_qmp_error(sd_varlink *link, const char *error_desc, int error) {
+/* Translate a QMP async completion into a varlink error reply */
+int vmspawn_qmp_reply_error(sd_varlink *link, const char *error_desc, int error) {
         assert(link);
 
         if (ERRNO_IS_DISCONNECT(error))
@@ -784,7 +785,7 @@ static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc) 
                 drive_info_unref(ref);
 
         if (ref->link) {
-                (void) reply_qmp_error(ref->link, error_desc, error);
+                (void) vmspawn_qmp_reply_error(ref->link, error_desc, error);
                 ref->link = sd_varlink_unref(ref->link);
                 return 0;
         }
@@ -1115,7 +1116,7 @@ static int on_remove_device_del_complete(
                 /* device_del rejected: clear the pending bit so the caller can retry. */
                 drive->state &= ~BLOCK_DEVICE_STATE_REMOVE_PENDING;
 
-                return reply_qmp_error(link, error_desc, error);
+                return vmspawn_qmp_reply_error(link, error_desc, error);
         }
 
         return sd_varlink_reply(link, NULL);
@@ -1134,9 +1135,9 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
         if (!FLAGS_SET(drive->flags, QMP_DRIVE_REMOVABLE))
                 return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", NULL);
         if (!FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
-                return reply_qmp_error(link, "Block device add pending", -EBUSY);
+                return vmspawn_qmp_reply_error(link, "Block device add pending", -EBUSY);
         if (drive->state & (BLOCK_DEVICE_STATE_REMOVE_PENDING|BLOCK_DEVICE_STATE_REPLACE_PENDING))
-                return reply_qmp_error(link, "Block device replace/remove pending", -EBUSY);
+                return vmspawn_qmp_reply_error(link, "Block device replace/remove pending", -EBUSY);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("id", drive->qmp_device_id));
@@ -1257,7 +1258,7 @@ static int replace_fail(ReplaceCtx *ctx, int error, const char *error_desc) {
         drive->state &= ~BLOCK_DEVICE_STATE_REPLACE_PENDING;
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = TAKE_PTR(drive->link);
         if (link)
-                return reply_qmp_error(link, error_desc, error);
+                return vmspawn_qmp_reply_error(link, error_desc, error);
         return 0;
 }
 
@@ -1418,9 +1419,9 @@ int vmspawn_qmp_replace_block_device(
         if (!FLAGS_SET(drive->flags, QMP_DRIVE_READ_ONLY) && FLAGS_SET(fd_flags, QMP_DRIVE_READ_ONLY))
                 return sd_varlink_error_errno(link, -EROFS);
         if (!FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
-                return reply_qmp_error(link, "Block device add pending", -EBUSY);
+                return vmspawn_qmp_reply_error(link, "Block device add pending", -EBUSY);
         if (drive->state & (BLOCK_DEVICE_STATE_REMOVE_PENDING|BLOCK_DEVICE_STATE_REPLACE_PENDING))
-                return reply_qmp_error(link, "Block device replace/remove pending", -EBUSY);
+                return vmspawn_qmp_reply_error(link, "Block device replace/remove pending", -EBUSY);
         assert(!drive->link);
         assert(drive->qmp_file_node_name);
 

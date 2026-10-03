@@ -19,9 +19,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VmspawnMemory*, vmspawn_memory_free);
 /* Allocate the per-VM memory state on the bridge and query the balloon size. */
 int vmspawn_memory_setup(VmspawnQmpBridge *bridge, uint64_t configured, bool balloon);
 
-/* Resize the guest memory to 'bytes'. If 'link' is given, it's answered once the VMM
- * accepted or rejected the request. The guest converges afterwards, observable via Describe(). */
+/* Resize the guest memory to 'bytes', rounded up to 64 KiB, the largest guest page size. 'link' is answered
+ * once the VMM accepted or rejected the request. The guest converges afterwards, observable via Describe(). */
 int vmspawn_memory_set_target(VmspawnMemory *m, sd_varlink *link, uint64_t bytes);
 
 /* Update ->actual from the payload of a BALLOON_CHANGE event. Returns negative if malformed. */
 int vmspawn_memory_dispatch_balloon_change(VmspawnMemory *m, sd_json_variant *data);
+
+/* Build the io.systemd.MachineInstance.Memory object. */
+int vmspawn_memory_build_json(VmspawnMemory *m, sd_json_variant **ret);

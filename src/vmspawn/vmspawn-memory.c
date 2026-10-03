@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "json-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "qmp-client.h"
 #include "string-util.h"
 #include "vmspawn-memory.h"
@@ -58,6 +61,42 @@ static int on_query_balloon_complete(
         return 0;
 }
 
+typedef struct SetTargetRequest {
+        VmspawnMemory *m;
+        sd_varlink *link;       /* ref'd */
+        uint64_t bytes;
+} SetTargetRequest;
+
+static SetTargetRequest* set_target_request_free(SetTargetRequest *req) {
+        if (!req)
+                return NULL;
+
+        sd_varlink_unref(req->link);
+        return mfree(req);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SetTargetRequest*, set_target_request_free);
+
+static int on_balloon_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(set_target_request_freep) SetTargetRequest *req = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0)
+                return vmspawn_qmp_reply_error(req->link, error_desc, error);
+
+        req->m->target = req->bytes;
+        log_debug("Requested guest memory size %" PRIu64 " KiB.", req->bytes / U64_KB);
+
+        return sd_varlink_reply(req->link, NULL);
+}
+
 static int memory_refresh(VmspawnMemory *m) {
         assert(m);
         assert(m->bridge);
@@ -71,6 +110,52 @@ static int memory_refresh(VmspawnMemory *m) {
                                  /* args= */ NULL,
                                  on_query_balloon_complete,
                                  m);
+}
+
+int vmspawn_memory_set_target(VmspawnMemory *m, sd_varlink *link, uint64_t bytes) {
+        _cleanup_(set_target_request_freep) SetTargetRequest *req = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        int r;
+
+        assert(m);
+        assert(m->bridge);
+        assert(link);
+
+        if (!m->balloon)
+                return -EOPNOTSUPP;
+        if (bytes == 0 || bytes > m->configured)
+                return -ERANGE;
+
+        /* The balloon counts 4 KiB pages, but the guest rounds that count up to its own page size, which
+         * is 64 KiB at most on Linux. Round up to that, so that the guest can settle exactly on the
+         * target instead of below it. Boot RAM is MiB-aligned, so this stays within range. */
+        bytes = ALIGN_TO_U64(bytes, 64 * U64_KB);
+
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("value", bytes));
+        if (r < 0)
+                return r;
+
+        req = new(SetTargetRequest, 1);
+        if (!req)
+                return -ENOMEM;
+
+        *req = (SetTargetRequest) {
+                .m = m,
+                .link = sd_varlink_ref(link),
+                .bytes = bytes,
+        };
+
+        r = qmp_client_invoke(m->bridge->qmp,
+                              /* ret_slot= */ NULL,
+                              "balloon",
+                              QMP_CLIENT_ARGS(args),
+                              on_balloon_complete,
+                              req);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(req);
+        return 0;
 }
 
 int vmspawn_memory_setup(VmspawnQmpBridge *bridge, uint64_t configured, bool balloon) {
@@ -108,4 +193,15 @@ int vmspawn_memory_dispatch_balloon_change(VmspawnMemory *m, sd_json_variant *da
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "BALLOON_CHANGE event without payload, ignoring.");
 
         return memory_update_actual(m, data);
+}
+
+int vmspawn_memory_build_json(VmspawnMemory *m, sd_json_variant **ret) {
+        assert(m);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("configuredBytes", m->configured),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("targetBytes", m->target),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("actualBytes", m->actual));
 }
