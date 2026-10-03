@@ -5,6 +5,7 @@
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
+#include "ordered-set.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -1124,6 +1125,120 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "22be4f1674f792d6345cea9427701068f0e8d9f42755dcc0e927e545a68f9c13"));
         assert_se(tpm2_calculate_policy_pcr(v2, ELEMENTSOF(v2), &d) == 0);
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
+}
+
+/* Fill a digest with a value that is distinct for every index, so that grouping two different indices
+ * together can never accidentally compare equal. */
+static void fill_indexed_digest(TPM2B_DIGEST *digest, size_t index) {
+        uint64_t state = index;
+
+        *digest = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
+
+        for (size_t i = 0; i < SHA256_DIGEST_SIZE; i++) {
+                /* The first sizeof(index) bytes encode the index verbatim, so distinct indices always
+                 * produce distinct digests; the remaining bytes are a cheap expansion. */
+                digest->buffer[i] = i < sizeof(index) ? (uint8_t) (index >> (8 * i)) : (uint8_t) state;
+
+                /* This is a full-period LCG mod 2^64., the constants are taken from the PCG reference
+                 * implementation. */
+                state = state * UINT64_C(6364136223846793005) + UINT64_C(1442695040888963407);
+        }
+}
+
+/* Independently reconstruct the balanced PolicyOR tree the implementation is supposed to build, using only
+ * flat ORs (n <= 8) for each group. This pins down the group sizes and their order. */
+static int policy_or_tree_reference(const TPM2B_DIGEST *leaves, size_t n, TPM2B_DIGEST *ret) {
+        _cleanup_free_ TPM2B_DIGEST *level = NULL;
+        size_t n_level = n;
+
+        assert(leaves);
+        assert(n > 0);
+        assert(ret);
+
+        level = newdup(TPM2B_DIGEST, leaves, n);
+        if (!level)
+                return -ENOMEM;
+
+        /* Collapse one level at a time until a single flat OR (n <= 8) remains. */
+        while (n_level > TPM2_POLICY_OR_MAX_BRANCHES) {
+                size_t g = DIV_ROUND_UP(n_level, TPM2_POLICY_OR_MAX_BRANCHES),
+                       base = n_level / g, rem = n_level % g;
+                _cleanup_free_ TPM2B_DIGEST *next = NULL;
+
+                next = new0(TPM2B_DIGEST, g);
+                if (!next)
+                        return -ENOMEM;
+
+                for (size_t i = 0, off = 0; i < g; i++) {
+                        size_t size = base + (i < rem);
+                        int r;
+
+                        assert(size >= 2); /* No degenerate single-branch ORs */
+                        assert(size <= TPM2_POLICY_OR_MAX_BRANCHES);
+
+                        next[i].size = SHA256_DIGEST_SIZE;
+                        r = tpm2_calculate_policy_or(level + off, size, &next[i]);
+                        if (r < 0)
+                                return r;
+
+                        off += size;
+                }
+
+                free(level);
+                level = TAKE_PTR(next);
+                n_level = g;
+        }
+
+        return tpm2_calculate_policy_or(level, n_level, ret);
+}
+
+TEST(calculate_policy_or) {
+        TPM2B_DIGEST leaves[65], reference, actual;
+
+        for (size_t i = 0; i < ELEMENTSOF(leaves); i++)
+                fill_indexed_digest(leaves + i, i);
+
+        /* For n<=8 the flat form must be used unchanged; for n>8 the result must match the balanced tree
+         * reference implementation. */
+        const size_t ns[] = { 1, 2, 5, 8, 9, 16, 17, 64, 65 };
+        FOREACH_ELEMENT(n, ns) {
+                reference = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
+                assert_se(policy_or_tree_reference(leaves, *n, &reference) == 0);
+
+                actual = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
+                assert_se(tpm2_calculate_policy_or(leaves, *n, &actual) == 0);
+
+                assert_se(actual.size == reference.size);
+                assert_se(memcmp(actual.buffer, reference.buffer, actual.size) == 0);
+
+                /* Pin one nested result to the on-disk format, independent of the shared implementation. */
+                if (*n == 9)
+                        assert_se(digest_check(&actual, "806fed0eaea4bd5a7cba19d21781c4d1e099e80607f76814d46ac0812c623312"));
+        }
+
+        /* Branch order is significant. */
+        TPM2B_DIGEST reversed[9];
+        for (size_t i = 0; i < ELEMENTSOF(reversed); i++)
+                reversed[i] = leaves[ELEMENTSOF(reversed) - 1 - i];
+
+        assert_se(tpm2_calculate_policy_or(leaves, ELEMENTSOF(reversed), &actual) == 0);
+        assert_se(tpm2_calculate_policy_or(reversed, ELEMENTSOF(reversed), &reference) == 0);
+        assert_se(actual.size == reference.size);
+        assert_se(memcmp(actual.buffer, reference.buffer, actual.size) != 0);
+
+        /* Depth cap: 8^TPM2_POLICY_OR_MAX_DEPTH branches are fine, one more is not. */
+        size_t max_branches = 1;
+        for (size_t i = 0; i < TPM2_POLICY_OR_MAX_DEPTH; i++)
+                max_branches *= TPM2_POLICY_OR_MAX_BRANCHES;
+
+        _cleanup_free_ TPM2B_DIGEST *many = new0(TPM2B_DIGEST, max_branches + 1);
+        assert_se(many);
+        for (size_t i = 0; i < max_branches + 1; i++)
+                fill_indexed_digest(many + i, i);
+
+        actual = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
+        assert_se(tpm2_calculate_policy_or(many, max_branches, &actual) == 0);
+        assert_se(tpm2_calculate_policy_or(many, max_branches + 1, &actual) == -E2BIG);
 }
 
 static void check_srk_rsa_template(TPMT_PUBLIC *template) {
@@ -2347,6 +2462,121 @@ static void check_get_session_audit_digest(Tpm2Context *c) {
         ASSERT_EQ(audit_info->attested.sessionAudit.sessionDigest.size, 32);
 
         check_attest_signature(&template, sig);
+}
+
+static size_t test_sha256_index(void) {
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
+                if (tpm2_hash_algorithms[i] == TPM2_ALG_SHA256)
+                        return i;
+
+        assert_not_reached();
+}
+
+/* Exercise the runtime side of the balanced PolicyOR tree: a freshly started policy session has an all-zero
+ * policy digest, so make that one of the branches and add enough further ones to push tpm2_policy_or() onto
+ * the nested code path. Its result must match the offline calculation. */
+static void check_policy_or_tree_runtime(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_policy_session(
+                                c,
+                                /* primary= */ NULL,
+                                /* encryption_session= */ NULL,
+                                &session));
+
+        TPM2B_DIGEST branches[9] = {};
+        for (size_t i = 0; i < ELEMENTSOF(branches); i++)
+                fill_indexed_digest(branches + i, i + 1);
+        zero(branches[0].buffer); /* The fresh session's digest */
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *tpm_digest = NULL;
+        ASSERT_OK(tpm2_policy_or(c, session, branches, ELEMENTSOF(branches), &tpm_digest));
+
+        TPM2B_DIGEST calculated = { .size = SHA256_DIGEST_SIZE };
+        ASSERT_OK(tpm2_calculate_policy_or(branches, ELEMENTSOF(branches), &calculated));
+
+        ASSERT_EQ(tpm_digest->size, calculated.size);
+        ASSERT_EQ(memcmp(tpm_digest->buffer, calculated.buffer, calculated.size), 0);
+
+        /* Another fresh session again starts from an all-zero digest. If none of the branches matches it,
+         * the leaf lookup must fail with ENOANO, which pcrlock relies on to detect tampering. */
+        session = tpm2_handle_free(session);
+        ASSERT_OK(tpm2_make_policy_session(
+                                c,
+                                /* primary= */ NULL,
+                                /* encryption_session= */ NULL,
+                                &session));
+
+        TPM2B_DIGEST no_match[9];
+        for (size_t i = 0; i < ELEMENTSOF(no_match); i++)
+                fill_indexed_digest(no_match + i, i + 1);
+
+        ASSERT_ERROR(tpm2_policy_or(c, session, no_match, ELEMENTSOF(no_match), &tpm_digest), ENOANO);
+}
+
+/* Same for the super PCR policy, which chains a PolicyPCR and a (possibly nested) PolicyOR per PCR. We
+ * submit the policy to a live session and read the resulting digest back by extending it once more with
+ * PolicyAuthValue, which is a pure function of the previous digest. */
+static void check_policy_super_pcr_tree(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        /* Read the current value of PCR 16 ("debug"), so the prediction covers the actual TPM state. */
+        TPML_PCR_SELECTION selection;
+        tpm2_tpml_pcr_selection_from_mask(UINT32_C(1) << 16, TPM2_ALG_SHA256, &selection);
+
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values = 0;
+        ASSERT_OK(tpm2_pcr_read(c, &selection, &pcr_values, &n_pcr_values));
+        ASSERT_EQ(n_pcr_values, 1u);
+        ASSERT_EQ(pcr_values[0].index, 16u);
+        ASSERT_EQ(pcr_values[0].hash, TPM2_ALG_SHA256);
+
+        /* Nine alternatives for PCR 16, the first of which is the current value. */
+        _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction prediction = {
+                .pcrs = UINT32_C(1) << 16,
+        };
+
+        for (size_t i = 0; i < 9; i++) {
+                _cleanup_free_ Tpm2PCRPredictionResult *result = new0(Tpm2PCRPredictionResult, 1);
+                ASSERT_NOT_NULL(result);
+
+                if (i == 0)
+                        result->hash[test_sha256_index()] = pcr_values[0].value;
+                else
+                        fill_indexed_digest(&result->hash[test_sha256_index()], i + 1);
+
+                ASSERT_OK(ordered_set_ensure_put(
+                                        &prediction.results[16],
+                                        &tpm2_pcr_prediction_result_hash_ops,
+                                        result));
+                TAKE_PTR(result);
+        }
+
+        ASSERT_EQ(ordered_set_size(prediction.results[16]), 9u);
+
+        /* Compute the digest the unsealing side pins. */
+        TPM2B_DIGEST expected = { .size = SHA256_DIGEST_SIZE };
+        ASSERT_OK(tpm2_calculate_policy_super_pcr(&prediction, TPM2_ALG_SHA256, &expected));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_policy_session(
+                                c,
+                                /* primary= */ NULL,
+                                /* encryption_session= */ NULL,
+                                &session));
+        ASSERT_OK(tpm2_policy_super_pcr(c, session, &prediction, TPM2_ALG_SHA256));
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *tpm_digest = NULL;
+        ASSERT_OK(tpm2_policy_auth_value(c, session, &tpm_digest));
+        ASSERT_OK(tpm2_calculate_policy_auth_value(&expected));
+
+        ASSERT_EQ(tpm_digest->size, expected.size);
+        ASSERT_EQ(memcmp(tpm_digest->buffer, expected.buffer, expected.size), 0);
 }
 
 TEST_RET(tests_which_require_tpm) {
