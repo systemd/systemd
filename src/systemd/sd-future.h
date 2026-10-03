@@ -158,14 +158,19 @@ int sd_fiber_suspend(void);
 int sd_fiber_resume(sd_future *f, int result);
 
 sd_future* sd_fiber_timeout(uint64_t timeout);
+/* sd_fiber_timeout_unref() ends the scope of a timer from sd_fiber_timeout(). It has to release every such
+ * timer, in the reverse order of their creation. A queued -ETIME is dropped at the end of the scope, unless
+ * the timer of an enclosing scope expired. */
+sd_future* sd_fiber_timeout_unref(sd_future *timer);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_fiber_timeout_unref);
 
 #define SD_FIBER_TIMEOUT(timeout) _SD_FIBER_TIMEOUT(_SD_UNIQ, (timeout))
 #define _SD_FIBER_TIMEOUT(uniq, timeout)                                                                                                        \
-        sd_future *_SD_CONCATENATE(_sd_fto_, uniq) __attribute__((cleanup(sd_future_cancel_wait_unrefp), unused)) = sd_fiber_timeout(timeout)
+        sd_future *_SD_CONCATENATE(_sd_fto_, uniq) __attribute__((cleanup(sd_fiber_timeout_unrefp), unused)) = sd_fiber_timeout(timeout)
 
 #define SD_FIBER_WITH_TIMEOUT(timeout) _SD_FIBER_WITH_TIMEOUT(_SD_UNIQ, (timeout))
 #define _SD_FIBER_WITH_TIMEOUT(uniq, timeout)                                                                                                                   \
-        for (sd_future *_SD_CONCATENATE(_sd_fto_, uniq) __attribute__((cleanup(sd_future_cancel_wait_unrefp), unused)) = sd_fiber_timeout(timeout),             \
+        for (sd_future *_SD_CONCATENATE(_sd_fto_, uniq) __attribute__((cleanup(sd_fiber_timeout_unrefp), unused)) = sd_fiber_timeout(timeout),                  \
                        *_SD_CONCATENATE(_sd_fto_b_, uniq) = (sd_future*) (uintptr_t) 1;                                                                         \
              _SD_CONCATENATE(_sd_fto_b_, uniq);                                                                                                                 \
              _SD_CONCATENATE(_sd_fto_b_, uniq) = NULL)
