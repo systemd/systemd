@@ -861,7 +861,13 @@ and `perMachine` sections:
 
 `blobDirectory`, `imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`,
 `fileSystemUuid`, `uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`,
-`luksCipherMode`, `luksVolumeKeySize`.
+`luksCipherMode`, `luksKeyType`, `luksIntegrity`, `luksVolumeKeySize`.
+
+`luksIntegrity` records the integrity profile authenticated by the local binding. The value
+`hmac(sha256)` identifies hardware-wrapped, thin-backed homes using journaled dm-integrity with an
+internal HMAC over filesystem plaintext. dm-integrity is above dm-inlinecrypt, so the lower inline-encryption
+layer encrypts both the data and dm-integrity metadata. The field is omitted for raw-key homes and for
+hardware-wrapped homes created before this profile was introduced.
 
 ## Fields in the `status` section
 

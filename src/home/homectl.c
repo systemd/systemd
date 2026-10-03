@@ -476,6 +476,10 @@ static int handle_generic_user_record_error(
                 return log_error_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
                                        "Too frequent login attempts for user %s, try again later.", user_name);
 
+        else if (!arg_ask_password)
+                return log_error_errno(ret, "Operation on home %s failed: %s", user_name,
+                                       bus_error_message(error, ret));
+
         else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD)) {
 
                 if (!strv_isempty(hr->password))

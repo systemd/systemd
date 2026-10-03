@@ -109,6 +109,48 @@ TEST(shell_validation) {
         ASSERT_STREQ(user_record_shell(u), "/bin/zsh");
 }
 
+TEST(thin_pool_binding) {
+        _cleanup_(user_record_unrefp) UserRecord *u = NULL;
+        sd_id128_t mid;
+        int r;
+
+        r = sd_id128_get_machine(&mid);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        ASSERT_OK(r);
+
+        USER(&u,
+             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+             SD_JSON_BUILD_PAIR_OBJECT(
+                             "binding",
+                             SD_JSON_BUILD_PAIR_OBJECT(
+                                             SD_ID128_TO_STRING(mid),
+                                             SD_JSON_BUILD_PAIR_STRING("storage", "luks"),
+                                             SD_JSON_BUILD_PAIR_STRING("imagePath", "/dev/homes/homed-test"),
+                                             SD_JSON_BUILD_PAIR_STRING("thinPoolUuid", "HOMED-POOL-test"),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("thinDeviceId", 42))));
+
+        ASSERT_STREQ(u->thin_pool_uuid, "HOMED-POOL-test");
+        ASSERT_EQ(u->thin_device_id, 42U);
+        ASSERT_EQ(user_record_auto_resize_mode(u), AUTO_RESIZE_OFF);
+        ASSERT_EQ(user_record_rebalance_weight(u), REBALANCE_WEIGHT_OFF);
+
+        u = user_record_unref(u);
+        ASSERT_ERROR(user_record_build(
+                             &u,
+                             SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_STRING("disposition", "regular"),
+                                             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+                                             SD_JSON_BUILD_PAIR_OBJECT(
+                                                             "binding",
+                                                             SD_JSON_BUILD_PAIR_OBJECT(
+                                                                             SD_ID128_TO_STRING(mid),
+                                                                             SD_JSON_BUILD_PAIR_STRING("thinPoolUuid", "HOMED-POOL-test"),
+                                                                             SD_JSON_BUILD_PAIR_UNSIGNED("thinDeviceId", UINT32_C(1) << 24))))),
+                     ERANGE);
+        ASSERT_NULL(u);
+}
+
 TEST(self_changes) {
         _cleanup_(user_record_unrefp) UserRecord *curr = NULL, *new = NULL;
 

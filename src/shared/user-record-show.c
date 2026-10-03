@@ -442,6 +442,10 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf(" LUKS Cipher: %s\n", hr->luks_cipher);
                 if (hr->luks_cipher_mode)
                         printf(" Cipher Mode: %s\n", hr->luks_cipher_mode);
+                if (hr->luks_key_type)
+                        printf("    Key Type: %s\n", hr->luks_key_type);
+                if (hr->luks_integrity)
+                        printf("   Integrity: %s\n", hr->luks_integrity);
                 if (hr->luks_volume_key_size != UINT64_MAX)
                         printf("  Volume Key: %" PRIu64 "bit\n", hr->luks_volume_key_size * 8);
 

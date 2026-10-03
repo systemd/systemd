@@ -22,8 +22,32 @@ extern int crypt_set_keyring_to_link(struct crypt_device *cd,
                                      const char *key_type_desc,
                                      const char *keyring_to_link_vk);
 extern int crypt_token_set_external_path(const char *path);
+extern int crypt_format_luks2_hw_wrapped(struct crypt_device *cd,
+                                         const char *cipher,
+                                         const char *cipher_mode,
+                                         const char *uuid,
+                                         const char *wrapped_key,
+                                         size_t wrapped_key_size,
+                                         struct crypt_params_luks2 *params);
+extern int crypt_get_hw_encryption_type(struct crypt_device *cd);
+extern int crypt_hw_wrapped_key_generate(struct crypt_device *cd,
+                                         char **wrapped_key,
+                                         size_t *wrapped_key_size);
+extern int crypt_hw_wrapped_key_derive_secret(struct crypt_device *cd,
+                                              const char *wrapped_key,
+                                              size_t wrapped_key_size,
+                                              char **secret,
+                                              size_t *secret_size);
 /* NOLINTEND(readability-redundant-declaration) */
 REENABLE_WARNING;
+
+#ifndef CRYPT_INLINE_HW_WRAPPED
+#define CRYPT_INLINE_HW_WRAPPED INT16_C(3)
+#endif
+
+#ifndef CRYPT_HW_WRAPPED_KEY_SW_SECRET_SIZE
+#define CRYPT_HW_WRAPPED_KEY_SW_SECRET_SIZE 32U
+#endif
 
 extern DLSYM_PROTOTYPE(crypt_activate_by_passphrase);
 extern DLSYM_PROTOTYPE(crypt_activate_by_signed_key);
@@ -32,6 +56,7 @@ extern DLSYM_PROTOTYPE(crypt_activate_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_deactivate);
 extern DLSYM_PROTOTYPE(crypt_deactivate_by_name);
 extern DLSYM_PROTOTYPE(crypt_format);
+extern DLSYM_PROTOTYPE(crypt_format_luks2_hw_wrapped);
 extern DLSYM_PROTOTYPE(crypt_free);
 extern DLSYM_PROTOTYPE(crypt_get_cipher);
 extern DLSYM_PROTOTYPE(crypt_get_cipher_mode);
@@ -78,10 +103,15 @@ extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
 extern DLSYM_PROTOTYPE(crypt_wipe);
 extern DLSYM_PROTOTYPE(crypt_get_integrity_info);
+extern DLSYM_PROTOTYPE(crypt_get_hw_encryption_type);
+extern DLSYM_PROTOTYPE(crypt_hw_wrapped_key_generate);
+extern DLSYM_PROTOTYPE(crypt_hw_wrapped_key_derive_secret);
+extern DLSYM_PROTOTYPE(crypt_safe_free);
 
 /* Be careful, these work with dlopen_cryptsetup(), that is, they call sym_crypt_free() instead of
  * crypt_free() and hence depend on dlopen_cryptsetup() having been called. */
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct crypt_device *, sym_crypt_free, crypt_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(void *, sym_crypt_safe_free, crypt_safe_freep, NULL);
 #define crypt_free_and_replace(a, b)                    \
         free_and_replace_full(a, b, sym_crypt_free)
 
@@ -100,6 +130,17 @@ int cryptsetup_get_volume_key_id(struct crypt_device *cd, const char *volume_nam
 #endif
 
 int dlopen_cryptsetup(int log_level) _dlopen_loader_;
+
+typedef enum CryptsetupHwWrappedKeyCapability {
+        CRYPTSETUP_HW_WRAPPED_FORMAT        = 1U << 0,
+        CRYPTSETUP_HW_ENCRYPTION_TYPE       = 1U << 1,
+        CRYPTSETUP_HW_WRAPPED_GENERATE      = 1U << 2,
+        CRYPTSETUP_HW_WRAPPED_DERIVE_SECRET = 1U << 3,
+        _CRYPTSETUP_HW_WRAPPED_ALL          = (1U << 4) - 1,
+} CryptsetupHwWrappedKeyCapability;
+
+unsigned cryptsetup_hw_wrapped_key_capabilities(void);
+bool cryptsetup_has_hw_wrapped_key_support(void);
 
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 
