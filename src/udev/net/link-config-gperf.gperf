@@ -131,6 +131,8 @@ Link.RxMaxCoalescedHighFrames,             config_parse_coalesce_u32,           
 Link.TxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_high)
 Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_high)
 Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
+Link.RxCoalesceCQENSec,                    config_parse_coalesce_sec,             true,                          offsetof(LinkConfig, coalesce.rx_cqe_nsecs)
+Link.RxMaxCoalescedCQEFrames,              config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_cqe_frames)
 /* Rx RPS CPU mask */
 Link.ReceivePacketSteeringCPUMask,         config_parse_rps_cpu_mask,             0,                             offsetof(LinkConfig, rps_cpu_mask)
 /* IRQ affinity settings */
