@@ -86,12 +86,21 @@ COMMON_NAME_MAX_LEN = 64
 INITRD_PCR_POLICY: tuple[list[str], str] = (['enter-initrd'], 'initrd')
 
 
+def terminal_is_dumb() -> bool:
+    return (
+        not sys.stdout.isatty()
+        or not sys.stderr.isatty()
+        or os.getenv("TERM", "") == "dumb"
+        or bool(os.getenv("NO_COLOR"))
+    )
+
+
 class Style:
-    bold = '\033[0;1;39m' if sys.stderr.isatty() else ''
-    gray = '\033[0;38;5;245m' if sys.stderr.isatty() else ''
-    red = '\033[31;1m' if sys.stderr.isatty() else ''
-    yellow = '\033[33;1m' if sys.stderr.isatty() else ''
-    reset = '\033[0m' if sys.stderr.isatty() else ''
+    bold = '\033[0;1;39m' if not terminal_is_dumb() else ''
+    gray = '\033[0;38;5;245m' if not terminal_is_dumb() else ''
+    red = '\033[31;1m' if not terminal_is_dumb() else ''
+    yellow = '\033[33;1m' if not terminal_is_dumb() else ''
+    reset = '\033[0m' if not terminal_is_dumb() else ''
 
 
 def guess_efi_arch() -> str:
