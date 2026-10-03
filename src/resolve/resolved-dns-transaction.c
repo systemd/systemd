@@ -1022,7 +1022,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 return;
         }
 
-        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER)
+        /* Don't blame the server if the query merely went out below DO, it may support DNSSEC just fine. */
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER && !dns_server_dnssec_supported(t->server))
                 dns_server_warn_downgrade(t->server);
 
         dns_transaction_cache_answer(t);
@@ -2448,10 +2449,18 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
         if (!t->server)
                 return true;
 
-        /* Note that we do not check the feature level actually used for the transaction but instead the feature level
-         * the server is known to support currently, as the transaction feature level might be lower than what the
-         * server actually supports, since we might have downgraded this transaction's feature level because we got a
-         * SERVFAIL earlier and wanted to check whether downgrading fixes it. */
+        /* Same if the answer came from the cache on a retry: server and feature level are then stale. */
+        if (t->answer_source != DNS_TRANSACTION_NETWORK)
+                return true;
+
+        /* A query sent below DO cannot get RRSIGs back, whatever the server is capable of, e.g. after
+         * packet loss degraded the server or a SERVFAIL clamped this transaction. Validating it can only
+         * fail, so treat it like a reply from a server without DNSSEC. Except in strict mode, where
+         * unsigned data is only an error if it needed signing (negative trust anchors, insecure
+         * delegations), so leave that to validation, as dns_server_dnssec_supported() does. */
+        if (t->scope->dnssec_mode != DNSSEC_YES &&
+            !DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(t->current_feature_level))
+                return false;
 
         return dns_server_dnssec_supported(t->server);
 }
