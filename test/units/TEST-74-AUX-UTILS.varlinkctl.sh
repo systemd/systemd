@@ -364,5 +364,24 @@ echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 
+# Verify consistent handling of omitted/null/empty parameters
+check_output_is_empty_object() {
+    REPLY="$1"
+    # This is a "Varlink server" that reads the incoming call, discards it, and
+    # directly sends the contents of $REPLY as the reply. This lets us exercise
+    # sd-varlink's client-side parsing of the Varlink call/reply framing
+    # shellcheck disable=SC2016
+    SERVE_PID=$(systemd-notify --fork -- \
+        systemd-socket-activate -l "$SERVE_SOCKET" --inetd -a -- \
+            bash -c 'read -r -d "" _; printf "%s\0" "$0"' "$REPLY")
+    varlinkctl call "unix:$SERVE_SOCKET" com.example.Test '{}' | grep "^{}$"
+    varlinkctl --exec call "unix:$SERVE_SOCKET" com.example.Test '{}' -- grep "^{}$"
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+}
+check_output_is_empty_object '{}'
+check_output_is_empty_object '{"parameters": null}'
+check_output_is_empty_object '{"parameters": {}}'
+
 rm -f "$SERVE_SOCKET"
 rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"
