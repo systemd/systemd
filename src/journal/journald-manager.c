@@ -92,7 +92,8 @@ static int manager_determine_path_usage(
                 Manager *m,
                 const char *path,
                 uint64_t *ret_used,
-                uint64_t *ret_free) {
+                uint64_t *ret_free,
+                uint64_t *ret_fs_size) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct statvfs ss;
@@ -101,6 +102,7 @@ static int manager_determine_path_usage(
         assert(path);
         assert(ret_used);
         assert(ret_free);
+        assert(ret_fs_size);
 
         d = opendir(path);
         if (!d)
@@ -112,6 +114,7 @@ static int manager_determine_path_usage(
                                                  "Failed to fstatvfs(%s): %m", path);
 
         *ret_free = ss.f_bsize * ss.f_bavail;
+        *ret_fs_size = u64_multiply_safe(ss.f_frsize, ss.f_blocks);
         *ret_used = 0;
         FOREACH_DIRENT_ALL(de, d, break) {
                 struct stat st;
@@ -143,7 +146,7 @@ static void cache_space_invalidate(JournalStorageSpace *space) {
 static int cache_space_refresh(Manager *m, JournalStorage *storage) {
         JournalStorageSpace *space;
         JournalMetrics *metrics;
-        uint64_t vfs_used, vfs_avail, avail;
+        uint64_t vfs_used, vfs_avail, fs_size, avail;
         usec_t ts;
         int r;
 
@@ -158,14 +161,15 @@ static int cache_space_refresh(Manager *m, JournalStorage *storage) {
         if (space->timestamp != 0 && usec_add(space->timestamp, RECHECK_SPACE_USEC) > ts)
                 return 0;
 
-        r = manager_determine_path_usage(m, storage->path, &vfs_used, &vfs_avail);
+        r = manager_determine_path_usage(m, storage->path, &vfs_used, &vfs_avail, &fs_size);
         if (r < 0)
                 return r;
 
         space->vfs_used = vfs_used;
         space->vfs_available = vfs_avail;
+        space->fs_size = fs_size;
 
-        avail = LESS_BY(vfs_avail, metrics->keep_free);
+        avail = LESS_BY(vfs_avail, journal_effective_keep_free(metrics, fs_size));
 
         space->limit = CLAMP(vfs_used + avail, metrics->min_use, metrics->max_use);
         space->available = LESS_BY(space->limit, vfs_used);
@@ -219,6 +223,7 @@ void manager_space_usage_message(Manager *m, JournalStorage *storage) {
                 return;
 
         const JournalMetrics *metrics = &storage->metrics;
+        const uint64_t keep_free = journal_effective_keep_free(metrics, storage->space.fs_size);
 
         manager_driver_message(m, 0,
                                LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_USAGE_STR),
@@ -233,8 +238,8 @@ void manager_space_usage_message(Manager *m, JournalStorage *storage) {
                                LOG_ITEM("CURRENT_USE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_used)),
                                LOG_ITEM("MAX_USE=%"PRIu64, metrics->max_use),
                                LOG_ITEM("MAX_USE_PRETTY=%s", FORMAT_BYTES(metrics->max_use)),
-                               LOG_ITEM("DISK_KEEP_FREE=%"PRIu64, metrics->keep_free),
-                               LOG_ITEM("DISK_KEEP_FREE_PRETTY=%s", FORMAT_BYTES(metrics->keep_free)),
+                               LOG_ITEM("DISK_KEEP_FREE=%"PRIu64, keep_free),
+                               LOG_ITEM("DISK_KEEP_FREE_PRETTY=%s", FORMAT_BYTES(keep_free)),
                                LOG_ITEM("DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available),
                                LOG_ITEM("DISK_AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_available)),
                                LOG_ITEM("LIMIT=%"PRIu64, storage->space.limit),
