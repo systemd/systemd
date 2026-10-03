@@ -186,7 +186,7 @@ int kmod_setup(void) {
         } kmod_table[] = {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
                  * before udev created the ghost device nodes, and we need it earlier than that. */
-                { "autofs4",                    "/sys/class/misc/autofs",       true,  false, NULL                      },
+                { "autofs4",                    "/sys/class/misc/autofs",       false, false, NULL                      },
 
                 /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
                  * we try to configure ::1 on the loopback device. */
