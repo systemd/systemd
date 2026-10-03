@@ -72,6 +72,8 @@ static const BaseFilesystem table[] = {
                          "usr/lib\0",                "ld-linux-aarch64.so.1",       BASE_FILESYSTEM_EMPTY_ONLY        },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__alpha__)
+        /* No /lib64 on DEC Alpha (despite being 64-bit). The linker is /lib/ld-linux.so.2. */
+#  define KNOW_LIB64_DIRS 1
 #elif defined(__arc__) || defined(__tilegx__)
 #elif defined(__arm__)
         /* No /lib64 on arm. The linker is /lib/ld-linux-armhf.so.3. */
