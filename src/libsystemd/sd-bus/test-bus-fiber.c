@@ -202,6 +202,27 @@ static int errors_fiber(void *userdata) {
         ASSERT_NULL(future);
         ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), 0));
 
+        /* The getter returns -EBUSY for a pending call, and -ECANCELED for a cancelled call that has no
+         * reply. */
+        _cleanup_(sd_bus_error_free) sd_bus_error cancelled_error = SD_BUS_ERROR_NULL;
+        ASSERT_OK(bus_call_future(client, call, USEC_INFINITY, &future));
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_get_bus_reply(future, &cancelled_error, /* ret_reply= */ NULL)), EBUSY);
+        ASSERT_FALSE(sd_bus_error_is_set(&cancelled_error));
+        ASSERT_OK(sd_future_cancel(future));
+        ASSERT_ERROR(future_get_bus_reply(future, &cancelled_error, /* ret_reply= */ NULL), ECANCELED);
+        ASSERT_TRUE(sd_bus_error_is_set(&cancelled_error));
+
+        /* An error reply keeps its name and message on top of the result. */
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *failing = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *failed = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error reply_error = SD_BUS_ERROR_NULL;
+        ASSERT_OK(sd_bus_message_new_method_call(client, &failing, /* destination= */ NULL,
+                                                "/test", "test.Fiber", "FailErrno"));
+        ASSERT_OK(bus_call_future(client, failing, USEC_INFINITY, &failed));
+        ASSERT_OK_ZERO(sd_fiber_await(failed));
+        ASSERT_ERROR(future_get_bus_reply(failed, &reply_error, /* ret_reply= */ NULL), EACCES);
+        ASSERT_TRUE(sd_bus_error_has_name(&reply_error, SD_BUS_ERROR_ACCESS_DENIED));
+
         /* A fiber handler that returns a negative errno gets turned into a matching sd_bus error
          * reply (bus_maybe_reply_error → sd_bus_reply_method_errno). */
         _cleanup_(sd_bus_error_free) sd_bus_error e1 = SD_BUS_ERROR_NULL;
