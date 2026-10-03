@@ -596,6 +596,20 @@ int sd_fiber_suspend(void) {
         return fiber_swap(FIBER_STATE_SUSPENDED);
 }
 
+int sd_fiber_interrupted(void) {
+        sd_future *f = sd_fiber_get_current();
+
+        assert_return(f, -ESRCH);
+
+        Fiber *fiber = fiber_get(f);
+
+        if (!fiber->result_pending || !IN_SET(fiber->result, -ECANCELED, -ETIME))
+                return 0;
+
+        fiber->result_pending = false;
+        return TAKE_GENERIC(fiber->result, int, 0);
+}
+
 static int fiber_set_priority(sd_future *f, int64_t priority) {
         Fiber *fiber = fiber_get(f);
         int r = 0;
