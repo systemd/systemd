@@ -178,6 +178,8 @@ efi_c_args = [
 ]
 
 efi_c_args += cc.get_supported_arguments(
+        '-fdebug-prefix-map=' + meson.project_source_root() + '=.',
+        '-fdebug-prefix-map=' + meson.project_build_root() + '=build',
         '-fwide-exec-charset=UCS2',
         # gcc docs says this is required for ms_abi to work correctly.
         '-maccumulate-outgoing-args',
@@ -234,6 +236,8 @@ endif
 efi_c_ld_args += cc.get_supported_link_arguments(
         # binutils >= 2.38
         '-Wl,-z,nopack-relative-relocs',
+        # binutils >= 2.18
+        '-Wl,--build-id=md5',
 )
 
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
@@ -375,7 +379,7 @@ sources += stub_sources
 sources += addon_sources
 
 boot_targets = []
-efi_elf_binaries = []
+efi_elf_images = []
 efi_archspecs = [
         {
                 'arch' : efi_arch,
@@ -428,44 +432,44 @@ foreach archspec : efi_archspecs
                 'pie' : true,
         }
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'systemd-boot' + archspec['arch'],
                 sources : [systemd_boot_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf',
                 kwargs : kwargs)
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'linux' + archspec['arch'],
                 sources : [stub_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'addon' + archspec['arch'],
                 sources : [addon_sources, version_h],
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 endforeach
 
-foreach efi_elf_binary : efi_elf_binaries
-        name = efi_elf_binary.name()
+foreach efi_elf_image : efi_elf_images
+        name = efi_elf_image.name()
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
 
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
         # the sections that ukify will add.
         if name.startswith('linux')
-                minimum_sections = get_option('efi-stub-extra-sections')
+                extra_sections = get_option('efi-stub-extra-sections')
         elif name.startswith('addon')
-                minimum_sections = get_option('efi-addon-extra-sections')
+                extra_sections = get_option('efi-addon-extra-sections')
         else
-                minimum_sections = 0
+                extra_sections = 0
         endif
 
         exe = custom_target(
                 output : name,
-                input : efi_elf_binary,
+                input : efi_elf_image,
                 install : true,
                 install_dir : bootlibdir,
                 install_tag : 'systemd-boot',
@@ -476,7 +480,7 @@ foreach efi_elf_binary : efi_elf_binaries
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
-                        f'--minimum-sections=@minimum_sections@',
+                        f'--extra-sections=@extra_sections@',
                         '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',
@@ -491,10 +495,54 @@ foreach efi_elf_binary : efi_elf_binaries
                 efi_addon = [exe]
         endif
 
-        test(f'check-alignment-@name@',
-             check_efi_alignment_py,
-             args : exe,
+        test(f'check-efi-image-@name@',
+             check_efi_image_py,
+             args : [exe, efi_elf_image, extra_sections.to_string(), '0'],
+             suite : 'boot')
+        test(f'check-efi-codeview-guid-@name@',
+             check_efi_codeview_guid_sh,
+             args : [exe, efi_elf_image],
              suite : 'boot')
 endforeach
+
+test_elf_with_dbgsym_extra_sections = get_option('efi-addon-extra-sections')
+
+test_elf_with_dbgsym = executable(
+        'test-addon-dbgsym',
+        sources : [addon_sources, version_h],
+        include_directories : efi_includes,
+        implicit_include_directories : false,
+        c_args : [efi_archspecs[0]['c_args'], '-g'],
+        link_args : efi_archspecs[0]['link_args'],
+        gnu_symbol_visibility : 'hidden',
+        override_options : efi_override_options,
+        pie : true,
+        build_by_default : want_tests != 'false')
+test_pe_with_dbgsym = custom_target(
+        output : 'test-addon-dbgsym.efi.stub',
+        input : test_elf_with_dbgsym,
+        install : false,
+        build_by_default : want_tests != 'false',
+        command : [
+                elf2efi_py,
+                f'--version-major=@project_major_version@',
+                f'--version-minor=@project_minor_version@',
+                '--efi-major=1',
+                '--efi-minor=1',
+                '--subsystem=10',
+                f'--extra-sections=@test_elf_with_dbgsym_extra_sections@',
+                '--copy-sections=.sbat,.sdmagic,.osrel',
+                '@INPUT@',
+                '@OUTPUT@',
+        ])
+
+test('check-efi-image-debug',
+     check_efi_image_py,
+     args : [test_pe_with_dbgsym, test_elf_with_dbgsym, test_elf_with_dbgsym_extra_sections.to_string(), '1'],
+     suite : 'boot')
+test('check-efi-codeview-guid-debug',
+     check_efi_codeview_guid_sh,
+     args : [test_pe_with_dbgsym, test_elf_with_dbgsym],
+     suite : 'boot')
 
 alias_target('systemd-boot', boot_targets)
