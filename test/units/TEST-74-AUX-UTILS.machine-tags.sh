@@ -107,33 +107,36 @@ systemd-run -p AssertMachineTag=beta -p Type=oneshot true
 # --------------------------------------------------------------------------------------------------
 
 if command -v systemd-firstboot >/dev/null; then
-    # The firstboot.machine-tags credential is split on ':', deduplicated and sorted, and written
-    # into /etc/machine-info underneath the target root.
+    # The firstboot.machine-tags credential is split on ':', sorted, and written into
+    # /etc/machine-info underneath the target root.
     ROOT="$(mktemp -d)"
     systemd-run --wait --pipe --service-type=exec \
-        -p SetCredential=firstboot.machine-tags:webserver:frontend:webserver:berlin \
+        -p SetCredential=firstboot.machine-tags:webserver:frontend:berlin \
         systemd-firstboot --root="$ROOT"
     grep -qE '^TAGS="?berlin:frontend:webserver"?$' "$ROOT/etc/machine-info"
 
-    # An invalid tag anywhere in the credential causes the whole list to be ignored, so no
+    # An invalid or repeated tag anywhere in the credential causes the whole list to be ignored, so no
     # machine-info file is written.
-    rm -fr "$ROOT"
-    ROOT="$(mktemp -d)"
-    systemd-run --wait --pipe --service-type=exec \
-        -p SetCredential=firstboot.machine-tags:'good:bad/tag' \
-        systemd-firstboot --root="$ROOT"
-    test ! -e "$ROOT/etc/machine-info"
+    for tags in 'good:bad/tag' 'webserver:frontend:webserver'; do
+        rm -fr "$ROOT"
+        ROOT="$(mktemp -d)"
+        systemd-run --wait --pipe --service-type=exec \
+            -p SetCredential=firstboot.machine-tags:"$tags" \
+            systemd-firstboot --root="$ROOT"
+        test ! -e "$ROOT/etc/machine-info"
+    done
 
     # The --machine-tags= switch is normalized the same way and takes precedence over the credential.
     rm -fr "$ROOT"
     ROOT="$(mktemp -d)"
     systemd-run --wait --pipe --service-type=exec \
         -p SetCredential=firstboot.machine-tags:ignored \
-        systemd-firstboot --root="$ROOT" --machine-tags=database:cache:database
+        systemd-firstboot --root="$ROOT" --machine-tags=database:cache
     grep -qE '^TAGS="?cache:database"?$' "$ROOT/etc/machine-info"
 
-    # An invalid tag passed on the command line is a hard error.
+    # An invalid or repeated tag passed on the command line is a hard error.
     rm -fr "$ROOT"
     ROOT="$(mktemp -d)"
     (! systemd-firstboot --root="$ROOT" --machine-tags='good:bad/tag')
+    (! systemd-firstboot --root="$ROOT" --machine-tags='database:cache:database')
 fi
