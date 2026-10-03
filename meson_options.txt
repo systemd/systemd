@@ -395,6 +395,9 @@ option('dns-servers', type : 'string',
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
+option('geoip-endpoint', type : 'string',
+       description : 'default URL of the IP geolocation web service queried by systemd-report-geoip',
+       value : 'https://reallyfreegeoip.org/json/')
 option('support-url', type : 'string',
        description : 'the support URL to show in catalog entries included in systemd',
        value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')

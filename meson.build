@@ -968,6 +968,9 @@ conf.set_quoted('DNS_SERVERS', dns_servers)
 ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
 
+geoip_endpoint = get_option('geoip-endpoint')
+conf.set_quoted('GEOIP_ENDPOINT', geoip_endpoint)
+
 default_locale = get_option('default-locale')
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
@@ -3021,6 +3024,7 @@ summary({
         'default LLMNR mode'                        : default_llmnr,
         'default DNS servers'                       : dns_servers.split(' '),
         'default NTP servers'                       : ntp_servers.split(' '),
+        'default GeoIP endpoint'                    : geoip_endpoint,
         'default net.naming_scheme= value'          : default_net_naming_scheme,
         'default KillUserProcesses= value'          : kill_user_processes,
         'default locale'                            : default_locale,
