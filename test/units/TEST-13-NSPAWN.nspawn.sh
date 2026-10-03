@@ -1539,6 +1539,39 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
+unpriv_gidmap_cleanup() {
+    userdel --force --remove gidmaptest || :
+    groupdel gidmaptest || :
+}
+
+testcase_unpriv_gidmap() {
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping rootless test..."
+        return 0
+    fi
+
+    local root permissions
+
+    trap unpriv_gidmap_cleanup RETURN ERR
+    groupadd --gid 12345 gidmaptest
+    useradd --uid 54321 --gid 12345 --create-home gidmaptest
+
+    root="$(mktemp -d /var/tmp/TEST-13-NSPAWN.gidmap.XXX)"
+    create_dummy_container "$root"
+
+    # host -> container
+    touch "$root/file"
+    chown -R 54321:12345 "$root"
+    permissions="$(run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no --link-journal=no -D "$root" stat -c %u:%g /file)"
+    assert_eq "$permissions" "0:65534"
+
+    # container -> host
+    # run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no --link-journal=no -D "$root" touch /other_file
+    # touch: cannot touch '/other_file': Permission denied
+
+    rm -rf "$root"
+}
+
 testcase_link_journal_host() {
     local root hoge i
 
