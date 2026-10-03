@@ -6,6 +6,7 @@
 #include "crypto-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 #include "string-table.h"
@@ -28,6 +29,9 @@ DEFINE_STRING_TABLE_LOOKUP(tpm2_report_component_type, Tpm2ReportComponentType);
 
 static void tpm2_report_component_done(Tpm2ReportComponent *c) {
         assert(c);
+
+        c->pcr_values = mfree(c->pcr_values);
+        c->n_pcr_values = 0;
 
         c->nv_pcr_name = mfree(c->nv_pcr_name);
         c->nv_public = mfree(c->nv_public);
@@ -161,6 +165,15 @@ static int tpm2_generate_report_try(
          * Audit session exclusivity provides evidence that the sequence of attestations reflects a single
          * and consistent snapshot of the machine's state. */
 
+        /* Read the PCR values first, outside of the audit session. This makes it easier for a verifier
+         * to reconstruct the audit digest from the report. We need to make sure that the values read
+         * here are consistent with the digest in the quote we obtain later. */
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
+        r = tpm2_pcr_read(c, pcrs, &pcr_values, &n_pcr_values);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read PCR values: %m");
+
         const TPMI_ALG_HASH audit_session_alg = TPM2_ALG_SHA256;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *audit_session = NULL;
@@ -187,10 +200,43 @@ static int tpm2_generate_report_try(
         if (r < 0)
                 return r;
 
+        if (quoted->type != TPM2_ST_ATTEST_QUOTE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Unexpected quote attestation tag 0x%" PRIx16, quoted->type);
+
+        /* Crosscheck the PCR values we read outside of the audit session against the digest in the quote.
+         * A mismatch means the PCRs were extended in between, so ask the caller to retry. */
+        _cleanup_free_ TPM2B_DIGEST *quoted_pcr_digests = NULL;
+        size_t n_quoted_pcr_digests;
+        r = tpm2_pcr_values_to_digests_for_selection(
+                        &quoted->attested.quote.pcrSelect,
+                        pcr_values,
+                        n_pcr_values,
+                        &quoted_pcr_digests,
+                        &n_quoted_pcr_digests);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to order PCR values according to the quoted PCR selection: %m");
+
+        TPM2B_DIGEST pcr_digest = {};
+        r = tpm2_digest_many_digests(
+                        quote_signature->signature.any.hashAlg,
+                        &pcr_digest,
+                        quoted_pcr_digests,
+                        n_quoted_pcr_digests,
+                        /* extend= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to digest PCR values: %m");
+
+        if (memcmp_nn(pcr_digest.buffer, pcr_digest.size,
+                      quoted->attested.quote.pcrDigest.buffer, quoted->attested.quote.pcrDigest.size) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "PCR values changed whilst obtaining the TPM quote");
+
         if (!GREEDY_REALLOC(components, n_components + 1))
                 return log_oom_debug();
         components[n_components++] = (Tpm2ReportComponent) {
                 .type = TPM2_REPORT_TYPE_PCR,
+                .pcr_values = TAKE_PTR(pcr_values),
+                .n_pcr_values = n_pcr_values,
                 .attestation = TAKE_PTR(quoted),
                 .signature = TAKE_PTR(quote_signature),
         };
@@ -446,7 +492,7 @@ int tpm2_generate_report(
                                 &event_log,
                                 &components, &n_components);
                 if (r == -EBUSY && i > 0) {
-                        log_debug("Audit session lost exclusivity, retrying.");
+                        log_debug("TPM state changed while generating report, retrying.");
                         continue;
                 }
                 if (r < 0)
