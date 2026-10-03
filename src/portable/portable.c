@@ -1872,7 +1872,7 @@ static int install_image(
                                 tree_fd = TAKE_FD(fd);
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(mountfsd_link, target, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                        r = mkdir_foreign(target, MODE_INVALID, &directory_fd);
                         if (r < 0)
                                 return r;
 
