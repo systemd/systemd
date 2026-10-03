@@ -283,6 +283,26 @@ TEST(local_addresses_with_dummy) {
         ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
+        /* Add a non-default IPv4 route. The kernel dumps the routes of the IPv4 main table in trie order,
+         * default routes first, and local_gateways() stops reading the dump once it sees the first
+         * route with a non-default destination (which, per the trie order, means no more default
+         * routes will follow). The message-by-message dispatch that makes this stop possible is
+         * exercised in detail in TEST(partial_dispatch) in test-netlink; this route simply ensures
+         * that the non-default case is present for the local_gateways() early stop to hit. Note that
+         * an early stop cannot be observed directly here: without it the same gateways would be
+         * found, just slower and with a full dump. */
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_rtnl_message_route_set_dst_prefixlen(message, 24));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.123.12.0", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, RTA_DST, &u.in));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
         /* Add an IPv6 default gateway */
         ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC));
         ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
