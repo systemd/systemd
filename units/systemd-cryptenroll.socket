@@ -17,7 +17,7 @@ Before=sockets.target
 ListenStream=/run/systemd/io.systemd.CryptEnroll
 Symlinks=/run/varlink/registry/io.systemd.CryptEnroll
 FileDescriptorName=varlink
-SocketMode=0644
+SocketMode=0666
 Accept=yes
 MaxConnectionsPerSource=16
 XAttrEntryPoint=user.varlink=entrypoint
