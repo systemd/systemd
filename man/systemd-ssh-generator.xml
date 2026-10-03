@@ -71,6 +71,15 @@
     <para>The generator will use a packaged <filename>sshd@.service</filename> service template file if one
     exists, and otherwise generate a suitable service template file.</para>
 
+    <para>Note that the generated service template file overrides the
+    <varname>AuthorizedKeysFile</varname> setting of
+    <citerefentry project="man-pages"><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    in order to pick up the key provided via the
+    <varname>ssh.ephemeral-authorized_keys-all</varname> credential. It lists that key file first, followed
+    by <filename>.ssh/authorized_keys</filename> and <filename>.ssh/authorized_keys2</filename>, i.e. the two
+    paths <command>sshd</command> looks at by default. Any other paths configured locally are not
+    considered, as <command>sshd</command> provides no way to append to the setting.</para>
+
     <para><command>systemd-ssh-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>

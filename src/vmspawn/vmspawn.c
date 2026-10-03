@@ -3590,7 +3590,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "[Service]\n"
                                 "ExecStartPre=systemd-tmpfiles --create --inline 'f^ /run/sshd-vsock-%i/authorized_keys 0444 root root - ssh.ephemeral-authorized_keys-all'\n"
                                 "ExecStart=\n"
-                                "ExecStart=-sshd -i -o 'AuthorizedKeysFile=/run/sshd-vsock-%i/authorized_keys .ssh/authorized_keys'\n"
+                                "ExecStart=-sshd -i -o 'AuthorizedKeysFile=/run/sshd-vsock-%i/authorized_keys .ssh/authorized_keys .ssh/authorized_keys2'\n"
                                 "ImportCredential=ssh.ephemeral-authorized_keys-all\n"
                                 "RuntimeDirectory=sshd-vsock-%i\n",
                                 SIZE_MAX);
