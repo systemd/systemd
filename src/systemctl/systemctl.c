@@ -954,6 +954,8 @@ VERB_SCOPE(, verb_start,             "try-reload-or-restart", "UNIT…\0", 2,   
            "If active, reload one or more units, if supported, otherwise restart");
 VERB_SCOPE(, verb_start,             "isolate",          "UNIT\0",       2,        2,        VERB_ONLINE_ONLY,
            "Start one unit and stop all others");
+VERB_SCOPE(, verb_wait,              "wait",             "UNIT\0",       2,        2,        VERB_ONLINE_ONLY,
+           "Wait for a unit to terminate, i.e. enter inactive or failed state");
 VERB_SCOPE(, verb_kill,              "kill",             "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Send signal to processes of a unit");
 VERB_SCOPE(, verb_clean_or_freeze,   "clean",            "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,

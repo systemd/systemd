@@ -19,6 +19,27 @@ at_exit() {
 
     systemctl log-level "$ORIG_LOG_LEVEL"
 
+    # The "systemctl wait" subtest leaves units in failed state behind (wait-sigkill.service may even still
+    # be running its "sleep 60" if the subtest aborted midway), which would leak into the remaining subtests
+    # of this file, hence clean up unconditionally here.
+    local -a wait_units=(
+        wait2.service
+        wait5fail.service
+        wait-exit7.service
+        wait-sigkill.service
+        wait-log.service
+        wait-gc.service
+        wait-watcher.service
+    )
+    systemctl stop "${wait_units[@]}"
+    systemctl reset-failed "${wait_units[@]}"
+    rm -f /tmp/wait-log.fifo /tmp/wait-watcher.log
+
+    if [[ -e /etc/dbus-1/system.d/systemd-test-deny-ref.conf ]]; then
+        rm -f /etc/dbus-1/system.d/systemd-test-deny-ref.conf
+        systemctl reload dbus.service
+    fi
+
     if [[ -v UNIT_NAME && -e /run/systemd/system/"$UNIT_NAME" ]]; then
         systemctl stop "$UNIT_NAME"
         rm -f /run/systemd/system/"$UNIT_NAME"
@@ -115,6 +136,129 @@ START_SEC=$(date -u '+%s')
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]]
+
+# Test "systemctl wait"
+# An already inactive unit terminates the wait immediately, successfully
+timeout 5 systemctl wait wait2.service
+
+# A running unit is waited for until it terminates
+systemctl --no-block start wait2.service
+START_SEC=$(date -u '+%s')
+timeout 10 systemctl wait wait2.service
+END_SEC=$(date -u '+%s')
+ELAPSED=$((END_SEC-START_SEC))
+[[ "$ELAPSED" -ge 1 ]]
+
+# The exit status of the unit's main process is propagated
+systemctl --no-block start wait5fail.service
+assert_rc 1 timeout 10 systemctl wait wait5fail.service
+systemd-run --no-block --unit=wait-exit7.service bash -c 'sleep 2; exit 7'
+assert_rc 7 timeout 10 systemctl wait wait-exit7.service
+# ... with termination by signal reported as 255
+systemd-run --unit=wait-sigkill.service sleep 60
+systemctl kill --signal=SIGKILL wait-sigkill.service
+assert_rc 255 timeout 10 systemctl wait wait-sigkill.service
+
+# A summary is shown on stdout, unless --quiet is given
+systemctl --no-block start wait2.service
+timeout 10 systemctl wait wait2.service | grep "Finished with result" >/dev/null
+systemctl --no-block start wait2.service
+OUT="$(timeout 10 systemctl --quiet wait wait2.service)"
+[[ -z "$OUT" ]]
+
+# --verbose forwards the unit's log output. To make this race-free, run "systemctl wait" as a Type=notify
+# service: it sends READY=1 once it is fully set up, including the journal follow logic, hence any log output
+# of the unit generated after systemd-run returned is guaranteed to be caught. Block the unit on a FIFO until
+# then, so that it doesn't log too early.
+#
+# Note that the output of the watcher service is written to a file rather than checked via the journal: when
+# stderr is connected to the journal, "systemctl" logs via the native journal socket, and journald looks up
+# the sender's metadata (unit, invocation ID, ...) from /proc only once it processes the datagram. Since
+# "systemctl wait" exits right after logging, journald might not be able to attribute the log messages to
+# the unit anymore, and hence a lookup by invocation ID would be racy.
+mkfifo /tmp/wait-log.fifo
+systemd-run --unit=wait-log.service bash -c 'read -r </tmp/wait-log.fifo; echo hello-from-wait'
+systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl --verbose wait wait-log.service
+echo go >/tmp/wait-log.fifo
+timeout 10 systemctl wait wait-watcher.service
+grep hello-from-wait /tmp/wait-watcher.log >/dev/null
+rm /tmp/wait-log.fifo
+
+# A non-existent unit is treated as terminated successfully, with a message in place of the summary
+systemctl wait nonexistent.service | grep "does not exist" >/dev/null
+OUT="$(systemctl --quiet wait nonexistent.service)"
+[[ -z "$OUT" ]]
+
+# A unit type without a Result property (e.g. a target) exits successfully once inactive
+timeout 5 systemctl wait hello-after-sleep.target
+
+# Template unit names are refused
+(! systemctl wait 'foo@.service')
+
+# Test that "systemctl wait" notices if the unit it waits for is removed from the service manager while
+# waiting. Normally "systemctl wait" pins the unit via Ref(), so that it is not garbage collected before its
+# final state was collected. Hence deny Ref() via D-Bus policy, and make the unit be garbage collected
+# aggressively via CollectMode=inactive-or-failed. "systemctl wait" itself runs as a Type=notify service: it
+# sends READY=1 once it is fully subscribed to the unit's state changes, so that we can synchronize on that.
+mkdir -p /etc/dbus-1/system.d/
+cat >/etc/dbus-1/system.d/systemd-test-deny-ref.conf <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+        <policy context="mandatory">
+                <deny send_destination="org.freedesktop.systemd1" send_interface="org.freedesktop.systemd1.Unit" send_member="Ref"/>
+        </policy>
+</busconfig>
+EOF
+systemctl reload dbus.service
+
+systemd-run --unit=wait-gc.service --property=CollectMode=inactive-or-failed sleep infinity
+systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl wait wait-gc.service
+systemctl is-active wait-watcher.service
+# Stopping the unit makes it disappear right-away, which "systemctl wait" must notice and report as failure
+systemctl stop wait-gc.service
+assert_rc 1 timeout 10 systemctl wait wait-watcher.service
+grep "has been removed while waiting for it" /tmp/wait-watcher.log >/dev/null
+systemctl reset-failed wait-watcher.service
+
+# A daemon-reload while waiting removes and re-adds the unit, which must not confuse "systemctl wait"
+systemd-run --unit=wait-gc.service --property=CollectMode=inactive-or-failed sleep infinity
+systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl wait wait-gc.service
+systemctl daemon-reload
+systemctl is-active wait-watcher.service
+systemctl is-active wait-gc.service
+# ... but once the unit is stopped and garbage collected, "systemctl wait" must notice again
+systemctl stop wait-gc.service
+assert_rc 1 timeout 10 systemctl wait wait-watcher.service
+grep "has been removed while waiting for it" /tmp/wait-watcher.log >/dev/null
+(! grep "removed during service manager reload" /tmp/wait-watcher.log >/dev/null)
+systemctl reset-failed wait-watcher.service
+
+# With Ref() allowed again the unit is pinned, and hence not garbage collected before its final state was
+# collected, even with an aggressive CollectMode= and a daemon-reload while waiting
+rm /etc/dbus-1/system.d/systemd-test-deny-ref.conf
+systemctl reload dbus.service
+
+systemd-run --unit=wait-gc.service --property=CollectMode=inactive-or-failed sleep infinity
+systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl wait wait-gc.service
+systemctl daemon-reload
+systemctl is-active wait-watcher.service
+systemctl stop wait-gc.service
+timeout 10 systemctl wait wait-watcher.service
+grep "Finished with result: success" /tmp/wait-watcher.log >/dev/null
+
+# The same must hold for a daemon-reexec, where the Reloading(true) signal might not reach "systemctl wait",
+# and it has to fall back to noticing the loss of the service manager's bus name instead
+systemd-run --unit=wait-gc.service --property=CollectMode=inactive-or-failed sleep infinity
+systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl wait wait-gc.service
+systemctl daemon-reexec
+systemctl is-active wait-watcher.service
+systemctl is-active wait-gc.service
+systemctl stop wait-gc.service
+timeout 10 systemctl wait wait-watcher.service
+grep "Finished with result: success" /tmp/wait-watcher.log >/dev/null
+(! grep "removed during service manager reload" /tmp/wait-watcher.log >/dev/null)
 
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
