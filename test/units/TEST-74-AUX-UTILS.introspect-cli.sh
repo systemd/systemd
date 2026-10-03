@@ -9,6 +9,10 @@ PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
+# Options and verbs (nested command objects) share the "arguments" array of a command object.
+JQ_DEFS='def opts: [.arguments[]? | select(.type == "option")];
+         def verbs: [.arguments[]? | select(.type == "command")];'
+
 # A smoke test for the introspection code
 INTROSPECTABLE=(
     ata_id
@@ -165,12 +169,15 @@ for i in "${INTROSPECTABLE[@]}"; do
     $i --introspect-cli | jq -e --arg name "$i" \
         'any(.commands[]; .names[0] == $name)'
     $i --introspect-cli | jq -e \
-        'any(.commands[]; [.options[].names[-1]] | contains(["--help", "--version", "--introspect-cli"]))'
+        'all(.commands[]; .type == "command" and (.version | type == "array") and
+                          all(.arguments[]?; .type == "option" or .type == "command"))'
+    $i --introspect-cli | jq -e "$JQ_DEFS"'
+        any(.commands[]; [opts[].names[-1]] | contains(["--help", "--version", "--introspect-cli"]))'
     $i --intro | grep -e --help
 
     # If the tool has a "help" verb, it must work too
-    if $i --introspect-cli | jq -e --arg name "$i" \
-            'any(.commands[]; any(.names[]; . == $name) and ((.verbs // []) | any(.names[0] == "help")))' \
+    if $i --introspect-cli | jq -e --arg name "$i" "$JQ_DEFS"'
+            any(.commands[]; any(.names[]; . == $name) and (verbs | any(.names[0] == "help")))' \
              >/dev/null; then
         # 'systemctl help' shows unit manuals
         [[ "$i" == systemctl ]] && continue
@@ -181,8 +188,8 @@ done
 
 # check verbs and multicall binaries
 if command -v systemd-hwdb >/dev/null; then
-    systemd-hwdb --introspect-cli | jq -e \
-            '.commands[0].verbs | map(.names[0]) | sort == ["help", "query", "update"]'
+    systemd-hwdb --introspect-cli | jq -e "$JQ_DEFS"'
+            .commands[0] | verbs | map(.names[0]) | sort == ["help", "query", "update"]'
 fi
 
 if command -v kernel-install >/dev/null; then
@@ -196,8 +203,8 @@ resolvectl --introspect-cli | jq -e \
 storagectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["mount.storage", "storagectl"]'
 
-systemd-clonesetup --introspect-cli | jq -e \
-    '.commands[0].verbs | map(.names[0]) | sort == ["add", "remove"]'
+systemd-clonesetup --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[0] | verbs | map(.names[0]) | sort == ["add", "remove"]'
 
 systemd-dissect --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["mount.ddi", "systemd-dissect"]'
@@ -206,20 +213,44 @@ systemd-dissect --introspect-cli | jq -e \
 # command must be rejected as unknown and hidden from the introspection (option group filtering)
 if command -v systemd-hostnamed >/dev/null; then
     (! systemd-hostnamed --system 2>&1) | grep "unrecognized option" >/dev/null
-    systemd-hostnamed --introspect-cli | jq -e \
-        'all(.commands[]; all(.options[]; .names[-1] != "--system"))'
+    systemd-hostnamed --introspect-cli | jq -e "$JQ_DEFS"'
+        all(.commands[]; all(opts[]; .names[-1] != "--system"))'
 fi
 
+systemd-id128 --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[0] | verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+# Details of the schema: verbs carry a one-line help and the section they are listed under,
+# options carry the name of their argument and their section, commands list their man pages
+# and (as an extension) the raw synopsis lines.
+systemd-id128 --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[0] | verbs[] | select(.names[0] == "new") |
+        .help == "Generate a new ID" and .sections == ["Commands"]'
+systemd-id128 --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[0] | opts[] | select(.names[-1] == "--json") |
+        .argument == "required_argument" and .value_name == "FORMAT" and .sections == ["Options"]'
 systemd-id128 --introspect-cli | jq -e \
-    '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+    '.commands[0].documentation == ["man:systemd-id128(1)"]'
+systemd-id128 --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[0] | verbs[] | select(.names[0] == "show") | .synopsis == ["[NAME|UUID]"]'
+
+if command -v systemd-analyze >/dev/null; then
+    systemd-analyze --introspect-cli | jq -e "$JQ_DEFS"'
+        .commands[0] | verbs[] | select(.names[0] == "time") | .sections == ["Boot Analysis"]'
+fi
+
+if command -v systemd-nspawn >/dev/null; then
+    systemd-nspawn --introspect-cli | jq -e \
+        '.commands[0].synopsis == ["[PATH] [ARGUMENTS…]"]'
+fi
 
 # udevadm's verbs carry their own options, reported recursively
-udevadm --introspect-cli | jq -e \
-    '.commands[] | select(.names[0] == "udevadm") | .verbs[] | select(.names[0] == "info") |
-        [.options[].names[-1]] | contains(["--query", "--json", "--no-pager"])'
+udevadm --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[] | select(.names[0] == "udevadm") | verbs[] | select(.names[0] == "info") |
+        [opts[].names[-1]] | contains(["--query", "--json", "--no-pager"])'
 
-udevadm --introspect-cli | jq -e \
-    '.commands[] | select(.names[0] == "udevadm") | .verbs[] |
+udevadm --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[] | select(.names[0] == "udevadm") | verbs[] |
         select(.names[0] == "hwdb") | .isDeprecated == true'
 
 # udevadm print has multiple argspecs. Check that we print them.
@@ -232,8 +263,8 @@ udevadm --introspect-cli | jq -e \
 
 # The systemd-udevd command must own no verbs: the help-verb check in the loop above relies on
 # this to never run 'systemd-udevd help', which would start the daemon.
-udevadm --introspect-cli | jq -e \
-    '.commands[] | select(.names[0] == "systemd-udevd") | (.verbs // []) == []'
+udevadm --introspect-cli | jq -e "$JQ_DEFS"'
+    .commands[] | select(.names[0] == "systemd-udevd") | verbs == []'
 
 # Each subcommand's help and introspection must work
 for v in cat control hwdb info lock monitor settle test test-builtin trigger verify wait; do
@@ -267,10 +298,10 @@ if command -v systemd-sysext >/dev/null; then
      systemd-sysext --introspect-cli | jq -e \
          '[.commands[].names[0]] | sort == ["systemd-confext", "systemd-sysext"]'
 
-     systemd-sysext --introspect-cli | jq -e \
-         '.commands[0].verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
-     systemd-confext --introspect-cli | jq -e \
-         '.commands[0].verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
+     systemd-sysext --introspect-cli | jq -e "$JQ_DEFS"'
+         .commands[0] | verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
+     systemd-confext --introspect-cli | jq -e "$JQ_DEFS"'
+         .commands[0] | verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
 fi
 
 systemctl --introspect-cli | jq -e \

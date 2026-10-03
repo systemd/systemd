@@ -631,17 +631,18 @@ static int option_build_json(const Option *opt, const char *group, sd_json_varia
                 option_arg_optional(opt) ? "optional_argument" :
                 "no_argument";
 
+        /* Ungrouped options are listed under "Options" in the help output, see
+         * print_verb_option_help() in verbs.c. */
         return sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "option"),
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
                         SD_JSON_BUILD_PAIR_STRING("argument", argtype),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!opt->metavar,
-                                        "metavar", SD_JSON_BUILD_STRING(opt->metavar)),
+                                        "value_name", SD_JSON_BUILD_STRING(opt->metavar)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opt->help, "help", SD_JSON_BUILD_STRING(opt->help)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        !!group,
-                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))));
+                        SD_JSON_BUILD_PAIR_STRV("sections", STRV_MAKE(group ?: "Options")));
 }
 
 int options_build_json(
