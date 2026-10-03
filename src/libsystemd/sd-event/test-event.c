@@ -865,12 +865,13 @@ TEST(fork) {
 TEST(sd_event_source_set_io_fd) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR, pfd_c[2] = EBADF_PAIR;
 
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(pfd_a, O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(pfd_b, O_CLOEXEC));
+        ASSERT_OK_ERRNO(pipe2(pfd_c, O_CLOEXEC));
 
         ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, NULL, INT_TO_PTR(-ENOANO)));
         ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
@@ -878,6 +879,14 @@ TEST(sd_event_source_set_io_fd) {
 
         ASSERT_OK(sd_event_source_set_io_fd(s, pfd_b[0]));
         TAKE_FD(pfd_b[0]);
+
+        /* Closing the fd behind the source's back drops its registration along with it. Swapping it out
+         * afterwards must still work, even though there is nothing left to unregister. */
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, false));
+        ASSERT_OK_ERRNO(close(sd_event_source_get_io_fd(s)));
+        ASSERT_OK(sd_event_source_set_io_fd(s, pfd_c[0]));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        TAKE_FD(pfd_c[0]);
 }
 
 static int hup_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
