@@ -844,10 +844,14 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
                 return 0;
 
+        /* Link-local addresses are only usable together with the interface index. Replies via D-Bus and
+         * Varlink carry it, but replies sent via the DNS stub cannot, hence leave such addresses out
+         * there. */
         r = dns_synthesize_answer(
                         q->manager,
                         q->question_bypass ? q->question_bypass->question : q->question_utf8,
                         q->ifindex,
+                        /* allow_link_local= */ !q->request_packet,
                         &answer);
         if (r == -ENXIO) {
                 /* If we get ENXIO this tells us to generate NXDOMAIN unconditionally. */
