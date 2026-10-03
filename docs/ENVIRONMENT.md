@@ -707,6 +707,16 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   default configuration file and drop-in directories. If set to the empty string
   or `/dev/null`, configuration file parsing is skipped entirely.
 
+* `$SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS` – takes a positive integer. Controls
+  how many concurrent HTTP connections `systemd-journal-remote` accepts per
+  listening socket. Defaults to 32 per socket, including sockets passed through
+  socket activation. Connections idle for 30 seconds are closed.
+
+* `$SYSTEMD_JOURNAL_REMOTE_ENTRY_TIMEOUT_SEC` – takes a timespan. An HTTP
+  connection to `systemd-journal-remote` is closed when this much time passes
+  without an entry from it being stored. Defaults to 2 minutes. `infinity`
+  disables the timeout.
+
 * `$SYSTEMD_CATALOG` – path to the compiled catalog database file to use for
   `journalctl -x`, `journalctl --update-catalog`, `journalctl --list-catalog`
   and related calls.

@@ -237,7 +237,7 @@ REQUIREMENTS:
         libxkbcommon >= 0.3.0 (optional)
         libpcre2 (optional)
         libqrencode >= 3 (optional)
-        libmicrohttpd >= 0.9.33 (optional)
+        libmicrohttpd >= 0.9.53 (optional)
         libcurl >= 7.32.0 (optional)
         libidn2 (optional)
         gnutls >= 3.1.4 (optional)
