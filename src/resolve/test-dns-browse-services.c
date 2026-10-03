@@ -83,6 +83,47 @@ TEST(dns_service_match_and_update_large_ttl) {
         service.schedule_event = sd_event_source_disable_unref(service.schedule_event);
 }
 
+TEST(dns_service_match_and_update_restarts_maintenance) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        usec_t until, t;
+        int enabled;
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(sd_event_new(&e));
+
+        Manager m = {
+                .event = e,
+        };
+        DnsServiceBrowser sb = {
+                .manager = &m,
+        };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .family = AF_INET,
+                .ifindex = 2,
+                .service_browser = &sb,
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
+        };
+
+        /* The one-shot source is off once the 100% point has been reached. */
+        ASSERT_OK(sd_event_add_time(e, &service.schedule_event, CLOCK_BOOTTIME, USEC_INFINITY,
+                                    /* accuracy= */ 0, /* callback= */ NULL, /* userdata= */ NULL));
+        ASSERT_OK(sd_event_source_set_enabled(service.schedule_event, SD_EVENT_OFF));
+
+        /* A refreshed record restarts the schedule at 80% of its TTL. */
+        until = usec_add(now(CLOCK_BOOTTIME), 120 * USEC_PER_SEC);
+        ASSERT_OK_POSITIVE(dns_service_match_and_update(&service, rr, AF_INET, 2, until));
+        ASSERT_EQ(service.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+        ASSERT_OK(sd_event_source_get_enabled(service.schedule_event, &enabled));
+        ASSERT_EQ(enabled, SD_EVENT_ONESHOT);
+        ASSERT_OK(sd_event_source_get_time(service.schedule_event, &t));
+        ASSERT_GE(t, until - 24 * USEC_PER_SEC);
+        ASSERT_LT(t, until - 24 * USEC_PER_SEC + 2400 * USEC_PER_MSEC);
+
+        service.schedule_event = sd_event_source_disable_unref(service.schedule_event);
+}
+
 TEST(dns_service_match_and_update_ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 

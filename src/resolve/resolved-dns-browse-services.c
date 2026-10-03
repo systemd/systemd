@@ -81,6 +81,37 @@ static usec_t mdns_maintenance_jitter(uint32_t ttl) {
         return range > 0 ? random_u64_range(range) : 0;
 }
 
+/* Schedule the first cache maintenance query at 80% of the record's
+ * TTL. Subsequent queries issued at 5% increments until 100% of the
+ * TTL. RFC 6762 section 5.2. If service is being added after 80% of the
+ * TTL has already elapsed, schedule the next query at the next 5%
+ * increment. */
+static usec_t mdns_maintenance_first_time(DnssdDiscoveredService *s, usec_t usec) {
+        usec_t next_time = 0;
+
+        assert(s);
+
+        s->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        while (s->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
+               s->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
+                next_time = mdns_maintenance_next_time(s->until, s->rr->ttl, s->rr_ttl_state);
+                if (next_time >= usec)
+                        break;
+
+                s->rr_ttl_state++;
+        }
+
+        if (next_time < usec) {
+                /* If next_time is still in the past, the service is being added
+                 * after it has already expired. Just schedule a 100%
+                 * maintenance query. */
+                next_time = usec_add(usec, USEC_PER_SEC);
+                s->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
+        }
+
+        return usec_add(next_time, mdns_maintenance_jitter(s->rr->ttl));
+}
+
 static void mdns_maintenance_query_complete(DnsQuery *q) {
         _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *service = NULL;
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
@@ -185,36 +216,11 @@ static int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int
         if (!s->rr)
                 return log_oom();
 
-        /* Schedule the first cache maintenance query at 80% of the record's
-         * TTL. Subsequent queries issued at 5% increments until 100% of the
-         * TTL. RFC 6762 section 5.2. If service is being added after 80% of the
-         * TTL has already elapsed, schedule the next query at the next 5%
-         * increment. */
-        usec_t next_time = 0;
-        while (s->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
-               s->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
-                next_time = mdns_maintenance_next_time(s->until, s->rr->ttl, s->rr_ttl_state);
-                if (next_time >= usec)
-                        break;
-
-                s->rr_ttl_state++;
-        }
-
-        if (next_time < usec) {
-                /* If next_time is still in the past, the service is being added
-                 * after it has already expired. Just schedule a 100%
-                 * maintenance query. */
-                next_time = usec_add(usec, USEC_PER_SEC);
-                s->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
-        }
-
-        usec_t jitter = mdns_maintenance_jitter(rr->ttl);
-
         r = sd_event_add_time(
                         sb->manager->event,
                         &s->schedule_event,
                         CLOCK_BOOTTIME,
-                        usec_add(next_time, jitter),
+                        mdns_maintenance_first_time(s, usec),
                         /* accuracy= */ 0,
                         mdns_maintenance_query,
                         s);
@@ -265,17 +271,23 @@ static int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecor
         service->until = until;
         service->rr->ttl = rr->ttl;
 
-        /* Update the 80% TTL maintenance event based on new record received
-         * from the network. RFC 6762 section 5.2  */
-        if (service->schedule_event) {
-                usec_t next_time = mdns_maintenance_next_time(
-                        service->until, service->rr->ttl, DNS_RECORD_TTL_STATE_80_PERCENT);
-                usec_t jitter = mdns_maintenance_jitter(service->rr->ttl);
+        if (!service->schedule_event)
+                return 0;
 
-                return sd_event_source_set_time(service->schedule_event, usec_add(next_time, jitter));
-        }
-
-        return 0;
+        /* The refreshed record starts a new lifetime, so restart the maintenance schedule at 80% of it.
+         * RFC 6762 section 5.2. Note that event_reset_time() also re-enables the source, which is
+         * one-shot and hence off once the 100% point has been reached. */
+        return event_reset_time(
+                        service->service_browser->manager->event,
+                        &service->schedule_event,
+                        CLOCK_BOOTTIME,
+                        mdns_maintenance_first_time(service, now(CLOCK_BOOTTIME)),
+                        /* accuracy= */ 0,
+                        mdns_maintenance_query,
+                        service,
+                        /* priority= */ 0,
+                        "mdns-next-query-schedule",
+                        /* force_reset= */ true);
 }
 
 static int mdns_answer_item_ifindex(DnsServiceBrowser *sb, DnsAnswerItem *item) {
