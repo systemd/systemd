@@ -284,6 +284,7 @@ class UkifyConfig:
     sign_profiles: list[str]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
     linux: Optional[Path]
+    hyp: Optional[Path]
     measure: bool
     microcode: Path
     os_release: Union[str, Path, None]
@@ -409,6 +410,7 @@ class Uname:
 
 DEFAULT_SECTIONS_TO_SHOW = {
     '.linux':   'binary',
+    '.hyp':     'binary',
     '.initrd':  'binary',
     '.ucode':   'binary',
     '.splash':  'binary',
@@ -1411,6 +1413,46 @@ def make_uki(opts: UkifyConfig) -> None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(linux, opts=opts)
 
+    if opts.hyp is None and any(section.name.startswith('.vm') for section in opts.sections):
+        raise ValueError('.vm<id>.* sections require --hyp')
+
+    legacy_sections = {'.linux', '.initrd', '.dtb', '.cmdline'}
+    if opts.hyp is not None:
+        if linux or opts.initrd or opts.devicetree or opts.cmdline:
+            raise ValueError(
+                '--hyp cannot be combined with legacy .linux/.initrd/.dtb/.cmdline inputs; '
+                'use .vm<id>.* sections'
+            )
+        if any(section.name in legacy_sections for section in opts.sections):
+            raise ValueError('--hyp cannot be combined with legacy sections; use .vm<id>.* sections')
+
+    vm_sections_by_id = {}
+    vm_section_types = ('lnx', 'ird', 'dtb', 'cml', 'atr')
+    vm_ids = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    for section in opts.sections:
+        if section.name.startswith('.vm'):
+            vm_id = section.name[3] if len(section.name) > 3 else ''
+            vm_type = section.name[5:] if len(section.name) > 5 else ''
+            if (
+                len(section.name) != 8
+                or section.name[:3] != '.vm'
+                or section.name[4] != '.'
+                or vm_id not in vm_ids
+                or vm_type not in vm_section_types
+            ):
+                raise ValueError(
+                    f'Invalid VM section {section.name!r}; use '
+                    '.vm<single-alphanumeric-id>.lnx/.ird/.dtb/.cml/.atr '
+                    '(8-byte PE names)'
+                )
+            vm_sections_by_id.setdefault(vm_id, set()).add(vm_type)
+
+    if opts.hyp is not None:
+        incomplete = [vm_id for vm_id, names in vm_sections_by_id.items() if 'lnx' not in names]
+        if incomplete:
+            missing = ', '.join(incomplete)
+            raise ValueError(f'VM sections missing .vm<id>.lnx payload: {missing}')
+
     uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
 
@@ -1469,6 +1511,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
+        ('.hyp',     opts.hyp,        True),
         ('.linux',   linux,           True),
         ('.initrd',  initrd,          True),
         *(('.efifw', parse_efifw_dir(fw), False) for fw in opts.efifw),
@@ -1489,10 +1532,11 @@ def make_uki(opts: UkifyConfig) -> None:
 
     # Don't add an .sbat section to profile PE binaries.
     if (opts.join_profiles or not opts.profile) and not opts.pcrsig:
-        if linux is not None:
-            # Merge the .sbat sections from stub, kernel, and parameter, so
+        payload = linux if linux is not None else opts.hyp
+        if payload is not None:
+            # Merge the .sbat sections from stub, payload, and parameter, so
             # that revocation can be done on either.
-            input_pes = [opts.stub, linux]
+            input_pes = [opts.stub, payload]
             if not opts.sbat:
                 opts.sbat = [STUB_SBAT]
         else:
@@ -1500,7 +1544,9 @@ def make_uki(opts: UkifyConfig) -> None:
             input_pes = []
             if not opts.sbat:
                 opts.sbat = [ADDON_SBAT]
-        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+        uki.add_section(
+            Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=payload is not None)
+        )
 
     # If we're building a UKI with additional profiles, the .profile section for the base profile has to be
     # the last one so that everything before it is shared between profiles. The only thing we don't share
@@ -1524,6 +1570,7 @@ def make_uki(opts: UkifyConfig) -> None:
 
     to_import = {
         '.linux',
+        '.hyp',
         '.osrel',
         '.cmdline',
         '.initrd',
@@ -2047,6 +2094,12 @@ CONFIG_ITEMS = [
         type=Path,
         help='vmlinuz file [.linux section]',
         config_key='UKI/Linux',
+    ),
+    ConfigItem(
+        '--hyp',
+        type=Path,
+        help='hypervisor EFI application [.hyp section; enables .vm<id>.* sections]',
+        config_key='UKI/Hypervisor',
     ),
     ConfigItem(
         '--os-release',
@@ -2576,7 +2629,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None and not opts.join_pcrsig:
-        if opts.linux is not None:
+        if opts.linux is not None or opts.hyp is not None:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
         else:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
@@ -2636,7 +2689,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.join_pcrsig and not opts.pcrsig:
         raise ValueError('--join-pcrsig requires --pcrsig')
     if opts.pcrsig and (
-        opts.linux
+        (opts.linux or opts.hyp)
         or opts.initrd
         or opts.profile
         or opts.join_profiles
@@ -2660,10 +2713,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
             opts.pcrsig = opts.pcrsig.read_text()
 
     if opts.verb == 'build' and opts.output is None:
-        if opts.linux is None:
+        if opts.linux is None and opts.hyp is None:
             raise ValueError('--output= must be specified when building a PE addon')
         suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
-        opts.output = opts.linux.name + suffix
+        payload = opts.linux if opts.linux is not None else opts.hyp
+        assert payload is not None
+        opts.output = payload.name + suffix
 
     # Now that we know if we're inputting or outputting, really parse section config
     f = Section.parse_output if opts.verb == 'inspect' else Section.parse_input

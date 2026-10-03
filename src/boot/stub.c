@@ -9,6 +9,7 @@
 #include "efi-log.h"
 #include "efi-string.h"
 #include "export-vars.h"
+#include "fdt-writer.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "iovec-util.h"
@@ -1020,6 +1021,7 @@ static void load_all_addons(
                 EFI_HANDLE image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char *uname,
+                bool hypervisor_mode,
                 char16_t **cmdline_addons,
                 NamedAddon **dt_addons,
                 size_t *n_dt_addons,
@@ -1031,13 +1033,16 @@ static void load_all_addons(
         EFI_STATUS err;
 
         assert(loaded_image);
-        assert(cmdline_addons);
         assert(dt_addons);
         assert(n_dt_addons);
-        assert(initrd_addons);
-        assert(n_initrd_addons);
-        assert(ucode_addons);
-        assert(n_ucode_addons);
+
+        if (!hypervisor_mode) {
+                assert(cmdline_addons);
+                assert(initrd_addons);
+                assert(n_initrd_addons);
+                assert(ucode_addons);
+                assert(n_ucode_addons);
+        }
 
         err = load_addons(
                         image,
@@ -1189,6 +1194,134 @@ static void measure_profile(unsigned profile, int *parameters_measured) {
         combine_measured_flag(parameters_measured, m);
 }
 
+typedef struct {
+        MEMMAP_DEVICE_PATH memmap_path;
+        EFI_DEVICE_PATH end_path;
+} _packed_ HYP_FILE_PATH;
+
+static EFI_STATUS hyp_exec(EFI_HANDLE parent_image, const struct iovec *hyp_image) {
+        /* Launch a .hyp EFI application using LoadImage + StartImage */
+        EFI_STATUS err;
+        EFI_HANDLE image_handle = NULL;
+
+        /* Some platforms' Security2 architectural protocol rejects a NULL device path,
+         * so synthesize a memory-mapped device path for the in-memory .hyp image, as
+         * done for the kernel image in linux.c. */
+        _cleanup_free_ HYP_FILE_PATH *hyp_file_path = xnew(HYP_FILE_PATH, 1);
+
+        *hyp_file_path = (HYP_FILE_PATH) {
+                .memmap_path = {
+                        .Header = {
+                                .Type = HARDWARE_DEVICE_PATH,
+                                .SubType = HW_MEMMAP_DP,
+                                .Length = sizeof(MEMMAP_DEVICE_PATH),
+                        },
+                        .MemoryType = EfiLoaderData,
+                        .StartingAddress = POINTER_TO_PHYSICAL_ADDRESS(hyp_image->iov_base),
+                        .EndingAddress = POINTER_TO_PHYSICAL_ADDRESS(hyp_image->iov_base) +
+                                         hyp_image->iov_len,
+                },
+                .end_path = {
+                        .Type = END_DEVICE_PATH_TYPE,
+                        .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
+                        .Length = sizeof(EFI_DEVICE_PATH),
+                },
+        };
+
+        /* Load the .hyp image from memory */
+        err = BS->LoadImage(
+                        false,                               /* BootPolicy */
+                        parent_image,                        /* ParentImageHandle */
+                        &hyp_file_path->memmap_path.Header,  /* DevicePath */
+                        hyp_image->iov_base,                 /* ImageBase */
+                        hyp_image->iov_len,                  /* ImageSize */
+                        &image_handle);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Failed to load .hyp EFI application: %m");
+                return err;
+        }
+
+        log_error_status(EFI_SUCCESS, "systemd-stub launching .hyp EFI application from UKI: %m");
+
+        /* Start the loaded image */
+        err = BS->StartImage(image_handle, NULL, NULL);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Failed to start .hyp EFI application: %m");
+
+        return err;
+}
+
+#define VM_SECTIONS_MAX 62U
+
+typedef enum VmSectionType {
+        VM_SECTION_LINUX,
+        VM_SECTION_INITRD,
+        VM_SECTION_DTB,
+        VM_SECTION_CMDLINE,
+        VM_SECTION_ATTRIBUTES,
+        _VM_SECTION_TYPE_MAX,
+} VmSectionType;
+
+typedef struct VmSections {
+        char id;
+        PeSectionVector linux_section;
+        PeSectionVector initrd;
+        PeSectionVector dtb;
+        PeSectionVector cmdline;
+        PeSectionVector attributes;
+} VmSections;
+
+static EFI_STATUS find_vm_sections(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                VmSections vm_sections[static VM_SECTIONS_MAX],
+                size_t *ret_n_vm_sections) {
+
+        static const char vm_ids[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        size_t n = 0;
+
+        assert(loaded_image);
+        assert(vm_sections);
+        assert(ret_n_vm_sections);
+
+        for (size_t i = 0; i < ELEMENTSOF(vm_ids) - 1; i++) {
+                char id = vm_ids[i];
+                char linux_name[] = { '.', 'v', 'm', id, '.', 'l', 'n', 'x', 0 };
+                char initrd_name[] = { '.', 'v', 'm', id, '.', 'i', 'r', 'd', 0 };
+                char dtb_name[] = { '.', 'v', 'm', id, '.', 'd', 't', 'b', 0 };
+                char cmdline_name[] = { '.', 'v', 'm', id, '.', 'c', 'm', 'l', 0 };
+                char attributes_name[] = { '.', 'v', 'm', id, '.', 'a', 't', 'r', 0 };
+
+                const char *names[] = {
+                        linux_name, initrd_name, dtb_name, cmdline_name, attributes_name, NULL };
+                PeSectionVector found[ELEMENTSOF(names)] = {};
+                EFI_STATUS err = pe_memory_locate_sections(
+                                loaded_image->ImageBase,
+                                names,
+                                found);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                if (!PE_SECTION_VECTOR_IS_SET(found + VM_SECTION_LINUX) &&
+                    !PE_SECTION_VECTOR_IS_SET(found + VM_SECTION_INITRD) &&
+                    !PE_SECTION_VECTOR_IS_SET(found + VM_SECTION_DTB) &&
+                    !PE_SECTION_VECTOR_IS_SET(found + VM_SECTION_CMDLINE) &&
+                    !PE_SECTION_VECTOR_IS_SET(found + VM_SECTION_ATTRIBUTES))
+                        continue;
+
+                vm_sections[n++] = (VmSections) {
+                        .id = id,
+                        .linux_section = found[VM_SECTION_LINUX],
+                        .initrd = found[VM_SECTION_INITRD],
+                        .dtb = found[VM_SECTION_DTB],
+                        .cmdline = found[VM_SECTION_CMDLINE],
+                        .attributes = found[VM_SECTION_ATTRIBUTES],
+                };
+        }
+
+        *ret_n_vm_sections = n;
+        return EFI_SUCCESS;
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
@@ -1220,6 +1353,29 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return err;
 
+        VmSections vm_sections[VM_SECTIONS_MAX] = {};
+        size_t n_vm_sections = 0;
+        bool hyp_present = PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_HYP);
+        bool linux_present = PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX);
+
+        err = find_vm_sections(loaded_image, vm_sections, &n_vm_sections);
+        if (err != EFI_SUCCESS)
+                return err;
+        if (hyp_present && linux_present)
+                return log_error_status(
+                                EFI_INVALID_PARAMETER,
+                                ".hyp and .linux sections are mutually exclusive: %m");
+        if (!hyp_present && n_vm_sections > 0)
+                return log_error_status(
+                                EFI_INVALID_PARAMETER, ".vm<id>.* sections require a .hyp section: %m");
+        if (hyp_present)
+                for (size_t i = 0; i < n_vm_sections; i++)
+                        if (!PE_SECTION_VECTOR_IS_SET(&vm_sections[i].linux_section))
+                                return log_error_status(EFI_INVALID_PARAMETER,
+                                                         "VM %c has no .vm%c.lnx section: %m",
+                                                         vm_sections[i].id,
+                                                         vm_sections[i].id);
+
         measure_profile(profile, &parameters_measured);
         measure_sections(loaded_image, sections, &sections_measured);
 
@@ -1230,28 +1386,40 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         uint8_t boot_secret[BOOT_SECRET_SIZE] = {}; /* all zeroes means: not acquired */
         CLEANUP_ERASE(boot_secret);
-        (void) prepare_boot_secret(loaded_image, sections + UNIFIED_SECTION_OSREL, boot_secret);
+        if (!hyp_present)
+                (void) prepare_boot_secret(loaded_image, sections + UNIFIED_SECTION_OSREL, boot_secret);
 
         uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
-        /* Let's now check if we actually want to use the command line, measure it if it was passed in. */
-        settle_command_line(loaded_image, sections, &cmdline, &parameters_measured);
+        /* Linux-dependent sections and addons are not used for hypervisor UKIs. */
+        if (!hyp_present)
+                settle_command_line(loaded_image, sections, &cmdline, &parameters_measured);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
         CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_array);
         CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_array);
         CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_array);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
+        load_all_addons(
+                        image,
+                        loaded_image,
+                        uname,
+                        hyp_present,
+                        hyp_present ? NULL : &cmdline_addons,
+                        &dt_addons,
+                        &n_dt_addons,
+                        hyp_present ? NULL : &initrd_addons,
+                        hyp_present ? NULL : &n_initrd_addons,
+                        hyp_present ? NULL : &ucode_addons,
+                        hyp_present ? NULL : &n_ucode_addons);
 
-        /* If we have any extra command line to add via PE addons, load them now and append, and measure the
-         * additions together, after the embedded options, but before the smbios ones, so that the order is
-         * reversed from "most hardcoded" to "most dynamic". The global addons are loaded first, and the
-         * image-specific ones later, for the same reason. */
-        cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
-        cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
+        if (!hyp_present) {
+                /* Add command line options from PE addons, and measure them after the embedded options. */
+                cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
+                cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
-        cmdline_append_console(&cmdline);
+                cmdline_append_console(&cmdline);
+        }
 
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);
@@ -1260,29 +1428,55 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * the LoaderPcrSMBIOS EFI variable). */
         measure_smbios();
 
-        /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
-        install_embedded_devicetree(loaded_image, sections, &dt_state);
+        /* Legacy UKIs use .dtb. VM UKIs use the first VM DTB as the base tree and
+         * keep each VM DTB in its corresponding reserved-memory node. */
+        if (hyp_present && n_vm_sections > 0 && !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+            PE_SECTION_VECTOR_IS_SET(&vm_sections[0].dtb)) {
+                const void *base_dtb = (const uint8_t *) loaded_image->ImageBase +
+                                       vm_sections[0].dtb.memory_offset;
+                err = devicetree_install_from_memory(&dt_state, base_dtb, vm_sections[0].dtb.memory_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to install VM base devicetree: %m");
+        } else
+                install_embedded_devicetree(loaded_image, sections, &dt_state);
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
-        /* Generate & find all initrds */
-        acquire_previous_initrd(initrds);
-        generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
-        generate_embedded_initrds(loaded_image, sections, initrds);
-        generate_boot_secret_initrd(boot_secret, initrds);
-        lookup_embedded_initrds(loaded_image, sections, initrds);
+        if (!hyp_present) {
+                /* Generate & find all initrds */
+                acquire_previous_initrd(initrds);
+                generate_sidecar_initrds(
+                                loaded_image,
+                                initrds,
+                                &parameters_measured,
+                                &sysext_measured,
+                                &confext_measured);
+                generate_embedded_initrds(loaded_image, sections, initrds);
+                generate_boot_secret_initrd(boot_secret, initrds);
+                lookup_embedded_initrds(loaded_image, sections, initrds);
 
-        /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,
-         * except for ucode, where the kernel uses the first matching embedded filename.
-         * We want addons to take precedence over the base initrds, so the order is:
-         * 1. Ucode addons
-         * 2. UKI ucode
-         * 3. Previous initrds
-         * 4. UKI initrd
-         * 5. Generated initrds
-         * 6. initrd addons */
-        measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
-        extend_initrds(initrds, &all_initrds, &n_all_initrds);
-        measure_and_append_initrd_addons(&all_initrds, &n_all_initrds, initrd_addons, n_initrd_addons, &parameters_measured);
+                /* Add initrds in order. Later initrds can overwrite earlier ones, except for ucode,
+                 * where the kernel uses the first matching embedded filename.
+                 * We want addons to take precedence over the base initrds, so the order is:
+                 * 1. Ucode addons
+                 * 2. UKI ucode
+                 * 3. Previous initrds
+                 * 4. UKI initrd
+                 * 5. Generated initrds
+                 * 6. initrd addons */
+                measure_and_append_ucode_addons(
+                                &all_initrds,
+                                &n_all_initrds,
+                                ucode_addons,
+                                n_ucode_addons,
+                                &parameters_measured);
+                extend_initrds(initrds, &all_initrds, &n_all_initrds);
+                measure_and_append_initrd_addons(
+                                &all_initrds,
+                                &n_all_initrds,
+                                initrd_addons,
+                                n_initrd_addons,
+                                &parameters_measured);
+        }
 
         /* Export variables indicating what we measured */
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
@@ -1290,24 +1484,85 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Combine the initrds into one */
         _cleanup_pages_ Pages initrd_pages = {};
         struct iovec final_initrd = {};
-        if (n_all_initrds > 1) {
-                /* If there is more then 1 initrd we need to combine them */
-                err = combine_initrds(all_initrds, n_all_initrds, &initrd_pages, &final_initrd.iov_len);
-                if (err != EFI_SUCCESS)
-                        return err;
+        if (!hyp_present) {
+                if (n_all_initrds > 1) {
+                        /* If there is more then 1 initrd we need to combine them */
+                        err = combine_initrds(
+                                        all_initrds, n_all_initrds, &initrd_pages, &final_initrd.iov_len);
+                        if (err != EFI_SUCCESS)
+                                return err;
 
-                final_initrd.iov_base = PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr);
+                        final_initrd.iov_base = PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr);
 
-                /* Given these might be large let's free them explicitly before we pass control to Linux */
-                initrds_free(&initrds);
-        } else if (n_all_initrds == 1)
-                final_initrd = all_initrds[0];
+                        /* Given these might be large, free them before passing control to Linux. */
+                        initrds_free(&initrds);
+                } else if (n_all_initrds == 1)
+                        final_initrd = all_initrds[0];
+        }
 
-        struct iovec kernel = IOVEC_MAKE(
-                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
+        if (hyp_present) {
+                if (n_vm_sections > 0) {
+                        FdtVmPayload payloads[VM_SECTIONS_MAX] = {};
+                        char *bootargs[VM_SECTIONS_MAX] = {};
+
+                        for (size_t i = 0; i < n_vm_sections; i++) {
+                                VmSections *vm = vm_sections + i;
+                                const void *linux_base = (const uint8_t *) loaded_image->ImageBase +
+                                                         vm->linux_section.memory_offset;
+                                const void *initrd_base = PE_SECTION_VECTOR_IS_SET(&vm->initrd) ?
+                                                           (const uint8_t *) loaded_image->ImageBase +
+                                                           vm->initrd.memory_offset : NULL;
+                                const void *dtb_base = PE_SECTION_VECTOR_IS_SET(&vm->dtb) ?
+                                                        (const uint8_t *) loaded_image->ImageBase +
+                                                        vm->dtb.memory_offset : NULL;
+                                const void *attributes = PE_SECTION_VECTOR_IS_SET(&vm->attributes) ?
+                                                           (const uint8_t *) loaded_image->ImageBase +
+                                                           vm->attributes.memory_offset : NULL;
+
+                                bootargs[i] = PE_SECTION_VECTOR_IS_SET(&vm->cmdline) ?
+                                              pe_section_to_str8(loaded_image, &vm->cmdline) : xstrdup8("");
+                                payloads[i] = (FdtVmPayload) {
+                                        .id = vm->id,
+                                        .kernel_addr = POINTER_TO_PHYSICAL_ADDRESS(linux_base),
+                                        .kernel_size = vm->linux_section.memory_size,
+                                        .initrd_addr = initrd_base ?
+                                                        POINTER_TO_PHYSICAL_ADDRESS(initrd_base) : 0,
+                                        .initrd_size = vm->initrd.memory_size,
+                                        .dtb_addr = dtb_base ? POINTER_TO_PHYSICAL_ADDRESS(dtb_base) : 0,
+                                        .dtb_size = vm->dtb.memory_size,
+                                        .bootargs = bootargs[i],
+                                        .attributes = attributes,
+                                        .attributes_size = vm->attributes.memory_size,
+                                };
+                        }
+
+                        if (dt_state.pages > 0) {
+                                err = fdt_patch_type_1_hypervisor_vms(&dt_state, payloads, n_vm_sections);
+                                if (err != EFI_SUCCESS)
+                                        log_error_status(err,
+                                                         "Failed to patch VM devicetree nodes, ignoring: "
+                                                         "%m");
+                        } else
+                                log_error("No devicetree available for VM node updates, continuing with "
+                                          ".hyp launch");
+
+                        for (size_t i = 0; i < n_vm_sections; i++)
+                                free(bootargs[i]);
+                }
+
+                struct iovec hyp = IOVEC_MAKE(
+                        (const uint8_t *) loaded_image->ImageBase +
+                        sections[UNIFIED_SECTION_HYP].memory_offset,
+                        sections[UNIFIED_SECTION_HYP].memory_size);
+                err = hyp_exec(image, &hyp);
+        } else {
+                /* No .hyp means exactly the legacy UKI path. */
+                struct iovec kernel = IOVEC_MAKE(
+                        (const uint8_t *) loaded_image->ImageBase +
+                        sections[UNIFIED_SECTION_LINUX].memory_offset,
                         sections[UNIFIED_SECTION_LINUX].memory_size);
-
-        err = linux_exec(image, cmdline, &kernel, &final_initrd);
+                err = linux_exec(image, cmdline, &kernel, &final_initrd);
+        }
         graphics_mode(false);
         return err;
 }
