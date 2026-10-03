@@ -656,6 +656,67 @@ TEST(recover_truncated_hash_chain) {
         }
 }
 
+static void test_punch_holes_hash_chain_cycle_one(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-XXXXXX";
+        const char *field = "CYCLE=x";
+        struct iovec iovec = IOVEC_MAKE_STRING(field);
+        dual_timestamp ts;
+        JournalFile *f;
+        uint64_t p;
+        le64_t self;
+        int fd;
+
+        /* When a journal file is archived, holes are punched into the unused parts of the entry arrays of
+         * all data objects, which follows every data hash chain. A chain that loops back on itself must not
+         * make that spin forever. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+        ASSERT_OK_ZERO(journal_file_append_entry(
+                        f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                        /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                        /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), NULL, &p), 1);
+        (void) journal_file_offline_close(f);
+
+        /* Make the data object its own successor in the hash chain */
+        self = htole64(p);
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_EQ(pwrite(fd, &self, sizeof(self), p + offsetof(Object, data.next_hash_offset)),
+                  (ssize_t) sizeof(self));
+        ASSERT_OK_ERRNO(close(fd));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+
+        /* If the cycle is followed this never returns. Fail quickly and visibly then. */
+        alarm(10);
+        (void) journal_file_offline_close(f);
+        alarm(0);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(punch_holes_hash_chain_cycle) {
+        const char *compact;
+
+        FOREACH_ARGUMENT(compact, "0", "1") {
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
+                test_punch_holes_hash_chain_cycle_one();
+        }
+}
+
 static int intro(void) {
         arg_keep = saved_argc > 1;
 
