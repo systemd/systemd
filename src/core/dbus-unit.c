@@ -2347,6 +2347,8 @@ static int bus_unit_set_transient_property(
                 r = bus_set_transient_usec_fix_0(u, name, &u->job_timeout, message, flags, error);
                 if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags) && !u->job_running_timeout_set)
                         u->job_running_timeout = u->job_timeout;
+
+                return r;
         }
 
         if (streq(name, "JobRunningTimeoutUSec")) {
