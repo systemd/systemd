@@ -111,7 +111,9 @@
           <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
           immediately when the VM terminates. Only works with <option>--image=</option> currently.
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          Drives added via <option>--extra-drive=</option> are not snapshotted, so in combination with
+          <option>--ephemeral</option> they have to be read-only, i.e. use the disk type
+          <literal>scsi-cd</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
@@ -643,7 +645,9 @@
           the path with their values separated by colons. The format and disk type prefixes can appear in any
           order. The format defaults to <literal>raw</literal> and the disk type defaults to the value of
           <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
-          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
+          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.
+          With <option>--ephemeral</option>, only the read-only disk type <literal>scsi-cd</literal> is
+          allowed.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>

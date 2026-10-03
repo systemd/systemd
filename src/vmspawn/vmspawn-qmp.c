@@ -1377,7 +1377,7 @@ int vmspawn_qmp_replace_block_device(
         const QmpDriveFlags FD_DERIVED_MASK = QMP_DRIVE_READ_ONLY | QMP_DRIVE_BLOCK_DEVICE;
         QmpDriveFlags new_flags = (drive->flags & ~QMP_DRIVE_REPLACE_MUTABLE_MASK) |
                                   (fd_flags & FD_DERIVED_MASK);
-        if (drive->disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM)
+        if (disk_type_is_read_only(drive->disk_type))
                 new_flags |= QMP_DRIVE_READ_ONLY;
         if (FLAGS_SET(bridge->features, VMSPAWN_QMP_FEATURE_IO_URING))
                 new_flags |= QMP_DRIVE_IO_URING;
