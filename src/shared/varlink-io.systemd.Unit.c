@@ -1316,7 +1316,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#RemainAfterElapse="),
                 SD_VARLINK_DEFINE_FIELD(RemainAfterElapse, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#DeferReactivation="),
-                SD_VARLINK_DEFINE_FIELD(DeferReactivation, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(DeferReactivation, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#CatchUp="),
+                SD_VARLINK_DEFINE_FIELD(CatchUp, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 TimerResult,
