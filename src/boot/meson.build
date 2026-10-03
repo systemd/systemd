@@ -322,6 +322,7 @@ libefi_sources = files(
         'efi-log.c',
         'efi-string.c',
         'export-vars.c',
+        'fdt-writer.c',
         'graphics.c',
         'hii.c',
         'initrd.c',
