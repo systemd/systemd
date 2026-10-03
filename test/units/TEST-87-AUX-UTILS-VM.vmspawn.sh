@@ -23,23 +23,13 @@ if ! find_qemu_binary; then
 fi
 
 # --directory= needs virtiofsd (on Fedora it lives in /usr/libexec, not in PATH)
-if ! command -v virtiofsd >/dev/null 2>&1 &&
-   ! test -x /usr/libexec/virtiofsd &&
-   ! test -x /usr/lib/virtiofsd; then
+if ! find_virtiofsd; then
     echo "virtiofsd not found, skipping"
     exit 77
 fi
 
 # Find a kernel for direct boot
-KERNEL=""
-for k in /usr/lib/modules/"$(uname -r)"/vmlinuz /boot/vmlinuz-"$(uname -r)" /boot/vmlinuz; do
-    if [[ -f "$k" ]]; then
-        KERNEL="$k"
-        break
-    fi
-done
-
-if [[ -z "$KERNEL" ]]; then
+if ! KERNEL="$(find_kernel_image)"; then
     echo "No kernel found for direct VM boot, skipping"
     exit 77
 fi
