@@ -605,8 +605,6 @@ static int fiber_set_priority(sd_future *f, int64_t priority) {
 static const sd_future_ops fiber_future_ops;
 
 int sd_fiber_resume(sd_future *f, int result) {
-        int r;
-
         assert_return(f, -EINVAL);
         assert_return(sd_future_get_ops(f) == &fiber_future_ops, -EINVAL);
 
@@ -632,16 +630,19 @@ int sd_fiber_resume(sd_future *f, int result) {
 
         assert(IN_SET(fiber->state, FIBER_STATE_READY, FIBER_STATE_SUSPENDED));
 
-        /* READY may need moving from defer source to exit source scheduling. Arm before changing state
-         * so a failure cannot leave a suspended fiber marked READY without a dispatch. */
+        /* A finished event loop never dispatches the fiber again, so there is nothing to schedule. */
+        if (sd_event_get_state(sd_future_get_event(f)) == SD_EVENT_FINISHED)
+                return 0;
+
+        /* A READY fiber may have to move from its defer source to its exit source, if the event loop
+         * started exiting since the fiber was scheduled. Enabling or disabling a defer or exit source
+         * does not allocate, so a failure is a programming error. */
         sd_event_source *source = fiber_current_event_source(f);
-        r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
-        if (r < 0)
-                return r;
+        assert_se(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT) >= 0);
 
         fiber->state = FIBER_STATE_READY;
         if (source == fiber->exit_event_source)
-                return sd_event_source_set_enabled(fiber->defer_event_source, SD_EVENT_OFF);
+                assert_se(sd_event_source_set_enabled(fiber->defer_event_source, SD_EVENT_OFF) >= 0);
 
         return 0;
 }

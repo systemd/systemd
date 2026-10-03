@@ -2283,8 +2283,8 @@ TEST(future_resolve_after_event_finished) {
         ASSERT_OK(sd_event_exit(e, 0));
         ASSERT_OK(sd_event_loop(e));
 
-        /* Resolution is final even when its notification cannot be scheduled on a finished loop. */
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_resolve(f, 42)), ESTALE);
+        /* A finished loop never runs the callback, so resolving succeeds without scheduling it. */
+        ASSERT_OK_ZERO(sd_future_resolve(f, 42));
         ASSERT_EQ(sd_future_result(f), 42);
         ASSERT_EQ(count, 0);
 }
