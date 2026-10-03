@@ -290,6 +290,13 @@ static int parse_ram(const char *s) {
         return 0;
 }
 
+/* Only valid once all options are parsed, --image-disk-type= may come after --extra-drive=. */
+static DiskType extra_drive_disk_type(const ExtraDrive *d) {
+        assert(d);
+
+        return d->disk_type >= 0 ? d->disk_type : arg_image_disk_type;
+}
+
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -941,8 +948,13 @@ static int parse_argv(int argc, char *argv[]) {
              arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
-        if (arg_ephemeral && arg_extra_drives.n_drives > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
+        /* Extra drives get no ephemeral overlay, so the guest must not be able to write to them. */
+        if (arg_ephemeral)
+                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives)
+                        if (!disk_type_is_read_only(extra_drive_disk_type(d)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--ephemeral only supports read-only --extra-drive= (disk type scsi-cd), not '%s'.",
+                                                       d->path);
 
         if (arg_uid_shift != UID_INVALID && !arg_directory)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users= is only supported in combination with --directory=.");
@@ -2294,18 +2306,18 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
                 serial_max = DISK_SERIAL_MAX_LEN_VIRTIO_BLK;
                 break;
         case DISK_TYPE_VIRTIO_SCSI:
+        case DISK_TYPE_VIRTIO_SCSI_CDROM:
                 serial_max = DISK_SERIAL_MAX_LEN_SCSI;
                 break;
         case DISK_TYPE_NVME:
                 serial_max = DISK_SERIAL_MAX_LEN_NVME;
                 break;
-        case DISK_TYPE_VIRTIO_SCSI_CDROM:
-                serial_max = DISK_SERIAL_MAX_LEN_SCSI;
-                info->flags |= QMP_DRIVE_READ_ONLY;
-                break;
         default:
                 assert_not_reached();
         }
+
+        if (disk_type_is_read_only(dt))
+                info->flags |= QMP_DRIVE_READ_ONLY;
 
         info->disk_driver = strdup(ASSERT_PTR(qemu_device_driver_to_string(dt)));
         if (!info->disk_driver)
@@ -2399,13 +2411,11 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive->path);
 
-                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-
                 _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
                 if (!d)
                         return log_oom();
 
-                r = resolve_disk_driver(dt, drive_fn, d);
+                r = resolve_disk_driver(extra_drive_disk_type(drive), drive_fn, d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", drive_fn);
 
@@ -3217,8 +3227,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
-                        /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+                if (disk_type_is_read_only(arg_image_disk_type)) {
+                        /* Override any "rw" on the kernel command line. */
                         if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
                             strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
                                 return log_oom();
@@ -3681,11 +3691,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 size_t n_drive_ports = 0;
                 if (!IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
                         n_drive_ports++;
-                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives) {
-                        DiskType dt = d->disk_type >= 0 ? d->disk_type : arg_image_disk_type;
-                        if (!IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
+                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives)
+                        if (!IN_SET(extra_drive_disk_type(d), DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
                                 n_drive_ports++;
-                }
                 FOREACH_ARRAY(bv, arg_bind_volumes.items, arg_bind_volumes.n_items) {
                         DiskType dt = disk_type_from_bind_volume_config((*bv)->config);
                         if (dt < 0)
@@ -4197,13 +4205,15 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--firmware=none requires --linux= to be specified.");
 
-        if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
+        if (disk_type_is_read_only(arg_image_disk_type)) {
+                const char *dt = disk_type_to_string(arg_image_disk_type);
+
                 if (arg_ephemeral)
-                        log_warning("--ephemeral has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--ephemeral has no effect with read-only --image-disk-type=%s.", dt);
                 if (arg_discard_disk)
-                        log_warning("--discard-disk has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--discard-disk has no effect with read-only --image-disk-type=%s.", dt);
                 if (arg_grow_image)
-                        log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--grow-image has no effect with read-only --image-disk-type=%s.", dt);
         }
 
         /* In ephemeral mode the size is picked when creating the qcow2 overlay, so the base image format

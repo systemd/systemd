@@ -25,6 +25,8 @@ DECLARE_STRING_TABLE_LOOKUP(disk_type, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(block_driver, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(qemu_device_driver, DiskType);
 
+bool disk_type_is_read_only(DiskType dt);
+
 /* Parse "[FORMAT:][DISKTYPE:]PATH"; *format and *disk_type are in-out. */
 int parse_disk_spec(
                 const char *arg,

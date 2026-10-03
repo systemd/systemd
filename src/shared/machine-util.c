@@ -54,6 +54,10 @@ static const char *const qemu_device_driver_table[_DISK_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(qemu_device_driver, DiskType);
 
+bool disk_type_is_read_only(DiskType dt) {
+        return dt == DISK_TYPE_VIRTIO_SCSI_CDROM;
+}
+
 int parse_disk_spec(
                 const char *arg,
                 ImageFormat *format,
