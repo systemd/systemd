@@ -109,12 +109,9 @@ static const BaseFilesystem table[] = {
 #    error "Unknown MIPS ABI"
 #  endif
 #elif defined(__powerpc__)
-#  if defined(__PPC64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  if defined(__PPC64__)
         { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld64.so.2" },
-#    define KNOW_LIB64_DIRS 1
-#  elif defined(__powerpc64__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-        /* powerpc64-linux-gnu */
 #  else
         /* powerpc-linux-gnu */
         /* No /lib32 or /lib64 on powerpc. The linker is /usr/lib/powerpc-linux-gnu/ld.so.1. */
