@@ -76,6 +76,7 @@ typedef struct PullJob {
 
         bool sync;
         bool force_memory;
+        bool zero_fill;
 
         char *authentication_challenge;
 } PullJob;
