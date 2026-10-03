@@ -3178,7 +3178,17 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <para>A DHCPv6 client can use VendorClass option to identify the vendor that manufactured the
           hardware on which the client is running. The information contained in the data area of this
           option is contained in one or more opaque fields that identify details of the hardware
-          configuration. Takes a whitespace-separated list of strings.</para>
+          configuration. Takes a whitespace-separated list of strings, optionally prefixed with an
+          enterprise identifier separated with a colon
+          (<literal><replaceable>enterprise identifier</replaceable>:<replaceable>value1 value2</replaceable></literal>).
+          Enterprise identifier is an unsigned integer in the range 1…4294967294. If no enterprise identifier
+          is specified, systemd's own IANA-assigned PEN is used as the default value. Special characters in
+          the data string may be escaped using
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+          escapes</ulink>. This setting can be specified multiple times. Entries sharing the same enterprise
+          identifier are combined into a single option. If an empty string is specified, then all options
+          specified earlier are cleared. Defaults to unset. Note that currently <constant>NUL</constant>
+          bytes are not allowed.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>

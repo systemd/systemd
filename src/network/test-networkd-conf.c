@@ -238,6 +238,85 @@ TEST(config_parse_address) {
         test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
 }
 
+static void test_config_parse_dhcp6_vendor_class_parse_helper(const char *rvalue, OrderedHashmap **vendor_class) {
+        ASSERT_OK(config_parse_dhcp6_vendor_class("network", "filename", 1, "section", 1, "VendorClass", 0, rvalue, vendor_class, NULL));
+}
+
+static void test_config_parse_dhcp6_vendor_class_helper(const char *rvalue, uint32_t enterprise_identifier, char * const *expected_data) {
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *vendor_class = NULL;
+
+        test_config_parse_dhcp6_vendor_class_parse_helper(rvalue, &vendor_class);
+
+        if (expected_data) {
+                ASSERT_EQ(ordered_hashmap_size(vendor_class), 1u);
+                ASSERT_TRUE(strv_equal(ordered_hashmap_get(vendor_class, UINT32_TO_PTR(enterprise_identifier)),
+                                       expected_data));
+        } else
+                ASSERT_TRUE(ordered_hashmap_isempty(vendor_class));
+}
+
+TEST(config_parse_dhcp6_vendor_class) {
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *vendor_class = NULL;
+
+        /* No PEN prefix, mirrors old behavior */
+        test_config_parse_dhcp6_vendor_class_helper("foo bar", SYSTEMD_PEN, STRV_MAKE("foo", "bar"));
+        test_config_parse_dhcp6_vendor_class_helper("foo 32473:bar", SYSTEMD_PEN, STRV_MAKE("foo", "32473:bar"));
+
+        /* Opt-out via explicit systemd enterprise identifier */
+        test_config_parse_dhcp6_vendor_class_helper("43793:foo", SYSTEMD_PEN, STRV_MAKE("foo"));
+
+        /* Optional PEN prefix, uses PEN */
+        test_config_parse_dhcp6_vendor_class_helper("32473:foo bar", 32473, STRV_MAKE("foo", "bar"));
+        test_config_parse_dhcp6_vendor_class_helper("32473:\"foo bar\"", 32473, STRV_MAKE("foo bar"));
+        test_config_parse_dhcp6_vendor_class_helper("32473::", 32473, STRV_MAKE(":"));
+        test_config_parse_dhcp6_vendor_class_helper("+32473:foo", 32473, STRV_MAKE("foo"));
+
+        /* Backwards compatibility */
+        test_config_parse_dhcp6_vendor_class_helper(":", SYSTEMD_PEN, STRV_MAKE(":"));
+        test_config_parse_dhcp6_vendor_class_helper(":foo", SYSTEMD_PEN, STRV_MAKE(":foo"));
+        test_config_parse_dhcp6_vendor_class_helper("32473", SYSTEMD_PEN, STRV_MAKE("32473"));
+        test_config_parse_dhcp6_vendor_class_helper("32473:", SYSTEMD_PEN, STRV_MAKE("32473:"));
+        test_config_parse_dhcp6_vendor_class_helper("foobar 32473:baz", SYSTEMD_PEN, STRV_MAKE("foobar", "32473:baz"));
+
+        /* Invalid PEN */
+        test_config_parse_dhcp6_vendor_class_helper("foo:bar baz", SYSTEMD_PEN, STRV_MAKE("foo:bar", "baz"));
+        test_config_parse_dhcp6_vendor_class_helper("-32473:foo", SYSTEMD_PEN, STRV_MAKE("-32473:foo"));
+        test_config_parse_dhcp6_vendor_class_helper("4294967296:foo", SYSTEMD_PEN, STRV_MAKE("4294967296:foo"));
+        test_config_parse_dhcp6_vendor_class_helper("0:foo", SYSTEMD_PEN, STRV_MAKE("0:foo"));
+        test_config_parse_dhcp6_vendor_class_helper("4294967295:foo", SYSTEMD_PEN, STRV_MAKE("4294967295:foo"));
+
+        /* Invalid input */
+        test_config_parse_dhcp6_vendor_class_helper("32473:\\", 32473, NULL);
+        test_config_parse_dhcp6_vendor_class_helper("32473:\"\"", 32473, NULL);
+
+        /* Entries with the same PEN merge and entries append */
+        test_config_parse_dhcp6_vendor_class_parse_helper("32473:foo", &vendor_class);
+        test_config_parse_dhcp6_vendor_class_parse_helper("32473:bar", &vendor_class);
+        test_config_parse_dhcp6_vendor_class_parse_helper("32473:foo", &vendor_class);
+        ASSERT_TRUE(strv_equal(ordered_hashmap_get(vendor_class, UINT32_TO_PTR(32473)), STRV_MAKE("foo", "bar", "foo")));
+        ASSERT_EQ(ordered_hashmap_size(vendor_class), 1u);
+
+        test_config_parse_dhcp6_vendor_class_parse_helper("foo", &vendor_class);
+        test_config_parse_dhcp6_vendor_class_parse_helper("bar", &vendor_class);
+        ASSERT_TRUE(strv_equal(ordered_hashmap_get(vendor_class, UINT32_TO_PTR(SYSTEMD_PEN)), STRV_MAKE("foo", "bar")));
+        ASSERT_EQ(ordered_hashmap_size(vendor_class), 2u);
+
+        /* Empty string clears all values */
+        test_config_parse_dhcp6_vendor_class_parse_helper("", &vendor_class);
+        ASSERT_TRUE(ordered_hashmap_isempty(vendor_class));
+
+        /* Too too short and too long options are skipped */
+        test_config_parse_dhcp6_vendor_class_helper("32473:foo \"\"", 32473, STRV_MAKE("foo"));
+        {
+                _cleanup_free_ char *invaid_entry = NULL, *rvalue = NULL;
+
+                ASSERT_NOT_NULL(invaid_entry = strrep("x", UINT16_MAX + 1));
+                ASSERT_NOT_NULL(rvalue = strjoin("foo ", invaid_entry, " bar"));
+
+                test_config_parse_dhcp6_vendor_class_helper(rvalue, SYSTEMD_PEN, STRV_MAKE("foo", "bar"));
+        }
+}
+
 TEST(config_parse_match_ifnames) {
         _cleanup_strv_free_ char **names = NULL;
 
