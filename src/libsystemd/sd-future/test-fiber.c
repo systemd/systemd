@@ -2667,6 +2667,35 @@ TEST(fiber_await_completion_wins) {
         }
 }
 
+static int interrupted_fiber(void *userdata) {
+        sd_future *self = sd_fiber_get_current();
+
+        ASSERT_OK_ZERO(sd_fiber_interrupted());
+
+        ASSERT_OK(sd_fiber_resume(self, -ETIME));
+        ASSERT_ERROR(sd_fiber_interrupted(), ETIME);
+        ASSERT_OK_ZERO(sd_fiber_interrupted());
+
+        /* An ordinary wake-up value is not an interruption, so the next suspension point gets it. */
+        ASSERT_OK(sd_fiber_resume(self, 5));
+        ASSERT_OK_ZERO(sd_fiber_interrupted());
+        ASSERT_EQ(sd_fiber_yield(), 5);
+        return 0;
+}
+
+TEST(fiber_interrupted) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_interrupted()), ESRCH);
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+}
+
 typedef struct TimeoutScope {
         sd_future *target;
         bool scope_cleanup;
