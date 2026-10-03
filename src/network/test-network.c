@@ -1,20 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
 #include <net/if.h>
+#include <stdio.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
+#include "netdev.h"
+#include "netlink-internal.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "ordered-set.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "vrf.h"
 
 TEST(deserialize_in_addr) {
@@ -205,6 +213,222 @@ TEST(request_netlink_handler_called) {
 
 TEST(request_netlink_handler_detached) {
         test_request_netlink_handler_one(/* detach= */ true);
+}
+
+static void test_getlink_error_one(LinkState state, int error, bool reused_name) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(link_unrefp) Link *link = NULL;
+        _cleanup_(netdev_unrefp) NetDev *loaded = NULL, *netdev = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *request = NULL, *added = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL, *removed = NULL;
+        _cleanup_(unlink_tempfilep) char netdev_file[] = "/tmp/test-network-netdev-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        unsigned callbacks, retry;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_event_new(&manager->event));
+        ASSERT_OK(sd_netlink_open(&manager->rtnl));
+
+        /* Only send read-only requests, and first verify that this ifindex does not exist. */
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &request, RTM_GETLINK, INT_MAX));
+        ASSERT_ERROR(sd_netlink_call(manager->rtnl, request, 0, /* ret= */ NULL), ENODEV);
+
+        ASSERT_OK(fmkostemp_safe(netdev_file, "w", &f));
+        ASSERT_OK_ERRNO(fputs("[NetDev]\nName=test-vanished\nKind=vlan\n[VLAN]\nId=1\n", f));
+        ASSERT_OK_ERRNO(fflush(f));
+        ASSERT_OK(netdev_load_one(manager, netdev_file, &loaded));
+        ASSERT_OK(netdev_attach_name(loaded, loaded->ifname));
+        netdev = netdev_ref(loaded); /* Keep a test reference in addition to the manager's reference. */
+        TAKE_PTR(loaded);
+
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &added, RTM_NEWLINK, INT_MAX));
+        ASSERT_OK(sd_rtnl_message_link_set_type(added, ARPHRD_ETHER));
+        ASSERT_OK(sd_netlink_message_append_string(added, IFLA_IFNAME, "test-vanished"));
+        ASSERT_OK(sd_netlink_message_open_container(added, IFLA_LINKINFO));
+        ASSERT_OK(sd_netlink_message_append_string(added, IFLA_INFO_KIND, "vlan"));
+        ASSERT_OK(sd_netlink_message_close_container(added));
+        ASSERT_OK(sd_netlink_message_rewind(added, manager->rtnl));
+        ASSERT_OK_ZERO(manager_rtnl_process_link(manager->rtnl, added, manager));
+
+        ASSERT_EQ(netdev->ifindex, INT_MAX);
+        ASSERT_OK(link_get_by_index(manager, INT_MAX, &link));
+        link_ref(link); /* Keep a test reference in addition to the manager's reference. */
+
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &removed, RTM_DELLINK, link->ifindex));
+        ASSERT_OK(sd_netlink_message_append_string(removed, IFLA_IFNAME, link->ifname));
+        ASSERT_OK(sd_netlink_message_rewind(removed, manager->rtnl));
+
+        if (state == LINK_STATE_LINGER)
+                ASSERT_OK_POSITIVE(manager_rtnl_process_link(manager->rtnl, removed, manager));
+        else
+                link_set_state(link, state);
+
+        if (reused_name) {
+                /* Recreate the NetDev with the same name but a different ifindex before the old GETLINK
+                 * reply arrives. Only send read-only requests to the kernel. */
+                request = sd_netlink_message_unref(request);
+                ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &request, RTM_GETLINK, INT_MAX - 1));
+                ASSERT_ERROR(sd_netlink_call(manager->rtnl, request, 0, /* ret= */ NULL), ENODEV);
+                netdev_drop(netdev);
+                ASSERT_OK_POSITIVE(netdev_set_ifindex_internal(netdev, INT_MAX - 1));
+                ASSERT_OK(netdev_enter_ready(netdev));
+        }
+
+        ASSERT_OK(message_new_synthetic_error(manager->rtnl, error, 1, &reply));
+        ASSERT_OK_ZERO(link_getlink_handler_internal(
+                        manager->rtnl, reply, link, "Synthetic GETLINK failure"));
+
+        /* If the link vanished, it must be dropped immediately, so that it is not reconfigured and does not
+         * stay tracked by the manager. Other errors retain the existing state-dependent recovery behavior. */
+        callbacks = netlink_get_reply_callback_count(manager->rtnl);
+        retry = link->automatic_reconfigure_ratelimit.num;
+        if (error == -ENODEV) {
+                ASSERT_EQ(link->state, LINK_STATE_LINGER);
+                ASSERT_EQ(callbacks, 0U);
+                ASSERT_EQ(retry, 0U);
+                ASSERT_NULL(hashmap_get(manager->links_by_index, INT_TO_PTR(link->ifindex)));
+                ASSERT_FALSE(hashmap_contains(manager->links_by_name, link->ifname));
+
+                if (reused_name) {
+                        ASSERT_EQ(netdev->state, NETDEV_STATE_READY);
+                        ASSERT_EQ(netdev->ifindex, INT_MAX - 1);
+                        ASSERT_PTR_EQ(hashmap_get(manager->netdevs, link->ifname), netdev);
+                        return;
+                }
+
+                ASSERT_EQ(netdev->state, NETDEV_STATE_LOADING);
+                ASSERT_EQ(netdev->ifindex, 0);
+        } else if (state == LINK_STATE_FAILED) {
+                /* Other late replies must continue to be ignored for failed links. */
+                ASSERT_EQ(link->state, LINK_STATE_FAILED);
+                ASSERT_EQ(callbacks, 0U);
+                ASSERT_EQ(retry, 0U);
+                ASSERT_PTR_EQ(hashmap_get(manager->links_by_index, INT_TO_PTR(link->ifindex)), link);
+                ASSERT_TRUE(hashmap_contains(manager->links_by_name, link->ifname));
+                ASSERT_EQ(netdev->ifindex, INT_MAX);
+        } else {
+                ASSERT_NE(link->state, LINK_STATE_LINGER);
+                ASSERT_EQ(callbacks, 1U);
+                ASSERT_EQ(retry, 1U);
+                ASSERT_PTR_EQ(hashmap_get(manager->links_by_index, INT_TO_PTR(link->ifindex)), link);
+                ASSERT_TRUE(hashmap_contains(manager->links_by_name, link->ifname));
+
+                /* Drain the recovery request, so that the diagnostic below includes the complete retry
+                 * burst. The link does not exist, so the drained request fails with ENODEV, and must be
+                 * dropped instead of starting yet another reconfiguration. */
+                for (unsigned i = 0; i < 16 && netlink_get_reply_callback_count(manager->rtnl) > 0; i++) {
+                        ASSERT_OK(sd_netlink_wait(manager->rtnl, USEC_PER_SEC));
+                        ASSERT_OK(sd_netlink_process(manager->rtnl, /* ret= */ NULL));
+                }
+                ASSERT_EQ(netlink_get_reply_callback_count(manager->rtnl), 0U);
+                ASSERT_EQ(link->automatic_reconfigure_ratelimit.num, retry);
+                ASSERT_EQ(link->state, LINK_STATE_LINGER);
+                ASSERT_NULL(hashmap_get(manager->links_by_index, INT_TO_PTR(link->ifindex)));
+                ASSERT_FALSE(hashmap_contains(manager->links_by_name, link->ifname));
+                ASSERT_EQ(netdev->state, NETDEV_STATE_LOADING);
+                ASSERT_EQ(netdev->ifindex, 0);
+        }
+
+        log_info("GETLINK error=%i, initial state=%s, queued callbacks=%u, retry count=%u, final state=%s",
+                 error, link_state_to_string(state), callbacks, link->automatic_reconfigure_ratelimit.num,
+                 link_state_to_string(link->state));
+
+        /* A late or repeated RTM_DELLINK notification must be harmless. */
+        ASSERT_OK(sd_netlink_message_rewind(removed, manager->rtnl));
+        ASSERT_OK_POSITIVE(manager_rtnl_process_link(manager->rtnl, removed, manager));
+        ASSERT_EQ(link->state, LINK_STATE_LINGER);
+        ASSERT_FALSE(hashmap_contains(manager->links_by_index, INT_TO_PTR(link->ifindex)));
+        ASSERT_FALSE(hashmap_contains(manager->links_by_name, link->ifname));
+        ASSERT_EQ(netdev->state, NETDEV_STATE_LOADING);
+        ASSERT_EQ(netdev->ifindex, 0);
+        ASSERT_OK_POSITIVE(netdev_set_ifindex_internal(netdev, INT_MAX - 1));
+}
+
+TEST(getlink_enodev_pending) {
+        test_getlink_error_one(LINK_STATE_PENDING, -ENODEV, /* reused_name= */ false);
+}
+
+TEST(getlink_enodev_unmanaged) {
+        test_getlink_error_one(LINK_STATE_UNMANAGED, -ENODEV, /* reused_name= */ false);
+}
+
+TEST(getlink_enodev_configured) {
+        test_getlink_error_one(LINK_STATE_CONFIGURED, -ENODEV, /* reused_name= */ false);
+}
+
+TEST(getlink_enodev_failed) {
+        test_getlink_error_one(LINK_STATE_FAILED, -ENODEV, /* reused_name= */ false);
+}
+
+TEST(getlink_enodev_linger) {
+        /* Here an RTM_DELLINK notification drops the link before the error handler is called. */
+        test_getlink_error_one(LINK_STATE_LINGER, -ENODEV, /* reused_name= */ false);
+}
+
+TEST(getlink_enodev_reused_name) {
+        test_getlink_error_one(LINK_STATE_CONFIGURED, -ENODEV, /* reused_name= */ true);
+}
+
+TEST(getlink_enodev_veth_peer) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(link_unrefp) Link *link = NULL;
+        _cleanup_(netdev_unrefp) NetDev *loaded = NULL, *netdev = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *request = NULL, *added = NULL, *reply = NULL;
+        _cleanup_(unlink_tempfilep) char netdev_file[] = "/tmp/test-network-netdev-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_event_new(&manager->event));
+        ASSERT_OK(sd_netlink_open(&manager->rtnl));
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &request, RTM_GETLINK, INT_MAX));
+        ASSERT_ERROR(sd_netlink_call(manager->rtnl, request, 0, /* ret= */ NULL), ENODEV);
+
+        ASSERT_OK(fmkostemp_safe(netdev_file, "w", &f));
+        ASSERT_OK_ERRNO(fputs("[NetDev]\nName=test-main\nKind=veth\n[Peer]\nName=test-peer\n", f));
+        ASSERT_OK_ERRNO(fflush(f));
+        ASSERT_OK(netdev_load_one(manager, netdev_file, &loaded));
+        ASSERT_OK(netdev_attach_name(loaded, loaded->ifname));
+        ASSERT_OK(NETDEV_VTABLE(loaded)->attach(loaded));
+        netdev = netdev_ref(loaded);
+        TAKE_PTR(loaded);
+        ASSERT_OK_POSITIVE(netdev_set_ifindex_internal(netdev, INT_MAX - 1));
+
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &added, RTM_NEWLINK, INT_MAX));
+        ASSERT_OK(sd_rtnl_message_link_set_type(added, ARPHRD_ETHER));
+        ASSERT_OK(sd_netlink_message_append_string(added, IFLA_IFNAME, "test-peer"));
+        ASSERT_OK(sd_netlink_message_open_container(added, IFLA_LINKINFO));
+        ASSERT_OK(sd_netlink_message_append_string(added, IFLA_INFO_KIND, "veth"));
+        ASSERT_OK(sd_netlink_message_close_container(added));
+        ASSERT_OK(sd_netlink_message_rewind(added, manager->rtnl));
+        ASSERT_OK_ZERO(manager_rtnl_process_link(manager->rtnl, added, manager));
+        ASSERT_OK(link_get_by_index(manager, INT_MAX, &link));
+        link_ref(link);
+        link_set_state(link, LINK_STATE_CONFIGURED);
+
+        /* A peer's ifindex differs from the main interface's, but still identifies this NetDev. */
+        ASSERT_NE(netdev->ifindex, link->ifindex);
+        ASSERT_EQ(NETDEV_VTABLE(netdev)->get_ifindex(netdev, link->ifname), link->ifindex);
+        ASSERT_EQ(netdev->state, NETDEV_STATE_READY);
+        ASSERT_OK(message_new_synthetic_error(manager->rtnl, -ENODEV, 1, &reply));
+        ASSERT_OK_ZERO(link_getlink_handler_internal(
+                        manager->rtnl, reply, link, "Synthetic GETLINK failure"));
+
+        ASSERT_EQ(link->state, LINK_STATE_LINGER);
+        ASSERT_NULL(hashmap_get(manager->links_by_index, INT_TO_PTR(link->ifindex)));
+        ASSERT_FALSE(hashmap_contains(manager->links_by_name, link->ifname));
+        ASSERT_EQ(netlink_get_reply_callback_count(manager->rtnl), 0U);
+        ASSERT_EQ(link->automatic_reconfigure_ratelimit.num, 0U);
+        ASSERT_EQ(netdev->state, NETDEV_STATE_LINGER);
+        ASSERT_FALSE(hashmap_contains(manager->netdevs, "test-main"));
+        ASSERT_FALSE(hashmap_contains(manager->netdevs, "test-peer"));
+}
+
+TEST(getlink_other_error_retries) {
+        test_getlink_error_one(LINK_STATE_CONFIGURED, -EIO, /* reused_name= */ false);
+}
+
+TEST(getlink_failed_other_error_ignored) {
+        test_getlink_error_one(LINK_STATE_FAILED, -EIO, /* reused_name= */ false);
 }
 
 TEST(manager_enumerate) {
