@@ -213,6 +213,9 @@ _noreturn_ static void fiber_entry_point(void) {
                 LOG_CONTEXT_PUSH_KEY_VALUE("FIBER=", fiber->name);
 
                 fiber->result = fiber->func(fiber->userdata);
+                /* The function returned, so no suspension point is left to report a queued interruption.
+                 * Drop it. */
+                fiber->result_pending = false;
                 fiber->state = FIBER_STATE_COMPLETED;
         }
 
@@ -876,6 +879,16 @@ int sd_fiber_await(sd_future *target) {
                 return r;
 
         r = fiber_suspend_for(f, target);
+
+        /* The target can resolve before a cancellation or timeout wakes us up. The operation has then
+         * already taken effect: a channel receive, for example, took an item out of the channel. If we
+         * reported the interruption, the caller would assume that nothing happened. Freeing the future
+         * would then destroy the received item before anyone saw it. Report the completion, and queue
+         * the interruption again so that the next suspension point returns it. */
+        if (IN_SET(r, -ECANCELED, -ETIME) && sd_future_state(target) == SD_FUTURE_RESOLVED) {
+                assert_se(sd_fiber_resume(f, r) >= 0);
+                return 0;
+        }
         if (r < 0)
                 return r;
 
