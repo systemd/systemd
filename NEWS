@@ -160,6 +160,12 @@ CHANGES WITH 262:
           --private-users-ownership= command line switch. Previously "pick"
           defaulted to "chown", and "managed" to "off".
 
+        * DeviceTree overlay support in systemd-boot/stub now requires libfdt,
+          and is disabled when not provided. Note that the normal userspace static
+          library as already provided by all major distributions is enough, no
+          EFI-specific build is needed, and it will be autodiscovered at build
+          time like any other dependency.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
