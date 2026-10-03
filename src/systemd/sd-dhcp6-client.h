@@ -113,6 +113,16 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client,
                                       sd_dhcp6_option *v);
 int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable);
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable);
+int sd_dhcp6_client_set_register_addresses(sd_dhcp6_client *client, int enable);
+
+/* Registers (or updates, or de-registers) an address via DHCPv6, per RFC 9686. The
+ * timestamps are absolute and valid_until_usec == 0 de-registers the address.
+ * USEC_INFINITY indicates a never-expiring address (e.g. statically configured). */
+int sd_dhcp6_client_register_address(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address,
+                uint64_t valid_until_usec,
+                uint64_t preferred_until_usec);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,
