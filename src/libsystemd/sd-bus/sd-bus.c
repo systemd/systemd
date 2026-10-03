@@ -2314,7 +2314,7 @@ _public_ int sd_bus_call_async(
                 sd_bus_message *m,
                 sd_bus_message_handler_t callback,
                 void *userdata,
-                uint64_t usec) {
+                uint64_t timeout_usec) {
 
         _unused_ _cleanup_(sd_bus_message_unrefp) sd_bus_message *m_unref = sd_bus_message_ref(m);
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
@@ -2341,7 +2341,7 @@ _public_ int sd_bus_call_async(
         if (r < 0)
                 return r;
 
-        r = bus_seal_message(bus, m, usec);
+        r = bus_seal_message(bus, m, timeout_usec);
         if (r < 0)
                 return r;
 
@@ -2413,7 +2413,7 @@ int bus_ensure_running(sd_bus *bus) {
 _public_ int sd_bus_call(
                 sd_bus *bus,
                 sd_bus_message *_m,
-                uint64_t usec,
+                uint64_t timeout_usec,
                 sd_bus_error *reterr_error,
                 sd_bus_message **ret_reply) {
 
@@ -2437,7 +2437,7 @@ _public_ int sd_bus_call(
          * instead which does an async method call. This allows multiple invocations of sd_bus_call() to
          * happen across multiple fibers at once. */
         if (sd_fiber_is_running() && bus->event == sd_fiber_get_event())
-                return bus_call_suspend(bus, _m, usec, reterr_error, ret_reply);
+                return bus_call_suspend(bus, _m, timeout_usec, reterr_error, ret_reply);
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
 
@@ -2452,7 +2452,7 @@ _public_ int sd_bus_call(
 
         i = bus->rqueue_size;
 
-        r = bus_seal_message(bus, m, usec);
+        r = bus_seal_message(bus, m, timeout_usec);
         if (r < 0)
                 goto fail;
 

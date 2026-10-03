@@ -31,39 +31,39 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_set_destination</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>destination</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_destination</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_path</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_interface</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_member</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_set_sender</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>sender</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_sender</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -79,8 +79,8 @@
     <function>sd_bus_message_get_path()</function>,
     <function>sd_bus_message_get_interface()</function>, and
     <function>sd_bus_message_get_member()</function> return the destination, path, interface, and
-    member fields from <parameter>message</parameter> header. The return value will be
-    <constant>NULL</constant> if <parameter>message</parameter> is <constant>NULL</constant> or the
+    member fields from <parameter>m</parameter> header. The return value will be
+    <constant>NULL</constant> if <parameter>m</parameter> is <constant>NULL</constant> or the
     message is of a type that does not use those fields or the message does not have them set. See
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -92,10 +92,10 @@
     field anyway, and the sender field set by original sender is ignored.</para>
 
     <para><function>sd_bus_message_get_sender()</function> returns the sender field from
-    <parameter>message</parameter>.</para>
+    <parameter>m</parameter>.</para>
 
     <para>When a string is returned, it is a pointer to internal storage, and may not be modified or
-    freed. It is only valid as long as the <parameter>message</parameter> remains referenced and
+    freed. It is only valid as long as the <parameter>m</parameter> remains referenced and
     this field has not been changed by a different call.</para>
   </refsect1>
 
@@ -114,7 +114,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter or the output parameter are
+          <listitem><para>The <parameter>m</parameter> parameter or the output parameter are
           <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
@@ -139,13 +139,13 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_set_destination()</function> and
-    <function>sd_bus_message_set_sender()</function> were added in version 237.</para>
-    <para><function>sd_bus_message_get_destination()</function>,
+    <para><function>sd_bus_message_set_destination()</function>,
+    <function>sd_bus_message_get_destination()</function>,
     <function>sd_bus_message_get_path()</function>,
     <function>sd_bus_message_get_interface()</function>,
     <function>sd_bus_message_get_member()</function>, and
-    <function>sd_bus_message_get_sender()</function> were added in version 240.</para>
+    <function>sd_bus_message_get_sender()</function> were added in version 221.</para>
+    <para><function>sd_bus_message_set_sender()</function> was added in version 237.</para>
   </refsect1>
 
   <refsect1>

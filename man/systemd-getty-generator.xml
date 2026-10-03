@@ -28,7 +28,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-getty-generator</filename> is a generator that automatically instantiates
+    <para><command>systemd-getty-generator</command> is a generator that automatically instantiates
     <filename>serial-getty@.service</filename> on the kernel consoles, if they can function as ttys and are
     not provided by the virtual console subsystem. It will also instantiate
     <filename>serial-getty@.service</filename> instances for virtualizer consoles, if execution in a
@@ -43,7 +43,7 @@
     url="https://docs.kernel.org/admin-guide/kernel-parameters.html">The kernel's command-line
     parameters</ulink> for more information on the <varname>console=</varname> kernel parameter.</para>
 
-    <para><filename>systemd-getty-generator</filename> implements
+    <para><command>systemd-getty-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>Further information about configuration of gettys can be
@@ -56,7 +56,7 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-getty-generator</filename> understands the following
+    <para><command>systemd-getty-generator</command> understands the following
     <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     parameters:</para>
 

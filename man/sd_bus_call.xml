@@ -33,19 +33,19 @@
         <funcdef>int <function>sd_bus_call</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret_reply</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_call_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -54,21 +54,21 @@
     <title>Description</title>
 
     <para><function>sd_bus_call()</function> takes a complete bus message object and calls the
-    corresponding D-Bus method. On success, the response is stored in <parameter>reply</parameter>.
-    <parameter>usec</parameter> indicates the timeout in microseconds. If
-    <parameter>ret_error</parameter> is not <constant>NULL</constant> and
+    corresponding D-Bus method. On success, the response is stored in <parameter>ret_reply</parameter>.
+    <parameter>timeout_usec</parameter> indicates the timeout in microseconds. If
+    <parameter>reterr_error</parameter> is not <constant>NULL</constant> and
     <function>sd_bus_call()</function> fails (either because of an internal error or because it
-    received a D-Bus error reply), <parameter>ret_error</parameter> is initialized to an instance of
+    received a D-Bus error reply), <parameter>reterr_error</parameter> is initialized to an instance of
     <structname>sd_bus_error</structname> describing the error.</para>
 
     <para><function>sd_bus_call_async()</function> is like <function>sd_bus_call()</function> but works
     asynchronously. The <parameter>callback</parameter> indicates the function to call when the response
     arrives. The <parameter>userdata</parameter> pointer will be passed to the callback function, and may be
-    chosen freely by the caller. If <parameter>slot</parameter> is not <constant>NULL</constant> and
-    <function>sd_bus_call_async()</function> succeeds, <parameter>slot</parameter> is set to a slot object
+    chosen freely by the caller. If <parameter>ret_slot</parameter> is not <constant>NULL</constant> and
+    <function>sd_bus_call_async()</function> succeeds, <parameter>ret_slot</parameter> is set to a slot object
     which can be used to cancel the method call at a later time using
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If <parameter>slot</parameter> is <constant>NULL</constant>, the lifetime of the method call is bound to
+    If <parameter>ret_slot</parameter> is <constant>NULL</constant>, the lifetime of the method call is bound to
     the lifetime of the bus object itself, and it cannot be cancelled independently. See
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for details. <parameter>callback</parameter> is called when a reply arrives with the reply,
@@ -95,7 +95,7 @@
     <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create a
     new reference.</para>
 
-    <para>If <parameter>usec</parameter> is zero, the default D-Bus method call timeout is used. See
+    <para>If <parameter>timeout_usec</parameter> is zero, the default D-Bus method call timeout is used. See
     <citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
@@ -111,7 +111,7 @@
       <title>Errors</title>
 
       <para>When <function>sd_bus_call()</function> internally receives a D-Bus error reply, it will set
-      <parameter>ret_error</parameter> if it is not <constant>NULL</constant>, and will return a negative
+      <parameter>reterr_error</parameter> if it is not <constant>NULL</constant>, and will return a negative
       value mapped from the error reply, see
       <citerefentry><refentrytitle>sd_bus_error_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
       </para>
@@ -134,7 +134,7 @@
             <para>The input parameter <parameter>m</parameter> has the
             <constant>BUS_MESSAGE_NO_REPLY_EXPECTED</constant> flag set.</para>
 
-            <para>The input parameter <parameter>error</parameter> is
+            <para>The input parameter <parameter>reterr_error</parameter> is
             non-<constant>NULL</constant> but was not set to <constant>SD_BUS_ERROR_NULL</constant>.
             </para>
           </listitem>

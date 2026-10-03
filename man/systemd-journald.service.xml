@@ -44,7 +44,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-journald</filename> is a system service
+    <para><command>systemd-journald</command> is a system service
     that collects and stores logging data. It creates and maintains
     structured, indexed journals based on logging information that is
     received from a variety of sources:</para>
@@ -140,7 +140,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     via the <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
     line tool.</para>
 
-    <para>Currently, the number of parallel log streams <filename>systemd-journald</filename> will accept is limited to
+    <para>Currently, the number of parallel log streams <command>systemd-journald</command> will accept is limited to
     4096. When this limit is reached further log streams may be established but will receive
     <constant>EPIPE</constant> right from the beginning.</para>
   </refsect1>
@@ -386,7 +386,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         configuration file.</para>
 
-        <para>When <filename>systemd-journald</filename> ceases writing to a journal file,
+        <para>When <command>systemd-journald</command> ceases writing to a journal file,
         it will be renamed to <literal><replaceable>original-name</replaceable>@<replaceable>suffix.journal</replaceable></literal>
         (or <literal><replaceable>original-name</replaceable>@<replaceable>suffix.journal~</replaceable></literal>).
         Such files are "archived" and will not be written to any more.</para>
@@ -397,7 +397,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         library should be able to read all entries that have been fully written.</para>
 
-        <para><filename>systemd-journald</filename> will automatically remove the oldest
+        <para><command>systemd-journald</command> will automatically remove the oldest
         archived journal files to limit disk use. See <varname>SystemMaxUse=</varname>
         and related settings in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

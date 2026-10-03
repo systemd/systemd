@@ -32,7 +32,7 @@
     <title>Description</title>
 
     <para><filename>systemd-storage-fs@.service</filename> is a service that implements the
-    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    <interfacename>io.systemd.StorageProvider</interfacename> <ulink url="https://varlink.org/">Varlink</ulink>
     interface, exposing regular files and directories in <filename>/var/lib/storage/*.volume</filename> (if
     used in system mode) or <filename>$XDG_STATE_HOME/storage</filename> (when used in user mode) as storage
     volumes. Acquired volumes are returned to the caller as file descriptors. Unlike

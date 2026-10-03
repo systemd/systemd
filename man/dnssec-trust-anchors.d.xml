@@ -101,7 +101,7 @@
     are defined for the same domain (possibly even in different trust anchor files), all keys are used and
     are considered equivalent as base for DNSSEC proofs.</para>
 
-    <para>Note that <filename>systemd-resolved</filename> will
+    <para>Note that <command>systemd-resolved</command> will
     automatically use a built-in trust anchor key for the Internet
     root domain if no positive trust anchors are defined for the root
     domain. In most cases it is hence unnecessary to define an
@@ -115,7 +115,7 @@
     <para>If a trust anchor specified via a <constant class='dns'>DS</constant> record is found revoked it is
     automatically removed from the trust anchor database for the runtime. See <ulink
     url="https://tools.ietf.org/html/rfc5011">RFC 5011</ulink> for details about revoked trust anchors. Note
-    that <filename>systemd-resolved</filename> will not update its trust anchor database from DNS servers
+    that <command>systemd-resolved</command> will not update its trust anchor database from DNS servers
     automatically. Instead, it is recommended to update the resolver software or update the new trust anchor
     via adding in new trust anchor files.</para>
 

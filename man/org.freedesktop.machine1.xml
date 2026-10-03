@@ -369,22 +369,22 @@ node /org/freedesktop/machine1 {
       allow for future extensions, and take a PIDFD instead of a PID for the leader parameter. The currently
       supported parameters are:
       <itemizedlist>
-        <listitem><para><literal>Id</literal> (<literal>ay</literal>): the machine UUID.</para></listitem>
-        <listitem><para><literal>Service</literal> (<literal>s</literal>): the service string.</para></listitem>
-        <listitem><para><literal>Class</literal> (<literal>s</literal>): the class string.</para></listitem>
-        <listitem><para><literal>LeaderPIDFD</literal> (<literal>h</literal>): A PIDFD for the leader process of the machine.
+        <listitem><para><varname>Id</varname> (<literal>ay</literal>): the machine UUID.</para></listitem>
+        <listitem><para><varname>Service</varname> (<literal>s</literal>): the service string.</para></listitem>
+        <listitem><para><varname>Class</varname> (<literal>s</literal>): the class string.</para></listitem>
+        <listitem><para><varname>LeaderPIDFD</varname> (<literal>h</literal>): A PIDFD for the leader process of the machine.
         This parameter is optional. If it is specified, it is preferred over the combination of
-        <literal>LeaderPID</literal>
-        and <literal>LeaderPIDFDID</literal>.</para></listitem>
-        <listitem><para><literal>LeaderPID</literal> (<literal>u</literal>): A PID for the leader process of the
+        <varname>LeaderPID</varname>
+        and <varname>LeaderPIDFDID</varname>.</para></listitem>
+        <listitem><para><varname>LeaderPID</varname> (<literal>u</literal>): A PID for the leader process of the
         machine. This parameter is optional. Must be specified together with
-        <literal>LeaderPIDFDID</literal>.</para></listitem>
-        <listitem><para><literal>LeaderPIDFDID</literal> (<literal>t</literal>): A PIDFDID for the leader
+        <varname>LeaderPIDFDID</varname>.</para></listitem>
+        <listitem><para><varname>LeaderPIDFDID</varname> (<literal>t</literal>): A PIDFDID for the leader
         process of the machine. This parameter is optional. Must be specified together with
-        <literal>LeaderPID</literal>.</para></listitem>
-        <listitem><para><literal>RootDirectory</literal> (<literal>s</literal>): The root directory of the container. This
+        <varname>LeaderPID</varname>.</para></listitem>
+        <listitem><para><varname>RootDirectory</varname> (<literal>s</literal>): The root directory of the container. This
         parameter is optional and for informational purposes only.</para></listitem>
-        <listitem><para><literal>NetworkInterfaces</literal> (<literal>ai</literal>): An array of network
+        <listitem><para><varname>NetworkInterfaces</varname> (<literal>ai</literal>): An array of network
         interface indices, as in
         <function>CreateMachineWithNetwork()</function>. This parameter is optional.</para></listitem>
       </itemizedlist></para>

@@ -97,7 +97,7 @@
     the ID of the machine will be established. If <varname>systemd.machine_id=</varname>
     or <option>--machine-id=</option> options (see first section) are specified, this
     value will be used. Otherwise, the value in <filename>/etc/machine-id</filename> will
-    be used. If this file is empty or missing, <filename>systemd</filename> will attempt
+    be used. If this file is empty or missing, <command>systemd</command> will attempt
     to use the D-Bus machine ID from <filename>/var/lib/dbus/machine-id</filename>, the
     value of the kernel command line option <varname>container_uuid</varname>, the KVM DMI
     <filename>product_uuid</filename> or the devicetree <filename>vm,uuid</filename>

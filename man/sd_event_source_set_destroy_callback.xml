@@ -29,20 +29,20 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>typedef int (*<function>sd_event_destroy_t</function>)</funcdef>
+        <funcdef>typedef void (*<function>sd_event_destroy_t</function>)</funcdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_destroy_callback</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>sd_event_destroy_t <parameter>callback</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_destroy_callback</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>sd_event_destroy_t *<parameter>callback</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>sd_event_destroy_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -52,7 +52,7 @@
     <title>Description</title>
 
     <para><function>sd_event_source_set_destroy_callback()</function> sets <parameter>callback</parameter> as the
-    callback function to be called right before the event source object <parameter>source</parameter> is
+    callback function to be called right before the event source object <parameter>s</parameter> is
     deallocated. The <parameter>userdata</parameter> pointer from the event source object will be passed as the
     <parameter>userdata</parameter> parameter. This pointer can be set by an argument to the constructor functions, see
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>, or directly,
@@ -63,7 +63,7 @@
     operations or taking new references to the event source object is not permissible.</para>
 
     <para><function>sd_event_source_get_destroy_callback()</function> returns the current callback
-    for <parameter>source</parameter> in the <parameter>callback</parameter> parameter.</para>
+    for <parameter>s</parameter> in the <parameter>ret</parameter> parameter.</para>
   </refsect1>
 
   <refsect1>
@@ -84,7 +84,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>source</parameter> parameter is <constant>NULL</constant>.
+          <listitem><para>The <parameter>s</parameter> parameter is <constant>NULL</constant>.
           </para></listitem>
         </varlistentry>
       </variablelist>

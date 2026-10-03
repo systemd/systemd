@@ -761,7 +761,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *m, int capability) {
 
 _public_ int sd_bus_match_signal(
                 sd_bus *bus,
-                sd_bus_slot **ret,
+                sd_bus_slot **ret_slot,
                 const char *sender,
                 const char *path,
                 const char *interface,
@@ -781,12 +781,12 @@ _public_ int sd_bus_match_signal(
 
         expression = make_expression(sender, path, interface, member);
 
-        return sd_bus_add_match(bus, ret, expression, callback, userdata);
+        return sd_bus_add_match(bus, ret_slot, expression, callback, userdata);
 }
 
 _public_ int sd_bus_match_signal_async(
                 sd_bus *bus,
-                sd_bus_slot **ret,
+                sd_bus_slot **ret_slot,
                 const char *sender,
                 const char *path,
                 const char *interface,
@@ -807,5 +807,5 @@ _public_ int sd_bus_match_signal_async(
 
         expression = make_expression(sender, path, interface, member);
 
-        return sd_bus_add_match_async(bus, ret, expression, callback, install_callback, userdata);
+        return sd_bus_add_match_async(bus, ret_slot, expression, callback, install_callback, userdata);
 }

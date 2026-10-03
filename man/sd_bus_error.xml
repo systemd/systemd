@@ -121,13 +121,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_error_copy</function></funcdef>
-        <paramdef>sd_bus_error *<parameter>dst</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>dest</parameter></paramdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_error_move</function></funcdef>
-        <paramdef>sd_bus_error *<parameter>dst</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>dest</parameter></paramdef>
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
@@ -255,11 +255,11 @@
     <function>sd_bus_error_set()</function>.  If <parameter>e</parameter> is <constant>NULL</constant>,
     <constant>0</constant> will be returned.</para>
 
-    <para><function>sd_bus_error_copy()</function> will initialize <parameter>dst</parameter> using the
+    <para><function>sd_bus_error_copy()</function> will initialize <parameter>dest</parameter> using the
     values in <parameter>e</parameter>, if <parameter>e</parameter> has been set with an error value before.
     Otherwise, it will return immediately. If the strings in <parameter>e</parameter> were set using
     <function>sd_bus_error_set_const()</function>, they will be shared. Otherwise, they will be
-    copied. Before this call, <parameter>dst</parameter> must be unset, i.e. either freshly initialized with
+    copied. Before this call, <parameter>dest</parameter> must be unset, i.e. either freshly initialized with
     <constant>NULL</constant> or reset using <function>sd_bus_error_free()</function>.</para>
 
     <para><function>sd_bus_error_copy()</function> generally returns <constant>0</constant> or a negative
@@ -269,10 +269,10 @@
     example <constant>-ENOMEM</constant> if a memory allocation fails.</para>
 
     <para><function>sd_bus_error_move()</function> is similar to <function>sd_bus_error_copy()</function>,
-    but will move any error information from <parameter>e</parameter> into <parameter>dst</parameter>,
+    but will move any error information from <parameter>e</parameter> into <parameter>dest</parameter>,
     resetting the former. This function cannot fail, as no new memory is allocated. Note that if
-    <parameter>e</parameter> is not set, <parameter>dst</parameter> is initialized to
-    <constant>SD_BUS_ERROR_NULL</constant>. Moreover, if <parameter>dst</parameter> is
+    <parameter>e</parameter> is not set, <parameter>dest</parameter> is initialized to
+    <constant>SD_BUS_ERROR_NULL</constant>. Moreover, if <parameter>dest</parameter> is
     <constant>NULL</constant> no operation is executed on it and resources held by <parameter>e</parameter>
     are freed and reset. Returns a converted <varname>errno</varname>-like, non-positive error value.</para>
 

@@ -27,7 +27,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_sensitive</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -62,10 +62,8 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter is
-          <constant>NULL</constant>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+          <listitem><para>The <parameter>m</parameter> parameter is
+          <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
       </variablelist>

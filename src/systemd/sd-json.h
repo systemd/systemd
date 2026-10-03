@@ -81,7 +81,7 @@ int sd_json_variant_new_real(sd_json_variant **ret, double d);
 int sd_json_variant_new_boolean(sd_json_variant **ret, int b);
 int sd_json_variant_new_array(sd_json_variant **ret, sd_json_variant **array, size_t n);
 int sd_json_variant_new_array_bytes(sd_json_variant **ret, const void *p, size_t n);
-int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l);
+int sd_json_variant_new_array_strv(sd_json_variant **ret, char **strv);
 int sd_json_variant_new_object(sd_json_variant **ret, sd_json_variant **array, size_t n);
 int sd_json_variant_new_null(sd_json_variant **ret);
 int sd_json_variant_new_id128(sd_json_variant **ret, sd_id128_t id);
@@ -162,7 +162,7 @@ int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *field, sd_id
 int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t value);
 int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t value);
 int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *field, int b);
-int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **l);
+int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **strv);
 
 sd_json_variant* sd_json_variant_find(sd_json_variant *haystack, sd_json_variant *needle);
 

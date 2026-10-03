@@ -29,7 +29,7 @@
       <funcprototype>
         <funcdef>int sd_bus_message_append_strv</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>char **<parameter>l</parameter></paramdef>
+        <paramdef>char **<parameter>strv</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -39,7 +39,7 @@
 
     <para>The <function>sd_bus_message_append()</function> function can be
     used to append an array of strings to message
-    <parameter>m</parameter>. The parameter <parameter>l</parameter>
+    <parameter>m</parameter>. The parameter <parameter>strv</parameter>
     shall point to a <constant>NULL</constant>-terminated array of pointers
     to <constant>NUL</constant>-terminated strings. Each string must
     satisfy the same constraints as described for the
@@ -47,10 +47,10 @@
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>The memory pointed at by <parameter>p</parameter> and the
+    <para>The memory pointed at by <parameter>strv</parameter> and the
     contents of the strings themselves are copied into the memory area
     containing the message and may be changed after this call. Note
-    that the signature of <parameter>l</parameter> parameter is to be
+    that the signature of <parameter>strv</parameter> parameter is to be
     treated as <type>const char *const *</type>, and the contents
     will not be modified.</para>
   </refsect1>

@@ -68,16 +68,16 @@ enum {
 
 #define SD_EVENT_SIGNAL_PROCMASK (1 << 30)
 
-typedef int (*sd_event_handler_t)(sd_event_source *s, void *userdata);
-typedef int (*sd_event_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
-typedef int (*sd_event_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
-typedef int (*sd_event_signal_handler_t)(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
+typedef int (*sd_event_handler_t)(sd_event_source *source, void *userdata);
+typedef int (*sd_event_io_handler_t)(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+typedef int (*sd_event_time_handler_t)(sd_event_source *source, uint64_t usec, void *userdata);
+typedef int (*sd_event_signal_handler_t)(sd_event_source *source, const struct signalfd_siginfo *si, void *userdata);
 #if defined _GNU_SOURCE || (defined _POSIX_C_SOURCE && _POSIX_C_SOURCE >= 199309L)
-typedef int (*sd_event_child_handler_t)(sd_event_source *s, const siginfo_t *si, void *userdata);
+typedef int (*sd_event_child_handler_t)(sd_event_source *source, const siginfo_t *si, void *userdata);
 #else
 typedef void* sd_event_child_handler_t;
 #endif
-typedef int (*sd_event_inotify_handler_t)(sd_event_source *s, const struct inotify_event *event, void *userdata);
+typedef int (*sd_event_inotify_handler_t)(sd_event_source *source, const struct inotify_event *event, void *userdata);
 typedef _sd_destroy_t sd_event_destroy_t;
 
 int sd_event_default(sd_event **ret);
@@ -101,9 +101,9 @@ int sd_event_add_cpu_pressure(sd_event *e, sd_event_source **ret, sd_event_handl
 int sd_event_add_io_pressure(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
 
 int sd_event_prepare(sd_event *e);
-int sd_event_wait(sd_event *e, uint64_t timeout);
+int sd_event_wait(sd_event *e, uint64_t timeout_usec);
 int sd_event_dispatch(sd_event *e);
-int sd_event_run(sd_event *e, uint64_t timeout);
+int sd_event_run(sd_event *e, uint64_t timeout_usec);
 int sd_event_loop(sd_event *e);
 int sd_event_exit(sd_event *e, int code);
 
@@ -162,11 +162,11 @@ int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *s
 #endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
 int sd_event_source_get_inotify_path(sd_event_source *s, const char **ret);
-int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty);
+int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *type);
 int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
-int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const char *ty);
+int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const char *type);
 int sd_event_source_set_cpu_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
-int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *ty);
+int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *type);
 int sd_event_source_set_io_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);

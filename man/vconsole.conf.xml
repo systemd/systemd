@@ -68,7 +68,7 @@
     using
     <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to instruct <command>systemd-localed.service</command> to
+    may be used to instruct <filename>systemd-localed.service</filename> to
     query or update configuration.</para>
   </refsect1>
 

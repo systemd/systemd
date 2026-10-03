@@ -394,7 +394,7 @@
 
         <listitem>
           <para>Takes a qualified Varlink error name, i.e. an interface name, suffixed by an error name,
-          separated by a dot, e.g. <literal>org.varlink.service.InvalidParameter</literal>. Ensures that, if
+          separated by a dot, e.g. <constant>org.varlink.service.InvalidParameter</constant>. Ensures that, if
           a method call fails with the specified error, this will be treated as success, i.e. will cause the
           <command>varlinkctl</command> invocation to exit with a zero exit status. This option may be used more
           than once in order to treat multiple different errors as successes.</para>
@@ -499,7 +499,7 @@
     <example>
       <title>Investigating a Service</title>
 
-      <para>The following three commands inspect the <literal>io.systemd.Resolve</literal> service
+      <para>The following three commands inspect the <interfacename>io.systemd.Resolve</interfacename> service
       implemented by
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       listing general service information and implemented interfaces, and then displaying the interface
@@ -531,7 +531,7 @@ type ResolvedAddress(
 
       <para>The following command resolves a hostname via
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
-      <function>ResolveHostname</function> method call.</para>
+      <function>ResolveHostname()</function> method call.</para>
 
       <programlisting>$ varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name":"systemd.io","family":2}' -j
 {

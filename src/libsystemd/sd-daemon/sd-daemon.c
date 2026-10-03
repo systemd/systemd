@@ -665,7 +665,7 @@ _public_ int sd_pid_notify_with_fds(
         return r;
 }
 
-_public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout) {
+_public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout_usec) {
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         int r;
 
@@ -679,7 +679,7 @@ _public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t ti
 
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
-        r = fd_wait_for_event(pipe_fd[0], 0 /* POLLHUP is implicit */, timeout);
+        r = fd_wait_for_event(pipe_fd[0], 0 /* POLLHUP is implicit */, timeout_usec);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -693,8 +693,8 @@ finish:
         return r;
 }
 
-_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
-        return sd_pid_notify_barrier(0, unset_environment, timeout);
+_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout_usec) {
+        return sd_pid_notify_barrier(0, unset_environment, timeout_usec);
 }
 
 _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {

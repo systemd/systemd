@@ -31,7 +31,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-environment-d-generator</filename> is a
+    <para><command>systemd-environment-d-generator</command> is a
     <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     that reads environment configuration specified by
     <citerefentry><refentrytitle>environment.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>

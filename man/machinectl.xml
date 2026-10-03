@@ -370,7 +370,7 @@
         <para>The attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>
         and may be detached at runtime via <command>unbind-volume</command>. Currently only supported for
         <command>systemd-vmspawn</command> machines that expose an
-        <constant>io.systemd.MachineInstance</constant> control socket.</para>
+        <interfacename>io.systemd.MachineInstance</interfacename> control socket.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>

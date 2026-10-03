@@ -119,7 +119,7 @@
         <term><option>-s</option></term>
         <term><option>--timeout-signal=</option></term>
         <listitem>
-          <para>Set the signal which <filename>systemd-udevd</filename> will send to
+          <para>Set the signal which <command>systemd-udevd</command> will send to
           forked off processes after reaching event timeout. The setting can be overridden
           at boot time with the kernel command line option
           <varname>udev.timeout_signal=</varname>. Setting to <constant>SIGABRT</constant>
@@ -211,7 +211,7 @@
         <term><varname>udev.timeout_signal=</varname></term>
         <term><varname>rd.udev.timeout_signal=</varname></term>
         <listitem>
-          <para>Specifies a signal that <filename>systemd-udevd</filename> will send to
+          <para>Specifies a signal that <command>systemd-udevd</command> will send to
           workers on timeout. Note that kernel command line option overrides both the
           setting in the configuration file and the one on the program command line.</para>
 

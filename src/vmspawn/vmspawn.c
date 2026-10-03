@@ -3878,7 +3878,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 r = sd_bus_match_signal_async(
                                 runtime_bus,
-                                /* ret= */ NULL,
+                                /* ret_slot= */ NULL,
                                 "org.freedesktop.systemd1",
                                 /* path= */ NULL,
                                 "org.freedesktop.systemd1.Scope",

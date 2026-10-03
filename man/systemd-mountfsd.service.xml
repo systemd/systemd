@@ -53,7 +53,7 @@
     </orderedlist>
 
     <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
-    <constant>io.systemd.MountFileSystem</constant> which accepts a file descriptor to a regular file or
+    <interfacename>io.systemd.MountFileSystem</interfacename> which accepts a file descriptor to a regular file or
     block device, and returns a number of file descriptors referring to an <function>fsmount()</function>
     file descriptor the client may then attach to a path of their choice.</para>
 

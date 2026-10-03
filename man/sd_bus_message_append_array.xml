@@ -60,7 +60,7 @@
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
-        <paramdef>void **<parameter>ptr</parameter></paramdef>
+        <paramdef>void **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -73,7 +73,7 @@
     <parameter>m</parameter>. A container will be opened, the array
     contents appended, and the container closed. The parameter
     <parameter>type</parameter> determines how the pointer
-    <parameter>p</parameter> is interpreted.
+    <parameter>ptr</parameter> is interpreted.
     <parameter>type</parameter> must be one of the "trivial" types
     <literal>y</literal>, <literal>n</literal>, <literal>q</literal>,
     <literal>i</literal>, <literal>u</literal>, <literal>x</literal>,
@@ -82,13 +82,13 @@
     url="https://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
     D-Bus Types</ulink> section of the D-Bus specification, and listed in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    Pointer <parameter>p</parameter> must point to an array of size
+    Pointer <parameter>ptr</parameter> must point to an array of size
     <parameter>size</parameter> bytes containing items of the
     respective type. Size <parameter>size</parameter> must be a
     multiple of the size of the type <parameter>type</parameter>. As a
-    special case, <parameter>p</parameter> may be
+    special case, <parameter>ptr</parameter> may be
     <constant>NULL</constant>, if <parameter>size</parameter> is 0.
-    The memory pointed to by <parameter>p</parameter> is copied into
+    The memory pointed to by <parameter>ptr</parameter> is copied into
     the memory area containing the message and stays in possession of
     the caller. The caller may hence freely change the data after this
     call without affecting the message the array was appended
@@ -144,7 +144,7 @@
     <function>sd_bus_message_append_array()</function>, but instead of
     copying items to the message, it returns a pointer to the
     destination area to the caller in pointer
-    <parameter>p</parameter>. The caller should subsequently write the
+    <parameter>ret</parameter>. The caller should subsequently write the
     array contents to this memory. Modifications to the memory
     pointed to should only occur until the next operation on the bus
     message is invoked. Most importantly, the memory should not be

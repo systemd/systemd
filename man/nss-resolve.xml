@@ -39,7 +39,7 @@
     with <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifically, it is
     recommended to place <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>'s
     <literal>hosts:</literal> line. It should be before the <literal>files</literal> entry, since
-    <filename>systemd-resolved</filename> supports <filename>/etc/hosts</filename> internally, but with
+    <command>systemd-resolved</command> supports <filename>/etc/hosts</filename> internally, but with
     caching. To the contrary, it should be after <literal>mymachines</literal>, to give hostnames given to
     local VMs and containers precedence over names received over DNS. Finally, we recommend placing
     <literal>dns</literal> somewhere after <literal>resolve</literal>, to fall back to

@@ -296,7 +296,7 @@ int sd_pid_notifyf_with_fds(pid_t pid, int unset_environment, const int *fds, si
 /*
   Returns > 0 if synchronization with systemd succeeded.  Returns < 0
   on error. Returns 0 if $NOTIFY_SOCKET was not set. Note that the
-  timeout parameter of this function call takes the timeout in μs, and
+  timeout_usec parameter of this function call takes the timeout in μs, and
   will be passed to ppoll(2), hence the behaviour will be similar to
   ppoll(2). This function can be called after sending a status message
   to systemd, if one needs to synchronize against reception of the
@@ -304,12 +304,12 @@ int sd_pid_notifyf_with_fds(pid_t pid, int unset_environment, const int *fds, si
   cannot be used to know if the status message was processed
   successfully, but to only synchronize against its consumption.
 */
-int sd_notify_barrier(int unset_environment, uint64_t timeout);
+int sd_notify_barrier(int unset_environment, uint64_t timeout_usec);
 
 /*
   Just like sd_notify_barrier() but also takes a PID to send the barrier message from.
 */
-int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout);
+int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout_usec);
 
 int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret);
 

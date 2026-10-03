@@ -2348,7 +2348,7 @@ _public_ int sd_bus_message_append_string_memfd(
         return 0;
 }
 
-_public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
+_public_ int sd_bus_message_append_strv(sd_bus_message *m, char **strv) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -2359,7 +2359,7 @@ _public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH(i, strv) {
                 r = sd_bus_message_append_basic(m, 's', *i);
                 if (r < 0)
                         return r;
@@ -4325,14 +4325,14 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         return 0;
 }
 
-_public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
+_public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***strv) {
         char type;
         const char *contents, *s;
         size_t n;
         int r;
 
         assert(m);
-        assert(l);
+        assert(strv);
 
         r = sd_bus_message_peek_type(m, &type, &contents);
         if (r < 0)
@@ -4345,10 +4345,10 @@ _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         if (r <= 0)
                 return r;
 
-        n = strv_length(*l);
+        n = strv_length(*strv);
         /* sd_bus_message_read_basic() does content validation for us. */
         while ((r = sd_bus_message_read_basic(m, *contents, &s)) > 0) {
-                r = strv_extend_with_size(l, &n, s);
+                r = strv_extend_with_size(strv, &n, s);
                 if (r < 0)
                         return r;
         }

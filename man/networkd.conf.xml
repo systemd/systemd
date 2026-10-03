@@ -60,7 +60,7 @@
         <command>networkctl status <replaceable>INTERFACE</replaceable></command> shows the measured speed.
         Defaults to no.</para>
 
-        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -68,7 +68,7 @@
         <listitem><para>Specifies the time interval to calculate the traffic speed of each interface.
         If <varname>SpeedMeter=no</varname>, the value is ignored. Defaults to 10sec.</para>
 
-        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>

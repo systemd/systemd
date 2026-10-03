@@ -816,7 +816,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
     </para>
 
     <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
-    <filename>systemd-boot</filename> will detect that it was started directly instead of being loaded from
+    <command>systemd-boot</command> will detect that it was started directly instead of being loaded from
     ESP and will search for the ESP in that case, taking into account boot order information from the
     hypervisor (if available). Note that for this to yield a useful result, another <option>-drive</option>
     argument needs to be used to attach an actual disk image with an ESP.</para>

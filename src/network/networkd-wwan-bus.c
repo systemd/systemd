@@ -1160,7 +1160,7 @@ int manager_match_mm_signals(Manager *manager) {
 
         r = sd_bus_match_signal_async(
                         manager->bus,
-                        /* ret= */ NULL,
+                        /* ret_slot= */ NULL,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
@@ -1173,7 +1173,7 @@ int manager_match_mm_signals(Manager *manager) {
 
         r = sd_bus_match_signal_async(
                         manager->bus,
-                        /* ret= */ NULL,
+                        /* ret_slot= */ NULL,
                         "org.freedesktop.ModemManager1",
                         "/org/freedesktop/ModemManager1",
                         "org.freedesktop.DBus.ObjectManager",
@@ -1186,7 +1186,7 @@ int manager_match_mm_signals(Manager *manager) {
 
         r = sd_bus_match_signal_async(
                         manager->bus,
-                        /* ret= */ NULL,
+                        /* ret_slot= */ NULL,
                         "org.freedesktop.ModemManager1",
                         "/org/freedesktop/ModemManager1",
                         "org.freedesktop.DBus.ObjectManager",

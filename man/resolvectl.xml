@@ -543,7 +543,7 @@
     compatibility mode. It accepts mostly the same arguments and pushes all data into
     <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     similar to how <option>dns</option> and <option>domain</option> commands operate. Note that
-    <command>systemd-resolved.service</command> is the only supported backend, which is different from other
+    <filename>systemd-resolved.service</filename> is the only supported backend, which is different from other
     implementations of this command.</para>
 
     <para><filename>/etc/resolv.conf</filename> will only be updated with servers added with this command

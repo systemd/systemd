@@ -246,7 +246,7 @@
         <listitem>
           <para>A free-form description of the netdev.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+        <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -255,7 +255,7 @@
           <para>The interface name used when creating the netdev.
           This setting is compulsory.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -265,7 +265,7 @@
           <literal>Supported netdev kinds</literal> section for the
           valid keys.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -279,7 +279,7 @@
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           files.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -488,7 +488,7 @@
           <para>The VLAN ID to use. An integer in the range 0…4094.
           This setting is compulsory.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -706,7 +706,7 @@
           <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same
           multicast group address.</para>
 
-          <xi:include href="version-info.xml" xpointer="v243"/>
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1199,7 +1199,7 @@ Ports=eth2</programlisting>
           <para>Specifies destination port. When UDP encapsulation is selected it is mandatory. Ignored when IP
           encapsulation is selected.</para>
 
-          <xi:include href="version-info.xml" xpointer="v245"/>
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1515,7 +1515,7 @@ Ports=eth2</programlisting>
           matches the corresponding type on the underlying interface will be used. Defaults to
           <literal>any</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1524,7 +1524,7 @@ Ports=eth2</programlisting>
           <para>The remote endpoint of the tunnel. Takes an IP address or the special value
           <literal>any</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1536,7 +1536,7 @@ Ports=eth2</programlisting>
           Service in the Internet Protocol Suite </ulink> document.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1548,7 +1548,7 @@ Ports=eth2</programlisting>
           tunnels is 0 (inherit). The default value for IPv6 tunnels is
           64.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1559,7 +1559,7 @@ Ports=eth2</programlisting>
           When <varname>IgnoreDontFragment=</varname> is enabled,
           defaults to false. Otherwise, defaults to true.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v214"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1942,7 +1942,7 @@ Ports=eth2</programlisting>
           <para>The interface name used when creating the netdev.
           This setting is compulsory.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v214"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2690,7 +2690,7 @@ Ports=eth2</programlisting>
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           This setting is compulsory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v243"/>
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
     </variablelist>

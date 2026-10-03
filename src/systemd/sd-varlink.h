@@ -104,12 +104,12 @@ int sd_varlink_get_output_fd(sd_varlink *v);
 int sd_varlink_get_events(sd_varlink *v);
 int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret);
 
-int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priority);
+int sd_varlink_attach_event(sd_varlink *v, sd_event *event, int64_t priority);
 void sd_varlink_detach_event(sd_varlink *v);
-sd_event *sd_varlink_get_event(sd_varlink *v);
+sd_event* sd_varlink_get_event(sd_varlink *v);
 
 int sd_varlink_process(sd_varlink *v);
-int sd_varlink_wait(sd_varlink *v, uint64_t timeout);
+int sd_varlink_wait(sd_varlink *v, uint64_t timeout_usec);
 
 int sd_varlink_is_idle(sd_varlink *v);
 int sd_varlink_is_connected(sd_varlink *v);
@@ -223,9 +223,9 @@ int sd_varlink_push_dup_fd(sd_varlink *v, int fd);
 int sd_varlink_reset_fds(sd_varlink *v);
 
 /* Read incoming fds from the socket (associated with the currently handled message) */
-int sd_varlink_peek_fd(sd_varlink *v, size_t i);
-int sd_varlink_peek_dup_fd(sd_varlink *v, size_t i);
-int sd_varlink_take_fd(sd_varlink *v, size_t i);
+int sd_varlink_peek_fd(sd_varlink *v, size_t index);
+int sd_varlink_peek_dup_fd(sd_varlink *v, size_t index);
+int sd_varlink_take_fd(sd_varlink *v, size_t index);
 int sd_varlink_get_n_fds(sd_varlink *v);
 
 int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b);
@@ -250,11 +250,11 @@ int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret);
 int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret);
 int sd_varlink_get_peer_pidfd(sd_varlink *v);
 
-int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout);
+int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout_usec);
 
 sd_varlink_server* sd_varlink_get_server(sd_varlink *v);
 
-int sd_varlink_set_description(sd_varlink *v, const char *d);
+int sd_varlink_set_description(sd_varlink *v, const char *description);
 const char* sd_varlink_get_description(sd_varlink *v);
 
 /* Automatically mark the parameters part of incoming messages as security sensitive */
@@ -299,13 +299,13 @@ int sd_varlink_server_add_interface_many_internal(sd_varlink_server *s, ...);
 void* sd_varlink_server_set_userdata(sd_varlink_server *s, void *userdata);
 void* sd_varlink_server_get_userdata(sd_varlink_server *s);
 
-int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *e, int64_t priority);
+int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *event, int64_t priority);
 int sd_varlink_server_detach_event(sd_varlink_server *s);
 sd_event* sd_varlink_server_get_event(sd_varlink_server *s);
 
-int sd_varlink_server_loop_auto(sd_varlink_server *server);
+int sd_varlink_server_loop_auto(sd_varlink_server *s);
 
-int sd_varlink_server_shutdown(sd_varlink_server *server);
+int sd_varlink_server_shutdown(sd_varlink_server *s);
 
 int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b);
 

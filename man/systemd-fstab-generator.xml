@@ -27,7 +27,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-fstab-generator</filename> is a generator
+    <para><command>systemd-fstab-generator</command> is a generator
     that translates <filename>/etc/fstab</filename> (see
     <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details) into native systemd units early at boot and when
@@ -54,14 +54,14 @@
     If a symlink target does not exist at the time that this generator runs, it
     is assumed that the symlink target is the final target of the mount.</para>
 
-    <para><filename>systemd-fstab-generator</filename> implements
+    <para><command>systemd-fstab-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-fstab-generator</filename> understands the
+    <para><command>systemd-fstab-generator</command> understands the
     following kernel command line parameters:</para>
 
     <variablelist class='kernel-commandline-options'>

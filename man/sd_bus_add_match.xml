@@ -37,13 +37,13 @@
         <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_add_match</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>match</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
@@ -52,7 +52,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_add_match_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>match</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>install_callback</parameter></paramdef>
@@ -62,7 +62,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_match_signal</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>sender</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
@@ -74,12 +74,12 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_match_signal_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>sender</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>match_callback</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>install_callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
@@ -117,9 +117,9 @@
     <function>sd_bus_match_signal()</function> with the asynchronous behaviour of
     <function>sd_bus_add_match_async()</function>.</para>
 
-    <para>On success, and if non-<constant>NULL</constant>, the <parameter>slot</parameter> return parameter will be
-    set to a slot object that may be used as a reference to the installed match, and may be utilized to remove it again
-    at a later time with
+    <para>On success, and if non-<constant>NULL</constant>, the return parameter
+    <parameter>ret_slot</parameter> will be set to a slot object that may be used as a reference to the
+    installed match, and may be utilized to remove it again at a later time with
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If specified
     as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the
     match is generally not removed independently. See
@@ -133,7 +133,7 @@
     new reference.</para>
 
     <para>If an error occurs during the callback invocation, the callback should return a negative error number
-    (optionally, a more precise error may be returned in <parameter>ret_error</parameter>, as well). If it wants other
+    (optionally, a more precise error may be returned in <parameter>reterr_error</parameter>, as well). If it wants other
     callbacks that match the same rule to be called, it should return 0. Otherwise, it should return a positive integer.
     </para>
 

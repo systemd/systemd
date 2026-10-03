@@ -29,22 +29,22 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_interface_name_is_valid</function></funcdef>
-        <paramdef>const char* <parameter>p</parameter></paramdef>
+        <paramdef>const char* <parameter>name</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_service_name_is_valid</function></funcdef>
-        <paramdef>const char* <parameter>p</parameter></paramdef>
+        <paramdef>const char* <parameter>name</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_member_name_is_valid</function></funcdef>
-        <paramdef>const char* <parameter>p</parameter></paramdef>
+        <paramdef>const char* <parameter>name</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_object_path_is_valid</function></funcdef>
-        <paramdef>const char* <parameter>p</parameter></paramdef>
+        <paramdef>const char* <parameter>path</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -53,7 +53,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_interface_name_is_valid()</function> checks if a given string
-    <parameter>p</parameter> is a syntactically valid bus interface name. Similarly,
+    <parameter>name</parameter> is a syntactically valid bus interface name. Similarly,
     <function>sd_bus_service_name_is_valid()</function> checks if the argument is a valid bus service name,
     <function>sd_bus_member_name_is_valid()</function> checks if the argument is a valid bus interface member
     name, and <function>sd_bus_object_path_is_valid()</function> checks if the argument is a valid bus object
@@ -76,8 +76,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>p</parameter> parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <listitem><para>The argument is <constant>NULL</constant>.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

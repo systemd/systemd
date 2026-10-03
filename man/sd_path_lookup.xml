@@ -114,14 +114,14 @@
         <funcdef>int <function>sd_path_lookup</function></funcdef>
         <paramdef>uint64_t <parameter>type</parameter></paramdef>
         <paramdef>const char *<parameter>suffix</parameter></paramdef>
-        <paramdef>char **<parameter>paths</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_path_lookup_strv</function></funcdef>
         <paramdef>uint64_t <parameter>type</parameter></paramdef>
         <paramdef>const char *<parameter>suffix</parameter></paramdef>
-        <paramdef>char ***<parameter>paths</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -171,17 +171,13 @@
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
-          <listitem><para>Unknown identifier <parameter>type</parameter>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Unknown identifier <parameter>type</parameter>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>Output argument is <constant>NULL</constant>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Output argument is <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -189,17 +185,13 @@
 
           <listitem><para>Query failed because of an undefined environment variable (e.g. for
           <constant>SD_PATH_USER_RUNTIME</constant> when <varname>$XDG_RUNTIME_DIR</varname> is not
-          defined).</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          defined).</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

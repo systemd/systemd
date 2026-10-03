@@ -33,7 +33,7 @@
       <funcprototype>
         <funcdef>int <function>sd_uid_get_state</function></funcdef>
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
-        <paramdef>char **<parameter>state</parameter></paramdef>
+        <paramdef>char **<parameter>ret_state</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -47,26 +47,26 @@
         <funcdef>int <function>sd_uid_get_sessions</function></funcdef>
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
         <paramdef>int <parameter>require_active</parameter></paramdef>
-        <paramdef>char ***<parameter>sessions</parameter></paramdef>
+        <paramdef>char ***<parameter>ret_sessions</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_uid_get_seats</function></funcdef>
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
         <paramdef>int <parameter>require_active</parameter></paramdef>
-        <paramdef>char ***<parameter>seats</parameter></paramdef>
+        <paramdef>char ***<parameter>ret_seats</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_uid_get_display</function></funcdef>
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>char **<parameter>ret_display</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_uid_get_login_time</function></funcdef>
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_usec</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -111,7 +111,7 @@
     online but possibly inactive (= 0), or logged in but
     possibly closing the session (&lt; 0). The call returns a
     <constant>NULL</constant> terminated string array of session
-    identifiers in <parameter>sessions</parameter> which needs to be
+    identifiers in <parameter>ret_sessions</parameter> which needs to be
     freed by the caller with the libc
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use, including all the strings referenced. If the
@@ -137,7 +137,7 @@
     <para><function>sd_uid_get_login_time()</function> may be used to
     determine the time the user's service manager has been invoked,
     which is the time when the user's first active session, since which
-    they stayed logged in continuously, began. The <parameter>usec</parameter>
+    they stayed logged in continuously, began. The <parameter>ret_usec</parameter>
     is in microseconds since the epoch (<constant>CLOCK_REALTIME</constant>).
     This call will fail with <constant>-ENXIO</constant> if the user is not
     currently logged in.</para>

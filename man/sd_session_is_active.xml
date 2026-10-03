@@ -55,91 +55,91 @@
       <funcprototype>
         <funcdef>int <function>sd_session_get_state</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>state</parameter></paramdef>
+        <paramdef>char **<parameter>ret_state</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_uid</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret_uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_username</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>username</parameter></paramdef>
+        <paramdef>char **<parameter>ret_username</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_seat</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>seat</parameter></paramdef>
+        <paramdef>char **<parameter>ret_seat</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_start_time</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_service</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>service</parameter></paramdef>
+        <paramdef>char **<parameter>ret_service</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_type</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>type</parameter></paramdef>
+        <paramdef>char **<parameter>ret_type</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_class</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>class</parameter></paramdef>
+        <paramdef>char **<parameter>ret_class</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_desktop</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>desktop</parameter></paramdef>
+        <paramdef>char **<parameter>ret_desktop</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_display</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>display</parameter></paramdef>
+        <paramdef>char **<parameter>ret_display</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_leader</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>pid_t *<parameter>leader</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret_leader</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_remote_host</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>remote_host</parameter></paramdef>
+        <paramdef>char **<parameter>ret_remote_host</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_remote_user</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>remote_user</parameter></paramdef>
+        <paramdef>char **<parameter>ret_remote_user</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_tty</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>char **<parameter>tty</parameter></paramdef>
+        <paramdef>char **<parameter>ret_tty</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_session_get_vt</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
-        <paramdef>unsigned int *<parameter>vt</parameter></paramdef>
+        <paramdef>unsigned int *<parameter>ret_vtnr</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -201,7 +201,7 @@
 
     <para><function>sd_session_get_start_time()</function> may be used to
     determine the start time of the session identified by the specified
-    session identifier belongs to. The <parameter>usec</parameter>
+    session identifier belongs to. The <parameter>ret_usec</parameter>
     is in microseconds since the epoch (<constant>CLOCK_REALTIME</constant>).</para>
 
     <para><function>sd_session_get_service()</function> may be used to

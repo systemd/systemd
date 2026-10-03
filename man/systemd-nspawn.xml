@@ -1122,7 +1122,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         provisioning on the created virtual link via DHCP, as well as automatic IP routing onto the host's external
         network interfaces. It also contains <filename>/usr/lib/systemd/network/80-container-host0.network</filename>
         matching the container-side interface created this way, containing settings to enable client side address
-        assignment via DHCP. In case <filename>systemd-networkd</filename> is running on both the host and inside the
+        assignment via DHCP. In case <command>systemd-networkd</command> is running on both the host and inside the
         container, automatic IP communication from the container to the host is thus available, with further
         connectivity to the external network.</para>
 
@@ -1700,7 +1700,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         will have no effect.</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
-        mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
+        mount points will be owned by the <literal>nobody</literal> user. That's because the mount and its files and
         directories continue to be owned by the relevant host users and groups, which do not exist in the container,
         and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
         make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the "idmap" mount option to

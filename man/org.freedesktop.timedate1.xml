@@ -125,7 +125,7 @@ node /org/freedesktop/timedate1 {
       reliable than the RTC.</para>
 
       <para>Use <function>SetNTP()</function> to control whether the system clock is synchronized with the
-      network using <filename>systemd-timesyncd</filename>. This will enable and start or disable and stop
+      network using <command>systemd-timesyncd</command>. This will enable and start or disable and stop
       the chosen time synchronization service.</para>
 
       <para><function>ListTimezones()</function> returns a list of time zones known on the local system as an
@@ -148,7 +148,7 @@ node /org/freedesktop/timedate1 {
       over D-Bus. Local clients can access the information directly.</para>
 
       <para>Whenever the <varname>Timezone</varname> and <varname>LocalRTC</varname> settings are changed via
-      the daemon, <function>PropertyChanged</function> signals are sent out to clients which have subscribed.
+      the daemon, <function>PropertyChanged()</function> signals are sent out to clients which have subscribed.
       </para>
 
       <para>Note that this service will not inform you about system time changes. Use

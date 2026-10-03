@@ -178,7 +178,7 @@
     <function>udev_device_get_parent()</function>,
     <function>udev_device_get_parent_with_subsystem_devtype()</function>,
     <function>udev_device_get_is_initialized()</function>, and
-    <function>udev_device_get_action()</function> were added in version 221.</para>
+    <function>udev_device_get_action()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

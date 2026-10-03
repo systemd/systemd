@@ -15,12 +15,12 @@
 #include "strv.h"
 #include "user-util.h"
 
-_public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
+_public_ int sd_bus_get_unique_name(sd_bus *bus, const char **ret) {
         int r;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(unique, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!bus->bus_client)
@@ -30,7 +30,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         if (r < 0)
                 return r;
 
-        *unique = bus->unique_name;
+        *ret = bus->unique_name;
         return 0;
 }
 

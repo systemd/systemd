@@ -31,7 +31,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_attach_event</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
         <paramdef>int <parameter>priority</parameter></paramdef>
       </funcprototype>
 
