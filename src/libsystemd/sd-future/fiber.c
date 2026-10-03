@@ -324,7 +324,7 @@ static const FiberOps fiber_ops = {
         .read = sd_fiber_read,
         .write = sd_fiber_write,
         .timeout = sd_fiber_timeout,
-        .cancel_wait_unref = sd_future_cancel_wait_unref,
+        .timeout_unref = sd_fiber_timeout_unref,
 };
 
 static void fiber_enter(sd_future *f, sd_future *prev, void **fake_stack_save) {
@@ -1001,4 +1001,25 @@ sd_future* sd_fiber_timeout(uint64_t timeout) {
                 return NULL;
 
         return TAKE_PTR(timer);
+}
+
+sd_future* sd_fiber_timeout_unref(sd_future *timer) {
+        sd_future *f = sd_fiber_get_current();
+
+        if (!timer)
+                return NULL;
+
+        /* sd_fiber_await() queues the -ETIME of this timer again if the awaited future resolved first.
+         * If no suspension point in the scope returned that -ETIME, drop it here. Otherwise the first
+         * suspension point after the scope returns -ETIME, although no deadline applies there. */
+        if (f && sd_future_state(timer) == SD_FUTURE_RESOLVED && sd_future_result(timer) == -ETIME) {
+                Fiber *fiber = fiber_get(f);
+
+                if (fiber->result_pending && fiber->result == -ETIME) {
+                        fiber->result_pending = false;
+                        fiber->result = 0;
+                }
+        }
+
+        return sd_future_cancel_wait_unref(timer);
 }

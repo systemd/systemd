@@ -2667,6 +2667,56 @@ TEST(fiber_await_completion_wins) {
         }
 }
 
+typedef struct TimeoutScope {
+        sd_future *target;
+        bool scope_cleanup;
+        int await_result;
+        int yield_result;
+} TimeoutScope;
+
+static int timeout_scope_fiber(void *userdata) {
+        TimeoutScope *t = ASSERT_PTR(userdata);
+        sd_future *timer;
+
+        ASSERT_NOT_NULL(timer = sd_fiber_timeout(0));
+        t->await_result = sd_fiber_await(t->target);
+        if (t->scope_cleanup)
+                timer = sd_fiber_timeout_unref(timer);
+        else
+                timer = sd_future_cancel_wait_unref(timer);
+
+        t->yield_result = sd_fiber_yield();
+        return 0;
+}
+
+TEST(fiber_timeout_unref_drops_queued_timeout) {
+        FOREACH_ELEMENT(scope_cleanup, ((const bool[]) { false, true })) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
+
+                ASSERT_OK(sd_event_new(&e));
+                ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
+
+                TimeoutScope t = { .target = target, .scope_cleanup = *scope_cleanup };
+                ASSERT_OK(sd_fiber_new(e, "timeout-scope", timeout_scope_fiber, &t, /* destroy= */ NULL, &waiter));
+                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
+
+                /* The timer has to expire and wake the fiber before the fiber runs again, so that the
+                 * fiber sees -ETIME although the target resolved. */
+                ASSERT_OK(sd_future_set_priority(waiter, 1000));
+
+                ASSERT_OK(sd_future_resolve(target, 0));
+                ASSERT_OK(sd_event_loop(e));
+
+                ASSERT_OK_ZERO(t.await_result);
+                /* sd_future_cancel_wait_unref() lets the queued -ETIME of the timer reach the code after
+                 * the scope. sd_fiber_timeout_unref() drops it. */
+                ASSERT_EQ(t.yield_result, *scope_cleanup ? 0 : -ETIME);
+        }
+}
+
 static int await_then_return_fiber(void *userdata) {
         int r;
 
