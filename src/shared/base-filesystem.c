@@ -149,6 +149,9 @@ static const BaseFilesystem table[] = {
 #       define KNOW_LIB64_DIRS 1
 #  endif
 #    define KNOW_LIB64_DIRS 1
+#elif defined(__SH3__) || defined(__SH3E__) || defined(__SH4__)
+        /* No /lib32 or /lib64 on SuperH. The linker is /lib/ld-linux.so.2. */
+#    define KNOW_LIB64_DIRS 1
 #endif
         /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
 };
