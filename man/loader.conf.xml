@@ -153,6 +153,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term>menu-on-failure</term>
+
+        <listitem><para>Takes a boolean argument. If enabled, show the boot menu when the default boot entry
+        has a non-zero boot attempt counter, indicating that a previous attempt to boot it failed. Disabled
+        by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>console-mode</term>
 
         <listitem><para>This option configures the resolution of the console. This may be changed in
