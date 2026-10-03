@@ -16,6 +16,7 @@
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
 #include "networkctl-status-link.h"
+#include "networkctl-verify.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -79,6 +80,8 @@ VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...\0"
            "Unmask network configuration files");
 VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL\0",          2,        2,        0,
            "Notify systemd-networkd if persistent storage is ready");
+VERB_SCOPE(, verb_verify,                     "verify",             "FILES...\0",      2,        VERB_ANY, 0,
+           "Check .network and .netdev files offline");
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
 

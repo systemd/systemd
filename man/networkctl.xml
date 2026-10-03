@@ -649,6 +649,35 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>verify</command>
+          <replaceable>FILE</replaceable>…
+        </term>
+        <listitem>
+          <para>Load the given <filename>.network</filename> and <filename>.netdev</filename> files with the
+          configuration parser of
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          without applying anything, and exit non-zero if any file could not be loaded or made the parser
+          complain, e.g. about an unknown section, an unknown key or an unparsable value. All files are checked;
+          netdevs are loaded first so that <filename>.network</filename> files may refer to them regardless of
+          argument order. Files that the daemon would skip are skipped here as well and reported: empty or
+          masked files, and files whose <varname>Condition*=</varname> settings do not match the host running
+          the check.</para>
+
+          <para>Conflicting settings that the daemon would override or drop, for example
+          <varname>MTUBytes=</varname> together with <varname>UseMTU=</varname>, or a
+          <varname>Bridge=</varname> naming a netdev that is not among the verified files, fail the check as
+          well. Problems the daemon only detects when applying the configuration to an interface are not
+          covered. Key material referenced via <varname>PrivateKeyFile=</varname> or
+          <varname>KeyFile=</varname> is not read. Drop-in directories are looked up by file name in the usual
+          configuration directories of the host, and <filename>networkd.conf</filename> is not
+          consulted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
