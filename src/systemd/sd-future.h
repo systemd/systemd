@@ -154,6 +154,12 @@ int sd_fiber_sleep(uint64_t usec);
  * An already-resolved target returns 0 without consuming a pending interruption. The target must
  * belong to the calling fiber's event loop. */
 int sd_fiber_await(sd_future *target);
+/* sd_fiber_interrupted() returns a queued -ECANCELED or -ETIME and clears it, so that no later
+ * suspension point returns it again. It returns 0 if no interruption is queued. Call it before starting
+ * an operation that can complete without suspending. Otherwise a cancelled fiber never sees its
+ * cancellation if none of its operations suspend. To report a cleared interruption later instead,
+ * queue it again with sd_fiber_resume() on the current fiber. */
+int sd_fiber_interrupted(void);
 int sd_fiber_suspend(void);
 int sd_fiber_resume(sd_future *f, int result);
 
