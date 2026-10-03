@@ -32,14 +32,9 @@ typedef struct IoFuture {
         sd_event_source *source;
 } IoFuture;
 
-static void* io_future_alloc(void) {
-        return new0(IoFuture, 1);
-}
-
 static void io_future_free(sd_future *f) {
         IoFuture *iof = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         sd_event_source_unref(iof->source);
-        free(iof);
 }
 
 static int io_future_cancel(sd_future *f) {
@@ -58,7 +53,7 @@ static int io_future_set_priority(sd_future *f, int64_t priority) {
 
 static const sd_future_ops io_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = io_future_alloc,
+        .private_size = sizeof(IoFuture),
         .free = io_future_free,
         .cancel = io_future_cancel,
         .set_priority = io_future_set_priority,
@@ -167,15 +162,10 @@ typedef struct ChildFuture {
         sd_event_source *kill_timer;
 } ChildFuture;
 
-static void* child_future_alloc(void) {
-        return new0(ChildFuture, 1);
-}
-
 static void child_future_free(sd_future *f) {
         ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         sd_event_source_unref(cf->source);
         sd_event_source_unref(cf->kill_timer);
-        free(cf);
 }
 
 static int child_future_escalate(sd_future *f);
@@ -263,7 +253,7 @@ static int child_future_set_priority(sd_future *f, int64_t priority) {
 
 static const sd_future_ops child_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = child_future_alloc,
+        .private_size = sizeof(ChildFuture),
         .free = child_future_free,
         .cancel = child_future_cancel,
         .set_priority = child_future_set_priority,
@@ -380,15 +370,10 @@ typedef struct DeferFuture {
         int result;
 } DeferFuture;
 
-static void* defer_future_alloc(void) {
-        return new0(DeferFuture, 1);
-}
-
 static void defer_future_free(sd_future *f) {
         DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
 
         sd_event_source_unref(df->source);
-        free(df);
 }
 
 static int defer_future_cancel(sd_future *f) {
@@ -407,7 +392,7 @@ static int defer_future_set_priority(sd_future *f, int64_t priority) {
 
 static const sd_future_ops defer_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = defer_future_alloc,
+        .private_size = sizeof(DeferFuture),
         .free = defer_future_free,
         .cancel = defer_future_cancel,
         .set_priority = defer_future_set_priority,
@@ -456,14 +441,9 @@ typedef struct TimeFuture {
         int result;
 } TimeFuture;
 
-static void* time_future_alloc(void) {
-        return new0(TimeFuture, 1);
-}
-
 static void time_future_free(sd_future *f) {
         TimeFuture *tf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         sd_event_source_unref(tf->source);
-        free(tf);
 }
 
 static int time_future_cancel(sd_future *f) {
@@ -482,7 +462,7 @@ static int time_future_set_priority(sd_future *f, int64_t priority) {
 
 static const sd_future_ops time_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = time_future_alloc,
+        .private_size = sizeof(TimeFuture),
         .free = time_future_free,
         .cancel = time_future_cancel,
         .set_priority = time_future_set_priority,

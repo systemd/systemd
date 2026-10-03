@@ -206,6 +206,35 @@ TEST(fiber_io_cancel) {
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
 }
 
+static int interrupted_read_fiber(void *userdata) {
+        int fd = PTR_TO_INT(userdata);
+        char c;
+
+        /* The data is ready, so the read would complete without suspending. The queued cancellation
+         * must still make the read fail. The data must stay in the pipe. */
+        ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
+        ASSERT_ERROR(sd_fiber_read(fd, &c, 1), ECANCELED);
+
+        ASSERT_OK_EQ(sd_fiber_read(fd, &c, 1), 1);
+        ASSERT_EQ(c, 'x');
+        return 0;
+}
+
+TEST(fiber_io_interrupted) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+        ASSERT_OK_EQ_ERRNO(write(pipefd[1], "x", 1), 1);
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "interrupted-read", interrupted_read_fiber, INT_TO_PTR(pipefd[0]), NULL, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+}
+
 TEST(fiber_io_fallback) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC));  /* Note: blocking pipe */

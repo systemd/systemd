@@ -547,14 +547,6 @@ typedef struct StubbornChild {
         unsigned cancels;
 } StubbornChild;
 
-static void* stubborn_child_alloc(void) {
-        return new0(StubbornChild, 1);
-}
-
-static void stubborn_child_free(sd_future *f) {
-        free(sd_future_get_private(f));
-}
-
 static int stubborn_child_cancel(sd_future *f) {
         StubbornChild *sc = ASSERT_PTR(sd_future_get_private(f));
         if (++sc->cancels >= 2)
@@ -564,8 +556,7 @@ static int stubborn_child_cancel(sd_future *f) {
 
 static const sd_future_ops stubborn_child_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = stubborn_child_alloc,
-        .free = stubborn_child_free,
+        .private_size = sizeof(StubbornChild),
         .cancel = stubborn_child_cancel,
 };
 
@@ -578,8 +569,7 @@ static int failing_child_cancel(sd_future *f) {
 
 static const sd_future_ops cancel_failure_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = stubborn_child_alloc,
-        .free = stubborn_child_free,
+        .private_size = sizeof(StubbornChild),
         .cancel = failing_child_cancel,
 };
 
@@ -617,14 +607,6 @@ typedef struct ReentrantChild {
         unsigned cancels;
 } ReentrantChild;
 
-static void* reentrant_child_alloc(void) {
-        return new0(ReentrantChild, 1);
-}
-
-static void reentrant_child_free(sd_future *f) {
-        free(sd_future_get_private(f));
-}
-
 static int reentrant_child_cancel(sd_future *f) {
         ReentrantChild *rc = ASSERT_PTR(sd_future_get_private(f));
 
@@ -634,8 +616,7 @@ static int reentrant_child_cancel(sd_future *f) {
 
 static const sd_future_ops reentrant_child_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = reentrant_child_alloc,
-        .free = reentrant_child_free,
+        .private_size = sizeof(ReentrantChild),
         .cancel = reentrant_child_cancel,
 };
 
@@ -1067,8 +1048,7 @@ static int child_set_priority_fail(sd_future *f, int64_t priority) {
 
 static const sd_future_ops priority_failure_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = stubborn_child_alloc,
-        .free = stubborn_child_free,
+        .private_size = sizeof(StubbornChild),
         .cancel = stubborn_child_cancel,
         .set_priority = child_set_priority_fail,
 };
