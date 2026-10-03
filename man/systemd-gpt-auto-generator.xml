@@ -309,9 +309,14 @@
         <term><varname>systemd.gpt_auto</varname></term>
         <term><varname>rd.systemd.gpt_auto</varname></term>
 
-        <listitem><para>Those options take an optional boolean argument, and default to yes.
+        <listitem><para>Those options take an optional boolean argument, or the special value
+        <literal>esp-only</literal>, and default to yes.
         The generator is enabled by default, and a false value may be used to disable it
-        (e.g. <literal>systemd.gpt_auto=0</literal>).
+        (e.g. <literal>systemd.gpt_auto=0</literal>). The value
+        <literal>esp-only</literal> limits the host-side discovery pass to the EFI System Partition
+        used for the current boot. This mode uses the boot loader's
+        <varname>LoaderDevicePartUUID</varname> EFI variable and udev device metadata. No other
+        partitions are discovered, and no mount is generated if the active ESP cannot be resolved.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
