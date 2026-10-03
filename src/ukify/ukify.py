@@ -100,6 +100,7 @@ class Style:
     gray = '\033[0;38;5;245m' if not terminal_is_dumb() else ''
     red = '\033[31;1m' if not terminal_is_dumb() else ''
     yellow = '\033[33;1m' if not terminal_is_dumb() else ''
+    blue = '\033[34;1m' if not terminal_is_dumb() else ''
     reset = '\033[0m' if not terminal_is_dumb() else ''
 
 
@@ -2478,7 +2479,7 @@ def create_parser() -> argparse.ArgumentParser:
         ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
-        epilog='\n  '.join(('config file:', *config_example())),
+        epilog='\n  '.join((f'{Style.blue}config file:{Style.reset}', *config_example())),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
