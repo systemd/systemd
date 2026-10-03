@@ -80,6 +80,15 @@ All tools:
   `/etc/clonetab`. Only useful for debugging. Currently only supported by
   `systemd-clonesetup-generator`.
 
+* `$SYSTEMD_NOLOGIN_PATH` — override the compiled-in path of the `nologin`
+  shell (usually `/usr/sbin/nologin`). This is used as the login shell for
+  synthesized and locked accounts, and by `systemd-sysusers` for users created
+  without an explicit shell, which can be useful in combination with `--root`
+  or `--image` when the target system uses a different path. The value must
+  be a valid shell path (normalized, absolute, no `:`) and is used verbatim,
+  i.e. it is not resolved relative to `--root`. Invalid values are ignored with
+  a warning. Note that the `nss-systemd` module does not honor this variable.
+
 * `$SYSTEMD_DEFAULT_HOSTNAME` — override the compiled-in fallback hostname
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
