@@ -271,6 +271,51 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
         return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
 }
 
+static bool is_dependency_dir_name(const char *name) {
+        assert(name);
+
+        return ENDSWITH_SET(name, ".wants", ".requires", ".upholds");
+}
+
+static int path_is_dependency_dir(const char *path) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(path);
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
+
+        return is_dependency_dir_name(name);
+}
+
+/* Mirrors what PID 1 does in process_deps(): a .wants/, .requires/ or .upholds/ entry that resolves to
+ * /dev/null, or to an empty file, masks the dependency rather than establishing it. Resolve inside the root,
+ * since an image being operated on offline usually has no /dev/null to stat. */
+static int dependency_is_masked(const LookupPaths *lp, const char *path) {
+        _cleanup_free_ char *resolved = NULL;
+        struct stat st;
+        int r;
+
+        assert(lp);
+        assert(path);
+
+        r = chase(path, lp->root_dir, CHASE_NONEXISTENT, &resolved, NULL);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (path_equal(skip_root(lp->root_dir, resolved) ?: resolved, "/dev/null"))
+                return true;
+
+        if (stat(resolved, &st) < 0)
+                return errno == ENOENT ? false : -errno;
+
+        return null_or_empty(&st);
+}
+
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
         assert(lp);
 
@@ -696,6 +741,11 @@ static int remove_marked_symlinks_fd(
 
         rewinddir(d);
 
+        /* A property of the directory we are scanning, not of the entries in it, so settle it once. */
+        int is_dependency_dir = path_is_dependency_dir(path);
+        if (is_dependency_dir < 0)
+                return is_dependency_dir;
+
         FOREACH_DIRENT(de, d, return -errno)
                 if (de->d_type == DT_DIR) {
                         _cleanup_close_ int nfd = -EBADF;
@@ -770,6 +820,17 @@ static int remove_marked_symlinks_fd(
 
                         if (!found)
                                 continue;
+
+                        if (is_dependency_dir > 0) {
+                                /* Leave dependency masks alone. They are how a unit that has been disabled
+                                 * stays disabled, so dropping one here would silently re-enable it. */
+                                r = dependency_is_masked(lp, p);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to check if '%s' is a dependency mask, "
+                                                           "leaving it in place: %m", p);
+                                if (r != 0)
+                                        continue;
+                        }
 
                         if (!dry_run) {
                                 if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
@@ -868,15 +929,46 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         return false;
 }
 
+/* Key identifying a dependency symlink for shadowing, i.e. "multi-user.target.wants/foo.service". PID 1
+ * resolves these through conf_files_list_strv(), which lets an entry in a higher priority directory override
+ * one with the same name further down the search path. */
+static int dependency_shadow_key(const char *path, char **ret) {
+        _cleanup_free_ char *dir_path = NULL, *dir_name = NULL, *name = NULL, *key = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(path, &dir_path);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(dir_path, &dir_name);
+        if (r < 0)
+                return r;
+
+        key = path_join(dir_name, name);
+        if (!key)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(key);
+        return 0;
+}
+
 static int find_symlinks_in_directory(
                 DIR *dir,
                 const char *dir_path,
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *info,
                 bool ignore_destination,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
+                Set **shadowed,
                 bool *same_name_link) {
 
         int r, ret = 0;
@@ -886,12 +978,25 @@ static int find_symlinks_in_directory(
         assert(info);
         assert(unit_name_is_valid(info->name, UNIT_NAME_ANY));
         assert(config_path);
+        assert(shadowed);
         assert(same_name_link);
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 bool found_path = false, found_dest = false, b = false;
 
-                if (de->d_type != DT_LNK)
+                /* Everything below turns on the type, and readdir() does not know it on every filesystem,
+                 * so resolve it rather than take DT_UNKNOWN for "not a symlink". */
+                r = dirent_ensure_type(dirfd(dir), de);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                RET_GATHER(ret, r);
+                        continue;
+                }
+
+                /* In a dependency directory anything of the right name shadows the entries below it, see
+                 * conf_files_list_strv(), whether or not PID 1 then honours it. So look at all of them,
+                 * not just at symlinks. Everywhere else only symlinks are of interest. */
+                if (!ignore_destination && de->d_type != DT_LNK)
                         continue;
 
                 if (!ignore_destination) {
@@ -945,6 +1050,38 @@ static int find_symlinks_in_directory(
                 if (b)
                         *same_name_link = true;
                 else if (found_path || found_dest) {
+                        if (ignore_destination) {
+                                _cleanup_free_ char *key = NULL, *path = NULL;
+
+                                path = path_join(dir_path, de->d_name);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = dependency_shadow_key(path, &key);
+                                if (r < 0)
+                                        return r;
+
+                                if (set_contains(*shadowed, key))
+                                        continue;
+
+                                r = dependency_is_masked(lp, path);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to check if '%s' masks a dependency, "
+                                                           "ignoring: %m", path);
+                                        continue;
+                                }
+
+                                /* Only a symlink that isn't a mask establishes the dependency. Anything
+                                 * else PID 1 ignores, but it still shadows what is below, so remember it. */
+                                if (r > 0 || de->d_type != DT_LNK) {
+                                        r = set_ensure_consume(shadowed, &path_hash_ops_free, TAKE_PTR(key));
+                                        if (r < 0)
+                                                return r;
+
+                                        continue;
+                                }
+                        }
+
                         if (!match_name)
                                 return 1;
 
@@ -959,11 +1096,12 @@ static int find_symlinks_in_directory(
 }
 
 static int find_symlinks(
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *i,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
+                Set **shadowed,
                 bool *same_name_link) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
@@ -971,6 +1109,7 @@ static int find_symlinks(
 
         assert(i);
         assert(config_path);
+        assert(shadowed);
         assert(same_name_link);
 
         config_dir = opendir(config_path);
@@ -981,32 +1120,33 @@ static int find_symlinks(
         }
 
         FOREACH_DIRENT(de, config_dir, return -errno) {
-                const char *suffix;
                 _cleanup_free_ const char *path = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                suffix = strrchr(de->d_name, '.');
-                if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
+                /* No d_type check here: readdir() does not know the type on every filesystem, and taking
+                 * DT_UNKNOWN for "not a directory" would hide a whole dependency directory. A name this
+                 * specific is cheap enough to just try to open. O_NOFOLLOW because an absolute symlink here
+                 * would otherwise take us out of --root= and have us report on the host. */
+                if (!is_dependency_dir_name(de->d_name))
                         continue;
 
                 path = path_join(config_path, de->d_name);
                 if (!path)
                         return -ENOMEM;
 
-                d = opendir(path);
+                d = xopendirat(dirfd(config_dir), de->d_name, O_NOFOLLOW);
                 if (!d) {
-                        log_error_errno(errno, "Failed to open directory \"%s\" while scanning for symlinks, ignoring: %m", path);
+                        if (!IN_SET(errno, ENOTDIR, ELOOP))
+                                log_error_errno(errno, "Failed to open directory \"%s\" while scanning for symlinks, ignoring: %m", path);
                         continue;
                 }
 
-                r = find_symlinks_in_directory(d, path, root_dir, i,
+                r = find_symlinks_in_directory(d, path, lp, i,
                                                /* ignore_destination= */ true,
                                                /* match_name= */ match_name,
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
+                                               shadowed,
                                                same_name_link);
                 if (r > 0)
                         return 1;
@@ -1017,11 +1157,12 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        return find_symlinks_in_directory(config_dir, config_path, root_dir, i,
+        return find_symlinks_in_directory(config_dir, config_path, lp, i,
                                           /* ignore_destination= */ false,
                                           /* match_name= */ match_name,
                                           /* ignore_same_name= */ ignore_same_name,
                                           config_path,
+                                          shadowed,
                                           same_name_link);
 }
 
@@ -1035,6 +1176,7 @@ static int find_symlinks_in_scope(
         bool same_name_link_runtime = false, same_name_link_config = false;
         bool enabled_in_runtime = false, enabled_at_all = false;
         bool ignore_same_name = false;
+        _cleanup_set_free_ Set *shadowed = NULL;
         int r;
 
         assert(lp);
@@ -1043,12 +1185,17 @@ static int find_symlinks_in_scope(
 
         /* As we iterate over the list of search paths in lp->search_path, we may encounter "same name"
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
-         * effectively masked, so we should ignore them. */
+         * effectively masked, so we should ignore them.
+         *
+         * The same applies to dependency symlinks: an entry in a .wants/, .requires/ or .upholds/ directory
+         * shadows one of the same name further down the search path, and if it is a symlink to /dev/null it
+         * masks it outright. 'shadowed' accumulates the latter as we descend. */
 
         STRV_FOREACH(p, lp->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
+                r = find_symlinks(lp, info, match_name, ignore_same_name, *p,
+                                  &shadowed, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {
