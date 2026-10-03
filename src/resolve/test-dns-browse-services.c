@@ -6,7 +6,9 @@
 #include "dns-answer.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-manager.h"
 #include "tests.h"
+#include "time-util.h"
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         DnsResourceRecord *rr;
@@ -46,6 +48,39 @@ TEST(dns_service_match_and_update_goodbye_and_expiry) {
 
         ASSERT_OK_POSITIVE(dns_service_match_and_update(&service, rr, AF_INET, 2, 200));
         ASSERT_EQ(service.until, (usec_t) 10);
+}
+
+TEST(dns_service_match_and_update_large_ttl) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        usec_t until, t;
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(UINT32_C(1) << 31));
+        ASSERT_OK(sd_event_new(&e));
+
+        Manager m = {
+                .event = e,
+        };
+        DnsServiceBrowser sb = {
+                .manager = &m,
+        };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .family = AF_INET,
+                .ifindex = 2,
+                .service_browser = &sb,
+        };
+
+        ASSERT_OK(sd_event_add_time(e, &service.schedule_event, CLOCK_BOOTTIME, USEC_INFINITY,
+                                    /* accuracy= */ 0, /* callback= */ NULL, /* userdata= */ NULL));
+
+        /* With a TTL of 2^31 s, the maintenance time and the jitter range must not wrap around. */
+        until = usec_add(now(CLOCK_BOOTTIME), 2 * USEC_PER_HOUR);
+        ASSERT_OK_POSITIVE(dns_service_match_and_update(&service, rr, AF_INET, 2, until));
+        ASSERT_OK(sd_event_source_get_time(service.schedule_event, &t));
+        ASSERT_LE(t, until + 2 * (usec_t) rr->ttl * USEC_PER_SEC / 100);
+
+        service.schedule_event = sd_event_source_disable_unref(service.schedule_event);
 }
 
 TEST(dns_service_match_and_update_ifindex) {
