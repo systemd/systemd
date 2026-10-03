@@ -61,7 +61,7 @@ static const char* get_locale_dir(void) {
 #ifdef __GLIBC__
                 "/usr/lib/locale/";
 #else
-                "/usr/share/i18n/locales/musl/";
+                "/usr/share/musl/locale/";
 #endif
 }
 
