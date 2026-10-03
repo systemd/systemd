@@ -171,6 +171,130 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         return 0;
 }
 
+static void write_entry_array_item(int fd, uint64_t slot, size_t item_size, uint64_t v) {
+        le64_t v64 = htole64(v);
+        le32_t v32 = htole32(v);
+
+        ASSERT_EQ(pwrite(fd, item_size == sizeof(v32) ? (void*) &v32 : (void*) &v64, item_size, slot),
+                  (ssize_t) item_size);
+}
+
+static void test_entry_reference_one(bool in_data_object) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-XXXXXX";
+        const char *field = "REFERENCE=shared";
+        uint64_t a, i, target, data = 0, n_entries, last = 0, slot = 0;
+        size_t item_size;
+        JournalFile *f;
+        Object *o;
+        int fd;
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_NOT_NULL(mkdtemp(t));
+        ASSERT_OK_ERRNO(chdir(t));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                                /* fd= */ -EBADF,
+                                "test.journal",
+                                O_RDWR|O_CREAT,
+                                /* file_flags= */ 0,
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* template= */ NULL,
+                                &f));
+
+        /* Three entries with the same field, i.e. one data object that references all of them */
+        for (size_t k = 0; k < 3; k++) {
+                struct iovec iovec = IOVEC_MAKE_STRING(field);
+                struct dual_timestamp ts;
+
+                dual_timestamp_now(&ts);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                        f,
+                                        &ts,
+                                        /* boot_id= */ NULL,
+                                        &iovec,
+                                        /* n_iovec= */ 1,
+                                        /* seqnum= */ NULL,
+                                        /* seqnum_id= */ NULL,
+                                        /* ret_object= */ NULL,
+                                        /* ret_offset= */ NULL));
+        }
+
+        item_size = journal_file_entry_array_item_size(f);
+
+        /* For the main entry array, find the slot of the last entry. For the entry array of the data object,
+         * find the first unused slot, and the entry in the slot before it. Note that the first entry of a
+         * data object is stored in the object itself, not in its entry array. */
+        if (in_data_object) {
+                ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &o, &data), 1);
+                n_entries = le64toh(o->data.n_entries);
+                a = le64toh(o->data.entry_array_offset);
+                i = 1;
+                target = n_entries;
+        } else {
+                n_entries = le64toh(f->header->n_entries);
+                a = le64toh(f->header->entry_array_offset);
+                i = 0;
+                target = n_entries - 1;
+        }
+        ASSERT_EQ(n_entries, 3u);
+
+        while (a != 0 && slot == 0) {
+                ASSERT_OK(journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o));
+
+                for (uint64_t j = 0; j < journal_file_entry_array_n_items(f, o); j++, i++) {
+                        if (i == target) {
+                                slot = a + offsetof(Object, entry_array.items) + j * item_size;
+                                break;
+                        }
+
+                        last = journal_file_entry_array_item(f, o, j);
+                }
+
+                a = le64toh(o->entry_array.next_entry_array_offset);
+        }
+
+        ASSERT_NE(last, 0u);
+        ASSERT_NE(slot, 0u);
+        (void) journal_file_offline_close(f);
+
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        if (in_data_object) {
+                /* Give the data object one more reference, to something that is not an entry object. All
+                 * existing references stay intact, hence this is only noticed when the entries a data
+                 * object references are checked. */
+                le64_t n = htole64(n_entries + 1);
+
+                write_entry_array_item(fd, slot, item_size, last + 8);
+                ASSERT_EQ(pwrite(fd, &n, sizeof(n), data + offsetof(Object, data.n_entries)),
+                          (ssize_t) sizeof(n));
+        } else
+                /* Unlink the last entry from the main entry array. The entry object itself is intact, and
+                 * the data object still references it. This is noticed when the main entry array is
+                 * checked, which is why the entries referenced by data objects don't have to be looked up
+                 * in the main entry array again. */
+                write_entry_array_item(fd, slot, item_size, 0);
+        safe_close(fd);
+
+        ASSERT_ERROR(raw_verify("test.journal", /* verification_key= */ NULL), EBADMSG);
+
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
+}
+
+static void test_entry_reference(void) {
+        if (sd_id128_get_machine(NULL) < 0)
+                return (void) log_tests_skipped("No valid machine ID found");
+
+        test_setup_logging(LOG_DEBUG);
+
+        test_entry_reference_one(/* in_data_object= */ false);
+        test_entry_reference_one(/* in_data_object= */ true);
+}
+
 int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
@@ -201,6 +325,8 @@ int main(int argc, char *argv[]) {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
         }
+
+        test_entry_reference();
 
         return 0;
 }
