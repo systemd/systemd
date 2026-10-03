@@ -974,8 +974,6 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        /* An interruption takes precedence even if the reply arrived in the same tick: the wait
-         * consumed the queued cancellation or timeout, and returning the reply instead would drop it. */
         r = sd_fiber_await(call);
         if (r < 0)
                 return r;

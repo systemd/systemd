@@ -123,8 +123,6 @@ int bus_call_suspend(
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
-        /* An interruption takes precedence even if the reply arrived in the same tick: the wait
-         * consumed the queued cancellation or timeout, and returning the reply instead would drop it. */
         r = sd_fiber_await(f);
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
