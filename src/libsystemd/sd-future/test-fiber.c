@@ -1187,14 +1187,6 @@ typedef struct StubbornFuture {
         unsigned *external_counter;
 } StubbornFuture;
 
-static void* stubborn_alloc(void) {
-        return new0(StubbornFuture, 1);
-}
-
-static void stubborn_free(sd_future *f) {
-        free(sd_future_get_private(f));
-}
-
 static int stubborn_cancel(sd_future *f) {
         StubbornFuture *sf = ASSERT_PTR(sd_future_get_private(f));
         sf->cancels_received++;
@@ -1207,8 +1199,7 @@ static int stubborn_cancel(sd_future *f) {
 
 static const sd_future_ops stubborn_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = stubborn_alloc,
-        .free = stubborn_free,
+        .private_size = sizeof(StubbornFuture),
         .cancel = stubborn_cancel,
 };
 
@@ -1469,14 +1460,9 @@ typedef struct AsyncCancelFuture {
         sd_event_source *resolve_source;
 } AsyncCancelFuture;
 
-static void* async_cancel_alloc(void) {
-        return new0(AsyncCancelFuture, 1);
-}
-
 static void async_cancel_free(sd_future *f) {
         AsyncCancelFuture *af = sd_future_get_private(f);
         sd_event_source_disable_unref(af->resolve_source);
-        free(af);
 }
 
 static int async_cancel_resolve_handler(sd_event_source *s, void *userdata) {
@@ -1496,7 +1482,7 @@ static int async_cancel_cancel(sd_future *f) {
 
 static const sd_future_ops async_cancel_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = async_cancel_alloc,
+        .private_size = sizeof(AsyncCancelFuture),
         .free = async_cancel_free,
         .cancel = async_cancel_cancel,
 };
@@ -1584,16 +1570,11 @@ typedef struct ManualFuture {
         bool *freed;
 } ManualFuture;
 
-static void* manual_alloc(void) {
-        return new0(ManualFuture, 1);
-}
-
 static void manual_free(sd_future *f) {
         ManualFuture *mf = ASSERT_PTR(sd_future_get_private(f));
 
         if (mf->freed)
                 *mf->freed = true;
-        free(mf);
 }
 
 static int manual_cancel(sd_future *f) {
@@ -1602,10 +1583,22 @@ static int manual_cancel(sd_future *f) {
 
 static const sd_future_ops manual_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = manual_alloc,
+        .private_size = sizeof(ManualFuture),
         .free = manual_free,
         .cancel = manual_cancel,
 };
+
+TEST(future_from_private) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_new(e, &manual_future_ops, &f));
+        ASSERT_PTR_EQ(sd_future_from_private(sd_future_get_private(f)), f);
+        ASSERT_NULL(ASSERT_RETURN_EXPECTED(sd_future_from_private(NULL)));
+
+        ASSERT_OK(sd_future_resolve(f, 0));
+}
 
 TEST(future_new_default_event) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
