@@ -110,6 +110,14 @@ systemctl list-units --state=active
 systemctl list-units --with-dependencies systemd-journald.service
 systemctl list-units --with-dependencies --after systemd-journald.service
 systemctl list-units --with-dependencies --before --reverse systemd-journald.service
+# --completion-names prints bare unit names, plus the base name of .service units
+COMPLETION_UNIT="systemctl-completion-test-$RANDOM"
+systemd-run --unit="$COMPLETION_UNIT" sleep infinity
+systemctl list-units --completion-names "$COMPLETION_UNIT*" | cmp - <(printf '%s\n' "$COMPLETION_UNIT.service" "$COMPLETION_UNIT")
+systemctl list-units --legend=yes --completion-names "$COMPLETION_UNIT*" | cmp - <(printf '%s\n' "$COMPLETION_UNIT.service" "$COMPLETION_UNIT")
+systemctl list-units --completion-names systemd-journald.service | grep -Fx systemd-journald >/dev/null
+systemctl stop "$COMPLETION_UNIT"
+systemctl list-unit-files --completion-names "$UNIT_NAME_TEMPLATE" | cmp - <(printf '%s\n' "$UNIT_NAME_TEMPLATE" "${UNIT_NAME_TEMPLATE%.service}")
 systemctl list-sockets
 systemctl list-sockets --legend=no -a "*journal*"
 systemctl list-sockets --show-types

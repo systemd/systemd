@@ -279,12 +279,27 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
                         return bus_log_parse_error(r);
         }
 
-        pager_open(arg_pager_flags);
-
         typesafe_qsort(units, c, compare_unit_file_list);
-        r = output_unit_file_list(units, c);
-        if (r < 0)
-                return r;
+
+        if (!arg_completion_names) {
+                pager_open(arg_pager_flags);
+
+                r = output_unit_file_list(units, c);
+                if (r < 0)
+                        return r;
+        } else {
+                FOREACH_ARRAY(u, units, c) {
+                        _cleanup_free_ char *id = NULL;
+
+                        r = path_extract_filename(u->path, &id);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to extract unit name from path %s, ignoring: %m", u->path);
+                                continue;
+                        }
+
+                        print_unit_completion_names(id);
+                }
+        }
 
         if (c == 0)
                 return -ENOENT;
