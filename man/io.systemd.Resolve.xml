@@ -1,0 +1,549 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Resolve"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Resolve</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Resolve</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Resolve</refname>
+    <refpurpose>Varlink interface io.systemd.Resolve</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Resolve</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Resolve">
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Resolve
+
+<emphasis role="varlink-comment"># The type of protocol.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSProtocol(
+	<emphasis role="varlink-comment"># DNS</emphasis>
+	dns,
+	<emphasis role="varlink-comment"># Multicast DNS</emphasis>
+	mdns,
+	<emphasis role="varlink-comment"># LLMNR</emphasis>
+	llmnr
+)
+
+<emphasis role="varlink-comment"># The mode of DNSOverTLS.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSOverTLSMode(
+	<emphasis role="varlink-comment"># DNSOverTLS is disabled.</emphasis>
+	no,
+	<emphasis role="varlink-comment"># DNSOverTLS is enabled.</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># Try to use DNSOverTLS, but disabled when the server does not support it.</emphasis>
+	opportunistic
+)
+
+<emphasis role="varlink-comment"># Whether the protocol is enabled.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolveSupport(
+	<emphasis role="varlink-comment"># The protocol is disabled.</emphasis>
+	no,
+	<emphasis role="varlink-comment"># The protocol is enabled.</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># The protocol is used only for resolving.</emphasis>
+	resolve
+)
+
+<emphasis role="varlink-comment"># The management mode of /etc/resolve.conf file.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvConfMode(
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /run/systemd/resolve/resolv.conf.</emphasis>
+	uplink,
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /run/systemd/resolve/stub-resolv.conf.</emphasis>
+	stub,
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /usr/lib/systemd/resolv.conf.</emphasis>
+	static,
+	<emphasis role="varlink-comment"># /etc/resolv.conf does not exist.</emphasis>
+	missing,
+	<emphasis role="varlink-comment"># /etc/resolv.conf is not managed by systemd-resolved.</emphasis>
+	foreign
+)
+
+<emphasis role="varlink-comment"># Describes the update flag for browsing services, indicating whether a service was added or removed during browsing.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> BrowseServiceUpdateFlag(
+	<emphasis role="varlink-comment"># Indicates that the service was added.</emphasis>
+	added,
+	<emphasis role="varlink-comment"># Indicates that the service was removed.</emphasis>
+	removed
+)
+
+<emphasis role="varlink-comment"># Encapsulates a resolved address.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvedAddress(
+	ifindex: ?int,
+	family: int,
+	address: []int
+)
+
+<emphasis role="varlink-comment"># Encapsulates a resolved host name.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvedName(
+	ifindex: ?int,
+	name: string
+)
+
+<emphasis role="varlink-comment"># Encapsulates resolved service information.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvedService(
+	priority: int,
+	weight: int,
+	port: int,
+	hostname: string,
+	canonicalName: ?string,
+	addresses: ?[]ResolvedAddress
+)
+
+<emphasis role="varlink-comment"># Encapsulates the canonical name, type and domain of a DNS-SD or simple SRV service. Note that due to CNAME redirections and similar, a named DNS-SD service might resolve to a canonical service that is an unnamed simple SRV service. Or in other words: resolving a named service might return an unnamed canonical service.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvedCanonical(
+	<emphasis role="varlink-comment"># The DNS-SD name of the service. For simple SRV services this field is absent or null.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	domain: string
+)
+
+<emphasis role="varlink-comment"># The 'key' part of a DNS resource record.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResourceKey(
+	<emphasis role="varlink-comment"># The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.</emphasis>
+	class: ?int,
+	<emphasis role="varlink-comment"># The RR types, one of A, AAAA, PTR, …</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: int,
+	<emphasis role="varlink-comment"># The domain name.</emphasis>
+	name: string
+)
+
+<emphasis role="varlink-comment"># A full DNS resource record..</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResourceRecord(
+	key: ResourceKey,
+	priority: ?int,
+	weight: ?int,
+	port: ?int,
+	name: ?string,
+	cpu: ?string,
+	os: ?string,
+	items: ?[]string,
+	address: ?[]int,
+	mname: ?string,
+	rname: ?string,
+	serial: ?int,
+	refresh: ?int,
+	retry: ?int,
+	expire: ?int,
+	minimum: ?int,
+	exchange: ?string,
+	version: ?int,
+	size: ?int,
+	horiz_pre: ?int,
+	vert_pre: ?int,
+	latitude: ?int,
+	longitude: ?int,
+	altitude: ?int,
+	keyTag: ?int,
+	algorithm: ?int,
+	digestType: ?int,
+	digest: ?string,
+	fptype: ?int,
+	fingerprint: ?string,
+	flags: ?int,
+	protocol: ?int,
+	dnskey: ?string,
+	signer: ?string,
+	typeCovered: ?int,
+	labels: ?int,
+	originalTtl: ?int,
+	expiration: ?int,
+	inception: ?int,
+	signature: ?string,
+	nextDomain: ?string,
+	types: ?[]int,
+	iterations: ?int,
+	salt: ?string,
+	hash: ?string,
+	certUsage: ?int,
+	selector: ?int,
+	matchingType: ?int,
+	data: ?string,
+	tag: ?string,
+	value: ?string,
+	target: ?string,
+	svcparams: ?object,
+	order: ?int,
+	preference: ?int,
+	naptrFlags: ?string,
+	services: ?string,
+	regexp: ?string,
+	replacement: ?string
+)
+
+<emphasis role="varlink-comment"># Encapsulates information about a resolved DNS resource record </emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResolvedRecord(
+	ifindex: ?int,
+	rr: ?ResourceRecord,
+	raw: string
+)
+
+<emphasis role="varlink-comment"># Encapsulates the service data obtained from browsing.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ServiceData(
+	updateFlag: BrowseServiceUpdateFlag,
+	<emphasis role="varlink-comment"># The address family of the service, one of AF_INET or AF_INET6.</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># The name of the service, e.g., 'My Service'. May be null if not specified.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># The type of service, e.g., '_http._tcp'.</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	<emphasis role="varlink-comment"># The domain in which the service resides, e.g., 'local'.</emphasis>
+	domain: string,
+	<emphasis role="varlink-comment"># The Linux interface index for the network interface associated with this service.</emphasis>
+	ifindex: int
+)
+
+<emphasis role="varlink-comment"># Encapsulates a DNS server address specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSServer(
+	<emphasis role="varlink-comment"># IPv4 or IPv6 address of the server.</emphasis>
+	address: []int,
+	<emphasis role="varlink-comment"># IPv4 or IPv6 address of the server, formatted as a human-readable string.</emphasis>
+	addressString: ?string,
+	<emphasis role="varlink-comment"># Address family of the server, one of AF_INET or AF_INET6.</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># Port number of the server.</emphasis>
+	port: int,
+	<emphasis role="varlink-comment"># Interface index for which this server is configured.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># Server Name Indication (SNI) of the server.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># Indicates if the DNS server is accessible or not.</emphasis>
+	accessible: bool
+)
+
+<emphasis role="varlink-comment"># Encapsulates a search domain specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SearchDomain(
+	<emphasis role="varlink-comment"># Domain name.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Indicates whether or not this is a routing-only domain.</emphasis>
+	routeOnly: bool,
+	<emphasis role="varlink-comment"># Interface index for which this search domain is configured.</emphasis>
+	ifindex: ?int
+)
+
+<emphasis role="varlink-comment"># Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSConfiguration(
+	<emphasis role="varlink-comment"># Interface name, if any, associated with this configuration. Empty for global configuration.</emphasis>
+	ifname: ?string,
+	<emphasis role="varlink-comment"># Interface index, if any, associated with this configuration. Empty for global configuration.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># Delegate name, if any, associated with this configuration. Empty for global or link configurations.</emphasis>
+	delegate: ?string,
+	<emphasis role="varlink-comment"># Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains.</emphasis>
+	defaultRoute: ?bool,
+	<emphasis role="varlink-comment"># DNS server currently selected to use for lookups.</emphasis>
+	currentServer: ?DNSServer,
+	<emphasis role="varlink-comment"># Array of configured DNS servers.</emphasis>
+	servers: ?[]DNSServer,
+	<emphasis role="varlink-comment"># Array of configured fallback DNS servers, set for global configuration only.</emphasis>
+	fallbackServers: ?[]DNSServer,
+	<emphasis role="varlink-comment"># Array of configured search domains.</emphasis>
+	searchDomains: ?[]SearchDomain,
+	<emphasis role="varlink-comment"># Array of configured DNSSEC negative trust anchors.</emphasis>
+	negativeTrustAnchors: ?[]string,
+	<emphasis role="varlink-comment"># DNSSEC mode.</emphasis>
+	dnssec: ?string,
+	<emphasis role="varlink-comment"># Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is "no".</emphasis>
+	dnssecSupported: ?bool,
+	<emphasis role="varlink-comment"># DNSOverTLS mode.</emphasis>
+	dnsOverTLS: ?DNSOverTLSMode,
+	<emphasis role="varlink-comment"># LLMNR support.</emphasis>
+	llmnr: ?string,
+	<emphasis role="varlink-comment"># mDNS support.</emphasis>
+	mDNS: ?ResolveSupport,
+	<emphasis role="varlink-comment"># resolv.conf mode, set for global configuration only.</emphasis>
+	resolvConfMode: ?ResolvConfMode,
+	<emphasis role="varlink-comment"># Array of current DNS scopes.</emphasis>
+	scopes: ?[]DNSScope
+)
+
+<emphasis role="varlink-comment"># Encapsulates a DNS scope specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSScope(
+	<emphasis role="varlink-comment"># Protocol associated with this scope.</emphasis>
+	protocol: DNSProtocol,
+	<emphasis role="varlink-comment"># Address family associated with this scope.</emphasis>
+	family: ?int,
+	<emphasis role="varlink-comment"># Interface index associated with this scope.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># Interface name associated with this scope.</emphasis>
+	ifname: ?string,
+	<emphasis role="varlink-comment"># DNSSEC mode associated with this scope.</emphasis>
+	dnssec: ?string,
+	<emphasis role="varlink-comment"># DNSOverTLS mode associated with this scope.</emphasis>
+	dnsOverTLS: ?DNSOverTLSMode
+)
+
+<emphasis role="varlink-comment"># Resolves a hostname to one or more IP addresses.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ResolveHostname(
+	<emphasis role="varlink-comment"># The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># The host name to resolve.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># The address family to search for, one of AF_INET or AF_INET6.</emphasis>
+	family: ?int,
+	<emphasis role="varlink-comment"># Various search flags.</emphasis>
+	flags: ?int
+) -&gt; (
+	<emphasis role="varlink-comment"># Array of resolved IP addresses</emphasis>
+	addresses: []ResolvedAddress,
+	<emphasis role="varlink-comment"># Canonical name of the host.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Various flags indicating details on discovered data.</emphasis>
+	flags: int
+)
+
+<emphasis role="varlink-comment"># Resolves an IP address to a hostname.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ResolveAddress(
+	<emphasis role="varlink-comment"># The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># The address family of the specified address, one of AF_INET or AF_INET6.</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># The IP address to look up, either 4 or 16 integers (depending if an AF_INET or AF_INET6 address shall be resolved).</emphasis>
+	address: []int,
+	flags: ?int
+) -&gt; (
+	names: []ResolvedName,
+	flags: int
+)
+
+<emphasis role="varlink-comment"># Resolves a named DNS-SD or unnamed simple SRV service.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ResolveService(
+	name: ?string,
+	<emphasis role="varlink-keyword">type</emphasis>: ?string,
+	domain: string,
+	ifindex: ?int,
+	family: ?int,
+	flags: ?int
+) -&gt; (
+	services: []ResolvedService,
+	txt: ?[]string,
+	canonical: ResolvedCanonical,
+	flags: int
+)
+
+<emphasis role="varlink-comment"># Resolves a domain name to one or more DNS resource records.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ResolveRecord(
+	ifindex: ?int,
+	name: string,
+	class: ?int,
+	<emphasis role="varlink-keyword">type</emphasis>: int,
+	flags: ?int
+) -&gt; (
+	rrs: []ResolvedRecord,
+	flags: int
+)
+
+<emphasis role="varlink-comment"># Starts browsing for DNS-SD services of specified type.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> BrowseServices(
+	<emphasis role="varlink-comment"># The domain to browse for services. If null, the default browsing domain local is used.</emphasis>
+	domain: ?string,
+	<emphasis role="varlink-comment"># The service type to browse for (e.g., '_http._tcp').</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: ?string,
+	<emphasis role="varlink-comment"># The Linux interface index for the network interface to search on.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># Various browsing flags to modify the operation.</emphasis>
+	flags: ?int
+) -&gt; (
+	<emphasis role="varlink-comment"># An array of service data containing information about discovered services.</emphasis>
+	browserServiceData: []ServiceData
+)
+
+<emphasis role="varlink-comment"># Current global and per-link DNS configurations.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> DumpDNSConfiguration() -&gt; (
+	<emphasis role="varlink-comment"># The current global and per-interface DNS configurations</emphasis>
+	configuration: []DNSConfiguration
+)
+
+<emphasis role="varlink-keyword">error</emphasis> NoNameServers()
+
+<emphasis role="varlink-keyword">error</emphasis> NoSuchResourceRecord()
+
+<emphasis role="varlink-keyword">error</emphasis> QueryTimedOut()
+
+<emphasis role="varlink-keyword">error</emphasis> MaxAttemptsReached()
+
+<emphasis role="varlink-keyword">error</emphasis> InvalidReply()
+
+<emphasis role="varlink-keyword">error</emphasis> QueryAborted()
+
+<emphasis role="varlink-keyword">error</emphasis> QueryRefused()
+
+<emphasis role="varlink-keyword">error</emphasis> DNSSECValidationFailed(
+	result: string,
+	extendedDNSErrorCode: ?int,
+	extendedDNSErrorMessage: ?string
+)
+
+<emphasis role="varlink-keyword">error</emphasis> NoTrustAnchor()
+
+<emphasis role="varlink-keyword">error</emphasis> ResourceRecordTypeUnsupported()
+
+<emphasis role="varlink-keyword">error</emphasis> NetworkDown()
+
+<emphasis role="varlink-keyword">error</emphasis> NoSource()
+
+<emphasis role="varlink-keyword">error</emphasis> StubLoop()
+
+<emphasis role="varlink-keyword">error</emphasis> DNSError(
+	rcode: int,
+	queryString: string,
+	extendedDNSErrorCode: ?int,
+	extendedDNSErrorMessage: ?string
+)
+
+<emphasis role="varlink-keyword">error</emphasis> CNAMELoop()
+
+<emphasis role="varlink-keyword">error</emphasis> BadAddressSize()
+
+<emphasis role="varlink-keyword">error</emphasis> ResourceRecordTypeInvalidForQuery()
+
+<emphasis role="varlink-keyword">error</emphasis> ZoneTransfersNotPermitted()
+
+<emphasis role="varlink-keyword">error</emphasis> ResourceRecordTypeObsolete()
+
+<emphasis role="varlink-comment"># The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved).</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> InconsistentServiceRecords()
+
+<emphasis role="varlink-comment"># The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record).</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ServiceNotProvided()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Resolve"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveAddress()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveService()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveRecord()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="BrowseServices()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DumpDNSConfiguration()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSProtocol"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSOverTLSMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolveSupport"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvConfMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedAddress"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedName"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedService"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedCanonical"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceKey"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceRecord"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedRecord"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BrowseServiceUpdateFlag"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceData"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSServer"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SearchDomain"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSConfiguration"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSScope"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoNameServers"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchResourceRecord"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryTimedOut"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="MaxAttemptsReached"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InvalidReply"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryAborted"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryRefused"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DNSSECValidationFailed"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoTrustAnchor"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeUnsupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NetworkDown"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSource"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="StubLoop"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DNSError"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="CNAMELoop"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadAddressSize"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeInvalidForQuery"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ZoneTransfersNotPermitted"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeObsolete"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InconsistentServiceRecords"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ServiceNotProvided"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.ResolveHostname '{}'</screen>
+    invokes its <function>ResolveHostname()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Resolve interface was added in version 246.</para><para><varname>BadAddressSize</varname>, <varname>BrowseServiceUpdateFlag</varname>, <function>BrowseServices()</function>, <varname>CNAMELoop</varname>, <varname>DNSConfiguration</varname>, <varname>DNSError</varname>, <varname>DNSOverTLSMode</varname>, <varname>DNSProtocol</varname>, <varname>DNSSECValidationFailed</varname>, <varname>DNSScope</varname>, <varname>DNSServer</varname>, <function>DumpDNSConfiguration()</function>, <varname>InconsistentServiceRecords</varname>, <varname>InvalidReply</varname>, <varname>MaxAttemptsReached</varname>, <varname>NetworkDown</varname>, <varname>NoNameServers</varname>, <varname>NoSource</varname>, <varname>NoSuchResourceRecord</varname>, <varname>NoTrustAnchor</varname>, <varname>QueryAborted</varname>, <varname>QueryRefused</varname>, <varname>QueryTimedOut</varname>, <varname>ResolvConfMode</varname>, <function>ResolveAddress()</function>, <function>ResolveHostname()</function>, <function>ResolveRecord()</function>, <function>ResolveService()</function>, <varname>ResolveSupport</varname>, <varname>ResolvedAddress</varname>, <varname>ResolvedCanonical</varname>, <varname>ResolvedName</varname>, <varname>ResolvedRecord</varname>, <varname>ResolvedService</varname>, <varname>ResourceKey</varname>, <varname>ResourceRecord</varname>, <varname>ResourceRecordTypeInvalidForQuery</varname>, <varname>ResourceRecordTypeObsolete</varname>, <varname>ResourceRecordTypeUnsupported</varname>, <varname>SearchDomain</varname>, <varname>ServiceData</varname>, <varname>ServiceNotProvided</varname>, <varname>StubLoop</varname>, and <varname>ZoneTransfersNotPermitted</varname> were added in version 246.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

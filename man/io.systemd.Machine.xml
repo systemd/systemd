@@ -1,0 +1,455 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Machine"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Machine</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Machine</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Machine</refname>
+    <refpurpose>Varlink interface io.systemd.Machine</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Machine</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Machine">
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Machine
+
+<emphasis role="varlink-comment"># The class of a machine</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> MachineClass(
+	container,
+	vm,
+	host
+)
+
+<emphasis role="varlink-comment"># What to send a signal to in a machine</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> KillWhom(
+	leader,
+	supervisor,
+	all
+)
+
+<emphasis role="varlink-comment"># A enum field allowing to gracefully get metadata</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> AcquireMetadata(
+	<emphasis role="varlink-comment"># Do not include metadata in the output</emphasis>
+	no,
+	<emphasis role="varlink-comment"># Include metadata in the output</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># Include metadata in the output, but gracefully eat up errors</emphasis>
+	graceful
+)
+
+<emphasis role="varlink-comment"># A enum field which defines way to open TTY for a machine</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> MachineOpenMode(
+	<emphasis role="varlink-comment"># This mode allocates a pseudo TTY in the container and returns a file descriptor and its path. This is equivalent to transitioning into the container and invoking posix_openpt(3).</emphasis>
+	tty,
+	<emphasis role="varlink-comment"># This mode allocates a pseudo TTY in the container and ensures that a getty login prompt of the container is running on the other end. It returns the file descriptor of the PTY and the PTY path. This is useful for acquiring a pty with a login prompt from the container.</emphasis>
+	login,
+	<emphasis role="varlink-comment"># This mode allocates a pseudo TTY in the container, as the specified user, and invokes the executable at the specified path with a list of arguments (starting from argv[0]) and an environment block. It then returns the file descriptor of the PTY and the PTY path.</emphasis>
+	shell
+)
+
+<emphasis role="varlink-comment"># An object for referencing UNIX processes</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProcessId(
+	<emphasis role="varlink-comment"># Numeric UNIX PID value</emphasis>
+	pid: int,
+	<emphasis role="varlink-comment"># 64bit inode number of pidfd if known</emphasis>
+	pidfdId: ?int,
+	<emphasis role="varlink-comment"># Boot ID of the system the inode number belongs to</emphasis>
+	bootId: ?string
+)
+
+<emphasis role="varlink-comment"># A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Timestamp(
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_REALTIME clock (wallclock)</emphasis>
+	realtime: ?int,
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_MONOTONIC clock</emphasis>
+	monotonic: ?int
+)
+
+<emphasis role="varlink-comment"># An address object</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Address(
+	ifindex: ?int,
+	family: int,
+	address: []int
+)
+
+<emphasis role="varlink-keyword">method</emphasis> Register(
+	name: string,
+	id: ?string,
+	service: ?string,
+	class: MachineClass,
+	<emphasis role="varlink-comment"># The leader PID as simple positive integer.</emphasis>
+	leader: ?int,
+	<emphasis role="varlink-comment"># The leader PID as ProcessId structure. If both the leader and leaderProcessId parameters are specified they must reference the same process. Typically one would only specify one or the other however. It's generally recommended to specify leaderProcessId as it references a process in a robust way without risk of identifier recycling.</emphasis>
+	leaderProcessId: ?ProcessId,
+	<emphasis role="varlink-comment"># The supervisor PID as simple positive integer. Deprecated and ignored: the supervisor is now always derived from the caller's socket (kept for backward compatibility).</emphasis>
+	supervisor: ?int,
+	<emphasis role="varlink-comment"># The supervisor PID as ProcessId structure. Deprecated and ignored: the supervisor is now always derived from the caller's socket (kept for backward compatibility).</emphasis>
+	supervisorProcessId: ?ProcessId,
+	rootDirectory: ?string,
+	ifIndices: ?[]int,
+	vSockCid: ?int,
+	sshAddress: ?string,
+	sshPrivateKeyPath: ?string,
+	<emphasis role="varlink-comment"># Varlink socket address for direct machine control. The server at this address is expected to implement io.systemd.MachineInstance and optionally io.systemd.VirtualMachineInstance.</emphasis>
+	controlAddress: ?string,
+	<emphasis role="varlink-comment"># Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine.</emphasis>
+	allocateUnit: ?bool,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-keyword">method</emphasis> Unregister(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Terminate machine, killing its processes</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Terminate(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Send a UNIX signal to the machine's processes</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Kill(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Identifier that specifies what precisely to send the signal to (either 'leader', 'supervisor', or 'all').</emphasis>
+	whom: ?KillWhom,
+	<emphasis role="varlink-comment"># Numeric UNIX signal integer.</emphasis>
+	signal: int
+) -&gt; ()
+
+<emphasis role="varlink-comment"># List running machines</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> List(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># If 'yes' the output will include machine metadata fields such as 'Addresses', 'OSRelease', and 'UIDShift'. If 'graceful' it's equal to true but gracefully eats up errors</emphasis>
+	acquireMetadata: ?AcquireMetadata
+) -&gt; (
+	<emphasis role="varlink-comment"># Name of the machine</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># 128bit ID identifying this machine, formatted in hexadecimal</emphasis>
+	id: ?string,
+	<emphasis role="varlink-comment"># Name of the software that registered this machine</emphasis>
+	service: ?string,
+	<emphasis role="varlink-comment"># The class of this machine</emphasis>
+	class: MachineClass,
+	<emphasis role="varlink-comment"># Leader process PID of this machine</emphasis>
+	leader: ?ProcessId,
+	<emphasis role="varlink-comment"># Supervisor process PID of this machine</emphasis>
+	supervisor: ?ProcessId,
+	<emphasis role="varlink-comment"># Root directory of this machine, if known, relative to host file system</emphasis>
+	rootDirectory: ?string,
+	<emphasis role="varlink-comment"># The service manager unit this machine resides in</emphasis>
+	unit: ?string,
+	<emphasis role="varlink-comment"># Timestamp when the machine was activated</emphasis>
+	timestamp: ?Timestamp,
+	<emphasis role="varlink-comment"># AF_VSOCK CID of the machine if known and applicable</emphasis>
+	vSockCid: ?int,
+	<emphasis role="varlink-comment"># SSH address to connect to</emphasis>
+	sshAddress: ?string,
+	<emphasis role="varlink-comment"># Path to private SSH key</emphasis>
+	sshPrivateKeyPath: ?string,
+	<emphasis role="varlink-comment"># Varlink socket address for direct machine control, implementing io.systemd.MachineInstance and optionally further interfaces</emphasis>
+	controlAddress: ?string,
+	<emphasis role="varlink-comment"># List of addresses of the machine</emphasis>
+	addresses: ?[]Address,
+	<emphasis role="varlink-comment"># OS release information of the machine. It contains an array of key value pairs read from the os-release(5) file in the image.</emphasis>
+	OSRelease: ?[]string,
+	<emphasis role="varlink-comment"># Return the base UID/GID of the machine</emphasis>
+	UIDShift: ?int,
+	<emphasis role="varlink-comment"># Subcgroup path of the machine, relative to the unit's cgroup path</emphasis>
+	subgroup: ?string,
+	<emphasis role="varlink-comment"># Numeric UNIX UID of the user who registered the machine</emphasis>
+	UID: ?int
+)
+
+<emphasis role="varlink-comment"># Allocates a pseudo TTY in the container in various modes</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Open(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># There are three possible values: 'tty', 'login', and 'shell'. Please see description for each of the modes.</emphasis>
+	mode: MachineOpenMode,
+	<emphasis role="varlink-comment"># See description of mode='shell'. Valid only when mode='shell'</emphasis>
+	user: ?string,
+	<emphasis role="varlink-comment"># See description of mode='shell'. Valid only when mode='shell'</emphasis>
+	path: ?string,
+	<emphasis role="varlink-comment"># See description of mode='shell'. Valid only when mode='shell'</emphasis>
+	args: ?[]string,
+	<emphasis role="varlink-comment"># See description of mode='shell'. Valid only when mode='shell'</emphasis>
+	environment: ?[]string
+) -&gt; (
+	<emphasis role="varlink-comment"># File descriptor of the allocated pseudo TTY</emphasis>
+	ptyFileDescriptor: int,
+	<emphasis role="varlink-comment"># Path to the allocated pseudo TTY</emphasis>
+	ptyPath: string
+)
+
+<emphasis role="varlink-comment"># Maps given machine's UID/GID to host's UID/GID</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MapFrom(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># UID in the machine to map to host UID</emphasis>
+	uid: ?int,
+	<emphasis role="varlink-comment"># GID in the machine to map to host GID</emphasis>
+	gid: ?int
+) -&gt; (
+	<emphasis role="varlink-comment"># Mapped UID</emphasis>
+	uid: ?int,
+	<emphasis role="varlink-comment"># Mapped GID</emphasis>
+	gid: ?int
+)
+
+<emphasis role="varlink-comment"># Maps given host's UID/GID to a machine and corresponding UID/GID</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MapTo(
+	<emphasis role="varlink-comment"># Host UID to map to machine UID</emphasis>
+	uid: ?int,
+	<emphasis role="varlink-comment"># Host GID to map to machine GID</emphasis>
+	gid: ?int
+) -&gt; (
+	<emphasis role="varlink-comment"># Mapped UID</emphasis>
+	uid: ?int,
+	<emphasis role="varlink-comment"># Mapped GID</emphasis>
+	gid: ?int,
+	<emphasis role="varlink-comment"># Machine's name which owns mapped UID/GID</emphasis>
+	machineName: ?string
+)
+
+<emphasis role="varlink-comment"># Bind mounts a file or directory from the host into the container</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> BindMount(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># The source directory/file on the host. The path must be absolute.</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The destination directory/file in the container. The path must be absolute. If null, it's equal to 'source'</emphasis>
+	destination: ?string,
+	<emphasis role="varlink-comment"># If true, the bind mount shall be read-only</emphasis>
+	readOnly: ?bool,
+	<emphasis role="varlink-comment"># The destination mount point shall be created first, if it is missing</emphasis>
+	mkdir: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Copy files or directories from a container into the host</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CopyFrom(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># The absolute path to source directory/file in the container</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The absolute path to destination directory/file on the host. If null, it's equal to 'source'.</emphasis>
+	destination: ?string,
+	<emphasis role="varlink-comment"># If true the destination will be replaced</emphasis>
+	replace: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Copy files or directories from the host into a container</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CopyTo(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># The absolute path to source directory/file on the host</emphasis>
+	source: string,
+	<emphasis role="varlink-comment"># The absolute path to destination directory/file in the container. If null, it's equal to 'source'</emphasis>
+	destination: ?string,
+	<emphasis role="varlink-comment"># If true the destination will be replaced</emphasis>
+	replace: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Opens machine's root directory</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> OpenRootDirectory(
+	<emphasis role="varlink-comment"># If non-null the name of a machine.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># File descriptor of opened root directory</emphasis>
+	fileDescriptor: int
+)
+
+<emphasis role="varlink-comment"># No matching machine currently running</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchMachine()
+
+<emphasis role="varlink-keyword">error</emphasis> MachineExists()
+
+<emphasis role="varlink-comment"># Machine does not use private networking</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoPrivateNetworking()
+
+<emphasis role="varlink-comment"># Machine does not contain OS release information</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoOSReleaseInformation()
+
+<emphasis role="varlink-comment"># Machine uses a complex UID/GID mapping, cannot determine shift</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoUIDShift()
+
+<emphasis role="varlink-comment"># Requested information is not available</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotAvailable()
+
+<emphasis role="varlink-comment"># Requested operation is not supported</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotSupported()
+
+<emphasis role="varlink-comment"># There is no IPC service (such as system bus or varlink) in the container</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoIPC()
+
+<emphasis role="varlink-comment"># No such user</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchUser()
+
+<emphasis role="varlink-comment"># No such group</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchGroup()
+
+<emphasis role="varlink-comment"># User belongs to host UID range</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UserInHostRange()
+
+<emphasis role="varlink-comment"># Group belongs to host GID range</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> GroupInHostRange()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Machine"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MachineClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="KillWhom"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AcquireMetadata"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Address"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Register()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Unregister()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Terminate()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Kill()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="List()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MachineOpenMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Open()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MapFrom()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MapTo()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="BindMount()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CopyFrom()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CopyTo()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="OpenRootDirectory()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchMachine"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="MachineExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoPrivateNetworking"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoOSReleaseInformation"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoUIDShift"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NotAvailable"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoIPC"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchUser"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchGroup"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UserInHostRange"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="GroupInHostRange"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Machine</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Machine.Register '{}'</screen>
+    invokes its <function>Register()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Machine interface was added in version &gt;= 0.60.0.</para><para><varname>AcquireMetadata</varname>, <varname>Address</varname>, <function>BindMount()</function>, <function>CopyFrom()</function>, <function>CopyTo()</function>, <varname>GroupInHostRange</varname>, <function>Kill()</function>, <varname>KillWhom</varname>, <function>List()</function>, <varname>MachineClass</varname>, <varname>MachineExists</varname>, <varname>MachineOpenMode</varname>, <function>MapFrom()</function>, <function>MapTo()</function>, <varname>NoIPC</varname>, <varname>NoOSReleaseInformation</varname>, <varname>NoPrivateNetworking</varname>, <varname>NoSuchGroup</varname>, <varname>NoSuchMachine</varname>, <varname>NoSuchUser</varname>, <varname>NoUIDShift</varname>, <varname>NotAvailable</varname>, <varname>NotSupported</varname>, <function>Open()</function>, <function>OpenRootDirectory()</function>, <varname>ProcessId</varname>, <function>Register()</function>, <function>Terminate()</function>, <varname>Timestamp</varname>, <function>Unregister()</function>, and <varname>UserInHostRange</varname> were added in version &gt;= 0.60.0.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
