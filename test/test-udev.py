@@ -23,6 +23,7 @@ import grp
 import os
 import pwd
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -2460,6 +2461,179 @@ def test_udev(rules: Rules, udev_setup):
 
         for device in rules.devices:
             device.check_remove()
+
+
+def net_id_device(path: Path, subsystem: str, **attrs) -> Path:
+    path.mkdir(parents=True)
+    subsystem_path = UDEV_SYS / ('class' if subsystem == 'net' else 'bus') / subsystem
+    subsystem_path.mkdir(parents=True, exist_ok=True)
+    (path / 'subsystem').symlink_to(os.path.relpath(subsystem_path, path))
+    for name, value in {'uevent': '', **attrs}.items():
+        attr = path / name
+        attr.parent.mkdir(parents=True, exist_ok=True)
+        attr.write_text(value)
+    return path
+
+
+@pytest.fixture
+def net_id_setup(udev_setup):
+    assert udev_setup is None
+    root = UDEV_SYS / 'devices/pci0000:ab'
+    netdevs = []
+
+    def add_netdev(parent, name, port_name=None):
+        ifindex = 51000 + len(netdevs)
+        netdev = net_id_device(
+            parent / 'net' / name,
+            'net',
+            uevent=f'INTERFACE={name}\nIFINDEX={ifindex}\n',
+            ifindex=f'{ifindex}\n',
+            iflink=f'{ifindex}\n',
+            type='1\n',
+            dev_port='0\n',
+        )
+        if port_name is not None:
+            (netdev / 'phys_port_name').write_text(port_name + '\n')
+        (netdev / 'device').symlink_to('../..')
+        link = UDEV_SYS / 'class/net' / name
+        link.symlink_to(os.path.relpath(netdev, link.parent))
+        netdevs.append((link, UDEV_RUN / f'udev/data/n{ifindex}'))
+        return netdev
+
+    pfs, vfs = [], []
+    try:
+        for port in range(4):
+            pf = net_id_device(
+                root / f'0000:ab:00.{port}', 'pci', acpi_index='1\n',
+                **{'firmware_node/sun': '4\n'},
+            )
+            config = bytearray(256)
+            config[14] = 0x80  # PCI_HEADER_TYPE_MULTIFUNC
+            (pf / 'config').write_bytes(config)
+            pfs.append(add_netdev(pf, f'pf_test{port}', f'p{port}'))
+            port_vfs = []
+            for vfnum in range(4):
+                vf = net_id_device(root / f'0000:ab:{port + 1:02x}.{vfnum}', 'pci')
+                (vf / 'physfn').symlink_to(f'../{pf.name}')
+                (pf / f'virtfn{vfnum}').symlink_to(f'../{vf.name}')
+                port_vfs.append(add_netdev(vf, f'vf_test{port}_{vfnum}'))
+            vfs.append(port_vfs)
+        yield pfs, vfs, add_netdev
+    finally:
+        for link, database in netdevs:
+            link.unlink(missing_ok=True)
+            database.unlink(missing_ok=True)
+        shutil.rmtree(root)
+
+
+def net_id_run(netdev: Path, scheme='v263', rules='') -> dict[str, str]:
+    ifindex = (netdev / 'ifindex').read_text().strip()
+    database = UDEV_RUN / f'udev/data/n{ifindex}'
+    database.unlink(missing_ok=True)
+    UDEV_RULES.write_text(rules + '\nIMPORT{builtin}="net_id"\n')
+    subprocess.check_call(
+        [UDEV_BIN, 'change', '/' + str(netdev.relative_to(UDEV_SYS))],
+        env={**os.environ, 'NET_NAMING_SCHEME': scheme},
+    )
+    return dict(line[2:].split('=', 1) for line in database.read_text().splitlines() if line.startswith('E:'))
+
+
+def net_id_assert_names(properties, port, suffix):
+    assert properties['ID_NET_NAME_ONBOARD'] == f'eno1{suffix}'
+    assert properties['ID_NET_NAME_PATH'] == f'enp171s0f{port}{suffix}'
+    assert properties['ID_NET_NAME_SLOT'] == f'ens4f{port}{suffix}'
+
+
+@pytest.mark.parametrize('scheme', ['v261', 'v263'])
+@pytest.mark.parametrize('port', range(4))
+def test_net_id_vf_ports(net_id_setup, scheme, port):
+    pfs, vfs, _ = net_id_setup
+    net_id_assert_names(net_id_run(pfs[port], scheme), port, f'np{port}')
+    for vfnum, vf in enumerate(vfs[port]):
+        properties = net_id_run(vf, scheme)
+        assert properties['ID_NET_NAMING_SCHEME'] == scheme
+        net_id_assert_names(properties, port, f'np{port}v{vfnum}' if scheme == 'v263' else f'v{vfnum}')
+
+
+@pytest.mark.parametrize('scheme', ['v261', 'v263'])
+@pytest.mark.parametrize('vf_port_name', [None, '', 'vfport', '\x01'])
+def test_net_id_vf_port_precedence(net_id_setup, scheme, vf_port_name):
+    _, vfs, _ = net_id_setup
+    vf = vfs[0][0]
+    (vf / 'dev_port').write_text('7\n')
+    if vf_port_name is not None:
+        (vf / 'phys_port_name').write_text(vf_port_name + '\n')
+    port_suffix = 'nvfport' if vf_port_name == 'vfport' else 'np0' if scheme == 'v263' else 'd7'
+    net_id_assert_names(net_id_run(vf, scheme), 0, port_suffix + 'v0')
+
+
+@pytest.mark.parametrize('failure', ['missing', 'empty', 'unsafe', 'unreadable', 'no-netdev', 'no-net-dir', 'multiple'])
+def test_net_id_vf_pf_unavailable(net_id_setup, failure):
+    pfs, vfs, add_netdev = net_id_setup
+    pf, vf = pfs[0], vfs[0][0]
+    attr = pf / 'phys_port_name'
+    if failure in ('missing', 'unreadable'):
+        attr.unlink()
+        if failure == 'unreadable':
+            attr.mkdir()
+    elif failure in ('empty', 'unsafe'):
+        attr.write_text('\n' if failure == 'empty' else '\x01\n')
+    elif failure in ('no-netdev', 'no-net-dir'):
+        shutil.rmtree(pf)
+        if failure == 'no-net-dir':
+            pf.parent.rmdir()
+    else:
+        # Even an interface with a leading dot makes the physical port ambiguous.
+        add_netdev(pf.parent.parent, '.pf_extra', 'p1')
+    (vf / 'dev_port').write_text('7\n')
+    net_id_assert_names(net_id_run(vf), 0, 'd7v0')
+
+
+@pytest.mark.parametrize('source', ['vf', 'pf'])
+@pytest.mark.parametrize('policy', ['deny-attribute', 'deny-default', 'allow-attribute', 'invalid'])
+def test_net_id_vf_port_filter(net_id_setup, source, policy):
+    pfs, vfs, _ = net_id_setup
+    vf = vfs[0][0]
+    (vf / 'dev_port').write_text('7\n')
+    rules = {
+        'deny-attribute': 'ENV{ID_NET_NAME_ALLOW_PHYS_PORT_NAME}="0"',
+        'deny-default': 'ENV{ID_NET_NAME_ALLOW}="0"',
+        'allow-attribute': 'ENV{ID_NET_NAME_ALLOW}="0", ENV{ID_NET_NAME_ALLOW_PHYS_PORT_NAME}="1"',
+        'invalid': 'ENV{ID_NET_NAME_ALLOW_PHYS_PORT_NAME}="invalid"',
+    }[policy]
+    # Allow unrelated VF attributes needed to reach PCI naming when the default is deny.
+    if source == 'vf':
+        rules += '\n' + ', '.join(f'ENV{{ID_NET_NAME_ALLOW_{attr}}}="1"' for attr in ('IFLINK', 'TYPE', 'DEV_PORT'))
+    else:
+        net_id_run(pfs[0], rules=rules)
+        rules = ''
+    net_id_assert_names(net_id_run(vf, rules=rules), 0, 'np0v0' if policy == 'allow-attribute' else 'd7v0')
+
+
+@pytest.mark.parametrize('link', ['physfn', 'virtfn0'])
+def test_net_id_vf_missing_link(net_id_setup, link):
+    pfs, vfs, _ = net_id_setup
+    pf, vf = pfs[0].parent.parent, vfs[0][0]
+    ((vf.parent.parent if link == 'physfn' else pf) / link).unlink()
+    (vf / 'dev_port').write_text('7\n')
+    properties = net_id_run(vf)
+    assert 'ID_NET_NAME_ONBOARD' not in properties
+    assert properties['ID_NET_NAME_PATH'] == 'enp171s1d7'
+
+
+@pytest.mark.parametrize('scheme', ['v261', 'v263'])
+@pytest.mark.parametrize('kind', ['representor', 'sf', 'vf-sf'])
+def test_net_id_other_functions(net_id_setup, scheme, kind):
+    pfs, vfs, add_netdev = net_id_setup
+    parent = (vfs[0][0] if kind == 'vf-sf' else pfs[0]).parent.parent
+    if kind == 'representor':
+        netdev = add_netdev(parent, 'rep_test', 'pf0vf2')
+        suffix = 'r2'
+    else:
+        aux = net_id_device(parent / 'mlx5_core.sf.88', 'auxiliary', sfnum='88\n')
+        netdev = add_netdev(aux, 'sf_test')
+        suffix = 'v0S88' if kind == 'vf-sf' else 'S88'
+    net_id_assert_names(net_id_run(netdev, scheme), 0, suffix)
 
 
 if __name__ == '__main__':
