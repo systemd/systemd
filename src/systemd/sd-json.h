@@ -286,16 +286,17 @@ int sd_json_buildv(sd_json_variant **ret, va_list ap);
  * from the bit mask originally passed into sd_json_dispatch() and the individual bitmask associated with the
  * static sd_json_dispatch_field callout entry */
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_dispatch_flags_t) {
-        SD_JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
-        SD_JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
-        SD_JSON_LOG              = 1 << 2, /* Should the dispatcher log about errors? */
-        SD_JSON_DEBUG            = 1 << 3, /* When logging about errors use LOG_DEBUG log level at most */
-        SD_JSON_WARNING          = 1 << 4, /* When logging about errors use LOG_WARNING log level at most */
-        SD_JSON_STRICT           = 1 << 5, /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_strv()) */
-        SD_JSON_RELAX            = 1 << 6, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
-        SD_JSON_ALLOW_EXTENSIONS = 1 << 7, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
-        SD_JSON_NULLABLE         = 1 << 8, /* Allow both specified type and null for this field */
-        SD_JSON_REFUSE_NULL      = 1 << 9, /* Never allow null, even if type is otherwise not specified */
+        SD_JSON_PERMISSIVE       = 1 << 0,  /* Shall parsing errors be considered fatal for this field or object? */
+        SD_JSON_MANDATORY        = 1 << 1,  /* Should existence of this property be mandatory? */
+        SD_JSON_LOG              = 1 << 2,  /* Should the dispatcher log about errors? */
+        SD_JSON_DEBUG            = 1 << 3,  /* When logging about errors use LOG_DEBUG log level at most */
+        SD_JSON_WARNING          = 1 << 4,  /* When logging about errors use LOG_WARNING log level at most */
+        SD_JSON_STRICT           = 1 << 5,  /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_strv()) */
+        SD_JSON_RELAX            = 1 << 6,  /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
+        SD_JSON_ALLOW_EXTENSIONS = 1 << 7,  /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
+        SD_JSON_NULLABLE         = 1 << 8,  /* Allow both specified type and null for this field */
+        SD_JSON_REFUSE_NULL      = 1 << 9,  /* Never allow null, even if type is otherwise not specified */
+        SD_JSON_NULL_TO_ZERO     = 1 << 10, /* Allow null to mapped to zero. Intended for places where zero is a sensible default for null or unset fields. */
         _SD_ENUM_FORCE_S64(JSON_DISPATCH_FLAGS)
 } sd_json_dispatch_flags_t;
 
