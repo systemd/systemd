@@ -3,7 +3,6 @@
 #include "sd-bus.h"
 #include "sd-future.h"
 
-#include "alloc-util.h"
 #include "bus-future.h"
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -13,15 +12,10 @@ typedef struct BusFuture {
         sd_bus_message *reply;
 } BusFuture;
 
-static void* bus_future_alloc(void) {
-        return new0(BusFuture, 1);
-}
-
 static void bus_future_free(sd_future *f) {
         BusFuture *bf = ASSERT_PTR(sd_future_get_private(f));
         sd_bus_slot_unref(bf->slot);
         sd_bus_message_unref(bf->reply);
-        free(bf);
 }
 
 static int bus_future_cancel(sd_future *f) {
@@ -33,7 +27,7 @@ static int bus_future_cancel(sd_future *f) {
 
 static const sd_future_ops bus_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = bus_future_alloc,
+        .private_size = sizeof(BusFuture),
         .free = bus_future_free,
         .cancel = bus_future_cancel,
 };

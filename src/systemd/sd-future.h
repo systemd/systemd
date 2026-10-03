@@ -39,7 +39,7 @@ typedef _sd_destroy_t sd_fiber_destroy_t;
 
 struct sd_future_ops {
         size_t size;
-        void* (*alloc)(void);
+        size_t private_size;
         void (*free)(sd_future *f);
         int (*cancel)(sd_future *f);
         int (*set_priority)(sd_future *f, int64_t priority);
@@ -80,6 +80,9 @@ void sd_future_cancel_wait_unref_array(sd_future *array[], size_t n);
 int sd_future_state(sd_future *f);
 int sd_future_result(sd_future *f);
 void* sd_future_get_private(sd_future *f);
+/* sd_future_from_private() returns the future that p is the private data of. It is the inverse of
+ * sd_future_get_private(). */
+sd_future* sd_future_from_private(void *p);
 const sd_future_ops* sd_future_get_ops(sd_future *f);
 sd_event* sd_future_get_event(sd_future *f);
 
