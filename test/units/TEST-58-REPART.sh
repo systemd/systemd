@@ -2296,6 +2296,135 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_fallback_partitions_copy_files() {
+    local workdir defs image root output
+
+    if ! command -v mtype >/dev/null; then
+        echo "Skipping fallback partition copy test, mtools is not installed."
+        return 0
+    fi
+
+    workdir="$(mktemp --directory /var/tmp/test-repart.fallback-copy.XXXXXXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    defs="$workdir/defs"
+    image="$workdir/image.raw"
+    root="$workdir/root"
+    mkdir -p "$defs" "$root/efi/EFI/BOOT" "$root/boot/EFI/Linux"
+    echo bootloader >"$root/efi/EFI/BOOT/loader.efi"
+    echo kernel >"$root/boot/EFI/Linux/kernel.efi"
+
+    tee "$defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+CopyFiles=/efi:/
+SizeMinBytes=10M
+SplitName=esp
+EOF
+
+    tee "$defs/20-xbootldr.conf" <<EOF
+[Partition]
+Type=xbootldr
+Format=vfat
+CopyFiles=/boot:/
+SizeMinBytes=100M
+SupplementFor=10-esp
+EOF
+
+    # Neither definition has subvolumes, but both CopyFiles= entries must survive the merge.
+    systemd-repart --offline="$OFFLINE" \
+                   --root="$root" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --split=yes \
+                   "$image"
+
+    output="$(sfdisk --json "$image")"
+    assert_eq "$(jq '.partitiontable.partitions | length' <<<"$output")" 1
+    assert_eq "$(jq -r '.partitiontable.partitions[0].type' <<<"$output")" "$esp_guid"
+    assert_eq "$(env MTOOLS_SKIP_CHECK=1 mtype -i "$workdir/image.esp.raw" ::/EFI/BOOT/loader.efi)" \
+        bootloader
+    assert_eq "$(env MTOOLS_SKIP_CHECK=1 mtype -i "$workdir/image.esp.raw" ::/EFI/Linux/kernel.efi)" \
+        kernel
+}
+
+testcase_fallback_partitions_subvolumes() {
+    local workdir defs image root output version
+
+    if ! command -v btrfs >/dev/null || ! command -v mkfs.btrfs >/dev/null; then
+        echo "Skipping fallback partition subvolume test, btrfs-progs is not installed."
+        return 0
+    fi
+
+    version="$(btrfs --version)"
+    version="${version%%$'\n'*}"
+    if [[ "$OFFLINE" == "yes" ]] && \
+        ! systemd-analyze compare-versions "${version#btrfs-progs }" ge v6.12; then
+        echo "Skipping offline fallback partition subvolume test, btrfs-progs is older than v6.12."
+        return 0
+    fi
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping fallback partition subvolume test, mounting images requires loop devices."
+        return 0
+    fi
+
+    workdir="$(mktemp --directory /var/tmp/test-repart.fallback-subvolumes.XXXXXXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    defs="$workdir/defs"
+    image="$workdir/image.raw"
+    root="$workdir/root"
+    mkdir -p "$defs" "$root/source/from-target" "$root/source/from-supplement" "$root/extra"
+    echo target >"$root/source/from-target/file"
+    echo supplement >"$root/source/from-supplement/file"
+    echo extra >"$root/extra/extra-file"
+
+    tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=btrfs
+CopyFiles=/source:/
+Subvolumes=/from-target
+SizeMinBytes=256M
+EOF
+
+    tee "$defs/20-supplement.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+CopyFiles=/extra:/
+Subvolumes=/from-supplement
+SupplementFor=10-root
+EOF
+
+    # Both path and source-inode maps have entries from each definition when copying /source.
+    systemd-repart --offline="$OFFLINE" \
+                   --root="$root" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk --json "$image")"
+    assert_eq "$(jq '.partitiontable.partitions | length' <<<"$output")" 1
+    assert_eq "$(jq -r '.partitiontable.partitions[0].type' <<<"$output")" "$root_guid"
+    # shellcheck disable=SC2016
+    systemd-dissect --read-only --with "$image" bash -eux -c '
+        btrfs subvolume show from-target
+        btrfs subvolume show from-supplement
+        cmp "$1/source/from-target/file" from-target/file
+        cmp "$1/source/from-supplement/file" from-supplement/file
+        cmp "$1/extra/extra-file" extra-file
+    ' bash "$root"
+}
+
 testcase_btrfs() {
     local defs imgs output root
 
