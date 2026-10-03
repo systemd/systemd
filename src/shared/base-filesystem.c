@@ -86,6 +86,8 @@ static const BaseFilesystem table[] = {
                          "usr/lib\0",                "ld-linux-x86-64.so.2" },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__ia64__)
+        /* No /lib64 on IA-64 (despite being 64-bit). The linker is /lib/ld-linux-ia64.so.2. */
+#  define KNOW_LIB64_DIRS 1
 #elif defined(__loongarch_lp64)
 #  define KNOW_LIB64_DIRS 1
 #  if defined(__loongarch_double_float)
