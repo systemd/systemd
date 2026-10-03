@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vm_sockets.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -84,9 +85,15 @@ static int verb_make_vsock(int argc, char *argv[], uintptr_t _data, void *_userd
         } else
                 out = stdout;
 
-        fprintf(out,
-                "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
-                "\n", cid);
+        if (cid != VMADDR_CID_ANY)
+                /* Even when hwdb reports VSOCK_ACCEPT_VMADDR_CID_ANY=1, do not print
+                 * VMADDR_CID_ANY in the output. It will be rejected by systemd-ssh-proxy,
+                 * because it is still not a valid destination CID. */
+                fprintf(out,
+                        "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
+                        "\n", cid);
+        else
+                fprintf(out, "This VM's SSH server is available over AF_VSOCK.\n\n");
 
         if (f) {
                 if (fchmod(fileno(f), 0644) < 0)
