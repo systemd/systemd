@@ -86,12 +86,22 @@ COMMON_NAME_MAX_LEN = 64
 INITRD_PCR_POLICY: tuple[list[str], str] = (['enter-initrd'], 'initrd')
 
 
+def terminal_is_dumb() -> bool:
+    return (
+        not sys.stdout.isatty()
+        or not sys.stderr.isatty()
+        or os.getenv("TERM", "") == "dumb"
+        or os.getenv("NO_COLOR", False)
+    )
+
+
 class Style:
-    bold = '\033[0;1;39m' if sys.stderr.isatty() else ''
-    gray = '\033[0;38;5;245m' if sys.stderr.isatty() else ''
-    red = '\033[31;1m' if sys.stderr.isatty() else ''
-    yellow = '\033[33;1m' if sys.stderr.isatty() else ''
-    reset = '\033[0m' if sys.stderr.isatty() else ''
+    bold = '\033[0;1;39m' if not terminal_is_dumb() else ''
+    gray = '\033[0;38;5;245m' if not terminal_is_dumb() else ''
+    red = '\033[31;1m' if not terminal_is_dumb() else ''
+    yellow = '\033[33;1m' if not terminal_is_dumb() else ''
+    blue = '\033[34;1m' if not terminal_is_dumb() else ''
+    reset = '\033[0m' if not terminal_is_dumb() else ''
 
 
 def guess_efi_arch() -> str:
@@ -2463,13 +2473,13 @@ def create_parser() -> argparse.ArgumentParser:
         description='Build and sign Unified Kernel Images',
         usage='\n  '
         + textwrap.dedent('''\
-          ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
-            ukify {b}genkey{e} [options…]
-            ukify {b}inspect{e} FILE… [options…]
+          %(prog)s {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
+            %(prog)s {b}genkey{e} [options…]
+            %(prog)s {b}inspect{e} FILE… [options…]
         ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
-        epilog='\n  '.join(('config file:', *config_example())),
+        epilog='\n  '.join((f'{Style.blue}config file:{Style.reset}', *config_example())),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
