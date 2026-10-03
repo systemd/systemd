@@ -44,8 +44,8 @@ sd_future* fiber_ops_timeout(uint64_t timeout) {
         return fiber_ops->timeout(timeout);
 }
 
-sd_future* fiber_ops_cancel_wait_unref(sd_future *f) {
+sd_future* fiber_ops_timeout_unref(sd_future *timer) {
         assert(fiber_ops);
 
-        return fiber_ops->cancel_wait_unref(f);
+        return fiber_ops->timeout_unref(timer);
 }

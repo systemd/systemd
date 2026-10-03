@@ -70,6 +70,11 @@ typedef struct Fiber {
         sd_future *floating;            /* Self-ref held while the fiber is floating; dropped on resolve. */
         sd_future *awaiting;            /* Target of the wait the fiber is suspended in, if any. */
 
+        /* The timers of the SD_FIBER_TIMEOUT() scopes the fiber is in, innermost last. The scopes own the
+         * timers. */
+        sd_future **timeouts;
+        size_t n_timeouts;
+
         sd_event_source *defer_event_source;
         sd_event_source *exit_event_source;
 
@@ -325,7 +330,7 @@ static const FiberOps fiber_ops = {
         .read = sd_fiber_read,
         .write = sd_fiber_write,
         .timeout = sd_fiber_timeout,
-        .cancel_wait_unref = sd_future_cancel_wait_unref,
+        .timeout_unref = sd_fiber_timeout_unref,
 };
 
 static void fiber_enter(sd_future *f, sd_future *prev, void **fake_stack_save) {
@@ -519,6 +524,7 @@ static void fiber_free(sd_future *f) {
         sd_event_source_disable_unref(fiber->defer_event_source);
         sd_event_source_disable_unref(fiber->exit_event_source);
 
+        free(fiber->timeouts);
         free(fiber->name);
 }
 
@@ -1003,5 +1009,39 @@ sd_future* sd_fiber_timeout(uint64_t timeout) {
         if (r < 0)
                 return NULL;
 
+        Fiber *fiber = fiber_get(f);
+        if (!GREEDY_REALLOC(fiber->timeouts, fiber->n_timeouts + 1))
+                return NULL;
+
+        fiber->timeouts[fiber->n_timeouts++] = timer;
         return TAKE_PTR(timer);
+}
+
+static bool fiber_timed_out(Fiber *fiber) {
+        FOREACH_ARRAY(t, fiber->timeouts, fiber->n_timeouts)
+                if (sd_future_state(*t) == SD_FUTURE_RESOLVED && sd_future_result(*t) == -ETIME)
+                        return true;
+
+        return false;
+}
+
+sd_future* sd_fiber_timeout_unref(sd_future *timer) {
+        if (!timer)
+                return NULL;
+
+        Fiber *fiber = fiber_get(ASSERT_PTR(sd_fiber_get_current()));
+
+        assert(fiber->n_timeouts > 0 && fiber->timeouts[fiber->n_timeouts - 1] == timer);
+        fiber->n_timeouts--;
+
+        /* sd_fiber_await() queues -ETIME again if the awaited future resolved first. If no suspension
+         * point in the scope returned that -ETIME, the first suspension point after the scope returns it,
+         * although no deadline applies there. A queued -ETIME does not record which timer queued it. Keep
+         * it if the timer of an enclosing scope expired, because that scope still has to return -ETIME. */
+        if (fiber->result_pending && fiber->result == -ETIME && !fiber_timed_out(fiber)) {
+                fiber->result_pending = false;
+                fiber->result = 0;
+        }
+
+        return sd_future_cancel_wait_unref(timer);
 }
