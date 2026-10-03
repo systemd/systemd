@@ -2624,4 +2624,74 @@ TEST(future_new_defer_rejected_on_exiting_loop) {
         ASSERT_NULL(f);
 }
 
+typedef struct AwaitInterrupted {
+        sd_future *target;
+        int await_result;
+        int yield_result;
+} AwaitInterrupted;
+
+static int await_then_yield_fiber(void *userdata) {
+        AwaitInterrupted *a = ASSERT_PTR(userdata);
+
+        a->await_result = sd_fiber_await(a->target);
+        a->yield_result = sd_fiber_yield();
+        return 0;
+}
+
+TEST(fiber_await_completion_wins) {
+        int interruption;
+
+        FOREACH_ARGUMENT(interruption, -ECANCELED, -ETIME) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
+
+                ASSERT_OK(sd_event_new(&e));
+                ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
+
+                AwaitInterrupted a = { .target = target };
+                ASSERT_OK(sd_fiber_new(e, "completion-wins", await_then_yield_fiber, &a, /* destroy= */ NULL, &waiter));
+                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
+
+                /* The target resolves first, then the interruption arrives before the fiber runs. */
+                ASSERT_OK(sd_future_resolve(target, 42));
+                if (interruption == -ECANCELED)
+                        ASSERT_OK(sd_future_cancel(waiter));
+                else
+                        ASSERT_OK(sd_fiber_resume(waiter, interruption));
+
+                ASSERT_OK(sd_event_loop(e));
+                ASSERT_OK_ZERO(a.await_result);
+                ASSERT_EQ(a.yield_result, interruption);
+        }
+}
+
+static int await_then_return_fiber(void *userdata) {
+        int r;
+
+        r = sd_fiber_await(ASSERT_PTR(userdata));
+        if (r < 0)
+                return r;
+
+        return 7;
+}
+
+TEST(fiber_return_drops_queued_interruption) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
+        ASSERT_OK(sd_fiber_new(e, "return-queued", await_then_return_fiber, target, /* destroy= */ NULL, &waiter));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        ASSERT_OK(sd_future_resolve(target, 0));
+        ASSERT_OK(sd_future_cancel(waiter));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_result(waiter), 7);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
