@@ -8,6 +8,7 @@ AllowedMemoryNodes=
 AllowIsolate=
 Also=
 DeferReactivation=
+MinIntervalSec=
 AmbientCapabilities=
 AssertACPower=
 AssertArchitecture=
