@@ -2472,9 +2472,9 @@ def create_parser() -> argparse.ArgumentParser:
         description='Build and sign Unified Kernel Images',
         usage='\n  '
         + textwrap.dedent('''\
-          ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
-            ukify {b}genkey{e} [options…]
-            ukify {b}inspect{e} FILE… [options…]
+          %(prog)s {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
+            %(prog)s {b}genkey{e} [options…]
+            %(prog)s {b}inspect{e} FILE… [options…]
         ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
