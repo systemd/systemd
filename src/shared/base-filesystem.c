@@ -72,21 +72,21 @@ static const BaseFilesystem table[] = {
                          "usr/lib\0",                "ld-linux-aarch64.so.1",       BASE_FILESYSTEM_EMPTY_ONLY        },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__alpha__)
-        /* No /lib64 on DEC Alpha (despite being 64-bit). The linker is /lib/ld-linux.so.2. */
+        /* No /lib64 on DEC Alpha (despite being 64-bit). The interpreter is /lib/ld-linux.so.2. */
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__arc__) || defined(__tilegx__)
 #elif defined(__arm__)
-        /* No /lib64 on arm. The linker is /lib/ld-linux-armhf.so.3. */
+        /* No /lib64 on arm. The interpreter is /lib/ld-linux-armhf.so.3. */
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__hppa__)
-        /* No /lib32 or /lib64 on hppa. The linker is /usr/lib/hppa-linux-gnu/ld.so.1. */
+        /* No /lib32 or /lib64 on hppa. The interpreter is /usr/lib/hppa-linux-gnu/ld.so.1. */
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-x86-64.so.2" },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__ia64__)
-        /* No /lib64 on IA-64 (despite being 64-bit). The linker is /lib/ld-linux-ia64.so.2. */
+        /* No /lib64 on IA-64 (despite being 64-bit). The interpreter is /lib/ld-linux-ia64.so.2. */
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__loongarch_lp64)
 #  define KNOW_LIB64_DIRS 1
@@ -118,7 +118,7 @@ static const BaseFilesystem table[] = {
                          "usr/lib\0",                "ld64.so.2" },
 #  else
         /* powerpc-linux-gnu */
-        /* No /lib32 or /lib64 on powerpc. The linker is /usr/lib/powerpc-linux-gnu/ld.so.1. */
+        /* No /lib32 or /lib64 on powerpc. The interpreter is /usr/lib/powerpc-linux-gnu/ld.so.1. */
 #       define KNOW_LIB64_DIRS 1
 #  endif
 #elif defined(__riscv)
@@ -148,9 +148,8 @@ static const BaseFilesystem table[] = {
         /* No /lib32 or /lib64 on SPARC (32-bit). The linker is /lib/ld-linux.so.2. */
 #       define KNOW_LIB64_DIRS 1
 #  endif
-#    define KNOW_LIB64_DIRS 1
 #elif defined(__SH3__) || defined(__SH3E__) || defined(__SH4__)
-        /* No /lib32 or /lib64 on SuperH. The linker is /lib/ld-linux.so.2. */
+        /* No /lib32 or /lib64 on SuperH. The interpreter is /lib/ld-linux.so.2. */
 #    define KNOW_LIB64_DIRS 1
 #endif
         /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
