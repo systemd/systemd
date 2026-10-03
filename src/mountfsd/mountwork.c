@@ -1271,23 +1271,38 @@ static int vl_method_mount_directory(
                 } else
                         start = 0;
 
-                _cleanup_free_ char *new_uid_map = NULL;
+                _cleanup_free_ char *new_uid_map = NULL, *new_gid_map = NULL;
                 switch (p.mode) {
                 case MOUNT_MAP_ROOT:
                         r = strextendf(&new_uid_map, UID_FMT " " UID_FMT " " UID_FMT,
                                        peer_uid, start, (uid_t) 1);
+                        if (r < 0)
+                                return r;
+
+                        /* Map the directory's own group, not the peer's primary group. */
+                        r = strextendf(&new_gid_map, GID_FMT " " GID_FMT " " GID_FMT,
+                                       unmapped_st.st_gid, start, (gid_t) 1);
+                        if (r < 0)
+                                return r;
+
                         break;
                 case MOUNT_MAP_FOREIGN:
                         r = strextendf(&new_uid_map, UID_FMT " " UID_FMT " " UID_FMT,
                                        (uid_t) FOREIGN_UID_MIN, start, (uid_t) 0x10000);
+                        if (r < 0)
+                                return r;
+
+                        r = strextendf(&new_gid_map, GID_FMT " " GID_FMT " " GID_FMT,
+                                       (gid_t) FOREIGN_UID_MIN, start, (gid_t) 0x10000);
+                        if (r < 0)
+                                return r;
+
                         break;
                 default:
                         assert_not_reached();
                 }
-                if (r < 0)
-                        return r;
 
-                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
+                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_gid_map, /* setgroups_deny= */ true);
                 if (idmap_userns_fd < 0)
                         return log_debug_errno(idmap_userns_fd, "Failed to acquire user namespace for id mapping: %m");
 

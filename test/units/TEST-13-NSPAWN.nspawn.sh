@@ -1562,12 +1562,13 @@ testcase_unpriv_gidmap() {
     # host -> container
     touch "$root/file"
     chown -R 54321:12345 "$root"
-    permissions="$(run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no --link-journal=no -D "$root" stat -c %u:%g /file)"
-    assert_eq "$permissions" "0:65534"
+    permissions="$(run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no -D "$root" stat -c %u:%g /file)"
+    assert_eq "$permissions" "0:0"
 
     # container -> host
-    # run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no --link-journal=no -D "$root" touch /other_file
-    # touch: cannot touch '/other_file': Permission denied
+    run0 --pipe -u gidmaptest systemd-nspawn --pipe --register=no -D "$root" touch /other_file
+    permissions="$(stat -c %u:%g "$root/other_file")"
+    assert_eq "$permissions" "54321:12345"
 
     rm -rf "$root"
 }
