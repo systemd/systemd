@@ -1,0 +1,101 @@
+---
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: build-stats
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-stats:
+    runs-on: ubuntu-24.04
+    environment: build-stats
+    if: github.repository == 'systemd/systemd'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: src
+          persist-credentials: false
+      - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
+
+      - name: Checkout systemd stats repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: stats
+          repository: systemd/systemd-build-stats
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          persist-credentials: true
+          # this is needed so we can push to a different repository
+          fetch-depth: 0
+
+      # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
+      # immediately, we remove the files in the background. However, we first move them to a different location
+      # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
+      - name: Free disk space
+        working-directory: src
+        run: |
+          sudo mv /usr/local /usr/local.trash
+          sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
+          sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+
+      - name: Configure
+        working-directory: src
+        run: |
+          tee mkosi/mkosi.local.conf <<EOF
+          [Distribution]
+          Distribution=arch
+
+          [Build]
+          ToolsTreeDistribution=arch
+          WithTests=no
+
+          [Runtime]
+          RAM=4G
+          EOF
+
+      - name: Show image summary
+        working-directory: src
+        run: mkosi summary
+
+      - name: Build tools tree
+        working-directory: src
+        run: sudo mkosi -f box -- true
+
+      - name: Configure meson
+        working-directory: src
+        run: |
+          sudo mkosi box -- \
+            meson setup \
+            build
+
+      - name: Build systemd
+        working-directory: src
+        run: sudo mkosi box -- meson compile -C build
+
+      - name: Collect build stats
+        run: |
+          set -eux
+
+          commit_sha=$(git -C src rev-parse HEAD)
+          commit_count=$(printf "%08d" "$(git -C src rev-list --count HEAD)")
+          stats_dir=$(realpath stats/stats)
+          stats_file="${commit_count}-${commit_sha}.json"
+
+          mkosi -C src \
+            box -- \
+            ./tools/dump-build-stats.py \
+            --output "${stats_dir}/${stats_file}" build
+
+          cd "${stats_dir}"
+          git config --global user.name "Build Stats Bot"
+          git config --global user.email "build-stats@systemd.io"
+
+          git add "${stats_file}"
+          git commit -m "Add ${commit_sha} build stats" .
+          git show --stat
+          git push git@github.com:systemd/systemd-build-stats HEAD
