@@ -185,7 +185,7 @@ struct sd_event {
         unsigned delays[sizeof(usec_t) * 8];
 };
 
-DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_event, event);
+DEFINE_ORIGIN_ID_HELPERS(sd_event, event);
 
 static thread_local sd_event *default_event = NULL;
 

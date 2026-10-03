@@ -54,6 +54,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
 /* SD_EVENT_DEFAULT selects the calling thread's existing default event loop, or fails with -ENOPKG. */
 int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
 int sd_future_cancel(sd_future *f);
+/* sd_future_resolve() only fails if f is NULL or already resolved. */
 int sd_future_resolve(sd_future *f, int result);
 
 /* A future must be RESOLVED before its last reference is released; dropping the last reference to a
