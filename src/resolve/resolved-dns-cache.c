@@ -249,20 +249,16 @@ void dns_cache_prune(DnsCache *c) {
         }
 }
 
-bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t) {
+usec_t dns_cache_next_expiry(DnsCache *c) {
         DnsCacheItem *i;
 
         assert(c);
 
-        /* Check if any items expire within the next second */
         i = prioq_peek(c->by_expiry);
         if (!i)
-                return false;
+                return USEC_INFINITY;
 
-        if (i->until <= usec_add(t, USEC_PER_SEC))
-                return true;
-
-        return false;
+        return i->until;
 }
 
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
