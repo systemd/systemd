@@ -144,6 +144,8 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('imds', type : 'feature',
        description : 'install the systemd-imds stack')
+option('timestampd', type : 'feature',
+       description : 'install the systemd-timestampd RFC 3161 time-stamp service')
 option('imds-network', type : 'combo', choices : ['unlocked', 'locked'],
        description : 'whether to default to locked/unlocked IMDS network mode')
 option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],

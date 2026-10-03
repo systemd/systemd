@@ -47,14 +47,20 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
 #  include <openssl/rsa.h>              /* IWYU pragma: export */
 #  include <openssl/sha.h>              /* IWYU pragma: export */
+#  include <openssl/ts.h>               /* IWYU pragma: export */
 
 #  include "dlfcn-util.h"
 
 extern DLSYM_PROTOTYPE(ASN1_ANY_it);
+extern DLSYM_PROTOTYPE(ASN1_BIT_STRING_get_bit);
 extern DLSYM_PROTOTYPE(ASN1_BIT_STRING_it);
 extern DLSYM_PROTOTYPE(ASN1_BMPSTRING_it);
 extern DLSYM_PROTOTYPE(ASN1_BMPSTRING_new);
 extern DLSYM_PROTOTYPE(ASN1_IA5STRING_it);
+extern DLSYM_PROTOTYPE(ASN1_INTEGER_free);
+extern DLSYM_PROTOTYPE(ASN1_INTEGER_get);
+extern DLSYM_PROTOTYPE(ASN1_INTEGER_new);
+extern DLSYM_PROTOTYPE(ASN1_INTEGER_set);
 extern DLSYM_PROTOTYPE(ASN1_OBJECT_it);
 extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_free);
 extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_it);
@@ -202,6 +208,7 @@ extern DLSYM_PROTOTYPE(EVP_sha384);
 extern DLSYM_PROTOTYPE(EVP_sha512);
 extern DLSYM_PROTOTYPE(HMAC);
 extern DLSYM_PROTOTYPE(OBJ_nid2obj);
+extern DLSYM_PROTOTYPE(OBJ_obj2nid);
 extern DLSYM_PROTOTYPE(OBJ_nid2sn);
 extern DLSYM_PROTOTYPE(OBJ_sn2nid);
 extern DLSYM_PROTOTYPE(OBJ_txt2obj);
@@ -228,6 +235,7 @@ extern DLSYM_PROTOTYPE(PEM_write);
 extern DLSYM_PROTOTYPE(PEM_write_PUBKEY);
 extern DLSYM_PROTOTYPE(PEM_write_PrivateKey);
 extern DLSYM_PROTOTYPE(PEM_write_X509);
+extern DLSYM_PROTOTYPE(PEM_write_bio_PKCS7);
 extern DLSYM_PROTOTYPE(PKCS5_PBKDF2_HMAC);
 extern DLSYM_PROTOTYPE(PKCS7_ATTR_SIGN_it);
 extern DLSYM_PROTOTYPE(PKCS7_SIGNER_INFO_free);
@@ -247,7 +255,38 @@ extern DLSYM_PROTOTYPE(PKCS7_set_content);
 extern DLSYM_PROTOTYPE(PKCS7_sign);
 extern DLSYM_PROTOTYPE(PKCS7_verify);
 extern DLSYM_PROTOTYPE(SHA512);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_free);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_get_algo);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_get_msg);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_new);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_algo);
+extern DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_msg);
+extern DLSYM_PROTOTYPE(TS_REQ_free);
+extern DLSYM_PROTOTYPE(TS_REQ_get_cert_req);
+extern DLSYM_PROTOTYPE(TS_REQ_get_msg_imprint);
+extern DLSYM_PROTOTYPE(TS_REQ_get_nonce);
+extern DLSYM_PROTOTYPE(TS_REQ_get_version);
+extern DLSYM_PROTOTYPE(TS_REQ_to_TS_VERIFY_CTX);
+extern DLSYM_PROTOTYPE(TS_REQ_new);
+extern DLSYM_PROTOTYPE(TS_REQ_set_cert_req);
+extern DLSYM_PROTOTYPE(TS_REQ_set_msg_imprint);
+extern DLSYM_PROTOTYPE(TS_REQ_set_nonce);
+extern DLSYM_PROTOTYPE(TS_REQ_set_version);
+extern DLSYM_PROTOTYPE(TS_RESP_free);
+extern DLSYM_PROTOTYPE(TS_RESP_get_status_info);
+extern DLSYM_PROTOTYPE(TS_RESP_get_token);
+extern DLSYM_PROTOTYPE(TS_RESP_get_tst_info);
+extern DLSYM_PROTOTYPE(TS_RESP_verify_response);
+extern DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_failure_info);
+extern DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_status);
+extern DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_text);
+extern DLSYM_PROTOTYPE(TS_TST_INFO_get_nonce);
+extern DLSYM_PROTOTYPE(TS_VERIFY_CTX_free);
+extern DLSYM_PROTOTYPE(TS_VERIFY_CTX_set_flags);
 extern DLSYM_PROTOTYPE(X509_ALGOR_free);
+extern DLSYM_PROTOTYPE(X509_ALGOR_get0);
+extern DLSYM_PROTOTYPE(X509_ALGOR_new);
+extern DLSYM_PROTOTYPE(X509_ALGOR_set0);
 extern DLSYM_PROTOTYPE(X509_ATTRIBUTE_free);
 extern DLSYM_PROTOTYPE(X509_NAME_free);
 extern DLSYM_PROTOTYPE(X509_NAME_oneline);
@@ -264,12 +303,15 @@ extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(d2i_ECPKParameters);
 extern DLSYM_PROTOTYPE(d2i_PKCS7);
 extern DLSYM_PROTOTYPE(d2i_PUBKEY);
+extern DLSYM_PROTOTYPE(d2i_TS_REQ);
+extern DLSYM_PROTOTYPE(d2i_TS_RESP);
 extern DLSYM_PROTOTYPE(d2i_X509);
 extern DLSYM_PROTOTYPE(i2d_ASN1_INTEGER);
 extern DLSYM_PROTOTYPE(i2d_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(i2d_PKCS7);
 extern DLSYM_PROTOTYPE(i2d_PKCS7_fp);
 extern DLSYM_PROTOTYPE(i2d_PUBKEY);
+extern DLSYM_PROTOTYPE(i2d_TS_REQ);
 extern DLSYM_PROTOTYPE(i2d_X509);
 extern DLSYM_PROTOTYPE(i2d_X509_NAME);
 
@@ -286,6 +328,7 @@ extern DLSYM_PROTOTYPE(i2d_X509_NAME);
 #define sym_PKCS7_set_detached(p, v) sym_PKCS7_ctrl((p), PKCS7_OP_SET_DETACHED_SIGNATURE, (v), NULL)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(void*, sym_OPENSSL_free, OPENSSL_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ASN1_INTEGER*, sym_ASN1_INTEGER_free, ASN1_INTEGER_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ASN1_OCTET_STRING*, sym_ASN1_OCTET_STRING_free, ASN1_OCTET_STRING_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ASN1_TIME*, sym_ASN1_TIME_free, ASN1_TIME_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIGNUM*, sym_BN_free, BN_freep, NULL);
@@ -308,6 +351,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM_BLD*, sym_OSSL_PARAM_BLD_free
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM*, sym_OSSL_PARAM_free, OSSL_PARAM_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7_SIGNER_INFO*, sym_PKCS7_SIGNER_INFO_free, PKCS7_SIGNER_INFO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7*, sym_PKCS7_free, PKCS7_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(TS_MSG_IMPRINT*, sym_TS_MSG_IMPRINT_free, TS_MSG_IMPRINT_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(TS_REQ*, sym_TS_REQ_free, TS_REQ_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(TS_VERIFY_CTX*, sym_TS_VERIFY_CTX_free, TS_VERIFY_CTX_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(TS_RESP*, sym_TS_RESP_free, TS_RESP_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509_ALGOR*, sym_X509_ALGOR_free, X509_ALGOR_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509_NAME*, sym_X509_NAME_free, X509_NAME_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509*, sym_X509_free, X509_freep, NULL);
 
@@ -323,6 +371,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509*, sym_X509_free, X509_freep, NULL);
         sym_OPENSSL_sk_pop_free(ossl_check_X509_ALGOR_sk_type(sk), ossl_check_X509_ALGOR_freefunc_type(freefunc))
 #define sym_sk_X509_ATTRIBUTE_pop_free(sk, freefunc) \
         sym_OPENSSL_sk_pop_free(ossl_check_X509_ATTRIBUTE_sk_type(sk), ossl_check_X509_ATTRIBUTE_freefunc_type(freefunc))
+#define sym_sk_ASN1_UTF8STRING_num(sk) \
+        sym_OPENSSL_sk_num(ossl_check_const_ASN1_UTF8STRING_sk_type(sk))
+#define sym_sk_ASN1_UTF8STRING_value(sk, idx) \
+        ((ASN1_UTF8STRING*) sym_OPENSSL_sk_value(ossl_check_const_ASN1_UTF8STRING_sk_type(sk), (idx)))
 #define sym_sk_PKCS7_SIGNER_INFO_num(sk) \
         sym_OPENSSL_sk_num(ossl_check_const_PKCS7_SIGNER_INFO_sk_type(sk))
 #define sym_sk_PKCS7_SIGNER_INFO_value(sk, idx) \
