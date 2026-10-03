@@ -85,6 +85,7 @@ REQUIREMENTS:
                                 PIDFD_INFO_COREDUMP by ioctl(PIDFD_GET_INFO)
                      ≥ 6.17 for coredump socket pattern ('@@' prefix)
                      ≥ 6.19 for PIDFD_INFO_SUPPORTED_MASK and PIDFD_INFO_COREDUMP_SIGNAL
+                     ≥ 7.0 for the .dm-verity keyring systemd-keyring-setup provisions
                      ≥ 7.1 for PIDFD_INFO_COREDUMP_CODE
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
@@ -175,6 +176,10 @@ REQUIREMENTS:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
+        Required to verify signed Verity images and fs-verity files using
+        certificates enrolled by systemd-keyring-setup:
+          CONFIG_KEYS
+          CONFIG_FS_VERITY_BUILTIN_SIGNATURES
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
