@@ -2155,6 +2155,11 @@ static int unit_update_cgroup(
                                             "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
         }
 
+        if (crt->cgroup_id != cgroup_id) {
+                crt->oom_kill_last = 0;
+                crt->managed_oom_kill_last = 0;
+        }
+
         crt->cgroup_id = cgroup_id;
 
         /* Start watching it */
