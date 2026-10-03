@@ -112,7 +112,6 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
 
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
-        (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
         (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
         (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_ratelimit_interval);
         (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_ratelimit_burst);
@@ -278,9 +277,6 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
 
                 else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-log-level-max", l, v, parse_boolean, u->exported_log_level_max))
                         continue;
 
                 else if (MATCH_DESERIALIZE("exported-log-extra-fields", l, v, parse_boolean, u->exported_log_extra_fields))
