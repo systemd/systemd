@@ -829,16 +829,11 @@ typedef struct QmpFuture {
         char *error_desc;
 } QmpFuture;
 
-static void* qmp_future_alloc(void) {
-        return new0(QmpFuture, 1);
-}
-
 static void qmp_future_free(sd_future *f) {
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         qmp_slot_unref(qf->slot);
         sd_json_variant_unref(qf->result);
         free(qf->error_desc);
-        free(qf);
 }
 
 static int qmp_future_cancel(sd_future *f) {
@@ -852,7 +847,7 @@ static int qmp_future_cancel(sd_future *f) {
 
 static const sd_future_ops qmp_call_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = qmp_future_alloc,
+        .private_size = sizeof(QmpFuture),
         .free = qmp_future_free,
         .cancel = qmp_future_cancel,
 };
@@ -977,8 +972,6 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        /* An interruption takes precedence even if the reply arrived in the same tick: the wait
-         * consumed the queued cancellation or timeout, and returning the reply instead would drop it. */
         r = sd_fiber_await(call);
         if (r < 0)
                 return r;

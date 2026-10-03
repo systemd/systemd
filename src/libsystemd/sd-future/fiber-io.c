@@ -32,6 +32,10 @@ static ssize_t fiber_io_operation(
         if (!sd_fiber_is_running())
                 return func(fd, args);
 
+        r = sd_fiber_interrupted();
+        if (r < 0)
+                return r;
+
         sd_event *e = sd_fiber_get_event();
         assert(e);
 
@@ -213,6 +217,10 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if (!sd_fiber_is_running())
                 return RET_NERRNO(connect(sockfd, addr, addrlen));
 
+        r = sd_fiber_interrupted();
+        if (r < 0)
+                return r;
+
         sd_event *e = sd_fiber_get_event();
         assert(e);
 
@@ -380,6 +388,10 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
 
         if (!sd_fiber_is_running())
                 return RET_NERRNO(ppoll(fds, n_fds, timeout, sigmask));
+
+        r = sd_fiber_interrupted();
+        if (r < 0)
+                return r;
 
         /* When on a fiber signals are handled via sd-event hence we should never mess around with the
          * signal mask when running on a fiber. */
