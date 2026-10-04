@@ -24,10 +24,68 @@
 #include "vmspawn-qmp.h"
 #include "vmspawn-util.h"
 
+/* Pending job continuation — called when a QMP background job reaches "concluded" state.
+ * Used by blockdev-create to chain remaining drive setup after the job completes. */
+typedef int (*pending_job_callback_t)(QmpClient *qmp, void *userdata);
+typedef void (*pending_job_free_t)(void *userdata);
+
+typedef struct PendingJob {
+        pending_job_callback_t on_concluded;
+        pending_job_free_t free_userdata;
+        void *userdata;
+} PendingJob;
+
+static PendingJob* pending_job_free(PendingJob *j) {
+        if (!j)
+                return NULL;
+        if (j->free_userdata)
+                j->free_userdata(j->userdata);
+        return mfree(j);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PendingJob *, pending_job_free);
+
 DEFINE_PRIVATE_HASH_OPS_FULL(
                 pending_job_hash_ops,
                 char, string_hash_func, string_compare_func, free,
                 PendingJob, pending_job_free);
+
+static int vmspawn_qmp_bridge_register_job(
+                VmspawnQmpBridge *b,
+                const char *job_id,
+                pending_job_callback_t on_concluded,
+                void *userdata,
+                pending_job_free_t free_userdata) {
+
+        _cleanup_free_ PendingJob *job = NULL;
+        _cleanup_free_ char *id = NULL;
+        int r;
+
+        assert(b);
+        assert(job_id);
+
+        id = strdup(job_id);
+        if (!id)
+                return -ENOMEM;
+
+        job = new(PendingJob, 1);
+        if (!job)
+                return -ENOMEM;
+
+        *job = (PendingJob) {
+                .on_concluded  = on_concluded,
+                .free_userdata = free_userdata,
+                .userdata      = userdata,
+        };
+
+        r = hashmap_ensure_put(&b->pending_jobs, &pending_job_hash_ops, id, job);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(id);
+        TAKE_PTR(job);
+        return 0;
+}
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 block_devices_hash_ops,
@@ -1099,7 +1157,7 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
 
 /* DEVICE_DELETED arrives once the guest has acked the eject; only then is it
  * safe to drop the blockdev node and release the registry slot (and PCIe port). */
-int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data) {
+static int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data) {
         assert(bridge);
 
         if (!data)
@@ -1685,14 +1743,6 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives) {
         return 0;
 }
 
-PendingJob* pending_job_free(PendingJob *j) {
-        if (!j)
-                return NULL;
-        if (j->free_userdata)
-                j->free_userdata(j->userdata);
-        return mfree(j);
-}
-
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
         if (!b)
                 return NULL;
@@ -1708,43 +1758,6 @@ VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
                 free(*owner);
 
         return mfree(b);
-}
-
-int vmspawn_qmp_bridge_register_job(
-                VmspawnQmpBridge *b,
-                const char *job_id,
-                pending_job_callback_t on_concluded,
-                void *userdata,
-                pending_job_free_t free_userdata) {
-
-        _cleanup_free_ PendingJob *job = NULL;
-        _cleanup_free_ char *id = NULL;
-        int r;
-
-        assert(b);
-        assert(job_id);
-
-        id = strdup(job_id);
-        if (!id)
-                return -ENOMEM;
-
-        job = new(PendingJob, 1);
-        if (!job)
-                return -ENOMEM;
-
-        *job = (PendingJob) {
-                .on_concluded  = on_concluded,
-                .free_userdata = free_userdata,
-                .userdata      = userdata,
-        };
-
-        r = hashmap_ensure_put(&b->pending_jobs, &pending_job_hash_ops, id, job);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(id);
-        TAKE_PTR(job);
-        return 0;
 }
 
 QmpClient* vmspawn_qmp_bridge_get_qmp(VmspawnQmpBridge *b) {
@@ -1864,6 +1877,102 @@ static int probe_schema(QmpClient *c, VmspawnQmpBridge *bridge) {
                         on_probe_schema_reply, bridge);
 }
 
+static int on_job_dismiss_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        if (error < 0)
+                log_debug_errno(error, "job-dismiss failed: %s", strna(error_desc));
+
+        return 0;
+}
+
+static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data) {
+        const char *job_id, *status;
+        int r;
+
+        assert(bridge);
+
+        if (!data)
+                return 0;
+
+        job_id = sd_json_variant_string(sd_json_variant_by_key(data, "id"));
+        status = sd_json_variant_string(sd_json_variant_by_key(data, "status"));
+
+        if (!job_id || !streq_ptr(status, "concluded"))
+                return 0;
+
+        _cleanup_free_ char *key = NULL;
+        _cleanup_(pending_job_freep) PendingJob *job = hashmap_remove2(bridge->pending_jobs, job_id, (void**) &key);
+        if (!job)
+                return 0;
+
+        log_debug("QMP job '%s' concluded, firing continuation", job_id);
+
+        /* Dismiss the concluded job before running the continuation */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dismiss_args = NULL;
+        r = sd_json_buildo(&dismiss_args, SD_JSON_BUILD_PAIR_STRING("id", job_id));
+        if (r < 0) {
+                log_error_errno(r, "Failed to build job-dismiss arguments for '%s': %m", job_id);
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
+
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "job-dismiss", QMP_CLIENT_ARGS(dismiss_args),
+                              on_job_dismiss_complete, /* userdata= */ NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to send job-dismiss for '%s': %m", job_id);
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
+
+        if (!job->on_concluded)
+                return 1;
+
+        r = job->on_concluded(bridge->qmp, TAKE_PTR(job->userdata));
+        if (r < 0) {
+                log_error_errno(r, "Job continuation failed: %m");
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
+
+        return 1;
+}
+
+static int on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata) {
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(userdata);
+
+        assert(client);
+        assert(event);
+
+        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
+        if (streq(event, "JOB_STATUS_CHANGE"))
+                return dispatch_pending_job(bridge, data);
+
+        /* Notification still fans out below. */
+        if (streq(event, "DEVICE_DELETED"))
+                (void) vmspawn_qmp_dispatch_device_deleted(bridge, data);
+        else if (streq(event, "RESET"))
+                bridge->reset_pending = false;
+
+        if (!bridge->event_callback)
+                return 0;
+
+        return bridge->event_callback(client, event, data, bridge->event_userdata);
+}
+
+void vmspawn_qmp_bridge_bind_event(VmspawnQmpBridge *b, qmp_event_callback_t callback, void *userdata) {
+        assert(b);
+
+        b->event_callback = callback;
+        b->event_userdata = userdata;
+}
+
 int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
         _cleanup_close_ int fd_close = ASSERT_FD(TAKE_FD(fd));
@@ -1888,12 +1997,52 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set QMP client description: %m");
 
+        /* Command callbacks find the bridge through the client's userdata. */
+        qmp_client_set_userdata(bridge->qmp, bridge);
+        qmp_client_bind_event(bridge->qmp, on_qmp_event, bridge);
+
         r = qmp_client_attach_event(bridge->qmp, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach QMP client to event loop: %m");
 
         *ret = TAKE_PTR(bridge);
         return 0;
+}
+
+/* Canonical sync-on-async pump, matching varlink_call_internal(): drive the QMP client until all
+ * outstanding command replies have been delivered, all pending jobs have concluded, and a pending reset
+ * has happened. The QMP client tracks outstanding replies in its own slots set; drain until it's idle. */
+static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
+        int r;
+
+        assert(bridge);
+
+        sd_event *event = qmp_client_get_event(bridge->qmp);
+
+        for (;;) {
+                int code;
+                /* Callbacks of fatal boot-time errors request the event loop to exit, but that isn't running
+                 * yet; stop draining then. */
+                if (sd_event_get_exit_code(event, &code) >= 0) {
+                        if (code < 0)
+                                return code;
+                        return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Exit requested during QMP device setup.");
+                }
+
+                if (qmp_client_is_idle(bridge->qmp) && hashmap_isempty(bridge->pending_jobs) &&
+                    !bridge->reset_pending)
+                        return 0;
+
+                r = qmp_client_process(bridge->qmp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process QMP messages: %m");
+                if (r > 0)
+                        continue;
+
+                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for QMP messages: %m");
+        }
 }
 
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
@@ -1911,19 +2060,9 @@ int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue schema probe: %m");
 
-        /* Canonical sync-on-async pump, matching varlink_call_internal(). The QMP client tracks
-         * outstanding replies in its own slots set; drain until it's idle. */
-        while (!qmp_client_is_idle(bridge->qmp)) {
-                r = qmp_client_process(bridge->qmp);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe pump failed: %m");
-                if (r > 0)
-                        continue;
-
-                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe wait failed: %m");
-        }
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return r;
 
         /* If fail_pending() drained the slots (transport dropped mid-probe), features can't be
          * trusted and we have no QMP channel for device setup anyway. */
@@ -1955,8 +2094,40 @@ static int on_cont_complete(
         return 0;
 }
 
-int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
+/* QEMU treats any device_add after machine creation as hotplug, even if the vCPUs never ran. With
+ * native PCIe hotplug, the slots then stay powered off. EDK2 (OVMF, edk2-aarch64) does not power
+ * them on, so the firmware does not see the devices. A machine reset powers the populated slots, as
+ * for cold-plugged devices. As the firmware has not run yet, this only takes a few milliseconds. */
+static int vmspawn_qmp_bridge_reset(VmspawnQmpBridge *bridge) {
+        int r;
+
         assert(bridge);
+
+        log_debug("Resetting machine, so that boot-time devices appear cold-plugged.");
+        bridge->reset_pending = true;
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "system_reset", /* args= */ NULL,
+                              on_qmp_complete, (void*) "system_reset");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send system_reset: %m");
+
+        return vmspawn_qmp_bridge_drain(bridge);
+}
+
+int vmspawn_qmp_start(VmspawnQmpBridge *bridge, bool reset_machine) {
+        int r;
+
+        assert(bridge);
+
+        /* Device setup is asynchronous, let it complete before the guest runs. */
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return r;
+
+        if (reset_machine) {
+                r = vmspawn_qmp_bridge_reset(bridge);
+                if (r < 0)
+                        return r;
+        }
 
         return qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "cont", /* args= */ NULL, on_cont_complete, bridge);
 }
