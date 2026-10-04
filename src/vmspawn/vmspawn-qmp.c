@@ -2014,7 +2014,21 @@ static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
 
         assert(bridge);
 
-        while (!qmp_client_is_idle(bridge->qmp)) {
+        sd_event *event = qmp_client_get_event(bridge->qmp);
+
+        for (;;) {
+                int code;
+                /* Callbacks of fatal boot-time errors request the event loop to exit, but that isn't running
+                 * yet; stop draining then. */
+                if (sd_event_get_exit_code(event, &code) >= 0) {
+                        if (code < 0)
+                                return code;
+                        return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Exit requested during QMP device setup.");
+                }
+
+                if (qmp_client_is_idle(bridge->qmp))
+                        return 0;
+
                 r = qmp_client_process(bridge->qmp);
                 if (r < 0)
                         return log_error_errno(r, "Failed to process QMP messages: %m");
@@ -2025,8 +2039,6 @@ static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for QMP messages: %m");
         }
-
-        return 0;
 }
 
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
