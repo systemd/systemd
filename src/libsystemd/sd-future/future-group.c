@@ -38,10 +38,6 @@ typedef struct FutureGroup {
         bool cancelling;
 } FutureGroup;
 
-static void* future_group_alloc(void) {
-        return new0(FutureGroup, 1);
-}
-
 static void future_group_free(sd_future *f) {
         FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
 
@@ -49,7 +45,6 @@ static void future_group_free(sd_future *f) {
         FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots)
                 sd_future_slot_unref(*slot_p);
         free(fg->slots);
-        free(fg);
 }
 
 static int future_group_parent_resolved(sd_future *parent, void *userdata) {
@@ -222,7 +217,7 @@ static int future_group_set_priority(sd_future *f, int64_t priority) {
 
 static const sd_future_ops future_group_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = future_group_alloc,
+        .private_size = sizeof(FutureGroup),
         .free = future_group_free,
         .cancel = future_group_cancel,
         .set_priority = future_group_set_priority,
