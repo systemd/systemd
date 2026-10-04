@@ -1445,7 +1445,7 @@ int decrypt_credential_and_warn(
                 struct tpm2_public_key_credential_header *z_pubkey = NULL;
                 struct tpm2_pinned_srk_credential_header *z_srk = NULL;
 
-                if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
+                if (!TPM2_PCR_MASK_VALID(le64toh(t->pcr_mask)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
                 if (!tpm2_hash_alg_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");
