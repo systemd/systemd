@@ -26,7 +26,7 @@ That means explicitly, that:
 1. The root control group may only be written to by systemd (PID 1). Services that create and manipulate control groups in the top level cgroup are in direct conflict with the kernel's requirement that each control group should have a single-writer only.
 2. Services must set Delegate=yes for the units they intend to manage subcgroups of. If they create and manipulate cgroups outside of units that have Delegate=yes set, they violate the access contract for control groups.
 
-For a more high-level background story, please have a look at this [Linux Foundation News Story](https://www.linuxfoundation.jp/blog/2013/08/all-about-the-linux-kernel-cgroups-redesign/).
+For a more high-level background story, please have a look at this [Linux.com News Story](https://www.linux.com/news/all-about-linux-kernel-cgroups-redesign/).
 
 ### Why this all again?
 
