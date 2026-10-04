@@ -12,6 +12,16 @@ rm -fr /tmp/{f,F,w}
 mkdir  /tmp/{f,F,w}
 touch /tmp/file-owned-by-root
 
+# tmpfs supports user.* xattrs on Linux 6.6 and higher
+XATTR_DIR="$(mktemp -d -p /var/tmp)"
+
+at_exit() (
+    set +e
+    rm -rf "$XATTR_DIR"
+)
+
+trap at_exit EXIT
+
 #
 # 'f'
 #
@@ -301,3 +311,61 @@ chown -R --no-dereference daemon:daemon /tmp/w/daemon
 f     /tmp/w/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
 test ! -e /tmp/w/daemon/unsafe-symlink/exploit
+
+#
+# 't'
+#
+touch "${XATTR_DIR}/file"
+touch "${XATTR_DIR}/multiple"
+
+systemd-tmpfiles --dry-run --create - <<EOF
+t     "${XATTR_DIR}/file"    - - - - user.comment=test
+EOF
+! getfattr --absolute-names --only-values --name=user.comment "$XATTR_DIR/file"
+
+### set xattrs on a regular file
+systemd-tmpfiles --create - <<EOF
+t     "${XATTR_DIR}/file"    - - - - user.comment=test
+EOF
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/file")" = "test"
+
+### can set multiple xattrs
+systemd-tmpfiles --create - <<EOF
+t     "${XATTR_DIR}/multiple"    - - - - user.comment=test user.attr-with-spaces="foo bar"
+EOF
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/multiple")" = "test"
+test "$(getfattr --absolute-names --only-values --name=user.attr-with-spaces "${XATTR_DIR}/multiple")" = "foo bar"
+
+### should not recurse into children
+mkdir -p "${XATTR_DIR}/no-recurse/child"
+touch "${XATTR_DIR}/no-recurse/child/file"
+
+systemd-tmpfiles --create - <<EOF
+t     "${XATTR_DIR}/no-recurse"    - - - - user.comment=top-only
+EOF
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/no-recurse")" = "top-only"
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}/no-recurse/child")" = ""
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}/no-recurse/child/file")" = ""
+
+#
+# 'T'
+#
+mkdir -p "${XATTR_DIR}/parent/sub"
+touch "${XATTR_DIR}/parent/sub/file"
+
+### set xattrs recursively
+systemd-tmpfiles --dry-run --create - <<EOF
+T     "${XATTR_DIR}/parent"    - - - - user.comment=recurse
+EOF
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}/parent/sub/file")" = ""
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}/parent/sub")" = ""
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}/parent")" = ""
+
+systemd-tmpfiles --create - <<EOF
+T     "${XATTR_DIR}/parent"    - - - - user.comment=recurse
+EOF
+
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/parent/sub/file")" = "recurse"
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/parent/sub")" = "recurse"
+test "$(getfattr --absolute-names --only-values --name=user.comment "${XATTR_DIR}/parent")" = "recurse"
+test "$(getfattr --absolute-names --only-values "${XATTR_DIR}")" = ""
