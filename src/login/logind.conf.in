@@ -45,6 +45,10 @@
 #HoldoffTimeoutSec=30s
 #IdleAction=ignore
 #IdleActionSec=30min
+#IdleActionExternalPower=ignore
+#IdleActionDocked=ignore
+#IdleActionSecExternalPower=30min
+#IdleActionSecDocked=30min
 #RuntimeDirectorySize=10%
 #RuntimeDirectoryInodesMax=
 #RemoveIPC=yes
