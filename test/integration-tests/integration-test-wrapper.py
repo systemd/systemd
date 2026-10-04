@@ -527,21 +527,37 @@ def main() -> None:
             '''
         )
 
-    if os.getenv('TEST_MATCH_SUBTEST'):
-        dropin += textwrap.dedent(
+    def forward_test_filter(name: str) -> str:
+        # These land in an Environment= line of a generated unit drop-in and go through
+        # unit-file word extraction: quote the value (the skip variables are space-separated
+        # lists, and the match regexes can legitimately contain spaces), escape backslashes,
+        # quotes and line breaks against c-unescaping and line splitting, and double % against
+        # specifier expansion -- so the guest reads exactly what the operator set.
+        value = (
+            os.environ[name]
+            .replace('\\', '\\\\')
+            .replace('"', '\\"')
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('%', '%%')
+        )
+        return textwrap.dedent(
             f'''
             [Service]
-            Environment=TEST_MATCH_SUBTEST={os.environ['TEST_MATCH_SUBTEST']}
+            Environment="{name}={value}"
             '''
         )
 
-    if os.getenv('TEST_MATCH_TESTCASE'):
-        dropin += textwrap.dedent(
-            f'''
-            [Service]
-            Environment=TEST_MATCH_TESTCASE={os.environ['TEST_MATCH_TESTCASE']}
-            '''
-        )
+    for env in (
+        'TEST_MATCH_SUBTEST',
+        'TEST_MATCH_TESTCASE',
+        'TEST_SKIP_SUBTESTS',
+        'TEST_SKIP_TESTCASES',
+        'TEST_MATCH_SCENARIO',
+        'TEST_SKIP_SCENARIOS',
+    ):
+        if os.getenv(env):
+            dropin += forward_test_filter(env)
 
     if os.getenv('TEST_RUN_DFUZZER'):
         dropin += textwrap.dedent(
