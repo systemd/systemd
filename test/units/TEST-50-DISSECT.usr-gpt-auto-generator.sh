@@ -16,6 +16,7 @@ at_exit() {
 
     if [[ -n "$LOOP" ]]; then
         losetup --detach "$LOOP"
+        udevadm settle --timeout=60 || true
     fi
 
     rm -rf "$WORK_DIR"
@@ -49,7 +50,7 @@ systemd-repart \
     "$IMAGE"
 
 LOOP="$(losetup --show --find --partscan "$IMAGE")"
-udevadm wait --timeout=60 --settle --initialized=no "$LOOP"p1 "$LOOP"p2
+udevadm wait --timeout=60 --settle "$LOOP"p1 "$LOOP"p2
 
 # Recreate a root=tmpfs system whose /usr/ is backed by a GPT partition and overlaid by systemd-sysext.
 # Run the generator as PID 1 because generators deliberately do nothing in containers.
@@ -77,6 +78,7 @@ for directory in bin lib lib64 sbin; do
 done
 
 mkdir -p "$1/usr/.systemd-sysext"
+findmnt --noheadings --raw --output MAJ:MIN --target "$1/usr" >"$1/usr/.systemd-sysext/dev"
 cat "/sys/class/block/${4##*/}p1/dev" >"$1/usr/.systemd-sysext/backing"
 
 export container=

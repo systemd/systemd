@@ -27,7 +27,6 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysupdate-cache.h"

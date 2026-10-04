@@ -21,7 +21,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -880,9 +879,7 @@ int blockdev_get_root(int level, dev_t *ret) {
                                 return log_full_errno(level, r, "Failed to determine block device of /usr/ file system: %m");
                         if (r == 0) { /* Not backed by a single block device, we might be looking at a sysext overlay */
                                 r = extension_overlay_block("/usr", IMAGE_SYSEXT, &devno);
-                                if (IN_SET(r, -ENOENT, -ENOTTY))
-                                        r = 0; /* no sysext overlay metadata */
-                                else if (r < 0)
+                                if (r < 0)
                                         return log_full_errno(level, r, "Failed to determine backing device of /usr/ extension overlay: %m");
                         }
                         if (r == 0) { /* /usr/ not backed by single block device, either. */
