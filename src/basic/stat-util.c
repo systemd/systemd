@@ -342,21 +342,35 @@ bool stat_is_empty(struct stat *st) {
 }
 
 int null_or_empty_path_with_root(const char *fn, const char *root) {
+        _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r;
 
         assert(fn);
 
-        /* A symlink to /dev/null or an empty file?
-         * When looking under root_dir, we can't expect /dev/ to be mounted,
-         * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
+        /* fn includes the root prefix. */
 
         if (path_equal(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
-        r = chase_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);
+        if (empty_or_root(root)) {
+                if (stat(fn, &st) < 0)
+                        return -errno;
+
+                return null_or_empty(&st);
+        }
+
+        /* An image below a root directory usually has no /dev/null, so a symlink to /dev/null dangles there.
+         * CHASE_NONEXISTENT resolves such a symlink without requiring the target to exist. */
+        r = chase(fn, root, CHASE_NONEXISTENT, &resolved, NULL);
         if (r < 0)
                 return r;
+
+        if (path_equal(path_startswith(resolved, root), "dev/null"))
+                return true;
+
+        if (stat(resolved, &st) < 0)
+                return -errno;
 
         return null_or_empty(&st);
 }

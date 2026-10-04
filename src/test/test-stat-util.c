@@ -10,6 +10,7 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -76,6 +77,27 @@ TEST(null_or_empty_path_with_root) {
         assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././..") == -ENOENT);
         assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar") == 1);
         assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar/") == 1);
+}
+
+TEST(null_or_empty_path_with_root_symlinks) {
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-stat-util-XXXXXX", &root));
+        ASSERT_OK_ERRNO(mkdir(strjoina(root, "/etc"), 0755));
+
+        /* The root has no /dev/null, so the symlink to it dangles. */
+        ASSERT_OK_ERRNO(symlink("/dev/null", strjoina(root, "/etc/null")));
+        ASSERT_OK(touch(strjoina(root, "/etc/empty")));
+        ASSERT_OK_ERRNO(symlink("/etc/empty", strjoina(root, "/etc/to-empty")));
+        ASSERT_OK(write_string_file(strjoina(root, "/etc/full"), "full", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(symlink("full", strjoina(root, "/etc/to-full")));
+
+        ASSERT_OK_POSITIVE(null_or_empty_path_with_root(strjoina(root, "/etc/null"), root));
+        ASSERT_OK_POSITIVE(null_or_empty_path_with_root(strjoina(root, "/etc/empty"), root));
+        ASSERT_OK_POSITIVE(null_or_empty_path_with_root(strjoina(root, "/etc/to-empty"), root));
+        ASSERT_OK_ZERO(null_or_empty_path_with_root(strjoina(root, "/etc/full"), root));
+        ASSERT_OK_ZERO(null_or_empty_path_with_root(strjoina(root, "/etc/to-full"), root));
+        ASSERT_ERROR(null_or_empty_path_with_root(strjoina(root, "/etc/missing"), root), ENOENT);
 }
 
 TEST(inode_same) {
