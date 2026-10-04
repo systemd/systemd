@@ -46,6 +46,8 @@ permissions:
 
 jobs:
   ci:
+    # Don't run on pushes to forks, only on pushes to the upstream repositories
+    if: github.event_name != 'push' || github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
     runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}-${{ matrix.runner || 'ubuntu-24.04' }}
