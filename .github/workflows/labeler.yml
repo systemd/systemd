@@ -175,6 +175,7 @@ jobs:
             "good-to-merge/after-next-release",
             "good-to-merge/with-minor-suggestions",
             "good-to-merge/waiting-for-reporter-feedback 👍",
+            "good-to-merge/trust-me-bro 👊",
           ]);
 
           /* A README.md that still carries the AI review notice has not been
@@ -249,6 +250,7 @@ jobs:
                                "good-to-merge/after-next-release",
                                "good-to-merge/with-minor-suggestions",
                                "good-to-merge/waiting-for-reporter-feedback 👍",
+                               "good-to-merge/trust-me-bro 👊",
                                "needs-discussion 🤔",
                                "needs-reporter-feedback ❓",
                                "dont-merge 💣",

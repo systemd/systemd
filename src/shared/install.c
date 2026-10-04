@@ -251,6 +251,7 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
 
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
         const char *rpath;
+        int r;
 
         assert(lp);
         assert(path);
@@ -262,8 +263,10 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-        if (path_is_generator(lp, rpath))
-                return true;
+        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
+        r = path_is_generator(lp, path);
+        if (r != 0)
+                return r;
 
         return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
 }
@@ -3688,7 +3691,7 @@ int unit_file_preset(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = { .scope = scope }, minus = { .scope = scope };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
@@ -3727,7 +3730,7 @@ int unit_file_preset_all(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = { .scope = scope }, minus = { .scope = scope };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;

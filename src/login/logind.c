@@ -95,6 +95,10 @@ static int manager_new(Manager **ret) {
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
+        r = device_build_default_trigger_args(/* with_timestamp= */ false, &m->device_trigger_args);
+        if (r < 0)
+                return r;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -166,6 +170,8 @@ static Manager* manager_free(Manager *m) {
         sd_device_monitor_unref(m->device_vcsa_monitor);
         sd_device_monitor_unref(m->device_button_monitor);
         sd_device_monitor_unref(m->device_uaccess_monitor);
+
+        strv_free(m->device_trigger_args);
 
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");

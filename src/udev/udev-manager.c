@@ -174,13 +174,19 @@ Manager* manager_free(Manager *manager) {
         sd_event_unref(manager->event);
 
         free(manager->workers_cgroup);
+        strv_free(manager->device_trigger_args);
         return mfree(manager);
 }
 
 Manager* manager_new(void) {
-        Manager *manager;
+        int r;
 
-        manager = new(Manager, 1);
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ false, &args);
+        if (r < 0)
+                return NULL;
+
+        Manager *manager = new(Manager, 1);
         if (!manager)
                 return NULL;
 
@@ -191,6 +197,7 @@ Manager* manager_new(void) {
                 .config_by_kernel = UDEV_CONFIG_INIT,
                 .config_by_control = UDEV_CONFIG_INIT,
                 .config = UDEV_CONFIG_INIT,
+                .device_trigger_args = TAKE_PTR(args),
         };
 
         return manager;

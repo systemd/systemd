@@ -1112,3 +1112,8 @@ global:
         sd_varlink_respond_and_upgrade;
         sd_varlink_respond_and_upgradeb;
 } LIBSYSTEMD_261;
+
+LIBSYSTEMD_263 {
+global:
+        sd_device_trigger_with_args;
+} LIBSYSTEMD_262;

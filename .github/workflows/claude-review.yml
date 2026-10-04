@@ -230,7 +230,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     if: needs.setup.outputs.skip != 'true'
-    timeout-minutes: 55
+    timeout-minutes: 60
 
     permissions:
       contents: read
@@ -242,8 +242,8 @@ jobs:
 
     steps:
       # Everything the agents read or produce lives here, outside their working
-      # directory, so a sandboxed shell cannot tamper with it. The runner context
-      # is not available in job-level env.
+      # directory. The sandbox settings in "Run review" deny writes to it. The
+      # runner context is not available in job-level env.
       - name: Set up directories
         run: |
           mkdir -p "$RUNNER_TEMP/claude-review/input" "$RUNNER_TEMP/claude-review/output"
@@ -319,8 +319,8 @@ jobs:
 
       - name: Install Claude Code
         run: |
-          version=2.1.220
-          expected=674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863
+          version=2.1.288
+          expected=0298068b686e7fdbaf9402a7a587bb7f49c0b0e084de09f69145a0719207640c
           mkdir -p "$HOME/.local/bin"
           curl -fsSL \
             "https://downloads.claude.ai/claude-code-releases/${version}/linux-x64/claude" \
@@ -335,14 +335,14 @@ jobs:
           "$HOME/.local/bin/claude" --version
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
           role-session-name: GitHubActions-Claude-${{ github.run_id }}
           aws-region: us-east-1
 
       - name: Run review
-        timeout-minutes: 45
+        timeout-minutes: 50
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
           CLAUDE_CODE_USE_MANTLE: "1"
@@ -380,6 +380,16 @@ jobs:
             }
           }
           SETTINGS
+          # The review collects every file that matches $OUTPUT/*.json. A sandboxed
+          # shell that can write to $OUTPUT can add forged findings, or a result for
+          # a lens that failed. $RUNNER_TEMP also holds the script of this step and
+          # the files behind $GITHUB_ENV and $GITHUB_PATH. A sandboxed shell that
+          # rewrites the step script runs commands outside the sandbox. A sandboxed
+          # shell that writes to $GITHUB_ENV or $GITHUB_PATH changes the environment
+          # of the later steps in this job.
+          jq --arg dir "$RUNNER_TEMP" '.sandbox.filesystem.denyWrite = [$dir]' \
+            ~/.claude/settings.json >~/.claude/settings.json.new
+          mv ~/.claude/settings.json.new ~/.claude/settings.json
 
           finding='{
             "type": "object",
@@ -400,15 +410,18 @@ jobs:
           # runner masks, rather than to an artifact, which it does not.
           #
           # A killed run yields nothing, so the deadline is enforced by the hook
-          # above, which denies tool calls once it has passed and leaves the model
-          # one turn to return what it has. The timeout only catches a hang.
+          # above, which denies tool calls once it has passed. After the deadline,
+          # the model still has to finish its current turn and then write its
+          # result in another turn. A single turn can take several minutes. The
+          # timeout therefore adds grace_minutes to the deadline.
+          grace_minutes=8
           run_claude() {
             local name=$1 minutes=$2 schema=$3 prompt=$4 dir status=0
             dir="$(mktemp -d)"
             prompt+="
 
           You have ${minutes} minutes. After that, tool calls are denied and you must return what you have."
-            (cd "$dir" && REVIEW_DEADLINE=$(( $(date +%s) + minutes * 60 )) timeout --kill-after=30 "$((minutes + 3))m" claude \
+            (cd "$dir" && REVIEW_DEADLINE=$(( $(date +%s) + minutes * 60 )) timeout --kill-after=30 "$((minutes + grace_minutes))m" claude \
               --model us.anthropic.claude-opus-5 \
               --effort high \
               --max-turns 100 \
@@ -423,18 +436,23 @@ jobs:
             # An agent whose every tool call failed still returns an empty findings
             # array, which is indistinguishable from a clean review. Require that it
             # got at least one tool result other than its own structured output.
-            local worked
-            worked="$(jq -Rn '
+            # When the sandbox is broken, every Bash call fails while Read and Grep
+            # still work. If the agent ran Bash, also require that one Bash call
+            # succeeded.
+            local worked bash_calls bash_worked
+            read -r worked bash_calls bash_worked < <(jq -Rnr '
               [inputs | fromjson?] as $events
               | [$events[] | select(.type == "assistant") | .message.content[]?
-                 | select(.type == "tool_use" and .name == "StructuredOutput") | .id] as $ignore
+                 | select(.type == "tool_use")] as $calls
+              | [$calls[] | select(.name == "StructuredOutput") | .id] as $ignore
+              | [$calls[] | select(.name == "Bash") | .id] as $bash
               | [$events[] | select(.type == "user") | .message.content[]?
-                 | select(.type == "tool_result" and .is_error != true and ([.tool_use_id] - $ignore | length > 0))]
-              | length' <"$OUTPUT/$name.log")"
-            if [[ -s "$OUTPUT/$name.json" ]] && (( worked > 0 )); then
+                 | select(.type == "tool_result" and .is_error != true) | .tool_use_id] as $ok
+              | "\($ok - $ignore | length) \($bash | length) \($ok - ($ok - $bash) | length)"' <"$OUTPUT/$name.log")
+            if [[ -s "$OUTPUT/$name.json" ]] && (( worked > 0 )) && (( bash_calls == 0 || bash_worked > 0 )); then
               echo "${name}: done (status ${status})"
             else
-              echo "${name}: no result (status ${status}, ${worked} tool call(s) succeeded)"
+              echo "${name}: no result (status ${status}, ${worked} tool call(s) succeeded, ${bash_worked} of ${bash_calls} Bash call(s) succeeded)"
               rm -f "$OUTPUT/$name.json"
             fi
           }
@@ -457,9 +475,10 @@ jobs:
 
           previous=""
           if [[ -n "$PREVIOUS_HEAD" ]] && git -C "$SOURCE" cat-file -e "$PREVIOUS_HEAD" 2>/dev/null; then
+            git -C "$SOURCE" diff "$PREVIOUS_HEAD" "$HEAD_SHA" >"$INPUT/incremental.patch"
             previous="This pull request was already reviewed at ${PREVIOUS_HEAD}. Concentrate on what
-          changed since then (git diff ${PREVIOUS_HEAD} ${HEAD_SHA}); code that did not change only
-          gets must-fix findings."
+          changed since then (${INPUT}/incremental.patch); code that did not change only gets
+          must-fix findings."
           fi
 
           declare -A lenses=(
@@ -472,7 +491,7 @@ jobs:
           )
 
           for name in "${!lenses[@]}"; do
-            run_claude "$name" 22 "{\"type\": \"object\", \"required\": [\"findings\"], \"properties\": {\"findings\": {\"type\": \"array\", \"items\": $finding}}}" \
+            run_claude "$name" 20 "{\"type\": \"object\", \"required\": [\"findings\"], \"properties\": {\"findings\": {\"type\": \"array\", \"items\": $finding}}}" \
           "${context}
 
           Review the pull request through one lens only, ${name}: ${lenses[$name]}. Report only
@@ -509,7 +528,7 @@ jobs:
           if [[ "$(jq length "$INPUT/candidates.json")" == 0 && "$open_threads" == 0 ]]; then
             echo '{"confirmed": [], "resolve": []}' >"$OUTPUT/validator.json"
           else
-            run_claude validator 12 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
+            run_claude validator 10 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
           "${context}
 
           ${INPUT}/candidates.json holds candidate findings from independent reviewers, possibly
@@ -990,11 +1009,14 @@ jobs:
                   return `- \`${path}:${c.line}\` ${body}${c.unposted ? " (could not be posted inline)" : ""}`;
                 }).join("\n");
             }
-            if (listed.length === 0)
-              summary += " No issues found :tada:";
             /* A run with failed lenses does not raise the bar, and leaves no head
              * behind, so the next run reviews the full diff again. */
             const complete = review.lenses.failed.length === 0;
+            if (!complete) {
+              summary += "\n\nThe review is incomplete, so the next push reviews the full diff again.";
+              core.warning(`Review lenses did not finish: ${review.lenses.failed.join(", ")}`);
+            } else if (listed.length === 0)
+              summary += " No issues found :tada:";
             const state = JSON.stringify(complete
               ? { count: reviewCount + 1, head: headSha }
               : { count: reviewCount, head: null });

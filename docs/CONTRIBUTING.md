@@ -52,28 +52,41 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 
 ## Policy on the use of Large Language Models (LLMs) and AI tooling
 
-We expect everyone contributing to systemd to fully own their
-contribution, be able to reason about it, be able to explain why things
-were done a particular way and act as the full owner of that code. AI
-tools are treated the same as traditional tooling like `sed`, `awk` or
-`coccinelle`.
+You may use generative AI and LLM tools ("AI") to help create
+contributions, as long as you review and edit what they produce so it
+follows the project guidelines.
 
-For the purpose of this project, AI tools CANNOT be treated as author,
-co-author or be credited in any way that would suggest any ownership
-over the contribution.
+1. **You are the author.** You must be able to explain every part of your
+   contribution and why it was done that way, and you own the code like
+   any other code you wrote. Do not list AI tools as author or co-author,
+   or credit them in any way that suggests ownership.
 
-The contributor should have done all the thinking, planning and
-understanding of the changes needed to resolve an issue or implement a
-new feature prior to using automated tooling to perform the grunt work.
+2. **You must understand what you contribute.** Do not submit AI-generated
+   code that you do not understand. If you cannot explain the code you
+   contributed, your contribution will not be merged and any further pull
+   requests will likely not get reviewed.
 
-Unguided use of those tools or the inability to prove understanding of
-the code contributed will result in a loss of trust in that contributor
-by project maintainers which can then lead to exclusion from any further
-contribution to the project.
+3. **You must speak for yourself.** Do not let an AI agent open pull
+   requests or post for you. Write issues, review comments, and posts to
+   the [systemd-devel mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel)
+   yourself.
 
-As with any other submissions, authors are responsible for doing due
-diligence and ensuring their submissions are compatible with the
-project's license as documented in LICENSES/README.md.
+   You may use AI to help write commit messages, code comments, and pull
+   request descriptions, but you must review and edit the result so it
+   matches the style of existing commits and pull requests. A pull request
+   description briefly explains what the change does and why. Avoid the
+   "AI voice": unusual metaphors, filler, headings and bullet lists for a
+   simple change, file-by-file summaries that restate the diff, and
+   excessive detail about unimportant things.
+
+   The first time maintainers find that you let AI communicate for you, or
+   that you posted AI-written text without reviewing it, you get a
+   warning. The second time, you are banned from the project.
+
+4. **You are responsible for licensing.** Make sure your contribution,
+   including any AI-generated code, is compatible with the project's
+   license as documented in
+   [`LICENSES/README.md`](https://github.com/systemd/systemd/blob/main/LICENSES/README.md).
 
 ## Reviewing Pull Requests
 
@@ -86,6 +99,8 @@ project's license as documented in LICENSES/README.md.
   * `needs-rebase` if the pull request needs a rebase because of conflicts
   * `good-to-merge/waiting-for-ci` if the pull request should be merged without further review
   * `good-to-merge/with-minor-suggestions` if the pull request should be merged after an update without going through another round of reviews
+
+  See [GitHub Labels](https://systemd.io/LABELS) for a description of all labels.
 
 Unfortunately only members of the `systemd` organization on github can change labels.
 If your pull request is mislabeled, make a comment in the pull request and somebody will fix it.

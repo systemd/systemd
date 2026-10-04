@@ -31,6 +31,8 @@ typedef struct Manager {
         sd_device_monitor *device_button_monitor;
         sd_device_monitor *device_uaccess_monitor;
 
+        char **device_trigger_args;
+
         sd_event_source *console_active_event_source;
 
 #if ENABLE_UTMP

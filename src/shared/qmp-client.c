@@ -829,16 +829,11 @@ typedef struct QmpFuture {
         char *error_desc;
 } QmpFuture;
 
-static void* qmp_future_alloc(void) {
-        return new0(QmpFuture, 1);
-}
-
 static void qmp_future_free(sd_future *f) {
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         qmp_slot_unref(qf->slot);
         sd_json_variant_unref(qf->result);
         free(qf->error_desc);
-        free(qf);
 }
 
 static int qmp_future_cancel(sd_future *f) {
@@ -852,7 +847,7 @@ static int qmp_future_cancel(sd_future *f) {
 
 static const sd_future_ops qmp_call_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = qmp_future_alloc,
+        .private_size = sizeof(QmpFuture),
         .free = qmp_future_free,
         .cancel = qmp_future_cancel,
 };
@@ -925,30 +920,32 @@ int qmp_client_call_future(
         return 0;
 }
 
-/* Extract the reply from a resolved qmp_client_call_future(). Returns 1 on success (with
- * *ret_result a fresh reference the caller unrefs), -EIO on a QMP-level error (with the detail
- * description copied into *ret_error_desc when the caller passed one to receive it), and the
- * future's negative resume errno when no reply landed at all (transport failure / cancellation).
- */
+/* future_get_qmp_reply() returns the future's result if that is negative. A QMP-level error resolves the
+ * future with -EIO, and its description is copied into *reterr_error_desc if the caller passed one.
+ * Otherwise it returns 1 with a new reference to the result in *ret_result. As with sd_future_result(),
+ * the future has to be resolved. */
 int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **reterr_error_desc) {
+        int r;
+
         assert(f);
         assert(sd_future_get_ops(f) == &qmp_call_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
+
+        assert_return(sd_future_state(f) == SD_FUTURE_RESOLVED, -EBUSY);
 
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(f));
 
-        /* No reply at all: transport failure or cancellation — surface the future result. */
-        if (!qf->result && !qf->error_desc)
-                return sd_future_result(f);
-
-        if (qf->error_desc) {
-                if (reterr_error_desc) {
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* A QMP-level error carries its description on top of the -EIO result; a transport
+                 * failure or cancellation has no reply at all. */
+                if (qf->error_desc && reterr_error_desc) {
                         char *desc = strdup(qf->error_desc);
                         if (!desc)
                                 return -ENOMEM;
                         *reterr_error_desc = desc;
                 }
-                return -EIO;
+
+                return r;
         }
 
         if (reterr_error_desc)
@@ -977,8 +974,6 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        /* An interruption takes precedence even if the reply arrived in the same tick: the wait
-         * consumed the queued cancellation or timeout, and returning the reply instead would drop it. */
         r = sd_fiber_await(call);
         if (r < 0)
                 return r;

@@ -21,6 +21,7 @@ ConditionPathExists=/etc/initrd-release
 ConditionKernelCommandLine=!rd.systemd.sysext=0
 
 DefaultDependencies=no
+After=systemd-confext-initrd.service
 Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
 Wants=local-fs-pre.target cryptsetup-pre.target
 Conflicts=initrd-switch-root.target
