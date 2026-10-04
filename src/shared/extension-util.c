@@ -312,7 +312,7 @@ int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
                 return 0;
         }
 
-        (void) block_get_originating(dev, &dev, /* recursive= */ false);
+        (void) block_get_originating(dev, &dev, /* recursive= */ true);
         *ret = dev;
         return 1;
 }
