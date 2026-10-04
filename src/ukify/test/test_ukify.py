@@ -98,6 +98,13 @@ def test_config_example():
     assert 'Splash = BMP' in ex
 
 
+@pytest.mark.parametrize('value', ['perhaps', ''])
+def test_boolean_error_value(value):
+    with pytest.raises(ValueError) as exc:
+        ukify.ConfigItem.parse_boolean(value)
+    assert str(exc.value) == f'Invalid boolean literal: {value!r}'
+
+
 def test_apply_config(tmp_path):
     config = tmp_path / 'config1.conf'
     config.write_text(
