@@ -286,8 +286,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
          * 2. With ret_fd: in this case the destination is opened after chasing it as O_PATH and this file
          *    descriptor is returned as return value. This is useful to open files relative to some root
          *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one
-         *    (using fd_reopen() or such) before it can be used for reading/writing. ret_fd may not be
-         *    combined with CHASE_NONEXISTENT.
+         *    (using fd_reopen() or such) before it can be used for reading/writing. If CHASE_NONEXISTENT
+         *    is also set and the destination doesn't exist, 0 is returned and ret_fd is set to -EBADF.
          *
          * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only
          *    the first symlink or ".." component of the path is resolved, and the resulting path is
