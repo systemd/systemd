@@ -2148,8 +2148,7 @@ static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         tail += 2; /* include slash at the beginning */
 
         p = buf;
-        size = sizeof(buf);
-        size -= strnpcpy_full(&p, size, attr, len, &truncated);
+        size = strnpcpy_full(&p, sizeof(buf), attr, len, &truncated);
         if (truncated)
                 return -ENOENT;
 
