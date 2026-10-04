@@ -1757,6 +1757,47 @@ def generate_keys(opts: UkifyConfig) -> None:
         )
 
 
+def fdt_root_compatible(data: bytes) -> Optional[list[str]]:
+    # Minimal flattened devicetree parser: return the 'compatible' strings of the root node
+    FDT_BEGIN_NODE, FDT_END_NODE, FDT_PROP, FDT_NOP, FDT_END = 1, 2, 3, 4, 9
+
+    if len(data) < 40 or struct.unpack_from('>I', data, 0)[0] != 0xD00DFEED:
+        return None
+    off_struct, off_strings = struct.unpack_from('>II', data, 8)
+
+    off = off_struct
+    depth = 0
+    try:
+        while off + 4 <= len(data):
+            (token,) = struct.unpack_from('>I', data, off)
+            off += 4
+            if token == FDT_BEGIN_NODE:
+                end = data.index(b'\0', off)
+                off = (end + 1 + 3) & ~3
+                depth += 1
+            elif token == FDT_END_NODE:
+                depth -= 1
+                if depth <= 0:
+                    return None
+            elif token == FDT_PROP:
+                length, nameoff = struct.unpack_from('>II', data, off)
+                off += 8
+                value = data[off : off + length]
+                off = (off + length + 3) & ~3
+                if depth == 1:
+                    start = off_strings + nameoff
+                    pname = data[start : data.index(b'\0', start)]
+                    if pname == b'compatible':
+                        return [s.decode() for s in value.rstrip(b'\0').split(b'\0')]
+            elif token == FDT_NOP:
+                continue
+            else:  # FDT_END or garbage
+                return None
+    except (struct.error, ValueError, UnicodeDecodeError):
+        return None
+    return None
+
+
 def inspect_section(
     opts: UkifyConfig,
     section: pefile.SectionStructure,
@@ -1788,6 +1829,10 @@ def inspect_section(
             print(f'Section {name!r} is not valid text: {e}', file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
 
+    compatible = fdt_root_compatible(data) if name in ('.dtb', '.dtbauto') else None
+    if compatible:
+        struct['compatible'] = ', '.join(compatible)
+
     if config and config.content:
         assert isinstance(config.content, Path)
         config.content.write_bytes(data)
@@ -1797,6 +1842,8 @@ def inspect_section(
         if ttype == 'text':
             text = textwrap.indent(cast(str, struct['text']).rstrip(), ' ' * 4)
             print(f'  text:\n{text}')
+        if compatible:
+            print(f'  compatible: {struct["compatible"]}')
 
     return struct
 
