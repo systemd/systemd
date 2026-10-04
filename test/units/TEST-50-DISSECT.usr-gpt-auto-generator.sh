@@ -10,9 +10,14 @@ IMAGE="$WORK_DIR/image.raw"
 OUTPUT="$WORK_DIR/output"
 ROOT="$WORK_DIR/root"
 LOOP=""
+DM_DEVICES=()
 
 at_exit() {
     set +e
+
+    for device in "${DM_DEVICES[@]}"; do
+        dmsetup remove "$device"
+    done
 
     if [[ -n "$LOOP" ]]; then
         losetup --detach "$LOOP"
@@ -52,10 +57,24 @@ systemd-repart \
 LOOP="$(losetup --show --find --partscan "$IMAGE")"
 udevadm wait --timeout=60 --settle "$LOOP"p1 "$LOOP"p2
 
-# Recreate a root=tmpfs system whose /usr/ is backed by a GPT partition and overlaid by systemd-sysext.
+# Put two device mapper layers on top of the /usr/ partition, so the test requires recursive lookup of the
+# originating block device.
+SECTORS="$(blockdev --getsz "$LOOP"p1)"
+DM_INNER="test-gpt-auto-generator-${WORK_DIR##*.}-inner"
+DM_OUTER="test-gpt-auto-generator-${WORK_DIR##*.}-outer"
+dmsetup create "$DM_INNER" --table "0 $SECTORS linear ${LOOP}p1 0"
+DM_DEVICES+=("$DM_INNER")
+udevadm wait --timeout=60 --settle "/dev/mapper/$DM_INNER"
+dmsetup create "$DM_OUTER" --table "0 $SECTORS linear /dev/mapper/$DM_INNER 0"
+DM_DEVICES=("$DM_OUTER" "${DM_DEVICES[@]}")
+udevadm wait --timeout=60 --settle "/dev/mapper/$DM_OUTER"
+BACKING_DEVNUM="$(lsblk --noheadings --nodeps --raw --output MAJ:MIN "/dev/mapper/$DM_OUTER")"
+
+# Recreate a root=tmpfs system whose /usr/ is backed by the stacked GPT partition and overlaid by
+# systemd-sysext.
 # Run the generator as PID 1 because generators deliberately do nothing in containers.
 unshare --mount --pid --fork --mount-proc \
-    bash -euxo pipefail -s -- "$ROOT" "$OUTPUT" "$WORK_DIR" "$LOOP" "$GENERATOR_BIN" <<'EOF'
+    bash -euxo pipefail -s -- "$ROOT" "$OUTPUT" "$WORK_DIR" "$BACKING_DEVNUM" "$GENERATOR_BIN" <<'EOF'
 mount --make-rprivate /
 
 mount --types tmpfs tmpfs "$1"
@@ -79,7 +98,7 @@ done
 
 mkdir -p "$1/usr/.systemd-sysext"
 findmnt --noheadings --raw --output MAJ:MIN --target "$1/usr" >"$1/usr/.systemd-sysext/dev"
-cat "/sys/class/block/${4##*/}p1/dev" >"$1/usr/.systemd-sysext/backing"
+echo "$4" >"$1/usr/.systemd-sysext/backing"
 
 export container=
 export SYSTEMD_IN_INITRD=0

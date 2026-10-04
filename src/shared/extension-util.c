@@ -203,7 +203,7 @@ static int read_devnum_file_at(int dir_fd, const char *filename, dev_t *ret) {
         return parse_devnum(buf, ret);
 }
 
-int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
+int extension_overlay_block(const char *p, ImageClass image_class, bool recursive, dev_t *ret) {
         struct stat st;
         dev_t dev;
         int r;
@@ -273,7 +273,7 @@ int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
                 return 0;
         }
 
-        (void) block_get_originating(dev, &dev, /* recursive= */ false);
+        (void) block_get_originating(dev, &dev, recursive);
         *ret = dev;
         return 1;
 }

@@ -878,7 +878,7 @@ int blockdev_get_root(int level, dev_t *ret) {
                         if (r < 0)
                                 return log_full_errno(level, r, "Failed to determine block device of /usr/ file system: %m");
                         if (r == 0) { /* Not backed by a single block device, we might be looking at a sysext overlay */
-                                r = extension_overlay_block("/usr", IMAGE_SYSEXT, &devno);
+                                r = extension_overlay_block("/usr", IMAGE_SYSEXT, /* recursive= */ true, &devno);
                                 if (r < 0)
                                         return log_full_errno(level, r, "Failed to determine backing device of /usr/ extension overlay: %m");
                         }
