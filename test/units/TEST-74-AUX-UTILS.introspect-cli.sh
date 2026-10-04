@@ -134,6 +134,7 @@ INTROSPECTABLE=(
     systemd-sysupdated
     systemd-sysusers
     systemd-timedated
+    systemd-timestampd
     systemd-timesyncd
     systemd-tmpfiles
     systemd-tpm2-clear

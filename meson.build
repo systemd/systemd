@@ -1575,6 +1575,11 @@ have = get_option('importd').require(
         error_message : 'curl, openssl, zlib and xz required').allowed()
 conf.set10('ENABLE_IMPORTD', have)
 
+have = get_option('timestampd').require(
+        conf.get('HAVE_OPENSSL') == 1,
+        error_message : 'openssl required').allowed()
+conf.set10('ENABLE_TIMESTAMPD', have)
+
 have = get_option('sysupdate').require(
         conf.get('ENABLE_IMPORTD') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
@@ -2237,6 +2242,7 @@ subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
 subdir('src/timedate')
+subdir('src/timestamp')
 subdir('src/timesync')
 subdir('src/tmpfiles')
 subdir('src/tpm2-setup')
@@ -3123,6 +3129,7 @@ foreach tuple : [
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
         ['sysupdate'],
+        ['timestampd'],
         ['sysupdated'],
         ['sysusers'],
         ['storagetm'],

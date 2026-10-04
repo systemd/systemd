@@ -1053,6 +1053,14 @@ units = [
           'conditions' : ['ENABLE_USERDB'],
         },
         {
+          'file' : 'systemd-timestampd.service.in',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
+        },
+        {
+          'file' : 'systemd-timestampd.socket',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
+        },
+        {
           'file' : 'systemd-mountfsd.service.in',
           'conditions' : ['ENABLE_MOUNTFSD'],
         },

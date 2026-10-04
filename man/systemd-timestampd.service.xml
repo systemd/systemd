@@ -1,0 +1,61 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-timestampd.service" conditional='ENABLE_TIMESTAMPD'>
+
+  <refentryinfo>
+    <title>systemd-timestampd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-timestampd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-timestampd.service</refname>
+    <refname>systemd-timestampd</refname>
+    <refpurpose>Time-stamp acquisition service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-timestampd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-timestampd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-timestampd</command> is a system service that acquires
+    <ulink url="https://www.rfc-editor.org/rfc/rfc3161">RFC 3161</ulink> time-stamp tokens from a Time-Stamp
+    Authority (TSA) on behalf of clients, via a Varlink IPC API. A client supplies a message digest, and then
+    the service creates a time-stamp request, sends it to the configured authority, waits for the reply, and
+    returns the resulting time-stamp token.</para>
+
+    <para>Both the HTTP(S) and TCP transports described in RFC 3161 are supported; the transport is selected
+    by the scheme of the authority URL (<literal>http://</literal>, <literal>https://</literal> or
+    <literal>tcp://</literal>). The HTTP(S) transport requires that this build has libcurl support; without
+    it only <literal>tcp://</literal> authorities are accepted. The authority is configured in
+    <citerefentry><refentrytitle>timestampd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
+    may be overridden per request.</para>
+
+    <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
+    <constant>io.systemd.Timestamp</constant>, which exposes a single <function>Request</function> method.
+    The method accepts a hex-encoded digest and its hash algorithm and, once the authority responds,
+    returns the PEM-encoded time-stamp token with a <literal>PKCS7</literal> label. The returned token is a
+    PKCS#7 <constant>SignedData</constant> structure exactly as issued by the authority. The verification
+    is left to the caller, or relying party that consumes the token.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>timestampd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><ulink url="https://www.rfc-editor.org/rfc/rfc3161">RFC 3161</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
