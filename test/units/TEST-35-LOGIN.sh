@@ -248,15 +248,17 @@ testcase_shutdown() {
 
     # scheduled shutdown with wall message
     shutdown 2>&1
-    sleep 5
+    test -f /run/nologin
     shutdown -c || :
+    test ! -f /run/nologin
     # logind should still be running
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 
     # scheduled shutdown without wall message
     shutdown --no-wall 2>&1
-    sleep 5
+    test -f /run/nologin
     shutdown -c --no-wall || true
+    test ! -f /run/nologin
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 }
 
