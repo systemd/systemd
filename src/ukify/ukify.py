@@ -1935,7 +1935,7 @@ class ConfigItem:
             return True
         if s_l in {'0', 'false', 'no', 'n', 'f', 'off'}:
             return False
-        raise ValueError('f"Invalid boolean literal: {s!r}')
+        raise ValueError(f'Invalid boolean literal: {s!r}')
 
     # arguments for argparse.ArgumentParser.add_argument()
     name: Union[str, tuple[str, str]]
