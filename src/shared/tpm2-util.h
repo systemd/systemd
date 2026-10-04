@@ -40,7 +40,7 @@ typedef enum TPM2Flags {
 static inline bool TPM2_PCR_INDEX_VALID(unsigned pcr) {
         return pcr < TPM2_PCRS_MAX;
 }
-static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
+static inline bool TPM2_PCR_MASK_VALID(uint64_t pcr_mask) {
         return pcr_mask <= TPM2_PCRS_MASK;
 }
 
