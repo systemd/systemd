@@ -159,7 +159,9 @@
       Otherwise, if <option>--section=</option> option is specified at least once, only those sections are shown.
       Otherwise, well-known sections that are typically included in an UKI are shown.
       For each section, its name, size, and sha256-digest is printed.
-      For text sections, the contents are printed.</para>
+      For text sections, the contents are printed.
+      For devicetree sections (<literal>.dtb</literal> and <literal>.dtbauto</literal>), the
+      <literal>compatible</literal> strings of the root node are printed.</para>
 
       <para>Also see the description of <option>-j</option>/<option>--json=</option> and
       <option>--section=</option>.</para>

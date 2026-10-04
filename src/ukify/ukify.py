@@ -1757,12 +1757,59 @@ def generate_keys(opts: UkifyConfig) -> None:
         )
 
 
+def fdt_root_compatible(data: bytes) -> Optional[list[str]]:
+    # Minimal flattened devicetree parser: return the 'compatible' strings of the root node
+    FDT_BEGIN_NODE, FDT_END_NODE, FDT_PROP, FDT_NOP = 1, 2, 3, 4
+
+    if len(data) < 40 or struct.unpack_from('>I', data, 0)[0] != 0xD00DFEED:
+        return None
+    off_struct, off_strings = struct.unpack_from('>II', data, 8)
+    (size_struct,) = struct.unpack_from('>I', data, 36)
+    struct_end = off_struct + size_struct
+    if struct_end > len(data):
+        return None
+
+    off = off_struct
+    depth = 0
+    try:
+        while off + 4 <= struct_end:
+            (token,) = struct.unpack_from('>I', data, off)
+            off += 4
+            if token == FDT_BEGIN_NODE:
+                name_end = data.index(b'\0', off, struct_end)
+                off = (name_end + 1 + 3) & ~3
+                depth += 1
+            elif token == FDT_END_NODE:
+                depth -= 1
+                if depth <= 0:
+                    return None
+            elif token == FDT_PROP:
+                length, nameoff = struct.unpack_from('>II', data, off)
+                off += 8
+                if off + length > struct_end:
+                    return None
+                value = data[off : off + length]
+                off = (off + length + 3) & ~3
+                if depth == 1 and data.startswith(b'compatible\0', off_strings + nameoff):
+                    # compatible strings are printable ASCII per the DT spec, refuse anything else
+                    if any(b != 0 and not 0x20 <= b < 0x7F for b in value):
+                        return None
+                    return [s.decode() for s in value.split(b'\0') if s] or None
+            elif token == FDT_NOP:
+                continue
+            else:  # FDT_END or garbage
+                return None
+    except (struct.error, ValueError, UnicodeDecodeError):
+        return None
+    return None
+
+
 def inspect_section(
     opts: UkifyConfig,
     section: pefile.SectionStructure,
     name: str,
     force: bool = False,
-) -> Optional[dict[str, Union[int, str]]]:
+) -> Optional[dict[str, Union[int, str, list[str]]]]:
     # find the config for this section in opts and whether to show it ('force' is used for the
     # '.profile' delimiters, which must always appear in the JSON profile structure)
     config = opts.sections_by_name.get(name, None)
@@ -1776,7 +1823,7 @@ def inspect_section(
     data = section.get_data(length=size)
     digest = sha256(data).hexdigest()
 
-    struct: dict[str, Union[int, str]] = {
+    struct: dict[str, Union[int, str, list[str]]] = {
         'size': size,
         'sha256': digest,
     }
@@ -1788,6 +1835,10 @@ def inspect_section(
             print(f'Section {name!r} is not valid text: {e}', file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
 
+    compatible = fdt_root_compatible(data) if name in ('.dtb', '.dtbauto') else None
+    if compatible:
+        struct['compatible'] = compatible
+
     if config and config.content:
         assert isinstance(config.content, Path)
         config.content.write_bytes(data)
@@ -1797,11 +1848,15 @@ def inspect_section(
         if ttype == 'text':
             text = textwrap.indent(cast(str, struct['text']).rstrip(), ' ' * 4)
             print(f'  text:\n{text}')
+        if compatible:
+            print(f'  compatible: {", ".join(compatible)}')
 
     return struct
 
 
-def add_section_to_profile(profile: dict[str, Any], name: str, desc: dict[str, Union[int, str]]) -> None:
+def add_section_to_profile(
+    profile: dict[str, Any], name: str, desc: dict[str, Union[int, str, list[str]]]
+) -> None:
     # Sections in MULTI_INSTANCE_SECTIONS can occur multiple times within the same profile so always
     # report them as a list even when there's a single entry. Every other section is unique within a
     # profile and is reported as a plain object keyed by name. A repeat of such a section means the

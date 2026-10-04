@@ -21,6 +21,7 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -84,6 +85,78 @@ def test_round_up():
     assert ukify.round_up(4095) == 4096
     assert ukify.round_up(4096) == 4096
     assert ukify.round_up(4097) == 8192
+
+
+def _make_fdt(root_props, child_props=()):
+    strings = b''
+    offsets = {}
+
+    def prop(name, value):
+        nonlocal strings
+        if name not in offsets:
+            offsets[name] = len(strings)
+            strings += name.encode() + b'\0'
+        value += b'\0' * (-len(value) % 4)
+        return struct.pack('>III', 3, len(value), offsets[name]) + value
+
+    def node(name, props, children=b''):
+        n = name.encode() + b'\0'
+        n += b'\0' * (-len(n) % 4)
+        return (
+            struct.pack('>I', 1)
+            + n
+            + b''.join(prop(k, v) for k, v in props)
+            + children
+            + struct.pack('>I', 2)
+        )
+
+    child = node('child', child_props) if child_props else b''
+    body = node('', root_props, child) + struct.pack('>I', 9)
+    off_struct = 40
+    off_strings = off_struct + len(body)
+    header = struct.pack(
+        '>10I',
+        0xD00DFEED,
+        off_strings + len(strings),
+        off_struct,
+        off_strings,
+        40,
+        17,
+        16,
+        0,
+        len(strings),
+        len(body),
+    )
+    return header + body + strings
+
+
+def test_fdt_root_compatible():
+    blob = _make_fdt([('model', b'Board\0'), ('compatible', b'vendor,board\0vendor,soc\0')])
+    assert ukify.fdt_root_compatible(blob) == ['vendor,board', 'vendor,soc']
+
+    assert ukify.fdt_root_compatible(b'not a devicetree' * 10) is None
+    assert ukify.fdt_root_compatible(blob[:60]) is None
+
+    blob = _make_fdt([('model', b'Board\0')], [('compatible', b'vendor,child\0')])
+    assert ukify.fdt_root_compatible(blob) is None
+
+    blob = _make_fdt([('compatible', b'\0\0\0\0')])
+    assert ukify.fdt_root_compatible(blob) is None
+
+    blob = _make_fdt([('model', b'Board\0'), ('compatible', b'vendor,board\0vendor,soc\0')])
+    # property length pointing past the end of the structure block
+    bogus = bytearray(blob)
+    struct.pack_into('>I', bogus, 72, len(blob) - 76)
+    assert ukify.fdt_root_compatible(bytes(bogus)) is None
+    # structure block size that ends before the compatible property
+    bogus = bytearray(blob)
+    struct.pack_into('>I', bogus, 36, 8)
+    assert ukify.fdt_root_compatible(bytes(bogus)) is None
+
+    blob = _make_fdt([('compatible', b'vendor,board\n  sha256: 00\0')])
+    assert ukify.fdt_root_compatible(blob) is None
+    blob = _make_fdt([('compatible', b'vendor,\x1b[31mboard\0')])
+    assert ukify.fdt_root_compatible(blob) is None
 
 
 def test_namespace_creation():
