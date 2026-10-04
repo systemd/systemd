@@ -494,3 +494,34 @@ empty:
         *mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
         return 0;
 }
+
+/*CEN3031 start*/
+static HandleAction manager_effective_idle_action(Manager *m) {
+        assert(m);
+
+        if (manager_is_docked_or_external_displays(m)) {
+                if (m->idle_action_docked != _HANDLE_ACTION_INVALID)
+                        return m->idle_action_docked;
+        } else if (manager_is_on_external_power()) {
+                if (m->idle_action_ep != _HANDLE_ACTION_INVALID)
+                        return m->idle_action_ep;
+        }
+
+        return m->idle_action;
+}
+
+/* Resolves the effective idle action timeout based on current power state. */
+static usec_t manager_effective_idle_action_usec(Manager *m) {
+        assert(m);
+
+        if (manager_is_docked_or_external_displays(m)) {
+                if (m->idle_action_usec_docked != USEC_INFINITY)
+                        return m->idle_action_usec_docked;
+        } else if (manager_is_on_external_power()) {
+                if (m->idle_action_usec_ep != USEC_INFINITY)
+                        return m->idle_action_usec_ep;
+        }
+
+        return m->idle_action_usec;
+}
+/*CEN3031 end*/
