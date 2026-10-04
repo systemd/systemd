@@ -86,6 +86,12 @@ typedef struct Manager {
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;
+        /*CEN3031 Opensource contribution begin*/
+        HandleAction idle_action_ep;           /* IdleActionExternalPower= */
+        HandleAction idle_action_docked;       /* IdleActionDocked=        */
+        usec_t idle_action_usec_ep;            /* IdleActionSecExternalPower= */
+        usec_t idle_action_usec_docked;        /* IdleActionSecDocked=        */
+        /*CEN3031 Opensource contribution end*/
         bool was_idle;
 
         usec_t stop_idle_session_usec;

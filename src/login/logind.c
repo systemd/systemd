@@ -85,6 +85,13 @@ static int manager_new(Manager **ret) {
                 .session_units = hashmap_new(&string_hash_ops),
         };
 
+        /* CEN3031 Opensource start*/
+        m->idle_action_ep          = _HANDLE_ACTION_INVALID;
+        m->idle_action_docked      = _HANDLE_ACTION_INVALID;
+        m->idle_action_usec_ep     = USEC_INFINITY;
+        m->idle_action_usec_docked = USEC_INFINITY;
+        /* CEN3031 Opensource start*/
+
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
@@ -1130,8 +1137,11 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         bool idle;
         int r;
 
-        if (m->idle_action == HANDLE_IGNORE ||
-            m->idle_action_usec <= 0)
+        HandleAction effective_action = manager_effective_idle_action(m); // CEN3031 Change
+        usec_t effective_usec = manager_effective_idle_action_usec(m); // CEN3031 Change
+
+        if (effective_action == HANDLE_IGNORE || // CEN3031 Change
+            effective_usec <= 0) // CEN3031 Change
                 return 0;
 
         n = now(CLOCK_MONOTONIC);
@@ -1139,15 +1149,15 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         idle = manager_get_idle_hint(m, &since);
         if (!idle) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
-                elapse = n + m->idle_action_usec;
+                elapse = n + effective_usec; // CEN3031 Change
                 m->was_idle = false;
         } else {
 
                 /* Idle! Let's see if it's time to do something, or if
                  * we shall sleep for longer. */
 
-                if (n >= since.monotonic + m->idle_action_usec &&
-                    (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
+                if (n >= since.monotonic + effective_usec && // CEN3031 Change
+                    (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + effective_usec)) { // CEN3031 Change
                         bool is_edge = false;
 
                         /* We weren't idle previously or some activity happened while we were sleeping, and now we are
@@ -1157,17 +1167,17 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                                 m->was_idle = true;
                         }
 
-                        if (m->idle_action == HANDLE_LOCK && !is_edge)
+                        if (effective_action == HANDLE_LOCK && !is_edge) // CEN3031 Change
                                 /* We are idle and we were before so we are actually not taking any action. */
                                 log_debug("System idle.");
                         else
-                                log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
+                                log_info("System idle. Will %s now.", handle_action_verb_to_string(effective_action)); // CEN3031 Change
 
-                        manager_handle_action(m, /* inhibit_key= */ 0, m->idle_action, /* ignore_inhibited= */ false, is_edge, /* action_seat= */ NULL);
+                        manager_handle_action(m, /* inhibit_key= */ 0, effective_action, /* ignore_inhibited= */ false, is_edge, /* action_seat= */ NULL); // CEN3031 Change
                         m->idle_action_not_before_usec = n;
                 }
 
-                elapse = MAX(since.monotonic, m->idle_action_not_before_usec) + m->idle_action_usec;
+                elapse = MAX(since.monotonic, m->idle_action_not_before_usec) + effective_usec; // CEN3031 Change
         }
 
         if (!m->idle_action_event_source) {
@@ -1176,7 +1186,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                                 m->event,
                                 &m->idle_action_event_source,
                                 CLOCK_MONOTONIC,
-                                elapse, MIN(USEC_PER_SEC*30, m->idle_action_usec), /* accuracy of 30s, but don't have an accuracy lower than the idle action timeout */
+                                elapse, MIN(USEC_PER_SEC*30, effective_usec), /* accuracy of 30s, but don't have an accuracy lower than the idle action timeout */ // CEN3031 Change
                                 manager_dispatch_idle_action, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add idle event source: %m");
