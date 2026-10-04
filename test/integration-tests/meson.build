@@ -31,8 +31,8 @@ integration_test_template = {
         'sanitizer-exclude-regex' : '',
         'rtc' : false,
         'tpm' : false,
-        # Bind the mkosi output (built images) read-only into the boot-mode container at /work/vm-images, for
-        # tests that boot a nested VM from a full image.
+        # Make the mkosi output (built images) available at /work/vm-images, for tests that boot a nested VM
+        # from a full image. Bound read-only into the boot-mode container, shared as runtime tree in vm mode.
         'vm-images' : false,
         'coco' : '',
         'suppress-sync' : true,
