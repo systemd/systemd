@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 _So you are working on a Linux distribution or appliance and need very fast boot-ups?_
 
-systemd can already offer boot times of < 1s for the Core OS (userspace only, i.e. only the bits controlled by systemd) and < 2s for a complete up-to-date desktop environments on simpler (but modern, i.e. SSDs) laptops if configured properly (examples: [http://git.fenrus.org/tmp/bootchart-20120512-1036.svg](http://git.fenrus.org/tmp/bootchart-20120512-1036.svg)).
+systemd can already offer boot times of < 1s for the Core OS (userspace only, i.e. only the bits controlled by systemd) and < 2s for a complete up-to-date desktop environments on simpler (but modern, i.e. SSDs) laptops if configured properly.
 
 In this page we want to suggest a couple of ideas how to achieve that, and if the resulting boot times do not suffice where we believe room for improvements are that we'd like to see implemented sooner or later.
 
