@@ -41,8 +41,7 @@ Specifically, the following concepts are available:
   invalidating all prior keys associated with the security chip and generating
   a new seed key.
 
-* The
-  [`systemd-factory-reset-reboot.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-reboot.service.html)
+* The `systemd-factory-reset-reboot.service`
   unit automatically reboots the system as part of `factory-reset.target`. It
   is ordered after `systemd-tpm2-clear.service` and
   `systemd-factory-reset-request.service` in order to initiate the reboot that
