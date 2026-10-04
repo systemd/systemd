@@ -625,10 +625,10 @@ testcase_list_users_sessions_seats() {
 teardown_stop_idle_session() (
     set +eux
 
+    cleanup_session
+
     rm -f /run/systemd/logind.conf.d/stop-idle-session.conf
     systemctl restart systemd-logind.service
-
-    cleanup_session
 )
 
 testcase_stop_idle_session() {
