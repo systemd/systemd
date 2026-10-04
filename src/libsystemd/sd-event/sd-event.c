@@ -125,11 +125,11 @@ struct sd_event {
         /* timerfd_create() only supports these five clocks so far. We
          * can add support for more clocks when the kernel learns to
          * deal with them, too. */
-        struct clock_data realtime;
-        struct clock_data boottime;
-        struct clock_data monotonic;
-        struct clock_data realtime_alarm;
-        struct clock_data boottime_alarm;
+        ClockData realtime;
+        ClockData boottime;
+        ClockData monotonic;
+        ClockData realtime_alarm;
+        ClockData boottime_alarm;
 
         usec_t perturb;
 
@@ -189,8 +189,31 @@ DEFINE_ORIGIN_ID_HELPERS(sd_event, event);
 
 static thread_local sd_event *default_event = NULL;
 
+static SignalData* event_free_signal_data(SignalData *d) {
+        if (!d)
+                return NULL;
+
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(SignalData, signal_data, event_free_signal_data);
+
+static InotifyData* event_free_inotify_data(InotifyData *d) {
+        if (!d)
+                return NULL;
+
+        hashmap_free(d->inodes);
+        hashmap_free(d->wd);
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(InotifyData, inotify_data, event_free_inotify_data);
+
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, InodeData *d);
+static int event_source_offline(sd_event_source *s, int enabled, bool ratelimited);
 
 sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
@@ -339,7 +362,7 @@ static int exit_prioq_compare(const void *a, const void *b) {
         return CMP(x->priority, y->priority);
 }
 
-static void free_clock_data(struct clock_data *d) {
+static void free_clock_data(ClockData *d) {
         assert(d);
         assert(d->wakeup == WAKEUP_CLOCK_DATA);
 
@@ -488,7 +511,23 @@ _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         return sd_event_source_unref(s);
 }
 
+/* Single choke point for adding, modifying, and removing an fd's readiness registration. events and
+ * userdata are ignored for EPOLL_CTL_DEL. */
+static int event_poll_ctl(sd_event *e, int op, int fd, uint32_t events, void *userdata) {
+        assert(e);
+        assert(fd >= 0);
+
+        struct epoll_event ev = {
+                .events = events,
+                .data.ptr = userdata,
+        };
+
+        return RET_NERRNO(epoll_ctl(e->epoll_fd, op, fd, op == EPOLL_CTL_DEL ? NULL : &ev));
+}
+
 static void source_io_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
 
@@ -498,8 +537,9 @@ static void source_io_unregister(sd_event_source *s) {
         if (!s->io.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->io.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
@@ -510,19 +550,19 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->io.fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(s->event,
+                            s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->io.fd,
+                            events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                            s);
+        if (r < 0)
+                return r;
 
         s->io.registered = true;
 
@@ -530,6 +570,8 @@ static int source_io_register(
 }
 
 static void source_child_pidfd_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
 
@@ -539,29 +581,31 @@ static void source_child_pidfd_unregister(sd_event_source *s) {
         if (!s->child.registered)
                 return;
 
-        if (EVENT_SOURCE_WATCH_PIDFD(s))
-                if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->child.pidfd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        if (EVENT_SOURCE_WATCH_PIDFD(s)) {
+                r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->child.pidfd, /* events= */ 0, s);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                         strna(s->description), event_source_type_to_string(s->type));
+        }
 
         s->child.registered = false;
 }
 
 static int source_child_pidfd_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev = {
-                        .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                        .data.ptr = s,
-                };
-
-                if (epoll_ctl(s->event->epoll_fd,
-                              s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                              s->child.pidfd, &ev) < 0)
-                        return -errno;
+                r = event_poll_ctl(s->event,
+                                    s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                                    s->child.pidfd,
+                                    EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                                    s);
+                if (r < 0)
+                        return r;
         }
 
         s->child.registered = true;
@@ -571,6 +615,8 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
 #define EVENT_SOURCE_IS_PRESSURE(s) IN_SET((s)->type, SOURCE_MEMORY_PRESSURE, SOURCE_CPU_PRESSURE, SOURCE_IO_PRESSURE)
 
 static void source_pressure_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
 
@@ -580,28 +626,29 @@ static void source_pressure_unregister(sd_event_source *s) {
         if (!s->pressure.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->pressure.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->pressure.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->pressure.registered = false;
 }
 
 static int source_pressure_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = s->pressure.write_buffer_size > 0 ? EPOLLOUT :
-                          (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->pressure.fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(s->event,
+                            s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->pressure.fd,
+                            s->pressure.write_buffer_size > 0 ? EPOLLOUT :
+                                (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
+                            s);
+        if (r < 0)
+                return r;
 
         s->pressure.registered = true;
         return 0;
@@ -677,7 +724,7 @@ static EventSourceType clock_to_event_source_type(clockid_t clock) {
         }
 }
 
-static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
+static ClockData* event_get_clock_data(sd_event *e, EventSourceType t) {
         assert(e);
 
         switch (t) {
@@ -702,24 +749,22 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
-static void event_free_signal_data(sd_event *e, struct signal_data *d) {
+/* Unhook from the event loop and drop our reference. Split from the free above because a backend may hold a
+ * reference of its own across an operation the kernel has not finished with yet. */
+static void signal_data_disconnect_and_unref(sd_event *e, SignalData *d) {
         assert(e);
 
         if (!d)
                 return;
 
         hashmap_remove(e->signal_data, &d->priority);
-        safe_close(d->fd);
-        free(d);
+
+        d->fd = safe_close(d->fd);
+        signal_data_unref(d);
 }
 
-static int event_make_signal_data(
-                sd_event *e,
-                int sig,
-                struct signal_data **ret) {
-
-        struct signal_data *d;
-        bool added = false;
+static int event_make_signal_data(sd_event *e, int sig, SignalData **ret) {
+        SignalData *d;
         sigset_t ss_copy;
         int64_t priority;
         int r;
@@ -741,70 +786,60 @@ static int event_make_signal_data(
                                 *ret = d;
                         return 0;
                 }
-        } else {
-                d = new(struct signal_data, 1);
-                if (!d)
-                        return -ENOMEM;
 
-                *d = (struct signal_data) {
-                        .wakeup = WAKEUP_SIGNAL_DATA,
-                        .fd = -EBADF,
-                        .priority = priority,
-                };
+                ss_copy = d->sigset;
+                assert_se(sigaddset(&ss_copy, sig) >= 0);
 
-                r = hashmap_ensure_put(&e->signal_data, &uint64_hash_ops, &d->priority, d);
-                if (r < 0) {
-                        free(d);
-                        return r;
-                }
+                if (signalfd(d->fd, &ss_copy, SFD_NONBLOCK|SFD_CLOEXEC) < 0)
+                        return -errno;
 
-                added = true;
-        }
-
-        ss_copy = d->sigset;
-        assert_se(sigaddset(&ss_copy, sig) >= 0);
-
-        r = signalfd(d->fd >= 0 ? d->fd : -1,   /* the first arg must be -1 or a valid signalfd */
-                     &ss_copy,
-                     SFD_NONBLOCK|SFD_CLOEXEC);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        d->sigset = ss_copy;
-
-        if (d->fd >= 0) {
+                d->sigset = ss_copy;
                 if (ret)
                         *ret = d;
                 return 0;
         }
 
-        d->fd = fd_move_above_stdio(r);
+        d = new(SignalData, 1);
+        if (!d)
+                return -ENOMEM;
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
+        *d = (SignalData) {
+                .n_ref = 1,
+                .wakeup = WAKEUP_SIGNAL_DATA,
+                .fd = -EBADF,
+                .priority = priority,
         };
 
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
-                goto fail;
+        assert_se(sigaddset(&d->sigset, sig) >= 0);
+
+        r = signalfd(-1, &d->sigset, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (r < 0) {
+                signal_data_unref(d);
+                return -errno;
+        }
+
+        d->fd = fd_move_above_stdio(r);
+
+        r = hashmap_ensure_put(&e->signal_data, &uint64_hash_ops, &d->priority, d);
+        if (r < 0) {
+                signal_data_unref(d);
+                return r;
+        }
+
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0) {
+                d->fd = safe_close(d->fd); /* close it ourselves, so the disconnect below skips the
+                                            * EPOLL_CTL_DEL: we never managed to add it. */
+                signal_data_disconnect_and_unref(e, d);
+                return r;
         }
 
         if (ret)
                 *ret = d;
-
         return 0;
-
-fail:
-        if (added)
-                event_free_signal_data(e, d);
-
-        return r;
 }
 
-static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig) {
+static void event_unmask_signal_data(sd_event *e, SignalData *d, int sig) {
         assert(e);
         assert(d);
 
@@ -819,7 +854,7 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 
         if (sigisemptyset(&d->sigset)) {
                 /* If all the mask is all-zero we can get rid of the structure */
-                event_free_signal_data(e, d);
+                signal_data_disconnect_and_unref(e, d);
                 return;
         }
 
@@ -833,7 +868,7 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 }
 
 static void event_gc_signal_data(sd_event *e, const int64_t *priority, int sig) {
-        struct signal_data *d;
+        SignalData *d;
         static const int64_t zero_priority = 0;
 
         assert(e);
@@ -891,7 +926,7 @@ static void event_source_pp_prioq_reshuffle(sd_event_source *s) {
 }
 
 static void event_source_time_prioq_reshuffle(sd_event_source *s) {
-        struct clock_data *d;
+        ClockData *d;
 
         assert(s);
 
@@ -913,7 +948,7 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
 
 static void event_source_time_prioq_remove(
                 sd_event_source *s,
-                struct clock_data *d) {
+                ClockData *d) {
 
         assert(s);
         assert(d);
@@ -953,7 +988,7 @@ static void source_disconnect(sd_event_source *s) {
                  * differ: ratelimiting always uses CLOCK_BOOTTIME, but timer events might use any clock */
 
                 if (!s->ratelimited) {
-                        struct clock_data *d;
+                        ClockData *d;
                         assert_se(d = event_get_clock_data(s->event, s->type));
                         event_source_time_prioq_remove(s, d);
                 }
@@ -1083,18 +1118,21 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
-static sd_event_source* source_free(sd_event_source *s) {
+/* Idempotent: every flag is cleared as its work is done, so this may be called more than once on the
+ * same source. */
+static void source_disown(sd_event_source *s) {
         int r;
 
         assert(s);
 
-        source_disconnect(s);
-
-        if (s->type == SOURCE_IO && s->io.owned)
+        if (s->type == SOURCE_IO && s->io.owned) {
                 s->io.fd = safe_close(s->io.fd);
+                s->io.owned = false;
+        }
 
         if (s->type == SOURCE_CHILD) {
-                /* Eventually the kernel will do this automatically for us, but for now let's emulate this (unreliably) in userspace. */
+                /* Eventually the kernel will do this automatically for us, but for now let's emulate
+                 * this (unreliably) in userspace. */
 
                 if (s->child.process_owned) {
                         assert(s->child.pid > 0);
@@ -1105,24 +1143,46 @@ static sd_event_source* source_free(sd_event_source *s) {
                                 if (r < 0 && r != -ESRCH)
                                         log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
                                                         s->child.pid);
+                                else
+                                        s->child.exited = true;
                         }
 
                         if (!s->child.waited) {
                                 siginfo_t si = {};
 
                                 /* Reap the child if we can */
-                                (void) waitid(P_PIDFD, s->child.pidfd, &si, WEXITED);
+                                if (waitid(P_PIDFD, s->child.pidfd, &si, WEXITED) >= 0)
+                                        s->child.waited = true;
                         }
+
+                        /* Keep ownership until the reap went through, so a later call retries it. */
+                        if (s->child.waited)
+                                s->child.process_owned = false;
                 }
 
-                if (s->child.pidfd_owned)
+                /* The reap needs the pidfd, so hold on to it while one is still owed. */
+                if (s->child.pidfd_owned && !s->child.process_owned) {
                         s->child.pidfd = safe_close(s->child.pidfd);
+                        s->child.pidfd_owned = false;
+                }
         }
 
         if (EVENT_SOURCE_IS_PRESSURE(s)) {
                 s->pressure.fd = safe_close(s->pressure.fd);
                 s->pressure.write_buffer = mfree(s->pressure.write_buffer);
+                s->pressure.write_buffer_size = 0;
         }
+}
+
+static sd_event_source* source_free(sd_event_source *s) {
+        assert(s);
+
+        source_disconnect(s);
+        source_disown(s);
+
+        /* Nothing can retry a failed reap past this point, so drop the pidfd source_disown() kept for it. */
+        if (s->type == SOURCE_CHILD && s->child.pidfd_owned)
+                s->child.pidfd = safe_close(s->child.pidfd);
 
         if (s->destroy_callback)
                 s->destroy_callback(s->userdata);
@@ -1158,7 +1218,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
                 event_source_time_prioq_reshuffle(s);
 
         if (s->type == SOURCE_SIGNAL && !b) {
-                struct signal_data *d;
+                SignalData *d;
 
                 d = hashmap_get(s->event->signal_data, &s->priority);
                 if (d && d->current == s)
@@ -1305,8 +1365,10 @@ static void initialize_perturb(sd_event *e) {
 
 static int event_setup_timer_fd(
                 sd_event *e,
-                struct clock_data *d,
+                ClockData *d,
                 clockid_t clock) {
+
+        int r;
 
         assert(e);
         assert(d);
@@ -1322,13 +1384,9 @@ static int event_setup_timer_fd(
 
         fd = fd_move_above_stdio(fd);
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, fd, EPOLLIN, d);
+        if (r < 0)
+                return r;
 
         d->fd = TAKE_FD(fd);
         return 0;
@@ -1340,7 +1398,7 @@ static int time_exit_callback(sd_event_source *s, uint64_t usec, void *userdata)
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) {
+static int setup_clock_data(sd_event *e, ClockData *d, clockid_t clock) {
         int r;
 
         assert(d);
@@ -1364,7 +1422,7 @@ static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) 
 
 static int event_source_time_prioq_put(
                 sd_event_source *s,
-                struct clock_data *d) {
+                ClockData *d) {
 
         int r;
 
@@ -1398,7 +1456,7 @@ _public_ int sd_event_add_time(
 
         EventSourceType type;
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        struct clock_data *d;
+        ClockData *d;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1484,7 +1542,7 @@ _public_ int sd_event_add_signal(
                 void *userdata) {
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        struct signal_data *d;
+        SignalData *d;
         sigset_t new_ss;
         bool block_it;
         int r;
@@ -2185,7 +2243,10 @@ _public_ int sd_event_add_io_pressure(
                         PRESSURE_IO);
 }
 
-static void event_free_inotify_data(sd_event *e, InotifyData *d) {
+/* See signal_data_disconnect_and_unref(). */
+static void inotify_data_disconnect_and_unref(sd_event *e, InotifyData *d) {
+        int r;
+
         assert(e);
 
         if (!d)
@@ -2197,19 +2258,16 @@ static void event_free_inotify_data(sd_event *e, InotifyData *d) {
         if (d->buffer_filled > 0)
                 LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 
-        hashmap_free(d->inodes);
-        hashmap_free(d->wd);
-
         assert_se(hashmap_remove(e->inotify_data, &d->priority) == d);
 
-        if (d->fd >= 0) {
-                if (!event_origin_changed(e) &&
-                    epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
-
-                safe_close(d->fd);
+        if (d->fd >= 0 && !event_origin_changed(e)) {
+                r = event_poll_ctl(e, EPOLL_CTL_DEL, d->fd, /* events= */ 0, d);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove inotify fd from event loop, ignoring: %m");
         }
-        free(d);
+
+        d->fd = safe_close(d->fd);
+        inotify_data_unref(d);
 }
 
 static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **ret) {
@@ -2238,28 +2296,22 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
 
         *d = (InotifyData) {
                 .wakeup = WAKEUP_INOTIFY_DATA,
+                .n_ref = 1,
                 .fd = TAKE_FD(fd),
                 .priority = priority,
         };
 
         r = hashmap_ensure_put(&e->inotify_data, &uint64_hash_ops, &d->priority, d);
         if (r < 0) {
-                d->fd = safe_close(d->fd);
-                free(d);
+                inotify_data_unref(d);
                 return r;
         }
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
-                d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would otherwise
-                                            * remove the fd from the epoll first, which we don't want as we couldn't
-                                            * add it in the first place. */
-                event_free_inotify_data(e, d);
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0) {
+                d->fd = safe_close(d->fd); /* close it ourselves, so the disconnect below skips the
+                                            * EPOLL_CTL_DEL: we never managed to add it. */
+                inotify_data_disconnect_and_unref(e, d);
                 return r;
         }
 
@@ -2345,7 +2397,7 @@ static void event_gc_inotify_data(sd_event *e, InotifyData *d) {
         if (d->n_busy > 0)
                 return;
 
-        event_free_inotify_data(e, d);
+        inotify_data_disconnect_and_unref(e, d);
 }
 
 static void event_gc_inode_data(sd_event *e, InodeData *d) {
@@ -2718,7 +2770,9 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
                         return r;
                 }
 
-                (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
+                /* Ignore failure: callers are allowed to have closed saved_fd already, which drops the
+                 * registration by itself. */
+                (void) event_poll_ctl(s->event, EPOLL_CTL_DEL, saved_fd, /* events= */ 0, s);
         }
 
         if (s->io.owned)
@@ -2885,7 +2939,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                 event_gc_inode_data(s->event, old_inode_data);
 
         } else if (s->type == SOURCE_SIGNAL && event_source_is_online(s)) {
-                struct signal_data *old, *d;
+                SignalData *old, *d;
 
                 /* Move us from the signalfd belonging to the old
                  * priority to the signalfd of the new priority */
@@ -2916,7 +2970,7 @@ fail:
                 event_free_inode_data(s->event, new_inode_data);
 
         if (rm_inotify)
-                event_free_inotify_data(s->event, new_inotify_data);
+                inotify_data_disconnect_and_unref(s->event, new_inotify_data);
 
         return r;
 }
@@ -3588,7 +3642,7 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
 
 static int event_arm_timer(
                 sd_event *e,
-                struct clock_data *d) {
+                ClockData *d) {
 
         struct itimerspec its = {};
         sd_event_source *a, *b;
@@ -3692,7 +3746,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 static int process_timer(
                 sd_event *e,
                 usec_t n,
-                struct clock_data *d) {
+                ClockData *d) {
 
         sd_event_source *s;
         bool callback_invoked = false;
@@ -3847,7 +3901,7 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         return source_set_pending(s, true);
 }
 
-static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, int64_t *min_priority) {
+static int process_signal(sd_event *e, SignalData *d, uint32_t events, int64_t *min_priority) {
         int r;
 
         assert(e);
@@ -4754,7 +4808,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                         }
 
                         case WAKEUP_CLOCK_DATA: {
-                                struct clock_data *d = i->data.ptr;
+                                ClockData *d = i->data.ptr;
 
                                 r = flush_timer(e, d->fd, i->events, &d->next);
                                 break;
@@ -5131,19 +5185,13 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 if (r < 0)
                         goto fail;
 
-                struct epoll_event ev = {
-                        .events = EPOLLIN,
-                        .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
-                };
-
-                if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev) < 0) {
-                        r = -errno;
+                r = event_poll_ctl(e, EPOLL_CTL_ADD, e->watchdog_fd, EPOLLIN, INT_TO_PTR(SOURCE_WATCHDOG));
+                if (r < 0)
                         goto fail;
-                }
 
         } else {
                 if (e->watchdog_fd >= 0) {
-                        (void) epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
+                        (void) event_poll_ctl(e, EPOLL_CTL_DEL, e->watchdog_fd, /* events= */ 0, INT_TO_PTR(SOURCE_WATCHDOG));
                         e->watchdog_fd = safe_close(e->watchdog_fd);
                 }
         }
