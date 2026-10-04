@@ -1915,13 +1915,17 @@ static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data)
         /* Dismiss the concluded job before running the continuation */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dismiss_args = NULL;
         r = sd_json_buildo(&dismiss_args, SD_JSON_BUILD_PAIR_STRING("id", job_id));
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to build job-dismiss arguments for '%s': %m", job_id);
                 return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
 
         r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "job-dismiss", QMP_CLIENT_ARGS(dismiss_args),
                               on_job_dismiss_complete, /* userdata= */ NULL);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to send job-dismiss for '%s': %m", job_id);
                 return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
 
         if (!job->on_concluded)
                 return 1;
