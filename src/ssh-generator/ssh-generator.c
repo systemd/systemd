@@ -250,8 +250,12 @@ static int add_vsock_socket(
         if (r < 0)
                 return r;
 
-        log_debug("Binding SSH to AF_VSOCK vsock::22.\n"
-                  "→ connect via 'ssh vsock/%u' from host", local_cid);
+        if (VSOCK_CID_IS_REGULAR(local_cid))
+                log_debug("Binding SSH to AF_VSOCK vsock::22.\n"
+                          "→ connect via 'ssh vsock/%u' from host", local_cid);
+        else
+                log_debug("Binding SSH to AF_VSOCK vsock::22.");
+
         return 0;
 }
 
