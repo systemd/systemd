@@ -16,6 +16,7 @@ at_exit() {
 
     if [[ -n "$LOOP" ]]; then
         losetup --detach "$LOOP"
+        udevadm settle --timeout=60
     fi
 
     rm -rf "$WORK_DIR"
@@ -77,6 +78,7 @@ for directory in bin lib lib64 sbin; do
 done
 
 mkdir -p "$1/usr/.systemd-sysext"
+findmnt --noheadings --raw --output MAJ:MIN --target "$1/usr" >"$1/usr/.systemd-sysext/dev"
 cat "/sys/class/block/${4##*/}p1/dev" >"$1/usr/.systemd-sysext/backing"
 
 export container=
@@ -90,4 +92,10 @@ EOF
 
 test -f "$OUTPUT/late/home.mount"
 WHAT="$(sed -n 's/^What=//p' "$OUTPUT/late/home.mount")"
-test "$(readlink --canonicalize "$WHAT")" = "$(readlink --canonicalize "${LOOP}p2")"
+# Don't resolve the by-diskseq symlink, udev might not have created it (see --initialized=no above).
+if [[ -e "/sys/class/block/${LOOP##*/}/diskseq" ]]; then
+    DISKSEQ="$(cat "/sys/class/block/${LOOP##*/}/diskseq")"
+    test "$WHAT" = "/dev/disk/by-diskseq/$DISKSEQ-part2"
+else
+    test "$WHAT" = "${LOOP}p2"
+fi

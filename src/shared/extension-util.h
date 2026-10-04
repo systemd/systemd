@@ -26,7 +26,7 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies, const char *hierarc
  * in /etc/os-release, i.e. where things don't matter, as they aren't merged.) */
 int extension_has_forbidden_content(const char *root);
 
-/* Find the backing device. Returns >0 on success, 0 if the volume is not an extension, and <0 on error. */
+/* Find the backing device. Returns >0 on success, 0 if there is no block-backed extension overlay, and <0 on error. */
 int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret);
 
 /* Checks whether an extension image is suitable for the local system, based on the MATCH_HOSTNAME= and
