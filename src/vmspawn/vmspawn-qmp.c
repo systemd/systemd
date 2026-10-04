@@ -2007,6 +2007,28 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         return 0;
 }
 
+/* Canonical sync-on-async pump, matching varlink_call_internal(). The QMP client tracks
+ * outstanding replies in its own slots set; drain until it's idle. */
+static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
+        int r;
+
+        assert(bridge);
+
+        while (!qmp_client_is_idle(bridge->qmp)) {
+                r = qmp_client_process(bridge->qmp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process QMP messages: %m");
+                if (r > 0)
+                        continue;
+
+                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for QMP messages: %m");
+        }
+
+        return 0;
+}
+
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         int r;
 
@@ -2022,19 +2044,9 @@ int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue schema probe: %m");
 
-        /* Canonical sync-on-async pump, matching varlink_call_internal(). The QMP client tracks
-         * outstanding replies in its own slots set; drain until it's idle. */
-        while (!qmp_client_is_idle(bridge->qmp)) {
-                r = qmp_client_process(bridge->qmp);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe pump failed: %m");
-                if (r > 0)
-                        continue;
-
-                r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "QMP probe wait failed: %m");
-        }
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return r;
 
         /* If fail_pending() drained the slots (transport dropped mid-probe), features can't be
          * trusted and we have no QMP channel for device setup anyway. */
