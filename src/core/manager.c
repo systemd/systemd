@@ -1451,6 +1451,8 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
                         if (u->id)
                                 log_unit_debug(u, "Collecting.");
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
+                        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                                unit_prune_cgroup(u);
                         unit_add_to_cleanup_queue(u);
                 }
         }

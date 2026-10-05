@@ -531,6 +531,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
                 "%sDelegate: %s\n"
+                "%sControlGroupPreserve: %s\n"
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
@@ -570,6 +571,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
                 prefix, delegate_str,
+                prefix, yes_no(c->preserve),
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
@@ -3077,6 +3079,14 @@ void unit_prune_cgroup(Unit *u) {
 
         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(slice)))
                 unit_prune_cgroup(slice);
+}
+
+void unit_prune_replaced_cgroup(Unit *u) {
+        assert(u);
+
+        /* If the cgroup we kept around was removed behind our back, start in a new one */
+        if (unit_cgroup_replaced(u))
+                unit_prune_cgroup(u);
 }
 
 int unit_search_main_pid(Unit *u, PidRef *ret) {
