@@ -46,17 +46,17 @@ systemd_resolved_export_sources = files(
 resolved_gperf_c = custom_target(
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dnssd_gperf_c = custom_target(
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dns_delegate_gperf_c = custom_target(
         input : 'resolved-dns-delegate-gperf.gperf',
         output : 'resolved-dns-delegate-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 systemd_resolved_export_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]

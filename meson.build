@@ -696,6 +696,10 @@ message(f'gperf len type is @gperf_len_type@')
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
+# The default gperf search leaves most slots of a large hash table empty, and every empty slot takes up space
+# in the binary. More search iterations make the large tables about 25% smaller.
+gperf_cmdline = [gperf, '--multiple-iterations=10']
+
 #####################################################################
 
 foreach header : [

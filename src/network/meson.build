@@ -148,17 +148,17 @@ networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
 networkd_gperf_c = custom_target(
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 networkd_network_gperf_c = custom_target(
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 netdev_gperf_c = custom_target(
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
 systemd_networkd_export_sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
