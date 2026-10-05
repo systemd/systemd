@@ -603,11 +603,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        r = access(p, F_OK);
-                        if (r < 0 && errno != ENOENT)
+                        k = access(p, F_OK);
+                        if (k < 0 && errno != ENOENT)
                                 printf("       Exists: Can't access %s (%m)\n", p);
                         else
-                                printf("       Exists: %s\n", yes_no(r >= 0));
+                                printf("       Exists: %s\n", yes_no(k >= 0));
                 }
 
                 printf("\n");
