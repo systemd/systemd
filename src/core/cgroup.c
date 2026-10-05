@@ -2825,6 +2825,29 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
         return 0;
 }
 
+static void cgroup_runtime_detach_bpf(CGroupRuntime *crt) {
+        assert(crt);
+
+        crt->initial_socket_bind_link_fds = fdset_free(crt->initial_socket_bind_link_fds);
+#if BPF_FRAMEWORK
+        crt->ipv4_socket_bind_link = bpf_link_free(crt->ipv4_socket_bind_link);
+        crt->ipv6_socket_bind_link = bpf_link_free(crt->ipv6_socket_bind_link);
+#endif
+        crt->bpf_foreign_by_key = hashmap_free(crt->bpf_foreign_by_key);
+
+        crt->bpf_device_control_installed = bpf_program_free(crt->bpf_device_control_installed);
+
+#if BPF_FRAMEWORK
+        crt->restrict_ifaces_ingress_bpf_link = bpf_link_free(crt->restrict_ifaces_ingress_bpf_link);
+        crt->restrict_ifaces_egress_bpf_link = bpf_link_free(crt->restrict_ifaces_egress_bpf_link);
+
+        crt->bpf_bind_network_interface_link = bpf_link_free(crt->bpf_bind_network_interface_link);
+#endif
+
+        crt->initial_restrict_ifaces_link_fds = fdset_free(crt->initial_restrict_ifaces_link_fds);
+        crt->initial_bind_network_interface_link_fd = safe_close(crt->initial_bind_network_interface_link_fd);
+}
+
 void unit_prune_cgroup(Unit *u) {
         bool is_root_slice;
         int r;
@@ -4243,25 +4266,7 @@ CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt) {
         if (!crt)
                 return NULL;
 
-        fdset_free(crt->initial_socket_bind_link_fds);
-#if BPF_FRAMEWORK
-        bpf_link_free(crt->ipv4_socket_bind_link);
-        bpf_link_free(crt->ipv6_socket_bind_link);
-#endif
-        hashmap_free(crt->bpf_foreign_by_key);
-
-        bpf_program_free(crt->bpf_device_control_installed);
-
-#if BPF_FRAMEWORK
-        bpf_link_free(crt->restrict_ifaces_ingress_bpf_link);
-        bpf_link_free(crt->restrict_ifaces_egress_bpf_link);
-
-        bpf_link_free(crt->bpf_bind_network_interface_link);
-#endif
-
-        fdset_free(crt->initial_restrict_ifaces_link_fds);
-        safe_close(crt->initial_bind_network_interface_link_fd);
-
+        cgroup_runtime_detach_bpf(crt);
         bpf_firewall_close(crt);
 
         free(crt->cgroup_path);
