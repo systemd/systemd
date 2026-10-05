@@ -138,8 +138,8 @@ static int restrict_ifaces_install_impl(Unit *u, CGroupRuntime *crt) {
         if (r != 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create egress cgroup link: %m");
 
-        crt->restrict_ifaces_ingress_bpf_link = TAKE_PTR(ingress_link);
-        crt->restrict_ifaces_egress_bpf_link = TAKE_PTR(egress_link);
+        free_and_replace_full(crt->restrict_ifaces_ingress_bpf_link, ingress_link, bpf_link_free);
+        free_and_replace_full(crt->restrict_ifaces_egress_bpf_link, egress_link, bpf_link_free);
 
         return 0;
 }
