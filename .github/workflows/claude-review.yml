@@ -422,7 +422,7 @@ jobs:
 
           You have ${minutes} minutes. After that, tool calls are denied and you must return what you have."
             (cd "$dir" && REVIEW_DEADLINE=$(( $(date +%s) + minutes * 60 )) timeout --kill-after=30 "$((minutes + grace_minutes))m" claude \
-              --model us.anthropic.claude-opus-5 \
+              --model us.anthropic.claude-opus-5-5 \
               --effort high \
               --max-turns 100 \
               --setting-sources user \
