@@ -27,7 +27,6 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysupdate-cache.h"
@@ -817,7 +816,7 @@ int resource_resolve_path(
                         /* volatile-root not found */
                         r = get_block_device_harder("/usr/", &d);
                         if (r == 0) /* Not backed by a block device? Let's see if this is a sysext overlayfs instance */
-                                r = extension_overlay_block("/usr/", IMAGE_SYSEXT, &d);
+                                r = extension_overlay_block("/usr/", IMAGE_SYSEXT, /* recursive= */ true, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine block device of file system: %m");
                 } else if (!S_ISBLK(orig_root_stats.st_mode)) /* symlink was present but not block device */
