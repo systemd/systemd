@@ -638,6 +638,31 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   …
   ```
 
+- Handle an error in an `if (r < 0)` block that returns, and do the work that
+  depends on success after that block. The error path then has nothing to undo.
+  Write this:
+
+  ```c
+  r = hashmap_ensure_put(&m->watchers, &trivial_hash_ops, w, w);
+  if (r < 0)
+          return log_error_errno(r, "Failed to add watcher: %m");
+
+  m->n_watchers++;
+  return 0;
+  ```
+
+  instead of this:
+
+  ```c
+  m->n_watchers++;
+  r = hashmap_ensure_put(&m->watchers, &trivial_hash_ops, w, w);
+  if (r >= 0)
+          return 0;
+
+  m->n_watchers--;
+  return log_error_errno(r, "Failed to add watcher: %m");
+  ```
+
 - Do not bother with error checking whether writing to stdout/stderr worked.
 
 - Do not log errors from "library" code, only do so from "main program"
