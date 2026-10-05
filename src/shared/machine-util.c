@@ -62,6 +62,7 @@ int parse_disk_spec(
                 const char *arg,
                 ImageFormat *format,
                 DiskType *disk_type,
+                bool *read_only,
                 char **ret_path) {
 
         int r;
@@ -69,13 +70,15 @@ int parse_disk_spec(
         assert(arg);
         assert(format);
         assert(disk_type);
+        assert(read_only);
         assert(ret_path);
 
         ImageFormat parsed_format = *format;
         DiskType parsed_disk_type = *disk_type;
+        bool parsed_read_only = *read_only;
         const char *dp = arg;
 
-        /* Format and disk-type vocabularies don't overlap, so prefixes may appear in any order. */
+        /* Format, disk-type, and "ro" vocabularies don't overlap, so prefixes may appear in any order. */
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *save = dp;
@@ -101,6 +104,11 @@ int parse_disk_spec(
                         continue;
                 }
 
+                if (streq(word, "ro")) {
+                        parsed_read_only = true;
+                        continue;
+                }
+
                 /* Unknown prefix — rewind, remainder is the path. */
                 dp = save;
                 break;
@@ -113,6 +121,7 @@ int parse_disk_spec(
 
         *format = parsed_format;
         *disk_type = parsed_disk_type;
+        *read_only = parsed_read_only;
         *ret_path = TAKE_PTR(path);
         return 0;
 }

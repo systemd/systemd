@@ -747,12 +747,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                OPTION_LONG("extra-drive", "[FORMAT:][DISKTYPE:]PATH", "Adds an additional disk to the VM"): {
+                OPTION_LONG("extra-drive", "[FORMAT:][DISKTYPE:][ro:]PATH", "Adds an additional disk to the VM"): {
                         ImageFormat format = IMAGE_FORMAT_RAW;
                         DiskType extra_disk_type = _DISK_TYPE_INVALID;
+                        bool read_only = false;
                         _cleanup_free_ char *drive_path = NULL;
 
-                        r = parse_disk_spec(opts.arg, &format, &extra_disk_type, &drive_path);
+                        r = parse_disk_spec(opts.arg, &format, &extra_disk_type, &read_only, &drive_path);
                         if (r < 0)
                                 return r;
 
@@ -763,6 +764,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 .path = TAKE_PTR(drive_path),
                                 .format = format,
                                 .disk_type = extra_disk_type,
+                                .read_only = read_only,
                         };
                         break;
                 }
@@ -947,6 +949,13 @@ static int parse_argv(int argc, char *argv[]) {
              arg_forward_journal_max_file_size != UINT64_MAX ||
              arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
+
+        /* QEMU refuses writes to a read-only NVMe drive, but does not tell the guest that it is read-only. */
+        FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives)
+                if (d->read_only && extra_drive_disk_type(d) == DISK_TYPE_NVME)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Read-only --extra-drive= is not supported with disk type nvme: '%s'.",
+                                               d->path);
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -2413,6 +2422,8 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 r = resolve_disk_driver(extra_drive_disk_type(drive), drive_fn, d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", drive_fn);
+                if (drive->read_only)
+                        d->flags |= QMP_DRIVE_READ_ONLY;
 
                 _cleanup_close_ int drive_fd = open(drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY);
                 if (drive_fd < 0)
