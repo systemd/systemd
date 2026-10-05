@@ -4911,6 +4911,14 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 e->event_queue,
                                 n_event_max,
                                 timeout);
+                if (r == -EINTR && event_io_uring_enabled(e) && io_uring_cq_ready(&e->io_uring) > 0) {
+                        /* io_uring completes an operation from task work. The kernel interrupts
+                         * epoll_wait() with -EINTR to run the task work, and the task work posts the CQE
+                         * before epoll_wait() returns. Collect the CQE now instead of returning without
+                         * any event. */
+                        timeout = 0;
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
