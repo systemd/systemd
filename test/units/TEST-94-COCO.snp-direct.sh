@@ -31,13 +31,20 @@ trap at_exit EXIT
 # - detect_virt: systemd-detect-virt --cvm detects SNP as the CVM type
 # - creds_vmspawn: credential transport by vmspawn is working (via initrd for SNP)
 # - creds_cmdline: credential transport via cmdline is working (cmdline is measured on SNP)
-vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" 'detect_virt creds_vmspawn creds_cmdline' \
+# - tsm_signer_varlink_snp: the tsm report signer yields an SNP attestation report echoing the digest
+# - report_pipeline: signing a report via io.systemd.Report; the result is verified below, host-side
+vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
+    'detect_virt creds_vmspawn creds_cmdline tsm_signer_varlink_snp report_pipeline' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
     --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \
     selinux=0 systemd.firstboot=no rw \
     "systemd.set_credential=$COCO_CRED_CMDLINE_ID:$COCO_CRED_CMDLINE_VALUE"
+
+# The report_pipeline check exported the signed report; verify it as a real verifier would.
+test -s "$WORKDIR/honest/artifacts/$COCO_ARTIFACT_SIGNED_REPORT"
+coco_verify_snp_signed_report "$WORKDIR/honest/artifacts/$COCO_ARTIFACT_SIGNED_REPORT" "$WORKDIR/honest"
 echo "SEV-SNP direct-boot guest correctly reported confidential virtualization and trusted credentials"
 
 # Offensive test:

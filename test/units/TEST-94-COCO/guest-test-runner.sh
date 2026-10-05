@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Runs inside the confidential guest launched by TEST-94-COCO.sh. Runs the requested guest-side checks
-# (testcase_coco_* from guest-test.sh), ships a per-check result record to the host over the vsock
-# result socket, and lets the injected unit's SuccessAction/FailureAction relay the aggregate verdict
-# to the host via vmspawn's exit status.
+# (testcase_coco_* from guest-test.sh), ships a per-check result record plus any artifacts the checks
+# exported to the host over the vsock result socket, and lets the injected unit's
+# SuccessAction/FailureAction relay the aggregate verdict to the host via vmspawn's exit status.
+
 set -eux
 set -o pipefail
 
@@ -28,10 +29,13 @@ _coco_ship_results() {
 # Run the guest-side checks named by $COCO_TESTCASES (testcase_coco_* names without the prefix),
 # record pass/fail per check, and ship the records. Each named check is something its boot scenario
 # exists to prove, so an unknown name or an empty request fails the aggregate rather than letting the
-# boot pass without having verified anything.
+# boot pass without having verified anything. Files a check drops into $COCO_ARTIFACTS_DIR ride the
+# same connection as ARTIFACT= records, for the host to verify.
 _coco_run_tests() {
-    local testcases testcase rc result failed=0 records
+    local testcases testcase rc result failed=0 records artifact
     records="$(mktemp)"
+    COCO_ARTIFACTS_DIR="$(mktemp -d)"
+    export COCO_ARTIFACTS_DIR
 
     read -ra testcases <<<"${COCO_TESTCASES:-}"
     if [[ "${#testcases[@]}" -eq 0 ]]; then
@@ -64,6 +68,11 @@ _coco_run_tests() {
         fi
         echo "coco check $testcase: $result (rc=$rc)"
         printf 'ID=%s RESULT=%s\n' "$testcase" "$result" >>"$records"
+    done
+
+    for artifact in "$COCO_ARTIFACTS_DIR"/*; do
+        [[ -e "$artifact" ]] || continue
+        printf 'ARTIFACT=%s DATA=%s\n' "$(basename "$artifact")" "$(base64 -w0 <"$artifact")" >>"$records"
     done
 
     _coco_ship_results "$records"

@@ -129,6 +129,10 @@ beforehand, into a separate output directory), allowing boot mode tests to run
 in environments that can't dissect disk images, such as unprivileged
 containers, where loop devices and udev are not available.
 
+`TEST_BIND_DIRS=directories`: Host directories (split like a shell command
+line) to bind read-only into the test container in nspawn boot mode, each at
+`/work/<basename>`.
+
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
 expression.
@@ -173,6 +177,17 @@ meson test
               └─ TEST-94-COCO.*.sh
                   └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
                           └─ guest-test-runner.sh
+```
+
+Verifying SNP attestation reports requires the AMD certificate chain, fetched
+once on the host into a directory named `snp-certs` and passed to the test via
+`TEST_BIND_DIRS=/path/to/snp-certs`. The VCEK is per-machine and derived from
+an attestation report of this host, e.g. one generated with `snpguest report`
+in a manually booted SNP guest:
+
+```shell
+$ snpguest fetch ca pem snp-certs <processor-model>
+$ snpguest fetch vcek pem snp-certs <attestation-report>
 ```
 
 ## Running the integration tests without building systemd from source
