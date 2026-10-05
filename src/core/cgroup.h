@@ -425,6 +425,7 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u);
 int unit_get_cgroup_path_with_fallback(const Unit *u, char **ret);
 
 int unit_realize_cgroup(Unit *u);
+bool unit_keeps_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
