@@ -1590,7 +1590,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                         if (!filename_is_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unit profile name not valid: %s", opts.arg);
+                                                       "Profile name '%s' is not valid.", opts.arg);
 
                         arg_profile = opts.arg;
                         break;
