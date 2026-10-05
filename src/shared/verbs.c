@@ -246,6 +246,12 @@ const Verb* _verbs_find_command(
                 const char *name,
                 const CommandDescription **ret_cmd) {
 
+        /* Locate the entry in the verbs array with VERB_COMMAND_MARKER.
+         * This entry contains a pointer to a CommandDescription 'cmd' in its .data field.
+         * If 'name' is specified, the name has to be in either cmd->names or
+         * cmd->option_namespace. The latter is intended to be used to match service
+         * implementations from the generic service code. */
+
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
@@ -256,7 +262,7 @@ const Verb* _verbs_find_command(
                         continue;
 
                 const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
-                if (name && !nulstr_contains(cmd->names, name))
+                if (name && !nulstr_contains(cmd->names, name) && !streq_ptr(name, cmd->option_namespace))
                         continue;
 
                 /* This function returns the Verb slot through the return value, and the
@@ -377,13 +383,13 @@ static int print_verb_option_help(
         if (cmd->flags & COMMAND_HELP_SEPARATE)
                 (void) table_sync_all_column_widths(0, tables);
 
-        const Option *optns = options_find_namespace(options, options_end, cmd->option_namespace);
-        if (!optns)
+        const Option *optns, *optns_stop;
+        if (!options_find_namespace(options, options_end, cmd->option_namespace, &optns, &optns_stop))
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Option namespace %s not found.",
                                        cmd->option_namespace ?: "(unnamed)");
 
-        for (const Option *opt = optns; opt < options_end;) {
+        for (const Option *opt = optns; opt < optns_stop;) {
                 _cleanup_(table_unrefp) Table *table = NULL;
                 const char *group;
 
@@ -391,7 +397,7 @@ static int print_verb_option_help(
                         /* End of our namespace */
                         break;
 
-                r = options_get_help_table_group(opt, options_end, cmd->option_groups, &table, &group);
+                r = options_get_help_table_group(opt, optns_stop, cmd->option_groups, &table, &group);
                 if (r < 0)
                         return r;
 
@@ -635,14 +641,14 @@ int _command_print_verb_help(
         }
 
         if (verb->option_namespace) {
-                const Option *optns = options_find_namespace(options, options_end, verb->option_namespace);
-                if (!optns)
+                const Option *optns, *optns_stop;
+                if (!options_find_namespace(options, options_end, verb->option_namespace, &optns, &optns_stop))
                         return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                                "Option namespace %s not found.", verb->option_namespace);
 
                 _cleanup_(table_unrefp) Table *table = NULL;
                 r = options_get_help_table_group(
-                                optns, options_end,
+                                optns, optns_stop,
                                 /* option_groups= */ NULL,
                                 &table,
                                 /* ret_group= */ NULL);
