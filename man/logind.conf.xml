@@ -249,11 +249,18 @@
         <varname>HandleLidSwitchExternalPower=</varname> is completely ignored by default (for backwards
         compatibility) — an explicit value must be set before it will be used to determine
         behaviour. <varname>HandleLidSwitchDocked=</varname> defaults to <literal>ignore</literal>. If the
-        system is inserted in a docking station, or if more than one display is connected, the action
-        specified by <varname>HandleLidSwitchDocked=</varname> occurs; if the system is on external power the
-        action (if any) specified by <varname>HandleLidSwitchExternalPower=</varname> occurs; otherwise the
+        system is docked, the action specified by <varname>HandleLidSwitchDocked=</varname> occurs; if the
+        system is on external power the action (if any) specified by
+        <varname>HandleLidSwitchExternalPower=</varname> occurs; otherwise the
         <varname>HandleLidSwitch=</varname> action occurs.
         <varname>HandleSecureAttentionKey=</varname> defaults to <literal>secure-attention-key</literal></para>
+
+        <para>The system counts as docked in any of three cases: the hardware reports a docking station (few
+        machines can); an external display is connected and being driven by a display server; or an external
+        display is connected (but not necessarily being driven) and an external keyboard is connected as
+        well. The last case keeps a docked system running when its display blanks on an idle timer, which
+        would otherwise look the same as the display being unplugged. A keyboard counts as external if udev
+        labels it <varname>ID_INTEGRATION=external</varname>.</para>
 
         <para>A different application may disable logind's handling of system power and
         sleep keys and the lid switch by taking a low-level inhibitor lock

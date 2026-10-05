@@ -6,6 +6,16 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Changes in systemd-logind:
+
+        * systemd-logind now keeps considering the system docked when an
+          external display goes to sleep. Previously a docked laptop with a
+          closed lid would suspend as soon as its monitor blanked on an idle
+          timer, because the display's power state was mistaken for the
+          display being unplugged. A system now also counts as docked when an
+          external display is connected but switched off - as long as an external
+          keyboard is connected as well.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:

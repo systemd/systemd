@@ -167,8 +167,11 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret);
 int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret);
 int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret);
 
+bool drm_connector_is_external(const char *sysname);
+bool drm_connector_is_active(const char *status, const char *enabled);
+
 bool manager_is_lid_closed(Manager *m);
-bool manager_is_docked_or_external_displays(Manager *m);
+bool manager_is_docked(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
