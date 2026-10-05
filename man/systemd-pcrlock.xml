@@ -34,11 +34,10 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is likely to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>systemd-pcrlock</command> is a tool that may be used to analyze and predict TPM2 PCR
     measurements, and generate TPM2 access policies from the prediction which it stores in a TPM2 NV index
