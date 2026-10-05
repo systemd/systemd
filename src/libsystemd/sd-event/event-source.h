@@ -37,12 +37,17 @@ typedef enum EventSourceType {
 typedef enum WakeupType {
         WAKEUP_NONE,
         WAKEUP_EVENT_SOURCE, /* either I/O or pidfd wakeup */
+        WAKEUP_EVENT_SLOT,   /* sd_event_slot, used for io_uring SQE submissions */
         WAKEUP_CLOCK_DATA,
         WAKEUP_SIGNAL_DATA,
         WAKEUP_INOTIFY_DATA,
         _WAKEUP_TYPE_MAX,
         _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
+
+static inline WakeupType pending_kind(const void *p) {
+        return *(const WakeupType *) p;
+}
 
 typedef struct clock_data ClockData;
 typedef struct inode_data InodeData;
@@ -53,6 +58,10 @@ struct sd_event_source {
         WakeupType wakeup;
 
         unsigned n_ref;
+        /* Subset of n_ref held by armed POLL_ADD SQEs. Transiently 2 when EPOLL_CTL_MOD has both the
+         * old POLL_ADD's cancel and the new POLL_ADD inflight. n_ref reaching this count means the user
+         * dropped their last live ref. */
+        unsigned io_uring_inflight;
 
         sd_event *event;
         void *userdata;
@@ -78,6 +87,16 @@ struct sd_event_source {
         sd_event_handler_t ratelimit_expire_callback;
 
         LIST_FIELDS(sd_event_source, sources);
+
+#if HAVE_LIBURING
+        /* Pointer to a POLL_ADD SQE that hasn't been submitted to the kernel yet (NULL otherwise). */
+        struct io_uring_sqe *pending_sqe;
+        LIST_FIELDS(sd_event_source, pending_source_sqes);
+
+        /* The kernel is done with this source's POLL_ADD, so sd_event_prepare() owes it a fresh one. */
+        bool needs_io_uring_rearm;
+        LIST_FIELDS(sd_event_source, io_uring_rearm);
+#endif
 
         RateLimit rate_limit;
 
