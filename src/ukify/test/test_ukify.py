@@ -115,7 +115,7 @@ def test_apply_config(tmp_path):
         Uname = 1.2.3
         EFIArch=arm
         Stub = some/path4
-        PCRBanks = sha512,sha1
+        PCRBanks = sha512, sha1,
         SigningEngine = engine1
         SecureBootPrivateKey = some/path5
         SecureBootCertificate = some/path6
@@ -124,7 +124,7 @@ def test_apply_config(tmp_path):
         [PCRSignature:NAME]
         PCRPrivateKey = some/path7
         PCRPublicKey = some/path8
-        Phases = {':'.join(ukify.KNOWN_PHASES)}
+        Phases = enter-initrd, {':'.join(ukify.KNOWN_PHASES)}
         '''
         )
     )
@@ -155,7 +155,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
     ukify.finalize_options(ns)
 
@@ -180,7 +182,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
 
 def test_parse_args_minimal():
