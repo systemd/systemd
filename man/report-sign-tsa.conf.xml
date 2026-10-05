@@ -1,0 +1,110 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="report-sign-tsa.conf" conditional='HAVE_LIBCURL'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>report-sign-tsa.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>report-sign-tsa.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>report-sign-tsa.conf</refname>
+    <refname>report-sign-tsa.conf.d</refname>
+    <refpurpose>Report timestamping configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/report-sign-tsa.conf</filename></member>
+      <member><filename>/run/systemd/report-sign-tsa.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/report-sign-tsa.conf</filename></member>
+      <member><filename>/usr/lib/systemd/report-sign-tsa.conf</filename></member>
+      <member><filename>/etc/systemd/report-sign-tsa.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/report-sign-tsa.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/report-sign-tsa.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/report-sign-tsa.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These configuration files control report TSA timestamping. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following settings are configured in the [TSA] section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>URL=</varname></term>
+        <listitem><para>The URL of the RFC 3161 Time Stamping Authority to contact. The digest of the
+        report is submitted to this endpoint as an HTTP POST request, and the signed timestamp token
+        returned by the authority is attached to the report.</para>
+        <para>Note that many public TSA endpoints are plain HTTP rather than HTTPS. This is normal for
+        RFC 3161: the returned token is cryptographically signed, hence transport confidentiality is not
+        required for its validity.</para>
+
+        <para>Defaults to <literal>http://timestamp.digicert.com</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkTimeoutSec=</varname></term>
+        <listitem><para>The maximum time to wait for the Time Stamping Authority to answer. If the
+        authority does not respond within this time, signing fails.</para>
+
+        <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Defaults to 30 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CertificateAuthority=</varname></term>
+        <listitem><para>Takes an absolute path to a PEM file containing one or more certificate authority
+        certificates. These are used as the trust anchors when validating the signing certificate of the
+        timestamp token returned by the Time Stamping Authority. When set, the system-wide trust store is
+        <emphasis>not</emphasis> consulted, hence only authorities chaining to the listed certificates
+        are accepted. This is primarily useful for private or corporate Time Stamping Authorities whose
+        certificates do not chain to a publicly trusted root.</para>
+
+        <para>Note that this setting governs validation of the timestamp token only; it has no effect on
+        TLS peer verification of the connection to the authority, which always uses the system-wide trust
+        store.</para>
+
+        <para>If unset, the system-wide trust store is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report-sign-tsa@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
