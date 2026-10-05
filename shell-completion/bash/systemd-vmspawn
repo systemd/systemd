@@ -38,7 +38,7 @@ _systemd_vmspawn() {
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
-        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files --bind-volume'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files --bind-volume --image-policy'
         [IMAGE_FORMAT]='--image-format'
         [IMAGE_DISK_TYPE]='--image-disk-type'
         [COCO]='--coco'
@@ -50,6 +50,9 @@ _systemd_vmspawn() {
         comps='yes no'
     elif __contains_word "$prev" ${OPTS[TRISTATE]}; then
         comps='yes no auto'
+    elif [[ "$prev" == --mstack ]]; then
+        compopt -o nospace -o filenames
+        comps=$(compgen -A directory -- "$cur")
     elif __contains_word "$prev" ${OPTS[PATH]}; then
         compopt -o nospace -o filenames
         comps=$(compgen -f -- "$cur" )

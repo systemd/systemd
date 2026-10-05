@@ -577,6 +577,25 @@ find_qemu_binary() {
     command -v "qemu-system-$arch" >/dev/null 2>&1
 }
 
+find_virtiofsd() {
+    command -v virtiofsd >/dev/null 2>&1 ||
+        test -x /usr/libexec/virtiofsd ||
+        test -x /usr/lib/virtiofsd
+}
+
+find_kernel_image() {
+    local kernel
+
+    for kernel in /usr/lib/modules/"$(uname -r)"/vmlinuz /boot/vmlinuz-"$(uname -r)" /boot/vmlinuz; do
+        if [[ -f "$kernel" ]]; then
+            printf '%s\n' "$kernel"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # Waits for a systemd-vmspawn machine to register with machined. If vmspawn bailed out because
 # vhost-user-fs isn't available (e.g. inside a nested VM) the test is skipped gracefully; any other
 # early vmspawn exit is treated as a failure. Args: machine name, vmspawn PID, vmspawn console log.
