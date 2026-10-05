@@ -638,6 +638,40 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   …
   ```
 
+- Handle an error in an `if (r < 0)` block that returns, and continue with the
+  success path after the block. Do the work that depends on success after the
+  check. The error path then has nothing to undo. Write this:
+
+  ```c
+  r = sd_channel_try_push(c, m);
+  if (r < 0) {
+          if (r == -ENOBUFS)
+                  log_debug("Channel full, dropping message.");
+          else
+                  log_debug_errno(r, "Failed to push message, dropping: %m");
+          return 0;
+  }
+
+  sd_bus_message_ref(m);
+  return 0;
+  ```
+
+  instead of this:
+
+  ```c
+  sd_bus_message *ref = sd_bus_message_ref(m);
+  r = sd_channel_try_push(c, ref);
+  if (r >= 0)
+          return 0;
+
+  sd_bus_message_unref(ref);
+  if (r == -ENOBUFS)
+          log_debug("Channel full, dropping message.");
+  else
+          log_debug_errno(r, "Failed to push message, dropping: %m");
+  return 0;
+  ```
+
 - Do not bother with error checking whether writing to stdout/stderr worked.
 
 - Do not log errors from "library" code, only do so from "main program"
