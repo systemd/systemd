@@ -19,7 +19,11 @@ import tempfile
 import textwrap
 from pathlib import Path
 from types import FrameType
-from typing import Optional
+from typing import NoReturn, Optional
+
+# Journal MESSAGE_ID under which the per-subtest results are logged.
+# Keep in sync with test/units/test-control.sh.
+SUBTEST_RESULT_MESSAGE_ID = '27479699ef7fb3465eb94a6a2224ac15'
 
 EMERGENCY_EXIT_DROPIN = '''\
 [Unit]
@@ -114,6 +118,7 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
             'info',
             *(coredump['exe'] for coredump in coredumps),
         ],
+        stdout=sys.stderr,
         check=True,
     )  # fmt: skip
 
@@ -285,6 +290,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--zstd',
                 ],
                 input=tarball,
+                stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
 
@@ -305,6 +311,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '-delete',
                 ],
                 input=tarball,
+                stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
 
@@ -319,6 +326,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     f'{os.fspath(summary.builddir / summary.buildsubdir)}/',
                     os.fspath(Path(tmp) / 'work/build'),
                 ],
+                stdout=sys.stderr,
                 check=True,
             )
 
@@ -343,6 +351,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--no-external',
                     '--quiet',
                 ],
+                stdout=sys.stderr,
                 check=True,
                 cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
@@ -356,6 +365,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--output-file', output,
                     '--quiet',
                 ],
+                stdout=sys.stderr,
                 check=True,
                 cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
@@ -403,6 +413,58 @@ def coco_nspawn_args(coco_type: str) -> list[str]:
     return binds
 
 
+@dataclasses.dataclass(frozen=True)
+class SubtestResult:
+    name: str
+    result: str  # pass, fail or skip
+
+
+def read_subtest_results(journal_file: Path) -> list[SubtestResult]:
+    # The records are best-effort (see test-control.sh): tests without subtests, or environments
+    # whose logger can't reach the journal, simply yield none.
+    result = subprocess.run(
+        [
+            'journalctl',
+            '--file', journal_file,
+            '--output', 'json',
+            f'MESSAGE_ID={SUBTEST_RESULT_MESSAGE_ID}',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )  # fmt: skip
+    if result.returncode != 0:
+        return []
+
+    results = []
+    for line in result.stdout.splitlines():
+        j = json.loads(line)
+        name, res = j.get('SUBTEST'), j.get('SUBTEST_RESULT')
+        # An embedded newline would inject lines into the TAP stream. Take only single-line strings.
+        if isinstance(name, str) and isinstance(res, str) and '\n' not in name and '\n' not in res:
+            results.append(SubtestResult(name=name, result=res))
+    return results
+
+
+def emit_tap(results: list[SubtestResult]) -> None:
+    print('TAP version 13')
+    print(f'1..{len(results)}')
+    for i, r in enumerate(results, start=1):
+        # '#' would start a TAP directive mid-description.
+        line = f'{"ok" if r.result != "fail" else "not ok"} {i} - {r.name.replace("#", "_")}'
+        if r.result == 'skip':
+            line += ' # SKIP'
+        print(line)
+
+
+def exit_skip(tap: bool, reason: str) -> NoReturn:
+    print(reason, file=sys.stderr)
+    if tap:
+        print('TAP version 13')
+        print(f'1..0 # SKIP {reason.replace("#", "_")}')
+        exit(0)
+    exit(77)
+
+
 def statfs(path: Path) -> str:
     return subprocess.run(
         ['stat', '--file-system', os.fspath(path), '--format=%T'],
@@ -448,6 +510,7 @@ def main() -> None:
     parser.add_argument('--coco', default=None, choices=('tdx', 'sev-snp', 'any'))
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--tap', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -474,24 +537,17 @@ def main() -> None:
         exit(1)
 
     if args.slow and not bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '0'))):
-        print(
-            f'SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}',
-            file=sys.stderr,
-        )
-        exit(77)
+        exit_skip(args.tap, f'SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}')
 
     if args.vm and bool(int(os.getenv('TEST_NO_QEMU', '0'))):
-        print(f'TEST_NO_QEMU=1, skipping {args.name}', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, f'TEST_NO_QEMU=1, skipping {args.name}')
 
     if args.skip:
-        print(f'meson requirements for test {args.name} were not fulfilled, skipping', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, f'meson requirements for test {args.name} were not fulfilled, skipping')
 
     for s in os.getenv('TEST_SKIP', '').split():
         if s in args.name:
-            print(f'Skipping {args.name} due to TEST_SKIP', file=sys.stderr)
-            exit(77)
+            exit_skip(args.tap, f'Skipping {args.name} due to TEST_SKIP')
 
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
@@ -499,8 +555,7 @@ def main() -> None:
 
     # Keep list in sync with TEST-06-SELINUX.sh
     if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('centos', 'fedora', 'opensuse'):
-        print('Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, 'Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE')
 
     if shell and not sys.stdin.isatty():
         print(
@@ -641,25 +696,21 @@ def main() -> None:
     coco_boot_args: list[str] = []
     if args.coco:
         if vm:
-            print(
+            exit_skip(
+                args.tap,
                 f'{args.name} needs bare-metal boot mode (root, no nesting) for confidential VMs, skipping',
-                file=sys.stderr,
             )
-            exit(77)
         host = coco_host_type()
         if host is None or (args.coco != 'any' and host != args.coco):
-            print(
-                f'Host does not provide coco={args.coco} (detected: {host}), skipping {args.name}',
-                file=sys.stderr,
+            exit_skip(
+                args.tap, f'Host does not provide coco={args.coco} (detected: {host}), skipping {args.name}'
             )
-            exit(77)
         if not Path('/dev/vhost-vsock').exists():
-            print(
+            exit_skip(
+                args.tap,
                 f'{args.name} needs /dev/vhost-vsock (load the vhost_vsock module) for the guest '
                 f'notify channel, skipping',
-                file=sys.stderr,
             )
-            exit(77)
         coco_boot_args = coco_nspawn_args(host)
         # /sys/module/*/parameters isn't reliably readable inside the nspawn container, so hand the
         # resolved coco type to the test via the environment instead of making it re-detect.
@@ -748,7 +799,8 @@ def main() -> None:
     ]  # fmt: skip
 
     try:
-        result = subprocess.run(cmd)
+        # All test output goes to stderr: stdout is reserved for machine-readable results.
+        result = subprocess.run(cmd, stdout=sys.stderr)
 
         # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
@@ -758,13 +810,9 @@ def main() -> None:
                 f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
                 file=sys.stderr,
             )
-            result = subprocess.run(cmd)
+            result = subprocess.run(cmd, stdout=sys.stderr)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
-                print(
-                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
-                    file=sys.stderr,
-                )
-                exit(77)
+                exit_skip(args.tap, f'Test {args.name} failed due to QEMU crash (error 247), ignoring')
             print(
                 f'Test {args.name} worked on re-run after QEMU crash (error 247)',
                 file=sys.stderr,
@@ -785,6 +833,10 @@ def main() -> None:
         and not sanitizer
     ):
         process_coverage(args, summary, name, journal_file)
+
+    subtest_results: list[SubtestResult] = []
+    if args.tap:
+        subtest_results = read_subtest_results(journal_file)
 
     if keep_journal == '0' or (
         keep_journal == 'fail'
@@ -825,6 +877,22 @@ def main() -> None:
         print(
             f'Test {exit_str}, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr
         )
+
+    if args.tap:
+        results = subtest_results
+        if not results:
+            # No subtest records: a test without subtests, or an environment without journal
+            # records. Report the whole test as a single point.
+            whole_test = {'succeeded': 'pass', 'skipped': 'skip', 'failed': 'fail'}[exit_str]
+            results = [SubtestResult(name=args.name, result=whole_test)]
+        elif exit_str == 'failed' and all(r.result != 'fail' for r in results):
+            # The failure is not attributable to any subtest: it happened outside of them, or
+            # coredumps/sanitizer findings failed the test. Report it as a point of its own.
+            results = [*results, SubtestResult(name=args.name, result='fail')]
+        emit_tap(results)
+        # The TAP stream carries the verdict; a non-zero exit would make meson report ERROR
+        # instead of attributing the failure to the failed points.
+        exit(0)
 
     exit(exit_code)
 
