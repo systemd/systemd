@@ -113,6 +113,10 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
  * EVENT_SOURCE_CAN_RATE_LIMIT() macro. */
 #define EVENT_SOURCE_USES_TIME_PRIOQ(t) EVENT_SOURCE_CAN_RATE_LIMIT(t)
 
+static WakeupType pending_kind(const void *p) {
+        return *(const WakeupType *) ASSERT_PTR(p);
+}
+
 struct sd_event {
         unsigned n_ref;
 
@@ -219,30 +223,54 @@ sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
+typedef struct PendingPrioqKey {
+        bool off;
+        bool ratelimited;
+        int64_t priority;
+        uint64_t iteration;
+} PendingPrioqKey;
+
+static PendingPrioqKey pending_prioq_key(const void *p) {
+        switch (pending_kind(p)) {
+
+        case WAKEUP_EVENT_SOURCE: {
+                const sd_event_source *s = p;
+                assert(s->pending);
+                return (PendingPrioqKey) {
+                        .off = (s->enabled == SD_EVENT_OFF),
+                        .ratelimited = s->ratelimited,
+                        .priority = s->priority,
+                        .iteration = s->pending_iteration,
+                };
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static int pending_prioq_compare(const void *a, const void *b) {
-        const sd_event_source *x = a, *y = b;
+        PendingPrioqKey x = pending_prioq_key(a);
+        PendingPrioqKey y = pending_prioq_key(b);
         int r;
 
-        assert(x->pending);
-        assert(y->pending);
-
         /* Enabled ones first */
-        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        r = CMP(x.off, y.off);
         if (r != 0)
                 return r;
 
         /* Non rate-limited ones first. */
-        r = CMP(!!x->ratelimited, !!y->ratelimited);
+        r = CMP(x.ratelimited, y.ratelimited);
         if (r != 0)
                 return r;
 
         /* Lower priority values first */
-        r = CMP(x->priority, y->priority);
+        r = CMP(x.priority, y.priority);
         if (r != 0)
                 return r;
 
         /* Older entries first */
-        return CMP(x->pending_iteration, y->pending_iteration);
+        return CMP(x.iteration, y.iteration);
 }
 
 static int prepare_prioq_compare(const void *a, const void *b) {
@@ -1281,6 +1309,7 @@ static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType t
         /* Note: we cannot use compound initialization here, because sizeof(sd_event_source) is likely larger
          * than what we allocated here. */
         s->n_ref = 1;
+        s->wakeup = WAKEUP_EVENT_SOURCE;
         s->event = e;
         s->floating = floating;
         s->type = type;
@@ -4487,8 +4516,8 @@ static int dispatch_exit(sd_event *e) {
         return r;
 }
 
-static sd_event_source* event_next_pending(sd_event *e) {
-        sd_event_source *p;
+static void* event_next_pending(sd_event *e) {
+        void *p;
 
         assert(e);
 
@@ -4500,6 +4529,13 @@ static sd_event_source* event_next_pending(sd_event *e) {
                 return NULL;
 
         return p;
+}
+
+static int event_pending_dispatch(void *p) {
+        assert(p);
+        assert(pending_kind(p) == WAKEUP_EVENT_SOURCE);
+
+        return source_dispatch(p);
 }
 
 static int arm_watchdog(sd_event *e) {
@@ -4947,7 +4983,7 @@ finish:
 }
 
 _public_ int sd_event_dispatch(sd_event *e) {
-        sd_event_source *p;
+        void *p;
         int r;
 
         assert_return(e, -EINVAL);
@@ -4964,7 +5000,7 @@ _public_ int sd_event_dispatch(sd_event *e) {
                 PROTECT_EVENT(e);
 
                 e->state = SD_EVENT_RUNNING;
-                r = source_dispatch(p);
+                r = event_pending_dispatch(p);
                 e->state = SD_EVENT_INITIAL;
                 return r;
         }
