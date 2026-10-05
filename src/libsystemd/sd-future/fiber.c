@@ -22,6 +22,7 @@
 #include "event-future.h"
 #include "event-util.h"
 #include "fiber-ops.h"
+#include "future-internal.h"
 #include "log-context.h"
 #include "log.h"
 #include "memory-util.h"
@@ -68,7 +69,7 @@ typedef struct Fiber {
         bool result_pending;            /* sd_fiber_resume() stashed a value that fiber_swap() hasn't consumed yet */
 
         sd_future *floating;            /* Self-ref held while the fiber is floating; dropped on resolve. */
-        sd_future *awaiting;            /* Target of the wait the fiber is suspended in, if any. */
+        FutureWaiter wait;
 
         /* The timers of the SD_FIBER_TIMEOUT() scopes the fiber is in, innermost last. The scopes own the
          * timers. */
@@ -509,6 +510,7 @@ static void fiber_free(sd_future *f) {
          * registered cleanups to run. This covers the partial-construction failure path in sd_fiber_new()
          * as well as fibers that are unrefed before the event loop ever dispatches them. */
         assert(IN_SET(fiber->state, FIBER_STATE_INITIAL, FIBER_STATE_COMPLETED));
+        assert(!fiber->wait.target);
 
         if (fiber->destroy)
                 fiber->destroy(fiber->userdata);
@@ -718,6 +720,7 @@ int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *user
                 .name = strdup(name),
                 .func = func,
                 .userdata = userdata,
+                .wait.fiber = f,
         };
         if (!fiber->name)
                 return -ENOMEM;
@@ -851,30 +854,11 @@ int sd_fiber_sleep(uint64_t usec) {
         return sd_future_result(timer);
 }
 
-static int fiber_wait_callback(sd_future *target, void *userdata) {
-        /* Completion only wakes the waiter. Passing the future's error here would make it
-         * indistinguishable from an interruption of the waiting fiber. */
-        return sd_fiber_resume(userdata, 0);
-}
-
-static int fiber_suspend_for(sd_future *f, sd_future *target) {
-        Fiber *fiber = fiber_get(f);
-        int r;
-
-        assert(!fiber->awaiting);
-
-        fiber->awaiting = target;
-        r = sd_fiber_suspend();
-        fiber->awaiting = NULL;
-
-        return r;
-}
-
 sd_future* sd_fiber_get_awaiting(sd_future *f) {
         assert_return(f, NULL);
         assert_return(sd_future_get_ops(f) == &fiber_future_ops, NULL);
 
-        return fiber_get(f)->awaiting;
+        return fiber_get(f)->wait.target;
 }
 
 int sd_fiber_await(sd_future *target) {
@@ -890,15 +874,15 @@ int sd_fiber_await(sd_future *target) {
                 return 0;
 
         /* The fiber is executing inside event dispatch, so its loop cannot have finished yet.
-         * Waiting during exit is supported by the slot's exit source. */
+         * Waking up during exit is handled by the fiber's own exit source. */
         assert(sd_event_get_state(sd_future_get_event(f)) != SD_EVENT_FINISHED);
 
-        _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot = NULL;
-        r = sd_future_add_callback(target, &slot, fiber_wait_callback, f);
-        if (r < 0)
-                return r;
+        future_add_waiter(target, &fiber_get(f)->wait);
+        r = sd_fiber_suspend();
 
-        r = fiber_suspend_for(f, target);
+        /* The caller does not have to own a reference to the target. The reference that the wait held
+         * may then be the last one. Release it only after the checks below, or they read freed memory. */
+        _cleanup_(sd_future_unrefp) sd_future *ref = future_remove_waiter(&fiber_get(f)->wait);
 
         /* The target can resolve before a cancellation or timeout wakes us up. The operation has then
          * already taken effect: a channel receive, for example, took an item out of the channel. If we
@@ -952,17 +936,7 @@ sd_future* sd_future_cancel_wait_unref(sd_future *f) {
                         break;
                 }
 
-                /* Unlike sd_fiber_await(), a failure to set up the wait must be told apart from a
-                 * wait that was interrupted or woken spuriously. Retrying the former would spin
-                 * without ever yielding to the event loop, so nothing could resolve the future. */
-                _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot = NULL;
-                r = sd_future_add_callback(f, &slot, fiber_wait_callback, self);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to wait for future to finish, giving up: %m");
-                        break;
-                }
-
-                r = fiber_suspend_for(self, f);
+                r = sd_fiber_await(f);
 
                 if (sd_future_state(f) == SD_FUTURE_RESOLVED) {
                         int fr = sd_future_result(f);

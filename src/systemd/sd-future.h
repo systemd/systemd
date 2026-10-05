@@ -148,13 +148,12 @@ sd_future* sd_fiber_get_awaiting(sd_future *f);
 int sd_fiber_yield(void);
 int sd_fiber_sleep(uint64_t usec);
 /* Suspend until the target has resolved. Returns 0 once it has, and a negative error only if the wait
- * itself did not complete: the calling fiber was interrupted (-ECANCELED, -ETIME), woken for an
- * unrelated reason (-EBUSY), or the wait could not be set up. An interrupted wait does not imply that
- * the target has resolved. If the target resolved before the fiber saw the interruption, the wait
- * returns 0, and the next suspension point returns the interruption instead. The target's outcome is
- * available through sd_future_result() afterwards; the caller must hold its own reference to read it.
- * An already-resolved target returns 0 without consuming a pending interruption. The target must
- * belong to the calling fiber's event loop. */
+ * itself did not complete: the calling fiber was interrupted (-ECANCELED, -ETIME) or woken for an
+ * unrelated reason (-EBUSY). An interrupted wait does not imply that the target has resolved. If the
+ * target resolved before the fiber saw the interruption, the wait returns 0, and the next suspension
+ * point returns the interruption instead. The target's outcome is available through sd_future_result()
+ * afterwards; the caller must hold its own reference to read it. An already-resolved target returns 0
+ * without consuming a pending interruption. The target must belong to the calling fiber's event loop. */
 int sd_fiber_await(sd_future *target);
 /* sd_fiber_interrupted() returns a queued -ECANCELED or -ETIME and clears it, so that no later
  * suspension point returns it again. It returns 0 if no interruption is queued. Call it before starting

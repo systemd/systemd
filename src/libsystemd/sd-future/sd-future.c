@@ -6,6 +6,8 @@
 #include "alloc-util.h"
 #include "event-future.h"
 #include "event-util.h"
+#include "future-internal.h"
+#include "list.h"
 #include "log.h"
 #include "macro.h"
 #include "set.h"
@@ -42,6 +44,8 @@ struct sd_future {
         sd_event *event;
 
         Set *slots;
+
+        LIST_HEAD(FutureWaiter, waiters);
 
         const sd_future_ops *ops;
 
@@ -93,6 +97,24 @@ static void slot_arm(sd_future_slot *s) {
         assert_se(sd_event_source_set_enabled(s->exit_source, SD_EVENT_ONESHOT) >= 0);
 }
 
+void future_add_waiter(sd_future *target, FutureWaiter *waiter) {
+        assert(target);
+        assert(waiter);
+        assert(waiter->fiber);
+        assert(!waiter->target);
+
+        waiter->target = sd_future_ref(target);
+        LIST_PREPEND(waiters, target->waiters, waiter);
+}
+
+sd_future* future_remove_waiter(FutureWaiter *waiter) {
+        assert(waiter);
+
+        sd_future *target = ASSERT_PTR(waiter->target);
+        LIST_REMOVE(waiters, target->waiters, waiter);
+        return TAKE_PTR(waiter->target);
+}
+
 int sd_future_resolve(sd_future *f, int result) {
         assert_return(f, -EINVAL);
         assert_return(f->state == SD_FUTURE_PENDING, -ESTALE);
@@ -107,6 +129,11 @@ int sd_future_resolve(sd_future *f, int result) {
         SET_FOREACH(s, f->slots)
                 slot_arm(s);
 
+        /* Waiters are only woken up, never run from here: they unlink themselves once they resume, and
+         * the wait reports completion separately from the result. */
+        LIST_FOREACH(waiters, w, f->waiters)
+                assert_se(sd_fiber_resume(w->fiber, 0) >= 0);
+
         return 0;
 }
 
@@ -116,6 +143,7 @@ static sd_future* sd_future_free(sd_future *f) {
          * sd_future_cancel_unref() (non-fiber, synchronous-cancel impls) or
          * sd_future_cancel_wait_unref() (fiber, awaits actual resolution). */
         assert(f->state == SD_FUTURE_RESOLVED);
+        assert(!f->waiters); /* Waiters hold a reference. */
 
         /* Any slot still in f->slots at this point must be floating: non-floating slots own
          * a ref on f, so if any existed we wouldn't have reached free. (Slots can be added
