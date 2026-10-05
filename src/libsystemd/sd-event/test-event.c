@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "io-uring-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1637,6 +1638,50 @@ TEST(io_uring_exit_on_idle_with_inflight_slot) {
         ASSERT_EQ(ASSERT_OK_ERRNO(write(p[1], "x", 1)), (ssize_t) 1);
         ASSERT_OK_POSITIVE(sd_event_run(e, 1000000));
         ASSERT_OK(got_res);
+}
+
+/* An operation that completes while the event loop sleeps in epoll_wait() posts its CQE from task work. The
+ * kernel interrupts epoll_wait() with -EINTR to run the task work, and the CQE is in the ring by the time
+ * epoll_wait() returns. sd_event_run() has to dispatch the slot in that same call. */
+TEST(io_uring_slot_completes_while_waiting) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        int r;
+
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        /* A forked child refuses to dlopen() libraries, so load liburing here. */
+        if (dlopen_io_uring(LOG_DEBUG) < 0)
+                return (void) log_tests_skipped("liburing unavailable");
+
+        /* The kernel also runs task work in a thread when a ring that the thread used is freed, and that
+         * task work interrupts epoll_wait() too. Run the event loop in a new process, which never used the
+         * rings of earlier tests. */
+        r = ASSERT_OK(pidref_safe_fork("(event-loop)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
+        if (r == 0) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+                ASSERT_OK(sd_event_new(&e));
+
+                if (!io_uring_available_or_skip(e))
+                        _exit(EXIT_SUCCESS);
+
+                _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+                struct io_uring_sqe *sqe;
+                int32_t got_res = INT32_MAX;
+                ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+                io_uring_prep_poll_add(sqe, p[0], POLLIN);
+
+                ASSERT_OK_POSITIVE(sd_event_run(e, 5 * USEC_PER_SEC));
+                ASSERT_EQ(got_res, POLLIN);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(p[1], "x", 1)), (ssize_t) 1);
+
+        ASSERT_OK_EQ(pidref_wait_for_terminate_and_check("(event-loop)", &pidref, WAIT_LOG), EXIT_SUCCESS);
 }
 
 struct order_state {
