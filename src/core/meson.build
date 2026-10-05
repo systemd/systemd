@@ -123,10 +123,12 @@ load_fragment_gperf_gperf = custom_target(
         output: 'load-fragment-gperf.gperf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
 
+# The default gperf search leaves most slots of this hash table empty, and every empty slot takes up
+# space in the binary. More search iterations make the table about 25% smaller.
 load_fragment_gperf_c = custom_target(
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '--multiple-iterations=10', '@INPUT@', '--output-file', '@OUTPUT@'])
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
