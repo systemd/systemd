@@ -150,10 +150,12 @@ networkd_gperf_c = custom_target(
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
+# The default gperf search leaves most slots of this hash table empty, and every empty slot takes up
+# space in the binary. More search iterations make the table about 30% smaller.
 networkd_network_gperf_c = custom_target(
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '--multiple-iterations=10', '@INPUT@', '--output-file', '@OUTPUT@'])
 
 netdev_gperf_c = custom_target(
         input : networkd_netdev_gperf_gperf,
