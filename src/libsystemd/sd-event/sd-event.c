@@ -15,6 +15,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "event-future.h"
 #include "event-source.h"
@@ -24,6 +25,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "io-uring-util.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
@@ -113,6 +115,35 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
  * EVENT_SOURCE_CAN_RATE_LIMIT() macro. */
 #define EVENT_SOURCE_USES_TIME_PRIOQ(t) EVENT_SOURCE_CAN_RATE_LIMIT(t)
 
+static WakeupType pending_kind(const void *p) {
+        return *(const WakeupType *) ASSERT_PTR(p);
+}
+
+typedef enum EventSlotFlags {
+        EVENT_SLOT_INFLIGHT         = 1 << 0,  /* SQE handed out, terminal CQE not seen yet */
+        EVENT_SLOT_PENDING          = 1 << 1,  /* CQE arrived, queued on event->pending */
+        EVENT_SLOT_CANCEL_SUBMITTED = 1 << 2,  /* cancel already requested, don't submit another */
+} EventSlotFlags;
+
+struct sd_event_slot {
+        WakeupType wakeup;          /* MUST be first: discriminator for pending_prioq_compare() */
+
+        unsigned n_ref;
+        sd_event *event;
+
+        EventSlotFlags flags;
+
+        unsigned pending_index;
+        uint64_t pending_iteration;
+        int64_t priority;
+
+        void *userdata;
+
+        sd_event_io_uring_handler_t callback;
+        int32_t cqe_res;            /* res of the CQE that the callback gets next */
+        uint32_t cqe_flags;
+};
+
 struct sd_event {
         unsigned n_ref;
 
@@ -179,11 +210,88 @@ struct sd_event {
 
         LIST_HEAD(sd_event_source, sources);
 
+        unsigned n_undispatched_slots;
+
         sd_event_source *sigint_event_source, *sigterm_event_source;
 
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
+
+#if HAVE_LIBURING
+        /* Liveness is tracked through io_uring.ring_fd: sd_event_new() sets it to -EBADF and
+         * io_uring_queue_init_params() stamps a valid fd on success. */
+        struct io_uring io_uring;
+
+        /* Set once the blanket cancel-all SQE was submitted, so we don't submit it twice. */
+        bool io_uring_cancel_all_submitted;
+
+        /* Set once event_io_uring_available() tried to set up the ring, so a failure is not retried on
+         * every call. */
+        bool io_uring_setup_attempted;
+#endif
 };
+
+#if HAVE_LIBURING
+/* io_uring_get_sqe() with a submit-and-retry fallback: without it, callers queueing many SQEs
+ * back-to-back hit -ENOSPC as soon as the ring saturates. */
+static int event_io_uring_get_sqe(sd_event *e, struct io_uring_sqe **ret) {
+        int r;
+
+        assert(e);
+        assert(ret);
+
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&e->io_uring);
+        if (sqe) {
+                *ret = sqe;
+                return 0;
+        }
+
+        r = sym_io_uring_submit(&e->io_uring);
+        if (r < 0)
+                return r;
+
+        sqe = io_uring_get_sqe(&e->io_uring);
+        if (!sqe)
+                return -ENOSPC;
+
+        *ret = sqe;
+        return 0;
+}
+#endif
+
+static inline bool event_io_uring_enabled(sd_event *e) {
+        assert(e);
+#if HAVE_LIBURING
+        return e->io_uring.ring_fd >= 0;
+#else
+        return false;
+#endif
+}
+
+/* The ring fd only becomes readable for SQEs that the kernel already has, so the queued SQEs have to be
+ * submitted before every epoll_wait(). io_uring_submit() also enters the kernel when the completion queue
+ * overflowed. The kernel then moves the overflowed CQEs back into the ring. */
+static int event_io_uring_submit(sd_event *e) {
+#if HAVE_LIBURING
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return 0;
+
+        return sym_io_uring_submit(&e->io_uring);
+#else
+        return 0;
+#endif
+}
+
+static bool event_io_uring_has_cqes(sd_event *e) {
+        assert(e);
+#if HAVE_LIBURING
+        return event_io_uring_enabled(e) && io_uring_cq_ready(&e->io_uring) > 0;
+#else
+        return false;
+#endif
+}
 
 DEFINE_ORIGIN_ID_HELPERS(sd_event, event);
 
@@ -219,30 +327,65 @@ sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
+typedef struct PendingPrioqKey {
+        bool off;
+        bool ratelimited;
+        int64_t priority;
+        uint64_t iteration;
+} PendingPrioqKey;
+
+/* The pending prioq mixes sd_event_source and sd_event_slot pointers, discriminated by the WakeupType
+ * both structs start with. Slots have no enable/ratelimit concept, so they order as always-enabled. */
+static PendingPrioqKey pending_prioq_key(const void *p) {
+        switch (pending_kind(p)) {
+
+        case WAKEUP_EVENT_SOURCE: {
+                const sd_event_source *s = p;
+                assert(s->pending);
+                return (PendingPrioqKey) {
+                        .off = (s->enabled == SD_EVENT_OFF),
+                        .ratelimited = s->ratelimited,
+                        .priority = s->priority,
+                        .iteration = s->pending_iteration,
+                };
+        }
+
+        case WAKEUP_EVENT_SLOT: {
+                const sd_event_slot *s = p;
+                assert(FLAGS_SET(s->flags, EVENT_SLOT_PENDING));
+                return (PendingPrioqKey) {
+                        .priority = s->priority,
+                        .iteration = s->pending_iteration,
+                };
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static int pending_prioq_compare(const void *a, const void *b) {
-        const sd_event_source *x = a, *y = b;
+        PendingPrioqKey x = pending_prioq_key(a);
+        PendingPrioqKey y = pending_prioq_key(b);
         int r;
 
-        assert(x->pending);
-        assert(y->pending);
-
         /* Enabled ones first */
-        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        r = CMP(x.off, y.off);
         if (r != 0)
                 return r;
 
         /* Non rate-limited ones first. */
-        r = CMP(!!x->ratelimited, !!y->ratelimited);
+        r = CMP(x.ratelimited, y.ratelimited);
         if (r != 0)
                 return r;
 
         /* Lower priority values first */
-        r = CMP(x->priority, y->priority);
+        r = CMP(x.priority, y.priority);
         if (r != 0)
                 return r;
 
         /* Older entries first */
-        return CMP(x->pending_iteration, y->pending_iteration);
+        return CMP(x.iteration, y.iteration);
 }
 
 static int prepare_prioq_compare(const void *a, const void *b) {
@@ -371,6 +514,131 @@ static void free_clock_data(ClockData *d) {
         prioq_free(d->latest);
 }
 
+/* True while the slot still owes its caller a callback. The submit-time ref is held for exactly that
+ * window, so this also answers "is the submit-time ref still ours to drop". */
+static bool slot_is_undispatched(sd_event_slot *s) {
+        assert(s);
+        return (s->flags & (EVENT_SLOT_INFLIGHT|EVENT_SLOT_PENDING)) != 0;
+}
+
+static int slot_set_pending(sd_event_slot *s, bool b) {
+        int r;
+
+        assert(s);
+        assert(s->event);
+
+        if (FLAGS_SET(s->flags, EVENT_SLOT_PENDING) == b)
+                return 0;
+
+        SET_FLAG(s->flags, EVENT_SLOT_PENDING, b);
+
+        if (b) {
+                s->pending_iteration = s->event->iteration;
+                r = prioq_put(s->event->pending, s, &s->pending_index);
+                if (r < 0) {
+                        s->flags &= ~EVENT_SLOT_PENDING;
+                        return r;
+                }
+        } else
+                assert_se(prioq_remove(s->event->pending, s, &s->pending_index));
+
+        return 0;
+}
+
+static sd_event_slot* slot_free(sd_event_slot *s) {
+        assert(s);
+        assert(!slot_is_undispatched(s));
+
+        sd_event_unref(s->event);
+        return mfree(s);
+}
+
+#if HAVE_LIBURING
+static sd_event_slot* slot_allocate(sd_event *e) {
+        assert(e);
+
+        sd_event_slot *s = new(sd_event_slot, 1);
+        if (!s)
+                return NULL;
+
+        *s = (sd_event_slot) {
+                .wakeup = WAKEUP_EVENT_SLOT,
+                .n_ref = 1,
+                .event = e,
+                .priority = SD_EVENT_PRIORITY_NORMAL,
+        };
+
+        sd_event_ref(e);
+
+        return s;
+}
+#endif
+
+static int slot_dispatch(sd_event_slot *s) {
+        int r;
+
+        assert(s);
+        assert(FLAGS_SET(s->flags, EVENT_SLOT_PENDING));
+
+        slot_set_pending(s, false);
+
+        /* The submit-time ref is still held here, so the handler may drop the user ref. That is why
+         * slots need no equivalent of sd_event_source's `dispatching` deferral. */
+        r = s->callback(s, s->cqe_res, s->cqe_flags, s->userdata);
+
+        /* For multishot ops (IORING_CQE_F_MORE was set on this CQE) the kernel will deliver more CQEs
+         * for the same SQE, so the slot stays as it is. Only release it on the terminal CQE. */
+        if (!slot_is_undispatched(s)) {
+                s->event->n_undispatched_slots--;
+                event_slot_unref(s);
+        }
+
+        /* sd_event_dispatch() returns 0 only after the loop has finished. An external loop stops when it
+         * gets 0, so return 1 for a handler that returns 0. */
+        return r < 0 ? r : 1;
+}
+
+static int event_io_uring_cancel_all(sd_event *e) {
+#if HAVE_LIBURING
+        int r;
+
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return 0;
+
+        if (e->io_uring_cancel_all_submitted)
+                return 0;
+
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(e, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, NULL, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+        io_uring_sqe_set_flags(sqe, IOSQE_CQE_SKIP_SUCCESS);
+        io_uring_sqe_set_data(sqe, NULL);
+
+        e->io_uring_cancel_all_submitted = true;
+#endif
+        return 0;
+}
+
+static void event_io_uring_free(sd_event *e) {
+#if HAVE_LIBURING
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return;
+
+        /* Every slot holds a ref on the event loop, so no slot SQE can be in flight here. Only our own
+         * cancel SQEs can still be in flight, and cancel SQEs do not point into memory that we release. */
+        assert(e->n_undispatched_slots == 0);
+
+        sym_io_uring_queue_exit(&e->io_uring);
+#endif
+}
+
 static sd_event* event_free(sd_event *e) {
         sd_event_source *s;
 
@@ -389,6 +657,8 @@ static sd_event* event_free(sd_event *e) {
 
         if (e->default_event_ptr)
                 *(e->default_event_ptr) = NULL;
+
+        event_io_uring_free(e);
 
         safe_close(e->epoll_fd);
         safe_close(e->watchdog_fd);
@@ -447,6 +717,10 @@ _public_ int sd_event_new(sd_event** ret) {
                 .boottime_alarm.next = USEC_INFINITY,
                 .perturb = USEC_INFINITY,
                 .origin_id = origin_id_query(),
+#if HAVE_LIBURING
+                /* Not-yet-initialized, so event_io_uring_enabled() reads false. */
+                .io_uring.ring_fd = -EBADF,
+#endif
         };
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
@@ -1281,6 +1555,7 @@ static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType t
         /* Note: we cannot use compound initialization here, because sizeof(sd_event_source) is likely larger
          * than what we allocated here. */
         s->n_ref = 1;
+        s->wakeup = WAKEUP_EVENT_SOURCE;
         s->event = e;
         s->floating = floating;
         s->type = type;
@@ -4465,16 +4740,36 @@ static int event_prepare(sd_event *e) {
         return 0;
 }
 
-static int dispatch_exit(sd_event *e) {
+static sd_event_source* event_next_exit(sd_event *e) {
         sd_event_source *p;
-        int r;
 
         assert(e);
 
         p = prioq_peek(e->exit);
         assert(!p || p->type == SOURCE_EXIT);
 
-        if (!p || event_source_is_offline(p)) {
+        if (!p || event_source_is_offline(p))
+                return NULL;
+
+        return p;
+}
+
+static int dispatch_exit(sd_event *e) {
+        sd_event_source *p;
+        int r;
+
+        assert(e);
+
+        p = event_next_exit(e);
+        if (!p) {
+                /* The loop must not reach FINISHED while a slot still waits for its callback.
+                 * sd_event_wait() keeps processing CQEs until every slot has been dispatched. */
+                if (e->n_undispatched_slots > 0) {
+                        /* sd_event_dispatch() returns 0 only after the loop has finished. An external
+                         * loop stops when it gets 0, but the io_uring work is not drained yet. */
+                        e->state = SD_EVENT_INITIAL;
+                        return 1;
+                }
                 e->state = SD_EVENT_FINISHED;
                 return 0;
         }
@@ -4487,8 +4782,8 @@ static int dispatch_exit(sd_event *e) {
         return r;
 }
 
-static sd_event_source* event_next_pending(sd_event *e) {
-        sd_event_source *p;
+static void* event_next_pending(sd_event *e) {
+        void *p;
 
         assert(e);
 
@@ -4496,10 +4791,37 @@ static sd_event_source* event_next_pending(sd_event *e) {
         if (!p)
                 return NULL;
 
-        if (event_source_is_offline(p))
+        /* Slots are always online; only sources can be offline. */
+        if (pending_kind(p) == WAKEUP_EVENT_SOURCE && event_source_is_offline(p))
                 return NULL;
 
         return p;
+}
+
+/* Only slots dispatch during the exit cascade, so we can't just look at the prioq head: a pending source
+ * ahead of a slot (or an offline one, which event_next_pending() reports as nothing at all) would hide it and
+ * the cascade would never drain. Ordering among the slots themselves still follows the prioq. */
+static sd_event_slot* event_next_pending_slot(sd_event *e) {
+        sd_event_slot *ret = NULL;
+        void *p;
+
+        assert(e);
+
+        PRIOQ_FOREACH_ITEM(e->pending, p)
+                if (pending_kind(p) == WAKEUP_EVENT_SLOT && (!ret || pending_prioq_compare(p, ret) < 0))
+                        ret = p;
+
+        return ret;
+}
+
+static int event_pending_dispatch(void *p) {
+        assert(p);
+
+        if (pending_kind(p) == WAKEUP_EVENT_SLOT)
+                return slot_dispatch(p);
+
+        assert(pending_kind(p) == WAKEUP_EVENT_SOURCE);
+        return source_dispatch(p);
 }
 
 static int arm_watchdog(sd_event *e) {
@@ -4601,6 +4923,12 @@ static bool event_loop_idle(sd_event *e) {
                 return false;
         }
 
+        /* Inflight slot SQEs (a fiber suspended in sd_fiber_accept(), say) are real work even though they
+         * aren't in e->sources. Calling the loop idle here would trip exit_on_idle, whose cancel-all
+         * resolves the slot with -ECANCELED out from under the fiber. */
+        if (e->n_undispatched_slots > 0)
+                return false;
+
         return true;
 }
 
@@ -4664,6 +4992,10 @@ _public_ int sd_event_prepare(sd_event *e) {
         if (event_next_pending(e) || e->need_process_child || e->buffered_inotify_data_list)
                 goto pending;
 
+        r = event_io_uring_submit(e);
+        if (r < 0)
+                return r;
+
         e->state = SD_EVENT_ARMED;
 
         return 0;
@@ -4719,6 +5051,92 @@ static int epoll_wait_usec(
         return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
 }
 
+#if HAVE_LIBURING
+/* Our own cancel SQEs have no user_data. Every other SQE that we submit belongs to a slot. */
+static sd_event_slot* cqe_get_slot(struct io_uring_cqe *cqe) {
+        assert(cqe);
+
+        sd_event_slot *s = io_uring_cqe_get_data(cqe);
+        assert(!s || s->wakeup == WAKEUP_EVENT_SLOT);
+        return s;
+}
+
+static int dispatch_cqe(
+                sd_event *e,
+                struct io_uring_cqe *cqe,
+                int64_t threshold,
+                int64_t *min_priority) {
+
+        int r;
+
+        assert(e);
+        assert(cqe);
+        assert(min_priority);
+
+        sd_event_slot *s = cqe_get_slot(cqe);
+        if (!s) {
+                /* IOSQE_CQE_SKIP_SUCCESS suppresses CQEs for successful cancels, so we only get here on
+                 * failure. -ENOENT (target already gone) and -EALREADY (target running, can't cancel
+                 * synchronously) are expected; anything else suggests a bug or kernel oddity. */
+                if (cqe->res < 0 && !IN_SET(cqe->res, -ENOENT, -EALREADY))
+                        log_debug_errno(cqe->res, "io_uring cancel SQE failed unexpectedly, ignoring: %m");
+                return 0;
+        }
+
+        s->cqe_res = cqe->res;
+        s->cqe_flags = cqe->flags;
+
+        /* The CQE is consumed either way, so the slot has to go pending even above the threshold:
+         * nothing will report it again. The prioq still dispatches in priority order. */
+        if (s->priority <= threshold)
+                *min_priority = MIN(*min_priority, s->priority);
+
+        /* IORING_CQE_F_MORE means more CQEs follow for the same SQE (multishot). */
+        bool terminal = !FLAGS_SET(cqe->flags, IORING_CQE_F_MORE);
+
+        r = slot_set_pending(s, true);
+        if (r < 0)
+                return r;
+
+        /* Clearing inflight only after the pending bit is set keeps slot_is_undispatched() true
+         * throughout, so the submit-time ref stays accounted for. */
+        if (terminal)
+                s->flags &= ~EVENT_SLOT_INFLIGHT;
+
+        return 0;
+}
+
+static int process_io_uring(sd_event *e, int64_t threshold, int64_t *min_priority) {
+        unsigned head, n = 0;
+        struct io_uring_cqe *cqe;
+        int r = 0;
+
+        assert(e);
+        assert(min_priority);
+
+        io_uring_for_each_cqe(&e->io_uring, head, cqe) {
+                /* A multishot SQE can post a second CQE before its slot was dispatched for the first one.
+                 * A slot stores only one CQE, so storing the second CQE would overwrite the first. Leave
+                 * the second CQE and every CQE after it in the ring. The ring fd stays readable, and the
+                 * next iteration processes the remaining CQEs after the slot has been dispatched. */
+                sd_event_slot *s = cqe_get_slot(cqe);
+                if (s && FLAGS_SET(s->flags, EVENT_SLOT_PENDING))
+                        break;
+
+                /* A CQE that could not be queued for dispatch stays in the ring, and the next iteration
+                 * tries again. */
+                r = dispatch_cqe(e, cqe, threshold, min_priority);
+                if (r < 0)
+                        break;
+
+                n++;
+        }
+        io_uring_cq_advance(&e->io_uring, n);
+
+        return r;
+}
+#endif
+
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
         size_t n_event_queue, m, n_event_max;
         int64_t min_priority = threshold;
@@ -4744,6 +5162,14 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 e->event_queue,
                                 n_event_max,
                                 timeout);
+                if (r == -EINTR && event_io_uring_has_cqes(e)) {
+                        /* io_uring completes an operation from task work. The kernel interrupts
+                         * epoll_wait() with -EINTR to run the task work, and the task work posts the CQE
+                         * before epoll_wait() returns. Collect the CQE now instead of returning without
+                         * any event. */
+                        timeout = 0;
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
@@ -4771,6 +5197,10 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
 
                 if (i->data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
                         r = flush_timer(e, e->watchdog_fd, i->events, NULL);
+#if HAVE_LIBURING
+                else if (i->data.ptr == &e->io_uring)
+                        r = process_io_uring(e, threshold, &min_priority);
+#endif
                 else {
                         WakeupType *t = ASSERT_PTR(i->data.ptr);
 
@@ -4847,9 +5277,22 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
 
         if (e->exit_requested) {
-                e->state = SD_EVENT_PENDING;
-                return 1;
+                /* Kick off cancellation on first detection, so slot callbacks still fire with -ECANCELED. The
+                 * call is idempotent and a no-op without liburing. */
+                r = event_io_uring_cancel_all(e);
+                if (r < 0)
+                        goto finish;
+
+                /* Nothing left undrained, so go straight to PENDING; otherwise fall through and keep draining. */
+                if (e->n_undispatched_slots == 0) {
+                        e->state = SD_EVENT_PENDING;
+                        return 1;
+                }
         }
+
+        r = event_io_uring_submit(e);
+        if (r < 0)
+                goto finish;
 
         for (int64_t threshold = INT64_MAX; ; threshold--) {
                 int64_t epoll_min_priority, child_min_priority;
@@ -4933,7 +5376,16 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 goto finish;
         }
 
-        if (event_next_pending(e)) {
+        /* During exit, sd_event_dispatch() dispatches only slots and exit sources. If another pending
+         * source, such as an enabled defer source, made sd_event_wait() return PENDING, sd_event_dispatch()
+         * would dispatch nothing and return immediately. The event loop would then call sd_event_wait()
+         * again without blocking, and repeat this until the remaining CQEs arrive. */
+        bool pending;
+        if (e->exit_requested)
+                pending = event_next_pending_slot(e) || event_next_exit(e);
+        else
+                pending = event_next_pending(e);
+        if (pending) {
                 e->state = SD_EVENT_PENDING;
                 return 1;
         }
@@ -4947,7 +5399,7 @@ finish:
 }
 
 _public_ int sd_event_dispatch(sd_event *e) {
-        sd_event_source *p;
+        void *p;
         int r;
 
         assert_return(e, -EINVAL);
@@ -4956,15 +5408,20 @@ _public_ int sd_event_dispatch(sd_event *e) {
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_PENDING, -EBUSY);
 
-        if (e->exit_requested)
-                return dispatch_exit(e);
+        /* Pending slots still dispatch during the exit cascade so their callbacks see -ECANCELED. Pending
+         * sources do not; only slots and exit sources. */
+        if (e->exit_requested) {
+                p = event_next_pending_slot(e);
+                if (!p)
+                        return dispatch_exit(e);
+        } else
+                p = event_next_pending(e);
 
-        p = event_next_pending(e);
         if (p) {
                 PROTECT_EVENT(e);
 
                 e->state = SD_EVENT_RUNNING;
-                r = source_dispatch(p);
+                r = event_pending_dispatch(p);
                 e->state = SD_EVENT_INITIAL;
                 return r;
         }
@@ -5210,6 +5667,191 @@ _public_ int sd_event_get_watchdog(sd_event *e) {
         assert_return(!event_origin_changed(e), -ECHILD);
 
         return e->watchdog;
+}
+
+#if HAVE_LIBURING
+static int event_io_uring_setup(sd_event *e) {
+        int r;
+
+        assert(e);
+        assert(!event_io_uring_enabled(e));
+
+        r = dlopen_io_uring(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* SUBMIT_ALL was added in 5.18 and COOP_TASKRUN in 5.19. IORING_ASYNC_CANCEL_ANY and
+         * IORING_ASYNC_CANCEL_ALL are from 5.19 too, so a successful queue_init_params() is sufficient as a
+         * probe.
+         * CQE-overflow buffering is automatic on supporting kernels (advertised as IORING_FEAT_NODROP), so
+         * we don't request it explicitly.
+         *
+         * We don't request DEFER_TASKRUN. With DEFER_TASKRUN, the kernel only posts CQEs while the
+         * submitting thread is inside io_uring_enter(), and the event loop sleeps in epoll_wait() instead. */
+        struct io_uring_params params = {
+                .flags = IORING_SETUP_COOP_TASKRUN |  /* skip IPI for task-work */
+                         IORING_SETUP_SUBMIT_ALL,     /* keep submitting after one SQE fails */
+        };
+        r = sym_io_uring_queue_init_params(256, &e->io_uring, &params);
+        if (r < 0) {
+                /* queue_init_params() zeroes the ring before it can fail, which would leave ring_fd
+                 * at 0 and event_io_uring_enabled() reading true. Stamp it invalid again. */
+                e->io_uring.ring_fd = -EBADF;
+                return r;
+        }
+
+        /* The ring fd becomes readable when CQEs are waiting. process_epoll() recognizes it by the
+         * address of e->io_uring. */
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, e->io_uring.ring_fd, EPOLLIN, &e->io_uring);
+        if (r < 0) {
+                sym_io_uring_queue_exit(&e->io_uring);
+                e->io_uring.ring_fd = -EBADF;
+                return r;
+        }
+
+        return 0;
+}
+#endif
+
+bool event_io_uring_available(sd_event *e) {
+        assert(e);
+
+#if HAVE_LIBURING
+        int r;
+
+        assert(!event_origin_changed(e));
+
+        if (event_io_uring_enabled(e))
+                return true;
+
+        if (e->io_uring_setup_attempted)
+                return false;
+
+        e->io_uring_setup_attempted = true;
+
+        /* Tests set SYSTEMD_EVENT_IO_URING=0 to run the code paths that work without io_uring. */
+        if (secure_getenv_bool("SYSTEMD_EVENT_IO_URING") == 0)
+                return false;
+
+        /* The ring is only created on first use. When a ring is freed, the kernel interrupts the next
+         * epoll_wait() of every thread that used the ring with a spurious EINTR. A seccomp filter that does
+         * not allow io_uring_setup() can kill the process. Event loops that never submit an SQE never call
+         * io_uring_setup(). The spurious EINTR and the seccomp filter do not affect them. */
+        r = event_io_uring_setup(e);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set up io_uring, continuing without it: %m");
+                return false;
+        }
+
+        return true;
+#else
+        return false;
+#endif
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_event_slot, event_slot, slot_free);
+
+int event_slot_cancel(sd_event_slot *s) {
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert_return(s, -EINVAL);
+
+        if (!FLAGS_SET(s->flags, EVENT_SLOT_INFLIGHT) || FLAGS_SET(s->flags, EVENT_SLOT_CANCEL_SUBMITTED))
+                return 0;       /* idempotent */
+
+#if HAVE_LIBURING
+        /* The blanket cancel-all covers every inflight slot, so it counts as already submitted too. */
+        if (s->event->io_uring_cancel_all_submitted)
+                return 0;
+
+        /* The kernel runs SQEs in order. If the SQE of the slot was not submitted yet, the kernel runs it
+         * before the cancel SQE, and the cancel SQE then cancels it. */
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(s->event, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, s, 0);
+        io_uring_sqe_set_flags(sqe, IOSQE_CQE_SKIP_SUCCESS);
+        io_uring_sqe_set_data(sqe, NULL);
+
+        s->flags |= EVENT_SLOT_CANCEL_SUBMITTED;
+        return 0;
+#else
+        return 0;
+#endif
+}
+
+int event_slot_set_priority(sd_event_slot *s, int64_t priority) {
+        assert_return(s, -EINVAL);
+
+        if (s->priority == priority)
+                return 0;
+
+        s->priority = priority;
+
+        if (FLAGS_SET(s->flags, EVENT_SLOT_PENDING))
+                prioq_reshuffle(s->event->pending, s, &s->pending_index);
+
+        return 0;
+}
+
+int event_add_io_uring_sqe(
+                sd_event *e,
+                sd_event_slot **ret_slot,
+                struct io_uring_sqe **ret_sqe,
+                sd_event_io_uring_handler_t callback,
+                void *userdata) {
+
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(ret_slot, -EINVAL);
+        assert_return(ret_sqe, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        /* Refuse new slots once an exit has been requested: the cancel-all is already in flight and we
+         * don't want to keep adding work the kernel just has to cancel right back. */
+        if (e->exit_requested)
+                return -ESHUTDOWN;
+
+#if HAVE_LIBURING
+        if (!event_io_uring_available(e))
+                return -EOPNOTSUPP;
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = slot_allocate(e);
+        if (!s)
+                return -ENOMEM;
+
+        r = event_io_uring_get_sqe(e, ret_sqe);
+        if (r < 0)
+                return r;
+
+        s->callback = callback;
+        s->userdata = userdata;
+        s->flags |= EVENT_SLOT_INFLIGHT;
+
+        io_uring_sqe_set_data(*ret_sqe, s);
+
+        /* Submit-time ref, held for exactly as long as slot_is_undispatched(): keeps the slot alive
+         * between the caller's unref and CQE delivery. */
+        event_slot_ref(s);
+        e->n_undispatched_slots++;
+
+        *ret_slot = s;
+        TAKE_PTR(s);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
