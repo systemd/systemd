@@ -2,6 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/if_arp.h>
+#include <linux/if_ether.h>
 
 #include "sd-netlink.h"
 
@@ -19,13 +20,20 @@ static const char* const bare_udp_protocol_table[_BARE_UDP_PROTOCOL_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(bare_udp_protocol, BareUDPProtocol);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bare_udp_iftype, bare_udp_protocol, BareUDPProtocol);
 
+static const uint16_t bare_udp_protocol_ethertype[_BARE_UDP_PROTOCOL_MAX] = {
+        [BARE_UDP_PROTOCOL_IPV4]    = ETH_P_IP,
+        [BARE_UDP_PROTOCOL_IPV6]    = ETH_P_IPV6,
+        [BARE_UDP_PROTOCOL_MPLS_UC] = ETH_P_MPLS_UC,
+        [BARE_UDP_PROTOCOL_MPLS_MC] = ETH_P_MPLS_MC,
+};
+
 static int netdev_bare_udp_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(m);
 
         BareUDP *u = BAREUDP(netdev);
         int r;
 
-        r = sd_netlink_message_append_u16(m, IFLA_BAREUDP_ETHERTYPE, htobe16(u->iftype));
+        r = sd_netlink_message_append_u16(m, IFLA_BAREUDP_ETHERTYPE, htobe16(bare_udp_protocol_ethertype[u->iftype]));
         if (r < 0)
                 return r;
 
