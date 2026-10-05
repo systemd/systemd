@@ -2984,6 +2984,7 @@ static int unit_reset_kept_cgroup(Unit *u) {
 }
 
 void unit_prune_cgroup(Unit *u) {
+        _cleanup_free_ char *parent = NULL;
         bool is_root_slice;
         int r;
 
@@ -2995,6 +2996,11 @@ void unit_prune_cgroup(Unit *u) {
                 return;
 
         bool keep = unit_keeps_cgroup_full(u, LOG_NOTICE);
+
+        if (keep && u->type == UNIT_SLICE) {
+                log_unit_debug(u, "Keeping cgroup %s, as some members keep theirs.", empty_to_root(crt->cgroup_path));
+                return;
+        }
 
 #if BPF_FRAMEWORK
         (void) bpf_restrict_fs_cleanup(u);
@@ -3013,6 +3019,9 @@ void unit_prune_cgroup(Unit *u) {
                 log_unit_debug_errno(u, r, "Failed to reset cgroup %s, not keeping it: %m",
                                      empty_to_root(crt->cgroup_path));
         }
+
+        /* Remember the parent cgroup for below, our own path is gone by then */
+        (void) path_extract_directory(crt->cgroup_path, &parent);
 
         /* Cache the last resource usage values before we destroy the cgroup */
         (void) unit_get_cpu_usage(u, /* ret= */ NULL);
@@ -3057,6 +3066,21 @@ void unit_prune_cgroup(Unit *u) {
         crt->cgroup_enabled_mask = 0;
 
         crt->bpf_device_control_installed = bpf_program_free(crt->bpf_device_control_installed);
+
+        /* Inactive slices keep their cgroups while a member keeps its own (see slice_keep_cgroup()). Ours is
+         * gone now, so maybe the slice we were in doesn't need its own anymore either. Look it up by path
+         * rather than Slice=, which might have changed in the meantime. */
+        Unit *slice = parent ? hashmap_get(u->manager->cgroup_unit, parent) : NULL;
+        if (!slice || slice->type != UNIT_SLICE)
+                return;
+
+        /* While coldplugging, make sure we look at the slice's deserialized state rather than the initial
+         * one, see transaction_add_job_and_dependencies(). */
+        if (MANAGER_IS_RELOADING(u->manager))
+                (void) unit_coldplug(slice);
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(slice)))
+                unit_prune_cgroup(slice);
 }
 
 int unit_search_main_pid(Unit *u, PidRef *ret) {
