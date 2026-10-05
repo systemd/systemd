@@ -261,4 +261,33 @@ timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do slee
 timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
 echo "Grown ephemeral VM terminated cleanly"
 
+# --- Test 4: Read-only NVMe extra drive ---
+# QEMU does not tell the guest that an NVMe drive is read-only, so this is refused.
+
+# Both with an explicit nvme: prefix and with nvme inherited from --image-disk-type=.
+for image_disk_type in virtio-blk nvme; do
+    if [[ "$image_disk_type" == nvme ]]; then
+        spec="ro:$WORKDIR/extra1.raw"
+    else
+        spec="nvme:ro:$WORKDIR/extra1.raw"
+    fi
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --image-disk-type="$image_disk_type" \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "vmspawn unexpectedly accepted --image-disk-type=$image_disk_type --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "Read-only --extra-drive= is not supported with disk type nvme: '$WORKDIR/extra1.raw'\." "$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-nvme-ro.log"
+        exit 1
+    fi
+done
+echo "Read-only NVMe extra drive is refused"
+
 echo "All vmspawn drive setup tests passed"

@@ -652,13 +652,15 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:]<replaceable>PATH</replaceable></option></term>
+          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:][ro:]<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual
           machine as another drive. Optionally, the image format and/or disk type can be specified by prefixing
-          the path with their values separated by colons. The format and disk type prefixes can appear in any
-          order. The format defaults to <literal>raw</literal> and the disk type defaults to the value of
-          <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
+          the path with their values separated by colons, and the <literal>ro</literal> prefix makes the drive
+          read-only. The prefixes can appear in any order. The format defaults to <literal>raw</literal> and
+          the disk type defaults to the value of <option>--image-disk-type=</option> (which itself defaults
+          to <literal>virtio-blk</literal>). The disk type <literal>scsi-cd</literal> is always read-only, and
+          <literal>nvme</literal> cannot be read-only.
           Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
