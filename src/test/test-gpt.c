@@ -87,6 +87,52 @@ TEST(type_alias_same) {
         }
 }
 
+TEST(verity_shorthands) {
+        FOREACH_STRING(prefix, "root", "usr", "root-x86-64", "usr-arm64", "root-secondary", "usr-aarch64")
+                FOREACH_STRING(suffix, "-verity", "-verity-sig") {
+                        _cleanup_free_ char *canonical = NULL, *shorthand = NULL;
+                        GptPartitionType x, y;
+
+                        ASSERT_NOT_NULL(canonical = strjoin(prefix, suffix));
+                        ASSERT_NOT_NULL(shorthand = strjoin(prefix, streq(suffix, "-verity") ? "-vty" : "-sig"));
+
+                        if (gpt_partition_type_from_string(canonical, &x) < 0)
+                                continue;
+
+                        ASSERT_OK(gpt_partition_type_from_string(shorthand, &y));
+                        ASSERT_EQ_ID128(x.uuid, y.uuid);
+                        ASSERT_EQ(x.arch, y.arch);
+                        ASSERT_EQ(x.designator, y.designator);
+                        ASSERT_STREQ(x.name, y.name);
+
+                        /* The abbreviated identifier must be shorter than the canonical one, and must
+                         * resolve back to the same type. */
+                        const char *abbreviated = GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(x.uuid);
+                        ASSERT_NOT_NULL(abbreviated);
+                        ASSERT_TRUE(strlen(abbreviated) < strlen(x.name));
+
+                        GptPartitionType z;
+                        ASSERT_OK(gpt_partition_type_from_string(abbreviated, &z));
+                        ASSERT_EQ_ID128(x.uuid, z.uuid);
+                }
+
+        ASSERT_ERROR(gpt_partition_type_from_string("esp-vty", NULL), EINVAL);
+        ASSERT_ERROR(gpt_partition_type_from_string("-sig", NULL), EINVAL);
+
+        /* The canonical "-verity-sig" suffix ends in the "-sig" shorthand, make sure it is not expanded a
+         * second time. */
+        GptPartitionType t;
+        ASSERT_OK(gpt_partition_type_from_string("root-x86-64-verity-sig", &t));
+        ASSERT_EQ_ID128(t.uuid, SD_GPT_ROOT_X86_64_VERITY_SIG);
+
+        ASSERT_STREQ(GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(SD_GPT_ROOT_X86_64_VERITY), "root-x86-64-vty");
+        ASSERT_STREQ(GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(SD_GPT_USR_X86_64_VERITY_SIG), "usr-x86-64-sig");
+
+        /* Types without a verity suffix are returned as-is, unknown ones not at all. */
+        ASSERT_STREQ(GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(SD_GPT_ESP), "esp");
+        ASSERT_NULL(GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(SD_ID128_NULL));
+}
+
 TEST(override_architecture) {
         GptPartitionType x, y;
 
