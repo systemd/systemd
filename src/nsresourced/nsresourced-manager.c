@@ -660,9 +660,13 @@ static int manager_attach_bpf(Manager *m) {
                 return 0;
 
         r = userns_restrict_attach(m->userns_restrict_bpf, /* pin= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach BPF programs: %m");
-
+        if (r < 0) {
+                log_notice_errno(r, "Failed to attach BPF programs, proceeding without user namespace restrictions: %m");
+                m->userns_restrict_bpf_ring_buffer_event_source = sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
+                m->userns_restrict_bpf_ring_buffer = bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
+                m->userns_restrict_bpf = userns_restrict_bpf_free(m->userns_restrict_bpf);
+                return 0;
+        }
         return 0;
 }
 #else
