@@ -472,7 +472,7 @@ class Section:
 
     @classmethod
     def parse_output(cls, s: str) -> 'Section':
-        if not (m := re.match(r'([a-zA-Z0-9_.]+):(text|binary)(?:@(.+))?', s)):
+        if not (m := re.fullmatch(r'([a-zA-Z0-9_.]+):(text|binary)(?:@(.+))?', s)):
             raise ValueError(f'Cannot parse section spec: {s!r}')
 
         name, ttype, out = m.groups()
