@@ -18,10 +18,10 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
-#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 /* A small generator binding potentially five or more SSH sockets:
  *

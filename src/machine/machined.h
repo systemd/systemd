@@ -35,6 +35,9 @@ typedef struct Manager {
         sd_varlink_server *varlink_resolve_hook_server;
         Set *query_filter_subscriptions;
 
+        sd_event_source *ssh_agent_listen_source;
+        LIST_HEAD(SshAgentConnection, ssh_agent_connections);
+
         RuntimeScope runtime_scope;
         char *state_dir;
 } Manager;

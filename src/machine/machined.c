@@ -25,6 +25,7 @@
 #include "machine.h"
 #include "machined.h"
 #include "machined-dbus.h"
+#include "machined-ssh-agent.h"
 #include "machined-varlink.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -112,6 +113,7 @@ static Manager* manager_unref(Manager *m) {
 
         hashmap_free(m->polkit_registry);
 
+        manager_ssh_agent_done(m);
         manager_varlink_done(m);
 
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
@@ -310,6 +312,11 @@ static int manager_startup(Manager *m) {
 
         /* Set up Varlink service */
         r = manager_varlink_init(m);
+        if (r < 0)
+                return r;
+
+        /* Set up SSH agent socket (user scope only) */
+        r = manager_ssh_agent_init(m);
         if (r < 0)
                 return r;
 
