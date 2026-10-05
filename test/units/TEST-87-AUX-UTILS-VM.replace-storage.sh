@@ -108,9 +108,7 @@ VMSPAWN_PID=$!
 wait_for_machine "$MACHINE" "$VMSPAWN_PID" "$WORKDIR/vmspawn.log"
 echo "Machine '$MACHINE' registered"
 
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE")
 
 # --- Hot-add a runtime volume (target for ReplaceStorage) ---
 # virtio-scsi: vmspawn's hot-add path only allocates a PCIe root port for the
