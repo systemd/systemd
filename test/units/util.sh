@@ -729,3 +729,20 @@ vmspawn_images_dir() {
     done
     echo "$dir"
 }
+
+# Prerequisites for launching any guest with systemd-vmspawn in the test environment.
+# Prints the reason and returns 1 if one is missing, so callers can put it in their skip message.
+can_run_vmspawn() {
+    if [[ -v ASAN_OPTIONS ]]; then
+        echo "vmspawn launches QEMU which doesn't work under ASan"
+        return 1
+    fi
+    if ! command -v systemd-vmspawn >/dev/null 2>&1; then
+        echo "systemd-vmspawn not found"
+        return 1
+    fi
+    if ! find_qemu_binary; then
+        echo "QEMU not found"
+        return 1
+    fi
+}
