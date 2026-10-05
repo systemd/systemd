@@ -343,4 +343,84 @@ TEST(fiber_method_interrupted) {
         ASSERT_OK_ZERO(sd_future_result(f));
 }
 
+static void emit_changed(sd_bus *server, sd_bus *client, uint32_t first, uint32_t last) {
+        for (uint32_t i = first; i <= last; i++)
+                ASSERT_OK(sd_bus_emit_signal(server, "/test", "test.Fiber", "Changed", "u", i));
+
+        /* The server sends the signals before the reply to Ping, so the client dispatches the signals
+         * before the call returns. */
+        ASSERT_OK(sd_bus_call_method(client, /* destination= */ NULL, "/test", "org.freedesktop.DBus.Peer",
+                                     "Ping", /* reterr_error= */ NULL, /* ret_reply= */ NULL,
+                                     /* types= */ NULL));
+}
+
+static void assert_pop_changed(sd_channel *c, uint32_t expected) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        void *item;
+        uint32_t u;
+
+        ASSERT_OK(sd_channel_try_pop(c, &item));
+        m = item;
+        ASSERT_OK(sd_bus_message_read(m, "u", &u));
+        ASSERT_EQ(u, expected);
+}
+
+static int signal_channel_fiber(void *userdata) {
+        Setup *s = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_(sd_channel_unrefp) sd_channel *signals = NULL, *latest = NULL, *freed = NULL;
+        void *item;
+
+        ASSERT_OK(attach_pair(s, &server, &client));
+
+        ASSERT_OK(sd_bus_detach_event(client));
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(bus_signal_channel_new(client, /* sender= */ NULL, "/test",
+                                                                   "test.Fiber", "Changed",
+                                                                   /* capacity= */ 2, &signals)),
+                     ENOPKG);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(bus_signal_channel_new_conflated(client, /* sender= */ NULL,
+                                                                             "/test", "test.Fiber",
+                                                                             "Changed", &latest)),
+                     ENOPKG);
+        ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), 0));
+
+        ASSERT_OK(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
+                                         /* capacity= */ 2, &signals));
+        ASSERT_OK(bus_signal_channel_new_conflated(client, /* sender= */ NULL, "/test", "test.Fiber",
+                                                   "Changed", &latest));
+        ASSERT_OK(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
+                                         /* capacity= */ 2, &freed));
+
+        emit_changed(server, client, 1, 3);
+        assert_pop_changed(signals, 1);
+        assert_pop_changed(signals, 2);
+        ASSERT_ERROR(sd_channel_try_pop(signals, &item), ENODATA);
+        assert_pop_changed(latest, 3);
+        ASSERT_ERROR(sd_channel_try_pop(latest, &item), ENODATA);
+
+        /* If freeing a channel does not remove its match, the next signal makes the match callback access
+         * freed memory. */
+        ASSERT_OK(sd_channel_close(signals));
+        freed = sd_channel_unref(freed);
+        emit_changed(server, client, 4, 4);
+        ASSERT_ERROR(sd_channel_try_pop(signals, &item), EPIPE);
+        assert_pop_changed(latest, 4);
+
+        return 0;
+}
+
+TEST(signal_channel) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        Context c = {};
+        Setup s = { .c = &c };
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, s.fds));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "signal-channel", signal_channel_fiber, &s, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
