@@ -14,6 +14,8 @@
 int _service_parse_argv(
                 const Verb *verbs,
                 const Verb *verbs_end,
+                const Option *options,
+                const Option *options_end,
                 const BusObjectImplementation* const* bus_objects,
                 RuntimeScope *runtime_scope,
                 int argc, char *argv[]) {
@@ -22,7 +24,7 @@ int _service_parse_argv(
         assert(argv);
 
         const CommandDescription *cmd = NULL;
-        assert_se(_verbs_find_command(verbs, verbs_end, /* name= */ NULL, &cmd));
+        assert_se(_verbs_find_command(verbs, verbs_end, "service", &cmd));
 
         /* The COMMAND description must reference the option namespace defined below, and list
          * exactly the option groups matching the features the service supports. Options outside of
@@ -48,7 +50,7 @@ int _service_parse_argv(
                 OPTION_COMMON_HELP:
                         return _command_print_help_full(
                                         verbs, verbs_end,
-                                        __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,
+                                        options, options_end,
                                         cmd->names,
                                         /* footer_ansi_seq= */ NULL);
 
@@ -58,7 +60,7 @@ int _service_parse_argv(
                 OPTION_COMMON_INTROSPECT_CLI:
                         return _introspect_cli(
                                         verbs, verbs_end,
-                                        __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,
+                                        options, options_end,
                                         SD_JSON_FORMAT_OFF);
 
                 OPTION_GROUP("Bus introspection"): {}

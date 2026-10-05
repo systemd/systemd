@@ -190,6 +190,9 @@ if command -v kernel-install >/dev/null; then
             '[.commands[].names[0]] | sort == ["installkernel", "kernel-install"]'
 fi
 
+networkctl --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["networkctl", "systemd-networkd"]'
+
 resolvectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
 

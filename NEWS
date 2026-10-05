@@ -124,6 +124,12 @@ CHANGES WITH 262:
           Meson build directories that used the old options need to be
           recreated.
 
+        * systemd-networkd and networkctl have been merged into a single
+          multi-call binary, with the former becoming a symlink to the latter.
+          This should generally be invisibile to users, but some packaging
+          and MAC policy adjustments might be necessary. In particular, it
+          is expected that the SELinux policy needs to be updated.
+
         * sd-event rate-limit timers, and thus manager timers such as
           StartLimitIntervalSec=, now use CLOCK_BOOTTIME instead of
           CLOCK_MONOTONIC. Time spent suspended therefore counts toward
@@ -352,6 +358,9 @@ CHANGES WITH 262:
           .network files now accept whitespace-separated lists of netdev names.
           Assigning an empty string clears all previously assigned stacked
           netdevs.
+
+        * As mentioned above, systemd-networkd and networkctl have been merged
+          into a single multi-call binary to reduce the installation footprint.
 
         Changes in systemd-journald and journalctl:
 
