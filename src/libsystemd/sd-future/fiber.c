@@ -930,9 +930,12 @@ sd_future* sd_future_cancel_wait_unref(sd_future *f) {
         if (!self)
                 return sd_future_cancel_unref(f);
 
-        /* Invalid calls still consume their reference. Releasing the last reference to a pending
-         * future remains a programming error, diagnosed by sd_future_free(). */
-        assert_return(f != self, sd_future_unref(f));
+        /* A fiber cannot wait for itself. Invalid calls still consume their reference: releasing the
+         * last reference to a pending future remains a programming error, diagnosed by sd_future_free(). */
+        if (f == self) {
+                log_debug("Refusing to wait for the calling fiber itself, releasing it without cancelling.");
+                return sd_future_unref(f);
+        }
 
         for (;;) {
                 r = sd_future_cancel(f);
@@ -942,8 +945,12 @@ sd_future* sd_future_cancel_wait_unref(sd_future *f) {
                 if (sd_future_state(f) != SD_FUTURE_PENDING)
                         break;
 
-                /* Synchronous cancellation needs no dispatch and works across event loops too. */
-                assert_return(sd_future_get_event(f) == sd_future_get_event(self), sd_future_unref(f));
+                /* Synchronous cancellation needs no dispatch and works across event loops too, but
+                 * waiting for an asynchronous one does not. */
+                if (sd_future_get_event(f) != sd_future_get_event(self)) {
+                        log_debug("Cannot wait for a future on another event loop to finish cancelling, giving up.");
+                        break;
+                }
 
                 /* Unlike sd_fiber_await(), a failure to set up the wait must be told apart from a
                  * wait that was interrupted or woken spuriously. Retrying the former would spin
