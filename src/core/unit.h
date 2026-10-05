@@ -648,6 +648,9 @@ typedef struct UnitVTable {
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
 
+        /* Whether we should keep the cgroup around after processes are gone */
+        bool (*keep_cgroup)(Unit *u);
+
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
 
