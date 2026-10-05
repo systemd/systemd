@@ -46,6 +46,66 @@ TEST(future_group_empty) {
         }
 }
 
+TEST(future_group_seal_empty) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        uint64_t policy;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        FOREACH_ARGUMENT(policy, SD_FUTURE_GROUP_WAIT_ALL, SD_FUTURE_GROUP_WAIT_ANY,
+                         SD_FUTURE_GROUP_IGNORE_ERRORS,
+                         SD_FUTURE_GROUP_WAIT_ANY | SD_FUTURE_GROUP_IGNORE_ERRORS) {
+                _cleanup_(sd_future_unrefp) sd_future *group = NULL, *child = NULL;
+
+                ASSERT_OK(sd_future_group_new(e, &group));
+                ASSERT_OK(sd_future_group_set_policy(group, policy));
+                ASSERT_OK(sd_future_group_seal(group));
+                ASSERT_EQ(sd_future_state(group), SD_FUTURE_RESOLVED);
+                if (FLAGS_SET(policy, SD_FUTURE_GROUP_WAIT_ANY))
+                        ASSERT_ERROR(sd_future_result(group), ECHILD);
+                else
+                        ASSERT_OK_ZERO(sd_future_result(group));
+
+                ASSERT_OK(sd_future_group_seal(group));
+
+                ASSERT_OK(sd_future_new_defer(e, 0, &child));
+                ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, child)), ESTALE);
+                ASSERT_EQ(sd_future_group_size(group), 0U);
+                ASSERT_OK(sd_future_cancel(child));
+        }
+}
+
+TEST(future_group_seal_with_children) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *first = NULL, *second = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_new_defer(e, 0, &first));
+        ASSERT_OK(sd_future_new_defer(e, 0, &second));
+        ASSERT_OK(sd_future_group_add(group, first));
+
+        ASSERT_OK(sd_future_group_seal(group));
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, second)), ESTALE);
+        ASSERT_EQ(sd_future_group_size(group), 1U);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(group));
+}
+
+TEST(future_group_seal_after_cancel) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK(sd_future_group_seal(group));
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
 TEST(future_group_size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *first = NULL, *second = NULL;
@@ -401,6 +461,52 @@ TEST(future_group_cancels_parent_on_child_error) {
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(s.suspend_result, ECANCELED);
         ASSERT_ERROR(s.group_result, EINVAL);
+}
+
+/* Sealing an empty WAIT_ANY group resolves it with -ECHILD. No child failed, so the group must not
+ * cancel its parent fiber. A peer fiber seals the group because the group never cancels the fiber
+ * that is currently running. */
+typedef struct SealParentState {
+        int suspend_result;
+        int group_result;
+} SealParentState;
+
+static int seal_from_peer(void *userdata) {
+        return sd_future_group_seal(userdata);
+}
+
+static int seal_parent_driver(void *userdata) {
+        SealParentState *s = ASSERT_PTR(userdata);
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *peer = NULL;
+        _cleanup_(sd_future_slot_unrefp) sd_future_slot *wake_slot = NULL;
+
+        ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &group));
+        ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
+        ASSERT_OK(sd_future_add_callback(group, &wake_slot, wake_parent_cb, sd_fiber_get_current()));
+        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "seal", seal_from_peer, group,
+                               /* destroy= */ NULL, &peer));
+
+        s->suspend_result = sd_fiber_suspend();
+        s->group_result = sd_future_result(group);
+
+        ASSERT_OK_ZERO(sd_fiber_await(peer));
+        ASSERT_OK_ZERO(sd_future_result(peer));
+        return 0;
+}
+
+TEST(future_group_seal_does_not_cancel_parent) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
+        SealParentState s = {};
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "parent", seal_parent_driver, &s, /* destroy= */ NULL, &driver));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(driver));
+        ASSERT_OK_ZERO(s.suspend_result);
+        ASSERT_ERROR(s.group_result, ECHILD);
 }
 
 /* Awaiting a group must complete with the child's error instead of cancelling the waiting parent. */
