@@ -284,6 +284,15 @@ static int event_io_uring_submit(sd_event *e) {
 #endif
 }
 
+static bool event_io_uring_has_cqes(sd_event *e) {
+        assert(e);
+#if HAVE_LIBURING
+        return event_io_uring_enabled(e) && io_uring_cq_ready(&e->io_uring) > 0;
+#else
+        return false;
+#endif
+}
+
 DEFINE_ORIGIN_ID_HELPERS(sd_event, event);
 
 static thread_local sd_event *default_event = NULL;
@@ -5153,6 +5162,14 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 e->event_queue,
                                 n_event_max,
                                 timeout);
+                if (r == -EINTR && event_io_uring_has_cqes(e)) {
+                        /* io_uring completes an operation from task work. The kernel interrupts
+                         * epoll_wait() with -EINTR to run the task work, and the task work posts the CQE
+                         * before epoll_wait() returns. Collect the CQE now instead of returning without
+                         * any event. */
+                        timeout = 0;
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
