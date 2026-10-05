@@ -119,17 +119,19 @@ static int bus_signal_channel_handler(sd_bus_message *m, void *userdata, sd_bus_
         sd_channel *c = ASSERT_PTR(userdata);
         int r;
 
-        r = sd_channel_try_push(c, m);
+        /* sd-bus only keeps `m` alive while the callback runs, so the channel needs its own reference.
+         * Under SD_CHANNEL_OVERFLOW_DROP_LATEST, a successful push on a full channel unrefs the item right
+         * away. A reference taken after the push would then be taken on a freed message. */
+        r = sd_channel_try_push(c, sd_bus_message_ref(m));
         if (r < 0) {
+                sd_bus_message_unref(m);
+
                 if (r == -ENOBUFS)
                         log_debug("Bus signal channel full, dropping signal.");
                 else
                         log_debug_errno(r, "Failed to enqueue bus signal, dropping: %m");
-                return 0;
         }
 
-        /* sd-bus only keeps `m` alive while the callback runs, so the channel needs its own reference. */
-        sd_bus_message_ref(m);
         return 0;
 }
 
