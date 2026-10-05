@@ -185,7 +185,6 @@ simple_tests += files(
         'sd-bus/test-bus-vtable.c',
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
-        'sd-event/test-event-future.c',
         'sd-future/test-channel.c',
         'sd-future/test-fiber.c',
         'sd-future/test-fiber-io.c',
@@ -260,6 +259,10 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-event/test-event.c'),
                 'timeout' : 120,
+                'io_uring' : true,
+        },
+        {
+                'sources' : files('sd-event/test-event-future.c'),
                 'io_uring' : true,
         },
         {

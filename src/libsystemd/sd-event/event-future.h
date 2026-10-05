@@ -21,6 +21,7 @@ int future_child_get_siginfo(sd_future *f, siginfo_t *ret);
 int future_child_set_process_own(sd_future *f, int own);
 /* SIGTERM to SIGKILL grace period, DEFAULT_TIMEOUT_USEC unless set, USEC_INFINITY to disable. */
 int future_child_set_kill_timeout(sd_future *f, uint64_t usec);
+int future_new_io_uring_sqe(sd_event *e, struct io_uring_sqe **ret_sqe, sd_future **ret);
 
 int future_group_add_io(sd_future *group, int fd, uint32_t events);
 int future_group_add_time_relative(sd_future *group, clockid_t clock, uint64_t usec, uint64_t accuracy, int result);
