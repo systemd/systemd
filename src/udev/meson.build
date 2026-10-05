@@ -80,7 +80,7 @@ gperf_file = custom_target(
 keyboard_keys_from_name_inc = custom_target(
         input : gperf_file,
         output : 'keyboard-keys-from-name.inc',
-        command : [gperf,
+        command : [gperf_cmdline,
                    '-L', 'ANSI-C', '-t',
                    '-N', 'keyboard_lookup_key',
                    '-H', 'hash_key_name',
@@ -97,7 +97,7 @@ udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
 link_config_gperf_c = custom_target(
         input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 udevadm_export_sources += link_config_gperf_c
 generated_sources += link_config_gperf_c

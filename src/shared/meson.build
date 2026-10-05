@@ -327,7 +327,7 @@ gperf_file = custom_target(
 target1 = custom_target(
         input : gperf_file,
         output : 'ip-protocol-from-name.inc',
-        command : [gperf,
+        command : [gperf_cmdline,
                    '-L', 'ANSI-C', '-t', '--ignore-case',
                    '-N', 'lookup_ip_protocol',
                    '-H', 'hash_ip_protocol_name',
@@ -381,7 +381,7 @@ gperf_file = custom_target(
 dns_type_from_name_inc = custom_target(
         input : gperf_file,
         output : 'dns_type-from-name.inc',
-        command : [gperf,
+        command : [gperf_cmdline,
                    '-L', 'ANSI-C', '-t', '--ignore-case',
                    '-N', 'lookup_dns_type',
                    '-H', 'hash_dns_type_name',

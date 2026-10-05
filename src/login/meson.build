@@ -32,7 +32,7 @@ systemd_logind_export_sources = files(
 logind_gperf_c = custom_target(
         input : 'logind-gperf.gperf',
         output : 'logind-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += logind_gperf_c
 systemd_logind_export_sources += [logind_gperf_c]
