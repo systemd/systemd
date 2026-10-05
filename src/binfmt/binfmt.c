@@ -174,7 +174,7 @@ static int binfmt_mounted_and_writable_warn(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r;
+        int r, flushed;
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
@@ -213,9 +213,9 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 /* Flush out all rules */
-                r = write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to flush binfmt_misc rules, ignoring: %m");
+                flushed = write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (flushed < 0)
+                        log_warning_errno(flushed, "Failed to flush binfmt_misc rules, ignoring: %m");
                 else
                         log_debug("Flushed all binfmt_misc rules.");
 
