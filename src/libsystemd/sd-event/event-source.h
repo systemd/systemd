@@ -37,6 +37,7 @@ typedef enum EventSourceType {
 typedef enum WakeupType {
         WAKEUP_NONE,
         WAKEUP_EVENT_SOURCE, /* either I/O or pidfd wakeup */
+        WAKEUP_EVENT_SLOT,   /* sd_event_slot, used for io_uring SQE submissions */
         WAKEUP_CLOCK_DATA,
         WAKEUP_SIGNAL_DATA,
         WAKEUP_INOTIFY_DATA,
