@@ -497,6 +497,7 @@ possible_link_flags = [
         '-Wl,-z,now',
         '-Wl,-z,relro',
         '-Wl,-z,gcs-report-dynamic=none',
+        '-Wl,-z,pack-relative-relocs',
         '-Wl,--gc-sections',
 ]
 
