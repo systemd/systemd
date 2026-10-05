@@ -319,6 +319,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("DelegateSubgroup", c->delegate_subgroup),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("DelegateControllers", controllers_build_json, &c->delegate_controllers),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("DisableControllers", controllers_build_json, &c->disable_controllers),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ControlGroupPreserve", c->preserve),
 
                         /* Memory Pressure Control */
                         JSON_BUILD_PAIR_ENUM("ManagedOOMSwap", managed_oom_mode_to_string(c->moom_swap)),
