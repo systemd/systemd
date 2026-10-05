@@ -34,10 +34,8 @@ if ! find_qemu_binary; then
     exit 77
 fi
 
-# The harness binds the guest image artifacts read-only at /work/vm-images.
-export IMAGE_DIR=/work/vm-images
-if [[ ! -f "$IMAGE_DIR/image.raw" || ! -f "$IMAGE_DIR/image.vmlinuz" || ! -f "$IMAGE_DIR/image.initrd" ]]; then
-    echo "image artifacts not found in $IMAGE_DIR, skipping" | tee --append /skipped
+if ! vmspawn_images_dir >/dev/null; then
+    echo "image artifacts not found in /work/vm-images, skipping" | tee --append /skipped
     exit 77
 fi
 
