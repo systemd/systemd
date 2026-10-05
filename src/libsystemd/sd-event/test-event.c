@@ -1534,6 +1534,45 @@ TEST(io_uring_wait_fd_during_exit) {
         ASSERT_EQ(event_get_wait_fd(e), sd_event_get_fd(e));
 }
 
+/* An operation that completes while the event loop sleeps in epoll_wait() posts its CQE from task work. The
+ * kernel interrupts epoll_wait() with -EINTR to run the task work, and the CQE is in the ring by the time
+ * epoll_wait() returns. sd_event_run() has to process the CQE in that same call. */
+TEST(io_uring_completes_while_waiting) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        /* The kernel also runs task work in a thread when a ring that the thread used is freed, and that
+         * task work interrupts epoll_wait() too. Run the event loop in a new process, which never used the
+         * rings of earlier tests. */
+        r = ASSERT_OK(pidref_safe_fork("(event-loop)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
+        if (r == 0) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+                ASSERT_OK(sd_event_new(&e));
+
+                if (!io_uring_available_or_skip(e))
+                        _exit(EXIT_SUCCESS);
+
+                char buf[1];
+                _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+                ASSERT_OK(add_recv(e, sv[0], buf, sizeof(buf), &f));
+
+                ASSERT_OK(sd_event_run(e, 5 * USEC_PER_SEC));
+                ASSERT_EQ(sd_future_state(f), SD_FUTURE_RESOLVED);
+                ASSERT_OK_EQ(sd_future_result(f), 1);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(usleep_safe(100 * USEC_PER_MSEC));
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "x", 1)), (ssize_t) 1);
+
+        ASSERT_OK_EQ(pidref_wait_for_terminate_and_check("(event-loop)", &pidref, WAIT_LOG), EXIT_SUCCESS);
+}
+
 static int hup_ignore(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         return 0;
 }
