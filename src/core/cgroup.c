@@ -2846,6 +2846,11 @@ static void cgroup_runtime_detach_bpf(CGroupRuntime *crt) {
 
         crt->initial_restrict_ifaces_link_fds = fdset_free(crt->initial_restrict_ifaces_link_fds);
         crt->initial_bind_network_interface_link_fd = safe_close(crt->initial_bind_network_interface_link_fd);
+
+        crt->ip_bpf_ingress_installed = bpf_program_free(crt->ip_bpf_ingress_installed);
+        crt->ip_bpf_egress_installed = bpf_program_free(crt->ip_bpf_egress_installed);
+        crt->ip_bpf_custom_ingress_installed = set_free(crt->ip_bpf_custom_ingress_installed);
+        crt->ip_bpf_custom_egress_installed = set_free(crt->ip_bpf_custom_egress_installed);
 }
 
 void unit_prune_cgroup(Unit *u) {
