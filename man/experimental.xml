@@ -17,6 +17,10 @@
   They will be stabilized and given a backward-compatibility guarantee in a future release,
   but may also possibly be removed.</para>
 
+  <para id="feature">This feature is experimental and subject to change without advance notice.
+  It will be stabilized and given a backward-compatibility guarantee in a future release,
+  but may also possibly be removed.</para>
+
   <!-- for a whole manpage -->
   <refsect1 id="component"><title>Experimental</title>
     <para>This component is experimental and subject to change without advance notice.
