@@ -26,11 +26,10 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is likely to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a Linux <ulink

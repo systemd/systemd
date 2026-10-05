@@ -13,6 +13,8 @@ typedef enum CommandFlags {
                                           * set of actual VERB definitions. This is useful for programs
                                           * which are registered under multiple names, but each one
                                           * behaves very similarly. */
+        COMMAND_EXPERIMENTAL  = 1 << 2,  /* This command is (still) experimental. Exhibit appropriate
+                                          * markup in --help display. */
 } CommandFlags;
 
 typedef struct CommandDescription {
