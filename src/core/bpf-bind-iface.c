@@ -103,7 +103,7 @@ static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
                 return log_unit_error_errno(u, r, "bind-interface: Failed to create cgroup link: %m");
 
         /* Store the link in CGroupRuntime */
-        crt->bpf_bind_network_interface_link = TAKE_PTR(link);
+        free_and_replace_full(crt->bpf_bind_network_interface_link, link, bpf_link_free);
 
         log_unit_debug(u, "bind-interface: Successfully installed VRF binding for interface '%s' (ifindex=%d)",
                        cc->bind_network_interface, ifindex);
