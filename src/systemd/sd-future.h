@@ -109,7 +109,8 @@ int sd_future_set_priority(sd_future *f, int64_t priority);
  * "First" means insertion order among the children already resolved when the outcome is selected.
  * Once selected, the outcome is final: remaining children are cancelled, and the group resolves only
  * after every child has finished. IGNORE_ERRORS also suppresses cancellation of the parent fiber;
- * it does not turn an unsuccessful group result into success. Empty groups stay pending until cancelled. */
+ * it does not turn an unsuccessful group result into success. An empty group stays pending until it
+ * is sealed or cancelled. */
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
         SD_FUTURE_GROUP_WAIT_ALL      = 0,
         SD_FUTURE_GROUP_WAIT_ANY      = 1 << 0,
@@ -129,6 +130,9 @@ int sd_future_group_set_policy(sd_future *f, uint64_t policy);
 int sd_future_group_add(sd_future *f, sd_future *child);
 int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 #define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
+/* After sealing, adding a child fails with -ESTALE. Sealing an empty group resolves it with 0 under
+ * WAIT_ALL and with -ECHILD under WAIT_ANY. An -ECHILD result does not cancel the parent fiber. */
+int sd_future_group_seal(sd_future *f);
 /* NULL is treated as an empty group. */
 size_t sd_future_group_size(sd_future *f);
 

@@ -294,7 +294,7 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         extra_args);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         int r = 0;
 
         assert(d);
@@ -328,12 +328,12 @@ int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
         return set_put_strdup(&d->jobs, path);
 }
 
-int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_one_full(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
         int r;
 
         r = bus_wait_for_jobs_add(d, path);
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, flags, extra_args);
+        return bus_wait_for_jobs_full(d, flags, extra_args);
 }
