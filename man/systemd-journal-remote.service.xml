@@ -314,6 +314,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--split-name</option></term>
+
+        <listitem><para>Determines the naming scheme of separate output files.
+        One of <constant>host</constant>, 
+        <constant>full</constant> or <constant>common</constant>. 
+        For the first, host name of the peer is used, the second uses the full
+        distinguished name of peer certificate subject. The latter uses common
+        name of the subject.
+
+        When <option>--trust=all</option> the only valud value is 
+        <constant>host</constant>. Defaults to <constant>host</constant> 
+        when <option>--trust=all</option> and <constant>full</constant> 
+        otherwise. 
+      </para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--compress</option> [<replaceable>BOOL</replaceable>]</term>
 
         <listitem><para>If this is set to <literal>yes</literal> then compress

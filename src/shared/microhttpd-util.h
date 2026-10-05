@@ -122,7 +122,7 @@ int mhd_respondf_internal(
                 format "\n",                                 \
                 ##__VA_ARGS__)
 
-int check_permissions(struct MHD_Connection *connection, int *code, char **hostname);
+int check_permissions(struct MHD_Connection *connection, int *code, char **hostname, bool use_common_name);
 
 /* Set gnutls internal logging function to a callback which uses our
  * own logging framework.
