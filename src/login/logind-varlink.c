@@ -861,6 +861,10 @@ static int vl_method_soft_reboot(sd_varlink *link, sd_json_variant *parameters, 
         return manager_do_shutdown_action(link, parameters, HANDLE_SOFT_REBOOT);
 }
 
+static int vl_method_factory_reset(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_FACTORY_RESET);
+}
+
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
@@ -901,6 +905,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.Halt",          vl_method_halt,
                         "io.systemd.Shutdown.KExec",         vl_method_kexec,
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
+                        "io.systemd.Shutdown.FactoryReset",  vl_method_factory_reset,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,

@@ -28,6 +28,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("Skip active inhibitors and force the operation"),
                 SD_VARLINK_DEFINE_INPUT(skipInhibitors, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+static SD_VARLINK_DEFINE_METHOD(
+                FactoryReset,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Skip active inhibitors and force the operation"),
+                SD_VARLINK_DEFINE_INPUT(skipInhibitors, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 
 static SD_VARLINK_DEFINE_ERROR(AlreadyInProgress);
 static SD_VARLINK_DEFINE_ERROR(
@@ -51,6 +57,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_KExec,
                 SD_VARLINK_SYMBOL_COMMENT("Reboot userspace only"),
                 &vl_method_SoftReboot,
+                SD_VARLINK_SYMBOL_COMMENT("Factory reset the system"),
+                &vl_method_FactoryReset,
                 SD_VARLINK_SYMBOL_COMMENT("Another shutdown or sleep operation is already in progress"),
                 &vl_error_AlreadyInProgress,
                 SD_VARLINK_SYMBOL_COMMENT("Operation denied due to active block inhibitor"),
