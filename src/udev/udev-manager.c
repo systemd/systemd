@@ -1314,6 +1314,11 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
+        /* Check whether there are uevents not received yet. If so, we will soon receive them. Do not remove
+         * the queue file and do not kill workers. */
+        if (sd_event_source_get_pending(sd_device_monitor_get_event_source(manager->monitor)) != 0)
+                return 0;
+
         (void) manager_unlink_queue_file(manager);
         (void) manager_reset_kill_workers_timer(manager);
 
