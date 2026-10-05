@@ -287,7 +287,14 @@ int verb_list_units(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         typesafe_qsort(unit_infos, r, unit_info_compare);
-        return output_units_list(unit_infos, r);
+
+        if (!arg_completion_names)
+                return output_units_list(unit_infos, r);
+
+        FOREACH_ARRAY(u, unit_infos, r)
+                print_unit_completion_names(u->id);
+
+        return 0;
 }
 
 static int get_triggered_units(
