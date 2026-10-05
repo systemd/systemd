@@ -345,6 +345,26 @@ def test_parse_sections():
     assert opts.sections[1].measure is False
 
 
+def test_parse_output_sections():
+    sec = ukify.Section.parse_output('.cmdline:text')
+    assert sec.name == '.cmdline'
+    assert sec.output_mode == 'text'
+    assert sec.content is None
+
+    sec = ukify.Section.parse_output('.linux:binary@out dir/a:b')
+    assert sec.name == '.linux'
+    assert sec.output_mode == 'binary'
+    assert sec.content == pathlib.Path('out dir/a:b')
+
+
+@pytest.mark.parametrize(
+    'spec', ['.cmdline:textjunk', '.linux:binarybad', '.cmdline:text@', '.cmdline:text\n']
+)
+def test_parse_output_invalid(spec):
+    with pytest.raises(ValueError, match='Cannot parse section spec'):
+        ukify.Section.parse_output(spec)
+
+
 def test_config_priority(tmp_path):
     config = tmp_path / 'config1.conf'
     # config: use pesign and give certdir + certname
