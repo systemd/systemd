@@ -641,7 +641,7 @@ class SystemdSbSign(SignTool):
 
 
 def parse_banks(s: str) -> list[str]:
-    banks = re.split(r',|\s+', s)
+    banks = re.split(r'\s*,\s*|\s+', s.strip())
     # TODO: do some sanity checking here
     return banks
 
@@ -658,7 +658,7 @@ KNOWN_PHASES = (
 
 def parse_phase_paths(s: str) -> list[str]:
     # Split on commas or whitespace here. Commas might be hard to parse visually.
-    paths = re.split(r',|\s+', s)
+    paths = re.split(r'\s*,\s*|\s+', s.strip())
 
     for path in paths:
         for phase in path.split(':'):
