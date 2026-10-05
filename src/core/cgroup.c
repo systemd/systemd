@@ -1365,8 +1365,9 @@ static void unit_modify_nft_set(Unit *u, bool add) {
 
                 r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
-                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
-                                          add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
+                        log_full_errno(!add && r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to %s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
+                                       add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
                 else
                         log_debug("%s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64,
                                   add? "Added" : "Deleted", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
@@ -2497,6 +2498,11 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 if (!rt->cgroup_path)
                         continue;
 
+                /* Skip cgroups for inactive units, because we may be keeping some around for resource
+                 * accounting */
+                if (m->type != UNIT_SLICE && UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
+                        continue;
+
                 /* We must disable those below us first in order to release the controller. */
                 (void) unit_realize_cgroup_now_disable(m, state);
 
@@ -2825,6 +2831,85 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
         return 0;
 }
 
+static bool unit_cgroup_replaced(Unit *u) {
+        _cleanup_free_ char *fs = NULL;
+        uint64_t id;
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return false;
+
+        if (cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &fs) < 0)
+                return false;
+
+        r = path_to_handle_u64(fs, &id);
+        if (r == -ENOENT)
+                return true;
+        if (r < 0 || crt->cgroup_id == 0)
+                return false;
+
+        return id != crt->cgroup_id;
+}
+
+static bool unit_keeps_cgroup_full(Unit *u, int log_level) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return false;
+
+        if (!UNIT_VTABLE(u)->keep_cgroup || !UNIT_VTABLE(u)->keep_cgroup(u))
+                return false;
+
+        /* There is no migration in cgroup v2, so if it's moved, we can't do anything. */
+        if (unit_default_cgroup_path(u, &p) >= 0 && !path_equal(crt->cgroup_path, p)) {
+                Unit *slice = UNIT_GET_SLICE(u);
+
+                log_unit_full(u, log_level,
+                              "Unit was moved to %s, not keeping its previous cgroup %s. Resources still charged to it, "
+                              "e.g. memory backing stored file descriptors, stay with the previous slice.",
+                              slice ? slice->id : SPECIAL_ROOT_SLICE, empty_to_root(crt->cgroup_path));
+                return false;
+        }
+
+        if (unit_cgroup_replaced(u)) {
+                log_unit_debug(u, "Cgroup %s was removed behind our back, not keeping it.",
+                               empty_to_root(crt->cgroup_path));
+                return false;
+        }
+
+        return true;
+}
+
+bool unit_keeps_cgroup(Unit *u) {
+        return unit_keeps_cgroup_full(u, LOG_DEBUG);
+}
+
+static int cgroup_take_back_access(const char *path) {
+        _cleanup_free_ char *fs = NULL;
+        struct stat st;
+        int r;
+
+        assert(path);
+
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
+        if (r < 0)
+                return r;
+
+        if (stat(fs, &st) < 0)
+                return -errno;
+
+        if (st.st_uid == geteuid() && st.st_gid == getegid())
+                return 0;
+
+        return cg_set_access(path, geteuid(), getegid());
+}
+
 static void cgroup_runtime_detach_bpf(CGroupRuntime *crt) {
         assert(crt);
 
@@ -2853,6 +2938,47 @@ static void cgroup_runtime_detach_bpf(CGroupRuntime *crt) {
         crt->ip_bpf_custom_egress_installed = set_free(crt->ip_bpf_custom_egress_installed);
 }
 
+static int unit_reset_kept_cgroup(Unit *u) {
+        uint64_t n;
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
+
+        /* We only want to maintain the minimum possible to retain resource accounting, so drop everything
+         * else. */
+        r = cgroup_take_back_access(crt->cgroup_path);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to take back ownership of cgroup %s: %m",
+                                              empty_to_root(crt->cgroup_path));
+
+        /* We don't need subgroups, we'll take the charge as their parent. */
+        (void) cg_trim(crt->cgroup_path, /* delete_root= */ false);
+
+        r = unit_cgroup_is_empty(u);
+        if (r <= 0)
+                return r;
+
+        r = cg_get_keyed_attribute_uint64(crt->cgroup_path, "cgroup.stat", "nr_descendants", &n);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to read number of subgroups of cgroup %s, ignoring: %m",
+                                     empty_to_root(crt->cgroup_path));
+        else if (n > 0)
+                return -EBUSY;
+
+        CGroupMask result_mask = 0;
+        r = cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, &result_mask);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to disable controllers on cgroup %s, ignoring: %m",
+                                       empty_to_root(crt->cgroup_path));
+        crt->cgroup_enabled_mask = result_mask;
+
+        cgroup_runtime_detach_bpf(crt);
+        crt->cgroup_invalidated_mask = _CGROUP_MASK_ALL;
+        return 0;
+}
+
 void unit_prune_cgroup(Unit *u) {
         bool is_root_slice;
         int r;
@@ -2864,6 +2990,26 @@ void unit_prune_cgroup(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return;
 
+        bool keep = unit_keeps_cgroup_full(u, LOG_NOTICE);
+
+#if BPF_FRAMEWORK
+        (void) bpf_restrict_fs_cleanup(u);
+#endif
+
+        unit_modify_nft_set(u, /* add= */ false);
+
+        if (keep) {
+                r = unit_reset_kept_cgroup(u);
+                if (r >= 0) {
+                        log_unit_debug(u, "Keeping cgroup %s, so that the unit is started in it again.",
+                                       empty_to_root(crt->cgroup_path));
+                        return;
+                }
+
+                log_unit_debug_errno(u, r, "Failed to reset cgroup %s, not keeping it: %m",
+                                     empty_to_root(crt->cgroup_path));
+        }
+
         /* Cache the last resource usage values before we destroy the cgroup */
         (void) unit_get_cpu_usage(u, /* ret= */ NULL);
 
@@ -2874,12 +3020,6 @@ void unit_prune_cgroup(Unit *u) {
         (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret= */ NULL);
 
         /* We do not cache IP metrics here because the firewall objects are not freed with cgroups */
-
-#if BPF_FRAMEWORK
-        (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
-#endif
-
-        unit_modify_nft_set(u, /* add= */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
