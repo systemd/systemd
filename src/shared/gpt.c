@@ -244,21 +244,57 @@ const char* gpt_partition_type_uuid_to_string_harder(
         return sd_id128_to_uuid_string(id, buffer);
 }
 
+/* Shorthands for the verity suffixes, accepted for any partition type that carries them, i.e. "root-vty" is
+ * equivalent to "root-verity" and "usr-x86-64-sig" to "usr-x86-64-verity-sig". */
+static const struct {
+        const char *shorthand;
+        const char *suffix;
+} gpt_verity_shorthand_table[] = {
+        { "-vty", "-verity"     },
+        { "-sig", "-verity-sig" },
+};
+
+static const GptPartitionType* gpt_partition_type_find_by_name(const char *s) {
+        assert(s);
+
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (streq(s, t->name))
+                        return t;
+
+        return NULL;
+}
+
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
-        sd_id128_t id = SD_ID128_NULL;
+        const GptPartitionType *t;
+        sd_id128_t id;
         int r;
 
         assert(s);
 
-        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
-                if (streq(s, t->name)) {
-                        /* Don't return immediately, instead re-resolve by UUID so that we can support
-                        * aliases like aarch64 -> arm64 transparently. */
-                        id = t->uuid;
+        /* Look up the name as typed before expanding a shorthand. Otherwise a type whose name ends in
+         * "-vty" or "-sig" could not be found by its own name. */
+        t = gpt_partition_type_find_by_name(s);
+        if (!t)
+                FOREACH_ELEMENT(i, gpt_verity_shorthand_table) {
+                        const char *e;
+
+                        e = endswith(s, i->shorthand);
+                        if (!e)
+                                continue;
+
+                        _cleanup_free_ char *expanded = strndup(s, e - s);
+                        if (!expanded || !strextend(&expanded, i->suffix))
+                                return -ENOMEM;
+
+                        t = gpt_partition_type_find_by_name(expanded);
                         break;
                 }
 
-        if (sd_id128_is_null(id)) {
+        if (t)
+                /* Don't return the table entry directly, instead re-resolve by UUID so that we can support
+                 * aliases like aarch64 -> arm64 transparently. */
+                id = t->uuid;
+        else {
                 r = sd_id128_from_string(s, &id);
                 if (r < 0)
                         return r;
