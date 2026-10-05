@@ -52,8 +52,10 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        /* Access is granted to the job owner */
-        if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
+        /* Access is granted to the job owner. Messages on the private bus have no sender, but jobs enqueued
+         * through it aren't tracked anyway. */
+        const char *sender = sd_bus_message_get_sender(message);
+        if (!sender || !sd_bus_track_contains(j->bus_track, sender)) {
 
                 /* And for everybody else consult polkit */
                 r = bus_verify_manage_units_async(j->manager, message, reterr_error);

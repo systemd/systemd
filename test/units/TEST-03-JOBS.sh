@@ -64,6 +64,15 @@ systemctl try-restart --job-mode=fail hello.service
 systemctl try-restart hello.service
 systemctl stop hello.service sleep.service hello-after-sleep.target
 
+# Test that a job can be canceled through the private bus, where messages have no sender
+systemctl start --no-block hello-after-sleep.target
+timeout 10 bash -c "until systemctl list-jobs | grep 'hello\.service.*waiting'; do sleep .1; done"
+systemctl cancel "$(systemctl show -P Job hello.service)"
+systemctl list-jobs >/root/list-jobs.txt
+(! grep 'hello\.service' /root/list-jobs.txt)
+grep 'sleep\.service.*running' /root/list-jobs.txt
+systemctl stop sleep.service hello-after-sleep.target
+
 # TODO: add more job queueing/merging tests here.
 
 # Test that restart propagates to activating units
