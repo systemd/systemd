@@ -648,6 +648,9 @@ typedef struct UnitVTable {
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
 
+        /* Whether we should keep the cgroup around after processes are gone */
+        bool (*keep_cgroup)(Unit *u);
+
         /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
 
@@ -950,6 +953,7 @@ bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
 bool unit_will_restart_default(Unit *u);
 bool unit_will_restart(Unit *u);
+bool unit_keep_cgroup_default(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 

@@ -399,6 +399,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DelegateControllers, CGroupController, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DisableControllers="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DisableControllers, CGroupController, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ControlGroupPreserve="),
+                SD_VARLINK_DEFINE_FIELD(ControlGroupPreserve, SD_VARLINK_BOOL, 0),
 
                 /* Memory Pressure Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Pressure%20Control */

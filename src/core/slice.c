@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "cgroup.h"
 #include "dbus-slice.h"
 #include "dbus-unit.h"
 #include "log.h"
@@ -472,6 +473,18 @@ bool slice_activating_concurrency_max_reached(Slice *slice, Unit *ignore) {
         return false;
 }
 
+static bool slice_keep_cgroup(Unit *u) {
+        Unit *member;
+
+        assert(u);
+
+        UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
+                if (unit_keeps_cgroup(member))
+                        return true;
+
+        return false;
+}
+
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),
@@ -482,6 +495,8 @@ const UnitVTable slice_vtable = {
                 "Slice\0"
                 "Install\0",
         .private_section = "Slice",
+
+        .keep_cgroup = slice_keep_cgroup,
 
         .can_transient = true,
         .can_set_managed_oom = true,

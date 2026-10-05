@@ -310,6 +310,7 @@ All cgroup/resource control settings are available for transient units
 ✓ CPUSetPartition=
 ✓ DisableControllers=
 ✓ Delegate=
+  ControlGroupPreserve=
 ✓ MemoryMin=
 ✓ DefaultMemoryLow=
 ✓ DefaultMemoryMin=

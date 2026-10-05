@@ -3755,6 +3755,7 @@ const UnitVTable socket_vtable = {
         .sub_state_to_string = socket_sub_state_to_string,
 
         .will_restart = unit_will_restart_default,
+        .keep_cgroup = unit_keep_cgroup_default,
 
         .may_gc = socket_may_gc,
 
