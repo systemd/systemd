@@ -139,3 +139,8 @@ id-input:modalias:input:b0003v06A3p0763*
 # PXN HB S handbrake
 id-input:modalias:input:b0003v11FFpA701*
  ID_INPUT_JOYSTICK=1
+
+# Retoo E803 Air Mouse
+id-input:usb:v1915p1025:name:*Consumer Control*:*
+ ID_INPUT_TABLET=0
+ ID_INPUT_TABLET_PAD=0
