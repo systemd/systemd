@@ -32,6 +32,7 @@ extern DLSYM_PROTOTYPE(gnutls_global_set_log_function);
 extern DLSYM_PROTOTYPE(gnutls_global_set_log_level);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_deinit);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn);
+extern DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn_by_oid);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_import);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_init);
 #endif
