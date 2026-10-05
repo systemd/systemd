@@ -126,7 +126,7 @@ load_fragment_gperf_gperf = custom_target(
 load_fragment_gperf_c = custom_target(
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
