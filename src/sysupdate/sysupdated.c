@@ -2169,6 +2169,7 @@ COMMAND(
         .option_groups =
                 "Options\0"
                 "Bus introspection\0",
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 static int run(int argc, char *argv[]) {

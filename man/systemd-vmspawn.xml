@@ -32,6 +32,8 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
     <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry>
@@ -355,8 +357,7 @@
         <varlistentry>
           <term><option>--coco=</option></term>
 
-          <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in
-          its current form) in a future version of systemd.</para>
+          <listitem><xi:include href="experimental.xml" xpointer="feature" />
 
           <para>Configures whether to run the guest as a confidential VM. Takes one of
           <literal>no</literal>, <literal>sev-snp</literal> or <literal>tdx</literal>. Defaults to

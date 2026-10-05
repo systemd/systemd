@@ -86,6 +86,7 @@ COMMAND(
         "Update OS images.",
         .man_pages = "systemd-sysupdate(8)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 #define CONTEXT_NULL                                              \
