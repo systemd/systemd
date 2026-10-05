@@ -18,6 +18,8 @@ fi
 # without it. Skip the whole test for simplicity.
 [ -x /usr/lib/systemd/systemd-report ] || exit 77
 
+IMAGE_DIR="$(vmspawn_images_dir)"
+
 MACHINE="coco-snp-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"

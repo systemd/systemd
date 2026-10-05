@@ -689,3 +689,23 @@ device_get_udev_db() {
     id=$(udevadm info "$dev" | awk '/^J:/ { print $2 }')
     echo /run/udev/data/"$id"
 }
+
+# Prints the io.systemd.MachineInstance varlink address machined reports for MACHINE.
+# Returns 1 if the machine is unknown or has no control address.
+machine_control_address() {
+    local machine="${1:?}" address
+    address="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.List "{\"name\":\"$machine\"}" | jq -r '.controlAddress')"
+    [[ -n "$address" && "$address" != null ]] || return 1
+    echo "$address"
+}
+
+# Prints the directory with the built guest image, kernel and initrd from /work/vm-images for
+# tests declaring 'vm-images'. Returns 1 if any file is missing.
+vmspawn_images_dir() {
+    local dir=/work/vm-images f
+    for f in image.raw image.vmlinuz image.initrd; do
+        [[ -f "$dir/$f" ]] || return 1
+    done
+    echo "$dir"
+}
