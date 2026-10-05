@@ -3426,7 +3426,7 @@ _public_ void* sd_event_source_get_userdata(sd_event_source *s) {
         return s->userdata;
 }
 
-_public_ void *sd_event_source_set_userdata(sd_event_source *s, void *userdata) {
+_public_ void* sd_event_source_set_userdata(sd_event_source *s, void *userdata) {
         void *ret;
 
         assert_return(s, NULL);
