@@ -1565,6 +1565,8 @@ have = get_option('repart').require(
         error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
 
+conf.set10('ENABLE_REPORT', get_option('report').allowed())
+
 default_dnssec = get_option('default-dnssec')
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
@@ -3224,6 +3226,7 @@ foreach tuple : [
         ['quotacheck'],
         ['randomseed'],
         ['repart'],
+        ['report'],
         ['resolve'],
         ['rfkill'],
         ['sysext'],
