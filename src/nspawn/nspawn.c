@@ -1816,8 +1816,13 @@ static int setup_timezone(const char *dest) {
                         (void) touch(resolved);
 
                 r = mount_nofollow_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
-                if (r >= 0)
-                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                if (r >= 0) {
+                        r = bind_remount_one_with_fallback(resolved, MS_RDONLY|MS_NOSUID|MS_NODEV);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make %s read-only: %m", resolved);
+
+                        return 0;
+                }
 
                 _fallthrough_;
         }
@@ -1945,8 +1950,13 @@ static int setup_resolv_conf(const char *dest) {
                         (void) touch(resolved);
 
                 r = mount_nofollow_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
-                if (r >= 0)
-                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                if (r >= 0) {
+                        r = bind_remount_one_with_fallback(resolved, MS_RDONLY|MS_NOSUID|MS_NODEV);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make %s read-only: %m", resolved);
+
+                        return 0;
+                }
 
                 /* If that didn't work, let's copy the file */
         }
@@ -2732,9 +2742,9 @@ static int mount_tunnel_dig(const char *root) {
         if (r < 0)
                 return r;
 
-        r = mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        r = bind_remount_one_with_fallback(q, MS_RDONLY);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to make %s read-only: %m", q);
 
         return 0;
 }

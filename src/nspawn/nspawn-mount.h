@@ -60,6 +60,8 @@ int inaccessible_mount_parse(CustomMount **l, size_t *n, const char *s);
 int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
+int bind_remount_one_with_fallback(const char *path, unsigned long flags);
+
 int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context, MountSettingsMask mount_settings);
 bool has_custom_root_mount(const CustomMount *mounts, size_t n);
 
