@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "cake.h"
+#include "cbs.h"
 #include "codel.h"
 #include "conf-parser.h"
 #include "drr.h"
@@ -35,6 +36,7 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
+#include "taprio.h"
 #include "tbf.h"
 #include "tc-util.h"
 #include "teql.h"
@@ -42,6 +44,7 @@
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_BFIFO]           = &bfifo_vtable,
         [QDISC_KIND_CAKE]            = &cake_vtable,
+        [QDISC_KIND_CBS]             = &cbs_vtable,
         [QDISC_KIND_CODEL]           = &codel_vtable,
         [QDISC_KIND_DRR]             = &drr_vtable,
         [QDISC_KIND_ETS]             = &ets_vtable,
@@ -61,6 +64,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_PFIFO_HEAD_DROP] = &pfifo_head_drop_vtable,
         [QDISC_KIND_SFB]             = &sfb_vtable,
         [QDISC_KIND_SFQ]             = &sfq_vtable,
+        [QDISC_KIND_TAPRIO]          = &taprio_vtable,
         [QDISC_KIND_TBF]             = &tbf_vtable,
         [QDISC_KIND_TEQL]            = &teql_vtable,
 };
@@ -207,6 +211,9 @@ static QDisc* qdisc_free(QDisc *qdisc) {
 
         qdisc_detach_impl(qdisc);
 
+        if (QDISC_VTABLE(qdisc) && QDISC_VTABLE(qdisc)->done)
+                QDISC_VTABLE(qdisc)->done(qdisc);
+
         config_section_free(qdisc->section);
 
         free(qdisc->tca_kind);
@@ -325,6 +332,12 @@ static int qdisc_dup(const QDisc *src, QDisc **ret) {
         dst->section = NULL;
         dst->link = NULL;
         dst->tca_kind = NULL;
+
+        if (QDISC_VTABLE(dst) && QDISC_VTABLE(dst)->dup) {
+                int r = QDISC_VTABLE(dst)->dup(src, dst);
+                if (r < 0)
+                        return r;
+        }
 
         if (src->tca_kind) {
                 dst->tca_kind = strdup(src->tca_kind);
