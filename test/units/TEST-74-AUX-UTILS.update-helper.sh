@@ -140,6 +140,21 @@ systemctl is-active update-helper-victim.service
 rm "$PRIVATE"
 mv "$PRIVATE.real" "$PRIVATE"
 
+: "The helper does not need the D-Bus broker of the user"
+# user_systemctl() needs the D-Bus broker of the user. systemctl --user connects to the private socket of
+# the user manager directly.
+user_systemctl_private() {
+    run0 -u testuser systemctl --user "$@"
+}
+user_systemctl start update-helper-test.service
+id="$(user_systemctl show -P InvocationID update-helper-test.service)"
+user_systemctl_private stop dbus.socket dbus.service
+"$HELPER" mark-restart-user-units update-helper-test.service
+[[ "$(user_systemctl_private show -P Markers update-helper-test.service)" == needs-restart ]]
+"$HELPER" user-restart
+[[ "$(user_systemctl_private show -P InvocationID update-helper-test.service)" != "$id" ]]
+user_systemctl_private start dbus.socket
+
 : "A frozen user manager does not block the helper"
 user_systemctl start update-helper-test.service
 systemctl freeze user@4711.service
