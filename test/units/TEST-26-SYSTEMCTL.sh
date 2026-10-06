@@ -369,6 +369,14 @@ systemctl status "sys-devices-*-ttyS0.device"
 systemctl status -- -.mount
 systemctl status 1
 
+# Exited commands are shown with argument boundaries preserved (#43938)
+systemd-run --unit=status-quoting-test.service -p Type=oneshot -p RemainAfterExit=yes \
+            --expand-environment=no true "foo bar" "" "a\$b"
+output="$(systemctl status --full --no-pager --lines=0 status-quoting-test.service)"
+systemctl stop status-quoting-test.service
+# shellcheck disable=SC2016
+grep -F ' "foo bar" "" "a\$b" (code=exited, status=0/SUCCESS)' <<<"$output"
+
 # --marked
 systemctl restart "$UNIT_NAME"
 systemctl set-property "$UNIT_NAME" "Markers=needs-reload needs-restart"
