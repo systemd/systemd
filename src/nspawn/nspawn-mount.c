@@ -1021,8 +1021,9 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
         if (r < 0)
                 return m->graceful ? 0 : r;
 
-        r = mount_nofollow_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        r = bind_remount_one(where, MS_RDONLY, MS_RDONLY);
         if (r < 0) {
+                log_full_errno(m->graceful ? LOG_DEBUG : LOG_ERR, r, "Failed to make %s read-only: %m", where);
                 (void) umount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, where, UMOUNT_NOFOLLOW);
                 return m->graceful ? 0 : r;
         }
