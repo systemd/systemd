@@ -1459,19 +1459,35 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS "/run/host/proc"
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS "/run/host/sys"
 
-int pin_fully_visible_api_fs(void) {
+int pin_fully_visible_api_fs(const char *root) {
+        _cleanup_free_ char *procfs = NULL, *sysfs = NULL;
         int r;
 
         log_debug("Pinning fully visible API FS");
 
-        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, 0755);
-        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, 0755);
+        /* We might be called before switching root, so stay within the root. */
+        r = chase(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT,
+                  &procfs, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s%s: %m",
+                                       strempty(root), NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS);
 
-        r = mount_follow_verbose(LOG_ERR, "proc", NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, "proc", PROC_DEFAULT_MOUNT_FLAGS, NULL);
+        r = chase(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT,
+                  &sysfs, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s%s: %m",
+                                       strempty(root), NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS);
+
+        (void) mkdir_p_safe(root, procfs, 0755, UID_INVALID, GID_INVALID, /* flags= */ 0);
+        (void) mkdir_p_safe(root, sysfs, 0755, UID_INVALID, GID_INVALID, /* flags= */ 0);
+
+        /* The paths are resolved already, and not following symlinks requires /proc/ to be mounted, which
+         * isn't the case anymore after switching root. */
+        r = mount_follow_verbose(LOG_ERR, "proc", procfs, "proc", PROC_DEFAULT_MOUNT_FLAGS, NULL);
         if (r < 0)
                 return r;
 
-        r = mount_follow_verbose(LOG_ERR, "sysfs", NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, "sysfs", SYS_DEFAULT_MOUNT_FLAGS, NULL);
+        r = mount_follow_verbose(LOG_ERR, "sysfs", sysfs, "sysfs", SYS_DEFAULT_MOUNT_FLAGS, NULL);
         if (r < 0)
                 return r;
 

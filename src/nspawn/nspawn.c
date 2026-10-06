@@ -135,6 +135,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "verbs.h"
+#include "virt.h"
 #include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
@@ -275,6 +276,9 @@ static uint64_t arg_forward_journal_max_use = UINT64_MAX;
 static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
 static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
 static uint64_t arg_forward_journal_max_files = UINT64_MAX;
+
+/* Whether to pin fully visible procfs and sysfs instances before switching root, see run_container() */
+static bool pin_api_fs_before_switch_root = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -4037,9 +4041,10 @@ static int outer_child(
                 chown_range = UINT32_C(0x10000);
         }
 
-        if (arg_userns_mode != USER_NAMESPACE_NO) {
+        if (arg_userns_mode != USER_NAMESPACE_NO || pin_api_fs_before_switch_root) {
                 _cleanup_close_ int mntns_fd = -EBADF;
 
+                /* The parent needs this to remove the fully visible procfs and sysfs instances again */
                 mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to pin outer mount namespace: %m");
@@ -4047,8 +4052,9 @@ static int outer_child(
                 l = send_one_fd(fd_outer_socket, mntns_fd, 0);
                 if (l < 0)
                         return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
-                mntns_fd = safe_close(mntns_fd);
+        }
 
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Let the parent know which UID shift we read from the image */
                 l = send(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
@@ -4384,6 +4390,14 @@ static int outer_child(
          * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
+        /* The procfs and sysfs instances we inherited are left behind when we switch root below, so pin
+         * fully visible ones in the new root already. */
+        if (pin_api_fs_before_switch_root) {
+                r = pin_fully_visible_api_fs(directory);
+                if (r < 0)
+                        return r;
+        }
+
         _cleanup_close_ int notify_fd = -EBADF;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
@@ -4415,7 +4429,7 @@ static int outer_child(
                          * Note, the inner child wouldn't be able to unmount the instances on its own since
                          * it doesn't own the originating mount namespace. IOW, the outer child needs to do
                          * this. */
-                        r = pin_fully_visible_api_fs();
+                        r = pin_fully_visible_api_fs(/* root= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -5346,6 +5360,12 @@ static int run_container(
                                                "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
 
+        /* If we run as root in a user namespace we didn't create, e.g. in a container, our mount namespaces
+         * are owned by it too. The kernel then only lets the inner child mount procfs and sysfs if fully
+         * visible instances are around already, like when we create the user namespace ourselves, and
+         * the outer child can't mount them after switching root. */
+        pin_api_fs_before_switch_root = arg_userns_mode == USER_NAMESPACE_NO && running_in_userns() > 0;
+
         bool in_child;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 assert(userns_fd < 0);
@@ -5431,11 +5451,13 @@ static int run_container(
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
 
-        if (arg_userns_mode != USER_NAMESPACE_NO) {
+        if (arg_userns_mode != USER_NAMESPACE_NO || pin_api_fs_before_switch_root) {
                 mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
+        }
 
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* The child just let us know the UID shift it might have read from the image. */
                 l = recv(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
@@ -5756,7 +5778,8 @@ static int run_container(
         if (!barrier_sync(&barrier)) /* #5.1 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
+        if (pin_api_fs_before_switch_root ||
+            !IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
                 r = wipe_fully_visible_api_fs(mntns_fd);
                 if (r < 0)
                         return r;
