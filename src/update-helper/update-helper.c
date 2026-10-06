@@ -541,7 +541,12 @@ static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
         if (!property)
                 return log_oom();
 
-        STRV_FOREACH(unit, op->units) {
+        _cleanup_strv_free_ char **expanded = NULL;
+        r = expand_template_units(bus, op->units, &expanded);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(unit, expanded) {
                 if (arg_dry_run) {
                         log_info("Would set marker '%s' on unit '%s'", unit_marker_to_string(op->marker), *unit);
                         continue;
