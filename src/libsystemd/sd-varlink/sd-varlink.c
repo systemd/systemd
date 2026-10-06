@@ -1165,7 +1165,11 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
         };
 
         _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
-        r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, varlink_fiber_data_destroy, &f);
+        r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_set_destroy_callback(f, varlink_fiber_data_destroy);
         if (r < 0)
                 return r;
 

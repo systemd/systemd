@@ -50,7 +50,7 @@ TEST(wait_for_terminate_fiber_basic) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "wait-simple", wait_simple_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "wait-simple", wait_simple_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -102,7 +102,7 @@ TEST(wait_for_terminate_fiber_multiple) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "wait-multiple", wait_multiple_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "wait-multiple", wait_multiple_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -143,7 +143,7 @@ TEST(wait_for_terminate_fiber_concurrent) {
 
         /* Create 3 fibers, each waiting for a different child */
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++)
-                ASSERT_OK(sd_fiber_new(e, "concurrent-wait", concurrent_wait_fiber, INT_TO_PTR(20 + i), /* destroy= */ NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "concurrent-wait", concurrent_wait_fiber, INT_TO_PTR(20 + i), &fibers[i]));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -212,9 +212,9 @@ TEST(loop_read_write_suspend) {
         };
 
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
-        ASSERT_OK(sd_fiber_new(e, "loop-read", loop_read_suspend_fiber, &ctx, /* destroy= */ NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "loop-read", loop_read_suspend_fiber, &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
-        ASSERT_OK(sd_fiber_new(e, "loop-write", loop_write_suspend_fiber, &ctx, /* destroy= */ NULL, &fw));
+        ASSERT_OK(sd_fiber_new(e, "loop-write", loop_write_suspend_fiber, &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -245,7 +245,7 @@ TEST(loop_read_exact_short) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "loop-read-exact", loop_read_exact_short_fiber,
-                               INT_TO_PTR(pipefd[0]), /* destroy= */ NULL, &f));
+                               INT_TO_PTR(pipefd[0]), &f));
 
         /* Write a few bytes and close the write end — less than the fiber asked for. */
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "abc", 3), (ssize_t) 3);
@@ -288,7 +288,7 @@ TEST(loop_write_full_timeout) {
 
         LoopWriteTimeoutContext ctx = { .fd = pipefd[1], .result = 0 };
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "loop-write-timeout", loop_write_timeout_fiber, &ctx, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "loop-write-timeout", loop_write_timeout_fiber, &ctx, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -351,9 +351,9 @@ TEST(ppoll_usec_dispatch) {
         PpollDispatchContext ctx = { .pipefd = pipefd };
 
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
-        ASSERT_OK(sd_fiber_new(e, "ppoll-read", ppoll_dispatch_read_fiber, &ctx, /* destroy= */ NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "ppoll-read", ppoll_dispatch_read_fiber, &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
-        ASSERT_OK(sd_fiber_new(e, "ppoll-write", ppoll_dispatch_write_fiber, &ctx, /* destroy= */ NULL, &fw));
+        ASSERT_OK(sd_fiber_new(e, "ppoll-write", ppoll_dispatch_write_fiber, &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -384,7 +384,7 @@ TEST(loop_write_zero_timeout_nonblock) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "loop-write-zt-nb", loop_write_zero_timeout_nonblock_fiber,
-                               INT_TO_PTR(pipefd[1]), /* destroy= */ NULL, &f));
+                               INT_TO_PTR(pipefd[1]), &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), EAGAIN);
@@ -445,10 +445,10 @@ TEST(loop_write_zero_timeout_blocking) {
 
         _cleanup_(sd_future_unrefp) sd_future *fw = NULL, *fr = NULL;
         ASSERT_OK(sd_fiber_new(e, "loop-write-zt-blk", loop_write_zero_blocking_writer_fiber,
-                               &ctx, /* destroy= */ NULL, &fw));
+                               &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 0));
         ASSERT_OK(sd_fiber_new(e, "loop-read-zt-blk", loop_write_zero_blocking_reader_fiber,
-                               &ctx, /* destroy= */ NULL, &fr));
+                               &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -477,7 +477,7 @@ TEST(loop_read_no_poll_nonblock) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "loop-read-np-nb", loop_read_no_poll_nonblock_fiber,
-                               INT_TO_PTR(pipefd[0]), /* destroy= */ NULL, &f));
+                               INT_TO_PTR(pipefd[0]), &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), EAGAIN);
@@ -544,10 +544,10 @@ TEST(loop_read_no_poll_blocking) {
 
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
         ASSERT_OK(sd_fiber_new(e, "loop-read-np-blk", loop_read_no_poll_blocking_reader_fiber,
-                               &ctx, /* destroy= */ NULL, &fr));
+                               &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
         ASSERT_OK(sd_fiber_new(e, "loop-write-np-blk", loop_read_no_poll_blocking_writer_fiber,
-                               &ctx, /* destroy= */ NULL, &fw));
+                               &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
         ASSERT_OK(sd_event_loop(e));
