@@ -11,25 +11,15 @@
 typedef struct FutureGroup {
         uint64_t policy;
 
-        /* An explicit priority applies to existing and future children. Otherwise preserve theirs. */
         int64_t priority;
         bool priority_set;
 
         sd_future_slot **slots;
         size_t n_slots;
 
-        /* The fiber the group was created on, if it uses the same event loop. When the
-         * group settles on an error and IGNORE_ERRORS is unset, this fiber is cancelled so it
-         * notices the failure even if it hasn't started awaiting the group (a child error cancels
-         * the parent). parent_slot's callback NULLs `parent` if the parent resolves before the
-         * group does. */
         sd_future *parent;
         sd_future_slot *parent_slot;
 
-        /* Set once future_group_finalize() has been entered. The outcome is decided (stored in
-         * `result`) and the group is "draining" — waiting for any still-pending children to
-         * actually settle before we resolve. While set, the result cannot change and add
-         * rejects with -ESTALE. */
         bool finalizing;
         int result;
 
@@ -37,8 +27,9 @@ typedef struct FutureGroup {
 
         bool sealed;
 
-        /* Set while cancelling children: a cancellation that comes back around to the group would
-         * otherwise recurse until the stack overflows. */
+        /* cancelling is set while future_group_cancel_children() runs. The cancel callback of a child can
+         * cancel the group again. Without the flag, future_group_cancel_children() would then call itself
+         * until the stack overflows. */
         bool cancelling;
 } FutureGroup;
 
@@ -67,9 +58,9 @@ static int future_group_cancel_children(sd_future *g) {
         if (fg->cancelling)
                 return 0;
 
-        /* A cancellation error does not make a pending child safe to release. Keep waiting for its
-         * resolution even when cancellation is unsupported or fails; child implementations must still
-         * arrange completion before the group can finish draining. */
+        /* A child stays in the group if cancelling it fails or is not supported, and the group keeps
+         * waiting for the child to resolve. The child itself has to resolve eventually. Otherwise the
+         * group never resolves. */
         fg->cancelling = true;
         FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
                 sd_future *child = sd_future_slot_get_future(*slot_p);
@@ -95,13 +86,10 @@ static int future_group_finalize(sd_future *g, int result, bool propagate_error)
 
         RET_GATHER(r, future_group_cancel_children(g));
 
-        /* If we're settling because of a child error (and the user hasn't opted into ignoring
-         * errors), cancel the parent fiber so it notices the failure even if it hasn't
-         * started awaiting the group yet. An active await means the parent will receive the
-         * group's actual error, so cancelling it would only hide that error behind -ECANCELED.
-         * The suppression ends automatically when an interrupted wait returns; a peer's wait
-         * cannot suppress cancellation of the parent.
-         * Explicit group cancellation never propagates upward. */
+        /* If a child error selects the outcome and IGNORE_ERRORS is not set, cancel the parent fiber. The
+         * parent then sees the failure even if it does not await the group yet. A parent that awaits the
+         * group reads the error from the group after the wait. Cancelling that parent would make the wait
+         * return -ECANCELED instead. Explicit cancellation of the group never cancels the parent. */
         if (propagate_error && result < 0 &&
             !FLAGS_SET(fg->policy, SD_FUTURE_GROUP_IGNORE_ERRORS) &&
             fg->parent &&
@@ -109,9 +97,6 @@ static int future_group_finalize(sd_future *g, int result, bool propagate_error)
             sd_fiber_get_awaiting(fg->parent) != g)
                 RET_GATHER(r, sd_future_cancel(fg->parent));
 
-        /* Re-check: if every child settled synchronously during the cancel loop the group can
-         * resolve now; otherwise wait for the group_child_resolved callbacks to drive the
-         * drain branch of check(). */
         RET_GATHER(r, future_group_check(g));
         return r;
 }
@@ -123,9 +108,8 @@ static int future_group_check(sd_future *g) {
                 return 0;
 
         if (fg->finalizing) {
-                /* Outcome decided; resolve once every child has actually settled so callers
-                 * observing the group's resolution see every child in RESOLVED state. An empty
-                 * finalizing group resolves immediately (the FOREACH_ARRAY body never runs). */
+                /* The group only resolves after every child has resolved. Code that runs when the group
+                 * resolves then sees every child in the RESOLVED state. */
                 FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots)
                         if (sd_future_state(sd_future_slot_get_future(*slot_p)) != SD_FUTURE_RESOLVED)
                                 return 0;
@@ -162,7 +146,6 @@ static int future_group_check(sd_future *g) {
 }
 
 static int future_group_cancel(sd_future *f) {
-        /* Explicit group cancellation affects its children, not the fiber that created the group. */
         return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
 }
 
@@ -170,7 +153,8 @@ static int future_group_set_child_priority(sd_future *child, int64_t priority) {
         int r;
 
         r = sd_future_set_priority(child, priority);
-        /* Some children do not support priorities or have already resolved. */
+        /* sd_future_set_priority() fails with -EOPNOTSUPP for a child without priority support, and
+         * with -ESTALE for a child that has already resolved. */
         if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ESTALE))
                 return r;
 
@@ -239,9 +223,9 @@ int sd_future_group_set_policy(sd_future *f, uint64_t policy) {
         assert_return(sd_future_state(f) == SD_FUTURE_PENDING, -ESTALE);
         assert_return((policy & ~(uint64_t) _SD_FUTURE_GROUP_POLICY_MASK) == 0, -EINVAL);
 
-        /* Policy must be configured before any children are added — once a child is in flight,
-         * the resolution mechanics are locked in. This keeps the API friction-free: callers
-         * don't have to reason about mid-flight reshuffling of which children get cancelled. */
+        /* Child results select the outcome according to the policy. Changing the policy after a child
+         * was added would change how a running child affects the outcome, so only a group without
+         * children accepts a new policy. */
         FutureGroup *fg = sd_future_get_private(f);
         assert_return(fg->n_slots == 0, -ESTALE);
 
@@ -295,15 +279,16 @@ int sd_future_group_add(sd_future *f, sd_future *child) {
         assert_return(child, -EINVAL);
         assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
         assert_return(sd_future_state(f) == SD_FUTURE_PENDING, -ESTALE);
-        /* A group waiting for itself can never settle. */
+        /* A group that contains itself would wait for itself and never resolve. */
         assert_return(child != f, -EINVAL);
 
-        /* Child notifications are dispatched on the child's event loop. */
+        /* The callbacks of a child run on the event loop of the child, so the group has to use the same
+         * event loop. */
         assert_return(sd_future_get_event(child) == sd_future_get_event(f), -EINVAL);
 
         FutureGroup *fg = sd_future_get_private(f);
-        /* Group is draining: a freshly-added pending child would have missed the cancel loop
-         * and hang us forever waiting for it to settle. */
+        /* A finalizing group has already cancelled its children. A child added now would not be
+         * cancelled, and the group could wait for it forever. */
         assert_return(!fg->finalizing, -ESTALE);
         assert_return(!fg->sealed, -ESTALE);
 
@@ -373,8 +358,8 @@ int sd_future_group_add_many_internal(sd_future *f, ...) {
         va_end(ap);
 
         if (r < 0)
-                /* No callbacks run inline while adding children, so the group cannot start finalizing
-                 * during this call. Roll back only this call's additions. */
+                /* sd_future_group_add() never runs callbacks, so the group cannot start finalizing during
+                 * this call. Remove only the children that this call added. */
                 while (fg->n_slots > before) {
                         sd_future_slot_unref(fg->slots[--fg->n_slots]);
                         fg->slots[fg->n_slots] = NULL;
