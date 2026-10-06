@@ -540,10 +540,8 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to preset units via dbus, ignoring: %s", bus_error_message(&error, r));
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to preset units: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_skip(reply, "b");
         if (r < 0)
@@ -568,7 +566,7 @@ static void install_changes_dump_graceful(int error, InstallChange *changes, siz
                         if (r == -ENOMEM)
                                 return (void) log_oom();
                         if (r < 0)
-                                log_warning_errno(r, "Failed to disable unit %s via dbus, ignoring: %m", i->path);
+                                log_warning_errno(r, "Failed to disable unit %s, ignoring: %m", i->path);
                         else
                                 log_warning_errno(i->type, "Failed to disable unit, ignoring: %s", err_message);
 
@@ -576,7 +574,7 @@ static void install_changes_dump_graceful(int error, InstallChange *changes, siz
                 }
 
         if (error < 0 && error != -ENOENT && !err_logged)
-                log_error_errno(error, "Failed to disable units: %m");
+                log_warning_errno(error, "Failed to disable units, ignoring: %m");
 }
 
 static int user_stop_units(const char *user, const UserUnitOperationArgs *args) {
@@ -671,8 +669,6 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
                                 &n_changes);
 
                 install_changes_dump_graceful(r, changes, n_changes);
-                if (r < 0)
-                        return r;
 
                 if (offline())
                         return 0;
@@ -721,7 +717,7 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
                                 install_changes_dump_graceful(/* error= */ 0, changes, n_changes);
                         } else if (r != -ENOENT)
                                 log_warning_errno(r,
-                                                  "Failed to disable units via dbus, ignoring: %s",
+                                                  "Failed to disable units, ignoring: %s",
                                                   bus_error_message(&error, r));
                 }
 
