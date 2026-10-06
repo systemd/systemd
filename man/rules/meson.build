@@ -1141,7 +1141,7 @@ manpages = [
    'systemd-makefs',
    'systemd-mkswap@.service'],
   ''],
- ['systemd-measure', '1', [], 'HAVE_TPM2 HAVE_BLKID HAVE_OPENSSL'],
+ ['systemd-measure', '1', [], 'ENABLE_MEASURE'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
  ['systemd-mountfsd.service', '8', ['systemd-mountfsd'], 'ENABLE_MOUNTFSD'],

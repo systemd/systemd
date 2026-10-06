@@ -182,6 +182,8 @@ option('logind', type : 'boolean',
        description : 'install the systemd-logind stack')
 option('machined', type : 'boolean',
        description : 'install the systemd-machined stack')
+option('measure', type : 'feature',
+       description : 'install the systemd-measure tool')
 option('mountfsd', type : 'boolean',
        description : 'install the systemd-mountfsd stack')
 option('networkd', type : 'boolean',
