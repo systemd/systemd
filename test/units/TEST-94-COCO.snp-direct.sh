@@ -14,6 +14,10 @@ if [[ "${COCO_TYPE:?}" != "sev-snp" ]]; then
     exit 77
 fi
 
+# systemd-report is optional, and a large part of the tests below will fail
+# without it. Skip the whole test for simplicity.
+[ -x /usr/lib/systemd/systemd-report ] || exit 77
+
 MACHINE="coco-snp-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"

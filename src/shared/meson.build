@@ -212,7 +212,6 @@ shared_sources = files(
         'tomoyo-util.c',
         'tpm2-util.c',
         'tpm2-event-log.c',
-        'tsm-report.c',
         'udev-util.c',
         'unit-file.c',
         'user-record-nss.c',
@@ -307,8 +306,12 @@ if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
 endif
 
-if conf.get('HAVE_TPM2') == 1
-        shared_sources += files('tpm2-report.c')
+if conf.get('ENABLE_REPORT') == 1
+        shared_sources += files('tsm-report.c')
+
+        if conf.get('HAVE_TPM2') == 1
+                shared_sources += files('tpm2-report.c')
+        endif
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
