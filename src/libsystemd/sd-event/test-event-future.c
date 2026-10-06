@@ -228,7 +228,7 @@ TEST(future_child_process_own_cancel_wait) {
         ASSERT_OK(fork_stubborn_child(&pidref));
         ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
         ASSERT_OK(future_child_set_process_own(f, true));
-        ASSERT_OK(sd_fiber_new(e, "child-cancel-wait", child_cancel_wait_fiber, f, /* destroy= */ NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "child-cancel-wait", child_cancel_wait_fiber, f, &fiber));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
@@ -308,7 +308,7 @@ TEST(future_child_await) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(fork_child(7, &pidref));
-        ASSERT_OK(sd_fiber_new(e, "child-await", child_await_fiber, &pidref, /* destroy= */ NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "child-await", child_await_fiber, &pidref, &fiber));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_EQ(sd_future_result(fiber), 7);
@@ -369,7 +369,7 @@ TEST(event_future_priority) {
                                         EventFuturePriorityData d = { .type = type, .fd = fds[0], .ret = &f };
 
                                         ASSERT_OK(sd_fiber_new(e, "new-event-future", event_future_priority_fiber,
-                                                              &d, /* destroy= */ NULL, &registrar));
+                                                              &d, &registrar));
                                         ASSERT_OK(sd_future_set_priority(registrar, priority));
                                         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
                                         ASSERT_OK_ZERO(sd_future_result(registrar));
@@ -527,7 +527,7 @@ TEST(sd_event_loop_fiber) {
         /* Create a fiber that will create and run the inner event loop */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int inner_timer_count = 0;
-        ASSERT_OK(sd_fiber_new(outer, "event-runner", event_run_fiber_func, &inner_timer_count, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "event-runner", event_run_fiber_func, &inner_timer_count, &f));
 
         /* Run the outer event loop */
         ASSERT_OK(sd_event_loop(outer));
@@ -561,7 +561,7 @@ TEST(sd_event_run_fiber_timeout) {
 
         /* Create a fiber that will run sd_event_run() with timeout */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "event-timeout", event_run_fiber_timeout_func, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "event-timeout", event_run_fiber_timeout_func, NULL, &f));
 
         /* Run the outer event loop */
         ASSERT_OK(sd_event_loop(outer));
@@ -593,7 +593,7 @@ TEST(sd_event_run_zero_timeout) {
         ASSERT_OK(sd_event_set_exit_on_idle(outer, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-zero", sd_event_run_zero_timeout_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-zero", sd_event_run_zero_timeout_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -652,7 +652,7 @@ TEST(sd_event_run_immediate) {
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "X", 1), 1);
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-immediate", sd_event_run_immediate_fiber, pipefd, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-immediate", sd_event_run_immediate_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -693,7 +693,7 @@ TEST(sd_event_run_io) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-io", sd_event_run_io_fiber, pipefd, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-io", sd_event_run_io_fiber, pipefd, &f));
 
         /* First iteration: fiber runs, adds IO source, suspends because no data */
         ASSERT_OK_POSITIVE(sd_event_run(outer, 0));
@@ -757,7 +757,7 @@ TEST(sd_event_run_loop) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-loop", sd_event_run_loop_fiber, pipefd, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-loop", sd_event_run_loop_fiber, pipefd, &f));
 
         /* Let the fiber run through a few timeout iterations */
         for (int i = 0; i < 10; i++)
@@ -810,7 +810,7 @@ TEST(sd_event_run_timer) {
         ASSERT_OK(sd_event_set_exit_on_idle(outer, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-timer", sd_event_run_timer_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-timer", sd_event_run_timer_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -846,8 +846,7 @@ TEST(sd_event_run_interrupted) {
                         ASSERT_OK(sd_event_add_io(inner, &source, pipefd[0], EPOLLIN, io_callback, &count));
 
                         EventRunInterruptedState s = { .inner = inner, .timeout = timeout, .finite = finite };
-                        ASSERT_OK(sd_fiber_new(outer, "event-interrupted", event_run_interrupted_fiber, &s,
-                                               /* destroy= */ NULL, &f));
+                        ASSERT_OK(sd_fiber_new(outer, "event-interrupted", event_run_interrupted_fiber, &s, &f));
                         ASSERT_OK_POSITIVE(sd_event_run(outer, 0));
                         ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
                         if (!timeout)

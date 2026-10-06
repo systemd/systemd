@@ -205,8 +205,8 @@ TEST(future_group_wait_all_fail_fast) {
         ASSERT_OK(sd_future_group_new(e, &group));
 
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &errorer));
-        ASSERT_OK(sd_fiber_new(e, "sleep-a", suspend_fiber, NULL, NULL, &sleeper_a));
-        ASSERT_OK(sd_fiber_new(e, "sleep-b", suspend_fiber, NULL, NULL, &sleeper_b));
+        ASSERT_OK(sd_fiber_new(e, "sleep-a", suspend_fiber, NULL, &sleeper_a));
+        ASSERT_OK(sd_fiber_new(e, "sleep-b", suspend_fiber, NULL, &sleeper_b));
 
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, sleeper_a));
@@ -255,8 +255,8 @@ TEST(future_group_wait_any) {
         ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
 
         ASSERT_OK(sd_future_new_defer(e, 42, &fast));
-        ASSERT_OK(sd_fiber_new(e, "medium", suspend_fiber, NULL, NULL, &medium));
-        ASSERT_OK(sd_fiber_new(e, "slow", suspend_fiber, NULL, NULL, &slow));
+        ASSERT_OK(sd_fiber_new(e, "medium", suspend_fiber, NULL, &medium));
+        ASSERT_OK(sd_fiber_new(e, "slow", suspend_fiber, NULL, &slow));
         ASSERT_OK(sd_future_group_add(group, fast));
         ASSERT_OK(sd_future_group_add(group, medium));
         ASSERT_OK(sd_future_group_add(group, slow));
@@ -316,7 +316,7 @@ TEST(future_group_first_success) {
 
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &fast_err));
         ASSERT_OK(sd_future_new_defer(e, 77, &medium_ok));
-        ASSERT_OK(sd_fiber_new(e, "slow-ok", suspend_fiber, NULL, NULL, &slow_ok));
+        ASSERT_OK(sd_fiber_new(e, "slow-ok", suspend_fiber, NULL, &slow_ok));
 
         ASSERT_OK(sd_future_group_add(group, fast_err));
         ASSERT_OK(sd_future_group_add(group, medium_ok));
@@ -367,8 +367,8 @@ TEST(future_group_external_cancel) {
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *long_a = NULL, *long_b = NULL;
         ASSERT_OK(sd_future_group_new(e, &group));
 
-        ASSERT_OK(sd_fiber_new(e, "long-a", suspend_fiber, NULL, NULL, &long_a));
-        ASSERT_OK(sd_fiber_new(e, "long-b", suspend_fiber, NULL, NULL, &long_b));
+        ASSERT_OK(sd_fiber_new(e, "long-a", suspend_fiber, NULL, &long_a));
+        ASSERT_OK(sd_fiber_new(e, "long-b", suspend_fiber, NULL, &long_b));
         ASSERT_OK(sd_future_group_add(group, long_a));
         ASSERT_OK(sd_future_group_add(group, long_b));
 
@@ -415,8 +415,8 @@ TEST(future_group_resolves_after_children_drain) {
          * synchronous FIBER_STATE_INITIAL path — which is the case the drain invariant is
          * about. */
         int err_result = -EINVAL;
-        ASSERT_OK(sd_fiber_new(e, "err", yield_then_return_fiber, &err_result, NULL, &errorer));
-        ASSERT_OK(sd_fiber_new(e, "sleep", suspend_fiber, NULL, NULL, &sleeper));
+        ASSERT_OK(sd_fiber_new(e, "err", yield_then_return_fiber, &err_result, &errorer));
+        ASSERT_OK(sd_fiber_new(e, "sleep", suspend_fiber, NULL, &sleeper));
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, sleeper));
 
@@ -474,7 +474,7 @@ TEST(future_group_cancels_parent_on_child_error) {
 
         ParentCancelState s = {};
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
-        ASSERT_OK(sd_fiber_new(e, "parent", parent_cancel_driver, &s, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "parent", parent_cancel_driver, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(s.suspend_result, ECANCELED);
@@ -501,8 +501,7 @@ static int seal_parent_driver(void *userdata) {
         ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &group));
         ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
         ASSERT_OK(sd_future_add_callback(group, &wake_slot, wake_parent_cb, sd_fiber_get_current()));
-        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "seal", seal_from_peer, group,
-                               /* destroy= */ NULL, &peer));
+        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "seal", seal_from_peer, group, &peer));
 
         s->suspend_result = sd_fiber_suspend();
         s->group_result = sd_future_result(group);
@@ -519,7 +518,7 @@ TEST(future_group_seal_does_not_cancel_parent) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "parent", seal_parent_driver, &s, /* destroy= */ NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "parent", seal_parent_driver, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(driver));
@@ -549,7 +548,7 @@ TEST(future_group_await_returns_real_error) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "parent", await_gets_error_driver, &await_result, /* destroy= */ NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "parent", await_gets_error_driver, &await_result, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(driver));
@@ -563,7 +562,7 @@ TEST(future_group_does_not_cancel_parent_with_ignore_errors) {
 
         ParentCancelState s = { .policy = SD_FUTURE_GROUP_IGNORE_ERRORS };
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
-        ASSERT_OK(sd_fiber_new(e, "parent", parent_cancel_driver, &s, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "parent", parent_cancel_driver, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         /* With IGNORE_ERRORS the parent isn't cancelled — the wake-up callback resumes the
@@ -611,7 +610,7 @@ TEST(future_group_add_resolved_child) {
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &s.child));
 
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
-        ASSERT_OK(sd_fiber_new(e, "driver", add_resolved_driver, &s, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "driver", add_resolved_driver, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(s.add_result);
@@ -652,7 +651,7 @@ TEST(future_group_add_many) {
         ASSERT_OK(sd_future_new_defer(e, 0, &s.c));
 
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
-        ASSERT_OK(sd_fiber_new(e, "driver", add_many_driver, &s, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "driver", add_many_driver, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(s.join_result);
@@ -799,7 +798,7 @@ TEST(future_group_cancel_wait_unref_drives_stubborn_child) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "cancel-wait-group", cancel_wait_group_fiber, &cancels, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "cancel-wait-group", cancel_wait_group_fiber, &cancels, &driver));
 
         /* One iteration runs the fiber up to the await inside sd_future_cancel_wait_unref(): the group
          * is finalizing, but the stubborn child ignored the first cancel. */
@@ -988,7 +987,7 @@ TEST(future_group_does_not_cancel_parent_when_parent_drives_cancel) {
 
         SelfCancelState s = {};
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
-        ASSERT_OK(sd_fiber_new(e, "self-cancel", self_cancel_fiber, &s, NULL, &driver));
+        ASSERT_OK(sd_fiber_new(e, "self-cancel", self_cancel_fiber, &s, &driver));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(driver));
@@ -1040,8 +1039,7 @@ TEST(future_group_parent_await_scope) {
                 ParentAwaitState s = { .await = await, .result = -ECANCELED };
 
                 ASSERT_OK(sd_event_new(&e));
-                ASSERT_OK(sd_fiber_new(e, "parent-await", parent_await_driver, &s,
-                                       /* destroy= */ NULL, &parent));
+                ASSERT_OK(sd_fiber_new(e, "parent-await", parent_await_driver, &s, &parent));
                 ASSERT_OK_POSITIVE(sd_event_run(e, 0));
                 if (s.await)
                         ASSERT_OK(sd_future_cancel(parent));
@@ -1082,8 +1080,7 @@ TEST(future_group_external_cancel_leaves_parent_running) {
 
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-                ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s,
-                                       /* destroy= */ NULL, &parent));
+                ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s, &parent));
                 s.parent = parent;
                 ASSERT_OK_POSITIVE(sd_event_run(e, 0));
                 ASSERT_OK(sd_fiber_resume(parent, 42));
@@ -1091,8 +1088,7 @@ TEST(future_group_external_cancel_leaves_parent_running) {
                         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
 
                 if (peer)
-                        ASSERT_OK(sd_fiber_new(e, "cancel-group", cancel_group_from_peer, &s,
-                                               /* destroy= */ NULL, &canceller));
+                        ASSERT_OK(sd_fiber_new(e, "cancel-group", cancel_group_from_peer, &s, &canceller));
                 else
                         ASSERT_OK(cancel_group_from_peer(&s));
 
@@ -1123,15 +1119,13 @@ TEST(future_group_peer_await_does_not_suppress_parent_cancel) {
         ParentAwaitState s = { .result = -ECANCELED };
 
         ASSERT_OK(sd_event_new(&e));
-        ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s,
-                               /* destroy= */ NULL, &parent));
+        ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s, &parent));
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_OK(sd_fiber_resume(parent, 42));
         while (!s.ready)
                 ASSERT_OK_POSITIVE(sd_event_run(e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "peer-await", peer_await_driver, s.group,
-                               /* destroy= */ NULL, &peer));
+        ASSERT_OK(sd_fiber_new(e, "peer-await", peer_await_driver, s.group, &peer));
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_OK(sd_future_resolve(s.child, -EIO));
         while (ASSERT_OK(sd_event_run(e, 0)) > 0)
@@ -1375,8 +1369,7 @@ TEST(future_group_does_not_capture_cross_event_parent) {
         ASSERT_OK(sd_event_new(&other));
         s.event = other;
         ASSERT_OK(sd_future_group_new(other, &child));
-        ASSERT_OK(sd_fiber_new(e, "cross-event-parent", cross_event_parent_driver, &s,
-                               /* destroy= */ NULL, &parent));
+        ASSERT_OK(sd_fiber_new(e, "cross-event-parent", cross_event_parent_driver, &s, &parent));
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_OK(sd_future_group_add(s.group, child));
         ASSERT_OK(sd_future_resolve(child, -EIO));
@@ -1420,8 +1413,8 @@ TEST(future_group_outlives_parent) {
         ParentLifetimeState s = {};
 
         ASSERT_OK(sd_event_new(&e));
-        ASSERT_OK(sd_fiber_new(e, "short-lived-parent", parent_returns_before_child, &s,
-                               parent_lifetime_destroy, &parent));
+        ASSERT_OK(sd_fiber_new(e, "short-lived-parent", parent_returns_before_child, &s, &parent));
+        ASSERT_OK(sd_fiber_set_destroy_callback(parent, parent_lifetime_destroy));
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_OK_ZERO(sd_future_result(parent));
         parent = sd_future_unref(parent);
@@ -1488,7 +1481,8 @@ TEST(future_group_destroy_callback_reenters_group) {
         for (unsigned i = 0; i < 3; i++) {
                 _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
 
-                ASSERT_OK(sd_fiber_new(e, "child", return_zero_fiber, &s, reenter_destroy, &f));
+                ASSERT_OK(sd_fiber_new(e, "child", return_zero_fiber, &s, &f));
+                ASSERT_OK(sd_fiber_set_destroy_callback(f, reenter_destroy));
                 ASSERT_OK(sd_future_group_add(group, f));
                 f = sd_future_unref(f);
         }

@@ -685,7 +685,7 @@ static const sd_future_ops fiber_future_ops = {
         .set_priority = fiber_set_priority,
 };
 
-int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret) {
+int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret) {
         int r;
 
         assert_return(e, -EINVAL);
@@ -786,11 +786,26 @@ int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *user
                 f = sd_future_unref(f);
         }
 
-        /* We only take ownership of the given userdata pointer on success so assign the destroy callback
-         * at the very end so we don't clean up the userdata pointer on failure. */
-        fiber->destroy = destroy;
-
         return 0;
+}
+
+int sd_fiber_set_destroy_callback(sd_future *f, sd_fiber_destroy_t callback) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &fiber_future_ops, -EINVAL);
+
+        fiber_get(f)->destroy = callback;
+        return 0;
+}
+
+int sd_fiber_get_destroy_callback(sd_future *f, sd_fiber_destroy_t *ret) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &fiber_future_ops, -EINVAL);
+
+        sd_fiber_destroy_t callback = fiber_get(f)->destroy;
+        if (ret)
+                *ret = callback;
+
+        return !!callback;
 }
 
 int sd_fiber_set_floating(sd_future *f, int b) {
