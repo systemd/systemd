@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -14,9 +15,12 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "chase.h"
 #include "cleanup-util.h"
 #include "dlopen-note.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "install.h"
 #include "log.h"
 #include "macro.h"
@@ -329,23 +333,60 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract user id from unit '%s': %m", unit);
 
-        r = parse_uid(user, NULL);
+        uid_t uid;
+        r = parse_uid(user, &uid);
         if (r < 0)
                 return log_error_errno(r, "User id of user service manager unit %s is not a valid UID: %m", user);
 
-        _cleanup_free_ char *host = strjoin(user, "@");
-        if (!host)
+        _cleanup_free_ char *p = NULL;
+        if (asprintf(&p, "/run/user/" UID_FMT "/systemd/private", uid) < 0)
                 return log_oom();
+
+        /* The user owns /run/user/UID and can replace the socket with a symlink to the private socket of
+         * the system manager. Refuse symlinks and require that the user owns the socket. Otherwise the
+         * method calls meant for the user manager could stop units of the system manager. */
+        _cleanup_close_ int inode_fd = -EBADF;
+        r = chase(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &inode_fd);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open %s, ignoring: %m", p);
+                *ret = NULL;
+                return 0;
+        }
+
+        struct stat st;
+        if (fstat(inode_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", p);
+
+        if (!S_ISSOCK(st.st_mode) || st.st_uid != uid) {
+                log_warning("%s is not a socket owned by UID " UID_FMT ", ignoring.", p, uid);
+                *ret = NULL;
+                return 0;
+        }
 
         /* On the failure paths below, the bus may still be connecting when the cleanup runs.
          * sd_bus_flush() waits without a timeout until the connection is established. With a frozen user
          * manager, that wait never ends. No messages are queued yet, so closing without a flush loses
          * nothing. */
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_transport(BUS_TRANSPORT_MACHINE, host, RUNTIME_SCOPE_USER, &bus);
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
+
+        r = sd_bus_set_description(bus, unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set bus description: %m");
+
+        _cleanup_free_ char *address = strjoin("unix:path=", FORMAT_PROC_FD_PATH(inode_fd));
+        if (!address)
+                return log_oom();
+
+        r = sd_bus_set_address(bus, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set bus address: %m");
+
+        r = sd_bus_start(bus);
         if (r < 0) {
-                (void) bus_log_connect_full(LOG_WARNING, r,
-                                            BUS_TRANSPORT_MACHINE, RUNTIME_SCOPE_USER);
+                log_warning_errno(r, "Failed to connect to %s, ignoring: %m", unit);
                 *ret = NULL;
                 return 0;
         }
