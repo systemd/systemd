@@ -100,21 +100,24 @@ sd_future* sd_future_slot_get_future(sd_future_slot *s);
 
 int sd_future_set_priority(sd_future *f, int64_t priority);
 
-/* Group policies select an outcome as follows:
- * WAIT_ALL: first child error, or 0 once every child succeeds.
- * WAIT_ALL | IGNORE_ERRORS: wait for every child, then return the first error or 0.
- * WAIT_ANY: a successful child's result if any have succeeded, otherwise the first child error.
- * WAIT_ANY | IGNORE_ERRORS: wait for a success, or for every child to fail; return that success or
- *                         the first error, respectively.
- * Waiting for every child also waits for sd_future_group_seal(). Until the group is sealed, the owner
- * can add more children, so a group without pending children stays pending.
- * The group releases its reference to a child once it has handled the resolution of the child. "First"
- * refers to the order in which the group handles resolutions. The order is not specified for children
- * that resolve in the same event loop iteration. Under WAIT_ANY, a success still wins over an error if
- * the successful child resolved before the group handled the error.
- * Once selected, the outcome is final: remaining children are cancelled, and the group resolves only
- * after every child has finished. IGNORE_ERRORS also suppresses cancellation of the parent fiber;
- * it does not turn an unsuccessful group result into success. */
+/* The policy of a group selects the outcome of the group from the results of its children.
+ * With WAIT_ALL, the first child error is the outcome. If every child succeeds, the outcome is 0.
+ * With WAIT_ALL | IGNORE_ERRORS, the group waits for every child. The outcome is the first child
+ * error, or 0 if every child succeeded.
+ * With WAIT_ANY, the result of the first successful child is the outcome. If a child fails first, its
+ * error is the outcome.
+ * With WAIT_ANY | IGNORE_ERRORS, the result of the first successful child is the outcome. If every
+ * child fails, the first child error is the outcome.
+ * Waiting for every child also waits for sd_future_group_seal(). The owner can add more children until
+ * it seals the group. A group that is not sealed therefore stays pending when it has no pending
+ * children.
+ * The group releases its reference to a child once it has handled the resolution of the child.
+ * "First" refers to the order in which the group handles resolutions. The order is not specified for
+ * children that resolve in the same event loop iteration. Under WAIT_ANY, a success is still the
+ * outcome if the successful child resolved before the group handled an error.
+ * The first outcome that the policy selects is final. The group then cancels its remaining children
+ * and resolves after every child has finished. IGNORE_ERRORS also prevents a child error from
+ * cancelling the parent fiber. */
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
         SD_FUTURE_GROUP_WAIT_ALL      = 0,
         SD_FUTURE_GROUP_WAIT_ANY      = 1 << 0,
@@ -123,17 +126,17 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
         _SD_ENUM_FORCE_S64(SD_FUTURE_GROUP_POLICY)
 } sd_future_group_policy_t;
 
-/* The calling fiber becomes the parent only if it belongs to e. Unless IGNORE_ERRORS is set, a child
- * error cancels the parent if it is not awaiting the group with sd_fiber_await(). Explicit group
- * cancellation does not cancel the parent. */
+/* If the calling fiber runs on e, it becomes the parent of the group. Unless IGNORE_ERRORS is set, a
+ * child error cancels the parent. The parent is not cancelled while it awaits the group with
+ * sd_fiber_await(). Cancelling the group does not cancel the parent. */
 int sd_future_group_new(sd_event *e, sd_future **ret);
 int sd_future_group_set_policy(sd_future *f, uint64_t policy);
-/* The group and all its children must belong to the same event loop. Adding a child takes a new
- * reference; it does not consume the caller's reference. To hand ownership to the group, release the
- * caller's reference with sd_future_unref(), not a cancellation cleanup helper. The group can drop the
- * last reference to a child before other callbacks on the child have run. A floating callback on the
- * child then never runs. Keep a reference to the child to read its result or to rely on its other
- * callbacks. */
+/* The group and all its children must belong to the same event loop. sd_future_group_add() takes a
+ * new reference to the child and does not drop the reference of the caller. To give the group the only
+ * reference, drop the reference of the caller with sd_future_unref(). A cleanup helper that cancels the
+ * child would stop the child instead. The group can drop the last reference to a child before other
+ * callbacks on the child have run. A floating callback on the child then never runs. Keep a reference
+ * to the child to read its result or to rely on its other callbacks. */
 int sd_future_group_add(sd_future *f, sd_future *child);
 int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 #define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
