@@ -479,7 +479,7 @@ static int delete_self_handler(sd_event_source *s, const struct inotify_event *e
 
 static void test_inotify_one(unsigned n_create_events) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        sd_event_source *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        sd_event_source *a = NULL, *b = NULL, *c = NULL;
         struct inotify_context context = {
                 .n_create_events = n_create_events,
         };
@@ -514,7 +514,7 @@ static void test_inotify_one(unsigned n_create_events) {
 
         q = strjoina(p, "/sub");
         ASSERT_OK(touch(q));
-        ASSERT_OK(sd_event_add_inotify(e, &d, q, IN_DELETE_SELF, delete_self_handler, &context));
+        ASSERT_OK(sd_event_add_inotify(e, /* ret= */ NULL, q, IN_DELETE_SELF, delete_self_handler, &context));
 
         for (i = 0; i < n_create_events; i++) {
                 char buf[DECIMAL_STR_MAX(unsigned)+1];
@@ -533,7 +533,6 @@ static void test_inotify_one(unsigned n_create_events) {
         sd_event_source_unref(a);
         sd_event_source_unref(b);
         sd_event_source_unref(c);
-        sd_event_source_unref(d);
 
         sd_event_unref(e);
 }
