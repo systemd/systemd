@@ -497,7 +497,6 @@ possible_link_flags = [
         '-Wl,-z,now',
         '-Wl,-z,relro',
         '-Wl,-z,gcs-report-dynamic=none',
-        '-Wl,-z,pack-relative-relocs',
         '-Wl,--gc-sections',
 ]
 
@@ -510,6 +509,10 @@ if get_option('mode') == 'release'
         # valgrind and sanitizer builds. Also, clang does not zero-initialize unions,
         # breaking some of our code (https://reviews.llvm.org/D68115).
         possible_common_cc_flags += '-ftrivial-auto-var-init=zero'
+endif
+
+if get_option('pack-relative-relocs')
+        possible_link_flags += '-Wl,-z,pack-relative-relocs'
 endif
 
 possible_cc_flags = [
