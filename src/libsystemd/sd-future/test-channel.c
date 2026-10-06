@@ -390,8 +390,8 @@ TEST(channel_fiber_push_pop_fifo) {
         };
 
         _cleanup_(sd_future_unrefp) sd_future *prod = NULL, *cons = NULL;
-        ASSERT_OK(sd_fiber_new(e, "producer", producer_fiber, &s, NULL, &prod));
-        ASSERT_OK(sd_fiber_new(e, "consumer", consumer_fiber, &s, NULL, &cons));
+        ASSERT_OK(sd_fiber_new(e, "producer", producer_fiber, &s, &prod));
+        ASSERT_OK(sd_fiber_new(e, "consumer", consumer_fiber, &s, &cons));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(prod));
@@ -537,7 +537,7 @@ TEST(channel_fiber_pop_close_wakeup) {
         ASSERT_OK(sd_channel_new(e, 2, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
 
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "blocked-pop", blocked_pop_fiber, c, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "blocked-pop", blocked_pop_fiber, c, &fiber));
 
         /* Priority 100 makes the close run after the fiber has suspended in sd_channel_pop(). */
         _cleanup_(sd_event_source_unrefp) sd_event_source *src = NULL;
@@ -738,7 +738,7 @@ TEST(channel_push_closed) {
 
         FiberOp op = { .channel = c, .item = INT_TO_PTR(1) };
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, &fiber));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(op.result, EPIPE);
@@ -758,7 +758,7 @@ TEST(channel_push_closed_while_waiting) {
 
         FiberOp op = { .channel = c, .item = INT_TO_PTR(2) };
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, &fiber));
         run_until_awaiting(e, fiber);
 
         ASSERT_OK(sd_channel_close(c));
@@ -780,7 +780,7 @@ TEST(channel_push_cancelled_while_waiting) {
 
         FiberOp op = { .channel = c, .item = INT_TO_PTR(2) };
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, &fiber));
         run_until_awaiting(e, fiber);
 
         ASSERT_OK(sd_future_cancel(fiber));
@@ -802,7 +802,7 @@ TEST(channel_push_cancelled_after_send) {
 
         FiberOp op = { .channel = c, .item = INT_TO_PTR(2) };
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "push", push_fiber, &op, &fiber));
         run_until_awaiting(e, fiber);
 
         /* The pop moves item 2 into the buffer before the fiber wakes up from the cancellation. */
@@ -831,7 +831,7 @@ TEST(channel_pop_cancelled_after_delivery) {
 
         FiberOp op = { .channel = c };
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "pop", pop_fiber, &op, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "pop", pop_fiber, &op, &fiber));
         run_until_awaiting(e, fiber);
 
         /* The push hands item 5 to the fiber before the fiber wakes up from the cancellation. */
@@ -872,7 +872,7 @@ TEST(channel_push_pop_interrupted) {
         ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
 
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_push_pop_fiber, c, NULL, &fiber));
+        ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_push_pop_fiber, c, &fiber));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(fiber));
 
