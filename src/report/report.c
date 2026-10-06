@@ -62,6 +62,7 @@ COMMAND(
         "Acquire metrics from local sources.",
         .man_pages = "systemd-report(1)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 typedef struct LinkInfo {

@@ -30,11 +30,10 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
-
-    <para><emphasis>Note: this command is experimental for now. While it is likely to become a regular
-    component of systemd, it might still change in behaviour and interface.</emphasis></para>
 
     <para><command>systemd-report</command> requests metrics from the system and writes them to
     standard output.</para>

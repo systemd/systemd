@@ -575,6 +575,10 @@ int _command_print_help_full(
         if (r < 0)
                 return r;
 
+        if (FLAGS_SET(cmd->flags, COMMAND_EXPERIMENTAL))
+                printf("\n%sThis command is EXPERIMENTAL.%s\n",
+                       ansi_bright_yellow(), ansi_normal());
+
         r = print_verb_option_help(cmd, verbverbs, verbs_end, options, options_end);
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");

@@ -238,6 +238,7 @@ COMMAND(
         .argspec = "[ARGUMENTS…]\0",
         .man_pages = "systemd-vmspawn(1)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 static int parse_environment(void) {

@@ -108,6 +108,7 @@ COMMAND(
         "Manage a TPM2 PCR lock.",
         .man_pages = "systemd-pcrlock(8)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 #define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock"
