@@ -839,7 +839,8 @@
 
           <listitem><para>Configures the type of SSH key to generate, see
           <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          for more information.</para>
+          for more information. Takes one of <literal>ed25519</literal>, <literal>rsa</literal>, or
+          <literal>ecdsa</literal>.</para>
 
           <para>By default, <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
           may also be useful if the VM has a particularly old version of
