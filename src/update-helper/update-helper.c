@@ -420,9 +420,13 @@ static int user_units_operation(char **users, UserUnitOperationFunc func, const 
                 };
 
                 _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
-                r = sd_fiber_new(sd_fiber_get_event(), *user, user_unit_operation_fiber, o, free, &f);
+                r = sd_fiber_new(sd_fiber_get_event(), *user, user_unit_operation_fiber, o, &f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create new fiber for '%s': %m", *user);
+
+                r = sd_fiber_set_destroy_callback(f, free);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set destroy callback of fiber for '%s': %m", *user);
 
                 TAKE_PTR(o);
 
