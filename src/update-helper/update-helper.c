@@ -492,6 +492,14 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         if (r <= 0)
                 return r;
 
+        /* unit_file_preset() ignores UNIT_FILE_DRY_RUN and changes the symlinks anyway. PresetUnitFiles has
+         * no flag for a dry run. */
+        if (arg_dry_run) {
+                STRV_FOREACH(unit, units)
+                        log_info("Would preset unit '%s'", *unit);
+                return 0;
+        }
+
         if (offline() || scope == RUNTIME_SCOPE_GLOBAL) {
                 InstallChange *changes = NULL;
                 size_t n_changes = 0;
@@ -500,7 +508,7 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
 
                 r = unit_file_preset(
                                 scope,
-                                arg_dry_run ? UNIT_FILE_DRY_RUN : 0,
+                                /* file_flags= */ 0,
                                 /* root_dir= */ NULL,
                                 units,
                                 UNIT_FILE_PRESET_FULL,
@@ -529,27 +537,19 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (arg_dry_run)
-                log_info("Would preset unit files");
-        else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
-                if (r >= 0) {
-                        r = sd_bus_message_skip(reply, "b");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
-                        if (r < 0)
-                                return r;
-                } else
-                        log_warning_errno(r,
-                                          "Failed to preset units via dbus, ignoring: %s",
-                                          bus_error_message(&error, r));
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to preset units via dbus, ignoring: %s", bus_error_message(&error, r));
+                return 0;
         }
 
-        return 0;
+        r = sd_bus_message_skip(reply, "b");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
 }
 
 static void install_changes_dump_graceful(int error, InstallChange *changes, size_t n_changes) {
