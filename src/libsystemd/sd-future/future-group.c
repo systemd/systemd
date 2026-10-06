@@ -330,6 +330,31 @@ int sd_future_group_add(sd_future *f, sd_future *child) {
         return 0;
 }
 
+int sd_future_group_spawn(sd_future *g, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret) {
+        int r;
+
+        assert_return(g, -EINVAL);
+        assert_return(sd_future_get_ops(g) == &future_group_ops, -EINVAL);
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_fiber_new(sd_future_get_event(g), name, func, userdata, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_add(g, f);
+        if (r < 0)
+                return r;
+
+        /* sd_future_group_add() took its own reference. The cleanup of f would cancel the fiber, so hand
+         * our reference to the caller or drop it with sd_future_unref(). */
+        if (ret)
+                *ret = TAKE_PTR(f);
+        else
+                f = sd_future_unref(f);
+
+        return 0;
+}
+
 int sd_future_group_add_many_internal(sd_future *f, ...) {
         assert_return(f, -EINVAL);
         assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
