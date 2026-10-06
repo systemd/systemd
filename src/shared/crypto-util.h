@@ -436,6 +436,8 @@ int openssl_load_x509_certificate(
                 const char *certificate,
                 X509 **ret);
 
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret);
+
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
