@@ -148,10 +148,17 @@ static int future_group_check(sd_future *g) {
         if (!ignore_errors && fg->first_error != 0)
                 return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
 
-        if (fg->n_slots > 0)
+        /* The owner can add more children until it seals the group. */
+        if (!fg->sealed || fg->n_slots > 0)
                 return 0;
 
-        return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
+        /* A WAIT_ANY group that never had a child resolves with -ECHILD, like waitid() does when there
+         * are no children. -ECHILD must not cancel the parent fiber. A child error can only reach this
+         * point with IGNORE_ERRORS, and IGNORE_ERRORS never cancels the parent either. */
+        return future_group_finalize(
+                        g,
+                        fg->first_error ?: (wait_any ? -ECHILD : 0),
+                        /* propagate_error= */ false);
 }
 
 static int future_group_cancel(sd_future *f) {
@@ -358,16 +365,5 @@ int sd_future_group_seal(sd_future *f) {
         FutureGroup *fg = sd_future_get_private(f);
         fg->sealed = true;
 
-        /* A group with children resolves from the callbacks of its children. A finalizing group
-         * resolves once its pending children settle. */
-        if (fg->n_slots > 0 || fg->finalizing)
-                return 0;
-
-        /* No child can be added to a sealed group. An empty sealed group stays pending forever
-         * unless it resolves here. WAIT_ANY waits for a successful child, and an empty group has
-         * none. The group resolves with -ECHILD, like waitid() does when there are no children. */
-        return future_group_finalize(
-                        f,
-                        FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY) ? -ECHILD : 0,
-                        /* propagate_error= */ false);
+        return future_group_check(f);
 }
