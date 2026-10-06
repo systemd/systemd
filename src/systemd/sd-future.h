@@ -106,7 +106,10 @@ int sd_future_set_priority(sd_future *f, int64_t priority);
  * WAIT_ANY: a successful child's result if any have succeeded, otherwise the first child error.
  * WAIT_ANY | IGNORE_ERRORS: wait for a success, or for every child to fail; return that success or
  *                         the first error, respectively.
- * "First" means insertion order among the children already resolved when the outcome is selected.
+ * The group releases its reference to a child once it has handled the resolution of the child. "First"
+ * refers to the order in which the group handles resolutions. The order is not specified for children
+ * that resolve in the same event loop iteration. Under WAIT_ANY, a success still wins over an error if
+ * the successful child resolved before the group handled the error.
  * Once selected, the outcome is final: remaining children are cancelled, and the group resolves only
  * after every child has finished. IGNORE_ERRORS also suppresses cancellation of the parent fiber;
  * it does not turn an unsuccessful group result into success. An empty group stays pending until it
@@ -126,14 +129,17 @@ int sd_future_group_new(sd_event *e, sd_future **ret);
 int sd_future_group_set_policy(sd_future *f, uint64_t policy);
 /* The group and all its children must belong to the same event loop. Adding a child takes a new
  * reference; it does not consume the caller's reference. To hand ownership to the group, release the
- * caller's reference with sd_future_unref(), not a cancellation cleanup helper. */
+ * caller's reference with sd_future_unref(), not a cancellation cleanup helper. The group can drop the
+ * last reference to a child before other callbacks on the child have run. A floating callback on the
+ * child then never runs. Keep a reference to the child to read its result or to rely on its other
+ * callbacks. */
 int sd_future_group_add(sd_future *f, sd_future *child);
 int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 #define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
 /* After sealing, adding a child fails with -ESTALE. Sealing an empty group resolves it with 0 under
  * WAIT_ALL and with -ECHILD under WAIT_ANY. An -ECHILD result does not cancel the parent fiber. */
 int sd_future_group_seal(sd_future *f);
-/* NULL is treated as an empty group. */
+/* NULL is treated as an empty group. The size does not include children that the group released. */
 size_t sd_future_group_size(sd_future *f);
 
 int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret);

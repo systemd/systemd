@@ -128,11 +128,10 @@ TEST(future_group_size) {
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(group));
-        ASSERT_EQ(sd_future_group_size(group), 2U);
+        ASSERT_EQ(sd_future_group_size(group), 0U);
 }
 
-/* Distinct errors pin down selection by insertion order when multiple children have settled
- * before the group's callbacks run, including when completion order is reversed. */
+/* The child that resolves first selects the error, even though it was added last. */
 TEST(future_group_first_error) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         uint64_t policy;
@@ -150,12 +149,18 @@ TEST(future_group_first_error) {
                 ASSERT_OK(sd_future_group_new(e, &b));
                 ASSERT_OK(sd_future_group_add_many(group, a, b));
                 ASSERT_OK(sd_future_resolve(b, -EIO));
-                ASSERT_OK(sd_future_resolve(a, -EINVAL));
+
+                while (sd_future_group_size(group) > 1)
+                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+                /* Without IGNORE_ERRORS, the error of b already resolved the group and cancelled a. */
+                if (sd_future_state(a) == SD_FUTURE_PENDING)
+                        ASSERT_OK(sd_future_resolve(a, -EINVAL));
 
                 while (sd_future_state(group) == SD_FUTURE_PENDING)
                         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
 
-                ASSERT_ERROR(sd_future_result(group), EINVAL);
+                ASSERT_ERROR(sd_future_result(group), EIO);
         }
 }
 
@@ -1374,6 +1379,64 @@ TEST(future_group_outlives_parent) {
         ASSERT_ERROR(sd_future_result(s.group), EIO);
         sd_future_unref(s.group);
         sd_future_unref(s.child);
+}
+
+TEST(future_group_add_child_twice) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *child = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_new_defer(e, 0, &child));
+        ASSERT_OK(sd_future_group_add(group, child));
+        ASSERT_OK(sd_future_group_add(group, child));
+        ASSERT_EQ(sd_future_group_size(group), 2U);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(group));
+        ASSERT_EQ(sd_future_group_size(group), 0U);
+}
+
+typedef struct ReenterState {
+        sd_future *group;
+        unsigned n_destroyed;
+} ReenterState;
+
+static int return_zero_fiber(void *userdata) {
+        return 0;
+}
+
+static void reenter_destroy(void *userdata) {
+        ReenterState *s = ASSERT_PTR(userdata);
+
+        s->n_destroyed++;
+        ASSERT_OK(sd_future_group_seal(s->group));
+}
+
+TEST(future_group_destroy_callback_reenters_group) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+
+        ReenterState s = { .group = group };
+
+        /* The group holds the only reference to each fiber, so releasing a fiber frees it and runs its
+         * destroy callback. The callback seals the group while the group still has other children. */
+        for (unsigned i = 0; i < 3; i++) {
+                _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+
+                ASSERT_OK(sd_fiber_new(e, "child", return_zero_fiber, &s, reenter_destroy, &f));
+                ASSERT_OK(sd_future_group_add(group, f));
+                f = sd_future_unref(f);
+        }
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(group));
+        ASSERT_EQ(s.n_destroyed, 3U);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

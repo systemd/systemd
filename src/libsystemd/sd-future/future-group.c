@@ -40,6 +40,8 @@ typedef struct FutureGroup {
         sd_future_slot *parent_slot;
 
         int result;
+
+        int first_error;
 } FutureGroup;
 
 static void future_group_free(sd_future *f) {
@@ -135,39 +137,23 @@ static int future_group_check(sd_future *g) {
         bool wait_any = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY);
         bool ignore_errors = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_IGNORE_ERRORS);
 
-        size_t n_resolved = 0;
-        int first_error = 0, first_success = 0;
-        bool any_success = false;
+        /* A child can resolve before the group handles the error of another child. Under WAIT_ANY, the
+         * success of that child selects the outcome. */
+        if (wait_any)
+                FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                        sd_future *child = sd_future_slot_get_future(*slot_p);
 
-        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
-                sd_future *child = sd_future_slot_get_future(*slot_p);
-                if (sd_future_state(child) != SD_FUTURE_RESOLVED)
-                        continue;
-
-                n_resolved++;
-                int cr = sd_future_result(child);
-                if (cr < 0) {
-                        if (first_error == 0)
-                                first_error = cr;
-                } else if (!any_success) {
-                        any_success = true;
-                        first_success = cr;
+                        if (sd_future_state(child) == SD_FUTURE_RESOLVED && sd_future_result(child) >= 0)
+                                return future_group_finalize(g, sd_future_result(child), /* propagate_error= */ true);
                 }
-        }
 
-        bool all_done = (n_resolved == fg->n_slots);
+        if (!ignore_errors && fg->first_error != 0)
+                return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
 
-        int result;
-        if (wait_any && any_success)
-                result = first_success;        /* wait_any short-circuits on first success */
-        else if (!ignore_errors && first_error != 0)
-                result = first_error;          /* fail-fast on error unless ignored */
-        else if (all_done)
-                result = first_error;          /* everyone settled: 0 if no errors */
-        else
+        if (fg->n_slots > 0)
                 return 0;
 
-        return future_group_finalize(g, result, /* propagate_error= */ true);
+        return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
 }
 
 static int future_group_cancel(sd_future *f) {
@@ -258,8 +244,42 @@ int sd_future_group_set_policy(sd_future *f, uint64_t policy) {
         return 0;
 }
 
+static void future_group_remove_child(FutureGroup *fg, sd_future *child) {
+        size_t n = 0;
+
+        assert(fg);
+        assert(child);
+
+        /* A child that was added more than once has one slot per add. Remove every slot of the child, so
+         * that the group handles the child once. slot_dispatch_handler() allows a callback to free its own
+         * slot. It also holds a reference on the child until the callback returns, so freeing the slots
+         * never frees the child. */
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                if (sd_future_slot_get_future(*slot_p) == child)
+                        sd_future_slot_unref(*slot_p);
+                else
+                        fg->slots[n++] = *slot_p;
+        }
+
+        fg->n_slots = n;
+}
+
 static int group_child_resolved(sd_future *child, void *userdata) {
         sd_future *g = ASSERT_PTR(userdata);
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+        int cr = sd_future_result(child);
+
+        future_group_remove_child(fg, child);
+
+        if (FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
+                return future_group_check(g);
+
+        if (cr >= 0 && FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY))
+                return future_group_finalize(g, cr, /* propagate_error= */ true);
+
+        if (cr < 0 && fg->first_error == 0)
+                fg->first_error = cr;
+
         return future_group_check(g);
 }
 
