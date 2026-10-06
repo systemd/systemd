@@ -80,7 +80,7 @@ _systemd_nspawn() {
                       --resolv-conf --timezone --root-hash-sig --background --oci-bundle --verity-data
                       --restrict-address-families
                       --forward-journal --forward-journal-max-use --forward-journal-keep-free
-                      --forward-journal-max-file-size --forward-journal-max-files'
+                      --forward-journal-max-file-size --forward-journal-max-files --console'
     )
 
     _init_completion || return
@@ -195,6 +195,9 @@ _systemd_nspawn() {
             --root-hash-sig)
                 compopt -o nospace
                 comps=$( compgen -A file -- "$cur" )
+                ;;
+            --console)
+                comps=$( systemd-nspawn --console=help 2>/dev/null )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

@@ -80,6 +80,15 @@
     will return only when the command finishes. This mode is enabled via the <option>--scope</option> switch
     (see below).</para>
 
+    <para>When invoked as <command>run0</command> (see
+    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>) to run an
+    interactive shell, the transient service unit may — in the common case of a plain local invocation — not
+    be created via the service manager APIs directly, but requested from
+    <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which allocates the session's pseudo TTY and invokes the shell on it. See
+    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details on
+    this mode and its behavioural differences. This behaviour was added in version 262.</para>
+
     <para>If a command is run with path, socket, or timer options such as <option>--on-calendar=</option> (see below),
     a transient path, socket, or timer unit is created alongside the service unit for the specified command. Only the
     transient path, socket, or timer unit is started immediately, the transient service unit will be triggered by the
