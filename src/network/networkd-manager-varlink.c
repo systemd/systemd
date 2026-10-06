@@ -108,17 +108,12 @@ static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_va
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v)));
 }
 
-static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int manager_build_lldp_neighbors_by_interface_json(Manager *manager, Link *link, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        Manager *manager = ASSERT_PTR(userdata);
-        Link *link = NULL;
         int r;
 
-        assert(vlink);
-
-        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
-        if (r != 0)
-                return r;
+        assert(manager);
+        assert(ret);
 
         if (link) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -151,10 +146,33 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
                                 return r;
                 }
 
-        return sd_varlink_replybo(
-                        vlink,
-                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
-                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
+        if (!array) {
+                r = sd_json_variant_new_array(&array, /* array= */ NULL, /* n= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(array);
+        return 0;
+}
+
+static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
+        if (r != 0)
+                return r;
+
+        r = manager_build_lldp_neighbors_by_interface_json(manager, link, &array);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(vlink, SD_JSON_BUILD_PAIR_VARIANT("Neighbors", array));
 }
 
 static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
