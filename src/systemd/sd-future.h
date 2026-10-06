@@ -144,7 +144,9 @@ int sd_future_group_seal(sd_future *f);
 /* NULL is treated as an empty group. The size does not include children that the group released. */
 size_t sd_future_group_size(sd_future *f);
 
-int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret);
+int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
+int sd_fiber_set_destroy_callback(sd_future *f, sd_fiber_destroy_t callback);
+int sd_fiber_get_destroy_callback(sd_future *f, sd_fiber_destroy_t *ret);
 
 int sd_fiber_set_floating(sd_future *f, int b);
 int sd_fiber_get_floating(sd_future *f);

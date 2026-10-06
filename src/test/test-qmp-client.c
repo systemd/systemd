@@ -146,8 +146,8 @@ static void run_qmp_test(sd_fiber_func_t mock_fn, sd_fiber_func_t client_fn) {
         ASSERT_OK(qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0])));
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
-        ASSERT_OK(sd_fiber_new(event, "mock", mock_fn, FD_TO_PTR(TAKE_FD(qmp_fds[1])), NULL, &mock_f));
-        ASSERT_OK(sd_fiber_new(event, "client", client_fn, client, NULL, &client_f));
+        ASSERT_OK(sd_fiber_new(event, "mock", mock_fn, FD_TO_PTR(TAKE_FD(qmp_fds[1])), &mock_f));
+        ASSERT_OK(sd_fiber_new(event, "client", client_fn, client, &client_f));
 
         ASSERT_OK(sd_event_loop(event));
         ASSERT_OK(sd_future_result(client_f));
@@ -536,7 +536,7 @@ static int qmp_client_call_interrupted_fiber(void *userdata) {
         ASSERT_OK(qmp_client_attach_event(client, sd_fiber_get_event(), SD_EVENT_PRIORITY_NORMAL));
         QmpInterruptedCall c = { .fd = TAKE_FD(fds[1]), .caller = sd_fiber_get_current(), .error = error };
         ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "interrupted-mock", mock_qmp_call_interrupted_fiber,
-                               &c, /* destroy= */ NULL, &mock));
+                               &c, &mock));
 
         /* Finish the handshake before testing interruption of a command awaiting its reply. */
         ASSERT_OK_POSITIVE(qmp_client_call(client, "query-status", /* args= */ NULL,
@@ -567,7 +567,7 @@ TEST(qmp_call_interrupted) {
 
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_fiber_new(e, "interrupted-client", qmp_client_call_interrupted_fiber,
-                                       &error, /* destroy= */ NULL, &caller));
+                                       &error, &caller));
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_OK_ZERO(sd_future_result(caller));
         }

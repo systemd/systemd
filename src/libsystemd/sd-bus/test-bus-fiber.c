@@ -153,10 +153,8 @@ static int concurrency_fiber(void *userdata) {
         /* Two concurrent calls on the shared client bus. Each lands in method_concurrent which
          * blocks on the peer; if fiber dispatch works the second is entered while the first is
          * suspended, so max_in_flight on the context reaches 2. */
-        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-a", call_concurrent_fiber, client,
-                               /* destroy= */ NULL, &f_a));
-        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-b", call_concurrent_fiber, client,
-                               /* destroy= */ NULL, &f_b));
+        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-a", call_concurrent_fiber, client, &f_a));
+        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-b", call_concurrent_fiber, client, &f_b));
 
         ASSERT_OK(sd_fiber_await(f_a));
         ASSERT_OK(sd_fiber_await(f_b));
@@ -177,7 +175,7 @@ TEST(fiber_method_concurrency) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "concurrency", concurrency_fiber, &s, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "concurrency", concurrency_fiber, &s, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -252,7 +250,7 @@ TEST(fiber_method_errors) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "errors", errors_fiber, &s, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "errors", errors_fiber, &s, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -307,7 +305,7 @@ static int interrupted_calls_fiber(void *userdata) {
 
                 s->c->waiter = error == ETIME ? NULL : sd_fiber_get_current();
                 ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "interrupted-call", interrupted_call_fiber,
-                                       &c, /* destroy= */ NULL, &caller));
+                                       &c, &caller));
 
                 if (error != ETIME) {
                         /* Interrupt only once the server has the call in hand and withheld its reply. */
@@ -337,8 +335,7 @@ TEST(fiber_method_interrupted) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, s.fds));
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "interrupted-calls", interrupted_calls_fiber, &s,
-                               /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "interrupted-calls", interrupted_calls_fiber, &s, &f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
 }
@@ -418,7 +415,7 @@ TEST(signal_channel) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, s.fds));
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "signal-channel", signal_channel_fiber, &s, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "signal-channel", signal_channel_fiber, &s, &f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
 }
