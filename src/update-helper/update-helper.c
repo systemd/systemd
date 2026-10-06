@@ -122,6 +122,8 @@ static int list_units(sd_bus *bus, char **patterns, char ***ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        if (r == -ETIME) /* The caller logs that the deadline of the user manager operation expired. */
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to list units by patterns: %s", bus_error_message(&error, r));
 
@@ -393,58 +395,41 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_set_method_call_timeout(bus, USER_BUS_TIMEOUT);
-        if (r < 0)
-                return r;
-
-        /* Wait here for the bus connection to get established, so we don't have to deal with errors
-         * establishing a connection to a user bus when we do the first method call. */
-        for (usec_t n = now(CLOCK_MONOTONIC);;) {
+        /* Wait until the connection is established. A connection failure is then logged once here,
+         * instead of as a failure of the first method call. */
+        for (;;) {
                 r = sd_bus_process(bus, /* ret= */ NULL);
+                if (r < 0)
+                        break;
                 if (r > 0)
                         continue;
-                if (r < 0) {
-                        (void) log_warning_errno(r,
-                                                 "Failed to process bus, ignoring: %m");
-                        break;
+
+                if (sd_bus_is_ready(bus) > 0) {
+                        *ret = TAKE_PTR(bus);
+                        return 1;
                 }
 
-                if (sd_bus_is_ready(bus))
+                r = sd_bus_wait(bus, UINT64_MAX);
+                if (r < 0)
                         break;
-                if (!sd_bus_is_open(bus)) {
-                        r = log_warning_errno(SYNTHETIC_ERRNO(ENOTCONN),
-                                              "Failed to connect to bus, ignoring");
-                        break;
-                }
-
-                uint64_t passed = now(CLOCK_MONOTONIC) - n;
-                if (passed > USER_BUS_TIMEOUT) {
-                        r = log_warning_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                                              "Timed out connecting to bus, ignoring");
-                        break;
-                }
-
-                r = sd_bus_wait(bus, USER_BUS_TIMEOUT - passed);
-                if (r == 0) {
-                        r = log_warning_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                                              "Timed out connecting to bus, ignoring");
-                        break;
-                }
-                if (r < 0) {
-                        (void) log_warning_errno(r,
-                                                 "Failed to wait for bus, ignoring: %m");
-                        break;
-                }
         }
 
-        *ret = r >= 0 ? TAKE_PTR(bus) : NULL;
-        return r >= 0;
+        if (r == -ETIME)
+                log_warning("Timed out connecting to %s, ignoring.", unit);
+        else
+                log_warning_errno(r, "Failed to connect to %s, ignoring: %m", unit);
+
+        *ret = NULL;
+        return 0;
 }
 
 typedef struct ManagerOperation ManagerOperation;
 
 typedef int (*ManagerOperationFunc)(sd_bus *bus, const ManagerOperation *op);
 
+/* When the deadline of a user manager operation expires, only the next suspension point returns -ETIME.
+ * Later suspension points wait without a deadline. The operations therefore return -ETIME from a method
+ * call instead of ignoring it like other errors. */
 struct ManagerOperation {
         ManagerOperationFunc func;
         char **units;
@@ -482,6 +467,8 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
                                 &error,
                                 &reply,
                                 "ss", *unit, "replace");
+                if (r == -ETIME)
+                        return r;
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Failed to stop unit '%s', ignoring: %s",
@@ -535,6 +522,8 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, NULL);
+        if (r == -ETIME)
+                return r;
         if (r < 0)
                 log_warning_errno(r, "Failed to set property %s on %s, ignoring: %s",
                                   property, unit, bus_error_message(&error, r));
@@ -586,6 +575,8 @@ static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
+        if (r == -ETIME)
+                return r;
         if (r < 0) {
                 log_warning_errno(r, "Failed to enqueue marked jobs, ignoring: %s", bus_error_message(&error, r));
                 return 0;
@@ -615,12 +606,27 @@ static int user_manager_operation_fiber(void *userdata) {
         UserManagerOperation *o = ASSERT_PTR(userdata);
         int r;
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        /* A user manager that does not respond must not block the package manager. The deadline covers
+         * connecting, the method calls, and waiting for the jobs. */
+        _cleanup_(sd_fiber_timeout_unrefp) sd_future *deadline = sd_fiber_timeout(USER_BUS_TIMEOUT);
+        if (!deadline)
+                return log_oom();
+
+        /* Every method call waits for its reply, so no message is left to flush at the end. A flush
+         * after the deadline expired would wait without a deadline. */
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         r = bus_connect_user_unit(o->unit, &bus);
         if (r <= 0)
                 return r;
 
-        return o->op->func(bus, o->op);
+        r = o->op->func(bus, o->op);
+
+        /* The operations ignore the result of bus_wait_for_jobs(). r is therefore not -ETIME when the
+         * deadline expires while waiting for the jobs. Check the timer instead. */
+        if (sd_future_state(deadline) == SD_FUTURE_RESOLVED)
+                return log_warning_errno(SYNTHETIC_ERRNO(ETIME), "Timed out operating on %s, ignoring.", o->unit);
+
+        return r;
 }
 
 static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) {

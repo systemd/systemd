@@ -303,6 +303,10 @@ int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* c
                 int q;
 
                 q = bus_process_wait(d->bus);
+                /* A fiber that waits for jobs gets -ETIME when its SD_FIBER_TIMEOUT() scope expires, and
+                 * -ECANCELED when the fiber is cancelled. The caller reports both errors. */
+                if (IN_SET(q, -ETIME, -ECANCELED))
+                        return q;
                 if (q < 0)
                         return log_error_errno(q, "Failed to wait for response: %m");
 
