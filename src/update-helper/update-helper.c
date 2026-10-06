@@ -71,7 +71,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
                         break;
 
-                OPTION('q', "quiet", NULL, "Suppress error logging in some scenarios"):
+                OPTION('q', "quiet", NULL, "Only log errors"):
                         arg_quiet = true;
                         break;
 
@@ -342,7 +342,7 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         r = bus_connect_transport(BUS_TRANSPORT_MACHINE, host, RUNTIME_SCOPE_USER, &bus);
         if (r < 0) {
-                (void) bus_log_connect_full(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
+                (void) bus_log_connect_full(LOG_WARNING, r,
                                             BUS_TRANSPORT_MACHINE, RUNTIME_SCOPE_USER);
                 *ret = NULL;
                 return 0;
@@ -363,35 +363,35 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
                 if (r > 0)
                         continue;
                 if (r < 0) {
-                        (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to process bus, ignoring: %m");
+                        (void) log_warning_errno(r,
+                                                 "Failed to process bus, ignoring: %m");
                         break;
                 }
 
                 if (sd_bus_is_ready(bus))
                         break;
                 if (!sd_bus_is_open(bus)) {
-                        r = log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ENOTCONN),
-                                           "Failed to connect to bus, ignoring");
+                        r = log_warning_errno(SYNTHETIC_ERRNO(ENOTCONN),
+                                              "Failed to connect to bus, ignoring");
                         break;
                 }
 
                 uint64_t passed = now(CLOCK_MONOTONIC) - n;
                 if (passed > USER_BUS_TIMEOUT) {
-                        r = log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                           "Timed out connecting to bus, ignoring");
+                        r = log_warning_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                                              "Timed out connecting to bus, ignoring");
                         break;
                 }
 
                 r = sd_bus_wait(bus, USER_BUS_TIMEOUT - passed);
                 if (r == 0) {
-                        r = log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                           "Timed out connecting to bus, ignoring");
+                        r = log_warning_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                                              "Timed out connecting to bus, ignoring");
                         break;
                 }
                 if (r < 0) {
-                        (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to wait for bus, ignoring: %m");
+                        (void) log_warning_errno(r,
+                                                 "Failed to wait for bus, ignoring: %m");
                         break;
                 }
         }
@@ -507,7 +507,7 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
                                 &changes,
                                 &n_changes);
 
-                install_changes_dump(r, "preset", changes, n_changes, arg_quiet);
+                install_changes_dump(r, "preset", changes, n_changes, /* quiet= */ false);
                 return r;
         }
 
@@ -530,7 +530,7 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
                 return bus_log_create_error(r);
 
         if (arg_dry_run)
-                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Would preset unit files");
+                log_info("Would preset unit files");
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -540,13 +540,13 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
+                        r = bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
                         if (r < 0)
                                 return r;
                 } else
-                        log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to preset units via dbus, ignoring: %s",
-                                       bus_error_message(&error, r));
+                        log_warning_errno(r,
+                                          "Failed to preset units via dbus, ignoring: %s",
+                                          bus_error_message(&error, r));
         }
 
         return 0;
@@ -559,10 +559,9 @@ static void install_changes_dump_graceful(int error, InstallChange *changes, siz
         /* Like install_changes_dump(), but does not log about missing units. */
 
         FOREACH_ARRAY(i, changes, n_changes)
-                if (i->type >= 0) {
-                        if (!arg_quiet)
-                                install_change_dump_success(i);
-                } else if (i->type != -ENOENT) {
+                if (i->type >= 0)
+                        install_change_dump_success(i);
+                else if (i->type != -ENOENT) {
                         _cleanup_free_ char *err_message = NULL;
 
                         r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
@@ -603,7 +602,7 @@ static int user_stop_units(const char *user, const UserUnitOperationArgs *args) 
 
         STRV_FOREACH(unit, expanded) {
                 if (arg_dry_run) {
-                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Would stop unit '%s'", *unit);
+                        log_info("Would stop unit '%s'", *unit);
                         continue;
                 }
 
@@ -618,13 +617,13 @@ static int user_stop_units(const char *user, const UserUnitOperationArgs *args) 
                                 "ss", *unit, "replace");
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to stop unit '%s', ignoring: %s",
-                                               *unit, bus_error_message(&error, r));
+                                log_warning_errno(r,
+                                                  "Failed to stop unit '%s', ignoring: %s",
+                                                  *unit, bus_error_message(&error, r));
                         continue;
                 }
 
-                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Stopping unit '%s'", *unit);
+                log_info("Stopping unit '%s'", *unit);
 
                 const char *path;
                 r = sd_bus_message_read(reply, "o", &path);
@@ -636,7 +635,7 @@ static int user_stop_units(const char *user, const UserUnitOperationArgs *args) 
                         return log_error_errno(r, "Failed to watch job '%s': %m", path);
         }
 
-        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
+        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
 
         return 0;
 }
@@ -721,9 +720,9 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
 
                                 install_changes_dump_graceful(/* error= */ 0, changes, n_changes);
                         } else if (r != -ENOENT)
-                                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                               "Failed to disable units via dbus, ignoring: %s",
-                                               bus_error_message(&error, r));
+                                log_warning_errno(r,
+                                                  "Failed to disable units via dbus, ignoring: %s",
+                                                  bus_error_message(&error, r));
                 }
 
                 _cleanup_strv_free_ char **expanded = NULL;
@@ -753,9 +752,9 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
                                         "ss", *unit, "replace");
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "Failed to stop unit %s, ignoring: %s",
-                                                       *unit, bus_error_message(&error, r));
+                                        log_warning_errno(r,
+                                                          "Failed to stop unit %s, ignoring: %s",
+                                                          *unit, bus_error_message(&error, r));
                                 continue;
                         }
 
@@ -771,7 +770,7 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
                                 return log_error_errno(r, "Failed to watch job '%s': %m", path);
                 }
 
-                (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
+                (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
         } else {
                 _cleanup_strv_free_ char **users = NULL;
 
@@ -820,9 +819,9 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, NULL);
         if (r < 0)
-                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set property %s on %s, ignoring: %s",
-                               property, unit, bus_error_message(&error, r));
+                log_warning_errno(r,
+                                  "Failed to set property %s on %s, ignoring: %s",
+                                  property, unit, bus_error_message(&error, r));
 
         return 0;
 }
@@ -844,8 +843,7 @@ static int user_set_marker(const char *user, const UserUnitOperationArgs *args) 
 
         STRV_FOREACH(unit, args->units) {
                 if (arg_dry_run) {
-                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                 "Would set marker '%s' for unit '%s'",
+                        log_info("Would set marker '%s' for unit '%s'",
                                  unit_marker_to_string(args->marker), *unit);
                         continue;
                 }
@@ -895,8 +893,7 @@ static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata
 
                 STRV_FOREACH(unit, units) {
                         if (arg_dry_run) {
-                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                         "Would configure marker '%s' for unit '%s'",
+                                log_info("Would configure marker '%s' for unit '%s'",
                                          unit_marker_to_string(marker), *unit);
                                 continue;
                         }
@@ -934,7 +931,7 @@ static int user_enqueue_marked(const char *user, const UserUnitOperationArgs *ar
                 return r;
 
         if (arg_dry_run) {
-                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Would enqueue marked jobs");
+                log_info("Would enqueue marked jobs");
                 return 0;
         }
 
@@ -947,9 +944,9 @@ static int user_enqueue_marked(const char *user, const UserUnitOperationArgs *ar
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = bus_call_method(user_bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
         if (r < 0) {
-                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to enqueue marked jobs, ignoring: %s",
-                               bus_error_message(&error, r));
+                log_warning_errno(r,
+                                  "Failed to enqueue marked jobs, ignoring: %s",
+                                  bus_error_message(&error, r));
                 return 0;
         }
 
@@ -964,7 +961,7 @@ static int user_enqueue_marked(const char *user, const UserUnitOperationArgs *ar
                         return log_error_errno(r, "Failed to watch job '%s': %m", *path);
         }
 
-        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR);
 
         return 0;
 }
@@ -998,7 +995,7 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
 
         if (scope == RUNTIME_SCOPE_SYSTEM) {
                 if (reload) {
-                        log_full(arg_dry_run && !arg_quiet ? LOG_INFO : LOG_DEBUG,
+                        log_full(arg_dry_run ? LOG_INFO : LOG_DEBUG,
                                  "%s service manager", arg_dry_run ? "Would reload" : "Reloading");
 
                         if (!arg_dry_run) {
@@ -1010,8 +1007,7 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
 
                 if (enqueue) {
                         if (arg_dry_run)
-                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                         "Would enqueue marked jobs");
+                                log_info("Would enqueue marked jobs");
                         else {
                                 _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
                                 r = bus_wait_for_jobs_new(bus, &w);
@@ -1035,11 +1031,11 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
                                                         return log_error_errno(r, "Failed to watch job '%s': %m", *path);
                                         }
 
-                                        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+                                        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR);
                                 } else
-                                        log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "Failed to enqueue marked jobs, ignoring: %s",
-                                                       bus_error_message(&error, r));
+                                        log_warning_errno(r,
+                                                          "Failed to enqueue marked jobs, ignoring: %s",
+                                                          bus_error_message(&error, r));
                         }
                 }
         } else {
@@ -1057,7 +1053,7 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
                                 return log_error_errno(r, "Could not watch jobs: %m");
 
                         STRV_FOREACH(user, users) {
-                                log_full(arg_dry_run && !arg_quiet ? LOG_INFO : LOG_DEBUG,
+                                log_full(arg_dry_run ? LOG_INFO : LOG_DEBUG,
                                          "%s %s", arg_dry_run ? "Would reload" : "Reloading", *user);
 
                                 if (arg_dry_run)
@@ -1073,9 +1069,9 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
                                                 &reply,
                                                 "ss", *user, "replace");
                                 if (r < 0) {
-                                        log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "Failed to queue reload, ignoring: %s",
-                                                       bus_error_message(&error, r));
+                                        log_warning_errno(r,
+                                                          "Failed to queue reload, ignoring: %s",
+                                                          bus_error_message(&error, r));
                                         continue;
                                 }
 
@@ -1089,7 +1085,7 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
                                         return log_error_errno(r, "Failed to watch job '%s': %m", path);
                         }
 
-                        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+                        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR);
                 }
 
                 if (enqueue) {
@@ -1113,6 +1109,10 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        /* $SYSTEMD_LOG_LEVEL=debug takes precedence over --quiet. */
+        if (arg_quiet && log_get_max_level() < LOG_DEBUG)
+                log_set_max_level(MIN(log_get_max_level(), LOG_ERR));
 
         return dispatch_verb(args, NULL);
 }
