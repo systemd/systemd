@@ -106,14 +106,15 @@ int sd_future_set_priority(sd_future *f, int64_t priority);
  * WAIT_ANY: a successful child's result if any have succeeded, otherwise the first child error.
  * WAIT_ANY | IGNORE_ERRORS: wait for a success, or for every child to fail; return that success or
  *                         the first error, respectively.
+ * Waiting for every child also waits for sd_future_group_seal(). Until the group is sealed, the owner
+ * can add more children, so a group without pending children stays pending.
  * The group releases its reference to a child once it has handled the resolution of the child. "First"
  * refers to the order in which the group handles resolutions. The order is not specified for children
  * that resolve in the same event loop iteration. Under WAIT_ANY, a success still wins over an error if
  * the successful child resolved before the group handled the error.
  * Once selected, the outcome is final: remaining children are cancelled, and the group resolves only
  * after every child has finished. IGNORE_ERRORS also suppresses cancellation of the parent fiber;
- * it does not turn an unsuccessful group result into success. An empty group stays pending until it
- * is sealed or cancelled. */
+ * it does not turn an unsuccessful group result into success. */
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
         SD_FUTURE_GROUP_WAIT_ALL      = 0,
         SD_FUTURE_GROUP_WAIT_ANY      = 1 << 0,
@@ -136,8 +137,9 @@ int sd_future_group_set_policy(sd_future *f, uint64_t policy);
 int sd_future_group_add(sd_future *f, sd_future *child);
 int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 #define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
-/* After sealing, adding a child fails with -ESTALE. Sealing an empty group resolves it with 0 under
- * WAIT_ALL and with -ECHILD under WAIT_ANY. An -ECHILD result does not cancel the parent fiber. */
+/* After sealing, adding a child fails with -ESTALE. A sealed group without pending children resolves
+ * right away. If the group never had a child, it resolves with 0 under WAIT_ALL and with -ECHILD
+ * under WAIT_ANY. An -ECHILD result does not cancel the parent fiber. */
 int sd_future_group_seal(sd_future *f);
 /* NULL is treated as an empty group. The size does not include children that the group released. */
 size_t sd_future_group_size(sd_future *f);

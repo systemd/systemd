@@ -9,16 +9,17 @@
 #include "macro.h"
 
 typedef enum FutureGroupFlags {
-        FUTURE_GROUP_PRIORITY_SET = 1 << 0,
+        FUTURE_GROUP_PRIORITY_SET   = 1 << 0,
         /* Set once future_group_finalize() has been entered. The outcome is decided (stored in
          * `result`) and the group is "draining" — waiting for any still-pending children to
          * actually settle before we resolve. While set, the result cannot change and add
          * rejects with -ESTALE. */
-        FUTURE_GROUP_FINALIZING   = 1 << 1,
-        FUTURE_GROUP_SEALED       = 1 << 2,
+        FUTURE_GROUP_FINALIZING     = 1 << 1,
+        FUTURE_GROUP_SEALED         = 1 << 2,
         /* Set while cancelling children: a cancellation that comes back around to the group would
          * otherwise recurse until the stack overflows. */
-        FUTURE_GROUP_CANCELLING   = 1 << 3,
+        FUTURE_GROUP_CANCELLING     = 1 << 3,
+        FUTURE_GROUP_CHILDREN_ADDED = 1 << 4,
 } FutureGroupFlags;
 
 typedef struct FutureGroup {
@@ -150,10 +151,17 @@ static int future_group_check(sd_future *g) {
         if (!ignore_errors && fg->first_error != 0)
                 return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
 
-        if (fg->n_slots > 0)
+        /* The owner can add more children until it seals the group. */
+        if (!FLAGS_SET(fg->flags, FUTURE_GROUP_SEALED) || fg->n_slots > 0)
                 return 0;
 
-        return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
+        /* A WAIT_ANY group that never had a child resolves with -ECHILD, like waitid() does when there
+         * are no children. -ECHILD must not cancel the parent fiber. A child error can only reach this
+         * point with IGNORE_ERRORS, and IGNORE_ERRORS never cancels the parent either. */
+        return future_group_finalize(
+                        g,
+                        fg->first_error ?: (wait_any ? -ECHILD : 0),
+                        /* propagate_error= */ false);
 }
 
 static int future_group_cancel(sd_future *f) {
@@ -238,7 +246,7 @@ int sd_future_group_set_policy(sd_future *f, uint64_t policy) {
          * the resolution mechanics are locked in. This keeps the API friction-free: callers
          * don't have to reason about mid-flight reshuffling of which children get cancelled. */
         FutureGroup *fg = sd_future_get_private(f);
-        assert_return(fg->n_slots == 0, -ESTALE);
+        assert_return(!FLAGS_SET(fg->flags, FUTURE_GROUP_CHILDREN_ADDED), -ESTALE);
 
         fg->policy = policy;
         return 0;
@@ -317,6 +325,7 @@ int sd_future_group_add(sd_future *f, sd_future *child) {
         }
 
         fg->slots[fg->n_slots++] = TAKE_PTR(slot);
+        fg->flags |= FUTURE_GROUP_CHILDREN_ADDED;
 
         return 0;
 }
@@ -327,6 +336,7 @@ int sd_future_group_add_many_internal(sd_future *f, ...) {
 
         FutureGroup *fg = sd_future_get_private(f);
         size_t before = fg->n_slots;
+        bool children_added = FLAGS_SET(fg->flags, FUTURE_GROUP_CHILDREN_ADDED);
         int r = 0;
 
         va_list ap;
@@ -342,13 +352,16 @@ int sd_future_group_add_many_internal(sd_future *f, ...) {
         }
         va_end(ap);
 
-        if (r < 0)
+        if (r < 0) {
                 /* No callbacks run inline while adding children, so the group cannot start finalizing
                  * during this call. Roll back only this call's additions. */
                 while (fg->n_slots > before) {
                         sd_future_slot_unref(fg->slots[--fg->n_slots]);
                         fg->slots[fg->n_slots] = NULL;
                 }
+
+                SET_FLAG(fg->flags, FUTURE_GROUP_CHILDREN_ADDED, children_added);
+        }
 
         return r;
 }
@@ -360,16 +373,5 @@ int sd_future_group_seal(sd_future *f) {
         FutureGroup *fg = sd_future_get_private(f);
         fg->flags |= FUTURE_GROUP_SEALED;
 
-        /* A group with children resolves from the callbacks of its children. A finalizing group
-         * resolves once its pending children settle. */
-        if (fg->n_slots > 0 || FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
-                return 0;
-
-        /* No child can be added to a sealed group. An empty sealed group stays pending forever
-         * unless it resolves here. WAIT_ANY waits for a successful child, and an empty group has
-         * none. The group resolves with -ECHILD, like waitid() does when there are no children. */
-        return future_group_finalize(
-                        f,
-                        FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY) ? -ECHILD : 0,
-                        /* propagate_error= */ false);
+        return future_group_check(f);
 }
