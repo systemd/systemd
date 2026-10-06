@@ -2,9 +2,11 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 
 #include "sd-hwdb.h"
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -88,5 +90,36 @@ int vsock_get_local_cid(unsigned *ret) {
 
         if (ret)
                 *ret = tmp;
+        return 0;
+}
+
+int vsock_open_or_warn(int *ret) {
+        _cleanup_close_ int fd = RET_NERRNO(socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                log_debug_errno(fd, "AF_VSOCK is not available, ignoring: %m");
+        else if (fd < 0)
+                return log_error_errno(fd, "Unable to test if AF_VSOCK is available: %m");
+
+        bool available = fd >= 0;
+
+        if (ret)
+                *ret = TAKE_FD(fd);
+
+        return available;
+}
+
+int vsock_get_local_cid_or_warn(unsigned *ret) {
+        int r;
+
+        r = vsock_get_local_cid(ret);
+        if (r >= 0)
+                return 1;
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
+        else if (r != -EADDRNOTAVAIL)
+                return log_error_errno(r, "Failed to query host's AF_VSOCK CID: %m");
+
+        if (ret)
+                *ret = 0;  /* bogus value */
         return 0;
 }

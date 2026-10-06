@@ -2296,7 +2296,7 @@ static int load_key_from_engine(
 #endif
 }
 
-static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
         _cleanup_(erase_and_freep) char *rawkey = NULL;
         _cleanup_(BIO_freep) BIO *kb = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
@@ -2305,6 +2305,10 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
 
         assert(path);
         assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = read_full_file_full(
                         AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
