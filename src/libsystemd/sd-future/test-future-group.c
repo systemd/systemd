@@ -126,9 +126,13 @@ TEST(future_group_size) {
         ASSERT_OK(sd_future_group_add(group, second));
         ASSERT_EQ(sd_future_group_size(group), 2U);
 
+        /* The group releases its children once they resolve, but stays pending until it is sealed. */
         ASSERT_OK(sd_event_loop(e));
-        ASSERT_OK_ZERO(sd_future_result(group));
         ASSERT_EQ(sd_future_group_size(group), 0U);
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        ASSERT_OK(sd_future_group_seal(group));
+        ASSERT_OK_ZERO(sd_future_result(group));
 }
 
 /* The child that resolves first selects the error, even though it was added last. */
@@ -157,6 +161,8 @@ TEST(future_group_first_error) {
                 if (sd_future_state(a) == SD_FUTURE_PENDING)
                         ASSERT_OK(sd_future_resolve(a, -EINVAL));
 
+                ASSERT_OK(sd_future_group_seal(group));
+
                 while (sd_future_state(group) == SD_FUTURE_PENDING)
                         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
 
@@ -178,6 +184,8 @@ TEST(future_group_wait_all_happy) {
         ASSERT_OK(sd_future_group_add(group, c1));
         ASSERT_OK(sd_future_group_add(group, c2));
         ASSERT_OK(sd_future_group_add(group, c3));
+
+        ASSERT_OK(sd_future_group_seal(group));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(group));
@@ -226,6 +234,8 @@ TEST(future_group_wait_all_ignore_errors) {
         ASSERT_OK(sd_future_new_defer(e, 0, &succeeder));
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, succeeder));
+
+        ASSERT_OK(sd_future_group_seal(group));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(group), EINVAL);
@@ -333,6 +343,8 @@ TEST(future_group_first_success_all_fail) {
         ASSERT_OK(sd_future_new_defer(e, -EIO, &err_b));
         ASSERT_OK(sd_future_group_add(group, err_a));
         ASSERT_OK(sd_future_group_add(group, err_b));
+
+        ASSERT_OK(sd_future_group_seal(group));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(group), EINVAL);
@@ -442,6 +454,7 @@ static int parent_cancel_driver(void *userdata) {
                 ASSERT_OK(sd_future_group_set_policy(group, s->policy));
         ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), -EINVAL, &errorer));
         ASSERT_OK(sd_future_group_add(group, errorer));
+        ASSERT_OK(sd_future_group_seal(group));
 
         /* Wake-up slot so we don't hang in the IGNORE_ERRORS case (where the parent isn't
          * cancelled). In the fail-fast case the queued -ECANCELED takes precedence over this
@@ -621,6 +634,7 @@ typedef struct AddManyState {
 static int add_many_driver(void *userdata) {
         AddManyState *s = ASSERT_PTR(userdata);
         ASSERT_OK(sd_future_group_add_many(s->group, s->a, s->b, s->c));
+        ASSERT_OK(sd_future_group_seal(s->group));
         ASSERT_OK_ZERO(sd_fiber_await(s->group));
         s->join_result = sd_future_result(s->group);
         return 0;
@@ -890,6 +904,30 @@ TEST(future_group_set_policy_rejected_after_add) {
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY)), ESTALE);
 }
 
+TEST(future_group_set_policy_rejected_after_child_resolved) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *group = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *child = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+
+        ASSERT_OK(sd_future_new_defer(e, 0, &child));
+        ASSERT_OK(sd_future_group_add(group, child));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_group_size(group), 0U);
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        /* If sd_future_group_set_policy() accepted WAIT_ANY here, sd_future_group_seal() would resolve
+         * the group with -ECHILD, although the child succeeded. */
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY)), ESTALE);
+
+        ASSERT_OK(sd_future_group_seal(group));
+        ASSERT_OK_ZERO(sd_future_result(group));
+}
+
 /* When the parent fiber itself drives the cancel of its own group, future_group_finalize() must
  * skip the parent-cancel path — fiber_cancel asserts against self-cancellation, and even if that
  * assertion were relaxed, queuing -ECANCELED on the parent would surface on a later suspend the
@@ -1117,6 +1155,7 @@ TEST(future_group_priority) {
                 ASSERT_EQ(sd_future_state(probe), SD_FUTURE_PENDING);
                 ASSERT_OK(sd_future_resolve(unsupported, 0));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_future_group_seal(group));
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_OK_ZERO(sd_future_result(group));
                 ASSERT_OK_ZERO(sd_future_result(probe));
@@ -1146,6 +1185,7 @@ TEST(future_group_priority_unset) {
                 ASSERT_EQ(sd_future_state(pending), explicit_priority ? SD_FUTURE_PENDING : SD_FUTURE_RESOLVED);
                 ASSERT_EQ(sd_future_state(probe), explicit_priority ? SD_FUTURE_RESOLVED : SD_FUTURE_PENDING);
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_future_group_seal(group));
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_OK_ZERO(sd_future_result(group));
                 ASSERT_OK_ZERO(sd_future_result(probe));
@@ -1214,6 +1254,7 @@ TEST(future_group_priority_failure) {
 
                 ASSERT_OK(sd_future_resolve(failing, 0));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_future_group_seal(group));
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_OK_ZERO(sd_future_result(group));
                 ASSERT_OK_ZERO(sd_future_result(later));
@@ -1392,6 +1433,7 @@ TEST(future_group_add_child_twice) {
         ASSERT_OK(sd_future_group_add(group, child));
         ASSERT_OK(sd_future_group_add(group, child));
         ASSERT_EQ(sd_future_group_size(group), 2U);
+        ASSERT_OK(sd_future_group_seal(group));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(group));

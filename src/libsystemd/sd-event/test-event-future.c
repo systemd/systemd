@@ -328,6 +328,8 @@ TEST(future_group_add_child) {
         ASSERT_OK(future_group_add_child(group, &b, WEXITED));
         ASSERT_EQ(sd_future_group_size(group), 2U);
 
+        ASSERT_OK(sd_future_group_seal(group));
+
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(group));
         ASSERT_ERROR(pidref_kill(&a, 0), ESRCH);
