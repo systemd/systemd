@@ -137,6 +137,18 @@ static int on_filter_reply(
                                 r = hook_acquire_filter(h);
                                 if (r < 0)
                                         goto terminate;
+                                /* hook_acquire_filter() returns 0 both when a new
+                                 * connection was successfully established (in which
+                                 * case h->filter_link is now set again) and when the
+                                 * hook's socket is simply gone (in which case it
+                                 * isn't). Only fall through to terminate/reset the
+                                 * filter in the latter case: otherwise we'd throw away
+                                 * the link we just reconnected, and hook_test_filter()
+                                 * would treat the hook as unfiltered (matching every
+                                 * query) until the process listening on the hook's
+                                 * socket happens to restart again. */
+                                if (h->filter_link)
+                                        return 1;
                         } else
                                 log_warning("Connection terminated while querying filter of hook '%s', and reconnection attempts failed too quickly, giving up.", h->socket_path);
 
