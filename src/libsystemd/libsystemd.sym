@@ -1115,5 +1115,6 @@ global:
 
 LIBSYSTEMD_263 {
 global:
+        sd_device_new_from_device_node_fd;
         sd_device_trigger_with_args;
 } LIBSYSTEMD_262;
