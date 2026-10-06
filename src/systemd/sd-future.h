@@ -143,6 +143,10 @@ int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 int sd_future_group_seal(sd_future *f);
 /* NULL is treated as an empty group. The size does not include children that the group released. */
 size_t sd_future_group_size(sd_future *f);
+/* sd_future_group_spawn() creates a fiber on the event loop of the group and adds it to the group. If
+ * ret is not NULL, it receives a new reference to the fiber, for example to set a destroy callback with
+ * sd_fiber_set_destroy_callback(). Drop that reference with sd_future_unref(). */
+int sd_future_group_spawn(sd_future *g, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
 
 int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
 int sd_fiber_set_destroy_callback(sd_future *f, sd_fiber_destroy_t callback);

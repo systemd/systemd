@@ -1451,4 +1451,111 @@ TEST(future_group_destroy_callback_reenters_group) {
         ASSERT_EQ(s.n_destroyed, 3U);
 }
 
+typedef struct SpawnState {
+        unsigned n_destroyed;
+} SpawnState;
+
+static int failing_fiber(void *userdata) {
+        return -EIO;
+}
+
+static int spawn_suspend_fiber(void *userdata) {
+        return sd_fiber_suspend();
+}
+
+static void spawn_destroy(void *userdata) {
+        SpawnState *s = ASSERT_PTR(userdata);
+
+        s->n_destroyed++;
+}
+
+static void spawn_with_destroy(sd_future *group, const char *name, sd_fiber_func_t func, SpawnState *s) {
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+
+        ASSERT_OK(sd_future_group_spawn(group, name, func, s, &f));
+        ASSERT_OK(sd_fiber_set_destroy_callback(f, spawn_destroy));
+}
+
+TEST(future_group_spawn_cancel_drains) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+        SpawnState s = {};
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_IGNORE_ERRORS));
+        for (unsigned i = 0; i < 3; i++)
+                spawn_with_destroy(group, "sleep", spawn_suspend_fiber, &s);
+
+        /* Let every fiber start and suspend, so that cancellation has to wait for the fibers. */
+        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                ;
+        ASSERT_EQ(sd_future_group_size(group), 3U);
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                ;
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+        ASSERT_EQ(sd_future_group_size(group), 0U);
+        ASSERT_EQ(s.n_destroyed, 3U);
+}
+
+TEST(future_group_spawn_sealed) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *f = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_group_seal(group));
+
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_spawn(group, "late", failing_fiber, NULL, &f)), ESTALE);
+        ASSERT_NULL(f);
+        ASSERT_OK_ZERO(sd_future_result(group));
+}
+
+static int spawner_fiber(void *userdata) {
+        SpawnState *s = ASSERT_PTR(userdata);
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+
+        ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &group));
+        ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_IGNORE_ERRORS));
+
+        /* Spawn many short-lived children one after another into a group that is never sealed. The
+         * group releases each failing child, stays pending, and doesn't cancel the spawning fiber. */
+        for (unsigned i = 0; i < 100; i++) {
+                spawn_with_destroy(group, "fail", failing_fiber, s);
+                ASSERT_EQ(sd_future_group_size(group), 1U);
+
+                for (unsigned n = 0; sd_future_group_size(group) > 0; n++) {
+                        ASSERT_LT(n, 10U);
+                        ASSERT_OK(sd_fiber_yield());
+                }
+
+                ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+        }
+
+        /* The cleanup of the group cancels the suspended child and waits until it has finished. */
+        spawn_with_destroy(group, "sleep", spawn_suspend_fiber, s);
+        ASSERT_OK(sd_fiber_yield());
+        ASSERT_EQ(sd_future_group_size(group), 1U);
+
+        return 0;
+}
+
+TEST(future_group_spawn_from_fiber) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *spawner = NULL;
+        SpawnState s = {};
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "spawner", spawner_fiber, &s, &spawner));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(spawner));
+        ASSERT_EQ(s.n_destroyed, 101U);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
