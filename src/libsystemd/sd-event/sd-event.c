@@ -2547,6 +2547,7 @@ static int event_add_inotify_fd_internal(
                 sd_event_source **ret,
                 int fd,
                 bool donate,
+                const char *path,
                 uint32_t mask,
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
@@ -2612,14 +2613,14 @@ static int event_add_inotify_fd_internal(
 
                 LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
 
-                _cleanup_free_ char *path = NULL;
-                r = fd_get_path(inode_data->fd, &path);
+                _cleanup_free_ char *fd_path = NULL;
+                r = fd_get_path(inode_data->fd, &fd_path);
                 if (r < 0 && r != -ENOSYS) { /* The path is optional, hence ignore -ENOSYS. */
                         event_gc_inode_data(e, inode_data);
                         return r;
                 }
 
-                free_and_replace(inode_data->path, path);
+                free_and_replace(inode_data->path, fd_path);
         }
 
         /* Link our event source to the inode data object */
@@ -2630,6 +2631,9 @@ static int event_add_inotify_fd_internal(
         r = inode_data_realize_watch(e, inode_data);
         if (r < 0)
                 return r;
+
+        if (path)
+                (void) sd_event_source_set_description(s, path);
 
         if (ret)
                 *ret = s;
@@ -2646,7 +2650,7 @@ _public_ int sd_event_add_inotify_fd(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ false, mask, callback, userdata);
+        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ false, /* path= */ NULL, mask, callback, userdata);
 }
 
 _public_ int sd_event_add_inotify(
@@ -2657,27 +2661,15 @@ _public_ int sd_event_add_inotify(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s = NULL; /* avoid false maybe-uninitialized warning */
-        int fd, r;
-
         assert_return(path, -EINVAL);
 
-        fd = open(path, O_PATH | O_CLOEXEC |
-                        (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
-                        (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        int fd = open(path, O_PATH | O_CLOEXEC |
+                            (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                            (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
-        r = event_add_inotify_fd_internal(e, &s, fd, /* donate= */ true, mask, callback, userdata);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s, path);
-
-        if (ret)
-                *ret = s;
-
-        return r;
+        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ true, path, mask, callback, userdata);
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
