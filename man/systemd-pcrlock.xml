@@ -272,7 +272,7 @@
         currently enforced. This looks at the SecureBoot, PK, KEK, db, dbx, dbt, dbr EFI variables and
         predicts their measurements to PCR 7 ("secure-boot-policy") on the next boot.</para>
 
-        <para>Use <command>unlock-firmware-config</command> before applying SecureBoot policy updates. If
+        <para>Use <command>unlock-secureboot-policy</command> before applying SecureBoot policy updates. If
         the <filename>systemd-pcrlock-secureboot-policy.service</filename> unit is enabled it will
         automatically generate a pcrlock file from the policy discovered.</para>
 
