@@ -12,10 +12,11 @@
 /* Timeout for user confirmation on the console */
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 
-/* We use an extra-long timeout for the reload. This is because a reload or reexec means generators are rerun
- * which are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can
- * have their timeout, and for everything else there's the same time budget in place. */
-#define DAEMON_RELOAD_TIMEOUT_SEC (DEFAULT_TIMEOUT_USEC * 2)
+/* daemon-reload/-reexec is a multi-step pipeline (re-run every
+ * generator, reload every unit, rebuild all jobs); align with the
+ * device-timeout patience multiplier (6×) rather than the
+ * fail-fast service multiplier (1×). */
+#define DAEMON_RELOAD_TIMEOUT_SEC (DEFAULT_TIMEOUT_USEC * 6)
 
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_START_LIMIT_BURST 5
