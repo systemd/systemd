@@ -382,6 +382,33 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         return 0;
 }
 
+static void install_changes_dump_graceful(int error, InstallChange *changes, size_t n_changes) {
+        bool err_logged = false;
+        int r;
+
+        /* Like install_changes_dump(), but does not log about missing units. */
+
+        FOREACH_ARRAY(i, changes, n_changes)
+                if (i->type >= 0)
+                        install_change_dump_success(i);
+                else if (i->type != -ENOENT) {
+                        _cleanup_free_ char *err_message = NULL;
+
+                        r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
+                        if (r == -ENOMEM)
+                                return (void) log_oom();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to disable unit %s, ignoring: %m", i->path);
+                        else
+                                log_warning_errno(i->type, "Failed to disable unit, ignoring: %s", err_message);
+
+                        err_logged = true;
+                }
+
+        if (error < 0 && error != -ENOENT && !err_logged)
+                log_warning_errno(error, "Failed to disable units, ignoring: %m");
+}
+
 typedef struct ManagerOperation ManagerOperation;
 
 typedef int (*ManagerOperationFunc)(sd_bus *bus, const ManagerOperation *op);
@@ -449,6 +476,54 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
 
         (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
         return 0;
+}
+
+static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *op) {
+        int r;
+
+        assert(bus);
+        assert(op);
+
+        if (arg_dry_run)
+                STRV_FOREACH(unit, op->units)
+                        log_info("Would disable unit '%s'", *unit);
+        else {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlags");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, op->units);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                if (r == -ETIME)
+                        return r;
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to disable units, ignoring: %s", bus_error_message(&error, r));
+                } else {
+                        InstallChange *changes = NULL;
+                        size_t n_changes = 0;
+
+                        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+                        r = bus_deserialize_unit_file_changes(reply, &changes, &n_changes);
+                        if (r < 0)
+                                return r;
+
+                        install_changes_dump_graceful(/* error= */ 0, changes, n_changes);
+                }
+        }
+
+        return manager_stop_units(bus, op);
 }
 
 static int unit_set_property(sd_bus *bus, const char *unit, const char *property) {
@@ -742,33 +817,6 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         return bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
 }
 
-static void install_changes_dump_graceful(int error, InstallChange *changes, size_t n_changes) {
-        bool err_logged = false;
-        int r;
-
-        /* Like install_changes_dump(), but does not log about missing units. */
-
-        FOREACH_ARRAY(i, changes, n_changes)
-                if (i->type >= 0)
-                        install_change_dump_success(i);
-                else if (i->type != -ENOENT) {
-                        _cleanup_free_ char *err_message = NULL;
-
-                        r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
-                        if (r == -ENOMEM)
-                                return (void) log_oom();
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to disable unit %s, ignoring: %m", i->path);
-                        else
-                                log_warning_errno(i->type, "Failed to disable unit, ignoring: %s", err_message);
-
-                        err_logged = true;
-                }
-
-        if (error < 0 && error != -ENOENT && !err_logged)
-                log_warning_errno(error, "Failed to disable units, ignoring: %m");
-}
-
 VERB_FULL(verb_remove_units, "remove-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Disable and stop units");
 VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
 VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
@@ -810,51 +858,11 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
-        if (scope == RUNTIME_SCOPE_SYSTEM) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlagsAndInstallInfo");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_strv(m, units);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                if (arg_dry_run)
-                        log_info("Would disable unit files");
-                else {
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
-                        if (r >= 0) {
-                                r = sd_bus_message_skip(reply, "b");
-                                if (r < 0)
-                                        return bus_log_parse_error(r);
-
-                                InstallChange *changes = NULL;
-                                size_t n_changes = 0;
-
-                                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
-
-                                r = bus_deserialize_unit_file_changes(reply, &changes, &n_changes);
-                                if (r < 0)
-                                        return r;
-
-                                install_changes_dump_graceful(/* error= */ 0, changes, n_changes);
-                        } else if (r != -ENOENT)
-                                log_warning_errno(r,
-                                                  "Failed to disable units, ignoring: %s",
-                                                  bus_error_message(&error, r));
-                }
-        }
-
+        /* No service manager manages the global configuration in /etc/systemd/user/, so install.c changes
+         * it above. Each service manager disables the units in its own configuration. For a user
+         * manager, that is the configuration where "systemctl --user enable" creates its symlinks. */
         return run_on_managers(scope, bus, &(const ManagerOperation) {
-                .func = manager_stop_units,
+                .func = manager_disable_and_stop_units,
                 .units = units,
         });
 }
