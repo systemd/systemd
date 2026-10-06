@@ -423,7 +423,7 @@ jobs:
           You have ${minutes} minutes. After that, tool calls are denied and you must return what you have."
             (cd "$dir" && REVIEW_DEADLINE=$(( $(date +%s) + minutes * 60 )) timeout --kill-after=30 "$((minutes + grace_minutes))m" claude \
               --model us.anthropic.claude-opus-5-5 \
-              --effort high \
+              --effort xhigh \
               --max-turns 100 \
               --setting-sources user \
               --tools Bash,Read,Grep,Glob \
@@ -495,9 +495,10 @@ jobs:
           "${context}
 
           Review the pull request through one lens only, ${name}: ${lenses[$name]}. Report only
-          findings you verified against diff.patch and the code. Only these severities are allowed
-          in this review round: ${ALLOWED_SEVERITIES}. Skip anything an existing review comment
-          already covers. ${previous}
+          findings you verified against diff.patch and the code. Do not stop after the first
+          findings. Go through every hunk of the diff you are reviewing, and report as many
+          verified issues as you can find. Only these severities are allowed in this review round:
+          ${ALLOWED_SEVERITIES}. Skip anything an existing review comment already covers. ${previous}
 
           A body states the problem and, when obvious, the fix, in one or two sentences of at most
           300 characters, without headings, lists, or restating the code. A suggestion block that
