@@ -219,6 +219,8 @@ static int run(int argc, char *argv[]) {
                 else
                         log_debug("Flushed all binfmt_misc rules.");
 
+                r = 0;
+
                 STRV_FOREACH(f, files)
                         RET_GATHER(r, apply_file(*f, true));
         }
