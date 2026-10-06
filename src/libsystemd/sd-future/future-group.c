@@ -33,6 +33,8 @@ typedef struct FutureGroup {
         bool finalizing;
         int result;
 
+        bool sealed;
+
         /* Set while cancelling children: a cancellation that comes back around to the group would
          * otherwise recurse until the stack overflows. */
         bool cancelling;
@@ -127,12 +129,6 @@ static int future_group_check(sd_future *g) {
                                 return 0;
                 return sd_future_resolve(g, fg->result);
         }
-
-        if (fg->n_slots == 0)
-                /* Empty group has nothing to wait for: leave it pending so the user can still
-                 * add children (or cancel the group). Otherwise an early set_policy on a
-                 * fresh group would settle it before any child got added. */
-                return 0;
 
         bool wait_any = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY);
         bool ignore_errors = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_IGNORE_ERRORS);
@@ -295,6 +291,7 @@ int sd_future_group_add(sd_future *f, sd_future *child) {
         /* Group is draining: a freshly-added pending child would have missed the cancel loop
          * and hang us forever waiting for it to settle. */
         assert_return(!fg->finalizing, -ESTALE);
+        assert_return(!fg->sealed, -ESTALE);
 
         if (!GREEDY_REALLOC(fg->slots, fg->n_slots + 1))
                 return -ENOMEM;
@@ -345,4 +342,25 @@ int sd_future_group_add_many_internal(sd_future *f, ...) {
                 }
 
         return r;
+}
+
+int sd_future_group_seal(sd_future *f) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
+
+        FutureGroup *fg = sd_future_get_private(f);
+        fg->sealed = true;
+
+        /* A group with children resolves from the callbacks of its children. A finalizing group
+         * resolves once its pending children settle. */
+        if (fg->n_slots > 0 || fg->finalizing)
+                return 0;
+
+        /* No child can be added to a sealed group. An empty sealed group stays pending forever
+         * unless it resolves here. WAIT_ANY waits for a successful child, and an empty group has
+         * none. The group resolves with -ECHILD, like waitid() does when there are no children. */
+        return future_group_finalize(
+                        f,
+                        FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY) ? -ECHILD : 0,
+                        /* propagate_error= */ false);
 }
