@@ -7,7 +7,8 @@
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-report"
-    xmlns:xi="http://www.w3.org/2001/XInclude">
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_REPORT'>
 
   <refentryinfo>
     <title>systemd-report</title>

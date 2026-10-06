@@ -3,24 +3,26 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-report',
-                'public' : true,
                 'sources' : files(
                         'report.c',
                         'report-generate.c',
                         'report-sign.c',
                         'report-upload.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
                 'dependencies' : [
                         libcurl_cflags,
                 ],
+                'public' : true,
         },
         libexec_template + {
                 'name' : 'systemd-report-basic',
-                'public' : true,
                 'sources' : files(
                         'report-basic.c',
                         'report-basic-server.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
+                'public' : true,
         },
         libexec_template + {
                 'name' : 'systemd-report-cgroup',
@@ -28,6 +30,7 @@ executables += [
                         'report-cgroup.c',
                         'report-cgroup-server.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
         },
         libexec_template + {
                 'name' : 'systemd-report-diskspace',
@@ -36,7 +39,10 @@ executables += [
                         'report-diskspace-server.c',
                 ),
                 'dependencies' : libmount_cflags,
-                'conditions' : ['HAVE_LIBMOUNT'],
+                'conditions' : [
+                        'ENABLE_REPORT',
+                        'HAVE_LIBMOUNT',
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-report-files',
@@ -44,6 +50,7 @@ executables += [
                         'report-files.c',
                         'report-files-server.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
         },
         libexec_template + {
                 'name' : 'systemd-report-hwmon',
@@ -51,6 +58,7 @@ executables += [
                         'report-hwmon.c',
                         'report-hwmon-server.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-plain',
@@ -58,7 +66,10 @@ executables += [
                         'report-sign-plain.c',
                 ),
                 'dependencies' : libopenssl_cflags,
-                'conditions' : ['HAVE_OPENSSL'],
+                'conditions' : [
+                        'ENABLE_REPORT',
+                        'HAVE_OPENSSL',
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-tpm2',
@@ -70,6 +81,7 @@ executables += [
                         tpm2_cflags,
                 ],
                 'conditions' : [
+                        'ENABLE_REPORT',
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
@@ -79,5 +91,6 @@ executables += [
                 'sources' : files(
                         'report-sign-tsm.c',
                 ),
+                'conditions' : ['ENABLE_REPORT'],
         },
 ]
