@@ -85,13 +85,13 @@ static int future_group_finalize(sd_future *g, int result, bool propagate_error)
         FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
         int r = 0;
 
-        if (FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
-                /* Outcome already locked: ignore subsequent attempts. Mirrors the old "group
-                 * is already RESOLVED, so further cancels are no-ops" behaviour. */
-                return 0;
-
-        fg->flags |= FUTURE_GROUP_FINALIZING;
-        fg->result = result;
+        /* The first outcome is final. A later call, such as a repeated sd_future_cancel(), cancels the
+         * children again. Some children only resolve after repeated cancellation. Without the repeated
+         * cancellation, sd_future_cancel_wait_unref() on the group would wait forever for such a child. */
+        if (!FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING)) {
+                fg->flags |= FUTURE_GROUP_FINALIZING;
+                fg->result = result;
+        }
 
         RET_GATHER(r, future_group_cancel_children(g));
 
@@ -171,21 +171,8 @@ static int future_group_check(sd_future *g) {
 }
 
 static int future_group_cancel(sd_future *f) {
-        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
-        int r;
-
         /* Explicit group cancellation affects its children, not the fiber that created the group. */
-        if (!FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
-                return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
-
-        /* The outcome is locked, but children that escalate on repeated cancellation still need to
-         * see every attempt, or sd_future_cancel_wait_unref() on the group could never drive them. */
-        r = future_group_cancel_children(f);
-
-        /* The last pending child may have settled synchronously, in which case the group can resolve
-         * now rather than after the next dispatch. */
-        RET_GATHER(r, future_group_check(f));
-        return r;
+        return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
 }
 
 static int future_group_set_child_priority(sd_future *child, int64_t priority) {
