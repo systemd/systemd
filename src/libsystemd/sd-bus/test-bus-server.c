@@ -123,8 +123,8 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "server", server, &c, /* destroy= */ NULL, &f_server));
-        ASSERT_OK(sd_fiber_new(e, "client", client, &c, /* destroy= */ NULL, &f_client));
+        ASSERT_OK(sd_fiber_new(e, "server", server, &c, &f_server));
+        ASSERT_OK(sd_fiber_new(e, "client", client, &c, &f_client));
 
         ASSERT_OK(sd_event_loop(e));
 

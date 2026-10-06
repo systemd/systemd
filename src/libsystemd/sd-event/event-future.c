@@ -608,6 +608,10 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
                         return r;
         }
 
+        r = sd_future_group_seal(group);
+        if (r < 0)
+                return r;
+
         r = sd_fiber_await(group);
         if (r < 0)
                 return r;

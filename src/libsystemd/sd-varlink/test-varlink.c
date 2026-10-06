@@ -395,7 +395,7 @@ TEST(chat) {
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1272,7 +1272,7 @@ TEST(upgrade) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, &f));
 
         /* Run the event loop. Exits on idle once the client fiber completes and all server connections
          * have been torn down. */
@@ -1347,7 +1347,7 @@ TEST(upgrade_pipelining) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1387,7 +1387,7 @@ static int respond_upgrade_callback(sd_varlink *link, int input_fd, int output_f
         respond_upgrade_input_fd = input_fd;
         respond_upgrade_output_fd = output_fd;
 
-        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-io", respond_upgrade_io_fiber, /* userdata= */ NULL, /* destroy= */ NULL, /* ret= */ NULL));
+        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-io", respond_upgrade_io_fiber, /* userdata= */ NULL, /* ret= */ NULL));
 
         return 0;
 }
@@ -1468,7 +1468,7 @@ TEST(respond_upgrade) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-client", respond_upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-client", respond_upgrade_client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1577,7 +1577,7 @@ TEST(execute_directory) {
                 .n_servers = ELEMENTSOF(names),
                 .reply_count = &reply_count,
         };
-        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, &f));
 
         ASSERT_OK(sd_event_loop(e));
 

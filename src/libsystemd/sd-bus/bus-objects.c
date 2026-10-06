@@ -489,7 +489,11 @@ static int method_callbacks_run(
                         };
 
                         _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
-                        r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, bus_fiber_data_destroy, &f);
+                        r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, &f);
+                        if (r < 0)
+                                return bus_maybe_reply_error(m, r, NULL);
+
+                        r = sd_fiber_set_destroy_callback(f, bus_fiber_data_destroy);
                         if (r < 0)
                                 return bus_maybe_reply_error(m, r, NULL);
 
