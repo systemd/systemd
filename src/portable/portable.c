@@ -41,6 +41,7 @@
 #include "nsresource.h"
 #include "os-util.h"
 #include "path-lookup.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "portable.h"
 #include "portable-util.h"
@@ -1605,9 +1606,9 @@ static int install_profile_dropin(
         r = find_portable_profile(scope, profile, m->name, &from);
         if (r < 0) {
                 if (r != -ENOENT)
-                        return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
+                        return log_debug_errno(r, "Profile '%s' is not accessible: %m", profile);
 
-                log_debug_errno(errno, "Skipping link to profile '%s', as it does not exist: %m", profile);
+                log_debug_errno(r, "Skipping link to profile '%s', as it does not exist: %m", profile);
                 return 0;
         }
 
@@ -2054,6 +2055,10 @@ int portable_attach(
         int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX);
+
+        r = portable_profile_validate(scope, profile, error);
+        if (r < 0)
+                return r;
 
         r = extract_image_and_extensions(
                         scope,
@@ -2658,6 +2663,36 @@ int portable_get_profiles(RuntimeScope scope, char ***ret) {
                 return r;
 
         return conf_files_list_strv(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, (const char* const*) dirs);
+}
+
+int portable_profile_validate(RuntimeScope scope, const char *profile, sd_bus_error *reterr_error) {
+        _cleanup_strv_free_ char **profiles = NULL;
+        int r;
+
+        assert(scope < _RUNTIME_SCOPE_MAX);
+
+        if (!filename_is_valid(profile))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Profile name '%s' is not valid.", profile);
+
+        r = portable_get_profiles(scope, &profiles);
+        if (r < 0)
+                return sd_bus_error_set_errnof(reterr_error, r, "Failed to enumerate portable profiles: %m");
+
+        if (strv_contains(profiles, profile))
+                return 0;
+
+        _cleanup_free_ char *joined = strv_join(profiles, ", ");
+        if (!joined)
+                return -ENOMEM;
+
+        return sd_bus_error_setf(
+                        reterr_error,
+                        SD_BUS_ERROR_INVALID_ARGS,
+                        "Profile '%s' does not exist, refusing.%s%s%s",
+                        profile,
+                        isempty(joined) ? "" : " (Available profiles are: ",
+                        strempty(joined),
+                        isempty(joined) ? "" : ")");
 }
 
 static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {
