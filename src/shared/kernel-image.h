@@ -22,6 +22,8 @@ int inspect_kernel_full(
                 char **ret_uname,
                 char **ret_pretty_name);
 
+int kernel_decompress(int fd, int *ret_fd);
+
 static inline int inspect_kernel(
                 int dir_fd,
                 const char *filename,
