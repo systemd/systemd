@@ -4731,7 +4731,7 @@ int journal_file_open_full(
 
         /* Segmented files are mapped read-only, hence the format must be known before the mmap cache is
          * set up. */
-        segmented = !newly_created && journal_file_fd_is_segmented(f->fd);
+        segmented = newly_created ? segmented_requested() : journal_file_fd_is_segmented(f->fd);
 
         if (segmented && journal_file_writable(f)) {
                 /* The append position must be reconstructed while the writer lock is held. */
