@@ -6153,12 +6153,19 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 _cleanup_free_ DecryptedPartitionTarget *t = NULL;
                 _cleanup_close_ int dev_fd = -1;
 
+                /* A temporary activation only lives while the new partition is being set up, before the
+                 * partition table is written: if that is interrupted, the partition has to be created
+                 * again anyway. So skip the dm-integrity journal, which writes all data twice, as
+                 * cryptsetup luksFormat does for its wipe. A non-temporary activation (block device
+                 * replacement) stays in use after we are done, so keep the journal for it. */
                 r = sym_crypt_activate_by_volume_key(
                                 cd,
                                 dm_name,
                                 NULL,
                                 /* volume_key_size= */ volume_key_size,
-                                (allow_discards ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
+                                (allow_discards ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) |
+                                (temporary && p->integrity == INTEGRITY_INLINE ? CRYPT_ACTIVATE_NO_JOURNAL : 0) |
+                                CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
 
