@@ -769,7 +769,7 @@ int config_parse_syscall_filter(
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&items, &word, NULL, 0);
+                r = extract_first_word(&items, &word, /* separators= */ WHITESPACE ",", 0);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)

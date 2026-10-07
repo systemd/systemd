@@ -3348,7 +3348,7 @@ int config_parse_syscall_filter(
                 _cleanup_free_ char *word = NULL, *name = NULL;
                 int num;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ WHITESPACE ",", 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
