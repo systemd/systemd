@@ -47,6 +47,7 @@ static char **arg_env = NULL;
 static char **arg_exec = NULL;
 static FDSet *arg_fds = NULL;
 static char *arg_fdname = NULL;
+static char *arg_fdstore_wipe = NULL;
 static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_pid, pidref_done);
@@ -54,6 +55,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fdstore_wipe, freep);
 
 COMMAND(
         "systemd-notify\0",
@@ -253,6 +255,19 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         break;
 
+                OPTION_LONG("fdstore-wipe", "GLOB", "Remove file descriptors from the store by name glob"): {
+                        const char *pattern = isempty(opts.arg) ? "*" : opts.arg;
+
+                        if (!fdname_glob_is_valid(pattern))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name pattern invalid: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_fdstore_wipe, pattern);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
                 OPTION_LONG("fork", NULL, "Receive notifications from child rather than sending them"):
                         arg_action = ACTION_FORK;
                         break;
@@ -265,7 +280,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
-        bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
+        bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) ||
+                !fdset_isempty(arg_fds) || arg_fdstore_wipe;
 
         char **args = option_parser_get_args(&opts);
 
@@ -274,6 +290,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         case ACTION_NOTIFY: {
                 if (arg_fdname && fdset_isempty(arg_fds))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= used, refusing.");
+                if (arg_fdstore_wipe && !fdset_isempty(arg_fds))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--fdstore-wipe= may not be combined with --fd=, refusing.");
 
                 size_t n_arg_env;
 
@@ -333,7 +351,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (have_env && arg_action != ACTION_NOTIFY)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--ready, --reloading, --stopping, --pid=, --status=, --fd= may not be combined with --fork or --booted, refusing.");
+                                       "--ready, --reloading, --stopping, --pid=, --status=, --fd=, --fdstore-wipe= may not be combined with --fork or --booted, refusing.");
 
         *ret_args = args;
 
@@ -503,9 +521,9 @@ static int action_fork(char *const *_command) {
 
 static int run(int argc, char* argv[]) {
         _cleanup_free_ char *status = NULL, *main_pid = NULL, *main_pidfd_id = NULL, *msg = NULL,
-                       *monotonic_usec = NULL, *fdn = NULL;
+                       *monotonic_usec = NULL, *fdn = NULL, *fdstore_wipe = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        const char *our_env[10];
+        const char *our_env[11];
         size_t i = 0;
         char **args = NULL;  /* unnecessary initialization to appease gcc */
         int r;
@@ -569,6 +587,14 @@ static int run(int argc, char* argv[]) {
 
                         our_env[i++] = main_pidfd_id;
                 }
+        }
+
+        if (arg_fdstore_wipe) {
+                fdstore_wipe = strjoin("FDSTOREWIPE=", arg_fdstore_wipe);
+                if (!fdstore_wipe)
+                        return log_oom();
+
+                our_env[i++] = fdstore_wipe;
         }
 
         if (!fdset_isempty(arg_fds)) {
