@@ -452,7 +452,7 @@ static int user_units_operation(char **users, UserUnitOperationFunc func, const 
         return 0;
 }
 
-VERB_FULL(verb_install_units, "install-units", "UNIT...", 1, VERB_ANY, 0, UINTPTR_MAX, "Enable and preset units");
+VERB_FULL(verb_install_units, "install-units", "UNIT...\0", 1, VERB_ANY, 0, UINTPTR_MAX, "Enable and preset units");
 VERB_FULL(verb_install_units, "install-system-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_SYSTEM, NULL);
 VERB_FULL(verb_install_units, "install-user-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_GLOBAL, NULL);
 static int verb_install_units(int argc, char **argv, uintptr_t data, void *userdata) {
@@ -613,7 +613,7 @@ static int user_stop_units(const char *user, const UserUnitOperationArgs *args) 
         return 0;
 }
 
-VERB_FULL(verb_remove_units, "remove-units", "UNIT...", 1, VERB_ANY, 0, UINTPTR_MAX, "Disable and stop units");
+VERB_FULL(verb_remove_units, "remove-units", "UNIT...\0", 1, VERB_ANY, 0, UINTPTR_MAX, "Disable and stop units");
 VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_SYSTEM, NULL);
 VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_GLOBAL, NULL);
 static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userdata) {
@@ -828,10 +828,10 @@ static int user_set_marker(const char *user, const UserUnitOperationArgs *args) 
         return 0;
 }
 
-VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT...", 1, VERB_ANY, 0, UINTPTR_MAX, "Mark units for restart");
+VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT...\0", 1, VERB_ANY, 0, UINTPTR_MAX, "Mark units for restart");
 VERB_FULL(verb_mark_units, "mark-restart-system-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_SYSTEM, NULL);
 VERB_FULL(verb_mark_units, "mark-restart-user-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT...", 1, VERB_ANY, 0, UINTPTR_MAX, "Mark units for reload");
+VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT...\0", 1, VERB_ANY, 0, UINTPTR_MAX, "Mark units for reload");
 VERB_FULL(verb_mark_units, "mark-reload-system-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_SYSTEM, NULL);
 VERB_FULL(verb_mark_units, "mark-reload-user-units", NULL, 1, VERB_ANY, 0, RUNTIME_SCOPE_GLOBAL, NULL);
 static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata) {
