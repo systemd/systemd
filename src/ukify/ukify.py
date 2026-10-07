@@ -1243,8 +1243,8 @@ NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
 DEVICE_TYPE_DEVICETREE = 1
 DEVICE_TYPE_UEFI_FW = 2
 
-# Keep in sync with efifirmware.h
-FWHEADERMAGIC = 'feeddead'
+# Keep in sync with src/boot/efi-firmware.h
+FWHEADERMAGIC = 0xfeeddead
 EFIFW_HEADER_SIZE = 4 + 4 + 4 + 4
 
 
@@ -1359,10 +1359,9 @@ def parse_efifw_dir(path: Path) -> bytes:
     # terminated by NULL.
     fwid = b'' + dirname.encode() + b'\0'
     fwid_len = len(fwid)
-    magic = bytes.fromhex(FWHEADERMAGIC)
 
     efifw_header_blob = b''
-    efifw_header_blob += struct.pack('<p', magic)
+    efifw_header_blob += struct.pack('<I', FWHEADERMAGIC)
     efifw_header_blob += struct.pack('<I', EFIFW_HEADER_SIZE)
     efifw_header_blob += struct.pack('<I', fwid_len)
     efifw_header_blob += struct.pack('<I', payload_len)
