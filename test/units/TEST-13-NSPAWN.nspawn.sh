@@ -1661,4 +1661,36 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_foreign_userns() {
+    local root opts
+
+    # Run nspawn as root in a user namespace it didn't create itself, which also owns all the other
+    # namespaces, as is the case in containers of other container managers.
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.foreign-userns.XXX)"
+    create_dummy_container "$root"
+
+    # With --private-network, the inner child mounts sysfs as well.
+    for opts in "" "--private-network"; do
+        # shellcheck disable=SC2086
+        systemd-run --wait --pipe \
+                    --setenv=SYSTEMD_LOG_LEVEL \
+                    --setenv=SYSTEMD_LOG_TARGET \
+                    -p PrivateUsers=full \
+                    -p PrivateMounts=yes \
+                    -p PrivatePIDs=yes \
+                    -p PrivateNetwork=yes \
+                    -p DelegateNamespaces=yes \
+                    -p Delegate=yes \
+                    systemd-nspawn --register=no \
+                                   --keep-unit \
+                                   --directory="$root" \
+                                   $opts \
+                                   bash -xec 'test "$(</proc/1/comm)" = bash
+                                              test ! -e /run/host/proc
+                                              test ! -e /run/host/sys'
+    done
+
+    rm -fr "$root"
+}
+
 run_testcases
