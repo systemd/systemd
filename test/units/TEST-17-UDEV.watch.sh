@@ -8,7 +8,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-function check_validity() {
+check_validity() {
     local f ID_OR_HANDLE
 
     for f in /run/udev/watch/*; do
@@ -22,7 +22,7 @@ function check_validity() {
     done
 }
 
-function check() {
+check() {
     for _ in {1..2}; do
         systemctl reset-failed systemd-udevd.service
         systemctl restart systemd-udevd.service
@@ -52,6 +52,41 @@ function check() {
     done
 }
 
+udevd_inotify_fdinfo() {
+    local pid fd
+
+    # Print the path of systemd-udevd's inotify group fdinfo.
+
+    pid="$(systemctl show --property MainPID --value systemd-udevd.service)"
+    [[ "${pid:-0}" -gt 0 ]] || return 1
+
+    for fd in /proc/"$pid"/fd/*; do
+        if [[ "$(readlink "$fd" 2>/dev/null)" == "anon_inode:[inotify]" ]]; then
+            echo "/proc/$pid/fdinfo/${fd##*/}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+device_is_watched() {
+    local devnode="${1:?}"
+    local ino fdinfo
+
+    fdinfo="$(udevd_inotify_fdinfo)" || return 1
+    ino="$(printf '%x' "$(stat -c '%i' "$devnode")")"
+    grep -qE "^inotify ino:${ino} " "$fdinfo"
+}
+
+device_is_watched_by_link() {
+    local devnode="${1:?}"
+    local rdev
+
+    rdev="$(stat -c '%Hr:%Lr')"
+    test -L "/run/udev/watch/b${rdev}"
+}
+
 # Check if the first invocation (should be in initrd) pushed the inotify fd to fdstore,
 # and the next invocation gained the fd from service manager.
 # TNote the service may be started without generating debugging logs. Let's check failure log.
@@ -65,19 +100,22 @@ fi
 mkdir -p /run/systemd/system/systemd-udevd.service.d/
 cat >/run/systemd/system/systemd-udevd.service.d/10-debug.conf <<EOF
 [Service]
-SYSTEMD_LOG_LEVEL=debug
+Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
 systemctl daemon-reload
 
 mkdir -p /run/udev/rules.d/
 
+ROOTDEV="$(bootctl -RR)"
+ROOTDEV_NAME="$(udevadm info --query=name "$ROOTDEV")"
+
 cat >/run/udev/rules.d/00-debug.rules <<EOF
-SUBSYSTEM=="block", KERNEL=="sda*", OPTIONS="log_level=debug"
+SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}*", OPTIONS="log_level=debug"
 EOF
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
-ACTION=="add", SUBSYSTEM=="block", KERNEL=="sda", OPTIONS:="watch"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}", OPTIONS:="watch"
 EOF
 
 # Unfortunately, journalctl --invocation= is unstable when debug logging is enabled on service manager.
@@ -86,21 +124,17 @@ systemctl log-level info
 
 check
 
-ROOTDEV="$(bootctl -RR)"
-
-MAJOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')"
-MINOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')"
-test -L "/run/udev/watch/b${MAJOR}:${MINOR}"
+device_is_watched "$ROOTDEV"
+device_is_watched_by_link "$ROOTDEV"
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
-ACTION=="change", SUBSYSTEM=="block", KERNEL=="sda", OPTIONS:="nowatch"
+ACTION=="change", SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}", OPTIONS:="nowatch"
 EOF
 
 check
 
-MAJOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')"
-MINOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')"
-test ! -e "/run/udev/watch/b${MAJOR}:${MINOR}"
+(! device_is_watched "$ROOTDEV")
+(! device_is_watched_by_link "$ROOTDEV")
 
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
