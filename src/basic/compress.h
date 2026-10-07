@@ -93,7 +93,14 @@ int decompress_startswith(Compression compression,
 /* Stream compression/decompression (fd-to-fd) */
 
 int compress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
-int decompress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes);
+typedef enum DecompressFlags {
+        DECOMPRESS_LEGACY_LZMA = 1 << 0, /* With COMPRESSION_XZ, also accept the legacy .lzma format */
+} DecompressFlags;
+
+int decompress_stream_full(Compression type, int fdf, int fdt, uint64_t max_bytes, DecompressFlags flags);
+static inline int decompress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes) {
+        return decompress_stream_full(type, fdf, fdt, max_bytes, /* flags= */ 0);
+}
 int decompress_stream_by_filename(const char *filename, int fdf, int fdt, uint64_t max_bytes);
 
 int dlopen_xz(int log_level) _dlopen_loader_;
