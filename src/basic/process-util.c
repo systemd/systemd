@@ -1315,7 +1315,7 @@ void reset_cached_pid(void) {
 
 pid_t getpid_cached(void) {
         static bool installed = false;
-        pid_t current_value = CACHED_PID_UNSET;
+        pid_t current_value;
 
         /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
          * system call each time. This restores glibc behaviour from before 2.24, when getpid() was unconditionally
@@ -1326,6 +1326,13 @@ pid_t getpid_cached(void) {
          * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=c579f48edba88380635ab98cb612030e3ed8691e
          */
 
+        /* The compare-and-exchange below is a locked read-modify-write even when it fails. Almost all calls
+         * find the PID cached, hence check for it with a plain load first. */
+        current_value = __atomic_load_n(&cached_pid, __ATOMIC_RELAXED);
+        if (current_value > 0)
+                return current_value;
+
+        current_value = CACHED_PID_UNSET;
         (void) __atomic_compare_exchange_n(
                         &cached_pid,
                         &current_value,
