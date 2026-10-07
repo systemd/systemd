@@ -53,6 +53,7 @@
 #include "unaligned.h"
 
 #if HAVE_XZ
+static DLSYM_PROTOTYPE(lzma_auto_decoder) = NULL;
 static DLSYM_PROTOTYPE(lzma_code) = NULL;
 static DLSYM_PROTOTYPE(lzma_easy_encoder) = NULL;
 static DLSYM_PROTOTYPE(lzma_end) = NULL;
@@ -311,6 +312,7 @@ int dlopen_xz(int log_level) {
         return dlopen_many_sym_or_warn(
                         &lzma_dl,
                         "liblzma.so.5", log_level,
+                        DLSYM_ARG(lzma_auto_decoder),
                         DLSYM_ARG(lzma_code),
                         DLSYM_ARG(lzma_easy_encoder),
                         DLSYM_ARG(lzma_end),
@@ -1721,7 +1723,7 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         return loop_write(u->fd, data, size);
 }
 
-static int decompressor_new(Decompressor **ret, Compression type) {
+static int decompressor_new(Decompressor **ret, Compression type, DecompressFlags flags) {
         assert(ret);
 
         _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
@@ -1735,10 +1737,14 @@ static int decompressor_new(Decompressor **ret, Compression type) {
                 break;
 
 #if HAVE_XZ
-        case COMPRESSION_XZ:
-                if (sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED) != LZMA_OK)
+        case COMPRESSION_XZ: {
+                lzma_ret xz_ret = FLAGS_SET(flags, DECOMPRESS_LEGACY_LZMA) ?
+                        sym_lzma_auto_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED) :
+                        sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED);
+                if (xz_ret != LZMA_OK)
                         return -EIO;
                 break;
+        }
 #endif
 
 #if HAVE_LZ4
@@ -1783,10 +1789,11 @@ static int decompressor_new(Decompressor **ret, Compression type) {
         return 0;
 }
 
-int decompress_stream(
+int decompress_stream_full(
                 Compression type,
                 int fdf, int fdt,
-                uint64_t max_bytes) {
+                uint64_t max_bytes,
+                DecompressFlags flags) {
 
         _cleanup_(compressor_freep) Decompressor *c = NULL;
         _cleanup_free_ uint8_t *buf = NULL;
@@ -1803,7 +1810,7 @@ int decompress_stream(
         if (r < 0)
                 return r;
 
-        r = decompressor_new(&c, type);
+        r = decompressor_new(&c, type, flags);
         if (r < 0)
                 return r;
 
@@ -1950,7 +1957,7 @@ int decompressor_detect(Decompressor **decompressor, const void *data, size_t si
         if (r < 0)
                 return r;
 
-        r = decompressor_new(decompressor, type);
+        r = decompressor_new(decompressor, type, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1961,7 +1968,7 @@ int decompressor_force_off(Decompressor **decompressor) {
         assert(decompressor);
 
         *decompressor = compressor_free(*decompressor);
-        return decompressor_new(decompressor, COMPRESSION_NONE);
+        return decompressor_new(decompressor, COMPRESSION_NONE, /* flags= */ 0);
 }
 
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata) {
