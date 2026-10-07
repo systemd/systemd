@@ -342,7 +342,8 @@ int mmap_cache_fd_get(
                 uint64_t offset,
                 size_t size,
                 struct stat *st,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
         MMapCache *m = mmap_cache_fd_cache(f);
         Window *w;
@@ -386,6 +387,8 @@ found:
 
         category_attach_window(m, c, w);
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        if (ret_size)
+                *ret_size = w->offset + w->size - offset;
         return 0;
 }
 
