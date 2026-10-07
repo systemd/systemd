@@ -6,7 +6,7 @@
 # shellcheck disable=SC2034
 [[ -e /var/tmp/.systemd_reboot_count ]] && REBOOT_COUNT="$(</var/tmp/.systemd_reboot_count)" || REBOOT_COUNT=0
 
-assert_ok() {(
+assert_ok() (
     set +ex
 
     local rc
@@ -17,9 +17,9 @@ assert_ok() {(
         echo "FAIL: command '$*' failed with exit code $rc" >&2
         exit 1
     fi
-)}
+)
 
-assert_fail() {(
+assert_fail() (
     set +ex
 
     local rc
@@ -28,45 +28,45 @@ assert_fail() {(
         echo "FAIL: command '$*' unexpectedly succeeded" >&2
         exit 1
     fi
-)}
+)
 
-assert_eq() {(
+assert_eq() (
     set +ex
 
     if [[ "${1?}" != "${2?}" ]]; then
         echo "FAIL: expected: '$2' actual: '$1'" >&2
         exit 1
     fi
-)}
+)
 
-assert_neq() {(
+assert_neq() (
     set +ex
 
     if [[ "${1?}" = "${2?}" ]]; then
         echo "FAIL: not expected: '$2' actual: '$1'" >&2
         exit 1
     fi
-)}
+)
 
-assert_le() {(
+assert_le() (
     set +ex
 
     if [[ "${1:?}" -gt "${2:?}" ]]; then
         echo "FAIL: '$1' > '$2'" >&2
         exit 1
     fi
-)}
+)
 
-assert_ge() {(
+assert_ge() (
     set +ex
 
     if [[ "${1:?}" -lt "${2:?}" ]]; then
         echo "FAIL: '$1' < '$2'" >&2
         exit 1
     fi
-)}
+)
 
-assert_in() {(
+assert_in() (
     set +ex
 
     if ! [[ "${2?}" =~ ${1?} ]]; then
@@ -74,9 +74,9 @@ assert_in() {(
         echo "$2" >&2
         exit 1
     fi
-)}
+)
 
-assert_not_in() {(
+assert_not_in() (
     set +ex
 
     if [[ "${2?}" =~ ${1?} ]]; then
@@ -84,9 +84,9 @@ assert_not_in() {(
         echo "$2" >&2
         exit 1
     fi
-)}
+)
 
-assert_rc() {(
+assert_rc() (
     set +ex
 
     local rc exp="${1?}"
@@ -95,14 +95,14 @@ assert_rc() {(
     "$@"
     rc=$?
     assert_eq "$rc" "$exp"
-)}
+)
 
 assert_not_reached() {
     echo >&2 "Code should not be reached at ${BASH_SOURCE[1]}:${BASH_LINENO[1]}, function ${FUNCNAME[1]}()"
     exit 1
 }
 
-run_and_grep() {(
+run_and_grep() (
     set +ex
 
     local expression
@@ -139,7 +139,7 @@ run_and_grep() {(
     fi
 
     rm -f "$log"
-)}
+)
 
 get_cgroup_hierarchy() {
     case "$(stat -c '%T' -f /sys/fs/cgroup)" in

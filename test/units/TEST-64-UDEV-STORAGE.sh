@@ -7,7 +7,7 @@ set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
 # shellcheck disable=SC2120
-helper_check_device_symlinks() {(
+helper_check_device_symlinks() (
     set +x
 
     local dev link path paths target
@@ -38,9 +38,9 @@ helper_check_device_symlinks() {(
             return 1
         fi
     done < <(find "${paths[@]}" -type l)
-)}
+)
 
-helper_check_udev_watch() {(
+helper_check_udev_watch() (
     set +x
 
     local link target id dev
@@ -78,9 +78,9 @@ helper_check_udev_watch() {(
             return 1
         fi
     done < <(find /run/udev/watch -type l)
-)}
+)
 
-check_device_unit() {(
+check_device_unit() (
     set +x
 
     local log_level link links path syspath unit
@@ -126,9 +126,9 @@ check_device_unit() {(
 
     [[ "$log_level" == 1 ]] && echo >&2 "ERROR: $unit exists for $syspath but it does not have the corresponding DEVLINKS or SYSTEMD_ALIAS."
     return 1
-)}
+)
 
-check_device_units() {(
+check_device_units() (
     set +x
 
     local log_level path paths unit units
@@ -152,9 +152,9 @@ check_device_units() {(
     done
 
     return 0
-)}
+)
 
-helper_check_device_units() {(
+helper_check_device_units() (
     set +x
 
     local i
@@ -167,7 +167,7 @@ helper_check_device_units() {(
     done
 
     check_device_units 1 "$@"
-)}
+)
 
 testcase_virtio_scsi_basic() {
     lsblk -S
