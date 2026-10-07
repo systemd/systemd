@@ -135,6 +135,7 @@ bool pe_header_is_64bit(const PeHeader *h);
         (pe_header_is_64bit(h) ? offsetof(PeHeader, optional.pe32plus_##field) : offsetof(PeHeader, optional.pe32_##field))
 
 const IMAGE_DATA_DIRECTORY* pe_header_get_data_directory(const PeHeader *h, size_t i);
+bool pe_header_is_signed(const PeHeader *h);
 const IMAGE_SECTION_HEADER* pe_header_find_section(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name);
 const IMAGE_SECTION_HEADER* pe_section_table_find(const IMAGE_SECTION_HEADER *sections, size_t n_sections, const char *name);
 
@@ -151,11 +152,10 @@ bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections
 bool pe_is_native(const PeHeader *pe_header);
 int pe_is_native_fd(int fd);
 
+int pe_checksum(int fd, uint32_t *ret);
+
 #if HAVE_OPENSSL
 int pe_hash(int fd, const EVP_MD *md, void **ret_hash, size_t *ret_hash_size);
-
-/* This does not depend on OpenSSL, but is currently only used by sbsign which requires OpenSSL. */
-int pe_checksum(int fd, uint32_t *ret);
 
 int uki_hash(int fd, const EVP_MD *md, void *ret_hashes[static _UNIFIED_SECTION_MAX], size_t *ret_hash_size);
 #endif
