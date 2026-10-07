@@ -264,14 +264,9 @@ static int tar_import_fork_tar(TarImport *i) {
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(
-                                mountfsd_link,
-                                d,
-                                MODE_INVALID,
-                                /* flags= */ 0,
-                                &directory_fd);
+                r = mkdir_foreign(d, MODE_INVALID, &directory_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
+                        return log_error_errno(r, "Failed to make foreign UID range owned directory: %m");
 
                 r = mountfsd_mount_directory_fd(
                                 mountfsd_link,
