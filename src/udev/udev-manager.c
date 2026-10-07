@@ -1386,9 +1386,18 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret= */ NULL, on_post, manager);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_post(e, &s, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
+
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_POST);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to post event source: %m");
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set floating to post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
         r = sd_event_add_memory_pressure(e, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
