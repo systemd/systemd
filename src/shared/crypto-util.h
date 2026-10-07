@@ -410,6 +410,12 @@ int ecc_pkey_to_curve_x_y(const EVP_PKEY *pkey, int *ret_curve_id, void **ret_x,
 
 int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 
+int rsa_pkey_new(size_t bits, EVP_PKEY **ret);
+
+int x509_new_self_signed(EVP_PKEY *pkey, const char *common_name, unsigned validity_days, X509 **ret);
+
+int openssl_private_key_to_pem_traditional(EVP_PKEY *pkey, char **ret);
+
 int ecc_ecdh(const EVP_PKEY *private_pkey, const EVP_PKEY *peer_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
 int pkey_generate_volume_keys(EVP_PKEY *pkey, const char *rsa_oaep_digest_alg, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
