@@ -262,10 +262,12 @@ extern DLSYM_PROTOTYPE(X509_get0_serialNumber);
 extern DLSYM_PROTOTYPE(X509_get0_subject_key_id);
 extern DLSYM_PROTOTYPE(X509_get_extended_key_usage);
 extern DLSYM_PROTOTYPE(X509_get_extension_flags);
+extern DLSYM_PROTOTYPE(X509_get_issuer_name);
 extern DLSYM_PROTOTYPE(X509_get_key_usage);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
+extern DLSYM_PROTOTYPE(X509_verify);
 extern DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING);
 extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(d2i_ECPKParameters);
@@ -283,6 +285,7 @@ extern DLSYM_PROTOTYPE(i2d_X509_NAME);
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libcrypto just for these. */
 #define sym_BIO_get_md_ctx(b, mdcp) sym_BIO_ctrl((b), BIO_C_GET_MD_CTX, 0, (char*) (mdcp))
+#define sym_BIO_get_mem_data(b, pp) sym_BIO_ctrl((b), BIO_CTRL_INFO, 0, (char*) (pp))
 #define sym_BIO_get_mem_ptr(b, pp) sym_BIO_ctrl((b), BIO_C_GET_BUF_MEM_PTR, 0, (char *) (pp))
 #define sym_BIO_reset(b) sym_BIO_ctrl((b), BIO_CTRL_RESET, 0, NULL)
 #define sym_BN_num_bytes(a) ((sym_BN_num_bits(a) + 7) / 8)
@@ -416,6 +419,12 @@ int ecc_pkey_from_curve_x_y(int curve_id, const void *x, size_t x_size, const vo
 int ecc_pkey_to_curve_x_y(const EVP_PKEY *pkey, int *ret_curve_id, void **ret_x, size_t *ret_x_size, void **ret_y, size_t *ret_y_size);
 
 int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
+
+int rsa_pkey_new(int bits, EVP_PKEY **ret);
+
+int x509_new_self_signed(EVP_PKEY *pkey, const char *common_name, unsigned validity_days, X509 **ret);
+
+int openssl_private_key_to_pem_traditional(EVP_PKEY *pkey, char **ret);
 
 int ecc_ecdh(const EVP_PKEY *private_pkey, const EVP_PKEY *peer_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
