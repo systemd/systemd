@@ -2,6 +2,8 @@
 
 #include "sd-json.h"
 
+#include "ansi-color.h"
+#include "build.h"
 #include "format-table.h"
 #include "log.h"
 #include "nulstr-util.h"
@@ -345,6 +347,18 @@ int option_parse(
 
         assert(option);
 
+        if (!handling_positional_arg &&
+            FLAGS_SET(option->flags, OPTION_EXPERIMENTAL) &&
+            !experimental_enabled()) {
+                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                   SYNTHETIC_ERRNO(EPERM),
+                                   EXPERIMENTAL == EXPERIMENTAL_DISABLED ?
+                                           "%s: option '%s' is experimental and not supported in this build" :
+                                           "%s: option '%s' is experimental and requires $SYSTEMD_EXPERIMENTAL=1 to be set, refusing",
+                                   program_invocation_short_name, optname);
+                goto fail;
+        }
+
         if (!handling_positional_arg && optval && !option_takes_arg(option)) {
                 r = log_full_errno(LOG_ERR + state->log_level_shift,
                                    SYNTHETIC_ERRNO(EINVAL),
@@ -617,13 +631,23 @@ int options_get_help_table_group(
                 if (!t)
                         return log_oom();
 
-                r = table_add_many(table, TABLE_STRING, t);
+                bool experimental = FLAGS_SET(opt->flags, OPTION_EXPERIMENTAL);
+
+                r = table_add_many(table,
+                                   TABLE_STRING, t,
+                                   TABLE_SET_COLOR, experimental ? ansi_bright_yellow() : NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 _cleanup_strv_free_ char **split = strv_split(opt->help, /* separators= */ NULL);
                 if (!split)
                         return log_oom();
+
+                if (experimental) {
+                        r = strv_extend(&split, "(experimental)");
+                        if (r < 0)
+                                return log_oom();
+                }
 
                 r = table_add_many(table, TABLE_STRV_WRAPPED, split);
                 if (r < 0)
@@ -674,6 +698,8 @@ static int option_build_json(const Option *opt, const char *group, sd_json_varia
                 option_arg_optional(opt) ? "optional_argument" :
                 "no_argument";
 
+        /* The "isExperimental" field is an extension not (yet) covered by the specification. */
+
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
@@ -684,7 +710,10 @@ static int option_build_json(const Option *opt, const char *group, sd_json_varia
                         SD_JSON_BUILD_PAIR_CONDITION(!!opt->help, "help", SD_JSON_BUILD_STRING(opt->help)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!group,
-                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))));
+                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(opt->flags, OPTION_EXPERIMENTAL),
+                                        "isExperimental", SD_JSON_BUILD_BOOLEAN(true)));
 }
 
 int options_build_json(
