@@ -194,6 +194,10 @@ varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
 (! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"pkcs11\",\"unlockKeyFile\":\"/tmp/password\"}")
 
+# Unlocking via TPM2 and FIDO2 may be combined, but not with any other unlock method
+(! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"password\":\"x\",\"unlockKeyFile\":\"/tmp/password\",\"unlockTpm2Device\":\"auto\",\"unlockFido2Device\":\"auto\"}")
+
 # Ensure polkit autentication as normal user works
 # Also check that the required policy is installed, as packages might be out of date with the test
 if systemd-analyze compare-versions "$(uname -r)" ge 6.5 && \
