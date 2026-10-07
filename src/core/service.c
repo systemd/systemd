@@ -492,7 +492,7 @@ static ServiceFDStore* service_fd_store_unlink_full(ServiceFDStore *fs, bool pro
                 /* If we previously propagated this fd to an enveloping service/container manager via
                  * the FDSTORE=1 protocol on its NOTIFY_SOCKET (only done when persistence is on),
                  * tell that supervisor to drop it now too, so the upstream fd store stays in sync.
-                 * Only do this for explicit removals (EPOLLHUP/EPOLLERR, app FDSTOREREMOVE,
+                 * Only do this for explicit removals (EPOLLHUP/EPOLLERR, app FDSTOREREMOVE/FDSTOREWIPE,
                  * or CleanUnit), not for local cleanup like service shutdown or fdstore-limit truncation:
                  * in those cases we want the upstream copy to survive so it can be handed back to us later. */
                 if (propagate_upstream && fs->index > 0) {
@@ -1004,15 +1004,17 @@ static int service_attach_external_fd_to_fdstore(Unit *u, int fd, const char *fd
 
 static void service_remove_fd_store(Service *s, const char *name) {
         assert(s);
-        assert(name);
 
         LIST_FOREACH(fd_store, fs, s->fd_store) {
-                if (!streq(fs->fdname, name))
+                if (name && !streq(fs->fdname, name))
                         continue;
 
-                log_unit_debug(UNIT(s), "Got explicit request to remove fd %i (%s), closing.", fs->fd, name);
+                log_unit_debug(UNIT(s), "Got explicit request to remove fd %i (%s), closing.", fs->fd, fs->fdname);
                 service_fd_store_unlink_full(fs, /* propagate_upstream= */ true);
         }
+
+        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
+                service_set_state(s, SERVICE_DEAD);
 }
 
 static usec_t service_running_timeout(Service *s) {
@@ -5786,8 +5788,11 @@ static void service_notify_message(
 
         /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,
          * process FDNAME= for picking the file descriptor name to use. Note that FDNAME= is required when removing
-         * fds, but optional when pushing in new fds, for compatibility reasons. */
-        if (strv_contains(tags, "FDSTOREREMOVE=1")) {
+         * fds, but optional when pushing in new fds, for compatibility reasons. Also support units wiping their
+         * own stores. */
+        if (strv_contains(tags, "FDSTOREWIPE=1"))
+                service_remove_fd_store(s, /* name= */ NULL);
+        else if (strv_contains(tags, "FDSTOREREMOVE=1")) {
                 const char *name;
 
                 name = strv_find_startswith(tags, "FDNAME=");
