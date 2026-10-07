@@ -801,7 +801,7 @@ static int context_update_kernel_hostname(
 
         /* ... and the ultimate fallback */
         } else {
-                hn = _hn_free = get_default_hostname();
+                hn = _hn_free = get_default_hostname_or_fallback();
                 if (!hn)
                         return log_oom();
 
@@ -1069,7 +1069,7 @@ static int property_get_hostname(
                 if (r != -ENXIO)
                         return r;
 
-                hn = get_default_hostname();
+                hn = get_default_hostname_or_fallback();
                 if (!hn)
                         return -ENOMEM;
         }
@@ -1104,7 +1104,7 @@ static int property_get_default_hostname(
 
         _cleanup_free_ char *hn = NULL;
 
-        hn = get_default_hostname();
+        hn = get_default_hostname_or_fallback();
         if (!hn)
                 return log_oom();
 
@@ -1113,7 +1113,6 @@ static int property_get_default_hostname(
 
 static void context_determine_hostname_source(Context *c) {
         _cleanup_free_ char *hostname = NULL;
-        int r;
 
         assert(c);
 
@@ -1124,23 +1123,10 @@ static void context_determine_hostname_source(Context *c) {
 
         if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]))
                 c->hostname_source = HOSTNAME_STATIC;
-        else {
-                _cleanup_free_ char *fallback = NULL;
-
-                /* If the hostname was not set by us, try to figure out where it came from. If we set it to
-                 * the default hostname, the file will tell us. We compare the string because it is possible
-                 * that the hostname was set by an older version that had a different fallback, in the initrd
-                 * or before we reexecuted. */
-
-                r = read_one_line_file("/run/systemd/default-hostname", &fallback);
-                if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
-
-                if (streq_ptr(fallback, hostname))
-                        c->hostname_source = HOSTNAME_DEFAULT;
-                else
-                        c->hostname_source = HOSTNAME_TRANSIENT;
-        }
+        else if (hostname_was_set_to_default(hostname))
+                c->hostname_source = HOSTNAME_DEFAULT;
+        else
+                c->hostname_source = HOSTNAME_TRANSIENT;
 }
 
 static int property_get_hostname_source(
@@ -1964,7 +1950,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         context_read_os_release(c);
         context_determine_hostname_source(c);
 
-        dhn = get_default_hostname();
+        dhn = get_default_hostname_or_fallback();
         if (!dhn)
                 return log_oom();
 
