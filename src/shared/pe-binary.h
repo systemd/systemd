@@ -133,6 +133,10 @@ typedef struct _packed_ _IMAGE_SECTION_HEADER {
 #define IMAGE_SCN_CNT_INITIALIZED_DATA     UINT32_C(0x00000040)
 #define IMAGE_SCN_MEM_READ                 UINT32_C(0x40000000)
 
+/* SizeOfImage in the optional header is a 32-bit field, so a PE image and each of its sections are at most
+ * 4 GiB in size. */
+#define PE_IMAGE_SIZE_MAX UINT32_MAX
+
 bool pe_header_is_64bit(const PeHeader *h);
 
 #define PE_HEADER_OPTIONAL_FIELD(h, field)                           \
