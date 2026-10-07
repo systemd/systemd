@@ -4,12 +4,17 @@
 #include <sys/socket.h>
 
 #include "af-list.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 static const struct af_name* lookup_af(register const char *str, register GPERF_LEN_TYPE len);
 
 #include "af-from-name.inc"
 #include "af-to-name.inc"
+
+/* The (currently) longest name. If this changes in the future,
+ * test-af-list will catch it. */
+#define LONGEST_AF_NAME STRLEN("AF_IEEE802154")
 
 const char* af_to_name(int id) {
 
@@ -37,11 +42,14 @@ const char* af_to_name_short(int id) {
 }
 
 int af_from_name(const char *name) {
-        const struct af_name *sc;
+        size_t len = strlen(ASSERT_PTR(name));
 
-        assert(name);
-
-        sc = lookup_af(name, strlen(name));
+        const struct af_name *sc = lookup_af(name, len);
+        if (!sc && len <= LONGEST_AF_NAME - 3) {
+                char buf[LONGEST_AF_NAME + 1];
+                xsprintf(buf, "AF_%s", name);
+                sc = lookup_af(buf, len + 3);
+        }
         if (!sc)
                 return -EINVAL;
 
