@@ -1661,4 +1661,60 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+run_nspawn_in_foreign_userns() {
+    # Run nspawn as root in a user namespace it didn't create itself, which also owns all the other
+    # namespaces, as is the case in containers of other container managers.
+    systemd-run --wait --pipe \
+                --setenv=SYSTEMD_LOG_LEVEL \
+                --setenv=SYSTEMD_LOG_TARGET \
+                -p PrivateUsers=full \
+                -p PrivateMounts=yes \
+                -p PrivatePIDs=yes \
+                -p PrivateNetwork=yes \
+                -p DelegateNamespaces=yes \
+                -p Delegate=yes \
+                systemd-nspawn --register=no --keep-unit "$@"
+}
+
+testcase_foreign_userns() {
+    local root userns netns
+
+    if [[ "$IS_USERNS_SUPPORTED" == "no" ]]; then
+        echo "Skipping user namespace test..."
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.foreign-userns.XXX)"
+    create_dummy_container "$root"
+
+    # With --private-users=, the inner child runs in a user namespace of its own, and with
+    # --private-network, it mounts sysfs as well.
+    for userns in "" "--private-users=identity"; do
+        for netns in "" "--private-network"; do
+            run_nspawn_in_foreign_userns \
+                --directory="$root" \
+                ${userns:+"$userns"} \
+                ${netns:+"$netns"} \
+                bash -xec 'test "$(</proc/1/comm)" = bash
+                           test ! -e /run/host/proc
+                           test ! -e /run/host/sys'
+        done
+    done
+
+    # Read-only bind mounts of inherited mounts, whose flags are locked
+    run_nspawn_in_foreign_userns \
+        --directory="$root" \
+        --inaccessible=/var \
+        --timezone=bind \
+        --resolv-conf=bind-host \
+        bash -xec 'touch /var/foo && exit 1
+                   for f in /etc/localtime /etc/resolv.conf; do
+                       mountpoint -q "$f" || continue
+                       touch "$f" && exit 1
+                   done
+                   true'
+
+    rm -fr "$root"
+}
+
 run_testcases
