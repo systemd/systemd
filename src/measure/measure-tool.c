@@ -9,6 +9,7 @@
 #include "ask-password-api.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -19,6 +20,7 @@
 #include "main-func.h"
 #include "measure-util.h"
 #include "pager.h"
+#include "pe-binary.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -469,9 +471,9 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                 if (!arg_sections[c])
                         continue;
 
-                section_fds[c] = open(arg_sections[c], O_RDONLY|O_CLOEXEC);
+                section_fds[c] = open_seekable_data_fd(AT_FDCWD, arg_sections[c], PE_IMAGE_SIZE_MAX);
                 if (section_fds[c] < 0) {
-                        r = log_error_errno(errno, "Failed to open '%s': %m", arg_sections[c]);
+                        r = log_error_errno(section_fds[c], "Failed to open '%s': %m", arg_sections[c]);
                         close_many(section_fds, c);
                         return r;
                 }

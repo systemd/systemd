@@ -230,7 +230,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                 }
 
                 for (;;) {
-                        ssize_t sz = read(section_fds[c], buffer, BUFFER_SIZE);
+                        ssize_t sz = pread(section_fds[c], buffer, BUFFER_SIZE, m);
                         if (sz < 0)
                                 return log_debug_errno(errno, "Failed to read %s section: %m", unified_sections[c]);
                         if (sz == 0) /* EOF */
