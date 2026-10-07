@@ -1040,7 +1040,7 @@ fi
 systemd-analyze --threshold=90 security systemd-journald.service
 
 # issue 23663
-check() {(
+check() (
     set +x
     output=$(systemd-analyze security --offline="${2?}" "${3?}" | grep -F 'SystemCallFilter=')
     assert_in "System call ${1?} list" "$output"
@@ -1055,7 +1055,7 @@ check() {(
     assert_in "[+✓] SystemCallFilter=~@debug" "$output"
     assert_in "[+✓] SystemCallFilter=~@cpu-emulation" "$output"
     assert_in "[-✗] SystemCallFilter=~@clock" "$output"
-)}
+)
 
 export -n SYSTEMD_LOG_LEVEL
 
