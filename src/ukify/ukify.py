@@ -651,7 +651,13 @@ class SystemdSbSign(SignTool):
 
 
 def parse_banks(s: str) -> list[str]:
-    banks = re.split(r',|\s+', s)
+    s = s.strip()
+    if not s:
+        return []
+    # Allow a single trailing comma, but reject any other empty entry.
+    banks = re.split(r'\s*,\s*|\s+', s.removesuffix(',').rstrip())
+    if '' in banks:
+        raise argparse.ArgumentTypeError(f'Empty entry in PCR bank list {s!r}')
     # TODO: do some sanity checking here
     return banks
 
@@ -668,7 +674,8 @@ KNOWN_PHASES = (
 
 def parse_phase_paths(s: str) -> list[str]:
     # Split on commas or whitespace here. Commas might be hard to parse visually.
-    paths = re.split(r',|\s+', s)
+    # Allow a single trailing comma. Other empty entries are rejected below as unknown phases.
+    paths = re.split(r'\s*,\s*|\s+', s.strip().removesuffix(',').rstrip())
 
     for path in paths:
         for phase in path.split(':'):
