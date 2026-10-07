@@ -49,6 +49,8 @@ static int uki_read_pretty_name(
                 *ret = NULL;
                 return 0;
         }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read .osrel section: %m");
 
         f = fmemopen(osrel, osrel_size, "r");
         if (!f)
