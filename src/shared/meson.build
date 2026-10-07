@@ -320,6 +320,10 @@ if conf.get('ENABLE_REPORT') == 1
         endif
 endif
 
+if conf.get('HAVE_OPENSSL') == 1
+        shared_sources += files('authenticode.c')
+endif
+
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         input : [generate_ip_protocol_list, ipproto_sources],
