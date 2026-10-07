@@ -251,7 +251,10 @@ int pe_read_section_data(
         assert(fd >= 0);
         assert(section);
 
-        size_t n = le32toh(section->VirtualSize);
+        /* SizeOfRawData includes padding up to the file alignment. VirtualSize is larger than
+         * SizeOfRawData when the section ends with zero-initialized data. The file does not contain
+         * that data. Reading VirtualSize bytes would return bytes of the next section instead. */
+        size_t n = MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData));
         if (n > MIN(max_size, (size_t) SSIZE_MAX))
                 return -EBADMSG;
 
