@@ -262,7 +262,9 @@ static int vl_method_enroll(
         }
 
         if (p.unlock_tpm2_device) {
-                if (c.unlock_type >= 0)
+                /* A FIDO2 device may be combined with a TPM2 one, to unlock via a TPM2 enrollment bound to
+                 * a FIDO2 token. */
+                if (c.unlock_type >= 0 && c.unlock_type != UNLOCK_FIDO2)
                         return sd_varlink_error_invalid_parameter_name(link, "unlockTpm2Device");
 
                 if (!streq(p.unlock_tpm2_device, "auto")) {
@@ -273,7 +275,7 @@ static int vl_method_enroll(
                                 return -ENOMEM;
                 }
 
-                c.unlock_type = UNLOCK_TPM2;
+                c.unlock_type = c.unlock_type == UNLOCK_FIDO2 ? UNLOCK_TPM2_WITH_FIDO2 : UNLOCK_TPM2;
         }
 
         /* If no unlock method is specified, return a recognizable error. We generate invalid parameter name
