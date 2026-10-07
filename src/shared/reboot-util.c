@@ -21,36 +21,20 @@
 #endif
 
 #include "alloc-util.h"
-#include "compress.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "io-util.h"
+#include "kernel-image.h"
 #include "log.h"
 #include "memfd-util.h"
 #include "pe-binary.h"
 #include "proc-cmdline.h"
 #include "reboot-util.h"
 #include "sparse-endian.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "umask-util.h"
 #include "utf8.h"
 #include "virt.h"
-
-/* ZBOOT header layout — see linux/drivers/firmware/efi/libstub/zboot-header.S */
-struct zboot_header {
-        le16_t mz_magic;        /* 0x00: "MZ" DOS signature */
-        le16_t _pad0;
-        uint8_t zimg_magic[4];  /* 0x04: "zimg" identifier */
-        le32_t payload_offset;  /* 0x08: offset to compressed payload */
-        le32_t payload_size;    /* 0x0C: size of compressed payload */
-        uint8_t _pad1[8];
-        char comp_type[6];      /* 0x18: NUL-terminated compression type (e.g. "gzip", "zstd") */
-        uint8_t _pad2[2];
-} _packed_;
-assert_cc(sizeof(struct zboot_header) == 0x20);
-assert_cc(offsetof(struct zboot_header, comp_type) == 0x18);
 
 int raw_reboot(int cmd, const void *arg) {
         return syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, cmd, arg);
@@ -271,84 +255,6 @@ int kexec(void) {
         return 0;
 }
 
-static int decompress_to_memfd(Compression compression, int fd) {
-        int r;
-
-        _cleanup_close_ int memfd = memfd_new("kexec-kernel");
-        if (memfd < 0)
-                return log_error_errno(memfd, "Failed to create memfd: %m");
-
-        r = decompress_stream(compression, fd, memfd, UINT64_MAX);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decompress kernel: %m");
-
-        if (lseek(memfd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek memfd: %m");
-
-        return TAKE_FD(memfd);
-}
-
-static int decompress_zboot_to_memfd(int fd, uint32_t payload_offset, uint32_t payload_size, const char *comp_type) {
-        int r;
-
-        Compression c = compression_from_string(comp_type);
-        if (c < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Unsupported ZBOOT compression type '%s'.", comp_type);
-
-        struct stat st;
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat ZBOOT image: %m");
-
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "Kernel image is not a regular file: %m");
-
-        if (payload_offset < 0x20 ||
-            payload_size == 0 ||
-            payload_offset > (uint64_t) st.st_size ||
-            payload_size > (uint64_t) st.st_size - payload_offset)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "ZBOOT payload offset/size invalid.");
-
-        if (payload_size > 256 * U64_MB) /* generous for any compressed kernel */
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "ZBOOT payload unreasonably large.");
-
-        _cleanup_free_ void *payload = malloc(payload_size);
-        if (!payload)
-                return log_oom();
-
-        ssize_t n = pread(fd, payload, payload_size, payload_offset);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to read ZBOOT payload: %m");
-        if ((uint32_t) n < payload_size)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Short read of ZBOOT payload.");
-
-        _cleanup_free_ void *decompressed = NULL;
-        size_t decompressed_size;
-        /* Cap the decompressed size as well: a zstd frame that doesn't record its content size is
-         * decompressed by growing the output buffer as we go, so without a limit a malicious image could
-         * expand far beyond its (already bounded) compressed size. 1 GiB is generous for any real kernel. */
-        r = decompress_blob(c, payload, payload_size, &decompressed, &decompressed_size,
-                            /* dst_max= */ U64_GB);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decompress ZBOOT payload: %m");
-
-        payload = mfree(payload);
-
-        _cleanup_close_ int memfd = memfd_new("kexec-kernel");
-        if (memfd < 0)
-                return log_error_errno(memfd, "Failed to create memfd: %m");
-
-        r = loop_write(memfd, decompressed, decompressed_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write decompressed kernel to memfd: %m");
-
-        if (lseek(memfd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek memfd: %m");
-
-        return TAKE_FD(memfd);
-}
-
 static int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, const char *name) {
         int r;
 
@@ -435,61 +341,15 @@ int kexec_maybe_decompress_kernel(const char *path, int fd, int *ret_kernel_fd, 
         n = pread(fd, magic, sizeof(magic), 0);
         if (n < 0)
                 return log_error_errno(errno, "Failed to read kernel magic from '%s': %m", path);
-        if ((size_t) n < sizeof(magic))
-                /* Too small to detect, pass through as-is */
-                return 0;
 
-        if (magic[0] == 'M' && magic[1] == 'Z') {
-
-                if (magic[4] == 'z' && magic[5] == 'i' && magic[6] == 'm' && magic[7] == 'g') {
-                        struct zboot_header h;
-
-                        n = pread(fd, &h, sizeof(h), 0);
-                        if (n < 0)
-                                return log_error_errno(errno, "Failed to read ZBOOT header from '%s': %m", path);
-                        if ((size_t) n < sizeof(h))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                       "Short read of ZBOOT header from '%s'.", path);
-
-                        char comp_type[sizeof(h.comp_type) + 1];
-                        memcpy(comp_type, h.comp_type, sizeof(h.comp_type));
-                        comp_type[sizeof(h.comp_type)] = '\0';
-
-                        uint32_t payload_offset = le32toh(h.payload_offset),
-                                 payload_size = le32toh(h.payload_size);
-
-                        log_debug("Detected ZBOOT image '%s' (compression=%s, offset=%"PRIu32", size=%"PRIu32")",
-                                  path, comp_type, payload_offset, payload_size);
-
-                        r = decompress_zboot_to_memfd(fd, payload_offset, payload_size, comp_type);
-                        if (r < 0)
-                                return r;
-
-                        *ret_kernel_fd = r;
-                        return 1;
-                }
-
-                /* MZ but not ZBOOT — check if it's a UKI */
+        if ((size_t) n == sizeof(magic) && magic[0] == 'M' && magic[1] == 'Z' && memcmp(magic + 4, "zimg", 4) != 0)
                 return extract_uki(path, fd, ret_kernel_fd, ret_initrd_fd);
-        }
 
-        Compression c = compression_detect_from_magic(magic);
-        if (c < 0)
-                /* Not a recognized compressed format, pass through as-is */
-                return 0;
-
-        log_debug("Detected %s-compressed kernel '%s', decompressing.", compression_to_string(c), path);
-
-        /* Seek back to start before decompression */
-        if (lseek(fd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek kernel fd: %m");
-
-        r = decompress_to_memfd(c, fd);
+        r = kernel_decompress(fd, ret_kernel_fd);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to decompress kernel '%s': %m", path);
 
-        *ret_kernel_fd = r;
-        return 1;
+        return r;
 }
 
 int create_shutdown_run_nologin_or_warn(void) {
