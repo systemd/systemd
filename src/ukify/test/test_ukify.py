@@ -21,6 +21,7 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -873,6 +874,20 @@ def test_inspect_json_profiles(tmp_path, capsys):
     assert profile_cmdlines == ['PROFILE0ARG', 'PROFILE1ARG']
 
     shutil.rmtree(tmp_path)
+
+
+def test_parse_efifw_dir(tmp_path):
+    fwdir = tmp_path / 'fw0'
+    fwdir.mkdir()
+    payload = b'EFIFW0'
+    (fwdir / 'firmware.bin').write_bytes(payload)
+
+    fwname = fwdir.name.encode() + b'\0'
+
+    comp = (ukify.FWHEADERMAGIC, ukify.EFIFW_HEADER_SIZE, len(fwname), len(payload))
+    blob = ukify.parse_efifw_dir(fwdir)
+    assert comp == struct.unpack_from('<IIII', blob[:ukify.EFIFW_HEADER_SIZE])
+    assert (fwname + payload) == blob[ukify.EFIFW_HEADER_SIZE:]
 
 
 def test_inspect_json_alternative_set_sections(tmp_path, capsys):
