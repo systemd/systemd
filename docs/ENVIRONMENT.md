@@ -690,6 +690,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   journal. Note that journal files in compact mode are limited to 4G to allow use of
   32-bit offsets. Enabled by default.
 
+* `$SYSTEMD_JOURNAL_SEGMENTED` – Takes a boolean. If enabled, journal files are
+  written in the segmented format described in
+  [Segmented Journal File Format](JOURNAL_SEGMENTED.md). Such files can only be
+  read by systemd versions that support the format. Disabled by default.
+
 * `$SYSTEMD_JOURNAL_COMPRESS` – Takes a boolean, or one of the compression
   algorithms "XZ", "LZ4", and "ZSTD". If enabled, the default compression
   algorithm set at compile time will be used when opening a new journal file.
