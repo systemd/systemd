@@ -343,6 +343,40 @@ TEST(pe_load_sections_multi_one_past_eof) {
 }
 
 /* ======================================================================
+ * pe_read_section_data
+ * ====================================================================== */
+
+/* The bytes after the SizeOfRawData bytes of .cmdline belong to .uname, so reading .cmdline must not
+ * return them. */
+TEST(pe_read_section_data_reads_raw_data_only) {
+        size_t base = SECTION_TABLE_OFFSET + 2 * IMAGE_SECTION_HEADER_BYTES;
+        SectionSpec specs[2] = {
+                { .name = ".cmdline", .virtual_size = 32, .size_of_raw_data = 16,
+                  .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".uname",   .virtual_size = 8,  .size_of_raw_data = 16,
+                  .pointer_to_raw_data = (uint32_t) (base + 16) },
+        };
+        static const char contents[] = "0123456789abcdefABCDEFGHIJKLMNOP";
+        _cleanup_close_ int fd = build_pe_file(specs, /* n_sections= */ 2, /* override_file_size= */ 0);
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, contents, strlen(contents), base), (ssize_t) strlen(contents));
+
+        _cleanup_free_ PeHeader *pe = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        ASSERT_OK(pe_load_headers_and_sections(fd, &pe, &sections));
+
+        _cleanup_free_ void *data = NULL;
+        size_t size;
+        ASSERT_OK(pe_read_section_data(fd, sections + 0, SIZE_MAX, &data, &size));
+        ASSERT_EQ(size, 16U);
+        ASSERT_EQ(memcmp(data, "0123456789abcdef", size), 0);
+
+        data = mfree(data);
+        ASSERT_OK(pe_read_section_data(fd, sections + 1, SIZE_MAX, &data, &size));
+        ASSERT_EQ(size, 8U);
+        ASSERT_EQ(memcmp(data, "ABCDEFGH", size), 0);
+}
+
+/* ======================================================================
  * uki_hash — zero-padding cap from PLAN §3.2
  * ====================================================================== */
 
