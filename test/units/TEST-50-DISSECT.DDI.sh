@@ -17,12 +17,23 @@ fi
 openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+
+# Add IMAGE_ID and IMAGE_VERSION to host os-release so extensions declaring
+# these fields pass validation (only possible when /usr is writable).
+if [[ -w /usr/lib ]]; then
+    cp /usr/lib/os-release /usr/lib/os-release.bak
+    trap "mv /usr/lib/os-release.bak /usr/lib/os-release" EXIT
+    echo -e "IMAGE_ID=waldo\nIMAGE_VERSION=7" >>/usr/lib/os-release
+fi
+
 mkdir -p /tmp/test-50-confext/etc/extension-release.d/
 echo "foobar50" >/tmp/test-50-confext/etc/waldo
 {
     grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
-    echo IMAGE_ID=waldo
-    echo IMAGE_VERSION=7
+    if [[ -w /usr/lib ]]; then
+        echo IMAGE_ID=waldo
+        echo IMAGE_VERSION=7
+    fi
 } >/tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
 mkdir -p /run/confexts
 
@@ -50,8 +61,10 @@ mkdir -p /tmp/test-50-sysext/usr/lib/extension-release.d/
 truncate --size=50M /tmp/test-50-sysext/usr/waldo
 {
     grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
-    echo IMAGE_ID=waldo
-    echo IMAGE_VERSION=7
+    if [[ -w /usr/lib ]]; then
+        echo IMAGE_ID=waldo
+        echo IMAGE_VERSION=7
+    fi
 } >/tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
 mkdir -p /run/extensions
 
