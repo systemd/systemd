@@ -1,6 +1,7 @@
 # -*- mode: meson -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# Build identification
 option('version-tag', type : 'string',
        description : 'set the extended version string (defaults to project version)')
 option('shared-lib-tag', type : 'string',
@@ -11,8 +12,9 @@ option('vcs-tag', type : 'boolean', value : true,
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
 
-option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : 'sbin is not a symlink to bin')
+# Linking of systemd programs
+option('libc', type : 'combo', choices : ['glibc', 'musl'],
+       description : 'libc implementation to be used')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
 option('systemd-multicall-binary', type : 'boolean', value : false,
@@ -31,129 +33,180 @@ option('link-boot-shared', type: 'boolean',
        description : 'link bootctl and systemd-bless-boot against libsystemd-shared.so')
 option('link-portabled-shared', type: 'boolean',
        description : 'link systemd-portabled and its helpers to libsystemd-shared.so')
-option('first-boot-full-preset', type: 'boolean', value: false,
-       description : 'during first boot, do full preset-all (default will be changed to true later)')
 option('pack-relative-relocs', type: 'boolean', value: false,
        description : 'use pack-relative-relocs link flag (this is incompatible with glibc < 2.36)')
+option('standalone-binaries', type : 'string',
+       deprecated : { 'true' : 'repart,report,shutdown,sysusers,tmpfiles', 'false' : '' },
+       description : 'comma-separated list of patterns specifying binaries to install as .standalone')
 
+# Static linking options
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libsystemd')
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
-option('standalone-binaries', type : 'string',
-       deprecated : { 'true' : 'repart,report,shutdown,sysusers,tmpfiles', 'false' : '' },
-       description : 'comma-separated list of patterns specifying binaries to install as .standalone')
 option('build-static', type : 'boolean', value : false,
        description : 'build static versions of supported binaries')
 
-option('initrd', type : 'boolean',
-       description : 'install services for use when running systemd in initrd')
-option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
-       description : 'look at uid boundaries in /etc/login.defs for compatibility')
-option('compat-sysv-interfaces', type : 'boolean', value : true,
-       description : 'keep legacy SysV interfaces for compatibility')
-
-option('quotaon-path', type : 'string', description : 'path to quotaon')
-option('quotacheck-path', type : 'string', description : 'path to quotacheck')
-option('kmod-path', type : 'string', description : 'path to kmod')
-option('kexec-path', type : 'string', description : 'path to kexec')
-option('sulogin-path', type : 'string', description : 'path to sulogin')
-option('swapon-path', type : 'string', description : 'path to swapon')
-option('swapoff-path', type : 'string', description : 'path to swapoff')
+# Paths to programs
 option('agetty-path', type : 'string', description : 'path to agetty')
-option('mount-path', type : 'string', description : 'path to mount')
-option('umount-path', type : 'string', description : 'path to umount')
+option('kexec-path', type : 'string', description : 'path to kexec')
+option('kmod-path', type : 'string', description : 'path to kmod')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
-option('setfont-path', type : 'string', description : 'path to setfont')
+option('localegen-path', type : 'string', value : '',
+       description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
+option('mount-path', type : 'string', description : 'path to mount')
 option('nologin-path', type : 'string', description : 'path to nologin')
+option('quotacheck-path', type : 'string', description : 'path to quotacheck')
+option('quotaon-path', type : 'string', description : 'path to quotaon')
+option('setfont-path', type : 'string', description : 'path to setfont')
+option('sulogin-path', type : 'string', description : 'path to sulogin')
+option('swapoff-path', type : 'string', description : 'path to swapoff')
+option('swapon-path', type : 'string', description : 'path to swapon')
+option('umount-path', type : 'string', description : 'path to umount')
 
-option('debug-shell', type : 'string', value : '/bin/sh',
-       description : 'path to debug shell binary')
-option('debug-tty', type : 'string', value : '/dev/tty9',
-       description : 'specify the tty device for debug shell')
-option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache', 'siphash'], value : [],
-       description : 'enable extra debugging')
-option('memory-accounting-default', type : 'boolean',
-       description : 'enable MemoryAccounting= by default')
+# Various configuration settings
 option('bump-proc-sys-fs-file-max', type : 'boolean',
        description : 'bump /proc/sys/fs/file-max to LONG_MAX')
 option('bump-proc-sys-fs-nr-open', type : 'boolean',
        description : 'bump /proc/sys/fs/nr_open to INT_MAX')
+option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
+       description : 'maximum value in microseconds for the difference between RTC and epoch not considered an RTC error ["0" disables]')
+option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
+       description : 'look at uid boundaries in /etc/login.defs for compatibility')
+option('compat-sysv-interfaces', type : 'boolean', value : true,
+       description : 'keep legacy SysV interfaces for compatibility')
+option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache', 'siphash'], value : [],
+       description : 'enable extra debugging')
+option('debug-shell', type : 'string', value : '/bin/sh',
+       description : 'path to debug shell binary')
+option('debug-tty', type : 'string', value : '/dev/tty9',
+       description : 'specify the tty device for debug shell')
+option('default-keymap', type : 'string', value : 'us',
+       description : 'default keymap used when populating /etc/vconsole.conf')
+option('default-kill-user-processes', type : 'boolean',
+       description : 'the default value for KillUserProcesses= setting')
+option('default-locale', type : 'string', value : 'C.UTF-8',
+       description : 'default locale used when /etc/locale.conf does not exist')
+option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
+       description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+option('default-net-naming-scheme', type : 'string', value : 'latest',
+       description : 'default net.naming_scheme= value')
+option('default-oci-registry', type : 'string', value : 'docker.io',
+       description : 'Default OCI registry name')
+option('default-timeout-sec', type : 'integer', value : 90,
+       description : 'default timeout for system unit start/stop')
+option('default-user-shell', type : 'string', value : '/bin/bash',
+       description : 'default interactive shell')
+option('default-user-timeout-sec', type : 'integer', value : 90,
+       description : 'default timeout for user unit start/stop')
+option('extra-net-naming-schemes', type : 'string',
+       description : 'comma-separated list of extra net.naming_scheme= definitions')
+option('fallback-default-target', type : 'string', value : 'graphical.target',
+       description : 'unit to activate when default.target is not found on disk')
+option('fallback-hostname', type : 'string', value : 'localhost',
+       description : 'the hostname used if none configured')
+option('fexecve', type : 'boolean', value : false,
+       description : 'use fexecve() to spawn children')
+option('first-boot-full-preset', type: 'boolean', value: false,
+       description : 'during first boot, do full preset-all (default will be changed to true later)')
+option('gshadow', type : 'boolean',
+       description : 'support for shadow group')
+option('hostname-wordlist', type : 'boolean', value : false,
+       description : 'install default word lists for $ hostname wildcards')
+option('initrd', type : 'boolean',
+       description : 'install services for use when running systemd in initrd')
+option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
+       description : 'default storage mode for journald (main namespace)')
 option('log-trace', type : 'boolean', value : false,
        description : 'enable low level debug logging')
+option('memory-accounting-default', type : 'boolean',
+       description : 'enable MemoryAccounting= by default')
+option('nspawn-locale', type : 'string', value : 'C.UTF-8',
+       description : 'default locale used by systemd-nspawn when executing commands in a container')
+option('ok-color', type : 'combo',
+       choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
+                  'white', 'highlight-black', 'highlight-red', 'highlight-green',
+                  'highlight-yellow', 'highlight-blue', 'highlight-magenta',
+                  'highlight-cyan', 'highlight-white'],
+       value : 'green',
+       description: 'color of the "OK" status message')
+option('service-watchdog', type : 'string', value : '3min',
+       description : 'default watchdog setting for systemd services')
+option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'sbin is not a symlink to bin')
+option('status-unit-format-default', type : 'combo',
+       choices : ['auto', 'description', 'name', 'combined'],
+       description : 'use unit name or description in messages by default')
+option('support-url', type : 'string',
+       description : 'the support URL to show in catalog entries included in systemd',
+       value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')
+option('time-epoch', type : 'integer', value : 0,
+       description : 'time epoch for time clients')
+option('update-helper-user-timeout-sec', type : 'integer', value : 15,
+       description : 'timeout for user manager package operations')
+option('urlify', type : 'boolean', value : true,
+       description : 'enable pager Hyperlink ANSI sequence support')
 option('user-path', type : 'string',
        description : '$PATH to use for user sessions')
+option('www-target', type : 'string',
+       description : 'the address and dir to upload docs too',
+       value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
-option('utmp', type : 'boolean',
-       description : 'support for utmp/wtmp log handling')
-option('hibernate', type : 'boolean',
-       description : 'support for hibernation')
-option('ldconfig', type : 'boolean',
-       description : 'support for dynamic linker cache creation')
-option('resolve', type : 'boolean',
-       description : 'systemd-resolved stack')
-option('efi', type : 'boolean',
-       description : 'enable EFI support')
-option('tpm', type : 'boolean',
-       description : 'TPM should be used to log events and extend the registers')
-option('environment-d', type : 'boolean',
-       description : 'support for environment.d')
+# Enablement and installation of components
+option('analyze', type: 'boolean', value: true,
+       description : 'install systemd-analyze')
+option('backlight', type : 'boolean',
+       description : 'install systemd-backlight')
 option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
-option('repart', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'install the systemd-repart tool')
-option('sysupdate', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'install the systemd-sysupdate tool')
-option('sysupdated', type: 'combo', value : 'auto',
-       choices : ['auto', 'enabled', 'disabled'],
-       description : 'install the systemd-sysupdated service')
-option('sysinstall', type : 'boolean',
-       description : 'install the systemd-sysinstall tool')
-
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
-option('pstore', type : 'boolean',
-       description : 'install the pstore archival tool')
-option('oomd', type : 'boolean',
-       description : 'install the userspace oom killer')
-option('logind', type : 'boolean',
-       description : 'install the systemd-logind stack')
-option('hostnamed', type : 'boolean',
-       description : 'install the systemd-hostnamed stack')
-option('localed', type : 'boolean',
-       description : 'install the systemd-localed stack')
-option('machined', type : 'boolean',
-       description : 'install the systemd-machined stack')
-option('portabled', type : 'boolean',
-       description : 'install the systemd-portabled stack')
-option('sysext', type : 'boolean',
-       description : 'install the systemd-sysext stack')
-option('mountfsd', type : 'boolean',
-       description : 'install the systemd-mountfsd stack')
-option('userdb', type : 'boolean',
-       description : 'install the systemd-userdbd stack')
-option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'install the systemd-homed stack')
-option('networkd', type : 'boolean',
-       description : 'install the systemd-networkd stack')
+option('create-log-dirs', type : 'boolean',
+       description : 'create /var/log/journal{,/remote}')
 option('default-network', type : 'boolean', value : false,
        description : 'install default .network files')
-option('timedated', type : 'boolean',
-       description : 'install the systemd-timedated daemon')
-option('timesyncd', type : 'boolean',
-       description : 'install the systemd-timesyncd daemon')
+option('efi', type : 'boolean',
+       description : 'enable EFI support')
+option('environment-d', type : 'boolean',
+       description : 'support for environment.d')
+option('firstboot', type : 'boolean',
+       description : 'install systemd-firstboot')
+option('hibernate', type : 'boolean',
+       description : 'support for hibernation')
+option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install the systemd-homed stack')
+option('hostnamed', type : 'boolean',
+       description : 'install the systemd-hostnamed stack')
+option('hwdb', type : 'boolean',
+       description : 'support for the hardware database')
 option('imds', type : 'feature',
        description : 'install the systemd-imds stack')
 option('imds-network', type : 'combo', choices : ['unlocked', 'locked'],
        description : 'whether to default to locked/unlocked IMDS network mode')
-option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
-       description : 'default storage mode for journald (main namespace)')
-option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'support for "journal over the network"')
-option('create-log-dirs', type : 'boolean',
-       description : 'create /var/log/journal{,/remote}')
+option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install the systemd-importd daemon')
+option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
+       description : 'install configuration files and directories')
+option('kernel-install', type: 'boolean', value: true,
+       description : 'install kernel-install and associated files')
+option('ldconfig', type : 'boolean',
+       description : 'install ldconfig.service')
+option('localed', type : 'boolean',
+       description : 'install the systemd-localed stack')
+option('logind', type : 'boolean',
+       description : 'install the systemd-logind stack')
+option('machined', type : 'boolean',
+       description : 'install the systemd-machined stack')
+option('measure', type : 'feature',
+       description : 'install the systemd-measure tool')
+option('mountfsd', type : 'boolean',
+       description : 'install the systemd-mountfsd stack')
+option('networkd', type : 'boolean',
+       description : 'install the systemd-networkd stack')
+option('nspawn', type : 'feature',
+       description : 'build and install systemd-nspawn')
 option('nsresourced', type : 'boolean',
        description : 'install the systemd-nsresourced stack')
 option('nss-myhostname', type : 'boolean',
@@ -164,34 +217,61 @@ option('nss-resolve', type : 'feature', deprecated : { 'true' : 'enabled', 'fals
        description : 'install nss-resolve module')
 option('nss-systemd', type : 'boolean',
        description : 'install nss-systemd module')
-option('firstboot', type : 'boolean',
-       description : 'support for firstboot mechanism')
+option('oomd', type : 'boolean',
+       description : 'install the userspace oom killer')
+option('portabled', type : 'boolean',
+       description : 'install the systemd-portabled stack')
+option('pstore', type : 'boolean',
+       description : 'install the pstore archival tool')
+option('quotacheck', type : 'boolean',
+       description : 'support for the quotacheck tools')
 option('randomseed', type : 'boolean',
-       description : 'support for restoring random seed')
-option('backlight', type : 'boolean',
-       description : 'support for restoring backlight state')
+       description : 'install systemd-random-seed.service')
+option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'support for "journal over the network"')
+option('repart', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install the systemd-repart tool')
+option('report', type : 'feature',
+       description : 'install the systemd-report stack')
+option('resolve', type : 'boolean',
+       description : 'systemd-resolved stack')
+option('rfkill', type : 'boolean',
+       description : 'support for the rfkill tools')
+option('storagetm', type : 'boolean',
+       description : 'support for Storage Target Mode')
+option('sysext', type : 'boolean',
+       description : 'install the systemd-sysext stack')
+option('sysinstall', type : 'boolean',
+       description : 'install the systemd-sysinstall tool')
+option('sysupdate', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install the systemd-sysupdate tool')
+option('sysupdated', type: 'combo', value : 'auto',
+       choices : ['auto', 'enabled', 'disabled'],
+       description : 'install the systemd-sysupdated service')
+option('sysusers', type : 'boolean',
+       description : 'support for the sysusers configuration')
+option('timedated', type : 'boolean',
+       description : 'install the systemd-timedated daemon')
+option('timesyncd', type : 'boolean',
+       description : 'install the systemd-timesyncd daemon')
+option('tpm', type : 'boolean',
+       description : 'TPM should be used to log events and extend the registers')
+option('tmpfiles', type : 'boolean',
+       description : 'support for tmpfiles.d')
+option('userdb', type : 'boolean',
+       description : 'install the systemd-userdbd stack')
+option('ukify', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install ukify')
+option('utmp', type : 'boolean',
+       description : 'support for utmp/wtmp log handling')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
 option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-vmspawn tool')
-option('quotacheck', type : 'boolean',
-       description : 'support for the quotacheck tools')
-option('sysusers', type : 'boolean',
-       description : 'support for the sysusers configuration')
-option('storagetm', type : 'boolean',
-       description : 'support for Storage Target Mode')
-option('tmpfiles', type : 'boolean',
-       description : 'support for tmpfiles.d')
-option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'install the systemd-importd daemon')
-option('hwdb', type : 'boolean',
-       description : 'support for the hardware database')
-option('rfkill', type : 'boolean',
-       description : 'support for the rfkill tools')
 option('xdg-autostart', type : 'boolean',
        description : 'install the xdg-autostart-generator and unit')
-option('nspawn', type : 'feature',
-       description : 'build and install systemd-nspawn')
+
+# Documentation and translations
 option('man', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        value : 'disabled',
        description : 'build and install man pages')
@@ -201,8 +281,11 @@ option('html', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
 option('translations', type : 'boolean', value : true,
        description : 'build and install translations')
 
+# Installation paths
 option('certificate-root', type : 'string', value : '/etc/ssl',
        description : 'the prefix for TLS certificates')
+option('configfiledir', type : 'string', value : '',
+       description : 'directory for configuration files')
 option('dbuspolicydir', type : 'string',
        description : 'D-Bus policy directory')
 option('dbussessionservicedir', type : 'string',
@@ -211,61 +294,32 @@ option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
 option('dbus-interfaces-dir', type : 'string',
        description : 'export D-Bus introspection XML as standalone files')
-option('default-timeout-sec', type : 'integer', value : 90,
-       description : 'default timeout for system unit start/stop')
-option('default-user-timeout-sec', type : 'integer', value : 90,
-       description : 'default timeout for user unit start/stop')
-option('pkgconfigdatadir', type : 'string', value : '',
-       description : 'directory for arch-independent pkg-config files')
-option('pkgconfiglibdir', type : 'string', value : '',
-       description : 'directory for standard pkg-config files')
-option('xinitrcdir', type : 'string', value : '',
-       description : 'directory for xinitrc files')
-option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
-       description : 'directory for rpm macros ["no" disables]')
-option('update-helper-user-timeout-sec', type : 'integer', value : 15,
-       description : 'timeout for user manager package operations')
+option('docdir', type : 'string',
+       description : 'documentation directory')
+option('libcryptsetup-plugins-dir', type : 'string',
+       description : 'directory for libcryptsetup plugins')
 option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('pkgconfigdatadir', type : 'string', value : '',
+       description : 'directory for arch-independent pkg-config files')
+option('pkgconfiglibdir', type : 'string', value : '',
+       description : 'directory for standard pkg-config files')
+option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
+       description : 'directory for rpm macros ["no" disables]')
 option('sshconfdir', type : 'string',
        description : 'directory for SSH client configuration ["no" disables]')
 option('sshdconfdir', type : 'string',
        description : 'directory for SSH server configuration ["no" disables]')
 option('sshdprivsepdir', type : 'string',
        description : 'directory for SSH privilege separation ["no" disables]', value : '/run/sshd')
-option('libcryptsetup-plugins-dir', type : 'string',
-       description : 'directory for libcryptsetup plugins')
 option('shellprofiledir', type : 'string',
        description : 'directory for Shell profile drop-ins ["no" disables]')
-option('docdir', type : 'string',
-       description : 'documentation directory')
-option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
-       description : 'install configuration files and directories')
-option('configfiledir', type : 'string', value : '',
-       description : 'directory for configuration files')
+option('xinitrcdir', type : 'string', value : '',
+       description : 'directory for xinitrc files')
 
-option('fallback-hostname', type : 'string', value : 'localhost',
-       description : 'the hostname used if none configured')
-option('hostname-wordlist', type : 'boolean', value : false,
-       description : 'install default word lists for $ hostname wildcards')
-option('extra-net-naming-schemes', type : 'string',
-       description : 'comma-separated list of extra net.naming_scheme= definitions')
-option('default-net-naming-scheme', type : 'string', value : 'latest',
-       description : 'default net.naming_scheme= value')
-option('status-unit-format-default', type : 'combo',
-       choices : ['auto', 'description', 'name', 'combined'],
-       description : 'use unit name or description in messages by default')
-option('time-epoch', type : 'integer', value : 0,
-       description : 'time epoch for time clients')
-option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
-       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
-option('default-user-shell', type : 'string', value : '/bin/bash',
-       description : 'default interactive shell')
-option('fallback-default-target', type : 'string', value : 'graphical.target',
-       description : 'unit to activate when default.target is not found on disk')
-
+# UID/GID allocation and related properties
 option('system-alloc-uid-min', type : 'integer', value : 0,
        description : 'minimum system UID used when allocating')
 option('system-alloc-gid-min', type : 'integer', value : 0,
@@ -357,21 +411,8 @@ option('var-log-mode', type : 'combo',
        description : 'Access mode for /var/log directory.',
        choices : ['0755', '0775'],
        value : '0755')
-option('default-kill-user-processes', type : 'boolean',
-       description : 'the default value for KillUserProcesses= setting')
-option('gshadow', type : 'boolean',
-       description : 'support for shadow group')
-option('default-locale', type : 'string', value : 'C.UTF-8',
-       description : 'default locale used when /etc/locale.conf does not exist')
-option('nspawn-locale', type : 'string', value : 'C.UTF-8',
-       description : 'default locale used by systemd-nspawn when executing commands in a container')
-option('default-keymap', type : 'string', value : 'us',
-       description : 'default keymap used when populating /etc/vconsole.conf')
-option('localegen-path', type : 'string', value : '',
-       description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
-option('service-watchdog', type : 'string', value : '3min',
-       description : 'default watchdog setting for systemd services')
 
+# DNS/DNSSEC
 option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',
        choices : ['yes', 'allow-downgrade', 'no'],
@@ -397,54 +438,56 @@ option('dns-servers', type : 'string',
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
-option('support-url', type : 'string',
-       description : 'the support URL to show in catalog entries included in systemd',
-       value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')
-option('www-target', type : 'string',
-       description : 'the address and dir to upload docs too',
-       value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
+# Support for MACs, BPF, and polkit
+option('apparmor', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'AppArmor support')
+option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
+       description : 'compiler used to build BPF programs')
+option('bpf-framework', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'build BPF programs from source code in restricted C')
+option('ima', type : 'boolean',
+       description : 'IMA support')
+option('ipe', type : 'boolean',
+       description : 'IPE support')
+option('polkit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'polkit support')
 option('seccomp', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'SECCOMP support')
 option('selinux', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'SELinux support')
-option('apparmor', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'AppArmor support')
 option('smack', type : 'boolean',
        description : 'SMACK support')
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('smack-default-process-label', type : 'string',
        description : 'default SMACK label for executed processes')
-option('polkit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'polkit support')
-option('ima', type : 'boolean',
-       description : 'IMA support')
-option('ipe', type : 'boolean',
-       description : 'IPE support')
 
-option('libc', type : 'combo', choices : ['glibc', 'musl'],
-       description : 'libc implementation to be used')
+# Use of various dependencies
 option('acl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libacl support')
 option('audit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libaudit support')
 option('blkid', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libblkid support')
+option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libdbus support (for tests only)')
+option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'elfutils support')
 option('fdisk', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libfdisk support')
+option('gcrypt', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'gcrypt support')
+option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libglib support (for tests only)')
+option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'gnutls support')
+option('idn', type : 'boolean',
+       description : 'use IDN when printing hostnames')
 option('kmod', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for loadable modules')
-option('xenctrl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'support for Xen kexec')
-option('pam', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'PAM support')
-option('passwdqc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libpasswdqc support')
-option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libpwquality support')
-option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libµhttpd support')
+option('libarchive', type : 'feature',
+       description : 'libarchive support')
 option('libcrypt', type : 'feature',
        description : 'libcrypt/libxcrypt support')
 option('libcryptsetup', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -453,28 +496,42 @@ option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabl
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
-option('idn', type : 'boolean',
-       description : 'use IDN when printing hostnames')
+option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'FIDO2 support')
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
-option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libqrencode support')
-option('gcrypt', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'gcrypt support')
-option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'gnutls support')
+option('libmount', type : 'feature',
+       description : 'libmount support')
+option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libµhttpd support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
-option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'FIDO2 support')
+option('pam', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'PAM support')
+option('passwdqc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libpasswdqc support')
+option('pcre2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'regexp matching support using pcre2')
+option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libpwquality support')
+option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libqrencode support')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
 option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,
        description : 'Base for TPM2 nvindex based PCRs')
-option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'elfutils support')
+option('vmlinux-h', type : 'combo', choices : ['auto', 'provided', 'generated', 'disabled'],
+       description : 'which vmlinux.h to use')
+option('vmlinux-h-path', type : 'string', value : '',
+       description : 'path to vmlinux.h to use')
+option('xenctrl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'support for Xen kexec')
+option('xkbcommon', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'xkbcommon keymap support')
+
+# Support for compression algorithms
 option('zlib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'zlib compression support')
 option('bzip2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -487,19 +544,8 @@ option('zstd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'zstd compression support')
 option('default-compression', type : 'combo', choices : ['auto', 'zstd', 'lz4', 'xz'], value: 'auto',
        description : 'default compression algorithm')
-option('xkbcommon', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'xkbcommon keymap support')
-option('pcre2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'regexp matching support using pcre2')
-option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libglib support (for tests only)')
-option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libdbus support (for tests only)')
-option('libarchive', type : 'feature',
-       description : 'libarchive support')
-option('libmount', type : 'feature',
-       description : 'libmount support')
 
+# Bootloader options
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')
 option('sbat-distro', type : 'string', value : 'auto',
@@ -532,6 +578,7 @@ option('bashcompletiondir', type : 'string',
 option('zshcompletiondir', type : 'string',
        description : 'directory for zsh completion scripts ["no" disables]')
 
+# Tests
 option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
 option('dlopen-tests', type : 'boolean', value : false,
@@ -545,40 +592,7 @@ option('install-tests', type : 'boolean', value : false,
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
 
-option('ok-color', type : 'combo',
-       choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
-                  'white', 'highlight-black', 'highlight-red', 'highlight-green',
-                  'highlight-yellow', 'highlight-blue', 'highlight-magenta',
-                  'highlight-cyan', 'highlight-white'],
-       value : 'green',
-       description: 'color of the "OK" status message')
-option('urlify', type : 'boolean', value : true,
-       description : 'enable pager Hyperlink ANSI sequence support')
-option('fexecve', type : 'boolean', value : false,
-       description : 'use fexecve() to spawn children')
-
 option('oss-fuzz', type : 'boolean', value : false,
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : false,
        description : 'build against LLVM libFuzzer')
-option('kernel-install', type: 'boolean', value: true,
-       description : 'install kernel-install and associated files')
-option('ukify', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'install ukify')
-option('analyze', type: 'boolean', value: true,
-       description : 'install systemd-analyze')
-
-option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
-       description : 'compiler used to build BPF programs')
-option('bpf-framework', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'build BPF programs from source code in restricted C')
-option('vmlinux-h', type : 'combo', choices : ['auto', 'provided', 'generated', 'disabled'],
-       description : 'which vmlinux.h to use')
-option('vmlinux-h-path', type : 'string', value : '',
-       description : 'path to vmlinux.h to use')
-
-option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
-       description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
-
-option('default-oci-registry', type : 'string', value : 'docker.io',
-       description : 'Default OCI registry name')
