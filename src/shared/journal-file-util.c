@@ -377,8 +377,10 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 assert_se(sigdelset(&ss, SIGBUS) >= 0);
 
                 r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
-                if (r > 0)
+                if (r > 0) {
+                        f->offline_state = OFFLINE_JOINED;
                         return -r;
+                }
 
                 r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
 
