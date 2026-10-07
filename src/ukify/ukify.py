@@ -1243,8 +1243,8 @@ NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
 DEVICE_TYPE_DEVICETREE = 1
 DEVICE_TYPE_UEFI_FW = 2
 
-# Keep in sync with efifirmware.h
-FWHEADERMAGIC = 'feeddead'
+# Keep in sync with src/boot/efi-firmware.h
+FWHEADERMAGIC = 0xfeeddead
 EFIFW_HEADER_SIZE = 4 + 4 + 4 + 4
 
 
@@ -1350,27 +1350,16 @@ def parse_efifw_dir(path: Path) -> bytes:
     for fw in path.iterdir():
         payload_blob += fw.read_bytes()
 
-    payload_len = len(payload_blob)
-    if payload_len == 0:
+    if len(payload_blob) == 0:
         raise ValueError(f'{fw} is a zero byte file!')
 
-    dirname = path.parts[-1]
     # firmware id is the name of the directory the firmware bundle is in,
     # terminated by NULL.
-    fwid = b'' + dirname.encode() + b'\0'
-    fwid_len = len(fwid)
-    magic = bytes.fromhex(FWHEADERMAGIC)
+    fwid = path.resolve().name.encode() + b'\0'
 
-    efifw_header_blob = b''
-    efifw_header_blob += struct.pack('<p', magic)
-    efifw_header_blob += struct.pack('<I', EFIFW_HEADER_SIZE)
-    efifw_header_blob += struct.pack('<I', fwid_len)
-    efifw_header_blob += struct.pack('<I', payload_len)
+    efifw_header_blob = struct.pack('<IIII', FWHEADERMAGIC, EFIFW_HEADER_SIZE, len(fwid), len(payload_blob))
 
-    efifw_blob = b''
-    efifw_blob += efifw_header_blob + fwid + payload_blob
-
-    return efifw_blob
+    return efifw_header_blob + fwid + payload_blob
 
 
 STUB_SBAT = '''\
