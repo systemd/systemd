@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "crypto-util.h"
+#include "memory-util.h"
+#include "string-util.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -633,6 +636,46 @@ TEST(string_hashsum) {
         ASSERT_OK(string_hashsum("", 0, "SHA256", &out4));
         /* echo -n '' | sha256sum - */
         ASSERT_STREQ(out4, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+}
+
+TEST(x509_new_self_signed) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL, *cert2 = NULL;
+        _cleanup_(erase_and_freep) char *key_pem = NULL;
+        _cleanup_free_ char *pubkey_pem = NULL, *cert_pubkey_pem = NULL;
+
+        ASSERT_OK(rsa_pkey_new(2048, &key));
+        ASSERT_OK(openssl_private_key_to_pem_traditional(key, &key_pem));
+        ASSERT_TRUE(startswith(key_pem, "-----BEGIN RSA PRIVATE KEY-----\n"));
+
+        ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *cert_pubkey = ASSERT_NOT_NULL(sym_X509_get_pubkey(cert));
+        ASSERT_OK(openssl_pubkey_to_pem(key, &pubkey_pem));
+        ASSERT_OK(openssl_pubkey_to_pem(cert_pubkey, &cert_pubkey_pem));
+        ASSERT_STREQ(pubkey_pem, cert_pubkey_pem);
+
+        _cleanup_free_ char *subject = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_subject_name(cert), NULL, 0));
+        ASSERT_STREQ(subject, "/CN=systemd test");
+        _cleanup_free_ char *issuer = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_issuer_name(cert), NULL, 0));
+        ASSERT_STREQ(issuer, subject);
+        ASSERT_EQ(sym_X509_verify(cert, key), 1);
+
+        ASSERT_ERROR(x509_new_self_signed(key, "systemd test", UINT_MAX, &cert2), ERANGE);
+}
+
+TEST(x509_new_self_signed_ed25519) {
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL;
+
+        ASSERT_OK(dlopen_libcrypto(LOG_DEBUG));
+
+        ctx = ASSERT_NOT_NULL(sym_EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen_init(ctx));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen(ctx, &key));
+
+        ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+        ASSERT_EQ(sym_X509_verify(cert, key), 1);
 }
 
 static int intro(void) {
