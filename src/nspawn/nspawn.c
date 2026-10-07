@@ -1068,7 +1068,7 @@ static int parse_argv(int argc, char *argv[]) {
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
 
-                                r = extract_first_word(&items, &word, NULL, 0);
+                                r = extract_first_word(&items, &word, /* separators= */ WHITESPACE ",", 0);
                                 if (r == 0)
                                         break;
                                 if (r == -ENOMEM)

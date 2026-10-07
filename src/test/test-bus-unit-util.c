@@ -497,6 +497,7 @@ TEST(execute_properties) {
                         "RestrictFileSystems=~tmpfs",
                         "SystemCallFilter=@system-service",
                         "SystemCallFilter=read write open close",
+                        "SystemCallFilter=read,write,open,close",
                         "SystemCallFilter=~@debug",
                         "SystemCallLog=@system-service",
                         "SystemCallLog=read write open",

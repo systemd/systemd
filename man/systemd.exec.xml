@@ -2925,9 +2925,9 @@ RestrictNamespaces=~cgroup net</programlisting>
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names or system call groups. If this
-        setting is used, system calls executed by the unit processes except for the listed ones will result
-        in the system call being denied (allow-listing). If the first character of the list is
+        <listitem><para>Takes a comma- or space-separated list of system call names or system call groups. If
+        this setting is used, system calls executed by the unit processes except for the listed ones will
+        result in the system call being denied (allow-listing). If the first character of the list is
         <literal>~</literal>, the effect is inverted: only the listed system calls will be denied
         (deny-listing). This option may be specified more than once, in which case the filter masks are
         merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
