@@ -6,7 +6,7 @@ _systemd_notify() {
     local cur prev words cword split
     local i mode=notify do_exec=false after_separator=false parse_options=true
     local OPTS='-h --help --version --ready --reloading --stopping --pid= --uid= --status=
-                --booted --no-block --exec --fd= --fdname= --fork -q --quiet'
+                --booted --no-block --exec --fd= --fdname= --fdstore-wipe --fork -q --quiet'
 
     _init_completion -s || return
 

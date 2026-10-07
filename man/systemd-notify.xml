@@ -241,6 +241,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fdstore-wipe</option></term>
+
+        <listitem><para>Remove all file descriptors from the service's file descriptor store. This is
+        equivalent to sending <literal>FDSTOREWIPE=1</literal> via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fork</option></term>
 
         <listitem><para>Instead of sending a notification message, fork off a command line and wait until a
