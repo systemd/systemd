@@ -1045,36 +1045,6 @@ static int boot_entry_load_unified(
         return 0;
 }
 
-static int pe_load_headers_and_sections(
-                int fd,
-                const char *path,
-                IMAGE_SECTION_HEADER **ret_sections,
-                PeHeader **ret_pe_header) {
-
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
-        int r;
-
-        assert(fd >= 0);
-        assert(path);
-
-        r = pe_load_headers(fd, &dos_header, &pe_header);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PE file '%s': %m", path);
-
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PE sections of '%s': %m", path);
-
-        if (ret_pe_header)
-                *ret_pe_header = TAKE_PTR(pe_header);
-        if (ret_sections)
-                *ret_sections = TAKE_PTR(sections);
-
-        return 0;
-}
-
 static const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
                 const PeHeader *pe_header,
                 const IMAGE_SECTION_HEADER *sections,
@@ -1178,9 +1148,9 @@ int pe_find_uki_sections(
         assert(path);
         assert(profile != UINT_MAX);
 
-        r = pe_load_headers_and_sections(fd, path, &sections, &pe_header);
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse PE file '%s': %m", path);
 
         if (!pe_is_uki(pe_header, sections))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
@@ -1270,9 +1240,9 @@ static int pe_find_addon_sections(
         assert(path);
         assert(ret_cmdline);
 
-        r = pe_load_headers_and_sections(fd, path, &sections, &pe_header);
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse PE file '%s': %m", path);
 
         if (!pe_is_addon(pe_header, sections))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parse PE file '%s' is not an add-on.", path);
