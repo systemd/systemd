@@ -11,7 +11,7 @@ set -o pipefail
 
 BACKEND_SOCK="/tmp/test-proxyd-backend.sock"
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop test-proxyd-backend.service 2>/dev/null
     systemctl stop test-proxyd.socket 2>/dev/null
@@ -19,7 +19,7 @@ at_exit() {
     rm -f "$BACKEND_SOCK"
     rm -f /run/systemd/system/test-proxyd.socket /run/systemd/system/test-proxyd.service
     systemctl daemon-reload 2>/dev/null
-}
+)
 trap at_exit EXIT
 
 # Start a backend echo server via systemd-run

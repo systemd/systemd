@@ -510,7 +510,7 @@ trap - EXIT
 FAKE_SERVER=/usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
 CERTDIR=$(mktemp -d)
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop fake-report-server fake-report-server-tls
     systemctl stop systemd-report.socket systemd-report-files.socket systemd-report-sign-plain.socket
@@ -519,7 +519,7 @@ at_exit() {
     rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
     rmdir /run/systemd/report.files/dirshadowed 2>/dev/null
     rm -rf "$CERTDIR" "${SIGN_WORK:-}"
-}
+)
 trap at_exit EXIT
 
 systemd-run -p Type=notify --unit=fake-report-server "$FAKE_SERVER"

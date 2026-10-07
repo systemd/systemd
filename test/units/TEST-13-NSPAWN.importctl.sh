@@ -11,12 +11,12 @@ export PAGER=
 
 TEST_CMDLINE="/tmp/proc-cmdline.$RANDOM"
 
-at_exit() {
+at_exit() (
     set +e
     umount -l -R /var/lib/confexts
     rm -f /var/tmp/importtest /var/tmp/importtest2 /var/tmp/importtest.tar.gz /var/tmp/importtest2.tar.gz "$TEST_CMDLINE"
     mountpoint -q /proc/cmdline && umount /proc/cmdline
-}
+)
 
 trap at_exit EXIT
 

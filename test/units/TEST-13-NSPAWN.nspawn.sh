@@ -37,7 +37,7 @@ set -o pipefail
 export SYSTEMD_LOG_LEVEL=debug
 export SYSTEMD_LOG_TARGET=journal
 
-at_exit() {
+at_exit() (
     set +e
 
     mountpoint -q /var/lib/machines && umount --recursive /var/lib/machines
@@ -45,7 +45,7 @@ at_exit() {
 
     rm -fr /var/tmp/TEST-13-NSPAWN.*
     rm -f /run/verity.d/test-13-nspawn-*.crt
-}
+)
 
 trap at_exit EXIT
 

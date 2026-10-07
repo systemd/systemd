@@ -9,13 +9,13 @@ set -o pipefail
 KEY=""
 SOCKET_DIR=""
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop waldo-ask-pw-agent.service
     systemctl stop test-askpw.service
     [[ -n "$KEY" ]] && keyctl unlink "$KEY" @u
     rm -rf "$SOCKET_DIR"
-}
+)
 
 trap at_exit EXIT
 

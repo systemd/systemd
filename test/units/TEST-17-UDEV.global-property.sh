@@ -17,13 +17,13 @@ test_property() {
 }
 
 # shellcheck disable=SC2317
-cleanup() {
+cleanup() (
     set +e
 
     udevadm control -p FOO= -p BAR=
 
     rm -f "$rules"
-}
+)
 
 # Set up a test device
 trap cleanup EXIT

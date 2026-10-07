@@ -17,7 +17,7 @@ if [[ -s /failed ]]; then
     exit 1
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     mountpoint -q /proc/cmdline && umount /proc/cmdline
@@ -27,7 +27,7 @@ at_exit() {
     [[ -n "${WORKDIR:-}" ]] && rm -rf "$WORKDIR"
 
     systemctl daemon-reload
-}
+)
 
 trap at_exit EXIT
 

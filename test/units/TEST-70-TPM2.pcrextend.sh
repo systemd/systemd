@@ -14,7 +14,7 @@ if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 16 || ! tpm_has_pcr sh
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     if [[ $? -ne 0 ]]; then
         # Dump the event log on fail, to make debugging a bit easier
         jq --seq --slurp </run/log/systemd/tpm2-measure.log
@@ -29,7 +29,7 @@ at_exit() {
     rm -rf /run/systemd/system/systemd-pcrextend.socket.d
     systemctl daemon-reload
     rm -f /tmp/oldpcr16 /tmp/oldpcr15 /tmp/newpcr16 /tmp/newpcr15
-}
+)
 
 trap at_exit EXIT
 

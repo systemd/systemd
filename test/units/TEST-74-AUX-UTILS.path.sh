@@ -8,11 +8,11 @@ set -o pipefail
 
 USER_DIRS_CONF="/root/.config/user-dirs.dirs"
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -fv "${USER_DIRS_CONF:?}"
-}
+)
 
 trap at_exit EXIT
 

@@ -11,13 +11,13 @@ if ! check_nss_module mymachine; then
     exit 0
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     machinectl kill --signal=KILL nss-mymachines-{noip,singleip,manyips}
     mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     rm -f /run/systemd/nspawn/*.nspawn
-}
+)
 
 trap at_exit EXIT
 

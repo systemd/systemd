@@ -17,7 +17,7 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     umount -R /tmp/unpriv/mount
@@ -25,7 +25,7 @@ at_exit() {
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
     rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
-}
+)
 
 trap at_exit EXIT
 

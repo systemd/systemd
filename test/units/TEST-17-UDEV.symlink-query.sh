@@ -20,14 +20,14 @@ assert_array_contains() {
 }
 
 # shellcheck disable=SC2329
-cleanup() {
+cleanup() (
     set +e
 
     rm -f "$rules"
     udevadm control --reload
     udevadm trigger --settle --action change /dev/null /dev/full
     rm -rf /dev/test-udevadm-symlink-query
-}
+)
 
 rules="/run/udev/rules.d/99-test-17.symlink-query.rules"
 

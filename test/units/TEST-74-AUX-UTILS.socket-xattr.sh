@@ -18,14 +18,14 @@ fi
 UNIT_SOCKET_PATH="/run/test-socket-xattr.sock"
 RUN_SOCKET_PATH="/run/test-socket-xattr-run.sock"
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop test-socket-xattr.socket test-socket-xattr-run.socket
     systemctl reset-failed test-socket-xattr-run.socket test-socket-xattr-run.service
     rm -f /run/systemd/system/test-socket-xattr.socket
     rm -f /run/systemd/system/test-socket-xattr.service
     systemctl daemon-reload
-}
+)
 trap at_exit EXIT
 
 # Read the single user.varlink extended attribute value off the given path.

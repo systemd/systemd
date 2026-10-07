@@ -17,14 +17,14 @@ fi
 ENTRYPOINT_PATH="/run/test-list-sockets-entrypoint.sock"
 PLAIN_PATH="/run/test-list-sockets-plain.sock"
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop test-list-sockets-entrypoint.socket
     systemctl reset-failed test-list-sockets-entrypoint.socket test-list-sockets-entrypoint.service
     systemctl stop test-list-sockets-plain.socket
     systemctl reset-failed test-list-sockets-plain.socket test-list-sockets-plain.service
     rm -f "$ENTRYPOINT_PATH" "$PLAIN_PATH"
-}
+)
 trap at_exit EXIT
 
 rm -f "$ENTRYPOINT_PATH" "$PLAIN_PATH"

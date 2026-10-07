@@ -11,7 +11,7 @@ export SYSTEMD_LOG_LEVEL=debug
 export SYSTEMD_LOG_TARGET=journal
 
 # shellcheck disable=SC2317
-at_exit() {
+at_exit() (
     set +e
 
     mountpoint -q /var/lib/machines && umount /var/lib/machines
@@ -19,7 +19,7 @@ at_exit() {
     [[ -n "${NETNS:-}" ]] && umount "$NETNS" && rm -f "$NETNS"
     [[ -n "${TMPDIR:-}" ]] && rm -fr "$TMPDIR"
     rm -f /run/systemd/nspawn/*.nspawn
-}
+)
 
 trap at_exit EXIT
 

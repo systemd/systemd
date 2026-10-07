@@ -31,7 +31,7 @@ EOF
 }
 
 # shellcheck disable=SC2317
-teardown() {
+teardown() (
     set +e
 
     if [[ -n "$KILL_PID" ]]; then
@@ -41,7 +41,7 @@ teardown() {
     rm -rf "$TMPDIR"
     rm -f "$TEST_RULE" "$TEST_CONF"
     systemctl reload systemd-udevd.service
-}
+)
 
 run_test_timeout() {
     TMPDIR=$(mktemp -d -p /tmp udev-tests.XXXXXX)

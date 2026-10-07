@@ -21,13 +21,13 @@ fi
 MACHINE="coco-snp-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"
-at_exit() {
+at_exit() (
     set +e
     jobs -p | xargs -r kill 2>/dev/null
     machinectl terminate "$MACHINE-honest" 2>/dev/null || :
     machinectl terminate "$MACHINE-hostile" 2>/dev/null || :
     rm -rf "$WORKDIR"
-}
+)
 trap at_exit EXIT
 
 # General test case for SNP direct boot, covers:

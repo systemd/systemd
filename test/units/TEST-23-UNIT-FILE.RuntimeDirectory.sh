@@ -5,11 +5,11 @@
 set -eux
 set -o pipefail
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -fr /run/hoge /tmp/aaa
-}
+)
 
 trap at_exit EXIT
 

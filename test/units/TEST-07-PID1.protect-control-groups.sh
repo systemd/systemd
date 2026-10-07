@@ -15,12 +15,12 @@ UNIT_PREFIX="test-07-protect-control-groups"
 READ_ONLY_MOUNT_FLAG="ro"
 READ_WRITE_MOUNT_FLAG="rw"
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop "$UNIT_PREFIX*.service"
     systemctl reset-failed
-}
+)
 
 trap at_exit EXIT
 

@@ -422,7 +422,7 @@ EOF
     rm -f /run/systemd/network/ntp99.*
 }
 
-teardown_timesyncd_resolve() {
+teardown_timesyncd_resolve() (
     set +eu
 
     systemctl start systemd-resolved-varlink.socket
@@ -431,7 +431,7 @@ teardown_timesyncd_resolve() {
     rm -rf /run/systemd/system/systemd-timesyncd.service.d
     systemctl daemon-reload
     systemctl stop systemd-timesyncd
-}
+)
 
 testcase_timesyncd_resolve() {
     local cursor
@@ -480,14 +480,14 @@ EOF
     assert_timesyncd_log "$cursor" "Failed to connect to systemd-resolved, using getaddrinfo"
 }
 
-teardown_timedated_alternate_paths() {
+teardown_timedated_alternate_paths() (
     set +eu
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
     rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
-}
+)
 
 testcase_timedated_alternate_paths() {
     trap teardown_timedated_alternate_paths RETURN

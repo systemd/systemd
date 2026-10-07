@@ -183,11 +183,10 @@ file_write_cleanup() {
     # Avoid re-running this function. E.g. At both SIGINT and EXIT.
     (( CLEANUP_DONE )) && return
     CLEANUP_DONE=1
-    set +e
 
     # Remove all the mounts and directories we created
     # These variables reset to empty arrays when the subprocess concludes.
-    umount "${CLEANUP_MOUNTS[@]}"
+    umount "${CLEANUP_MOUNTS[@]}" || :
     rm -rf "${CLEANUP_PATHS[@]}"
 }
 

@@ -11,7 +11,7 @@ set -o pipefail
 
 # Setup shared stuff & run all subtests
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f "${BTRFS_MEMBER1:-}" "${BTRFS_MEMBER2:-}"
@@ -32,7 +32,7 @@ at_exit() {
     rm -f /etc/polkit-1/rules.d/sysext-unpriv.rules
 
     loginctl disable-linger testuser
-}
+)
 
 trap at_exit EXIT
 

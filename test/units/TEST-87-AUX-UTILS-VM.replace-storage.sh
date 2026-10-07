@@ -61,7 +61,7 @@ fi
 
 WORKDIR="$(mktemp -d /tmp/test-replace-storage.XXXXXXXXXX)"
 
-at_exit() {
+at_exit() (
     set +e
     if [[ -n "${MACHINE:-}" ]]; then
         if machinectl status "$MACHINE" &>/dev/null; then
@@ -72,7 +72,7 @@ at_exit() {
     [[ -n "${VMSPAWN_PID:-}" ]] && { kill "$VMSPAWN_PID" 2>/dev/null; wait "$VMSPAWN_PID" 2>/dev/null; }
     rm -rf "$WORKDIR"
     rm -f /var/lib/storage/test-replace-storage-*.volume
-}
+)
 trap at_exit EXIT
 
 mkdir -p "$WORKDIR/rootfs/sbin"

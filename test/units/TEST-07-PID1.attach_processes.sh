@@ -4,13 +4,13 @@ set -eux
 
 # Assert when calling AttachProcesses on a unit without ref_uid set
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop attach_and_barf.service
     rm -f /run/systemd/system/attach_and_barf.service
     systemctl daemon-reload
-}
+)
 
 trap at_exit EXIT
 

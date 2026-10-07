@@ -11,11 +11,11 @@ GENERATOR_BIN="/usr/lib/systemd/user-environment-generators/30-systemd-environme
 CONFIG_FILE="/run/environment.d/99-test.conf"
 OUT_FILE="$(mktemp)"
 
-at_exit() {
+at_exit() (
     set +e
     rm -frv "${CONFIG_FILE:?}" "${OUT_FILE:?}"
     systemctl -M testuser@.host --user daemon-reload
-}
+)
 
 trap at_exit EXIT
 

@@ -6,11 +6,11 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -rf /tmp/test-open-file/
-}
+)
 
 trap at_exit EXIT
 

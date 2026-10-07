@@ -14,7 +14,7 @@ if [[ ! -x "${SD_MEASURE:?}" ]]; then
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     systemd-cryptsetup detach test-volume2
@@ -35,7 +35,7 @@ at_exit() {
         /tmp/result.json \
         /tmp/tpmdata1 \
         /tmp/tpmdata2
-}
+)
 
 trap at_exit EXIT
 

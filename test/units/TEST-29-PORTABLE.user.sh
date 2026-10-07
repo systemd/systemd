@@ -42,12 +42,12 @@ openssl smime -sign -nocerts -noattr -binary \
     -out /tmp/app1.roothash.p7s
 chmod go+r /tmp/app1*
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f /tmp/app1.verity /tmp/app1.roothash /tmp/app1.roothash.p7s
     loginctl disable-linger testuser
-}
+)
 
 trap at_exit EXIT
 

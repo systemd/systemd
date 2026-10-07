@@ -46,7 +46,7 @@ cleanup_loop_triplet() {
     [[ -n "$loop_meta" ]] && losetup -d "$loop_meta"
 }
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f /etc/clonetab
@@ -54,7 +54,7 @@ at_exit() {
     dmsetup remove testclonesetup 2>/dev/null || true
 
     systemctl daemon-reload
-}
+)
 
 at_error() {
     local rc="$?"

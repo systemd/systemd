@@ -76,14 +76,14 @@ context_ids() {
     done
 }
 
-at_exit() {
+at_exit() (
     set +e
     # Don't leave the keys we provisioned behind. A default key is generated
     # again on the next signing request.
     reset_state
     systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
     rm -rf "$WORK"
-}
+)
 trap at_exit EXIT
 
 # The TPM2 backend creates its signing key as a child of the TPM's endorsement

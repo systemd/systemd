@@ -12,7 +12,7 @@ if ! command -v hostnamectl >/dev/null; then
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     # Restore the original /etc/machine-info (if any) and make hostnamed read it again
@@ -25,7 +25,7 @@ at_exit() {
     systemctl reset-failed systemd-hostnamed.service
 
     rm -fr "${ROOT:-}"
-}
+)
 
 trap at_exit EXIT
 

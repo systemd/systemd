@@ -16,12 +16,12 @@ fi
 
 MACHINE="coco-tdx-direct-$$"
 WORKDIR="$(mktemp -d)"
-at_exit() {
+at_exit() (
     set +e
     jobs -p | xargs -r kill 2>/dev/null
     machinectl terminate "$MACHINE" 2>/dev/null || :
     rm -rf "$WORKDIR"
-}
+)
 trap at_exit EXIT
 
 vmspawn_boot_coco "$MACHINE" "$COCO_TYPE" "$WORKDIR" 'detect_virt' \

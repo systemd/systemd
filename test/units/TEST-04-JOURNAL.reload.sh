@@ -45,11 +45,11 @@ get_num_archived_journals() {
     find "/$prefix/log/journal/$MACHINE_ID/" -type f -name "system@*.journal" | wc -l
 }
 
-cleanup() {
+cleanup() (
     set +e
     rm -rf /run/systemd/journald.conf.d
     systemctl reload systemd-journald.service
-}
+)
 
 trap cleanup EXIT ERR INT TERM
 

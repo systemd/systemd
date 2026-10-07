@@ -101,7 +101,7 @@ timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /s
 ip link del hoge
 
 # shellcheck disable=SC2317,SC2329
-teardown_netif_renaming_conflict() {
+teardown_netif_renaming_conflict() (
     set +ex
 
     if [[ -n "$KILL_PID" ]]; then
@@ -115,7 +115,7 @@ teardown_netif_renaming_conflict() {
 
     ip link del hoge
     ip link del foobar
-}
+)
 
 test_netif_renaming_conflict() {
     local since found=
@@ -182,7 +182,7 @@ EOF
 test_netif_renaming_conflict
 
 # shellcheck disable=SC2317,SC2329
-teardown_netif_renaming_keeps_properties() {
+teardown_netif_renaming_keeps_properties() (
     set +ex
 
     rm -f /run/udev/rules.d/50-testsuite.rules
@@ -190,7 +190,7 @@ teardown_netif_renaming_keeps_properties() {
 
     ip link del rename-src 2>/dev/null || :
     ip link del rename-dst 2>/dev/null || :
-}
+)
 
 test_netif_renaming_keeps_properties() {
     trap teardown_netif_renaming_keeps_properties RETURN

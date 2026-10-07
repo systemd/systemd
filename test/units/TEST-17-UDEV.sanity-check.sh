@@ -9,14 +9,14 @@ set -o pipefail
 # Coverage test for udevadm
 
 # shellcheck disable=SC2317,SC2329
-cleanup() {
+cleanup() (
     set +e
 
     losetup -d "$loopdev"
     rm -f "$blk"
 
     ip link delete "$netdev"
-}
+)
 
 # Set up some test devices
 trap cleanup EXIT

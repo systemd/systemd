@@ -11,13 +11,13 @@ if ! check_nss_module systemd; then
     exit 0
 fi
 
-at_exit() {
+at_exit() (
     set +e
     systemctl --no-block stop capsule@foobar.service
     rm -rf /run/capsules/foobar
     rm -rf /var/lib/capsules/foobar
     rm -f /run/systemd/system/capsule@.service.d/99-asan.conf
-}
+)
 
 trap at_exit EXIT
 

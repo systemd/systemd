@@ -320,7 +320,7 @@ testcase_wildcard_words() {
     assert_eq "$(hostname)" "$H"
 }
 
-teardown_hostnamed_alternate_paths() {
+teardown_hostnamed_alternate_paths() (
     set +eu
 
     rm -rf /run/systemd/system/systemd-hostnamed.service.d
@@ -332,7 +332,7 @@ teardown_hostnamed_alternate_paths() {
             hostnamectl hostname "${orig}"
         fi
     fi
-}
+)
 
 testcase_hostnamed_alternate_paths() {
     trap teardown_hostnamed_alternate_paths RETURN

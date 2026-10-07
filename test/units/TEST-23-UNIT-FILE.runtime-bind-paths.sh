@@ -6,12 +6,12 @@ set -o pipefail
 
 # Test adding new BindPaths while unit is already running
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f /run/TEST-23-UNIT-FILE-marker-{fixed,runtime}
     rm -fr /run/inaccessible
-}
+)
 
 trap at_exit EXIT
 

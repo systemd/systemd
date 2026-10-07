@@ -22,7 +22,7 @@ fi
 
 IMAGE=""
 
-at_exit() {
+at_exit() (
     if [[ $? -ne 0 ]]; then
         # Dump the event log on failure, to ease debugging
         jq --seq --slurp </run/log/systemd/tpm2-measure.log || :
@@ -36,7 +36,7 @@ at_exit() {
     systemctl restart systemd-pcrextend.socket
     rm -f "${IMAGE:-}" /tmp/passphrase /tmp/vk /tmp/vk-hmac.bin \
           /tmp/oldpcr15 /tmp/newpcr15 /tmp/measure-bank.log
-}
+)
 
 trap at_exit EXIT
 
