@@ -458,6 +458,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term>FDSTOREWIPE=1</term>
+        <term>FDSTOREWIPE=…</term>
+
+        <listitem><para>If set to <literal>1</literal>, removes all file descriptors from the service's file
+        descriptor store, regardless of their names. Otherwise, the value specifies a literal, case-sensitive
+        prefix, and only file descriptors whose names start with that prefix are removed. The prefix must
+        follow the same restrictions as <varname>FDNAME=</varname>, except that it must not be empty.</para>
+
+        <para><varname>FDNAME=</varname> is ignored if specified. Wiping an empty store or using a prefix
+        that matches no names has no effect. Other FD Store operations specified in the same message are
+        ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>FDNAME=…</term>
 
         <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, specifies a name for the
