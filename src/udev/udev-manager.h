@@ -13,20 +13,23 @@
 /* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
  * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
  * receive events that needs to be serialized anyway. */
-#define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 6)
+#define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 7)
 /* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
  * than notifications about requests of adding/removing inotify watches. */
-#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 5)
+#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 6)
 /* This must have a higher priority than the worker exit event, to make notifications about completions of
  * processing events received before exit. */
-#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 4)
+#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 5)
 /* This should have a higher priority than timer events about killing long running worker processes or idle
  * worker processes. */
-#define EVENT_PRIORITY_WORKER_EXIT    (SD_EVENT_PRIORITY_NORMAL - 3)
+#define EVENT_PRIORITY_WORKER_EXIT    (SD_EVENT_PRIORITY_NORMAL - 4)
 /* As mentioned above, this should have a lower priority than the exit event source. */
-#define EVENT_PRIORITY_WORKER_TIMER   (SD_EVENT_PRIORITY_NORMAL - 2)
-/* This must have a lower priority than the worker event source. Otherwise, flood of uevents delays worker
- * sigchld events or notifications, and workers will not continue to process events. */
+#define EVENT_PRIORITY_WORKER_TIMER   (SD_EVENT_PRIORITY_NORMAL - 3)
+/* This must have a higher priority than the device monitor to prevent uevent floods from starving
+ * event_queue_start(), but lower than worker event sources to observe worker completions first. */
+#define EVENT_PRIORITY_POST           (SD_EVENT_PRIORITY_NORMAL - 2)
+/* This must have a lower priority than the worker event source and post event source. Otherwise, flood of
+ * uevents delays worker sigchld events or notifications, and workers will not continue to process events. */
 #define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL - 1)
 /* This should have a lower priority than most event sources, but let's process earlier than varlink and the
  * legacy control socket. */
