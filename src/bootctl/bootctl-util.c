@@ -109,18 +109,11 @@ int get_file_version(int fd, char **ret) {
          * section, i.e. a string such as "#### LoaderInfo: systemd-boot 218 ####", and returns the inner
          * part, e.g. "systemd-boot 218". Does not reposition the file offset (as it uses pread()). */
 
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ PeHeader *pe_header = NULL;
-        r = pe_load_headers(fd, &dos_header, &pe_header);
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r == -EBADMSG)
                 return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary is not a valid PE file, assuming no version information.");
-        if (r < 0)
-                return r;
-
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
-        if (r == -EBADMSG)
-                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Failed to load PE section table, assuming no version information.");
         if (r < 0)
                 return r;
 

@@ -220,6 +220,27 @@ int pe_load_sections(
         return 0;
 }
 
+int pe_load_headers_and_sections(int fd, PeHeader **ret_pe_header, IMAGE_SECTION_HEADER **ret_sections) {
+        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = pe_load_headers(fd, &dos_header, &pe_header);
+        if (r < 0)
+                return r;
+
+        r = pe_load_sections(fd, dos_header, pe_header, ret_sections);
+        if (r < 0)
+                return r;
+
+        if (ret_pe_header)
+                *ret_pe_header = TAKE_PTR(pe_header);
+
+        return 0;
+}
+
 int pe_read_section_data(
                 int fd,
                 const IMAGE_SECTION_HEADER *section,

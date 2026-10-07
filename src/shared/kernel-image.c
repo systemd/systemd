@@ -124,7 +124,6 @@ int inspect_kernel_full(
                 char **ret_pretty_name) {
 
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
         KernelImageType t = KERNEL_IMAGE_TYPE_UNKNOWN;
         _cleanup_free_ PeHeader *pe_header = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -136,17 +135,11 @@ int inspect_kernel_full(
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open kernel image file '%s': %m", strna(filename));
 
-        r = pe_load_headers(fd, &dos_header, &pe_header);
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r == -EBADMSG) /* not a valid PE file */
                 goto not_uki;
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse kernel image file '%s': %m", strna(filename));
-
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
-        if (r == -EBADMSG) /* not a valid PE file */
-                goto not_uki;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load PE sections from kernel image file '%s': %m", strna(filename));
 
         if (pe_is_uki(pe_header, sections)) {
                 r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name);
