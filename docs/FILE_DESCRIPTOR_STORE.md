@@ -145,6 +145,19 @@ received, to make the service robust for code updates: if an old version
 uploaded an fd that the new version doesn't recognize anymore it's a good idea to
 close it both in the service and in the fdstore.
 
+The service may also remove all file descriptors from its fdstore by sending
+`FDSTOREWIPE=*` via `sd_notify()`, without specifying any names. This is similar
+to calling the `CleanUnit()` D-Bus method with `fdstore` as parameter, but unlike
+that method it may be used while the service is running. Both operations also
+remove copies propagated to enclosing service managers.
+
+To remove only a group of file descriptors, set `FDSTOREWIPE=` to a non-empty
+shell-style glob. Matching is case-sensitive. For example,
+`FDSTOREWIPE=connection-*` removes `connection-1` and `connection-2`, but leaves
+other names untouched. A pattern without wildcards matches only that exact name:
+`FDSTOREWIPE=1` removes only descriptors named `1`. Backslashes escape wildcard
+characters to match them literally. Empty or invalid patterns are ignored.
+
 Note that storing a duplicate of an fd in the fdstore means the resource pinned
 by the fd remains pinned even if the service closes its duplicate of the
 fd. This in particular means that peers on a connection socket uploaded this

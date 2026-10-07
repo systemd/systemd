@@ -458,6 +458,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term>FDSTOREWIPE=…</term>
+
+        <listitem><para>Removes file descriptors from the service's file descriptor store whose names match
+        the specified shell-style glob. Matching is case-sensitive and follows
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        with no flags set. In particular, <literal>*</literal> matches all names, including empty names,
+        names starting with a dot, and names containing slashes. A pattern without wildcard characters
+        matches only that exact name.</para>
+
+        <para>The pattern must be non-empty, consist of printable ASCII characters, and be no longer than
+        255 characters. Wildcards may be escaped with a backslash to match them literally.</para>
+
+        <para><varname>FDNAME=</varname> is ignored if specified. Wiping an empty store or using a pattern
+        that matches no names has no effect. Other FD Store operations specified in the same message are
+        ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>FDNAME=…</term>
 
         <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, specifies a name for the
