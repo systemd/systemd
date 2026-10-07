@@ -33,6 +33,8 @@ option('link-portabled-shared', type: 'boolean',
        description : 'link systemd-portabled and its helpers to libsystemd-shared.so')
 option('first-boot-full-preset', type: 'boolean', value: false,
        description : 'during first boot, do full preset-all (default will be changed to true later)')
+option('pack-relative-relocs', type: 'boolean', value: false,
+       description : 'use pack-relative-relocs link flag (this is incompatible with glibc < 2.36)')
 
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
