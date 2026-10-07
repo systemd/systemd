@@ -1338,6 +1338,7 @@ manpages = [
    'systemd-udevd-varlink.socket'],
   ''],
  ['systemd-update-done.service', '8', ['systemd-update-done'], ''],
+ ['systemd-update-helper', '8', [], ''],
  ['systemd-update-utmp.service', '8', ['systemd-update-utmp'], 'ENABLE_UTMP'],
  ['systemd-user-sessions.service', '8', ['systemd-user-sessions'], 'HAVE_PAM'],
  ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],

@@ -18,6 +18,49 @@ assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload-restart"))
 %transfiletriggerin -P 900899 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
 
+%filetriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+-- %filetriggerpostun runs after a package was removed, upgraded, or downgraded. At that point the
+-- systemd-update-helper binary might be removed already, or might be the older shell script, which does
+-- not support --stdin. rpm.spawn() passes the removed paths on stdin, and needs rpm 4.20 or newer.
+local helper = "{{SYSTEMD_UPDATE_HELPER_PATH}}"
+if rpm.spawn and posix.access(helper, "x") then
+    local f = assert(io.open(helper, "rb"))
+    local shebang = f:read(3)
+    f:close()
+    if shebang ~= "#!/" then
+        local ok, path = pcall(os.tmpname)
+        local tmp = ok and io.open(path, "w")
+        if tmp then
+            for file in rpm.next_file do
+                tmp:write(file, "\n")
+            end
+            tmp:close()
+            rpm.spawn({helper, "--stdin", "--system", "remove-units"}, {stdin = path})
+            os.remove(path)
+        end
+    end
+end
+
+%filetriggerpostun -P 1000099 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+local helper = "{{SYSTEMD_UPDATE_HELPER_PATH}}"
+if rpm.spawn and posix.access(helper, "x") then
+    local f = assert(io.open(helper, "rb"))
+    local shebang = f:read(3)
+    f:close()
+    if shebang ~= "#!/" then
+        local ok, path = pcall(os.tmpname)
+        local tmp = ok and io.open(path, "w")
+        if tmp then
+            for file in rpm.next_file do
+                tmp:write(file, "\n")
+            end
+            tmp:close()
+            rpm.spawn({helper, "--stdin", "--global", "remove-units"}, {stdin = path})
+            os.remove(path)
+        end
+    end
+end
+
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 -- On removal, we need to run daemon-reload after any units have been
 -- removed.
