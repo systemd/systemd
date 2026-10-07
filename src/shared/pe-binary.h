@@ -126,6 +126,13 @@ typedef struct _packed_ _IMAGE_SECTION_HEADER {
 
 #define IMAGE_SUBSYSTEM_EFI_APPLICATION 10
 
+#define IMAGE_FILE_LOCAL_SYMS_STRIPPED     UINT16_C(0x0008)
+#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT UINT16_C(0x0100)
+
+#define IMAGE_SCN_CNT_CODE                 UINT32_C(0x00000020)
+#define IMAGE_SCN_CNT_INITIALIZED_DATA     UINT32_C(0x00000040)
+#define IMAGE_SCN_MEM_READ                 UINT32_C(0x40000000)
+
 bool pe_header_is_64bit(const PeHeader *h);
 
 #define PE_HEADER_OPTIONAL_FIELD(h, field)                           \

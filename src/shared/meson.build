@@ -170,6 +170,7 @@ shared_sources = files(
         'pcre2-util.c',
         'pcrextend-util.c',
         'pe-binary.c',
+        'pe-writer.c',
         'pkcs7-util.c',
         'pkcs11-util.c',
         'plymouth-util.c',
