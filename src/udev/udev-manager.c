@@ -1319,13 +1319,17 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (sd_event_source_get_pending(sd_device_monitor_get_event_source(manager->monitor)) != 0)
                 return 0;
 
+        /* We are currently synthesizing change uevents, hence new uevents may come soon. */
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0;
+
         (void) manager_unlink_queue_file(manager);
         (void) manager_reset_kill_workers_timer(manager);
 
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
 
-        if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
+        if (manager->workers_cgroup)
                 /* cleanup possible left-over processes in the workers cgroup */
                 if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
                         (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
