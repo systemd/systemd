@@ -1792,7 +1792,7 @@ have = get_option('bootloader').require(
         pyelftools.found() and get_option('efi') and efi_arch != '',
         error_message : 'unsupported EFI arch or EFI support is disabled').allowed()
 conf.set10('ENABLE_BOOTLOADER', have)
-conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
+conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
 
 efi_arch_alt = ''
 efi_cpu_family_alt = ''
