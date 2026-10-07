@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "crypto-util.h"
 #include "iovec-util.h"
+#include "memory-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -694,6 +698,56 @@ TEST(openssl_load_x509_certificate_from_pem) {
         static const char garbage[] = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
         ASSERT_FAIL(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(garbage), &bad, &more));
         ASSERT_ERROR(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(NULL, 0), &bad, &more), EBADMSG);
+}
+
+TEST(x509_new_self_signed) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL, *cert2 = NULL;
+        _cleanup_(erase_and_freep) char *key_pem = NULL;
+        _cleanup_free_ char *pubkey_pem = NULL, *cert_pubkey_pem = NULL;
+
+        ASSERT_OK(rsa_pkey_new(2048, &key));
+        ASSERT_OK(openssl_private_key_to_pem_traditional(key, &key_pem));
+        ASSERT_TRUE(startswith(key_pem, "-----BEGIN RSA PRIVATE KEY-----\n"));
+
+        ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *cert_pubkey = ASSERT_NOT_NULL(sym_X509_get_pubkey(cert));
+        ASSERT_OK(openssl_pubkey_to_pem(key, &pubkey_pem));
+        ASSERT_OK(openssl_pubkey_to_pem(cert_pubkey, &cert_pubkey_pem));
+        ASSERT_STREQ(pubkey_pem, cert_pubkey_pem);
+
+        _cleanup_free_ char *subject = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_subject_name(cert), NULL, 0));
+        ASSERT_STREQ(subject, "/CN=systemd test");
+        _cleanup_free_ char *issuer = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_issuer_name(cert), NULL, 0));
+        ASSERT_STREQ(issuer, subject);
+        ASSERT_EQ(sym_X509_verify(cert, key), 1);
+
+        ASSERT_ERROR(x509_new_self_signed(key, "systemd test", UINT_MAX, &cert2), ERANGE);
+}
+
+TEST(x509_new_self_signed_no_digest) {
+        FOREACH_STRING(algorithm, "ED25519", "ED448", "ML-DSA-44") {
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+                _cleanup_(X509_freep) X509 *cert = NULL;
+
+                /* OpenSSL supports ML-DSA since version 3.5. EVP_PKEY_CTX_new_from_name() fails for
+                 * "ML-DSA-44" on older versions. */
+                sym_ERR_clear_error();
+                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new_from_name(
+                                /* libctx= */ NULL, algorithm, /* propquery= */ NULL);
+                if (!ctx) {
+                        (void) log_openssl_errors(LOG_DEBUG, "%s is not supported by libcrypto, skipping", algorithm);
+                        continue;
+                }
+
+                log_debug("Testing %s", algorithm);
+
+                ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen_init(ctx));
+                ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen(ctx, &key));
+
+                ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+                ASSERT_EQ(sym_X509_verify(cert, key), 1);
+        }
 }
 
 static int intro(void) {
