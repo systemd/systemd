@@ -10,6 +10,8 @@ option('vcs-tag', type : 'boolean', value : true,
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
+option('experimental', type : 'combo', choices : ['auto', 'enabled', 'envvar', 'disabled'],
+       description : 'allow using features marked as experimental')
 
 option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'sbin is not a symlink to bin')
