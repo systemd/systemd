@@ -31,6 +31,11 @@ LinkInfo* link_info_array_free(LinkInfo *array) {
                 free(array[i].ssid);
                 free(array[i].qdisc);
                 strv_free(array[i].alternative_names);
+                free(array[i].ovs_bridge);
+                free(array[i].ovs_bond);
+                free(array[i].ovs_port_type);
+                free(array[i].ovs_fail_mode);
+                strv_free(array[i].ovs_interfaces);
         }
 
         return mfree(array);

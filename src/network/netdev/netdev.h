@@ -31,6 +31,9 @@
         "-MACsecTransmitAssociation\0"            \
         "-MACVLAN\0"                              \
         "-MACVTAP\0"                              \
+        "-OVSBridge\0"                            \
+        "-OVSPort\0"                              \
+        "-OVSTunnel\0"                            \
         "-Peer\0"                                 \
         "-Tap\0"                                  \
         "-Tun\0"                                  \
@@ -69,6 +72,9 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
         NETDEV_KIND_NLMON,
+        NETDEV_KIND_OVS_BRIDGE,
+        NETDEV_KIND_OVS_PORT,
+        NETDEV_KIND_OVS_TUNNEL,
         NETDEV_KIND_SIT,
         NETDEV_KIND_TAP,
         NETDEV_KIND_TUN,
@@ -196,6 +202,16 @@ typedef struct NetDevVTable {
         /* Provides if the netdev can be updated, that is, whether RTM_NEWLINK with existing ifindex is supported or not.
          * If this is true, the netdev does not support updating. */
         bool keep_existing;
+
+        /* On RTM_DELLINK (kernel netdev removal) keep the NetDev object attached to the
+         * Manager and only reset its ifindex, instead of detaching it. Set this for
+         * kinds whose kernel netdev can disappear and be recreated by an out-of-band
+         * agent (e.g. OVS bridges/ports/tunnels that ovs-vswitchd may drop and re-add
+         * in response to OVSDB transacts) — without this, link_assign_netdev() on the
+         * fresh RTM_NEWLINK would not find the detached NetDev and the Link would
+         * lose its NetDev association (NetDevFile / OVS-status fields would vanish
+         * from networkctl status). */
+        bool keep_on_drop;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
