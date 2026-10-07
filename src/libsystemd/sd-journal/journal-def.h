@@ -283,7 +283,8 @@ enum {
                                               (HAVE_LZ4 ? HEADER_INCOMPATIBLE_COMPRESSED_LZ4 : 0) |
                                               (HAVE_ZSTD ? HEADER_INCOMPATIBLE_COMPRESSED_ZSTD : 0) |
                                               HEADER_INCOMPATIBLE_KEYED_HASH |
-                                              HEADER_INCOMPATIBLE_COMPACT,
+                                              HEADER_INCOMPATIBLE_COMPACT |
+                                              HEADER_INCOMPATIBLE_SEGMENTED,
 };
 
 enum {

@@ -4701,7 +4701,7 @@ int journal_file_open_full(
 
         /* Segmented files are mapped read-only, hence the format must be known before the mmap cache is
          * set up. */
-        segmented = !newly_created && journal_file_fd_is_segmented(f->fd);
+        segmented = newly_created ? segmented_requested() : journal_file_fd_is_segmented(f->fd);
 
         r = mmap_cache_add_fd(mmap_cache, f->fd, segmented ? PROT_READ : mmap_prot_from_open_flags(open_flags), &f->cache_fd);
         if (r < 0)
