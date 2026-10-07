@@ -11,6 +11,16 @@
 static sd_bus *arg_bus = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
 
+TEST(exec_directory_flags) {
+        ASSERT_STREQ(exec_directory_flags_to_string(0), "");
+        ASSERT_STREQ(exec_directory_flags_to_string(EXEC_DIRECTORY_READ_ONLY), "ro");
+        ASSERT_NULL(exec_directory_flags_to_string(EXEC_DIRECTORY_ONLY_CREATE));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 32));
+        ASSERT_NULL(exec_directory_flags_to_string((UINT64_C(1) << 32) | EXEC_DIRECTORY_READ_ONLY));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 63));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_MAX));
+}
+
 static void test_transient_settings_one(UnitType type, const char* const* lines) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -364,7 +374,6 @@ TEST(execute_properties) {
                         "NoExecPaths=/tmp /var/tmp",
                         "ExecSearchPath=/usr/bin:/usr/local/bin",
                         "ExtensionDirectories=/var/lib/extensions /opt/extensions",
-                        "ConfigurationDirectory=myapp subdir",
                         "SupplementaryGroups=wheel audio video",
                         "SystemCallArchitectures=native x86-64",
 
@@ -539,6 +548,27 @@ TEST(execute_properties) {
                         "CacheDirectory=myapp subdir",
                         "LogsDirectory=myapp",
                         "LogsDirectory=myapp subdir",
+                        "ConfigurationDirectory=myapp",
+                        "ConfigurationDirectory=myapp subdir",
+
+                        "StateDirectory=myapp:link",
+                        "StateDirectory=myapp:link:ro",
+                        "StateDirectory=myapp::ro",
+                        "RuntimeDirectory=myapp::ro",
+                        "CacheDirectory=myapp::ro",
+                        "LogsDirectory=myapp::ro",
+                        /* ConfigurationDirectory= takes flags, but no symlink destination */
+                        "ConfigurationDirectory=myapp::ro",
+                        /* A literal colon in a directory name needs an extra level of escaping */
+                        "StateDirectory=myapp\\\\:colon",
+                        "ConfigurationDirectory=myapp\\\\:colon",
+                        "-EINVAL ConfigurationDirectory=myapp:link",
+                        "-EINVAL ConfigurationDirectory=myapp:link:ro",
+                        "-EINVAL StateDirectory=myapp::rw",
+                        "-EINVAL ConfigurationDirectory=myapp::rw",
+                        /* An empty assignment resets the list */
+                        "StateDirectory=",
+                        "ConfigurationDirectory=",
 
                         "ProtectHostname=true",
                         "ProtectHostname=false",
