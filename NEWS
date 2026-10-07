@@ -308,10 +308,13 @@ CHANGES WITH 263 in spe:
           The token has to prove possession of the enrolled credential before
           it is handed the salt, which defeats FIDO2 token emulators. Such
           slots are unlocked via the existing "tpm2-device=" /etc/crypttab
-          option, and are listed and wiped under the "tpm2-fido2" name. Note
-          that these slots are stored as regular "systemd-tpm2" LUKS2 tokens:
-          older systemd versions do not recognize that a FIDO2 token is
-          required, and will fail to unlock them without saying why.
+          option, and are listed and wiped under the "tpm2-fido2" name. The
+          io.systemd.CryptEnroll Varlink interface accepts the
+          unlockFido2Device and unlockTpm2Device parameters together, to
+          unlock the volume via such a slot. Note that these slots are stored
+          as regular "systemd-tpm2" LUKS2 tokens: older systemd versions do
+          not recognize that a FIDO2 token is required, and will fail to
+          unlock them without saying why.
 
         Changes in libsystemd:
 
