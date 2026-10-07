@@ -61,8 +61,15 @@ fi
 # own purposes, so let's get rid of that specific bit of logic in the opensuse spec until they've had a chance
 # to adapt.
 #
+# The opensuse spec also installs its own systemd-update-helper script over the systemd-update-helper that
+# meson builds. Drop that install line, so that the image contains the systemd-update-helper under test.
+#
 # TODO: remove manual default-hierarchy patch when the upstream spec is updated
-sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
+sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" \
+    -e '/integration-tests\/README/d' \
+    -e '/default-hierarchy/ d' \
+    -e '/^install .*\/systemd-update-helper$/d' \
+    >/tmp/systemd.spec
 mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
 build() {
