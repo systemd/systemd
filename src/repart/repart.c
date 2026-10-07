@@ -5670,6 +5670,38 @@ static int partition_add_tokens_for_keyslot(Partition *p, struct crypt_device *c
 }
 #endif
 
+#if HAVE_LIBCRYPTSETUP
+static int progress_integrity_wipe(uint64_t size, uint64_t offset, void *userdata) {
+        Partition *p = ASSERT_PTR(userdata);
+        unsigned percent;
+
+        /* Catch division by zero. */
+        if (offset >= size)
+                percent = 100;
+        else
+                percent = (unsigned) (100.0 * (double) offset / (double) size);
+
+        if (percent == p->last_percent)
+                return 0;
+
+        if (!ratelimit_below(&p->progress_ratelimit))
+                return 0;
+
+        (void) draw_progress_barf(
+                        percent,
+                        "Initializing integrity protection of %s %s/%s",
+                        strna(p->definition_path),
+                        FORMAT_BYTES_WITH_POINT(offset),
+                        FORMAT_BYTES_WITH_POINT(size));
+
+        p->last_percent = percent;
+
+        (void) context_notify(p->context, PROGRESS_FORMATTING_PARTITION, p->definition_path, percent);
+
+        return 0;
+}
+#endif
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -6164,6 +6196,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* crypt_wipe() the whole device to avoid integrity errors upon mkfs */
                 if (p->integrity == INTEGRITY_INLINE) {
+                        p->last_percent = UINT_MAX;
                         r = sym_crypt_wipe(
                                         cd,
                                         vol,
@@ -6172,8 +6205,11 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         /* length= */ 0,
                                         /* wipe_block_size= */ 1 * U64_MB,
                                         /* flags= */ 0,
-                                        /* progress= */ NULL,
-                                        /* usrptr= */ NULL);
+                                        progress_integrity_wipe,
+                                        p);
+                        clear_progress_bar(/* prefix= */ NULL);
+                        /* A block copy may follow and reuses this, so report its progress from the start. */
+                        p->last_percent = UINT_MAX;
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wipe LUKS device: %m");
 
