@@ -243,6 +243,19 @@
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_DYNAMIC_BYPASS</varname></term>
+
+        <listitem><para>Set to <literal>1</literal> for system generators, so that
+        <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        does not query the service manager for users and groups registered with
+        <varname>DynamicUser=</varname>. The service manager cannot answer such queries while it waits
+        for the generators to finish, hence a generator resolving user or group names would otherwise
+        block until the query times out.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

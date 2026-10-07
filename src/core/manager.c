@@ -4393,6 +4393,12 @@ static int build_generator_environment(Manager *m, char ***ret) {
                         if (r < 0)
                                 return r;
                 }
+
+                /* PID 1 waits for generators and cannot answer io.systemd.DynamicUser meanwhile, so make
+                 * nss-systemd skip it, or a generator resolving users hangs until the varlink timeout. */
+                r = strv_env_assign(&nl, "SYSTEMD_NSS_DYNAMIC_BYPASS", "1");
+                if (r < 0)
+                        return r;
         }
 
         v = detect_virtualization();
