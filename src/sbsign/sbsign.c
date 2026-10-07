@@ -554,7 +554,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         size_t pehashsz;
         r = pe_hash(srcfd, EVP_sha256(), &pehash, &pehashsz);
         if (r < 0)
-                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[0]);
+                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[1]);
 
         _cleanup_free_ uint8_t *idcraw = NULL;
         size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */
