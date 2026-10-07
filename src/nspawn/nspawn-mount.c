@@ -1021,8 +1021,9 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
         if (r < 0)
                 return m->graceful ? 0 : r;
 
-        r = mount_nofollow_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        r = bind_remount_one(where, MS_RDONLY, MS_RDONLY);
         if (r < 0) {
+                log_full_errno(m->graceful ? LOG_DEBUG : LOG_ERR, r, "Failed to make %s read-only: %m", where);
                 (void) umount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, where, UMOUNT_NOFOLLOW);
                 return m->graceful ? 0 : r;
         }
@@ -1458,19 +1459,30 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS "/run/host/proc"
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS "/run/host/sys"
 
-int pin_fully_visible_api_fs(void) {
+int pin_fully_visible_api_fs(const char *root) {
+        _cleanup_free_ char *procfs = NULL, *sysfs = NULL;
         int r;
+
+        assert(root);
 
         log_debug("Pinning fully visible API FS");
 
-        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, 0755);
-        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, 0755);
+        /* We are called before switching root, so stay within the root. */
+        r = chase(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755,
+                  &procfs, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s%s: %m", root, NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS);
 
-        r = mount_follow_verbose(LOG_ERR, "proc", NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, "proc", PROC_DEFAULT_MOUNT_FLAGS, NULL);
+        r = chase(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755,
+                  &sysfs, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s%s: %m", root, NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS);
+
+        r = mount_nofollow_verbose(LOG_ERR, "proc", procfs, "proc", PROC_DEFAULT_MOUNT_FLAGS, NULL);
         if (r < 0)
                 return r;
 
-        r = mount_follow_verbose(LOG_ERR, "sysfs", NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, "sysfs", SYS_DEFAULT_MOUNT_FLAGS, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "sysfs", sysfs, "sysfs", SYS_DEFAULT_MOUNT_FLAGS, NULL);
         if (r < 0)
                 return r;
 
