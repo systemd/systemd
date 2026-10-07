@@ -8,7 +8,6 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "io-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "memfd-util.h"
@@ -17,6 +16,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 #define PE_SECTION_READ_MAX (16U*1024U)
 
@@ -200,14 +200,14 @@ struct zboot_header {
 assert_cc(sizeof(struct zboot_header) == 0x20);
 assert_cc(offsetof(struct zboot_header, comp_type) == 0x18);
 
-static int decompress_to_memfd(Compression compression, int fd) {
+static int decompress_to_memfd(Compression compression, DecompressFlags flags, int fd, uint64_t max_bytes) {
         int r;
 
         _cleanup_close_ int memfd = memfd_new("kernel");
         if (memfd < 0)
                 return log_debug_errno(memfd, "Failed to create memfd: %m");
 
-        r = decompress_stream(compression, fd, memfd, UINT64_MAX);
+        r = decompress_stream_full(compression, fd, memfd, max_bytes, flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decompress kernel: %m");
 
@@ -217,10 +217,27 @@ static int decompress_to_memfd(Compression compression, int fd) {
         return TAKE_FD(memfd);
 }
 
+static Compression zboot_compression_from_string(const char *s, DecompressFlags *ret_flags) {
+        assert(ret_flags);
+
+        /* The kernel compresses "lzma" payloads in the legacy .lzma format and "xzkern" payloads in the .xz
+         * format. */
+        *ret_flags = streq(s, "lzma") ? DECOMPRESS_LEGACY_LZMA : 0;
+        if (STR_IN_SET(s, "lzma", "xzkern"))
+                return COMPRESSION_XZ;
+
+        /* Kernels before 6.13 write "zstd22" for zstd payloads */
+        if (streq(s, "zstd22"))
+                return COMPRESSION_ZSTD;
+
+        return compression_from_string(s);
+}
+
 static int decompress_zboot_to_memfd(int fd, uint32_t payload_offset, uint32_t payload_size, const char *comp_type) {
+        DecompressFlags flags;
         int r;
 
-        Compression c = compression_from_string(comp_type);
+        Compression c = zboot_compression_from_string(comp_type, &flags);
         if (c < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Unsupported ZBOOT compression type '%s'.", comp_type);
@@ -252,30 +269,15 @@ static int decompress_zboot_to_memfd(int fd, uint32_t payload_offset, uint32_t p
         if ((uint32_t) n < payload_size)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Short read of ZBOOT payload.");
 
-        _cleanup_free_ void *decompressed = NULL;
-        size_t decompressed_size;
-        /* Cap the decompressed size as well: a zstd frame that doesn't record its content size is
-         * decompressed by growing the output buffer as we go, so without a limit a malicious image could
-         * expand far beyond its (already bounded) compressed size. 1 GiB is generous for any real kernel. */
-        r = decompress_blob(c, payload, payload_size, &decompressed, &decompressed_size,
-                            /* dst_max= */ U64_GB);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to decompress ZBOOT payload: %m");
+        _cleanup_close_ int payload_fd = memfd_new_and_seal("zboot-payload", payload, payload_size);
+        if (payload_fd < 0)
+                return log_debug_errno(payload_fd, "Failed to create memfd: %m");
 
         payload = mfree(payload);
 
-        _cleanup_close_ int memfd = memfd_new("kernel");
-        if (memfd < 0)
-                return log_debug_errno(memfd, "Failed to create memfd: %m");
-
-        r = loop_write(memfd, decompressed, decompressed_size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write decompressed kernel to memfd: %m");
-
-        if (lseek(memfd, 0, SEEK_SET) < 0)
-                return log_debug_errno(errno, "Failed to seek memfd: %m");
-
-        return TAKE_FD(memfd);
+        /* The compressed size is limited above. Without a limit on the decompressed size, a malicious image
+         * could still expand to an arbitrary size. 1 GiB is enough for any real kernel. */
+        return decompress_to_memfd(c, flags, payload_fd, /* max_bytes= */ U64_GB);
 }
 
 int kernel_decompress(int fd, int *ret_fd) {
@@ -322,7 +324,14 @@ int kernel_decompress(int fd, int *ret_fd) {
                 return 1;
         }
 
+        DecompressFlags flags = 0;
         Compression c = compression_detect_from_magic(magic);
+        /* The legacy .lzma format has no magic. Its header usually starts with the bytes 5d 00 00, which
+         * compression_detect_from_magic() does not check for. */
+        if (c < 0 && memcmp(magic, (const uint8_t[]) { 0x5d, 0x00, 0x00 }, 3) == 0) {
+                c = COMPRESSION_XZ;
+                flags = DECOMPRESS_LEGACY_LZMA;
+        }
         if (c < 0)
                 return 0;
 
@@ -331,7 +340,7 @@ int kernel_decompress(int fd, int *ret_fd) {
         if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_debug_errno(errno, "Failed to seek kernel fd: %m");
 
-        r = decompress_to_memfd(c, fd);
+        r = decompress_to_memfd(c, flags, fd, UINT64_MAX);
         if (r < 0)
                 return r;
 
