@@ -24,6 +24,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(matches, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("How to handle multiple signers. Defaults to requireOne if unset."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, SignMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("An optional caller-supplied nonce in Base64, which is included in the signed report (after normalization of the Base64 encoding). This matches the --nonce= switch of the systemd-report command line tool."),
+                SD_VARLINK_DEFINE_INPUT(nonce, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The generated, signed report in Base64. A precise binary formatting of the JSON data is important to authenticate the signature. This data contains a JSON-SEQ compliant stream of objects, the first being the report, the following ones signature objects."),
                 SD_VARLINK_DEFINE_OUTPUT(reportData, SD_VARLINK_STRING, 0));
 
