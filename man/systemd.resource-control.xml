@@ -1513,6 +1513,39 @@ DeviceAllow=/dev/loop-control
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ControlGroupPreserve=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument. If true, the unit's control group is kept when the unit goes down,
+          e.g. when it is stopped or restarted, and the unit is started again in the same control group. If
+          false, the control group is removed whenever the unit goes down, and a new one is created when it is
+          started again. Defaults to false.</para>
+
+          <para>This is useful for resources that remain charged to the control group after the unit's
+          processes are gone, so that they remain accounted to the unit and subject to its limits. For
+          example, pages backing stored file descriptors (see <varname>FileDescriptorStoreMax=</varname> in
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          or files on <filename>/dev/shm/</filename> remain charged to the control group of the process that
+          first touched them. Without this setting, they are accounted to the containing slice once the
+          control group is removed.</para>
+
+          <para>Apart from the control group itself, nothing is kept. When the unit is started again, the
+          control group is set up anew from the unit's configuration. As such, <varname>MemoryPeak</varname>
+          and similar peak values cover all invocations since the control group was created, and whatever is
+          still charged to the control group counts against limits such as <varname>MemoryMax=</varname> when
+          the unit is started again.</para>
+
+          <para>The unit remains loaded while its control group is kept. If the unit is moved to a different
+          slice with <varname>Slice=</varname>, no migration takes place, and a notice is logged, as charges
+          cannot be migrated between control groups arbitrarily.</para>
+
+          <para>This setting has no effect on slice and scope units.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     </refsect2><refsect2><title>Memory Pressure Control</title>
