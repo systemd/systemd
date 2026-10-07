@@ -76,6 +76,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-logind-dock.c'),
+                'import' : ['systemd-logind'],
+        },
+        test_template + {
                 'sources' : files('test-login-tables.c'),
                 'import' : ['systemd-logind'],
         },
