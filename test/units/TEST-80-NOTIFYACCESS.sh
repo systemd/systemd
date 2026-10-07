@@ -108,6 +108,16 @@ test "$FDSTORE" -eq 7
 N="/tmp/$RANDOM"
 echo $RANDOM >"$N"
 systemd-notify --fd=4 --fdname=quux --pid=parent 4<"$N"
+systemd-notify --fd=4 --fdname=other 4</dev/null
+systemd-notify --fd=4 4</dev/zero
+test "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 3
+
+for _ in {1..2}; do
+    systemd-notify --fdstore-wipe
+    test "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 0
+done
+
+systemd-notify --fd=4 --fdname=quux --pid=parent 4<"$N"
 rm "$N"
 systemd-notify --ready
 exec sleep infinity
@@ -116,7 +126,7 @@ EOF
 chmod +x "$MYSCRIPT"
 
 MYUNIT="myunit$RANDOM.service"
-systemd-run -u "$MYUNIT" -p Type=notify -p FileDescriptorStoreMax=7 "$MYSCRIPT"
+systemd-run -u "$MYUNIT" -p Type=notify -p FileDescriptorStoreMax=7 "$MYSCRIPT" "$MYUNIT"
 
 test "$(systemd-analyze fdstore "$MYUNIT" | wc -l)" -eq 2
 systemd-analyze fdstore "$MYUNIT" --json=short
