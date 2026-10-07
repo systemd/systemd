@@ -49,6 +49,7 @@ foreach item : [
         ['systemd-dissect',     'HAVE_BLKID'],
         ['systemd-hwdb',        'ENABLE_HWDB'],
         ['systemd-id128',       ''],
+        ['systemd-notify',      ''],
         ['systemd-nspawn',      'ENABLE_NSPAWN'],
         ['systemd-path',        ''],
         ['systemd-resolve',     'ENABLE_RESOLVE'],
