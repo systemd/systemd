@@ -1553,10 +1553,19 @@ conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
 conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
+have = get_option('measure').require(
+        conf.get('HAVE_BLKID') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_TPM2') == 1,
+        error_message : 'blkid, openssl, and tpm2 required for systemd-measure').allowed()
+conf.set10('ENABLE_MEASURE', have)
+
 have = get_option('repart').require(
         conf.get('HAVE_LIBFDISK') == 1,
         error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
+
+conf.set10('ENABLE_REPORT', get_option('report').allowed())
 
 default_dnssec = get_option('default-dnssec')
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
@@ -3202,6 +3211,7 @@ foreach tuple : [
         ['localed'],
         ['logind'],
         ['machined'],
+        ['measure'],
         ['mountfsd'],
         ['networkd'],
         ['nspawn'],
@@ -3216,6 +3226,7 @@ foreach tuple : [
         ['quotacheck'],
         ['randomseed'],
         ['repart'],
+        ['report'],
         ['resolve'],
         ['rfkill'],
         ['sysext'],

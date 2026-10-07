@@ -3,8 +3,9 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-report-sign-tpm2_.service" conditional='HAVE_OPENSSL HAVE_TPM2'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd-report-sign-tpm2_.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_REPORT HAVE_OPENSSL HAVE_TPM2'>
 
   <refentryinfo>
     <title>systemd-report-sign-tpm2@.service</title>

@@ -686,10 +686,22 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
-        { 'file' : 'systemd-report.socket' },
-        { 'file' : 'systemd-report@.service.in' },
-        { 'file' : 'systemd-report-basic.socket' },
-        { 'file' : 'systemd-report-basic@.service.in' },
+        {
+          'file' : 'systemd-report.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-basic.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-basic@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-tpm2-clear.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
@@ -792,38 +804,62 @@ units = [
           'file' : 'systemd-repart@.service',
           'conditions' : ['ENABLE_REPART'],
         },
-        { 'file' : 'systemd-report-cgroup.socket' },
-        { 'file' : 'systemd-report-cgroup@.service.in' },
+        {
+          'file' : 'systemd-report-cgroup.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-cgroup@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-report-diskspace.socket',
-          'conditions' : ['HAVE_LIBMOUNT'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBMOUNT'],
         },
         {
           'file' : 'systemd-report-diskspace@.service.in',
-          'conditions' : ['HAVE_LIBMOUNT'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBMOUNT'],
         },
-        { 'file' : 'systemd-report-files.socket' },
-        { 'file' : 'systemd-report-files@.service.in' },
-        { 'file' : 'systemd-report-hwmon.socket' },
-        { 'file' : 'systemd-report-hwmon@.service.in' },
+        {
+          'file' : 'systemd-report-files.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-files@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-hwmon.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-hwmon@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-report-sign-plain.socket',
-          'conditions' : ['HAVE_OPENSSL'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
         {
           'file' : 'systemd-report-sign-plain@.service.in',
-          'conditions' : ['HAVE_OPENSSL'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
         {
           'file' : 'systemd-report-sign-tpm2.socket',
-          'conditions' : ['HAVE_OPENSSL','HAVE_TPM2'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
         {
           'file' : 'systemd-report-sign-tpm2@.service.in',
-          'conditions' : ['HAVE_OPENSSL', 'HAVE_TPM2'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
-        { 'file' : 'systemd-report-sign-tsm.socket' },
-        { 'file' : 'systemd-report-sign-tsm@.service.in' },
+        {
+          'file' : 'systemd-report-sign-tsm.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-sign-tsm@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],

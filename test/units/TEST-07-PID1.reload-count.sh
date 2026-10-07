@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+REPORT=/usr/lib/systemd/systemd-report
+
+# systemd-report is optional
+[ -x "$REPORT" ] || exit 77
+
 # Verify that the manager exposes a ReloadCount property that increments on
 # every daemon-reload, resets to zero across daemon-reexec (since the count
 # is not serialized), and is reachable over D-Bus, Varlink Describe, and the
@@ -28,7 +33,7 @@ read_count_varlink() {
 read_count_report() {
     local out
     # Strip the RS separator that jq --seq re-emits on output.
-    out=$(/usr/lib/systemd/systemd-report metrics --json=short \
+    out=$("$REPORT" metrics --json=short \
               io.systemd.Manager.ReloadCount \
           | jq --seq -r 'select(.name == "io.systemd.Manager.ReloadCount") | .value' \
           | tr -d '\036')
