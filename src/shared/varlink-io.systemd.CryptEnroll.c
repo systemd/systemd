@@ -5,9 +5,9 @@
 
 /* The credential types this interface knows about. The same enum is used for the 'mechanism' to enroll, for
  * the slot types to wipe, and for the slot types reported by ListSlots. Note that only password, recovery key
- * and fido2 may actually be *enrolled* via the Enroll() method; pkcs11 and tpm2 slots can be listed and wiped,
- * but enrolling them requires the systemd-cryptenroll command line. Enroll() rejects them with an
- * InvalidParameter error rather than via interface validation, so they are part of this enum. */
+ * and fido2 may actually be *enrolled* via the Enroll() method; pkcs11, tpm2 and tpm2_fido2 slots can be
+ * listed and wiped, but enrolling them requires the systemd-cryptenroll command line. Enroll() rejects them
+ * with an InvalidParameter error rather than via interface validation, so they are part of this enum. */
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 EnrollMechanism,
                 SD_VARLINK_FIELD_COMMENT("A regular passphrase"),
@@ -19,7 +19,9 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A FIDO2 security token"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fido2),
                 SD_VARLINK_FIELD_COMMENT("A TPM2 device (not enrollable via this interface)"),
-                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2));
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2),
+                SD_VARLINK_FIELD_COMMENT("A TPM2 device bound to a FIDO2 security token (not enrollable via this interface)"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2_fido2));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Enroll,
@@ -29,7 +31,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mechanism, EnrollMechanism, 0),
 
-                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set."),
+                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set, except for unlockFido2Device and unlockTpm2Device, which may be set together to unlock via a TPM2 device bound to a FIDO2 token."),
                 SD_VARLINK_DEFINE_INPUT(unlockPassword, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to a key file to unlock the volume with."),
                 SD_VARLINK_DEFINE_INPUT(unlockKeyFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
