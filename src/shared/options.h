@@ -27,6 +27,8 @@ typedef enum OptionFlags {
         OPTION_GROUP_MARKER        = 1U << 4,  /* Fake option entry to separate groups */
         OPTION_HELP_ENTRY          = 1U << 5,  /* Fake option entry to insert an additional help line */
         OPTION_HELP_ENTRY_VERBATIM = 1U << 6,  /* Same, but use the long_code in the first column as written */
+        OPTION_EXPERIMENTAL        = 1U << 7,  /* Experimental option that requires opt-in; marked as such in
+                                                * --help and --introspect-cli output */
 } OptionFlags;
 
 /* Note: the alignment attribute must match the one applied to each variable via _alignptr_ in

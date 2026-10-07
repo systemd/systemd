@@ -108,6 +108,7 @@ static const Verb introspect_verbs[] = {
 static const Option introspect_options[] = {
         { 1, .long_code = "test-verbs-alpha", .flags = OPTION_NAMESPACE_MARKER },
         { 2, .short_code = 'x', .long_code = "example", .metavar = "ARG", .help = "An example option" },
+        { 3, .long_code = "experimental", .flags = OPTION_EXPERIMENTAL, .help = "An experimental option" },
         {}
 };
 
