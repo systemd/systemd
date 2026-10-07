@@ -7,6 +7,8 @@
 
 /* Various calls for interfacing with EFI variables from the official UEFI specs. */
 
+const char* get_efi_arch(void);
+
 int efi_reboot_to_firmware_supported(void);
 int efi_get_reboot_to_firmware(void);
 int efi_set_reboot_to_firmware(bool value);
