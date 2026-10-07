@@ -49,6 +49,8 @@ static int uki_read_pretty_name(
                 *ret = NULL;
                 return 0;
         }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read .osrel section: %m");
 
         r = parse_env_data(
                         osrel, osrel_size, ".osrel",
