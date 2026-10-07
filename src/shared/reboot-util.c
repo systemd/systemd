@@ -381,16 +381,11 @@ static int extract_uki(const char *path, int fd, int *ret_kernel_fd, int *ret_in
         assert(fd >= 0);
         assert(ret_kernel_fd);
 
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ PeHeader *pe_header = NULL;
-        r = pe_load_headers(fd, &dos_header, &pe_header);
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r < 0)
                 return log_debug_errno(r, "Not a valid PE file '%s': %m", path);
-
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load PE sections from '%s': %m", path);
 
         if (!pe_is_uki(pe_header, sections))
                 return 0; /* Not a UKI */
