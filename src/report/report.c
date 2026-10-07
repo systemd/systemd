@@ -11,6 +11,8 @@
 #include "dlopen-note.h"
 #include "errno-util.h"
 #include "format-table.h"
+#include "hexdecoct.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -50,12 +52,14 @@ char *arg_trust = NULL;
 char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 ReportSignMode arg_sign_mode = REPORT_SIGN_NO;
+static struct iovec arg_nonce = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_headers, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_nonce, iovec_done);
 
 COMMAND(
         "systemd-report\0",
@@ -687,6 +691,9 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 .action = action,
         };
 
+        if (iovec_is_set(&arg_nonce))
+                context.nonce = &arg_nonce;
+
         r = parse_metrics_matches(argv + 1, &context.matches);
         if (r < 0)
                 return r;
@@ -818,10 +825,12 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_report_sign_varlink_mode, ReportS
 typedef struct GenerateParameters {
         char **matches;
         ReportSignMode sign_mode;
+        struct iovec nonce;
 } GenerateParameters;
 
 static void generate_parameters_done(GenerateParameters *p) {
         strv_free(p->matches);
+        iovec_done(&p->nonce);
 }
 
 static int vl_method_generate_internal(
@@ -845,6 +854,7 @@ static int vl_method_generate_internal(
         static const sd_json_dispatch_field dispatch_table_signed[] = {
                 { "matches", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,                  voffsetof(p, matches),   SD_JSON_NULLABLE },
                 { "mode",    SD_JSON_VARIANT_STRING, json_dispatch_report_sign_varlink_mode, voffsetof(p, sign_mode), SD_JSON_NULLABLE },
+                { "nonce",   SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec,           voffsetof(p, nonce),     SD_JSON_NULLABLE },
                 {}
         };
 
@@ -863,6 +873,9 @@ static int vl_method_generate_internal(
         r = sd_event_new(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        if (iovec_is_set(&p.nonce))
+                context.nonce = &p.nonce;
 
         r = context_collect_metrics(&context);
         if (r < 0)
@@ -1037,6 +1050,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (arg_sign_mode < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --sign= mode '%s'.", opts.arg);
                         break;
+
+                OPTION_LONG("nonce", "NONCE",
+                            "Provide a nonce to include in the report, in Base64"): {
+
+                        _cleanup_(iovec_done) struct iovec nonce = {};
+
+                        r = unbase64mem(opts.arg, &nonce.iov_base, &nonce.iov_len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode nonce: %m");
+
+                        iovec_done(&arg_nonce);
+
+                        if (iovec_is_set(&nonce))
+                                arg_nonce = TAKE_STRUCT(nonce);
+
+                        break;
+                }
 
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(arg_json_format_flags);
