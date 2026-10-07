@@ -96,6 +96,16 @@ systemctl list-dependencies --before systemd-journald
 systemctl list-dependencies --after --reverse systemd-journald
 systemctl list-dependencies --before --reverse systemd-journald
 systemctl list-dependencies --plain systemd-journald
+# Tree mode shows a unit once for every path that leads to it, --plain only once, so the tree must be
+# longer while still listing exactly the same set of units
+systemctl list-dependencies --full --all sysinit.target >/tmp/list-deps-tree
+systemctl list-dependencies --full --all --plain sysinit.target >/tmp/list-deps-plain
+(( $(wc -l </tmp/list-deps-tree) > $(wc -l </tmp/list-deps-plain) ))
+diff <(sed -nE 's/^.*(├─|└─|\|-|`-)//p' /tmp/list-deps-tree | grep -vx '\.\.\.' | sort -u) \
+     <(sed -nE 's/^  //p' /tmp/list-deps-plain | sort -u)
+rm -f /tmp/list-deps-tree /tmp/list-deps-plain
+systemctl list-dependencies --all --reverse systemd-journald >/dev/null
+systemctl list-dependencies --all sysinit.target basic.target >/dev/null
 
 # list-* verbs
 systemctl list-units
