@@ -14,10 +14,13 @@ CHANGES WITH 263 in spe:
           the TPM2 authValue, so that both the chip and the token are required
           to unlock the volume. The matching /etc/crypttab option is the new
           "tpm2-fido2=" one, and such slots are listed and wiped under the
-          "tpm2-fido2" name. Note that these slots are stored as regular
-          "systemd-tpm2" LUKS2 tokens: older systemd versions do not recognize
-          that a FIDO2 token is required, and will report the failed unlock
-          attempt as a system state/PCR mismatch.
+          "tpm2-fido2" name. The io.systemd.CryptEnroll Varlink interface
+          accepts the unlockFido2Device and unlockTpm2Device parameters
+          together, to unlock the volume via such a slot. Note that these
+          slots are stored as regular "systemd-tpm2" LUKS2 tokens: older
+          systemd versions do not recognize that a FIDO2 token is required,
+          and will report the failed unlock attempt as a system state/PCR
+          mismatch.
 
 CHANGES WITH 262:
 

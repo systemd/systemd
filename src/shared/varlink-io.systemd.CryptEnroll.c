@@ -31,7 +31,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mechanism, EnrollMechanism, 0),
 
-                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set."),
+                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set, except for unlockFido2Device and unlockTpm2Device, which may be set together to unlock via a TPM2 device bound to a FIDO2 token."),
                 SD_VARLINK_DEFINE_INPUT(unlockPassword, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to a key file to unlock the volume with."),
                 SD_VARLINK_DEFINE_INPUT(unlockKeyFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
