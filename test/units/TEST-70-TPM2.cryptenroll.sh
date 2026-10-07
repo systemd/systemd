@@ -99,6 +99,17 @@ PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
 (! systemd-cryptenroll --wipe-slot "$IMAGE")
 (! systemd-cryptenroll --wipe-slot=10240000 "$IMAGE")
 (! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto "$IMAGE")
+# TPM2 and FIDO2 may be combined, but only against a real TPM2 device, and regardless of the switch order
+(! systemd-cryptenroll --tpm2-device-key=/tmp/tpm2.pub --fido2-device=auto "$IMAGE" 2>&1) | grep "Multiple operations specified at once" >/dev/null
+(! systemd-cryptenroll --fido2-device=auto --tpm2-device-key=/tmp/tpm2.pub "$IMAGE" 2>&1) | grep "Multiple operations specified at once" >/dev/null
+(! systemd-cryptenroll --password --tpm2-device=auto --fido2-device=auto "$IMAGE")
+(! systemd-cryptenroll --password --fido2-device=auto --tpm2-device=auto "$IMAGE")
+(! systemd-cryptenroll --tpm2-device=auto --fido2-device=auto --pkcs11-token-uri=auto "$IMAGE")
+# The FIDO2 parameters of a TPM2+FIDO2 enrollment are part of the TPM2 token, so they cannot be kept off the header
+(! systemd-cryptenroll --tpm2-device=auto --fido2-device=auto --fido2-parameters-in-header=no --fido2-salt-file=/tmp/salt "$IMAGE" 2>&1) |
+    grep "cannot be disabled when enrolling TPM2 and FIDO2 together" >/dev/null
+(! systemd-cryptenroll --unlock-key-file=/tmp/unlock --unlock-tpm2-device=auto --unlock-fido2-device=auto "$IMAGE")
+(! systemd-cryptenroll --unlock-tpm2-device=auto --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock "$IMAGE")
 
 rm -f "$IMAGE"
 
@@ -154,5 +165,9 @@ varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"tpm2\",\"unlockKeyFile\":\"/tmp/password\"}")
 (! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"pkcs11\",\"unlockKeyFile\":\"/tmp/password\"}")
+
+# Unlocking via TPM2 and FIDO2 may be combined, but not with any other unlock method
+(! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"password\":\"x\",\"unlockKeyFile\":\"/tmp/password\",\"unlockTpm2Device\":\"auto\",\"unlockFido2Device\":\"auto\"}")
 
 rm -f "$VL_IMAGE"
