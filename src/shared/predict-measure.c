@@ -230,7 +230,11 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                 }
 
                 for (;;) {
-                        ssize_t sz = read(section_fds[c], buffer, BUFFER_SIZE);
+                        ssize_t sz = pread(section_fds[c], buffer, BUFFER_SIZE, m);
+                        /* pread() fails with ESPIPE on pipes and sockets. read() consumes the data of a
+                         * pipe or socket, so a pipe or socket section can only be measured once. */
+                        if (sz < 0 && errno == ESPIPE)
+                                sz = read(section_fds[c], buffer, BUFFER_SIZE);
                         if (sz < 0)
                                 return log_debug_errno(errno, "Failed to read %s section: %m", unified_sections[c]);
                         if (sz == 0) /* EOF */
