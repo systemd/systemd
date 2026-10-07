@@ -241,6 +241,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fdstore-wipe<optional>=<replaceable>PREFIX</replaceable></optional></option></term>
+
+        <listitem><para>Remove all file descriptors from the service's file descriptor store when no argument
+        is specified, or when the argument is <literal>1</literal>. Otherwise, remove only file descriptors
+        whose names start with the specified literal, case-sensitive prefix. An empty prefix is invalid.
+        The argument must be attached to the option with <literal>=</literal>.</para>
+
+        <para>This is equivalent to sending <literal>FDSTOREWIPE=</literal> with the specified prefix
+        (or <literal>1</literal> when omitted) via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        This option may not be combined with <option>--fd=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fork</option></term>
 
         <listitem><para>Instead of sending a notification message, fork off a command line and wait until a
