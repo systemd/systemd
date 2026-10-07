@@ -848,14 +848,16 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static int journal_file_move_to(
+static int journal_file_move_to_full(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
                 uint64_t offset,
                 uint64_t size,
-                void **ret) {
+                void **ret,
+                uint64_t *ret_size) {
 
+        size_t window_size;
         int r;
 
         assert(f);
@@ -884,7 +886,27 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret);
+        r = mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret, &window_size);
+        if (r < 0)
+                return r;
+
+        /* The window is rounded up to whole pages, and may extend beyond the end of the file, which must not
+         * be accessed */
+        if (ret_size)
+                *ret_size = MIN((uint64_t) window_size, (uint64_t) f->last_stat.st_size - offset);
+
+        return 0;
+}
+
+static int journal_file_move_to(
+                JournalFile *f,
+                ObjectType type,
+                bool keep_always,
+                uint64_t offset,
+                uint64_t size,
+                void **ret) {
+
+        return journal_file_move_to_full(f, type, keep_always, offset, size, ret, /* ret_size= */ NULL);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -1106,8 +1128,9 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
-        int r;
+        uint64_t size, available;
         Object *o;
+        int r;
 
         assert(f);
 
@@ -1129,7 +1152,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o);
+        r = journal_file_move_to_full(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
         if (r < 0)
                 return r;
 
@@ -1137,13 +1160,17 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
-        if (r < 0)
-                return r;
+        /* Usually the window of the header contains the whole object, which then needs no second lookup */
+        size = le64toh(READ_NOW(o->object.size));
+        if (size > available) {
+                r = journal_file_move_to(f, type, false, offset, size, (void**) &o);
+                if (r < 0)
+                        return r;
 
-        r = check_object_header(f, o, type, offset);
-        if (r < 0)
-                return r;
+                r = check_object_header(f, o, type, offset);
+                if (r < 0)
+                        return r;
+        }
 
         r = check_object(f, o, offset);
         if (r < 0)
@@ -4249,7 +4276,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, /* ret_size= */ NULL);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
