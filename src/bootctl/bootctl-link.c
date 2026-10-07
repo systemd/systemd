@@ -29,6 +29,7 @@
 #include "json-util.h"
 #include "kernel-image.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -340,6 +341,39 @@ static int validate_kernel(int kernel_fd, const char *filename) {
                 return log_error_errno(r, "Failed to determine kernel image type of '%s': %m", filename);
         if (kit != KERNEL_IMAGE_TYPE_UKI)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image '%s' is not a UKI.", filename);
+
+        return 0;
+}
+
+static int validate_extra(const ExtraFile *x) {
+        int r;
+
+        assert(x);
+        assert(x->filename);
+
+        /* Addons are loaded by systemd-stub, which ignores anything that is not a valid addon. Let's refuse
+         * early rather than generating an entry that silently lacks the requested addon. */
+        if (!endswith_no_case(x->filename, ".addon.efi"))
+                return 0;
+
+        _cleanup_close_ int data_fd = -EBADF;
+        int fd = x->source_fd;
+        if (fd < 0) {
+                data_fd = memfd_new_and_seal(x->filename, x->data.iov_base, x->data.iov_len);
+                if (data_fd < 0)
+                        return log_error_errno(data_fd, "Failed to allocate memory file for '%s': %m", x->filename);
+
+                fd = data_fd;
+        }
+
+        KernelImageType kit = _KERNEL_IMAGE_TYPE_INVALID;
+        r = inspect_kernel(fd, /* filename= */ NULL, &kit);
+        if (r == -EBADMSG)
+                return log_error_errno(r, "Addon '%s' is not valid.", x->filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine image type of '%s': %m", x->filename);
+        if (kit != KERNEL_IMAGE_TYPE_ADDON)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image '%s' is not an addon.", x->filename);
 
         return 0;
 }
@@ -991,6 +1025,12 @@ static int run_link(LinkContext *c) {
         if (c->keep_free == UINT64_MAX)
                 c->keep_free = KEEP_FREE_BYTES_DEFAULT;
 
+        FOREACH_ARRAY(x, c->extra, c->n_extra) {
+                r = validate_extra(x);
+                if (r < 0)
+                        return r;
+        }
+
         r = link_context_pick_entry_token(c);
         if (r < 0)
                 return r;
@@ -1076,6 +1116,7 @@ static const char* const auto_link_extra_suffixes[] = {
         ".sysext.raw",
         ".confext.raw",
         ".cred",
+        ".addon.efi",
 };
 
 static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, const char *filename) {
