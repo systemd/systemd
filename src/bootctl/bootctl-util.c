@@ -9,7 +9,6 @@
 #include "bootctl-util.h"
 #include "efivars.h"
 #include "errno-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "pe-binary.h"
 #include "string-util.h"
@@ -98,38 +97,6 @@ int sync_everything(void) {
         }
 
         return r;
-}
-
-const char* get_efi_arch(void) {
-        /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32-bit
-         * while the kernel is running in 64-bit. */
-
-#ifdef __x86_64__
-        _cleanup_free_ char *platform_size = NULL;
-        int r;
-
-        r = read_one_line_file("/sys/firmware/efi/fw_platform_size", &platform_size);
-        if (r == -ENOENT)
-                return EFI_MACHINE_TYPE_NAME;
-        if (r < 0) {
-                log_warning_errno(r,
-                        "Error reading EFI firmware word size, assuming machine type '%s': %m",
-                        EFI_MACHINE_TYPE_NAME);
-                return EFI_MACHINE_TYPE_NAME;
-        }
-
-        if (streq(platform_size, "64"))
-                return EFI_MACHINE_TYPE_NAME;
-        if (streq(platform_size, "32"))
-                return "ia32";
-
-        log_warning(
-                "Unknown EFI firmware word size '%s', using machine type '%s'.",
-                platform_size,
-                EFI_MACHINE_TYPE_NAME);
-#endif
-
-        return EFI_MACHINE_TYPE_NAME;
 }
 
 int get_file_version(int fd, char **ret) {

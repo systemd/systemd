@@ -8,7 +8,6 @@ int verify_touch_variables_allowed(const char *command);
 
 int sync_everything(void);
 
-const char* get_efi_arch(void);
 
 int get_file_version(int fd, char **ret);
 
