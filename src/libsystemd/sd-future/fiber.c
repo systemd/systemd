@@ -139,7 +139,7 @@ static int fiber_allocate_stack(size_t size, void **ret) {
         if (r == -EINVAL)
                 r = RET_NERRNO(mprotect(guard, page_size(), PROT_NONE));
         if (r < 0) {
-                (void) munmap(stack, size);
+                munmap_safe(stack, size);
                 return r;
         }
 
@@ -520,8 +520,7 @@ static void fiber_free(sd_future *f) {
                 VALGRIND_STACK_DEREGISTER(fiber->stack_id);
 #endif
 
-        if (fiber->stack.iov_base)
-                (void) munmap(fiber->stack.iov_base, fiber->stack.iov_len);
+        munmap_safe(fiber->stack.iov_base, fiber->stack.iov_len);
 
         sd_event_source_disable_unref(fiber->defer_event_source);
         sd_event_source_disable_unref(fiber->exit_event_source);
