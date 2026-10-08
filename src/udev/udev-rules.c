@@ -135,7 +135,7 @@ typedef enum {
         TK_A_OPTIONS_STRING_ESCAPE_NONE,    /* no argument */
         TK_A_OPTIONS_STRING_ESCAPE_REPLACE, /* no argument */
         TK_A_OPTIONS_DB_PERSIST,            /* no argument */
-        TK_A_OPTIONS_INOTIFY_WATCH,         /* boolean */
+        TK_A_OPTIONS_DEVICE_WATCH,          /* boolean */
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
         TK_A_OPTIONS_LOG_LEVEL,             /* string of log level or "reset" */
         TK_A_OWNER,                         /* user name */
@@ -1051,9 +1051,9 @@ static int parse_token(
                 else if (streq(value, "db_persist"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_DB_PERSIST, op, NULL, NULL, /* is_case_insensitive= */ false, token_str);
                 else if (streq(value, "watch"))
-                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_INOTIFY_WATCH, op, NULL, INT_TO_PTR(1), /* is_case_insensitive= */ false, token_str);
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DEVICE_WATCH, op, NULL, INT_TO_PTR(1), /* is_case_insensitive= */ false, token_str);
                 else if (streq(value, "nowatch"))
-                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_INOTIFY_WATCH, op, NULL, INT_TO_PTR(0), /* is_case_insensitive= */ false, token_str);
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DEVICE_WATCH, op, NULL, INT_TO_PTR(0), /* is_case_insensitive= */ false, token_str);
                 else if ((tmp = startswith(value, "static_node=")))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STATIC_NODE, op, tmp, NULL, /* is_case_insensitive= */ false, token_str);
                 else if ((tmp = startswith(value, "link_priority="))) {
@@ -2670,14 +2670,14 @@ static int udev_rule_apply_token_to_event(
                 device_set_db_persist(dev);
                 return log_event_done(event, token);
 
-        case TK_A_OPTIONS_INOTIFY_WATCH:
-                if (event->inotify_watch_final)
+        case TK_A_OPTIONS_DEVICE_WATCH:
+                if (event->device_watch_final)
                         return log_event_final_set(event, token);
 
                 if (token->op == OP_ASSIGN_FINAL)
-                        event->inotify_watch_final = true;
+                        event->device_watch_final = true;
 
-                event->inotify_watch = token->data;
+                event->device_watch = token->data;
                 return log_event_done(event, token);
 
         case TK_A_OPTIONS_DEVLINK_PRIORITY:
