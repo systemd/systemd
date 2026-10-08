@@ -13,6 +13,7 @@ Documentation=man:systemd-report-hwmon@.service(8)
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
+ConditionVirtualization=!container
 
 [Socket]
 ListenStream=/run/systemd/report/io.systemd.HWMon
