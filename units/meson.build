@@ -1109,6 +1109,15 @@ units = [
           'conditions' : ['HAVE_BLKID'],
         },
         {
+          'file' : 'systemd-varlink-monitord.socket',
+          'conditions' : ['ENABLE_VARLINK_MONITORD', 'HAVE_VMLINUX_H'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-varlink-monitord@.service.in',
+          'conditions' : ['ENABLE_VARLINK_MONITORD', 'HAVE_VMLINUX_H'],
+        },
+        {
           'file' : 'systemd-vconsole-setup.service.in',
           'conditions' : ['ENABLE_VCONSOLE'],
         },
