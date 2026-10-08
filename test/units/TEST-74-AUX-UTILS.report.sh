@@ -106,6 +106,73 @@ hwmon_tests() {
 
 hwmon_tests
 
+# test io.systemd.DiskHealth Metrics
+systemctl start systemd-report-diskhealth.socket
+varlinkctl info /run/systemd/report/io.systemd.DiskHealth
+varlinkctl list-methods /run/systemd/report/io.systemd.DiskHealth
+diskhealth_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.Describe {})"
+diskhealth_type() { echo "$diskhealth_describe" | jq --seq -r --arg n "io.systemd.DiskHealth.$1" 'select(.name == $n) | .type'; }
+for name in ATAOfflineUncorrectable ATAReallocatedSectors DiskPowerCycles DiskPowerOnHours NVMeMediaErrors; do
+    [[ "$(diskhealth_type "$name")" == counter ]]
+done
+for name in ATAPendingSectors ATASmartStatusFailing DiskLogicalSectorSizeBytes DiskPhysicalSectorSizeBytes DiskSizeBytes \
+            NVMeAvailableSparePercent NVMeCriticalWarning NVMePercentageUsed; do
+    [[ "$(diskhealth_type "$name")" == gauge ]]
+done
+for name in DiskModel DiskSerial DiskVendor; do
+    [[ "$(diskhealth_type "$name")" == string ]]
+done
+
+diskhealth_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {})"
+diskhealth_value() { echo "$diskhealth_metrics" | jq --seq -r --arg n "io.systemd.DiskHealth.$1" --arg o "$2" 'select(.name == $n and .object == $o) | .value | tostring'; }
+
+# In containers there is no udev database, hence nothing is reported, and there is nothing to compare with.
+if ! systemd-detect-virt --quiet --container; then
+    # Every whole hardware disk with a medium must be reported, with the numbers from sysfs and the strings
+    # from the udev database, and nothing else may be reported.
+    diskhealth_expected=""
+    for dev in /sys/block/*; do
+        name="${dev##*/}"
+        devpath="$(udevadm info --query=property --value --property=DEVPATH "$dev" || :)"
+        devname="$(udevadm info --query=property --value --property=DEVNAME "$dev" || :)"
+        initialized="$(udevadm info --query=property --value --property=USEC_INITIALIZED "$dev" || :)"
+        # Hidden NVMe multipath path devices have no device node, and devices not (yet) in the udev database
+        # are skipped by the service
+        [[ -n "$devpath" && -n "$devname" && -n "$initialized" ]] || continue
+        [[ "$devpath" =~ ^/devices/virtual/ && ! "$devpath" =~ ^/devices/virtual/nvme-subsystem/ ]] && continue
+        [[ "$(cat "$dev/size")" -gt 0 ]] || continue
+        diskhealth_expected+="$name"$'\n'
+
+        [[ "$(diskhealth_value DiskSizeBytes "$name")" == "$(( $(cat "$dev/size") * 512 ))" ]]
+        [[ "$(diskhealth_value DiskLogicalSectorSizeBytes "$name")" == "$(cat "$dev/queue/logical_block_size")" ]]
+        [[ "$(diskhealth_value DiskPhysicalSectorSizeBytes "$name")" == "$(cat "$dev/queue/physical_block_size")" ]]
+
+        model="$(udevadm info --query=property --value --property=ID_MODEL_FROM_DATABASE "$dev")"
+        [[ -n "$model" ]] || model="$(udevadm info --query=property --value --property=ID_MODEL "$dev")"
+        if [[ -n "$model" ]]; then
+            [[ "$(diskhealth_value DiskModel "$name")" == "$model" ]]
+        fi
+
+        vendor="$(udevadm info --query=property --value --property=ID_VENDOR_FROM_DATABASE "$dev")"
+        [[ -n "$vendor" ]] || vendor="$(udevadm info --query=property --value --property=ID_VENDOR "$dev")"
+        if [[ -n "$vendor" ]]; then
+            [[ "$(diskhealth_value DiskVendor "$name")" == "$vendor" ]]
+        fi
+
+        serial="$(udevadm info --query=property --value --property=ID_SERIAL_SHORT "$dev")"
+        [[ -n "$serial" ]] || serial="$(udevadm info --query=property --value --property=ID_SERIAL "$dev")"
+        if [[ -n "$serial" ]]; then
+            [[ "$(diskhealth_value DiskSerial "$name")" == "$serial" ]]
+        else
+            [[ -z "$(diskhealth_value DiskSerial "$name")" ]]
+        fi
+    done
+    diff <(echo -n "$diskhealth_expected" | sort) <(echo "$diskhealth_metrics" | jq --seq -r '.object' | sort -u)
+fi
+
+"$REPORT" describe io.systemd.DiskHealth
+"$REPORT" metrics io.systemd.DiskHealth
+
 # test io.systemd.DiskSpace Metrics
 
 # Mount a scratch ext4 file system and check that it is reported with plausible numbers, that a tmpfs next to
