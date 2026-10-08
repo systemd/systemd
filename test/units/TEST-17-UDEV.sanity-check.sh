@@ -317,7 +317,7 @@ udevadm lock --version
 for i in /dev/block/*; do
     udevadm lock --device "$i" --print
     udevadm lock --device "$i" true
-    # The command 'udevadm lock' opens and closes the whole block device, so it triggers an inotify event for
+    # The command 'udevadm lock' opens and closes the whole block device, so it triggers a watch event for
     # the device and udevd triggers synthetic uevents for the device and its partitions. If the triggered
     # uevents are being processed when the next command is called, the command may tentatively fail to
     # resolve the referenced devlink. Hence, let's wait for all queued uevents to be processed.
