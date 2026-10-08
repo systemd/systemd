@@ -23,6 +23,7 @@
 #include "journald-syslog.h"
 #include "log.h"
 #include "log-ratelimit.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
@@ -437,20 +438,6 @@ int manager_open_kernel_seqnum(Manager *m) {
         return 0;
 }
 
-void manager_close_kernel_seqnum(Manager *m) {
-        assert(m);
-
-        manager_unmap_seqnum_file(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
-        m->kernel_seqnum = NULL;
-}
-
-static int manager_unlink_kernel_seqnum(Manager *m) {
-        assert(m);
-        assert(!m->kernel_seqnum); /* The file must not be mmap()ed. */
-
-        return manager_unlink_seqnum_file(m, "kernel-seqnum");
-}
-
 int manager_reopen_dev_kmsg(Manager *m, bool old_read_kmsg) {
         int r;
 
@@ -470,11 +457,11 @@ int manager_reopen_dev_kmsg(Manager *m, bool old_read_kmsg) {
                 m->config.read_kmsg = false;
 
                 /* seqnum file is not necessary anymore. Let's close it. */
-                manager_close_kernel_seqnum(m);
+                m->kernel_seqnum = munmap_safe(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
 
                 /* Also, unlink the file name as we will not warn some kmsg are lost when reading kmsg is
                  * re-enabled later. */
-                manager_unlink_kernel_seqnum(m);
+                (void) manager_unlink_seqnum_file(m, "kernel-seqnum");
         }
 
         /* Close previously configured event source and opened file descriptor. */

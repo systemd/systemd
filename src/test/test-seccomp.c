@@ -551,11 +551,11 @@ TEST(memory_deny_write_execute_mmap) {
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
@@ -570,12 +570,11 @@ TEST(memory_deny_write_execute_mmap) {
 #endif
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
-                if (p != MAP_FAILED)
-                        assert_se(munmap(p, page_size()) == 0);
+                munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 _exit(EXIT_SUCCESS);
         }
