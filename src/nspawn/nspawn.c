@@ -1059,11 +1059,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("system-call-filter", "LIST|~LIST",
                             "Permit/prohibit specific system calls"): {
-                        bool negative;
-                        const char *items;
-
-                        negative = opts.arg[0] == '~';
-                        items = negative ? opts.arg + 1 : opts.arg;
+                        bool negative = opts.arg[0] == '~';
+                        const char *items = negative ? opts.arg + 1 : opts.arg;
 
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
