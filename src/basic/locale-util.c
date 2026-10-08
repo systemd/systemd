@@ -165,9 +165,7 @@ static int add_locales_from_archive(Set *locales) {
         r = 0;
 
 finish:
-        if (p != MAP_FAILED)
-                munmap(p, st.st_size);
-
+        munmap_safe(p, st.st_size);
         return r;
 }
 
