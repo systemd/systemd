@@ -57,6 +57,8 @@ typedef struct Manager {
         /* used by udev-watch */
         int inotify_fd;
         sd_event_source *inotify_event;
+
+        /* used by udev-synth */
         Set *synthesize_change_child_event_sources;
         Set *synthesized_events;
         sd_event_source *synthesized_events_clear_event_source;
