@@ -151,14 +151,7 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
         assert(context->link);
         assert(context->metric_family);
 
-        if (fields) {
-                assert(sd_json_variant_is_object(fields));
-
-                _unused_ const char *k;
-                _unused_ sd_json_variant *e;
-                JSON_VARIANT_OBJECT_FOREACH(k, e, fields)
-                        assert(sd_json_variant_is_string(e));
-        }
+        assert(!fields || sd_json_variant_is_object(fields));
 
         return sd_varlink_replybo(context->link,
                         SD_JSON_BUILD_PAIR_STRING("name", context->metric_family->name),
