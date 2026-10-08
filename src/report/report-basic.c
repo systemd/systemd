@@ -23,15 +23,19 @@
 #include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
+#include "mountpoint-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "procfs-util.h"
 #include "psi-util.h"
 #include "report-basic.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
 #include "virt.h"
+
+#define LINUX_BIRTHDATE_NSEC (685065600LU * NSEC_PER_SEC)
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
@@ -61,6 +65,94 @@ static int boot_id_generate(const MetricFamily *mf, sd_varlink *link, void *user
                         link,
                         /* object= */ NULL,
                         SD_ID128_TO_STRING(id),
+                        /* fields= */ NULL);
+}
+
+static int clocks_generate(const MetricFamily mf[static 3], sd_varlink *link, void *userdata) {
+        /* Indexed by family offset, i.e. in the order of the table entries */
+        static const clockid_t clocks[] = {
+                CLOCK_BOOTTIME,
+                CLOCK_MONOTONIC,
+                CLOCK_REALTIME,
+        };
+        /* Monotonic is sampled before boottime: the two are equal until the system suspends for the first
+         * time, and sampling them in this order guarantees boottime ≥ monotonic in what we send out. */
+        static const size_t sample_order[] = { 1, 0, 2 };
+        assert_cc(ELEMENTSOF(clocks) == ELEMENTSOF(sample_order));
+
+        uint64_t values[ELEMENTSOF(clocks)];
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name && mf[2].name);
+        assert(!mf[1].generate && !mf[2].generate);
+        assert(link);
+
+        /* Sample all clocks first, back to back, so that the consumer can correlate them (e.g. boottime −
+         * monotonic = time spent suspended, realtime − boottime = time of boot), and only then send them
+         * out. */
+        FOREACH_ELEMENT(i, sample_order)
+                values[*i] = now_nsec(clocks[*i]);
+
+        for (size_t i = 0; i < ELEMENTSOF(clocks); i++) {
+                r = metric_build_send_unsigned(
+                                &mf[i],
+                                link,
+                                /* object= */ NULL,
+                                values[i],
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int deployment_timestamp_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        struct statx sx;
+        const char *p;
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* The birth time of the root inode of the file system backing /var/ approximates when the system
+         * was deployed, i.e. when its persistent file system was created. If /var/ is not a mount point
+         * of its own, it lives on the root file system, hence use that one. */
+        r = path_is_mount_point("/var/");
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether /var/ is a mount point, assuming it is not: %m");
+        p = r > 0 ? "/var/" : "/";
+
+        r = xstatx_full(AT_FDCWD,
+                        p,
+                        AT_STATX_DONT_SYNC,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ 0,
+                        /* optional_mask= */ STATX_BTIME,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to statx() '%s': %m", p);
+        if (r == 0 || sx.stx_btime.tv_sec == 0) { /* 0: optional STATX_BTIME not supported */
+                log_debug("File system backing '%s' does not report a birth time, skipping.", p);
+                return 0;
+        }
+
+        nsec_t ns = statx_timestamp_load_nsec(&sx.stx_btime);
+        if (ns == NSEC_INFINITY) {
+                log_debug("File system backing '%s' reports a too large birth time, skipping.", p);
+                return 0;
+        }
+        if (ns < LINUX_BIRTHDATE_NSEC) {
+                log_debug("File system backing '%s' reports a birth time from before Linux' existence, skipping.", p);
+                return 0;
+        }
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        ns,
                         /* fields= */ NULL);
 }
 
@@ -755,6 +847,24 @@ static const MetricFamily metric_family_table[] = {
                 .generate = boot_id_generate,
         },
         {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockBoottimeNSec",
+                "Time since boot in nanoseconds, including time spent suspended (CLOCK_BOOTTIME)",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = clocks_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockMonotonicNSec",
+                "Time since boot in nanoseconds, excluding time spent suspended (CLOCK_MONOTONIC)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        /* CLOCK_REALTIME may jump backwards, hence METRIC_FAMILY_TYPE_GAUGE rather than _COUNTER. */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockRealtimeNSec",
+                "Wall-clock time in nanoseconds since the UNIX epoch (CLOCK_REALTIME)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ in sync with clocks_generate(). */
+        {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "ConfidentialVirtualization",
                 "Confidential computing technology",
                 METRIC_FAMILY_TYPE_STRING,
@@ -780,6 +890,13 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
         },
         /* Keep those ↑ in sync with cpu_usage_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "DeploymentTimestampNSec",
+                "Birth time of the file system backing /var/ (or of the root file system, if /var/ is not "
+                "a separate mount) in nanoseconds since the UNIX epoch, i.e. when the system was deployed",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = deployment_timestamp_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskReadBytes",
                 "Per block device metric: cumulative number of bytes read "
