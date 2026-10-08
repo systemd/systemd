@@ -975,6 +975,48 @@ testcase_notification_socket() {
     rm -fr "$root"
 }
 
+testcase_fdstore_wipe() {
+    local root commands unit=test-nspawn-fdstore-wipe.service
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
+    create_dummy_container "$root"
+    cat >"$root/entrypoint.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore store
+EOF
+    chmod +x "$root/entrypoint.sh"
+
+    systemd-run --unit="$unit" -p Type=notify -p NotifyAccess=all -p KillMode=mixed \
+        -p Delegate=yes -p DelegateSubgroup=supervisor \
+        -p FileDescriptorStoreMax=4 -p FileDescriptorStorePreserve=yes \
+        -p 'ExecReload=/bin/sh -c "exec systemd-notify --fd=3 --fdname=nspawn-only 3</dev/null"' \
+        systemd-nspawn --register=no --keep-unit --directory="$root" \
+        --notify-ready=yes --kill-signal=SIGTERM /entrypoint.sh
+    timeout 30s bash -c \
+        'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 2 ]]; do sleep 0.5; done' _ "$unit"
+
+    systemctl reload "$unit"
+    assert_eq "$(systemctl show "$unit" -P NFileDescriptorStore)" 3
+
+    for commands in "check wipe" "store wipe" "wipe"; do
+        cat >"$root/entrypoint.sh" <<EOF
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore $commands
+EOF
+        systemctl restart "$unit"
+        timeout 30s bash -c \
+            'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 1 ]]; do sleep 0.5; done' _ "$unit"
+        systemd-analyze fdstore "$unit" --json=short | jq -e 'length == 1 and .[0].fdname == "nspawn-only"'
+        systemctl is-active --quiet "$unit"
+    done
+
+    systemctl stop "$unit"
+    systemctl clean "$unit" --what=fdstore
+    rm -fr "$root"
+}
+
 testcase_os_release() {
     local root entrypoint os_release_source
 
