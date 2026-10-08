@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdarg.h>
+
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "bus-internal.h"
 #include "bus-unit-util.h"
 #include "extract-word.h"
-#include "unit-def.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "unit-def.h"
 
 static sd_bus *arg_bus = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
@@ -34,6 +38,57 @@ static void test_transient_settings_one(UnitType type, const char* const* lines)
                 ASSERT_EQ(r, expect);
         }
 }
+
+/* Checks that the assignment is accepted and serialized as the given sequence of (property name, variant
+ * signature, value) triplets, terminated by NULL. The value is the compact JSON representation produced by
+ * sd_bus_message_dump_json(), with double quotes replaced by single quotes for readability (which means
+ * that a value containing an apostrophe cannot be expressed). */
+static void test_setting_full(UnitType type, const char *assignment, ...) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *data;
+        size_t n = 0;
+        va_list ap;
+
+        ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
+        ASSERT_OK_EQ(bus_append_unit_property_assignment(m, type, assignment), 1);
+        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
+        ASSERT_OK(sd_bus_message_dump_json(m, 0, &v));
+
+        /* The message body is a sequence of (sv) structs, represented in JSON as an array of
+         * [name, {"type": signature, "data": value}] pairs. */
+        ASSERT_NOT_NULL(data = sd_json_variant_by_key(v, "data"));
+
+        va_start(ap, assignment);
+        for (const char *name; (name = va_arg(ap, const char*)); n++) {
+                const char *signature = ASSERT_PTR(va_arg(ap, const char*));
+                const char *expected = ASSERT_PTR(va_arg(ap, const char*));
+                _cleanup_free_ char *s = NULL;
+                sd_json_variant *pair, *variant;
+
+                ASSERT_LT(n, sd_json_variant_elements(data));
+                ASSERT_NOT_NULL(pair = sd_json_variant_by_index(data, n));
+                ASSERT_NOT_NULL(variant = sd_json_variant_by_index(pair, 1));
+
+                ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(variant, "data"), 0, &s));
+                string_replace_char(s, '"', '\'');
+
+                log_debug("%s → %s %s %s",
+                          assignment,
+                          sd_json_variant_string(sd_json_variant_by_index(pair, 0)),
+                          sd_json_variant_string(sd_json_variant_by_key(variant, "type")),
+                          s);
+
+                ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(pair, 0)), name);
+                ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(variant, "type")), signature);
+                ASSERT_STREQ(s, expected);
+        }
+        va_end(ap);
+
+        ASSERT_EQ(sd_json_variant_elements(data), n);
+}
+
+#define test_setting(type, assignment, ...) test_setting_full(type, assignment, __VA_ARGS__, NULL)
 
 /* The tests data below is in a format intended to be easy to read and write:
  * Examples can be plain or prefixed with a negative numeric error code:
@@ -1157,6 +1212,130 @@ TEST(unit_properties) {
 
         test_transient_settings_one(UNIT_TARGET, lines);
         /* All unit types. */
+}
+
+TEST(values_basic) {
+        test_setting(UNIT_SERVICE, "Slice=foo.slice",
+                     "Slice", "s", "'foo.slice'");
+        test_setting(UNIT_SERVICE, "MemoryAccounting=yes",
+                     "MemoryAccounting", "b", "true");
+        test_setting(UNIT_SERVICE, "MemoryAccounting=0",
+                     "MemoryAccounting", "b", "false");
+        test_setting(UNIT_SERVICE, "Nice=-5",
+                     "Nice", "i", "-5");
+        test_setting(UNIT_SERVICE, "KillSignal=SIGKILL",
+                     "KillSignal", "i", "9");
+        test_setting(UNIT_SERVICE, "RuntimeDirectoryMode=0750",
+                     "RuntimeDirectoryMode", "u", "488");
+        test_setting(UNIT_SERVICE, "TimerSlackNSec=1ms",
+                     "TimerSlackNSec", "t", "1000000");
+
+        /* Boolean or string, with the "Ex" suffix added or dropped as appropriate */
+        test_setting(UNIT_SERVICE, "PrivateTmp=yes",
+                     "PrivateTmp", "b", "true");
+        test_setting(UNIT_SERVICE, "PrivateTmp=disconnected",
+                     "PrivateTmpEx", "s", "'disconnected'");
+        test_setting(UNIT_SERVICE, "PrivateTmpEx=no",
+                     "PrivateTmp", "b", "false");
+
+        test_setting(UNIT_SERVICE, "Delegate=yes",
+                     "Delegate", "b", "true");
+        test_setting(UNIT_SERVICE, "Delegate=cpu memory",
+                     "DelegateControllers", "as", "['cpu','memory']");
+        test_setting(UNIT_SERVICE, "CPUAffinity=numa",
+                     "CPUAffinityFromNUMA", "b", "true");
+
+        /* Deprecated settings are accepted, but nothing is sent. */
+        test_setting_full(UNIT_SERVICE, "MemoryLimit=1G", NULL);
+}
+
+TEST(values_strv) {
+        test_setting(UNIT_SERVICE, "DisableControllers=cpu memory",
+                     "DisableControllers", "as", "['cpu','memory']");
+        test_setting(UNIT_SERVICE, "ExecSearchPath=/a:/b /c",
+                     "ExecSearchPath", "as", "['/a','/b','/c']");
+        test_setting(UNIT_SERVICE, "Environment=\"A=1 2\" B=\\x41",
+                     "Environment", "as", "['A=1 2','B=A']");
+        test_setting(UNIT_SERVICE, "Environment=",
+                     "Environment", "as", "[]");
+}
+
+TEST(values_time_and_size) {
+        test_setting(UNIT_SERVICE, "MemoryPressureThresholdSec=5min",
+                     "MemoryPressureThresholdUSec", "t", "300000000");
+        test_setting(UNIT_SERVICE, "CPUQuotaPeriodSec=",
+                     "CPUQuotaPeriodUSec", "t", "18446744073709551615");
+        test_setting(UNIT_SERVICE, "TimeoutSec=1s",
+                     "TimeoutStartUSec", "t", "1000000",
+                     "TimeoutStopUSec", "t", "1000000");
+        test_setting(UNIT_SOCKET, "ReceiveBuffer=1M",
+                     "ReceiveBuffer", "t", "1048576");
+        test_setting(UNIT_SERVICE, "MemoryMax=1G",
+                     "MemoryMax", "t", "1073741824");
+        test_setting(UNIT_SERVICE, "MemoryMax=infinity",
+                     "MemoryMax", "t", "18446744073709551615");
+        test_setting(UNIT_SERVICE, "MemoryLow=100%",
+                     "MemoryLowScale", "u", "4294967295");
+        test_setting(UNIT_SERVICE, "CPUQuota=50%",
+                     "CPUQuotaPerSecUSec", "t", "500000");
+        test_setting(UNIT_SERVICE, "ManagedOOMMemoryPressureLimit=100%",
+                     "ManagedOOMMemoryPressureLimit", "u", "4294967295");
+        test_setting(UNIT_SERVICE, "LimitNOFILE=1024:4096",
+                     "LimitNOFILE", "t", "4096",
+                     "LimitNOFILESoft", "t", "1024");
+        test_setting(UNIT_TIMER, "OnBootSec=10s",
+                     "TimersMonotonic", "a(st)", "[['OnBootSec',10000000]]");
+}
+
+TEST(values_filter_lists) {
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=AF_INET AF_INET6",
+                     "RestrictAddressFamilies", "(bas)", "[true,['AF_INET','AF_INET6']]");
+        /* Names are passed through verbatim, normalization is done by the manager. */
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=INET,INET6,netlink",
+                     "RestrictAddressFamilies", "(bas)", "[true,['INET','INET6','netlink']]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=AF_INET, AF_INET6 ,AF_UNIX",
+                     "RestrictAddressFamilies", "(bas)", "[true,['AF_INET','AF_INET6','AF_UNIX']]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=~AF_NETLINK",
+                     "RestrictAddressFamilies", "(bas)", "[false,['AF_NETLINK']]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=",
+                     "RestrictAddressFamilies", "(bas)", "[true,[]]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=~",
+                     "RestrictAddressFamilies", "(bas)", "[false,[]]");
+
+        test_setting(UNIT_SERVICE, "SystemCallFilter=read,write,open,close",
+                     "SystemCallFilter", "(bas)", "[true,['read','write','open','close']]");
+        test_setting(UNIT_SERVICE, "SystemCallFilter=~@debug @mount",
+                     "SystemCallFilter", "(bas)", "[false,['@debug','@mount']]");
+        test_setting(UNIT_SERVICE, "SystemCallFilter=\"read write\"",
+                     "SystemCallFilter", "(bas)", "[true,['read write']]");
+        test_setting(UNIT_SERVICE, "SystemCallLog=@system-service",
+                     "SystemCallLog", "(bas)", "[true,['@system-service']]");
+        test_setting(UNIT_SERVICE, "RestrictFileSystems=~tmpfs,ext4",
+                     "RestrictFileSystems", "(bas)", "[false,['tmpfs','ext4']]");
+        test_setting(UNIT_SERVICE, "RestrictNetworkInterfaces=~eth0 lo",
+                     "RestrictNetworkInterfaces", "(bas)", "[false,['eth0','lo']]");
+        test_setting(UNIT_SERVICE, "RestrictNetworkInterfaces=~iface,wo,comma 'iface,w,comma'",
+                     "RestrictNetworkInterfaces", "(bas)", "[false,['iface','wo','comma','iface,w,comma']]");
+}
+
+TEST(values_exec) {
+        test_setting(UNIT_SERVICE, "ExecStart=/bin/true a b",
+                     "ExecStart", "a(sasb)", "[['/bin/true',['/bin/true','a','b'],false]]");
+        test_setting(UNIT_SERVICE, "ExecStart=-/bin/true",
+                     "ExecStart", "a(sasb)", "[['/bin/true',['/bin/true'],true]]");
+        test_setting(UNIT_SERVICE, "ExecStart=:/bin/true",
+                     "ExecStartEx", "a(sasas)", "[['/bin/true',['/bin/true'],['no-env-expand']]]");
+        test_setting(UNIT_SERVICE, "ExecStartEx=/bin/true",
+                     "ExecStart", "a(sasb)", "[['/bin/true',['/bin/true'],false]]");
+
+        test_setting(UNIT_SERVICE, "StandardInputText=hi",
+                     "StandardInputData", "ay", "[104,105,10]");
+        test_setting(UNIT_SERVICE, "LogExtraFields=A=B",
+                     "LogExtraFields", "aay", "[[65,61,66]]");
+        test_setting(UNIT_SERVICE, "EnvironmentFile=-/etc/foo",
+                     "EnvironmentFiles", "a(sb)", "[['/etc/foo',true]]");
+        test_setting(UNIT_SERVICE, "BindPaths=/a:/b:rbind",
+                     "BindPaths", "a(ssbt)", "[['/a','/b',false,16384]]");
 }
 
 TEST(bus_dump_transient_settings) {
