@@ -230,7 +230,7 @@ static int udev_watch_restore(Manager *manager) {
         return 0;
 }
 
-int manager_init_inotify(Manager *manager, int fd) {
+int manager_init_device_watch(Manager *manager, int fd) {
         int r;
 
         assert(manager);
@@ -266,13 +266,13 @@ int manager_init_inotify(Manager *manager, int fd) {
         return 0;
 }
 
-int manager_start_inotify(Manager *manager) {
+int manager_start_device_watch(Manager *manager) {
         int r;
 
         assert(manager);
         assert(manager->event);
 
-        r = manager_init_inotify(manager, -EBADF);
+        r = manager_init_device_watch(manager, -EBADF);
         if (r < 0)
                 return r;
 
@@ -281,15 +281,15 @@ int manager_start_inotify(Manager *manager) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to create inotify event source: %m");
+                return log_error_errno(r, "Failed to create event source for device watch: %m");
 
-        r = sd_event_source_set_priority(s, EVENT_PRIORITY_INOTIFY_WATCH);
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_DEVICE_WATCH);
         if (r < 0)
-                return log_error_errno(r, "Failed to set priority to inotify event source: %m");
+                return log_error_errno(r, "Failed to set priority to event source for device watch: %m");
 
-        (void) sd_event_source_set_description(s, "manager-inotify");
+        (void) sd_event_source_set_description(s, "manager-device-watch");
 
-        manager->inotify_event = TAKE_PTR(s);
+        manager->device_watch_event = TAKE_PTR(s);
         return 0;
 }
 
