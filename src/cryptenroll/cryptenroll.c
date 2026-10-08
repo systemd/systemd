@@ -80,6 +80,7 @@ static usec_t arg_tpm2_argon2id_iter_time = 0;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
 static char *arg_tpm2_public_key_policyref = NULL;
+static bool arg_tpm2_public_key_policyref_initrd_fallback = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
@@ -185,6 +186,7 @@ void enroll_context_done(EnrollContext *c) {
         c->tpm2_device_key = mfree(c->tpm2_device_key);
         c->tpm2_hash_pcr_values = mfree(c->tpm2_hash_pcr_values);
         c->tpm2_public_key = mfree(c->tpm2_public_key);
+        c->tpm2_public_key_policyref = mfree(c->tpm2_public_key_policyref);
         c->tpm2_signature = mfree(c->tpm2_signature);
         c->tpm2_pcrlock = mfree(c->tpm2_pcrlock);
         c->wipe_slots = mfree(c->wipe_slots);
@@ -675,6 +677,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-public-key-policyref", "STRING",
                             "Enroll signed TPM2 PCR policy with the specified policy reference"):
+                        /* any argument disables fallback to a policyref of "initrd" */
+                        arg_tpm2_public_key_policyref_initrd_fallback = false;
+
+                        if (isempty(opts.arg)) {
+                                arg_tpm2_public_key_policyref = mfree(arg_tpm2_public_key_policyref);
+                                break;
+                        }
+
                         r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, opts.arg);
                         if (r < 0)
                                 return r;
@@ -967,6 +977,7 @@ static int enroll_context_from_args(EnrollContext *c) {
         c->tpm2_seal_key_handle = arg_tpm2_seal_key_handle;
         c->tpm2_pin = arg_tpm2_pin;
         c->tpm2_load_public_key = arg_tpm2_load_public_key;
+        c->tpm2_public_key_policyref_initrd_fallback = arg_tpm2_public_key_policyref_initrd_fallback;
         c->tpm2_public_key_pcr_mask = arg_tpm2_public_key_pcr_mask;
         c->tpm2_argon2id_params = arg_tpm2_argon2id_params;
         c->tpm2_argon2id_iter_time = arg_tpm2_argon2id_iter_time;
