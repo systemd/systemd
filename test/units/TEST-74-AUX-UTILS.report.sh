@@ -328,9 +328,24 @@ basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.
 [ "$(basic_number ClockBoottimeNSec)" -ge "$boottime_ns" ]
 [ "$(basic_number ClockMonotonicNSec)" -ge "$monotonic_ns" ]
 
+# DeploymentTimestampNSec is the birth time of the file system backing /var/, or of the root file system
+# if /var/ is not a mount point of its own. It is only reported if the file system records birth times
+# (which stat reports as 0 otherwise). The value is ~1.8e18, beyond what jq represents exactly, hence
+# compare in whole seconds and allow for one second of rounding error.
+if mountpoint -q /var/; then deploy_dir=/var/; else deploy_dir=/; fi
+deploy_expected_s="$(stat -c %W "$deploy_dir")"
+deploy_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.DeploymentTimestampNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
+if [ "$deploy_expected_s" -gt 0 ]; then
+    test -n "$deploy_s"
+    [ "$deploy_s" -ge $(( deploy_expected_s - 1 )) ]
+    [ "$deploy_s" -le $(( deploy_expected_s + 1 )) ]
+else
+    test -z "$deploy_s"
+fi
+
 # Every new metric family must be described, even those whose values depend on the environment.
 basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DeploymentTimestampNSec DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
     echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
 done
 
