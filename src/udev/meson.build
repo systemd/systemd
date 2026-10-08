@@ -40,6 +40,7 @@ udevadm_export_sources = files(
         'udev-node.c',
         'udev-rules.c',
         'udev-spawn.c',
+        'udev-synth.c',
         'udev-varlink.c',
         'udev-watch.c',
         'udev-worker.c',
