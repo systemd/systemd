@@ -49,7 +49,7 @@ static void message_free_part(sd_bus_message *m, BusMessageBodyPart *part) {
         } else if (part->munmap_this)
                 /* We don't erase sensitive data here, since the data is memory mapped from someone else, and
                  * we just don't know if it's OK to write to it */
-                munmap(part->mmap_begin, part->mapped);
+                munmap_safe(part->mmap_begin, part->mapped);
         else {
                 /* Erase this if that is requested. Since this is regular memory we know we can write it. */
                 if (m->sensitive)
@@ -2528,11 +2528,10 @@ void bus_body_part_unmap(BusMessageBodyPart *part) {
         if (!part->munmap_this)
                 return;
 
-        assert_se(munmap(part->mmap_begin, part->mapped) == 0);
-
-        part->mmap_begin = NULL;
-        part->data = NULL;
+        part->mmap_begin = munmap_safe(part->mmap_begin, part->mapped);
         part->mapped = 0;
+
+        part->data = NULL;
         part->munmap_this = false;
 
         return;
