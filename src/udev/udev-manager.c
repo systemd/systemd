@@ -167,9 +167,12 @@ Manager* manager_free(Manager *manager) {
         sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
+
+        /* udev synth */
         set_free(manager->synthesize_change_child_event_sources);
         set_free(manager->synthesized_events);
         sd_event_source_unref(manager->synthesized_events_clear_event_source);
+
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
