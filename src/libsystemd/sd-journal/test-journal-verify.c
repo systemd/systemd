@@ -15,6 +15,7 @@
 #include "log.h"
 #include "mmap-cache.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -171,6 +172,88 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         return 0;
 }
 
+static void test_hash_chain_cycle(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-XXXXXX", second[64];
+        const char *first = "CYCLE=first";
+        uint64_t buckets, bucket, head;
+        struct dual_timestamp ts;
+        JournalFile *f;
+        le64_t self;
+        int fd;
+
+        if (sd_id128_get_machine(NULL) < 0)
+                return (void) log_tests_skipped("No valid machine ID found");
+
+        test_setup_logging(LOG_DEBUG);
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_NOT_NULL(mkdtemp(t));
+        ASSERT_OK_ERRNO(chdir(t));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                                /* fd= */ -EBADF,
+                                "test.journal",
+                                O_RDWR|O_CREAT,
+                                /* file_flags= */ 0,
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* template= */ NULL,
+                                &f));
+        dual_timestamp_now(&ts);
+
+        /* We need two data objects in the same hash chain. journal_file_hash_data() is keyed per-file, so
+         * compute the colliding value against the open file. */
+        buckets = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        bucket = journal_file_hash_data(f, first, strlen(first)) % buckets;
+        for (uint64_t i = 0;; i++) {
+                ASSERT_LT(i, UINT64_C(1000000));
+                xsprintf(second, "CYCLE=%" PRIu64, i);
+                if (journal_file_hash_data(f, second, strlen(second)) % buckets == bucket)
+                        break;
+        }
+
+        const char *v;
+        FOREACH_ARGUMENT(v, first, second) {
+                struct iovec iovec = IOVEC_MAKE_STRING(v);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                        f,
+                                        &ts,
+                                        /* boot_id= */ NULL,
+                                        &iovec,
+                                        /* n_iovec= */ 1,
+                                        /* seqnum= */ NULL,
+                                        /* seqnum_id= */ NULL,
+                                        /* ret_object= */ NULL,
+                                        /* ret_offset= */ NULL));
+        }
+
+        ASSERT_EQ(journal_file_find_data_object(f, first, strlen(first), NULL, &head), 1);
+        (void) journal_file_offline_close(f);
+
+        /* The file has to be fine before we touch it, so that the failure below is really ours */
+        ASSERT_OK(raw_verify("test.journal", /* verification_key= */ NULL));
+
+        /* Point the head of the chain back at itself. Looking up the second data object, which verifying
+         * the entry that references it does, then runs into the cycle. */
+        self = htole64(head);
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_EQ(pwrite(fd, &self, sizeof(self), head + offsetof(Object, data.next_hash_offset)),
+                  (ssize_t) sizeof(self));
+        safe_close(fd);
+
+        /* If the cycle is not detected, verification never returns. Fail quickly and visibly then, instead
+         * of running into the timeout of the whole test. */
+        alarm(60);
+        ASSERT_ERROR(raw_verify("test.journal", /* verification_key= */ NULL), EBADMSG);
+        alarm(0);
+
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
+}
+
 int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
@@ -201,6 +284,8 @@ int main(int argc, char *argv[]) {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
         }
+
+        test_hash_chain_cycle();
 
         return 0;
 }
