@@ -1,0 +1,160 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-netstat_.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report-netstat@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-netstat@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-netstat@.service</refname>
+    <refname>systemd-report-netstat.socket</refname>
+    <refname>systemd-report-netstat</refname>
+    <refpurpose>Report network interface statistics as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-netstat@.service</filename></para>
+    <para><filename>systemd-report-netstat.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-netstat</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-netstat@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports traffic counters and related properties of the network interfaces of the host, by implementing
+    the <constant>io.systemd.Metrics</constant> Varlink interface on a socket linked into the
+    <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>All network interfaces of the host's network namespace are enumerated, including the loopback
+    interface. The data is acquired from the kernel via
+    <citerefentry project='man-pages'><refentrytitle>rtnetlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+    except for the link speed, see below. Note that this service is independent of
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    and reports on all interfaces, regardless of which component manages them. For each interface the
+    following metrics are reported, with the interface name as metric object:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.CarrierChanges</literal></term>
+        <listitem><para>The number of times the carrier state of the interface changed (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.Collisions</literal></term>
+        <listitem><para>The number of collisions during packet transmission (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.MTU</literal></term>
+        <listitem><para>The maximum transmission unit of the interface, in bytes (gauge).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.ReceiveBytes</literal></term>
+        <listitem><para>The number of bytes received (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.ReceiveDropped</literal></term>
+        <listitem><para>The number of received packets that were dropped without an error, for example due to lack of buffer space (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.ReceiveErrors</literal></term>
+        <listitem><para>The total number of receive errors (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.ReceiveMulticastPackets</literal></term>
+        <listitem><para>The number of multicast packets received (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.ReceivePackets</literal></term>
+        <listitem><para>The number of packets received (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.SpeedBitsPerSecond</literal></term>
+        <listitem><para>The link speed, in bits per second. Only reported for interfaces whose driver reports a link speed and that are up and have a known speed, which typically means wired Ethernet interfaces. The value is read from the <filename>speed</filename> attribute of the interface in <filename>/sys/class/net/</filename> (gauge).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.TransmitBytes</literal></term>
+        <listitem><para>The number of bytes transmitted (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.TransmitDropped</literal></term>
+        <listitem><para>The number of packets dropped on transmission without an error (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.TransmitErrors</literal></term>
+        <listitem><para>The total number of transmit errors (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.TransmitPackets</literal></term>
+        <listitem><para>The number of packets transmitted (counter).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.NetworkStatistics.TransmitQueueLength</literal></term>
+        <listitem><para>The length of the transmit queue of the interface, in packets (gauge).</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Counters are maintained by the kernel per interface, and hence start from zero whenever an
+    interface is (re-)created. The following metric fields are set on all metrics:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>ifindex</varname></term>
+        <listitem><para>The interface index, in decimal. Always set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>type</varname></term>
+        <listitem><para>The type of the interface, as also shown in the <literal>Type</literal> column of
+        <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, i.e.
+        the device type if the kernel reports one (for example <literal>wlan</literal> or
+        <literal>bridge</literal>), and the hardware type otherwise (for example <literal>ether</literal> or
+        <literal>loopback</literal>). Omitted if not known.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>kind</varname></term>
+        <listitem><para>The kind of the interface, for virtual interfaces, for example
+        <literal>veth</literal>, <literal>bridge</literal> or <literal>wireguard</literal>. Omitted for
+        physical interfaces.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-netstat binary itself should
+       not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>rtnetlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
