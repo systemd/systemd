@@ -57,6 +57,13 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-netstat',
+                'sources' : files(
+                        'report-netstat.c',
+                        'report-netstat-server.c',
+                ),
+        },
+        libexec_template + {
                 'name' : 'systemd-report-sign-plain',
                 'sources' : files(
                         'report-sign-plain.c',
