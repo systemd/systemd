@@ -64,6 +64,49 @@ static int boot_id_generate(const MetricFamily *mf, sd_varlink *link, void *user
                         /* fields= */ NULL);
 }
 
+static int clocks_generate(const MetricFamily mf[static 3], sd_varlink *link, void *userdata) {
+        /* Indexed by family offset, i.e. in the order of the table entries */
+        static const clockid_t clocks[] = {
+                CLOCK_BOOTTIME,
+                CLOCK_MONOTONIC,
+                CLOCK_REALTIME,
+        };
+        /* Monotonic is sampled before boottime: the two are equal until the system suspends for the first
+         * time, and sampling them in this order guarantees boottime ≥ monotonic in what we send out. */
+        static const size_t sample_order[] = { 1, 0, 2 };
+        assert_cc(ELEMENTSOF(clocks) == ELEMENTSOF(sample_order));
+
+        uint64_t values[ELEMENTSOF(clocks)];
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name && mf[2].name);
+        assert(!mf[1].generate && !mf[2].generate);
+        assert(link);
+
+        /* Sample all clocks first, back to back, so that the consumer can correlate them (e.g. boottime −
+         * monotonic = time spent suspended, realtime − boottime = time of boot), and only then send them
+         * out. */
+        FOREACH_ELEMENT(i, sample_order) {
+                struct timespec ts;
+
+                assert_se(clock_gettime(clocks[*i], &ts) == 0);
+                values[*i] = timespec_load_nsec(&ts);
+        }
+
+        for (size_t i = 0; i < ELEMENTSOF(clocks); i++) {
+                r = metric_build_send_unsigned(
+                                &mf[i],
+                                link,
+                                /* object= */ NULL,
+                                values[i],
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int hostname_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         _cleanup_free_ char *hostname = NULL;
         int r;
@@ -745,6 +788,24 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_STRING,
                 .generate = boot_id_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockBoottimeNSec",
+                "Time since boot in nanoseconds, including time spent suspended (CLOCK_BOOTTIME)",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = clocks_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockMonotonicNSec",
+                "Time since boot in nanoseconds, excluding time spent suspended (CLOCK_MONOTONIC)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        /* CLOCK_REALTIME may jump backwards, hence METRIC_FAMILY_TYPE_GAUGE rather than _COUNTER. */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ClockRealtimeNSec",
+                "Wall-clock time in nanoseconds since the UNIX epoch (CLOCK_REALTIME)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ in sync with clocks_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "ConfidentialVirtualization",
                 "Confidential computing technology",
