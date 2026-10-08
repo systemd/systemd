@@ -235,7 +235,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
                 worker->rtnl = sd_netlink_ref(udev_event->rtnl);
 
         /* Enable watch if requested. */
-        if (udev_event->inotify_watch)
+        if (udev_event->device_watch)
                 udev_watch_begin(worker, dev);
 
         /* Finalize database. But do not re-create database on remove, which has been already removed in
