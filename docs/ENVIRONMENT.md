@@ -301,6 +301,14 @@ All tools:
   user/group records for dynamically registered service users (i.e. users
   registered through `DynamicUser=1`).
 
+* `$SYSTEMD_NSS_SERVER_SIDE_NSS=1` - if set, `nss-systemd` also queries the
+  `io.systemd.NameServiceSwitch` and `io.systemd.Multiplexer` userdb services.
+  `systemd-userdbd.service` implements the services and looks up the user/group
+  records via glibc NSS. Set this in a sandbox that has the host's userdb
+  sockets bind mounted into `/run/systemd/userdb/`, to resolve the host's users
+  and groups. Outside of such a sandbox, `getent passwd` and `getent group` list
+  the records of the other NSS modules twice.
+
 * `$SYSTEMD_NSS_LOG_LEVEL=<level>` — If set, sets the log level for `nss-systemd`
   and other NSS plugins specifically. Takes priority over `$SYSTEMD_LOG_LEVEL`.
 
