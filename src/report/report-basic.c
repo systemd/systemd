@@ -23,15 +23,19 @@
 #include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
+#include "mountpoint-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "procfs-util.h"
 #include "psi-util.h"
 #include "report-basic.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
 #include "virt.h"
+
+#define LINUX_BIRTHDATE_NSEC (685065600LU * NSEC_PER_SEC)
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
@@ -101,6 +105,51 @@ static int clocks_generate(const MetricFamily mf[static 3], sd_varlink *link, vo
         }
 
         return 0;
+}
+
+static int deployment_timestamp_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        struct statx sx;
+        const char *p;
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* The birth time of the root inode of the file system backing /var/ approximates when the system
+         * was deployed, i.e. when its persistent file system was created. If /var/ is not a mount point
+         * of its own, it lives on the root file system, hence use that one. */
+        r = path_is_mount_point("/var/");
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether /var/ is a mount point, assuming it is not: %m");
+        p = r > 0 ? "/var/" : "/";
+
+        r = xstatx_full(AT_FDCWD,
+                        p,
+                        AT_STATX_DONT_SYNC,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ 0,
+                        /* optional_mask= */ STATX_BTIME,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to statx() '%s': %m", p);
+        if (r == 0 || sx.stx_btime.tv_sec == 0) { /* 0: optional STATX_BTIME not supported */
+                log_debug("File system backing '%s' does not report a birth time, skipping.", p);
+                return 0;
+        }
+
+        nsec_t ns = statx_timestamp_load_nsec(&sx.stx_btime);
+        if (ns < LINUX_BIRTHDATE_NSEC) {
+                log_debug("File system backing '%s' reports a birth time from before Linux' existence, skipping.", p);
+                return 0;
+        }
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        ns,
+                        /* fields= */ NULL);
 }
 
 static int hostname_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -837,6 +886,13 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
         },
         /* Keep those ↑ in sync with cpu_usage_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "DeploymentTimestampNSec",
+                "Birth time of the file system backing /var/ (or of the root file system, if /var/ is not "
+                "a separate mount) in nanoseconds since the UNIX epoch, i.e. when the system was deployed",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = deployment_timestamp_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskReadBytes",
                 "Per block device metric: cumulative number of bytes read "
