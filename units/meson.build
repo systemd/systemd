@@ -837,6 +837,14 @@ units = [
           'conditions' : ['ENABLE_REPORT'],
         },
         {
+          'file' : 'systemd-report-geoip.socket',
+          'conditions' : ['HAVE_LIBCURL'],
+        },
+        {
+          'file' : 'systemd-report-geoip@.service.in',
+          'conditions' : ['HAVE_LIBCURL'],
+        },
+        {
           'file' : 'systemd-report-sign-plain.socket',
           'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
