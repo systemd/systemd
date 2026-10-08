@@ -35,10 +35,10 @@ trap at_exit EXIT
 
 # systemd-tpm2-setup returns EX_UNAVAILABLE rather than 0 when it cannot set something up but this
 # is still considered success. This happens at the moment because there is no EK certificate in
-# QEMU guests.
+# QEMU guests. NvPCRs can only be initialized in the initrd, hence pretend to run there.
 run_tpm2_setup() {
     local rc=0
-    "$SD_TPM2SETUP" --early=yes || rc=$?
+    SYSTEMD_IN_INITRD=1 "$SD_TPM2SETUP" --early=yes || rc=$?
     [[ "$rc" -eq 0 || "$rc" -eq 69 ]]
 }
 
@@ -157,11 +157,8 @@ ZZZ_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'zzz'" | cut -d: -f1)"
 test "$ZZZ_LINE" -lt "$AAA_LINE"
 
 # Verify the handling of a booted kernel image that carries no PCR public key or no signed PCR policy
-# with the "initrd" reference. Outside the initrd, systemd-tpm2-setup skips (rather than fails) NvPCR
-# initialization and doesn't allocate the NV index, and systemd-pcrextend treats the NvPCR as not
-# initialized. 'unauth2' sorts after 'unauth', so once 'unauth' couldn't be initialized it must be
-# skipped without another initialization attempt. In the initrd, the NvPCRs are initialized with a
-# PolicyPCR init policy bound to the current value of PCR 11 instead.
+# with the "initrd" reference: in the initrd, the NvPCRs are initialized with a PolicyPCR init policy
+# bound to the current value of PCR 11 instead.
 cat >/run/nvpcr/unauth.nvpcr <<EOF
 {"name":"unauth","algorithm":"sha256","nvIndex":30474774}
 EOF
@@ -198,24 +195,7 @@ check_nvpcr_pcr_policy() {
 check_nvpcr_unauth() {
     local reason="${1:?}"
     local expected="$reason, cannot initialize NvPCR 'unauth'."
-    local log rc=0
-
-    # systemd-tpm2-setup returns EX_CONFIG if the NvPCR initialization was skipped for this reason
-    log="$("$SD_TPM2SETUP" --early=yes 2>&1)" || rc=$?
-    [[ "$rc" -eq 78 ]]
-    grep -F "$expected" <<<"$log" >/dev/null
-    grep -F "Skipped 2 NvPCR(s) because the booted kernel image carries no PCR public key or no signed PCR policy" <<<"$log" >/dev/null
-    grep -F "skipping allocation of NvPCR 'unauth2'." <<<"$log" >/dev/null
-    (! grep -F "cannot initialize NvPCR 'unauth2'" <<<"$log" >/dev/null)
-    test ! -f /run/systemd/nvpcr/unauth.auth
-    test ! -f /run/systemd/nvpcr/unauth2.auth
-    (! tpm2_nvreadpublic 0x01d10216)
-    (! tpm2_nvreadpublic 0x01d10217)
-
-    (! "$SD_PCREXTEND" --nvpcr=unauth foo)
-    (! "$SD_PCREXTEND" --graceful --nvpcr=unauth foo)
-    log="$(varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"nvpcr":"unauth","text":"foo"}' 2>&1 || :)"
-    grep -F "io.systemd.PCRExtend.NoSuchNvPCR" <<<"$log" >/dev/null
+    local log
 
     # In the initrd, systemd-pcrextend lazily initializes the NvPCR with the PolicyPCR init policy, and
     # anchors it in PCR 9 like any other NvPCR.
@@ -232,7 +212,7 @@ check_nvpcr_unauth() {
     tpm2_nvundefine -C o 0x01d10216
 
     # Same for systemd-tpm2-setup in the initrd, which initializes both NvPCRs.
-    SYSTEMD_IN_INITRD=1 run_tpm2_setup
+    run_tpm2_setup
     test -f /run/systemd/nvpcr/unauth.auth
     test -f /run/systemd/nvpcr/unauth2.auth
     check_nvpcr_pcr_policy 0x01d10216
@@ -243,6 +223,24 @@ check_nvpcr_unauth() {
     tpm2_nvundefine -C o 0x01d10216
     tpm2_nvundefine -C o 0x01d10217
 }
+
+# Outside the initrd NvPCRs can't be initialized at all, whatever the booted kernel image carries.
+# systemd-tpm2-setup refuses before allocating the NV index, and doesn't try again for 'unauth2', which
+# sorts after 'unauth'. systemd-pcrextend treats the NvPCR as not initialized, and doesn't skip it
+# gracefully either.
+rc=0
+SETUP_LOG="$("$SD_TPM2SETUP" --early=yes 2>&1)" || rc=$?
+[[ "$rc" -ne 0 && "$rc" -ne 69 ]]
+grep -F "NvPCRs can only be initialized in the initrd, not initializing NvPCR '" <<<"$SETUP_LOG" >/dev/null
+(! grep -F "NvPCR 'unauth2' can only be initialized in the initrd" <<<"$SETUP_LOG" >/dev/null)
+test ! -f /run/systemd/nvpcr/unauth.auth
+test ! -f /run/systemd/nvpcr/unauth2.auth
+(! tpm2_nvreadpublic 0x01d10216)
+(! tpm2_nvreadpublic 0x01d10217)
+(! "$SD_PCREXTEND" --nvpcr=unauth foo)
+(! "$SD_PCREXTEND" --graceful --nvpcr=unauth foo)
+LOG="$(varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"nvpcr":"unauth","text":"foo"}' 2>&1 || :)"
+grep -F "io.systemd.PCRExtend.NoSuchNvPCR" <<<"$LOG" >/dev/null
 
 # No PCR public key
 mv /run/systemd/tpm2-pcr-public-key.pem /tmp/tpm2-pcr-public-key.pem
@@ -261,7 +259,7 @@ check_nvpcr_unauth "No signed PCR policy with reference 'initrd' available"
 
 # A policy with the "initrd" reference but an invalid signature must still fail
 jq --arg sig "$(openssl rand -base64 256 | tr -d '\n')" '.sha256[].sig = $sig' </tmp/tpm2-pcr-signature.json.valid >/run/systemd/tpm2-pcr-signature.json
-SETUP_LOG="$(rc=0; $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]] && [[ "$rc" -ne 78 ]])"
+SETUP_LOG="$(rc=0; SYSTEMD_IN_INITRD=1 $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]])"
 grep -F "Failed to initialize NvPCR index: State not recoverable" <<<"$SETUP_LOG" >/dev/null
 test ! -f /run/systemd/nvpcr/unauth.auth
 test ! -f /run/systemd/nvpcr/unauth2.auth
@@ -291,7 +289,7 @@ tpm2_nvundefine -C o 0x01d10217
 rm -f /run/systemd/nvpcr/test.auth
 tpm2_nvundefine -C o 0x01d1020a
 "$SD_PCREXTEND" --pcr 11 "foo"
-SETUP_LOG="$(rc=0; $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]] && [[ "$rc" -ne 78 ]])"
+SETUP_LOG="$(rc=0; SYSTEMD_IN_INITRD=1 $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]])"
 grep -F "Failed to initialize NvPCR index: Device not a stream" <<<"$SETUP_LOG" >/dev/null
 
 # The PolicyPCR init policy is bound to the value of PCR 11 at initialization. Once PCR 11 changed, a new

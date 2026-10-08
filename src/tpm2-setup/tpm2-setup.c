@@ -417,9 +417,7 @@ typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         size_t n_already, n_initialized, n_failed, n_skipped;
         bool nv_space_exhausted; /* Set once the TPM ran out of NV index space, so we skip the rest. */
-        /* Set if the booted UKI carries no PCR public key or no signed PCR policy for NvPCR initialization,
-         * so we skip the rest. */
-        bool nvpcr_unauthorized;
+        bool not_in_initrd; /* Set once NvPCR initialization was refused outside the initrd, so we skip the rest. */
         Set *done;
 } SetupNvPCRContext;
 
@@ -451,9 +449,9 @@ static int setup_nvpcr_one(
                 return 0;
         }
 
-        if (c->nvpcr_unauthorized) {
-                log_debug("Booted UKI carries no PCR public key or no signed PCR policy for NvPCR initialization, skipping allocation of NvPCR '%s'.", name);
-                c->n_skipped++;
+        if (c->not_in_initrd) {
+                log_debug("Not running in the initrd, not initializing NvPCR '%s'.", name);
+                c->n_failed++;
                 return 0;
         }
 
@@ -474,15 +472,14 @@ static int setup_nvpcr_one(
                                         LOG_MESSAGE("The TPM's NV index space is exhausted, skipping allocation of NvPCR '%s' and any less important ones: %m", name),
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
         }
-        if (r == -ENOKEY) {
-                /* The booted UKI carries no PCR public key or no signed PCR policy for NvPCR
-                 * initialization. This is not an error, the NvPCR simply won't be available in this
-                 * boot. */
-                c->nvpcr_unauthorized = true;
-                c->n_skipped++;
-                return log_struct_errno(LOG_NOTICE, r,
-                                        LOG_MESSAGE("Booted UKI carries no PCR public key or no signed PCR policy for NvPCR initialization, unable to allocate NvPCR '%s': %m", name),
-                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNAUTHORIZED_STR));
+        if (r == -ENOMEDIUM) {
+                /* This happens if systemd-tpm2-setup-early.service is not included in the initrd and hence
+                 * runs after the transition to the root file system. */
+                c->not_in_initrd = true;
+                c->n_failed++;
+                return log_error_errno(r,
+                                       "NvPCRs can only be initialized in the initrd, not initializing NvPCR '%s' and any further ones. "
+                                       "Is systemd-tpm2-setup-early.service included in the initrd?", name);
         }
         if (r < 0) {
                 c->n_failed++;
@@ -583,9 +580,6 @@ static int setup_nvpcr(void) {
         if (c.nv_space_exhausted)
                 log_notice("Skipped %zu lowest-priority NvPCR(s) because the TPM's NV index space is exhausted, proceeding anyway.", c.n_skipped);
 
-        if (c.nvpcr_unauthorized)
-                log_notice("Skipped %zu NvPCR(s) because the booted kernel image carries no PCR public key or no signed PCR policy for NvPCR initialization, proceeding anyway.", c.n_skipped);
-
         if (c.n_failed > 0)
                 log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
@@ -605,8 +599,6 @@ static int setup_nvpcr(void) {
                 return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
         if (ret == -ENOBUFS)
                 return EX_CANTCREAT;     /* NV index space on TPM exhausted */
-        if (ret == -ENOKEY)
-                return EX_CONFIG;        /* booted UKI carries no PCR public key or no signed PCR policy for NvPCR initialization */
 
         return ret;
 }
