@@ -296,8 +296,34 @@ for dev in /sys/block/*; do
 done
 
 # Every new metric family must be described, even those whose values depend on the environment.
+# The clock metrics are sampled together, hence boottime (which includes time spent suspended) can
+# never be smaller than monotonic. Uptime in the test VM is far below 2^53 ns, so jq reproduces those
+# values exactly. Realtime is not (it's ~1.8e18), hence compare that one in whole seconds only.
+boottime_ns="$(basic_number ClockBoottimeNanoseconds)"
+monotonic_ns="$(basic_number ClockMonotonicNanoseconds)"
+realtime_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.ClockRealtimeNanoseconds") | .value | numbers | . / 1000000000 | floor | tostring')"
+test -n "$boottime_ns"
+test -n "$monotonic_ns"
+test -n "$realtime_s"
+[ "$monotonic_ns" -gt 0 ]
+[ "$boottime_ns" -ge "$monotonic_ns" ]
+
+# /proc/uptime is CLOCK_BOOTTIME too, read after the metrics were sampled; allow for a generous margin.
+uptime_s="$(cut -d. -f1 /proc/uptime)"
+[ $(( boottime_ns / 1000000000 )) -le "$uptime_s" ]
+[ $(( boottime_ns / 1000000000 )) -ge $(( uptime_s - 60 )) ]
+
+now_s="$(date +%s)"
+[ "$realtime_s" -le "$now_s" ]
+[ "$realtime_s" -ge $(( now_s - 60 )) ]
+
+# Boottime and monotonic are counters, hence must not go backwards between two calls.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+[ "$(basic_number ClockBoottimeNanoseconds)" -ge "$boottime_ns" ]
+[ "$(basic_number ClockMonotonicNanoseconds)" -ge "$monotonic_ns" ]
+
 basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-for name in CPUUsage CPUWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+for name in ClockBoottimeNanoseconds ClockMonotonicNanoseconds ClockRealtimeNanoseconds CPUUsage CPUWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
     echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
 done
 
