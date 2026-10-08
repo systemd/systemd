@@ -344,7 +344,7 @@ int mmap_cache_fd_get(
                 struct stat *st,
                 void **ret) {
 
-        MMapCache *m = mmap_cache_fd_cache(f);
+        MMapCache *m = ASSERT_PTR(f->cache);
         Window *w;
         int r;
 
@@ -355,11 +355,14 @@ int mmap_cache_fd_get(
         if (f->sigbus)
                 return -EIO;
 
-        /* Check whether the current category is the right one already */
-        if (window_matches(m->windows_by_category[c], f, offset, size)) {
+        /* Check whether the window of the category covers the range already. Such a window does not have
+         * to be attached again. */
+        w = m->windows_by_category[c];
+        if (window_matches(w, f, offset, size)) {
                 m->n_category_cache_hit++;
-                w = m->windows_by_category[c];
-                goto found;
+                if (keep_always)
+                        w->flags |= WINDOW_KEEP_ALWAYS;
+                goto done;
         }
 
         /* Drop the reference to the window, since it's unnecessary now */
@@ -385,6 +388,7 @@ found:
                 w->flags |= WINDOW_KEEP_ALWAYS;
 
         category_attach_window(m, c, w);
+done:
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 0;
 }
