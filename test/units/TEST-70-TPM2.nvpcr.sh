@@ -90,14 +90,16 @@ DIGEST_EXPECTED2="$(echo "$DIGEST_EXPECTED$DIGEST_MEASURED2" | tr '[:lower:]' '[
 test "$DIGEST_ACTUAL2" = "$DIGEST_EXPECTED2"
 
 # Make sure that systemd-tpm2-setup recognizes the pre-existing NV index as valid, to simulate
-# what we expect on a fresh boot.
+# what we expect on a fresh boot. It must find the index without first trying to define it, which
+# would make the TSS log an error.
 POLICY=$(tpm2_nvreadpublic 0x01d1020a | awk '/authorization policy:/{print $3; exit}')
 NAME_EXPECTED=$(tpm2_nvreadpublic 0x01d1020a | awk '/name:/{print $2; exit}')
 echo "$POLICY" | basenc --base16 -d >/tmp/test.policy
 rm -f /run/systemd/nvpcr/test.auth
 tpm2_nvundefine -C o 0x01d1020a
 tpm2_nvdefine -C o -s 32 -g sha256 -a "policywrite|ownerread|authread|orderly|clear_stclear|nt=extend" -L /tmp/test.policy 0x01d1020a
-run_tpm2_setup
+SETUP_LOG="$(run_tpm2_setup 2>&1)"
+(! grep -F "Esys_NV_DefineSpace" <<<"$SETUP_LOG" >/dev/null)
 test -f /run/systemd/nvpcr/test.auth
 DIGEST_ACTUAL3="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
 test "$DIGEST_ACTUAL3" = "$DIGEST_BASE_EXPECTED"
