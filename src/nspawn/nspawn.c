@@ -34,6 +34,7 @@
 #include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
+#include "cgroup-util.h"
 #include "chase.h"
 #include "common-signal.h"
 #include "constants.h"
@@ -127,6 +128,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "uid-classification.h"
@@ -4588,6 +4590,64 @@ static int setup_uid_map(
         return 0;
 }
 
+static int wipe_payload_fd_store(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        /* Synchronize the earlier forwarded notifications before querying over a different transport. */
+        r = sd_notify_barrier(/* unset_environment= */ false, 5 * USEC_PER_SEC);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to synchronize with supervisor, ignoring FDSTOREWIPE: %m");
+
+        /* Figure out which D-Bus scope to use */
+        r = cg_pid_get_user_unit(/* pid= */ 0, /* ret_unit= */ NULL);
+        if (r < 0 && r != -ENXIO)
+                return log_warning_errno(r, "Failed to determine supervising manager, ignoring FDSTOREWIPE: %m");
+
+        RuntimeScope supervisor_scope = r >= 0 ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM;
+        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, supervisor_scope, &bus);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to connect to supervisor, ignoring FDSTOREWIPE: %m");
+
+        /* The empty unit name selects our own unit. Query the live store so restored descriptors are
+         * included, while entries not forwarded from the payload remain untouched. */
+        r = bus_call_method(bus, bus_systemd_mgr, "DumpUnitFileDescriptorStore", &error, &reply, "s", "");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to query file descriptor store, ignoring FDSTOREWIPE: %s",
+                                         bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(suuutuusu)");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse file descriptor store response, ignoring FDSTOREWIPE: %m");
+
+        for (;;) {
+                const char *fdname;
+
+                r = sd_bus_message_read(
+                                reply, "(suuutuusu)", &fdname,
+                                /* mode= */ NULL, /* major= */ NULL, /* minor= */ NULL,
+                                /* inode= */ NULL, /* rmajor= */ NULL, /* rminor= */ NULL,
+                                /* path= */ NULL, /* flags= */ NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse file descriptor store entry, ignoring FDSTOREWIPE: %m");
+                if (r == 0)
+                        break;
+
+                if (!startswith(fdname, "payload-"))
+                        continue;
+
+                (void) notify_remove_fd_warn(fdname);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse file descriptor store response, ignoring FDSTOREWIPE: %m");
+
+        return 0;
+}
+
 static int forward_fd_store(char **tags, FDSet *fds) {
         int r;
 
@@ -4601,6 +4661,9 @@ static int forward_fd_store(char **tags, FDSet *fds) {
          * namespace, since there's only one init system per container). */
         if (!getenv("NOTIFY_SOCKET") || !fdstore_detected())
                 return 0;
+
+        if (strv_contains(tags, "FDSTOREWIPE=1"))
+                return wipe_payload_fd_store();
 
         if (strv_contains(tags, "FDSTOREREMOVE=1")) {
                 const char *fdname = strv_find_startswith(tags, "FDNAME=");
