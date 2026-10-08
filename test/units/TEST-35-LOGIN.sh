@@ -1012,6 +1012,105 @@ EOF
     echo "$no_sess_rel" | grep NoSuchSession >/dev/null
 }
 
+teardown_metrics() (
+    set +ex
+
+    systemctl stop metrics-sleeper-background-light.service metrics-sleeper-user.service
+    rm -f /etc/pam.d/"$PAMSERVICE"
+    return 0
+)
+
+login_metric() {
+    # Prints the value of the specified io.systemd.Login metric with the specified field value
+    varlinkctl --more call /run/systemd/report/io.systemd.Login io.systemd.Metrics.List '{}' |
+        jq --seq -r --arg n "io.systemd.Login.$1" --arg k "$2" --arg v "$3" \
+           'select(.name == $n and .fields[$k] == $v) | .value | tostring'
+}
+
+wait_session_gone() {
+    # Waits until no session of the specified class of the test user is known to logind anymore
+    timeout 30 bash -c "while loginctl --no-legend | grep logind-test-user | grep -w -- '$1' >/dev/null; do sleep .5; done"
+}
+
+testcase_metrics() {
+    local uid list c before_started before_current started current
+
+    uid=$(id -u logind-test-user)
+
+    PAMSERVICE="pammetrics$RANDOM"
+    trap teardown_metrics RETURN
+
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
+auth sufficient    pam_unix.so
+auth required      pam_deny.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so debug
+session required   pam_unix.so
+EOF
+
+    # logind only picks up the socket when it is started, hence restart it if we had to start the socket
+    if ! systemctl is-active --quiet systemd-logind-metrics.socket; then
+        systemctl start systemd-logind-metrics.socket
+        systemctl restart systemd-logind.service
+    fi
+    test -S /run/systemd/report/io.systemd.Login
+    test -f /run/systemd/login-counters
+
+    list="$(varlinkctl --more call /run/systemd/report/io.systemd.Login io.systemd.Metrics.Describe '{}')"
+    jq --seq -r '.name' <<<"$list" | grep '^io.systemd.Login.CurrentSessions$' >/dev/null
+    jq --seq -r '.name' <<<"$list" | grep '^io.systemd.Login.SessionsStarted$' >/dev/null
+    jq --seq -r '.name' <<<"$list" | grep '^io.systemd.Login.SuspendCounter$' >/dev/null
+
+    # One row per session class, except for "none"
+    list="$(varlinkctl --more call /run/systemd/report/io.systemd.Login io.systemd.Metrics.List '{}')"
+    for c in user user-early user-incomplete user-light user-early-light greeter lock-screen background background-light manager manager-early; do
+        [[ "$(jq --seq -r --arg c "$c" 'select(.name == "io.systemd.Login.SessionsStarted" and .fields.class == $c) | .name' <<<"$list" | wc -l)" -eq 1 ]]
+        [[ "$(jq --seq -r --arg c "$c" 'select(.name == "io.systemd.Login.CurrentSessions" and .fields.class == $c) | .name' <<<"$list" | wc -l)" -eq 1 ]]
+    done
+    [[ -z "$(jq --seq -r 'select(.fields.class == "none") | .name' <<<"$list")" ]]
+
+    # Start a session without service manager
+    wait_session_gone background-light
+    before_started="$(login_metric SessionsStarted class background-light)"
+    before_current="$(login_metric CurrentSessions class background-light)"
+    systemd-run -u metrics-sleeper-background-light.service -p PAMName="$PAMSERVICE" -p Type=exec \
+        -p Environment=XDG_SESSION_CLASS=background-light -p User=logind-test-user sleep infinity
+    started="$(login_metric SessionsStarted class background-light)"
+    current="$(login_metric CurrentSessions class background-light)"
+    (( started == before_started + 1 ))
+    (( current == before_current + 1 ))
+
+    # A restart of logind neither resets nor increases the counter, and the session is still current
+    systemctl restart systemd-logind.service
+    (( $(login_metric SessionsStarted class background-light) == started ))
+    (( $(login_metric CurrentSessions class background-light) == current ))
+
+    # Logging out decreases the number of current sessions, but not the counter
+    systemctl stop metrics-sleeper-background-light.service
+    wait_session_gone background-light
+    (( $(login_metric SessionsStarted class background-light) == started ))
+    (( $(login_metric CurrentSessions class background-light) == before_current ))
+
+    # A full user session also starts the service manager, which gets its own session
+    systemctl stop user@"$uid".service
+    wait_session_gone manager
+    before_started="$(login_metric SessionsStarted class manager)"
+    systemd-run -u metrics-sleeper-user.service -p PAMName="$PAMSERVICE" -p Type=exec \
+        -p Environment=XDG_SESSION_CLASS=user -p User=logind-test-user sleep infinity
+    (( $(login_metric SessionsStarted class manager) == before_started + 1 ))
+    (( $(login_metric CurrentSessions class manager) >= 1 ))
+    systemctl stop metrics-sleeper-user.service
+
+    # The suspend counters are taken from the kernel as they are
+    if [[ -e /sys/power/suspend_stats/success ]]; then
+        (( $(login_metric SuspendCounter result success) == $(cat /sys/power/suspend_stats/success) ))
+        (( $(login_metric SuspendCounter result fail) == $(cat /sys/power/suspend_stats/fail) ))
+    else
+        [[ -z "$(varlinkctl --more call /run/systemd/report/io.systemd.Login io.systemd.Metrics.List '{}' | jq --seq -r 'select(.name == "io.systemd.Login.SuspendCounter") | .name')" ]]
+    fi
+}
+
 testcase_restart() {
     local classes unit c
 

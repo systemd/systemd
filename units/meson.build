@@ -515,6 +515,7 @@ units = [
         { 'file' : 'systemd-journalctl-metrics@.service' },
         { 'file' : 'systemd-journalctl-metrics.socket' },
         { 'file' : 'systemd-journald-audit.socket' },
+        { 'file' : 'systemd-journald-metrics.socket' },
         {
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
@@ -536,6 +537,10 @@ units = [
           'file' : 'systemd-localed.service.in',
           'conditions' : ['ENABLE_LOCALED'],
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
+        },
+        {
+          'file': 'systemd-logind-metrics.socket',
+          'conditions': ['ENABLE_LOGIND'],
         },
         {
           'file': 'systemd-logind-varlink.socket',

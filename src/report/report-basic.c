@@ -581,6 +581,11 @@ static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userd
         assert(mf && mf->name);
         assert(link);
 
+        /* SMBIOS information might be accessible from a container, but it's information about the host, not
+         * the container, hence suppress it here */
+        if (detect_virtualization() > 0)
+                return 0;
+
         /* Reports the fundamental SMBIOS/DMI identification fields. Some of these (serial numbers, asset
          * tags, the system UUID) are privacy sensitive and only readable by root — if we lack the
          * privileges to read them we simply skip them. */
@@ -643,6 +648,10 @@ static int tpm2_generate(const MetricFamily *mf, sd_varlink *link, void *userdat
 
         assert(mf && mf->name);
         assert(link);
+
+        /* TPMs are not virtualized for containers, let's suppress them here */
+        if (detect_virtualization() > 0)
+                return 0;
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         r = sd_device_new_from_subsystem_sysname(&dev, "tpmrm", "tpmrm0");

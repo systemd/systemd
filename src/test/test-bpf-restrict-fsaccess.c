@@ -90,7 +90,7 @@ static int mmap_probe(const char *path, int prot, const char *what) {
                 return probe_denied(r, -EPERM);
         }
 
-        (void) munmap(addr, 4096);
+        munmap_safe(addr, 4096);
         log_info("%s of %s succeeded", what, path);
         return PROBE_ALLOWED;
 }
@@ -118,7 +118,7 @@ static int mprotect_probe(const char *path, int prot, bool poke, int new_prot, c
                 *(volatile uint8_t*) addr = 0x90; /* trigger copy-on-write */
 
         r = RET_NERRNO(mprotect(addr, 4096, new_prot));
-        (void) munmap(addr, 4096);
+        munmap_safe(addr, 4096);
 
         if (r < 0) {
                 log_info_errno(r, "%s on %s denied: %m", what, path);
@@ -143,7 +143,7 @@ static int do_anon_mmap_exec(void) {
                 return probe_denied(r, -EPERM);
         }
 
-        (void) munmap(addr, 4096);
+        munmap_safe(addr, 4096);
         log_info("Anonymous PROT_EXEC mmap succeeded");
         return PROBE_ALLOWED;
 }
@@ -200,14 +200,14 @@ static int do_procmem_cow(const char *path) {
         mem_fd = open("/proc/self/mem", O_RDWR | O_CLOEXEC);
         if (mem_fd < 0) {
                 r = -errno;
-                (void) munmap(addr, 4096);
+                munmap_safe(addr, 4096);
                 log_error_errno(r, "Failed to open /proc/self/mem: %m");
                 return PROBE_ERROR;
         }
 
         n = pwrite(mem_fd, &byte, sizeof(byte), (off_t) (uintptr_t) addr);
         r = n < 0 ? -errno : 0;
-        (void) munmap(addr, 4096);
+        munmap_safe(addr, 4096);
 
         if (r < 0) {
                 log_info_errno(r, "/proc/self/mem write to exec page of %s denied: %m", path);
