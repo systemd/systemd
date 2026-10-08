@@ -9,6 +9,9 @@ export PAGER=
 
 REPORT=/usr/lib/systemd/systemd-report
 
+# systemd-report is optional
+[ -x "$REPORT" ] || exit 77
+
 "$REPORT" --help
 "$REPORT" help
 "$REPORT" --version

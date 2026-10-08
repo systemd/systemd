@@ -13,6 +13,7 @@ fi
 bootctl
 
 CURRENT_UKI=$(bootctl --print-stub-path)
+MEASURE=/usr/lib/systemd/systemd-measure
 
 echo "CURRENT UKI ($CURRENT_UKI):"
 ukify inspect "$CURRENT_UKI"
@@ -20,8 +21,12 @@ if test -f /run/systemd/stub/profile; then
     echo "CURRENT PROFILE:"
     cat /run/systemd/stub/profile
 fi
-echo "CURRENT MEASUREMENT:"
-/usr/lib/systemd/systemd-measure --current
+
+# systemd-measure is optional
+if [ -x "$MEASURE" ]; then
+    echo "CURRENT MEASUREMENT:"
+    "$MEASURE" --current
+fi
 if test -f /run/systemd/tpm2-pcr-signature.json; then
     echo "CURRENT SIGNATURE:"
     jq </run/systemd/tpm2-pcr-signature.json
