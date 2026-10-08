@@ -164,8 +164,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - allow metrics providers to indicate which reported values mean
     "nothing"/"invalid"/"zero"/"please-suppress". Then use that to reduce noise
     in systemd-report output.
-  - implement metrics provider that reports local IP addresses, and bound open
-    IP ports
+  - implement metrics provider that reports bound open IP ports
   - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
   - pass filtering hints to services, so that they can also be applied server-side, not just client side
   - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
