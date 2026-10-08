@@ -58,6 +58,18 @@ device_is_watched() {
     grep -qE "^fanotify ino:${ino} " "$fdinfo"
 }
 
+reinitialize_udevd() {
+    # Force systemd-udevd to create a fresh fanotify group. The group is kept across restarts in the
+    # fd store, so it must be dropped first; otherwise a changed $SYSTEMD_UDEV_USE_FANOTIFY_FID does
+    # not take effect.
+    systemctl daemon-reload
+    systemctl stop systemd-udevd-kernel.socket systemd-udevd-varlink.socket
+    systemctl stop systemd-udevd.service
+    systemctl clean systemd-udevd.service --what=fdstore
+    systemctl start systemd-udevd-kernel.socket systemd-udevd-varlink.socket
+    systemctl start systemd-udevd.service
+}
+
 # Check if the first invocation (should be in initrd) pushed the fanotify fd to fdstore,
 # and the next invocation gained the fd from service manager.
 # TNote the service may be started without generating debugging logs. Let's check failure log.
@@ -105,12 +117,39 @@ check
 
 (! device_is_watched "$ROOTDEV")
 
+# Repeat the checks in classic (non-FID) fanotify mode.
+cat >/run/systemd/system/systemd-udevd.service.d/20-classic-fanotify.conf <<EOF
+[Service]
+Environment=SYSTEMD_UDEV_USE_FANOTIFY_FID=0
+EOF
+reinitialize_udevd
+
+journalctl --sync
+journalctl --rotate
+# The new group must have been created in classic mode.
+journalctl -q -u systemd-udevd.service --invocation=0 --grep 'Initialized new fanotify group \(classic mode\).'
+
+cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}", OPTIONS:="watch"
+EOF
+udevadm control --reload
+udevadm trigger -w --action add --subsystem-match=block
+device_is_watched "$ROOTDEV"
+
+cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+ACTION=="change", SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}", OPTIONS:="nowatch"
+EOF
+udevadm control --reload
+udevadm trigger -w --action change --subsystem-match=block
+(! device_is_watched "$ROOTDEV")
+
+# Cleanup
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
-udevadm control --reload
 
 rm -f /run/systemd/system/systemd-udevd.service.d/10-debug.conf
-systemctl daemon-reload
+rm -f /run/systemd/system/systemd-udevd.service.d/20-classic-fanotify.conf
+reinitialize_udevd
 
 systemctl log-level "$SAVED_LOG_LEVEL"
 
