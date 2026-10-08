@@ -1,0 +1,167 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.SysUpdate"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.SysUpdate</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.SysUpdate</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.SysUpdate</refname>
+    <refpurpose>APIs to manage system updates</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.SysUpdate</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>APIs to manage system updates</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.SysUpdate">
+<emphasis role="varlink-comment"># APIs to manage system updates</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.SysUpdate
+
+<emphasis role="varlink-comment"># Class of a Target.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TargetClass(
+	<emphasis role="varlink-comment"># Container or machine managed by systemd-machined.service(8).</emphasis>
+	machine,
+	<emphasis role="varlink-comment"># Portable service.</emphasis>
+	portable,
+	<emphasis role="varlink-comment"># System extension managed by systemd-sysext.service(8).</emphasis>
+	sysext,
+	<emphasis role="varlink-comment"># Configuration extension managed by systemd-confext.service(8).</emphasis>
+	confext,
+	<emphasis role="varlink-comment"># Host system.</emphasis>
+	host,
+	<emphasis role="varlink-comment"># Component managed by systemd-sysupdate.service(8).</emphasis>
+	component
+)
+
+<emphasis role="varlink-comment"># Identifier for a component of the system (i.e. the host itself, a sysext, a confext, etc.) that can be updated by systemd-sysupdate(8).</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TargetIdentifier(
+	<emphasis role="varlink-comment"># Where the target was enumerated.</emphasis>
+	class: TargetClass,
+	<emphasis role="varlink-comment"># Name of the target, unique within a class.</emphasis>
+	name: ?string
+)
+
+<emphasis role="varlink-comment"># Type containing a configured sysupdate target.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Target(
+	<emphasis role="varlink-comment"># Identifier for the target.</emphasis>
+	id: TargetIdentifier
+)
+
+<emphasis role="varlink-comment"># Type containing a configured sysupdate feature.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Feature(
+	<emphasis role="varlink-comment"># Identifier for the feature.</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># A short human readable description of the feature.</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># URLs to documentation for the feature.</emphasis>
+	documentation: ?[]string,
+	<emphasis role="varlink-comment"># A URL to an AppStream catalog XML file describing the feature.</emphasis>
+	appStream: ?string,
+	<emphasis role="varlink-comment"># Whether the feature is enabled.</emphasis>
+	enabled: bool,
+	<emphasis role="varlink-comment"># Whether the feature is suggested for enablement.</emphasis>
+	suggested: ?bool,
+	<emphasis role="varlink-comment"># Array of IDs of the transfers (including currently disabled ones) which are controlled by this feature.</emphasis>
+	transfers: ?[]string
+)
+
+<emphasis role="varlink-comment"># Show optional features</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListFeatures(
+	<emphasis role="varlink-comment"># Target to list features for.</emphasis>
+	target: TargetIdentifier
+) -&gt; (
+	<emphasis role="varlink-comment"># The configured features.</emphasis>
+	features: []Feature
+)
+
+<emphasis role="varlink-comment"># Check if there’s a new version available</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CheckNew(
+	<emphasis role="varlink-comment"># Target to check for updates for.</emphasis>
+	target: TargetIdentifier,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># The version string for the new version which is available.</emphasis>
+	available: string
+)
+
+<emphasis role="varlink-comment"># Show targets</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListTargets() -&gt; (
+	<emphasis role="varlink-comment"># The configured targets.</emphasis>
+	targets: []Target
+)
+
+<emphasis role="varlink-comment"># Error indicating that no update is currently available to update to.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoUpdateNeeded()
+
+<emphasis role="varlink-comment"># Error indicating the specified target doesn’t exist</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchTarget()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.SysUpdate"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListFeatures()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CheckNew()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListTargets()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TargetClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TargetIdentifier"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Target"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Feature"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoUpdateNeeded"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchTarget"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysUpdate</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysUpdate.ListFeatures '{}'</screen>
+    invokes its <function>ListFeatures()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.SysUpdate interface was added in version 262.</para><para><function>CheckNew()</function>, <varname>Feature</varname>, <function>ListFeatures()</function>, <function>ListTargets()</function>, <varname>NoSuchTarget</varname>, <varname>NoUpdateNeeded</varname>, <varname>Target</varname>, <varname>TargetClass</varname>, and <varname>TargetIdentifier</varname> were added in version 262.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

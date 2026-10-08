@@ -1,0 +1,210 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Repart"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Repart</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Repart</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Repart</refname>
+    <refpurpose>API for declaratively re-partitioning disks using systemd-repart.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Repart</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>API for declaratively re-partitioning disks using systemd-repart.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Repart">
+<emphasis role="varlink-comment"># API for declaratively re-partitioning disks using systemd-repart.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Repart
+
+<emphasis role="varlink-comment"># Behaviors for disks that are completely empty (i.e. don't have a partition table yet)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> EmptyMode(
+	<emphasis role="varlink-comment"># Refuse to operate on disks without an existing partition table</emphasis>
+	refuse,
+	<emphasis role="varlink-comment"># Create a new partition table if one doesn't already exist on disk</emphasis>
+	allow,
+	<emphasis role="varlink-comment"># Refuse to operate on disks with an existing partition table, and create a new table if none exists</emphasis>
+	require,
+	<emphasis role="varlink-comment"># Always create a new partition table, potentially overwriting an existing table</emphasis>
+	force
+)
+
+<emphasis role="varlink-comment"># Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProgressPhase(
+	loading_definitions,
+	loading_table,
+	opening_copy_block_sources,
+	acquiring_partition_labels,
+	minimizing,
+	placing,
+	wiping_disk,
+	wiping_partition,
+	copying_partition,
+	formatting_partition,
+	adjusting_partition,
+	writing_table,
+	rereading_table
+)
+
+<emphasis role="varlink-comment"># Discriminator on streamed ListCandidateDevices replies in subscribe mode.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> BlockDeviceAction(
+	<emphasis role="varlink-comment"># The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect).</emphasis>
+	add,
+	<emphasis role="varlink-comment"># The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently.</emphasis>
+	remove,
+	<emphasis role="varlink-comment"># Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields.</emphasis>
+	ready
+)
+
+<emphasis role="varlink-comment"># Invoke the actual repartitioning operation, either in dry-run mode or for real. If invoked with 'more' enabled will report progress, otherwise will just report completion.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Run(
+	<emphasis role="varlink-comment"># Full path to the block device node to operate on. If omitted, dryRun must be true, in which case the minimal disk size is determined.</emphasis>
+	node: ?string,
+	<emphasis role="varlink-comment"># Decides whether to install the OS in addition to what is already on it, or if it shall be erased.</emphasis>
+	empty: EmptyMode,
+	<emphasis role="varlink-comment"># If true this will ponder if the installation would fit, but does not actually write anything to disk. Must be set to false to actually make changes.</emphasis>
+	dryRun: bool,
+	<emphasis role="varlink-comment"># The seed value to derive partition and file system UUIDs from</emphasis>
+	seed: ?string,
+	<emphasis role="varlink-comment"># Path to directory containing definition files.</emphasis>
+	definitions: ?[]string,
+	<emphasis role="varlink-comment"># If true, automatically defer creation of all partitions whose label is "empty".</emphasis>
+	deferPartitionsEmpty: ?bool,
+	<emphasis role="varlink-comment"># If true, automatically defer creation of all partitions which are marked for factory reset.</emphasis>
+	deferPartitionsFactoryReset: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># In dry-run mode returns the minimal disk size required.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># In dry-run mode returns the size of the selected block device.</emphasis>
+	currentSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Returns the number of partitions currently on the selected block device. Omitted if not determined by the workflow, e.g. if the existing partition table was not read because empty mode 'force' or 'require' was selected.</emphasis>
+	partitionCount: ?int,
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a phase identifier is sent in progress updates.</emphasis>
+	phase: ?ProgressPhase,
+	<emphasis role="varlink-comment"># If used with the 'more' flag, an object identifier string is sent in progress updates.</emphasis>
+	object: ?string,
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a progress percentage (specific to the work done for the specified phase+object).</emphasis>
+	progress: ?int
+)
+
+<emphasis role="varlink-comment"># Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListCandidateDevices(
+	<emphasis role="varlink-comment"># Control whether to include the root disk of the currently booted OS in the list. Defaults to false, i.e. the root disk is included.</emphasis>
+	ignoreRoot: ?bool,
+	<emphasis role="varlink-comment"># Control whether to include block devices with zero size in the list, i.e. typically block devices without any inserted medium. Defaults to false, i.e. empty block devices are included.</emphasis>
+	ignoreEmpty: ?bool,
+	<emphasis role="varlink-comment"># If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false.</emphasis>
+	subscribe: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration.</emphasis>
+	action: ?BlockDeviceAction,
+	<emphasis role="varlink-comment"># The device node path of the block device. Identifies the device on 'remove' too.</emphasis>
+	node: ?string,
+	<emphasis role="varlink-comment"># List of symlinks pointing to the device node, if any.</emphasis>
+	symlinks: ?[]string,
+	<emphasis role="varlink-comment"># The Linux kernel disk sequence number identifying the medium.</emphasis>
+	diskseq: ?int,
+	<emphasis role="varlink-comment"># The size of the block device in bytes.</emphasis>
+	sizeBytes: ?int,
+	<emphasis role="varlink-comment"># The device vendor string if known</emphasis>
+	vendor: ?string,
+	<emphasis role="varlink-comment"># The device model string if known</emphasis>
+	model: ?string,
+	<emphasis role="varlink-comment"># The subsystem the block device belongs to if known</emphasis>
+	subsystem: ?string
+)
+
+<emphasis role="varlink-comment"># An incompatible disk label present, and not told to erase it.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ConflictingDiskLabelPresent()
+
+<emphasis role="varlink-comment"># The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> InsufficientFreeSpace(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Additional free space needed on the selected disk.</emphasis>
+	needFreeBytes: ?int,
+	<emphasis role="varlink-comment"># Size of the selected block device.</emphasis>
+	currentSizeBytes: ?int
+)
+
+<emphasis role="varlink-comment"># The target disk is too small to fit the installation. (Regardless if emptied or not.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> DiskTooSmall(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
+	minimalSizeBytes: ?int,
+	<emphasis role="varlink-comment"># Actual size of the selected block device.</emphasis>
+	currentSizeBytes: ?int
+)
+
+<emphasis role="varlink-comment"># Not a single candidate block device could be found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoCandidateDevices()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Repart"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EmptyMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProgressPhase"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BlockDeviceAction"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Run()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ConflictingDiskLabelPresent"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InsufficientFreeSpace"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DiskTooSmall"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListCandidateDevices()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoCandidateDevices"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Repart</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Repart.Run '{}'</screen>
+    invokes its <function>Run()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Repart interface was added in version 259.</para><para><varname>ConflictingDiskLabelPresent</varname>, <varname>DiskTooSmall</varname>, <varname>EmptyMode</varname>, <varname>InsufficientFreeSpace</varname>, <function>ListCandidateDevices()</function>, <varname>NoCandidateDevices</varname>, <varname>ProgressPhase</varname>, and <function>Run()</function> were added in version 259.</para><para><varname>BlockDeviceAction</varname> was added in version 261.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

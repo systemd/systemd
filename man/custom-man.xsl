@@ -46,4 +46,15 @@
   <xsl:text>"</xsl:text>
 </xsl:template>
 
+<!-- Varlink IDL syntax highlighting: keywords render as bold. Comments are deliberately
+     rendered without any inline formatting: groff displays italics as underlines on terminals,
+     which reads badly for IDL comments. -->
+<xsl:template match="emphasis[@role='varlink-keyword']">
+  <xsl:call-template name="inline.boldseq"/>
+</xsl:template>
+
+<xsl:template match="emphasis[@role='varlink-comment']">
+  <xsl:apply-templates/>
+</xsl:template>
+
 </xsl:stylesheet>

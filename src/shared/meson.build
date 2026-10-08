@@ -221,6 +221,25 @@ shared_sources = files(
         'userdb-dropin.c',
         'userdb.c',
         'varlink-idl-common.c',
+        'varlink-serialize.c',
+        'vconsole-util.c',
+        'verb-log-control.c',
+        'verbs.c',
+        'vlan-util.c',
+        'volatile-util.c',
+        'vpick.c',
+        'vsock-util.c',
+        'wall.c',
+        'watchdog.c',
+        'web-util.c',
+        'wifi-util.c',
+        'xml.c',
+)
+
+# Varlink IDL interface definitions compiled into libshared. The file names double as the
+# interface names they define ('varlink-io.systemd.Foo.c' defines 'io.systemd.Foo'), which
+# tools/generate-varlink-introspect.py relies upon to enumerate all interfaces.
+varlink_idl_interface_sources = files(
         'varlink-io.systemd.AskPassword.c',
         'varlink-io.systemd.BootControl.c',
         'varlink-io.systemd.Credentials.c',
@@ -266,20 +285,9 @@ shared_sources = files(
         'varlink-io.systemd.oom.Prekill.c',
         'varlink-io.systemd.service.c',
         'varlink-io.systemd.sysext.c',
-        'varlink-serialize.c',
-        'vconsole-util.c',
-        'verb-log-control.c',
-        'verbs.c',
-        'vlan-util.c',
-        'volatile-util.c',
-        'vpick.c',
-        'vsock-util.c',
-        'wall.c',
-        'watchdog.c',
-        'web-util.c',
-        'wifi-util.c',
-        'xml.c',
 )
+
+shared_sources += varlink_idl_interface_sources
 
 if get_option('tests') != 'false'
         shared_sources += files('tests.c')
