@@ -12,6 +12,7 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "dirent-util.h"
+#include "dropin.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -269,6 +270,12 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
                 return r;
 
         return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
+}
+
+static const char* dependency_dir_suffix(const char *dir) {
+        assert(dir);
+
+        return endswith(dir, ".wants") ?: endswith(dir, ".requires") ?: endswith(dir, ".upholds");
 }
 
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
@@ -868,10 +875,60 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         return false;
 }
 
+/* PID 1 looks up an entry name in the dependency directories of a unit in all unit directories, and uses
+ * only the entry in the directory with the highest priority. PID 1 ignores that entry if it is a mask, if
+ * it is not a symlink, or if it is not named after a unit. */
+static int dependency_entry_is_used(const LookupPaths *lp, const char *dir_path, const char *name) {
+        _cleanup_free_ char *dir = NULL, *path = NULL, *unit = NULL, *winner = NULL;
+        DependencyEntryType type;
+        const char *suffix;
+        int r;
+
+        assert(lp);
+        assert(dir_path);
+        assert(name);
+
+        path = path_join(dir_path, name);
+        if (!path)
+                return -ENOMEM;
+
+        r = path_extract_filename(dir_path, &dir);
+        if (r < 0)
+                return r;
+
+        suffix = ASSERT_PTR(dependency_dir_suffix(dir));
+
+        unit = strndup(dir, suffix - dir);
+        if (!unit)
+                return -ENOMEM;
+
+        /* PID 1 applies the entries in a directory such as target.wants/ to every unit of that type. The
+         * directory name contains no unit name to look up, so only the entry itself is checked. */
+        if (unit_name_is_valid(unit, UNIT_NAME_ANY)) {
+                r = unit_file_find_dropin_entry(lp->root_dir, lp->search_path, suffix, unit,
+                                                /* aliases= */ NULL, name, &winner);
+                if (r <= 0)
+                        return r;
+
+                if (!path_equal(winner, path))
+                        return false;
+        }
+
+        r = unit_file_classify_dependency_entry(path, lp->root_dir, &type, /* ret_name= */ NULL);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to look at '%s', ignoring: %m", path);
+                return false;
+        }
+
+        return type == DEPENDENCY_ENTRY_SYMLINK;
+}
+
 static int find_symlinks_in_directory(
                 DIR *dir,
                 const char *dir_path,
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *info,
                 bool ignore_destination,
                 bool match_name,
@@ -945,6 +1002,14 @@ static int find_symlinks_in_directory(
                 if (b)
                         *same_name_link = true;
                 else if (found_path || found_dest) {
+                        if (ignore_destination) {
+                                r = dependency_entry_is_used(lp, dir_path, de->d_name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+                        }
+
                         if (!match_name)
                                 return 1;
 
@@ -959,7 +1024,7 @@ static int find_symlinks_in_directory(
 }
 
 static int find_symlinks(
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *i,
                 bool match_name,
                 bool ignore_same_name,
@@ -981,15 +1046,10 @@ static int find_symlinks(
         }
 
         FOREACH_DIRENT(de, config_dir, return -errno) {
-                const char *suffix;
                 _cleanup_free_ const char *path = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                suffix = strrchr(de->d_name, '.');
-                if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
+                if (de->d_type != DT_DIR || !dependency_dir_suffix(de->d_name))
                         continue;
 
                 path = path_join(config_path, de->d_name);
@@ -1002,7 +1062,7 @@ static int find_symlinks(
                         continue;
                 }
 
-                r = find_symlinks_in_directory(d, path, root_dir, i,
+                r = find_symlinks_in_directory(d, path, lp, i,
                                                /* ignore_destination= */ true,
                                                /* match_name= */ match_name,
                                                /* ignore_same_name= */ ignore_same_name,
@@ -1017,7 +1077,7 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        return find_symlinks_in_directory(config_dir, config_path, root_dir, i,
+        return find_symlinks_in_directory(config_dir, config_path, lp, i,
                                           /* ignore_destination= */ false,
                                           /* match_name= */ match_name,
                                           /* ignore_same_name= */ ignore_same_name,
@@ -1048,7 +1108,7 @@ static int find_symlinks_in_scope(
         STRV_FOREACH(p, lp->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
+                r = find_symlinks(lp, info, match_name, ignore_same_name, *p, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {

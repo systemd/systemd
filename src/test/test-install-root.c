@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "install.h"
 #include "mkdir.h"
@@ -12,12 +13,31 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
 static char *root = NULL;
 
+/* Tests that use vendor_root leave unit files and enablement symlinks behind. A preset-all in another test
+ * would act on the leftover files. The tests run in link order, so with a shared root the result of a
+ * test would depend on that order. */
+static char *vendor_root = NULL;
+
 STATIC_DESTRUCTOR_REGISTER(root, rm_rf_physical_and_freep);
+STATIC_DESTRUCTOR_REGISTER(vendor_root, rm_rf_physical_and_freep);
+
+static void make_root(char **ret) {
+        ASSERT_OK(mkdtemp_malloc("/tmp/rootXXXXXX", ret));
+
+        FOREACH_STRING(d, "/usr/lib/systemd/system/", SYSTEM_CONFIG_UNIT_DIR"/", "/run/systemd/system/",
+                       "/opt/", "/usr/lib/systemd/system-preset/")
+                ASSERT_OK(mkdir_p(strjoina(*ret, d), 0755));
+
+        FOREACH_STRING(t, "multi-user.target", "graphical.target")
+                ASSERT_OK(write_string_file(strjoina(*ret, "/usr/lib/systemd/system/", t),
+                                            "# pretty much empty", WRITE_STRING_FILE_CREATE));
+}
 
 TEST(basic_mask_and_enable) {
         const char *p;
@@ -1362,31 +1382,111 @@ TEST(verify_alias) {
         verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
 }
 
+static bool symlink_exists(const char *path) {
+        return is_symlink(path) > 0;
+}
+
+static void write_vendor_file(const char *rel, const char *contents) {
+        const char *p = strjoina(vendor_root, "/usr/lib/systemd/", rel);
+
+        ASSERT_OK(mkdir_parents(p, 0755));
+        ASSERT_OK(write_string_file(p, contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+}
+
+static void assert_state(const char *name, UnitFileState expect) {
+        UnitFileState state;
+
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, vendor_root, name, &state));
+        ASSERT_EQ(state, expect);
+}
+
+static void do_enable(UnitFileFlags flags, char * const *names) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, names, &changes, &n_changes));
+}
+
+#define ETC_WANTS SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/"
+
+#define WANTED_BY_MULTI_USER \
+        "[Install]\n"        \
+        "WantedBy=multi-user.target\n"
+
+TEST(dependency_mask) {
+        const char *entry;
+
+        /* A .wants/, .requires/ or .upholds/ entry that resolves to /dev/null tells PID 1 to ignore the
+         * dependency, see process_deps(). */
+
+        write_vendor_file("system/masked-dep.service", WANTED_BY_MULTI_USER);
+
+        do_enable(0, STRV_MAKE("masked-dep.service"));
+        assert_state("masked-dep.service", UNIT_FILE_ENABLED);
+
+        entry = strjoina(vendor_root, ETC_WANTS"masked-dep.service");
+        ASSERT_TRUE(symlink_exists(entry));
+
+        ASSERT_OK_ERRNO(unlink(entry));
+        ASSERT_OK_ERRNO(symlink("/dev/null", entry));
+        assert_state("masked-dep.service", UNIT_FILE_DISABLED);
+}
+
+TEST(dependency_mask_empty_file) {
+        const char *entry;
+
+        /* PID 1 checks dependency entries with null_or_empty_path(), so a symlink to an empty file is a mask
+         * just like a symlink to /dev/null. */
+
+        write_vendor_file("system/empty-mask-dep.service", WANTED_BY_MULTI_USER);
+        ASSERT_OK(touch(strjoina(vendor_root, "/etc/empty-mask")));
+
+        do_enable(0, STRV_MAKE("empty-mask-dep.service"));
+
+        entry = strjoina(vendor_root, ETC_WANTS"empty-mask-dep.service");
+        ASSERT_OK_ERRNO(unlink(entry));
+        ASSERT_OK_ERRNO(symlink("/etc/empty-mask", entry));
+        assert_state("empty-mask-dep.service", UNIT_FILE_DISABLED);
+}
+
+TEST(dependency_shadow) {
+        const char *shadow;
+
+        /* An entry in a higher priority directory hides the entry with the same name in a lower priority
+         * directory. PID 1 ignores the entry in /etc/systemd/system.control/ because it is not a symlink.
+         * The symlink in /etc/systemd/system/ is hidden, so it does not pull the unit in either. */
+
+        write_vendor_file("system/shadowed-dep.service", WANTED_BY_MULTI_USER);
+
+        do_enable(0, STRV_MAKE("shadowed-dep.service"));
+        assert_state("shadowed-dep.service", UNIT_FILE_ENABLED);
+
+        shadow = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR".control/multi-user.target.wants/",
+                          "shadowed-dep.service");
+        ASSERT_OK(mkdir_parents(shadow, 0755));
+        ASSERT_OK(write_string_file(shadow, "# not a symlink", WRITE_STRING_FILE_CREATE));
+        assert_state("shadowed-dep.service", UNIT_FILE_DISABLED);
+}
+
+TEST(dependency_shadow_mask) {
+        const char *mask;
+
+        write_vendor_file("system/shadow-masked-dep.service", WANTED_BY_MULTI_USER);
+
+        do_enable(0, STRV_MAKE("shadow-masked-dep.service"));
+        assert_state("shadow-masked-dep.service", UNIT_FILE_ENABLED);
+
+        mask = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR".control/multi-user.target.wants/",
+                        "shadow-masked-dep.service");
+        ASSERT_OK(mkdir_parents(mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+        assert_state("shadow-masked-dep.service", UNIT_FILE_DISABLED);
+}
+
 static int intro(void) {
-        const char *p;
-
-        assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/run/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/opt/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system-preset/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        make_root(&root);
+        make_root(&vendor_root);
 
         return EXIT_SUCCESS;
 }
