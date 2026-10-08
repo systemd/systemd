@@ -406,6 +406,12 @@ systemctl status fake-report-server
 
 "$REPORT" generate io.systemd.Manager.UnitsTotal | jq .
 
+# Without --nonce= no nonce field is included, with it the nonce is included verbatim
+"$REPORT" generate io.systemd.Manager.UnitsTotal | jq -e 'has("nonce") | not' >/dev/null
+NONCE="$(openssl rand -base64 32)"
+[ "$("$REPORT" generate --nonce="$NONCE" io.systemd.Manager.UnitsTotal | jq -r .nonce)" = "$NONCE" ]
+(! "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal)
+
 "$REPORT" upload --url=http://localhost:8089/
 
 # Test HTTPS upload with generated TLS certificates
@@ -491,6 +497,14 @@ varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned 
 # the trailing newline, so 'head -n1' reproduces it verbatim.
 head -n1 "$SIGN_WORK/report.seq" >"$SIGN_WORK/message.bin"
 tr -d '\036' <"$SIGN_WORK/message.bin" | jq -e '.mediaType == "application/vnd.io.systemd.report"' >/dev/null
+tr -d '\036' <"$SIGN_WORK/message.bin" | jq -e 'has("nonce") | not' >/dev/null
+
+# A nonce passed to GenerateSigned must show up in the signed report object
+NONCE="$(openssl rand -base64 32)"
+varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned \
+    "{\"matches\":[\"io.systemd.Manager.UnitsTotal\"],\"nonce\":\"$NONCE\"}" |
+    jq -r .reportData | base64 -d | jq --seq -r 'select(.mediaType == "application/vnd.io.systemd.report") | .nonce' |
+    grep -Fx "$NONCE" >/dev/null
 
 # The remaining record(s) are signature objects. With only the plain backend
 # enabled there is exactly one, with mechanism "plain".
