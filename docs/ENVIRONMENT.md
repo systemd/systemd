@@ -287,6 +287,16 @@ All tools:
   the worker process is killed by the manager process. Defaults to 10 seconds,
   maximum allowed is 5 hours.
 
+* `$SYSTEMD_UDEV_USE_FANOTIFY_FID=` — If set to "0", systemd-udevd opens a
+  fanotify group for device watches (`OPTIONS+="watch"`) in classic mode, i.e.
+  without `FAN_REPORT_FID`, instead of auto-detecting it from the filesystem
+  backing `/dev/`. This is primarily useful for exercising the classic code path
+  on systems that would otherwise use FID mode, e.g. to test the behavior that
+  applies when /dev is backed by ramfs or on kernels older than v5.13. Note that
+  this only takes effect when a new fanotify group is created. Hence, when the
+  environment variable is set/unset/changed, it is recommended to call
+  `systemctl clean systemd-udevd.service` while the service is stopped.
+
 `udevadm` and `systemd-hwdb`:
 
 * `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
