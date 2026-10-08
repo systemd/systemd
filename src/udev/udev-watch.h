@@ -3,13 +3,8 @@
 
 #include "udev-forward.h"
 
-void udev_watch_dump(void);
-
 int manager_init_device_watch(Manager *manager, int fd);
 int manager_start_device_watch(Manager *manager);
-
-int manager_add_watch(Manager *manager, sd_device *dev);
-int manager_remove_watch(Manager *manager, sd_device *dev);
 
 void udev_watch_begin(UdevWorker *worker, sd_device *dev);
 void udev_watch_end(UdevWorker *worker, sd_device *dev);

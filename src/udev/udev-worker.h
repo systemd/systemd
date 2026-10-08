@@ -17,7 +17,7 @@ typedef struct UdevWorker {
 
         UdevConfig config;
 
-        pid_t manager_pid;
+        int fanotify_fd;
 } UdevWorker;
 
 void udev_worker_done(UdevWorker *worker);
