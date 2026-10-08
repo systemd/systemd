@@ -1476,7 +1476,7 @@ static int bus_append_cpu_affinity(sd_bus_message *m, const char *field, const c
                 r = sd_bus_message_append(m, "(sv)", "CPUAffinityFromNUMA", "b", true);
                 if (r < 0)
                         return bus_log_create_error(r);
-                return r;
+                return 1;
         }
 
         return bus_append_parse_cpu_set(m, field, eq);
