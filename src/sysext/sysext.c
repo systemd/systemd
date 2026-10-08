@@ -1968,7 +1968,7 @@ static int merge_subprocess(
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
                         *host_os_release_image_id = NULL, *host_os_release_image_version = NULL,
                         *filename = NULL, *old_origin_content = NULL,
-                        *extensions_origin_content = NULL, *root_resolved = NULL;
+                        *extensions_origin_content = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
@@ -1979,12 +1979,6 @@ static int merge_subprocess(
         int r;
 
         assert(c);
-
-        if (!isempty(c->root)) {
-                r = chase(c->root, /* root= */ NULL, CHASE_MUST_BE_DIRECTORY, &root_resolved, /* ret_fd= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve --root='%s': %m", strempty(c->root));
-        }
 
         assert(path_startswith(workspace, "/run/"));
 
@@ -2238,7 +2232,7 @@ static int merge_subprocess(
 
                 if (!isempty(c->root)) {
                         const char *without_root = NULL;
-                        without_root = path_startswith(img->path, root_resolved);
+                        without_root = path_startswith(img->path, c->root);
                         if (!isempty(without_root)) {
                                 path_without_root = strjoin("/", without_root);
                                 if (!path_without_root)
@@ -2314,7 +2308,7 @@ static int merge_subprocess(
 
                 if (op->resolved_mutable_directory && !isempty(c->root)) {
                         const char *without_root = NULL;
-                        without_root = path_startswith(op->resolved_mutable_directory, root_resolved);
+                        without_root = path_startswith(op->resolved_mutable_directory, c->root);
                         if (!isempty(without_root)) {
                                 mutable_directory_without_root = strjoin("/", without_root);
                                 if (!mutable_directory_without_root)
@@ -3268,6 +3262,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(arg_json_format_flags);
                 }
+
+        if (arg_root) {
+                _cleanup_free_ char *resolved_root = NULL;
+
+                /* Resolve the root once, so that paths derived from it contain no symlinks */
+                r = chase(arg_root, /* root= */ NULL, CHASE_MUST_BE_DIRECTORY, &resolved_root, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve --root='%s': %m", arg_root);
+
+                free_and_replace(arg_root, resolved_root);
+        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
