@@ -10,10 +10,12 @@
 #include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fanotify-util.h"
 #include "fd-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "udev-manager.h"
 #include "udev-synth.h"
@@ -145,6 +147,25 @@ static int udev_watch_restore(Manager *manager) {
         return 0;
 }
 
+static bool manager_want_fanotify_fid(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(statfs_is_set(&manager->dev_statfs));
+
+        r = secure_getenv_bool("SYSTEMD_UDEV_USE_FANOTIFY_FID");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_USE_FANOTIFY_FID, ignoring: %m");
+        if (r == 0)
+                return false;
+
+        /* FAN_REPORT_FID marks require the backing filesystem to report a non-zero f_fsid. The devtmpfs
+         * backing /dev/ reports a zero f_fsid when it is ramfs (CONFIG_SHMEM=n), or tmpfs on kernels older
+         * than v5.13 (59cda49ecf6c9a32fae4942420701b6e087204f6). In those cases fall back to classic
+         * fanotify, where the kernel reports an open fd with each event instead of a file handle. */
+        return !memeqzero(&manager->dev_statfs.f_fsid, sizeof(manager->dev_statfs.f_fsid));
+}
+
 int manager_init_device_watch(Manager *manager, int fd) {
         int r;
 
@@ -175,12 +196,13 @@ int manager_init_device_watch(Manager *manager, int fd) {
         if (manager->fanotify_fd >= 0)
                 return 0;
 
-        unsigned flags = FAN_CLASS_NOTIF | FAN_CLOEXEC | FAN_NONBLOCK | FAN_REPORT_FID;
+        bool use_fid = manager_want_fanotify_fid(manager);
+        unsigned flags = FAN_CLASS_NOTIF | FAN_CLOEXEC | FAN_NONBLOCK | (use_fid ? FAN_REPORT_FID : 0);
         fd = fanotify_init(flags, O_CLOEXEC | O_NONBLOCK | O_RDONLY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create fanotify group: %m");
 
-        log_debug("Initialized new fanotify group.");
+        log_debug("Initialized new fanotify group (%s mode).", use_fid ? "file handle" : "classic");
         manager->fanotify_fd = fd;
         (void) udev_watch_restore(manager);
 
