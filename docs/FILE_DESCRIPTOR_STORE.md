@@ -132,7 +132,8 @@ The `systemctl clean --what=fdstore …` command may be used to explicitly clear
 the fdstore of a service. This is only allowed when the service is fully
 deactivated, and is hence primarily useful in case
 `FileDescriptorStorePreserve=yes` is set (because the fdstore is otherwise
-fully closed anyway in this state).
+fully closed anyway in this state). It also removes copies of the stored file
+descriptors propagated to enclosing service managers.
 
 Individual file descriptors may be removed from the fdstore via the
 `sd_notify()` mechanism, by sending an `FDSTOREREMOVE=1` message, accompanied
