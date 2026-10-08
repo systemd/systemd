@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-internal.h"
 #include "bus-unit-util.h"
 #include "extract-word.h"
 #include "unit-def.h"
@@ -14,9 +15,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
 static void test_transient_settings_one(UnitType type, const char* const* lines) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
-
-        if (!arg_bus)
-                return (void) log_tests_skipped("no bus connection");
 
         ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
 
@@ -1169,13 +1167,9 @@ TEST(bus_dump_transient_settings) {
 }
 
 static int intro(void) {
-        int r;
-
-        r = sd_bus_default_user(&arg_bus);
-        if (r < 0)
-                r = sd_bus_default_system(&arg_bus);
-        if (r < 0)
-                log_info_errno(r, "Failed to connect to bus: %m");
+        /* An unconnected bus is sufficient to construct and inspect messages locally. */
+        ASSERT_OK(sd_bus_new(&arg_bus));
+        arg_bus->state = BUS_RUNNING; /* Fake state to allow message creation */
 
         return EXIT_SUCCESS;
 }
