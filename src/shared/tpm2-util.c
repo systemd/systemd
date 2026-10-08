@@ -7791,9 +7791,10 @@ static int tpm2_reuse_or_redefine_nvpcr_nv_index(
                         &nv_public_real,
                         &nv_name_real,
                         &handle);
-        if (r <= 0)
-                return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOENT),
-                                       "Failed to acquire handle to NV index 0x%" PRIx32 ".", nv_index);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIx32 ": %m", nv_index);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "NV index 0x%" PRIx32 " does not exist yet.", nv_index);
 
         /* Check if the existing index has the same name as the one we're trying to define. We expect
          * this on any system where this NvPCR was created with the current pubkey on a previous
@@ -7967,6 +7968,31 @@ static int tpm2_define_nvpcr_nv_index(
         if (errno != ENOENT)
                 log_debug_errno(errno, "Failed to check whether %s exists, assuming it does not: %m", exhausted_flag);
 
+        /* NvPCRs persist across boots, so the index usually exists already. Check for that first, instead
+         * of relying on TPM2_NV_DefineSpace() failing with TPM2_RC_NV_DEFINED, which the TSS logs as an
+         * error. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
+        if (r == -ENOBUFS) {
+                /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
+                 * retrying the (doomed) allocation until reboot. */
+                r = touch(exhausted_flag);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                        "NV index space on TPM exhausted, cannot re-allocate NvPCR.");
+        }
+        if (r >= 0) {
+                log_debug("NV index 0x%" PRIx32 " successfully %s for NvPCR.", nv_index, r == 0 ? "reused" : "reallocated");
+
+                if (ret_nv_handle)
+                        *ret_nv_handle = TAKE_PTR(handle);
+
+                return r;
+        }
+        if (r != -ENOENT)
+                return r;
+
         _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
         r = tpm2_handle_new(c, &new_handle);
         if (r < 0)
@@ -7992,40 +8018,30 @@ static int tpm2_define_nvpcr_nv_index(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
                                         "NV index space on TPM exhausted, cannot allocate NvPCR.");
         }
-        if (rc == TSS2_RC_SUCCESS) {
-                log_debug("NV index 0x%" PRIx32 " successfully allocated for NvPCR.", nv_index);
+        if (rc == TPM2_RC_NV_DEFINED) {
+                /* Someone else defined the index after we checked for it above, which is possible as the
+                 * measurement log lock is only taken best-effort. Treat it like we found it above. */
+                log_debug("NV index 0x%" PRIx32 " was defined concurrently, checking it again.", nv_index);
+
+                r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
+                if (r < 0)
+                        return r;
 
                 if (ret_nv_handle)
-                        *ret_nv_handle = TAKE_PTR(new_handle);
+                        *ret_nv_handle = TAKE_PTR(handle);
 
-                return 1;
+                return r;
         }
-        if (rc != TPM2_RC_NV_DEFINED)
+        if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                         "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
 
-        log_debug("NV index 0x%" PRIx32 " already registered.", nv_index);
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
-        if (r == -ENOBUFS) {
-                /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
-                 * retrying the (doomed) allocation until reboot. */
-                r = touch(exhausted_flag);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                        "NV index space on TPM exhausted, cannot re-allocate NvPCR.");
-        }
-        if (r < 0)
-                return r;
-
-        log_debug("NV index 0x%" PRIx32 " successfully %s for NvPCR.", nv_index, r == 0 ? "reused" : "reallocated");
+        log_debug("NV index 0x%" PRIx32 " successfully allocated for NvPCR.", nv_index);
 
         if (ret_nv_handle)
-                *ret_nv_handle = TAKE_PTR(handle);
+                *ret_nv_handle = TAKE_PTR(new_handle);
 
-        return r;
+        return 1;
 }
 
 static int tpm2_extend_nvpcr_nv_index(
