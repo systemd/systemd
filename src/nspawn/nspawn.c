@@ -4601,7 +4601,17 @@ static int forward_fd_store(char **tags, FDSet *fds) {
         if (!getenv("NOTIFY_SOCKET") || !fdstore_detected())
                 return 0;
 
-        if (strv_contains(tags, "FDSTOREREMOVE=1")) {
+        const char *pattern = strv_find_startswith(tags, "FDSTOREWIPE=");
+        if (pattern) {
+                if (!fdname_glob_is_valid(pattern))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "Got FDSTOREWIPE= from container payload with invalid pattern, ignoring.");
+
+                r = sd_notifyf(/* unset_environment= */ false,
+                               "FDSTOREWIPE=payload-%s", pattern);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to forward FDSTOREWIPE upstream, ignoring: %m");
+        } else if (strv_contains(tags, "FDSTOREREMOVE=1")) {
                 const char *fdname = strv_find_startswith(tags, "FDNAME=");
                 if (!fdname)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
