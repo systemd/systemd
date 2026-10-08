@@ -546,6 +546,9 @@ TEST(execute_properties) {
                         "RestrictAddressFamilies=AF_INET AF_INET6",
                         "RestrictAddressFamilies=INET,INET6,netlink",
                         "RestrictAddressFamilies=~AF_NETLINK",
+                        "RestrictAddressFamilies=none",
+                        "-EINVAL RestrictAddressFamilies=AF_HUDDLDUDDL",
+                        "-EINVAL RestrictAddressFamilies=inet huddlduddl",
                         "RestrictFileSystems=ext4",
                         "RestrictFileSystems=ext4 xfs",
                         "RestrictFileSystems=~tmpfs",
@@ -1290,15 +1293,20 @@ TEST(values_time_and_size) {
 TEST(values_filter_lists) {
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=AF_INET AF_INET6",
                      "RestrictAddressFamilies", "(bas)", "[true,['AF_INET','AF_INET6']]");
-        /* Names are passed through verbatim, normalization is done by the manager. */
+        /* Names are normalized to the canonical form, so that older managers understand them too. */
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=INET,INET6,netlink",
-                     "RestrictAddressFamilies", "(bas)", "[true,['INET','INET6','netlink']]");
+                     "RestrictAddressFamilies", "(bas)", "[true,['AF_INET','AF_INET6','AF_NETLINK']]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=~unix",
+                     "RestrictAddressFamilies", "(bas)", "[false,['AF_UNIX']]");
+        test_setting(UNIT_SERVICE, "RestrictAddressFamilies=none",
+                     "RestrictAddressFamilies", "(bas)", "[true,[]]");
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=AF_INET, AF_INET6 ,AF_UNIX",
                      "RestrictAddressFamilies", "(bas)", "[true,['AF_INET','AF_INET6','AF_UNIX']]");
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=~AF_NETLINK",
                      "RestrictAddressFamilies", "(bas)", "[false,['AF_NETLINK']]");
+        /* The empty string resets the setting, like in unit files. */
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=",
-                     "RestrictAddressFamilies", "(bas)", "[true,[]]");
+                     "RestrictAddressFamilies", "(bas)", "[false,[]]");
         test_setting(UNIT_SERVICE, "RestrictAddressFamilies=~",
                      "RestrictAddressFamilies", "(bas)", "[false,[]]");
 
