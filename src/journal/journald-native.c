@@ -469,7 +469,7 @@ int manager_process_native_file(
                                                          "Failed to map memfd: %m");
 
                 manager_process_native_message(m, p, st.st_size, ucred, tv, label);
-                assert_se(munmap(p, ps) >= 0);
+                munmap_safe(p, ps);
 
                 return 0;
         }

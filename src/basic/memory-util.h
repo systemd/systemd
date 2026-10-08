@@ -98,3 +98,14 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
+
+#define munmap_safe(p, sz)                                              \
+        ({                                                              \
+                if (p && p != MAP_FAILED) {                             \
+                        size_t _sz = sz;                                \
+                        assert(_sz > 0);                                \
+                        assert(_sz != SIZE_MAX); /* catch PAGE_ALIGN() overflows */ \
+                        assert_se(munmap(p, _sz) >= 0);                 \
+                }                                                       \
+                (typeof(p)) NULL;                                       \
+        })

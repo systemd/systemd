@@ -217,7 +217,7 @@ static int xen_kexec_command(uint64_t cmd) {
         if (r < 0)
                 log_debug_errno(r, "kexec%s failed: %m", cmd == KEXEC_CMD_kexec_status ? "_status" : "");
 
-        munmap(buffer, size);
+        munmap_safe(buffer, size);
 
         return r;
 }
