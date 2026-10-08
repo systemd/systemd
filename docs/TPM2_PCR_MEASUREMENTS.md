@@ -106,6 +106,20 @@ policy or different attributes that permit initialization during runtime can be
 detected because the name of the NV index will not match the name that was
 previously measured to PCR 9.
 
+If the booted UKI carries no PCR public key, or no signed PCR policy with the
+`initrd` policy reference for it, the branch for the first write is instead a
+`TPM2_PolicyPCR` assertion bound to the value of the kernel boot PCR (11) at the
+time the NvPCR is initialized. This fallback is only used in the initrd, where
+PCR 11 has a value that can no longer be reached once the initrd has been left.
+The same considerations as above apply, but the name of the NvPCR then depends
+on the value of PCR 11 in the initrd, and hence changes whenever the UKI changes.
+A verifier has to calculate the expected name from the expected value of PCR 11
+in the initrd (e.g. as calculated by `systemd-measure calculate
+--phase=enter-initrd`). This is hence only useful where that value can be
+predicted. Note that on systems that are not booted via a UKI, PCR 11 does not
+cover the kernel and initrd, and the name of the NvPCR hence does not depend on
+them.
+
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
 ### PCR 1, `EV_EVENT_TAG`, SMBIOS information
