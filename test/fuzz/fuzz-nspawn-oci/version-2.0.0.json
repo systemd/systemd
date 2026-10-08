@@ -1,0 +1,6 @@
+{
+    "ociVersion": "2.0.0",
+    "root": {
+        "path": "rootfs"
+    }
+}

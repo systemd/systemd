@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,11 +26,32 @@ int errno_from_name(const char *name) {
 }
 
 #ifdef __GLIBC__
+#include "errno-to-name.inc"
+
+static const char *(*strerrorname_np_func)(int);
+
+__attribute__((constructor)) static void strerrorname_np_func_init(void) {
+        void *p = dlsym(RTLD_DEFAULT, "strerrorname_np");
+        __asm__ volatile("" ::: "memory");
+        strerrorname_np_func = (const char *(*)(int)) p;
+}
+
 const char* errno_name_no_fallback(int id) {
         if (id == 0) /* To stay in line with our implementation below.  */
                 return NULL;
 
-        return strerrorname_np(ABS(id));
+        id = ABS(id);
+
+        if (strerrorname_np_func) {
+                const char *n = strerrorname_np_func(id);
+                if (n)
+                        return n;
+        }
+
+        if ((size_t) id >= ELEMENTSOF(errno_names))
+                return NULL;
+
+        return errno_names[id];
 }
 #else
 #  include "errno-to-name.inc"
