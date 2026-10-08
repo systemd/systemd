@@ -1081,6 +1081,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <manvolnum>5</manvolnum></citerefentry>) is typically a better choice than <varname>LimitNPROC=</varname>.
         </para>
 
+        <para>These settings, including the defaults described below, do not affect commands prefixed with
+        <literal>+</literal>. Such commands inherit the resource limits of the service manager itself, which may be
+        different.</para>
+
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
