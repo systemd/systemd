@@ -402,6 +402,13 @@ int enroll_tpm2(const EnrollContext *c,
         } else
                 pubkey_pcr_mask = 0;
 
+        const char *policyref = NULL;
+        if (iovec_is_set(&pubkey))
+                if (c->tpm2_public_key_policyref)
+                        policyref = c->tpm2_public_key_policyref;
+                else if (c->tpm2_public_key_policyref_initrd_fallback)
+                        policyref = "initrd";
+
         bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values);
 
         _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
@@ -487,7 +494,7 @@ int enroll_tpm2(const EnrollContext *c,
                         c->tpm2_hash_pcr_values,
                         c->tpm2_n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
-                        iovec_is_set(&pubkey) ? c->tpm2_public_key_policyref : NULL,
+                        policyref,
                         IN_SET(c->tpm2_pin, TPM2_WITH_PIN_YES, TPM2_WITH_PIN_DIRECT),
                         c->tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
@@ -577,7 +584,7 @@ int enroll_tpm2(const EnrollContext *c,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                c->tpm2_public_key_policyref,
+                                policyref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
@@ -630,7 +637,7 @@ int enroll_tpm2(const EnrollContext *c,
                         hash_pcr_mask,
                         hash_pcr_bank,
                         &pubkey,
-                        c->tpm2_public_key_policyref,
+                        policyref,
                         pubkey_pcr_mask,
                         primary_alg,
                         blobs,
