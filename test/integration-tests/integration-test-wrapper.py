@@ -52,15 +52,17 @@ class Summary:
     architecture: str
     builddir: Path
     buildsubdir: Path
+    output_dir: Path
     environment: dict[str, str]
 
     @classmethod
-    def get(cls, args: argparse.Namespace) -> 'Summary':
+    def get(cls, args: argparse.Namespace, mkosi_args: list[str]) -> 'Summary':
         j = json.loads(
             subprocess.run(
                 [
                     args.mkosi,
                     '--directory', os.fspath(args.mkosi_dir),
+                    *mkosi_args,
                     '--json',
                     'summary',
                 ],
@@ -75,6 +77,7 @@ class Summary:
             architecture=j['Images'][-1]['Architecture'],
             builddir=Path(j['Images'][-1]['BuildDirectory']),
             buildsubdir=Path(j['Images'][-1]['BuildSubdirectory']),
+            output_dir=Path(j['Images'][-1]['OutputDirectory']),
             environment=j['Images'][-1]['Environment'],
         )
 
@@ -556,7 +559,20 @@ def main() -> None:
 
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
-    summary = Summary.get(args)
+    # Extra mkosi options for this invocation only. Each has to use the '--option=value' syntax.
+    test_mkosi_args = shlex.split(os.getenv('TEST_MKOSI_ARGS', ''))
+    for arg in test_mkosi_args:
+        if not re.fullmatch('--[^=]+=.*', arg):
+            sys.exit(f"TEST_MKOSI_ARGS must contain only '--option=value' mkosi options, got: {arg}")
+
+    summary = Summary.get(args, [*args.mkosi_args, *test_mkosi_args])
+    # Meson does not know mkosi's output directory when constructing QEMU arguments.
+    mkosi_args = [
+        arg.replace('@MKOSI_OUTPUT_DIR@', os.fspath(summary.output_dir))
+        if arg.startswith('--qemu-args=')
+        else arg
+        for arg in args.mkosi_args
+    ]
 
     # Keep list in sync with TEST-06-SELINUX.sh
     if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('centos', 'fedora', 'opensuse'):
@@ -697,7 +713,7 @@ def main() -> None:
     # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
     vm_images_args: list[str] = []
     if args.vm_images and not vm:
-        output_dir = args.meson_build_dir / 'mkosi.output'
+        output_dir = summary.output_dir
         if output_dir.exists():
             vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
         else:
@@ -737,12 +753,6 @@ def main() -> None:
             '''
         )
 
-    # Extra mkosi options for this invocation only. Each has to use the '--option=value' syntax.
-    test_mkosi_args = shlex.split(os.getenv('TEST_MKOSI_ARGS', ''))
-    for arg in test_mkosi_args:
-        if not re.fullmatch('--[^=]+=.*', arg):
-            sys.exit(f"TEST_MKOSI_ARGS must contain only '--option=value' mkosi options, got: {arg}")
-
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -760,7 +770,7 @@ def main() -> None:
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
-        *args.mkosi_args,
+        *mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--tpm', 'yes' if args.tpm else 'no',
