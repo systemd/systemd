@@ -417,6 +417,7 @@ typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         size_t n_already, n_initialized, n_failed, n_skipped;
         bool nv_space_exhausted; /* Set once the TPM ran out of NV index space, so we skip the rest. */
+        bool not_in_initrd; /* Set once NvPCR initialization was refused outside the initrd, so we skip the rest. */
         Set *done;
 } SetupNvPCRContext;
 
@@ -448,6 +449,12 @@ static int setup_nvpcr_one(
                 return 0;
         }
 
+        if (c->not_in_initrd) {
+                log_debug("Not running in the initrd, not initializing NvPCR '%s'.", name);
+                c->n_failed++;
+                return 0;
+        }
+
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name);
         if (r == -EOPNOTSUPP) {
                 c->n_failed++;
@@ -464,6 +471,15 @@ static int setup_nvpcr_one(
                 return log_struct_errno(LOG_NOTICE, r,
                                         LOG_MESSAGE("The TPM's NV index space is exhausted, skipping allocation of NvPCR '%s' and any less important ones: %m", name),
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+        }
+        if (r == -ENOMEDIUM) {
+                /* This happens if systemd-tpm2-setup-early.service is not included in the initrd and hence
+                 * runs after the transition to the root file system. */
+                c->not_in_initrd = true;
+                c->n_failed++;
+                return log_error_errno(r,
+                                       "NvPCRs can only be initialized in the initrd, not initializing NvPCR '%s' and any further ones. "
+                                       "Is systemd-tpm2-setup-early.service included in the initrd?", name);
         }
         if (r < 0) {
                 c->n_failed++;

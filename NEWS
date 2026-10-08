@@ -6,6 +6,17 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Changes in the TPM Subsystem:
+
+        * If the booted UKI carries no PCR public key or no signed PCR policy
+          with the "initrd" policy reference, NvPCRs are now initialized in the
+          initrd with a write policy bound to the current value of PCR 11,
+          instead of not being initialized at all. The names of such NvPCRs,
+          which are measured into PCR 9, change whenever the UKI changes, so
+          this is mostly useful where the value of PCR 11 in the initrd is
+          predictable. systemd-pcrextend --graceful no longer ignores NvPCRs
+          that are not initialized.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
