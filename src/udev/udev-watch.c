@@ -416,9 +416,6 @@ int manager_add_watch(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
-        /* Ignore the request of watching the device node on remove event, as the device node specified by
-         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
-         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
 
@@ -536,19 +533,36 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         return sd_event_loop(e);
 }
 
-int udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+        int r;
+
         assert(worker);
         assert(dev);
 
-        if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return 0;
+        /* Ignore the request of watching the device node on remove event, as the device node specified by
+         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
+         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
+        if (device_for_action(dev, SD_DEVICE_REMOVE)) {
+                log_device_debug(dev, "Ignoring to add device watch on remove uevent.");
+                return;
+        }
 
-        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_ADD=1");
+        r = notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_ADD=1");
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to add device watch, ignoring: %m");
+        else
+                log_device_debug(dev, "Added device watch.");
 }
 
-int udev_watch_end(UdevWorker *worker, sd_device *dev) {
+void udev_watch_end(UdevWorker *worker, sd_device *dev) {
+        int r;
+
         assert(worker);
         assert(dev);
 
-        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_REMOVE=1");
+        r = notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_REMOVE=1");
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove device watch, ignoring: %m");
+        else
+                log_device_debug(dev, "Removed device watch.");
 }
