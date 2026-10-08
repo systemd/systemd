@@ -45,6 +45,10 @@ All tools:
 * `$SYSTEMD_INVOKED_AS=name` — override argv[0] for detection of a multicall
   binary. E.g. `SYSTEMD_INVOKED_AS=systemd-udevd build/udevadm`.
 
+* `$SYSTEMD_EXPERIMENTAL=0|1` — if set to true, experimental features may be
+  used. This variable is not checked if the build was configured with
+  "-Dexperimental=disabled".
+
 * `$SYSTEMD_PROC_CMDLINE` — if set, the contents are used as the kernel command
   line instead of the actual one in `/proc/cmdline`. This is useful for
   debugging, in order to test generators and other code against specific kernel
