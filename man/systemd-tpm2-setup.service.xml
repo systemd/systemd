@@ -34,8 +34,10 @@
     <para><filename>systemd-tpm2-setup.service</filename> and
     <filename>systemd-tpm2-setup-early.service</filename> are services that generate the Storage Root Key
     (SRK) and Endorsement Key (EK) if they have not been generated yet, and stores them in the TPM. If
-    NvPCRs (additional PCR registers in TPM NV Indexes) are defined, these are initialized with the
-    anchoring secret.</para>
+    NvPCRs (additional PCR registers in TPM NV Indexes) are defined, these are initialized. NvPCRs can only
+    be initialized from the initrd. Their initial write is authorized by the signed PCR policy with the
+    <literal>initrd</literal> policy reference embedded in the booted UKI, or, if there is none, by a PCR
+    policy bound to the current value of PCR 11.</para>
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
     <filename>/run/systemd/tpm2-srk-public-key.pem</filename> and
