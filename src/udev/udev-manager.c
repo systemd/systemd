@@ -167,6 +167,8 @@ Manager* manager_free(Manager *manager) {
         /* udev watch */
         sd_event_source_unref(manager->device_watch_event);
         safe_close(manager->inotify_fd);
+        safe_close(manager->fanotify_fd);
+        safe_close(manager->dev_fd);
 
         /* udev synth */
         set_free(manager->synthesize_change_child_event_sources);
@@ -195,6 +197,8 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
+                .fanotify_fd = -EBADF,
+                .dev_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
@@ -549,6 +553,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .rules = TAKE_PTR(manager->rules),
                         .config = manager->config,
                         .manager_pid = manager_pid,
+                        .fanotify_fd = manager->fanotify_fd,
                 };
 
                 if (manager->workers_cgroup) {
@@ -1295,7 +1300,8 @@ static int on_post_exit(Manager *manager) {
 
         (void) manager_serialize_events(manager);
 
-        udev_watch_dump();
+        udev_watch_dump(manager);
+
         return sd_event_exit(manager->event, 0);
 }
 
@@ -1449,6 +1455,8 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "fanotify"))
+                        r = manager_init_fanotify(manager, fd);
                 else if (streq(names[i], "config-serialization"))
                         r = manager_deserialize_config(manager, &fd);
                 else if (streq(names[i], "event-serialization"))
@@ -1514,7 +1522,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_inotify(manager);
+        r = manager_start_device_watch(manager);
         if (r < 0)
                 return r;
 

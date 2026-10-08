@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <sys/statfs.h>
+
 #include "sd-device.h"
 #include "sd-event.h"
 
@@ -56,6 +58,9 @@ typedef struct Manager {
 
         /* used by udev-watch */
         int inotify_fd;
+        int fanotify_fd;
+        int dev_fd;
+        struct statfs dev_statfs;
         sd_event_source *device_watch_event;
 
         /* used by udev-synth */

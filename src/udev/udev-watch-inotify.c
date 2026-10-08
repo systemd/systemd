@@ -52,8 +52,14 @@ static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         return sd_device_new_from_device_id(ret, id);
 }
 
-void udev_watch_dump(void) {
+void udev_watch_dump(Manager *manager) {
         int r;
+
+        assert(manager);
+
+        /* This is inotify specific. Do nothing if inotify is disabled. */
+        if (manager->inotify_fd < 0)
+                return;
 
         _cleanup_closedir_ DIR *dir = opendir("/run/udev/watch/");
         if (!dir)
@@ -276,7 +282,7 @@ int manager_start_inotify(Manager *manager) {
         if (r < 0)
                 return r;
 
-        udev_watch_dump();
+        udev_watch_dump(manager);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, on_inotify, manager);
@@ -533,19 +539,11 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         return sd_event_loop(e);
 }
 
-void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+void inotify_watch_begin(UdevWorker *worker, sd_device *dev) {
         int r;
 
         assert(worker);
         assert(dev);
-
-        /* Ignore the request of watching the device node on remove event, as the device node specified by
-         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
-         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
-        if (device_for_action(dev, SD_DEVICE_REMOVE)) {
-                log_device_debug(dev, "Not adding device watch on remove uevent.");
-                return;
-        }
 
         r = notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_ADD=1");
         if (r < 0)
@@ -554,7 +552,7 @@ void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
                 log_device_debug(dev, "Added device watch.");
 }
 
-void udev_watch_end(UdevWorker *worker, sd_device *dev) {
+void inotify_watch_end(UdevWorker *worker, sd_device *dev) {
         int r;
 
         assert(worker);
