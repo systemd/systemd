@@ -11,5 +11,5 @@ int manager_start_inotify(Manager *manager);
 int manager_add_watch(Manager *manager, sd_device *dev);
 int manager_remove_watch(Manager *manager, sd_device *dev);
 
-int udev_watch_begin(UdevWorker *worker, sd_device *dev);
-int udev_watch_end(UdevWorker *worker, sd_device *dev);
+void udev_watch_begin(UdevWorker *worker, sd_device *dev);
+void udev_watch_end(UdevWorker *worker, sd_device *dev);
