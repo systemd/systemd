@@ -176,7 +176,7 @@ systemd-cryptsetup detach pcrlock
 # Generate key pair
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$img".private.pem
 openssl rsa -pubout -in "$img".private.pem -out "$img".public.pem
-systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key="$img".public.pem --wipe-slot=tpm2 "$img"
+systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key="$img".public.pem --tpm2-public-key-policyref= --wipe-slot=tpm2 "$img"
 "$SD_MEASURE" sign --current --bank=sha256 --private-key="$img".private.pem --public-key="$img".public.pem --phase=: | tee "$img".pcrsign
 SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach pcrlock "$img" - "tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,tpm2-signature=$img.pcrsign,headless"
 systemd-cryptsetup detach pcrlock
