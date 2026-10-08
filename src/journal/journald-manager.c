@@ -2095,25 +2095,16 @@ int manager_map_seqnum_file(
         if (fd < 0)
                 return -errno;
 
-        r = posix_fallocate_loop(fd, 0, size);
+        r = posix_fallocate_loop(fd, /* offset= */ 0, size);
         if (r < 0)
                 return r;
 
-        p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, /* offset= */ 0);
         if (p == MAP_FAILED)
                 return -errno;
 
         *ret = p;
         return 0;
-}
-
-void manager_unmap_seqnum_file(void *p, size_t size) {
-        assert(size > 0);
-
-        if (!p)
-                return;
-
-        assert_se(munmap(p, size) >= 0);
 }
 
 int manager_unlink_seqnum_file(Manager *m, const char *fname) {
@@ -2603,8 +2594,8 @@ Manager* manager_free(Manager *m) {
 
         ordered_hashmap_free(m->ratelimit_groups_by_id);
 
-        manager_unmap_seqnum_file(m->seqnum, sizeof(*m->seqnum));
-        manager_close_kernel_seqnum(m);
+        m->seqnum = munmap_safe(m->seqnum, sizeof(*m->seqnum));
+        m->kernel_seqnum = munmap_safe(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
 
         free(m->buffer);
         free(m->cgroup_root);
