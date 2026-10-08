@@ -2165,12 +2165,16 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
         if (r < 0)
                 return r;
 
+        /* This may re-read /etc/resolv.conf and replace m->dns_servers and m->search_domains, hence call it
+         * before they are passed below, as the order of evaluation of the arguments is unspecified. */
+        DnsServer *current_dns_server = manager_get_dns_server(m);
+
         return dns_configuration_json_append(
                         /* ifname= */ NULL,
                         /* ifindex= */ 0,
                         /* delegate= */ NULL,
                         /* default_route= */ -1,
-                        manager_get_dns_server(m),
+                        current_dns_server,
                         m->dns_servers,
                         m->fallback_dns_servers,
                         m->search_domains,
