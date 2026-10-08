@@ -98,8 +98,7 @@ static Window* window_unlink(Window *w) {
 
         MMapCache *m = mmap_cache_fd_cache(w->fd);
 
-        if (w->ptr)
-                munmap(w->ptr, w->size);
+        w->ptr = munmap_safe(w->ptr, w->size);
 
         if (FLAGS_SET(w->flags, WINDOW_IN_UNUSED)) {
                 if (m->last_unused == w)
@@ -327,7 +326,7 @@ static int add_mmap(
 
         w = window_add(f, offset, size, d);
         if (!w) {
-                (void) munmap(d, size);
+                munmap_safe(d, size);
                 return -ENOMEM;
         }
 
