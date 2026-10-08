@@ -11,10 +11,12 @@
 #include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fanotify-util.h"
 #include "fd-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "udev-manager.h"
 #include "udev-synth.h"
@@ -145,6 +147,23 @@ static int udev_watch_restore(Manager *manager) {
         return 0;
 }
 
+static bool manager_want_fanotify_fid(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(statfs_is_set(&manager->dev_statfs));
+
+        r = secure_getenv_bool("SYSTEMD_UDEV_USE_FANOTIFY_FID");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_USE_FANOTIFY_FID, ignoring: %m");
+        if (r == 0)
+                return false;
+
+        /* When devtmpfs is backed by ramfs (CONFIG_SHMEM=n), which does not support exportfs, we cannot use
+         * FAN_REPORT_FID, hence we must use classic fanotify. */
+        return !is_fs_type(&manager->dev_statfs, RAMFS_MAGIC);
+}
+
 int manager_init_device_watch(Manager *manager, int fd) {
         int r;
 
@@ -175,12 +194,13 @@ int manager_init_device_watch(Manager *manager, int fd) {
         if (manager->fanotify_fd >= 0)
                 return 0;
 
-        unsigned flags = FAN_CLASS_NOTIF | FAN_CLOEXEC | FAN_NONBLOCK | FAN_REPORT_FID;
+        bool use_fid = manager_want_fanotify_fid(manager);
+        unsigned flags = FAN_CLASS_NOTIF | FAN_CLOEXEC | FAN_NONBLOCK | (use_fid ? FAN_REPORT_FID : 0);
         fd = fanotify_init(flags, O_CLOEXEC | O_RDONLY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create fanotify group: %m");
 
-        log_debug("Initialized new fanotify group.");
+        log_debug("Initialized new fanotify group (%s mode).", use_fid ? "file handle" : "classic");
         manager->fanotify_fd = fd;
         (void) udev_watch_restore(manager);
 
