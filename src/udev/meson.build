@@ -42,7 +42,8 @@ udevadm_export_sources = files(
         'udev-spawn.c',
         'udev-synth.c',
         'udev-varlink.c',
-        'udev-watch.c',
+        'udev-watch-fanotify.c',
+        'udev-watch-inotify.c',
         'udev-worker.c',
 )
 

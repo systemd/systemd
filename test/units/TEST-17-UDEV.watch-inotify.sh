@@ -101,9 +101,13 @@ mkdir -p /run/systemd/system/systemd-udevd.service.d/
 cat >/run/systemd/system/systemd-udevd.service.d/10-debug.conf <<EOF
 [Service]
 Environment=SYSTEMD_LOG_LEVEL=debug
+Environment=SYSTEMD_UDEV_USE_INOTIFY=1
 EOF
 
 systemctl daemon-reload
+systemctl restart systemd-udevd.service
+
+udevadm trigger -w --action change --subsystem-match=block
 
 mkdir -p /run/udev/rules.d/
 
