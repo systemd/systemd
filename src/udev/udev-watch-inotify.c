@@ -533,7 +533,7 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         return sd_event_loop(e);
 }
 
-void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+void inotify_watch_begin(UdevWorker *worker, sd_device *dev) {
         int r;
 
         assert(worker);
@@ -554,7 +554,7 @@ void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
                 log_device_debug(dev, "Added device watch.");
 }
 
-void udev_watch_end(UdevWorker *worker, sd_device *dev) {
+void inotify_watch_end(UdevWorker *worker, sd_device *dev) {
         int r;
 
         assert(worker);
