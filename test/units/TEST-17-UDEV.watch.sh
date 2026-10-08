@@ -8,20 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-check_validity() {
-    local f ID_OR_HANDLE
-
-    for f in /run/udev/watch/*; do
-        ID_OR_HANDLE="$(readlink "$f")"
-        test -L "/run/udev/watch/${ID_OR_HANDLE}"
-        test "$(readlink "/run/udev/watch/${ID_OR_HANDLE}")" = "$(basename "$f")"
-
-        if [[ "${1:-}" == "1" ]]; then
-            journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep "Found inotify watch .*$ID_OR_HANDLE"
-        fi
-    done
-}
-
 check() {
     for _ in {1..2}; do
         systemctl reset-failed systemd-udevd.service
@@ -32,36 +18,29 @@ check() {
         # Also rotate journal to make expected journal entries in an archived journal file.
         journalctl --rotate
 
-        # Check if the inotify watch fd is received from fd store.
-        journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received inotify fd \(\d+\) from service manager.'
-
-        # Check if there is no broken symlink chain.
-        assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Found broken inotify watch' || :)" ""
-
-        check_validity 1
+        # Check if the fanotify group fd is received from fd store.
+        journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received fanotify fd \(\d+\) from service manager.'
 
         for _ in {1..2}; do
             udevadm trigger -w --action add --subsystem-match=block
-            check_validity
         done
 
         for _ in {1..2}; do
             udevadm trigger -w --action change --subsystem-match=block
-            check_validity
         done
     done
 }
 
-udevd_inotify_fdinfo() {
+udevd_fanotify_fdinfo() {
     local pid fd
 
-    # Print the path of systemd-udevd's inotify group fdinfo.
+    # Print the path of systemd-udevd's fanotify group fdinfo.
 
     pid="$(systemctl show --property MainPID --value systemd-udevd.service)"
     [[ "${pid:-0}" -gt 0 ]] || return 1
 
     for fd in /proc/"$pid"/fd/*; do
-        if [[ "$(readlink "$fd" 2>/dev/null)" == "anon_inode:[inotify]" ]]; then
+        if [[ "$(readlink "$fd" 2>/dev/null)" == "anon_inode:[fanotify]" ]]; then
             echo "/proc/$pid/fdinfo/${fd##*/}"
             return 0
         fi
@@ -74,27 +53,19 @@ device_is_watched() {
     local devnode="${1:?}"
     local ino fdinfo
 
-    fdinfo="$(udevd_inotify_fdinfo)"
+    fdinfo="$(udevd_fanotify_fdinfo)"
     ino="$(printf '%x' "$(stat -c '%i' "$devnode")")"
-    grep -qE "^inotify ino:${ino} " "$fdinfo"
+    grep -qE "^fanotify ino:${ino} " "$fdinfo"
 }
 
-device_is_watched_by_link() {
-    local devnode="${1:?}"
-    local rdev
-
-    rdev="$(stat -c '%Hr:%Lr')"
-    test -L "/run/udev/watch/b${rdev}"
-}
-
-# Check if the first invocation (should be in initrd) pushed the inotify fd to fdstore,
+# Check if the first invocation (should be in initrd) pushed the fanotify fd to fdstore,
 # and the next invocation gained the fd from service manager.
 # TNote the service may be started without generating debugging logs. Let's check failure log.
-if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Pushed inotify fd to service manager.'; then
-    assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Failed to push inotify fd to service manager.' || :)" ""
+if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Pushed fanotify fd to service manager.'; then
+    assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Failed to push fanotify fd to service manager.' || :)" ""
 fi
-if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Received inotify fd \(\d+\) from service manager.'; then
-    assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Pushed inotify fd to service manager.' || :)" ""
+if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Received fanotify fd \(\d+\) from service manager.'; then
+    assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Pushed fanotify fd to service manager.' || :)" ""
 fi
 
 mkdir -p /run/systemd/system/systemd-udevd.service.d/
@@ -125,7 +96,6 @@ systemctl log-level info
 check
 
 device_is_watched "$ROOTDEV"
-device_is_watched_by_link "$ROOTDEV"
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
 ACTION=="change", SUBSYSTEM=="block", KERNEL=="${ROOTDEV_NAME}", OPTIONS:="nowatch"
@@ -134,7 +104,6 @@ EOF
 check
 
 (! device_is_watched "$ROOTDEV")
-(! device_is_watched_by_link "$ROOTDEV")
 
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
