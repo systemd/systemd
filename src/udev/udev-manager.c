@@ -165,7 +165,7 @@ Manager* manager_free(Manager *manager) {
         sd_varlink_server_unref(manager->varlink_server);
 
         /* udev watch */
-        sd_event_source_unref(manager->inotify_event);
+        sd_event_source_unref(manager->device_watch_event);
         safe_close(manager->inotify_fd);
 
         /* udev synth */
@@ -268,9 +268,9 @@ void manager_exit(Manager *manager) {
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
-        /* Disable the event source, but do not close the inotify fd here, as we may still receive
-         * notification messages about requests to add or remove inotify watches. */
-        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
+        /* Disable the event source for device watch. Any pending watch events will be processed after udevd
+         * is restarted. */
+        manager->device_watch_event = sd_event_source_disable_unref(manager->device_watch_event);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -781,7 +781,7 @@ static int manager_requeue_locked_events(Manager *manager) {
 int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev) {
         int r;
 
-        /* When a new event for a block device is queued or we get an inotify event, assume that the
+        /* When a new event for a block device is queued or we get a device watch event, assume that the
          * device is not locked anymore. The assumption may not be true, but that should not cause any
          * issues, as in that case events will be requeued soon. */
 
@@ -1448,7 +1448,7 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
                 } else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
-                        r = manager_init_inotify(manager, fd);
+                        r = manager_init_inotify_watch(manager, fd);
                 else if (streq(names[i], "config-serialization"))
                         r = manager_deserialize_config(manager, &fd);
                 else if (streq(names[i], "event-serialization"))
@@ -1514,7 +1514,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_inotify(manager);
+        r = manager_start_inotify_watch(manager);
         if (r < 0)
                 return r;
 
