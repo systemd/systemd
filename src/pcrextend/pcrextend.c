@@ -606,6 +606,8 @@ static int run(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
                 }
         }
+        if (r == -ENOBUFS) /* Not logged by extend_nvpcr_now(), so that we can handle it gracefully above. */
+                return log_error_errno(r, "TPM NV index space is exhausted, NvPCR '%s' could not be initialized.", arg_nvpcr_name);
         if (r < 0)
                 return r;
 
