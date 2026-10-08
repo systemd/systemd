@@ -2493,14 +2493,17 @@ static void boot_entry_add_type2(
 
                 /* If the filename had no tries suffixes then the id won't be set by the above call, do it now */
                 if (!entry->id)
-                        entry->id = strtolower16(xstrdup16(filename));
+                        entry->id = xstrdup16(filename);
+
+                /* Patterns are case folded before matching, hence IDs must be too. */
+                strtolower16(entry->id);
 
                 /* Ensure the secondary profiles IDs also have the tries suffix stripped, to match the primary */
                 if (profile > 0) {
                         entry->id_without_profile = TAKE_PTR(entry->id);
 
                         if (profile_id)
-                                entry->id = xasprintf("%ls@%ls", entry->id_without_profile, profile_id);
+                                entry->id = strtolower16(xasprintf("%ls@%ls", entry->id_without_profile, profile_id));
                         else
                                 entry->id = xasprintf("%ls@%u", entry->id_without_profile, profile);
 
