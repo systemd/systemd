@@ -9625,8 +9625,10 @@ int tpm2_nvpcr_initialize(
                 return 0;
         }
 
+        /* Both kinds of init policy can only be satisfied while PCR 11 is in its initrd state. */
         if (!in_initrd())
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "NvPCR '%s' is not initialized yet and initialization is only available in the initrd, refusing.", name);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "NvPCR '%s' can only be initialized in the initrd, refusing.", name);
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -9662,9 +9664,9 @@ int tpm2_nvpcr_initialize(
         tpm2_tpml_pcr_selection_from_mask(NVPCR_INIT_PCRMASK, TPM2_ALG_SHA256, &pcr_selection);
 
         /* Prefer the signed init policy from the booted UKI. Without one, fall back to a PolicyPCR bound to
-         * the current PCR value, which is only reachable in the initrd, so only do that there. */
+         * the current PCR value, which is only reachable in the initrd (see above). */
         r = tpm2_nvpcr_load_signed_init_policy(name, &pcr_selection, &init);
-        if (r == -ENOKEY && in_initrd()) {
+        if (r == -ENOKEY) {
                 log_debug_errno(r, "No signed init policy for NvPCR '%s', falling back to PCR policy.", name);
                 init = (NvPCRInitPolicy) {
                         .type = NVPCR_INIT_POLICY_PCR,
