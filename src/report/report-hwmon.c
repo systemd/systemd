@@ -14,6 +14,7 @@
 #include "report-hwmon.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "virt.h"
 
 /* The kernel's hwmon sysfs interface (see https://docs.kernel.org/hwmon/sysfs-interface.html) exposes
  * temperature sensors as temp<N>_input attributes, in millidegrees Celsius. Only the current reading is
@@ -180,6 +181,11 @@ static int hwmon_temperature_generate(const MetricFamily *mf, sd_varlink *link, 
 
         assert(mf && mf->name);
         assert(link);
+
+        /* Temperature sensors are a hardware concept the host manages, not something specific to the systems
+         * down the container tree, hence let's not generate the metrics here, even if accessible. */
+        if (detect_container() > 0)
+                return 0;
 
         /* Note that a fresh enumerator (and hence fresh sd_device objects) is used for each call, so that
          * the sysattr cache in sd-device never hands out stale readings. */
