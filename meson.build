@@ -659,6 +659,7 @@ progs = [['quotaon',    'quotaon'              ],
          ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],
          ['setfont',    '/usr/bin/setfont',    'KBD_SETFONT'],
          ['nologin',    'nologin',             ],
+         ['sftp-server', '/usr/libexec/openssh/sftp-server', 'SFTP_SERVER'],
         ]
 foreach prog : progs
         path = get_option(prog[0] + '-path')
@@ -1681,6 +1682,7 @@ foreach tuple : [
                 ['tpm'],
                 ['utmp',            get_option('libc') != 'musl', 'musl does not support it'],
                 ['userdb'],
+                ['varlink-sftp'],
                 ['vconsole'],
                 ['xdg-autostart'],
         ]

@@ -1099,6 +1099,22 @@ units = [
           'symlinks' : ['remote-fs.target.wants/', 'machines.target.wants/'],
         },
         {
+          'file' : 'varlink-sftp-root-ro.service.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root-ro.socket',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root-rw.service.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root-rw.socket',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
           'file' : 'veritysetup-pre.target',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },

@@ -68,6 +68,7 @@ option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
 option('nologin-path', type : 'string', description : 'path to nologin')
+option('sftp-server-path', type : 'string', description : 'path to the SFTP server binary')
 
 option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
@@ -176,6 +177,8 @@ option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'install the systemd-vmspawn tool')
 option('quotacheck', type : 'boolean',
        description : 'support for the quotacheck tools')
+option('varlink-sftp', type : 'boolean', value : false,
+       description : 'install the varlink-sftp socket and service')
 option('sysusers', type : 'boolean',
        description : 'support for the sysusers configuration')
 option('storagetm', type : 'boolean',
