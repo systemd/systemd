@@ -2496,11 +2496,12 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>RestrictFileSystems=</varname></term>
 
-        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a space-separated
-        list of filesystem names. Any filesystem listed is made accessible to the unit's processes, access to filesystem
-        types not listed is prohibited (allow-listing). If the first character of the list is <literal>~</literal>, the
-        effect is inverted: access to the filesystems listed is prohibited (deny-listing). If the empty string is assigned,
-        access to filesystems is not restricted.</para>
+        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a
+        comma- or space-separated list of filesystem names. Any filesystem listed is made accessible to the
+        unit's processes, access to filesystem types not listed is prohibited (allow-listing). If the first
+        character of the list is <literal>~</literal>, the effect is inverted: access to the filesystems listed
+        is prohibited (deny-listing). If the empty string is assigned, access to filesystems is not
+        restricted.</para>
 
         <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered will take
         precedence and will dictate the default action (allow access to the filesystem or deny it). Then the next occurrences
@@ -3197,8 +3198,8 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>SystemCallLog=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
-        system calls executed by the unit processes for the listed ones will be logged. If the first
+        <listitem><para>Takes a comma- or space-separated list of system call names. If this setting is used,
+        all system calls executed by the unit processes for the listed ones will be logged. If the first
         character of the list is <literal>~</literal>, the effect is inverted: all system calls except the
         listed system calls will be logged. This feature makes use of the Secure Computing Mode 2 interfaces
         of the kernel ('seccomp filtering') and is useful for auditing or setting up a minimal sandboxing
