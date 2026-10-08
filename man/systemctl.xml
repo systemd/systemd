@@ -594,7 +594,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             for details. It may also be used to clear the file descriptor store as enabled via
             <varname>FileDescriptorStoreMax=</varname>, see
             <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details.  For timer units this may be used to clear out the persistent timestamp data if
+            for details. Clearing the store also removes copies of its file descriptors propagated to enclosing
+            service managers. For timer units this may be used to clear out the persistent timestamp data if
             <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
             <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
             command only applies to units that use either of these settings. If <option>--what=</option> is
