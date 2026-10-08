@@ -10,6 +10,16 @@ set -o pipefail
 BINARY="${1:?}"
 export SYSTEMD_LOG_LEVEL=info
 
+# Sanitizer runtime warnings are not program output, so drop them before checking that a binary
+# keeps its stderr clean. Binaries that run their main function on a fiber make ASan warn about
+# makecontext()/swapcontext() and about ignoring __asan_handle_no_return. Only WARNING lines are
+# filtered, an actual ==pid==ERROR: report still counts as output.
+drop_sanitizer_warnings() {
+    grep -v -e '^==[0-9]*==WARNING: ' \
+            -e '^False positive error reports may follow$' \
+            -e '^For details see https://github.com/google/sanitizers/'
+}
+
 if [[ ! -x "$BINARY" ]]; then
     echo "$BINARY is not an executable"
     exit 1
@@ -29,7 +39,7 @@ if ! "$BINARY" --help | grep . >/dev/null; then
 fi
 
 # no --help output to stderr
-if "$BINARY" --help 2>&1 1>/dev/null | grep .; then
+if "$BINARY" --help 2>&1 1>/dev/null | drop_sanitizer_warnings | grep .; then
     echo "$(basename "$BINARY") --help prints to stderr"
     exit 3
 fi

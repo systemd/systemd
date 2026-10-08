@@ -717,3 +717,71 @@ char* escape_qemu_value(const char *s) {
 
         return e;
 }
+
+int line_buffer_feed(LineBuffer *b, const char *p, size_t n, line_buffer_emit_t emit, void *userdata) {
+        assert(b);
+        assert(p || n == 0);
+        assert(emit);
+
+        while (n > 0) {
+                /* Break lines at NUL as well as at LF, mirroring how journald splits stdout streams. */
+                const char *nl = memchr(p, '\n', n);
+                const char *sep = memchr(p, 0, nl ? (size_t) (nl - p) : n) ?: nl;
+                size_t l = sep ? (size_t) (sep - p) : n;
+
+                /* Force a line break if a single line grows beyond LINE_MAX, so the writer can never
+                 * make us buffer unbound amount of data. */
+                if (b->len + l > LINE_MAX) {
+                        size_t k = LINE_MAX - b->len;
+
+                        if (!GREEDY_REALLOC(b->buf, b->len + k + 1))
+                                return -ENOMEM;
+                        memcpy(b->buf + b->len, p, k);
+                        b->len += k;
+                        b->buf[b->len] = 0;
+
+                        emit(b->buf, b->len, userdata);
+                        b->len = 0;
+
+                        p += k;
+                        n -= k;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(b->buf, b->len + l + 1))
+                        return -ENOMEM;
+                memcpy(b->buf + b->len, p, l);
+                b->len += l;
+                b->buf[b->len] = 0;
+
+                if (!sep)
+                        return 0;
+
+                emit(b->buf, b->len, userdata);
+                b->len = 0;
+
+                p = sep + 1;
+                n -= l + 1;
+        }
+
+        return 0;
+}
+
+void line_buffer_flush(LineBuffer *b, line_buffer_emit_t emit, void *userdata) {
+        assert(b);
+        assert(emit);
+
+        if (b->len == 0)
+                return;
+
+        emit(b->buf, b->len, userdata);
+        b->len = 0;
+}
+
+void line_buffer_done(LineBuffer *b) {
+        if (!b)
+                return;
+
+        b->buf = mfree(b->buf);
+        b->len = 0;
+}
