@@ -79,6 +79,11 @@ struct MMapCache {
 # define WINDOW_SIZE ((size_t) (UINT64_C(8) * UINT64_C(1024) * UINT64_C(1024)))
 #endif
 
+static MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
+        assert(f);
+        return ASSERT_PTR(f->cache);
+}
+
 MMapCache* mmap_cache_new(void) {
         MMapCache *m;
 
@@ -559,9 +564,4 @@ MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
         f->cache = mmap_cache_unref(f->cache);
 
         return mfree(f);
-}
-
-MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
-        assert(f);
-        return ASSERT_PTR(f->cache);
 }

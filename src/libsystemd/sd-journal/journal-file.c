@@ -79,7 +79,7 @@
 #define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
 
 /* How many entries to keep in the entry array chain cache at max */
-#define CHAIN_CACHE_MAX 20
+#define CHAIN_CACHE_MAX 64
 
 /* How much to increase the journal file size at once each time we allocate something new. */
 #define FILE_SIZE_INCREASE (8 * U64_MB)                  /* 8MB */
