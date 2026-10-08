@@ -684,7 +684,8 @@
         <para>If <command>systemd-nspawn</command> itself is invoked with a <varname>$NOTIFY_SOCKET</varname>
         set in its environment (i.e. it is itself supervised by a service manager that uses the
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        protocol), <literal>FDSTORE=1</literal> and <literal>FDSTOREREMOVE=1</literal> messages received
+        protocol), <literal>FDSTORE=1</literal>, <literal>FDSTOREREMOVE=1</literal>, and
+        <literal>FDSTOREWIPE=1</literal> messages received
         from the container payload (along with any accompanying file descriptors and
         <literal>FDNAME=</literal> tag) are forwarded one level up to the enveloping service manager. This
         allows the file descriptor store of services running inside the container to be preserved across
@@ -694,6 +695,9 @@
         configured on the unit running <command>systemd-nspawn</command>. See the
         <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> documentation
         for details.</para>
+
+        <para>If a <literal>FDSTOREWIPE=1</literal> message is received, it removes entries forwarded from
+        the container payload.</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
