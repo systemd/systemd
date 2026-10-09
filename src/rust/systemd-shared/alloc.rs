@@ -10,7 +10,8 @@
 //! No global allocator is registered either. If the `alloc` crate sneaks in, the link fails.
 //!
 //! [`Box`] and [`Vec`] carry their [`Allocator`] like std's do: [`Malloc`] unless another one is handed to
-//! [`Box::new_in()`] or [`Vec::new_in()`].
+//! [`Box::new_in()`] or [`Vec::new_in()`]. [`Erasing`] erases memory before it is freed or moved, so
+//! `Vec<u8, Erasing>` makes a buffer for secrets a type rather than a convention.
 
 use core::alloc::Layout;
 use core::ffi::c_void;
@@ -249,6 +250,30 @@ unsafe impl Allocator for Malloc {
         debug_assert!(new_layout.size() <= old_layout.size());
         // SAFETY: as in grow().
         unsafe { self.realloc(ptr, old_layout, new_layout) }
+    }
+}
+
+/// Like [`Malloc`], but memory is erased before it is freed, also when growing or shrinking moves it, as
+/// `erase_and_free()` does in C. For keys, passphrases and other secrets, e.g. `Vec<u8, Erasing>`. Elements a
+/// [`Vec`] drops early, with [`Vec::pop()`] or [`Vec::truncate()`], stay in its memory until it is freed.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Erasing;
+
+// SAFETY: blocks come from Malloc and go back to libc once they are erased. Growing and shrinking keep the
+// provided implementations: never realloc(), which may leave the old contents behind in the memory it frees,
+// but a new block, a copy and deallocate(), which erases.
+unsafe impl Allocator for Erasing {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        Malloc.allocate(layout)
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        if layout.size() == 0 {
+            return;
+        }
+        // SAFETY: ptr came from malloc() or posix_memalign(), erase_and_free() erases all of it before freeing
+        // it.
+        unsafe { sys::erase_and_free(ptr.as_ptr().cast()) };
     }
 }
 
