@@ -55,6 +55,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "forward.h"
 #include "hexdecoct.h"
 #include "io-util.h"
