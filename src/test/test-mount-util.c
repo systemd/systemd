@@ -653,4 +653,52 @@ TEST(mount_fd_clone) {
         }
 }
 
+TEST(tmpfs_patch_options) {
+        /* Moved here from nspawn-mount.c, so it gains its first direct coverage. */
+
+        _cleanup_free_ char *a = NULL;
+        ASSERT_OK_ZERO(tmpfs_patch_options(NULL, UID_INVALID, /* selinux_apifs_context= */ NULL, &a));
+        ASSERT_NULL(a);
+
+        _cleanup_free_ char *b = NULL;
+        ASSERT_OK_POSITIVE(tmpfs_patch_options("mode=0755", UID_INVALID, /* selinux_apifs_context= */ NULL, &b));
+        ASSERT_STREQ(b, "mode=0755");
+
+        _cleanup_free_ char *c = NULL;
+        ASSERT_OK_POSITIVE(tmpfs_patch_options("mode=0755", 1000, /* selinux_apifs_context= */ NULL, &c));
+        ASSERT_STREQ(c, "mode=0755,uid=1000,gid=1000");
+
+        /* No base options: the uid=/gid= pair must not be prefixed with a stray separator. */
+        _cleanup_free_ char *d = NULL;
+        ASSERT_OK_POSITIVE(tmpfs_patch_options(NULL, 0, /* selinux_apifs_context= */ NULL, &d));
+        ASSERT_STREQ(d, "uid=0,gid=0");
+}
+
+TEST(make_fsmount_discrete_options) {
+        /* The discrete-option path exists for values that carry commas - an SELinux MCS context being
+         * the case that forced it - which the comma-joined option string would split into fragments.
+         * Its only production caller passes a context, so on a machine without SELinux nothing reaches
+         * this loop at all. Exercise it here with options tmpfs accepts everywhere, so that a broken
+         * fsconfig() loop or a mishandled key/value split fails on any builder rather than only on
+         * SELinux hosts. */
+
+        CHECK_PRIV;
+
+        _cleanup_close_ int fd = -EBADF;
+        fd = make_fsmount_full(LOG_DEBUG, "test", "tmpfs", /* flags= */ 0, "mode=0755",
+                               STRV_MAKE("uid=0", "gid=0"), /* userns_fd= */ -EBADF);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                return (void) log_tests_skipped("new mount API not supported");
+        ASSERT_OK(fd);
+
+        /* Same options by either route, so the discrete path is not quietly doing something else. */
+        _cleanup_close_ int joined = -EBADF;
+        joined = ASSERT_FD(make_fsmount(LOG_DEBUG, "test", "tmpfs", /* flags= */ 0, "mode=0755,uid=0,gid=0",
+                                        /* userns_fd= */ -EBADF));
+
+        /* A discrete option is required to be a key=value pair; a bare flag has no way through here. */
+        ASSERT_ERROR(make_fsmount_full(LOG_DEBUG, "test", "tmpfs", /* flags= */ 0, "mode=0755",
+                                       STRV_MAKE("noexec"), /* userns_fd= */ -EBADF), EINVAL);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
