@@ -10,7 +10,8 @@
 //! There is no global allocator either, so a program that pulls in `alloc` regardless does not link.
 //!
 //! Like the kernel's, [`Box`] and [`Vec`] take their [`Allocator`] as a type parameter: [`Malloc`] unless
-//! another one is named.
+//! another one is named. [`Erasing`] erases memory before it is freed or moved, so `Vec<u8, Erasing>` makes a
+//! buffer for secrets a type rather than a convention.
 
 use core::alloc::Layout;
 use core::ffi::c_void;
@@ -114,6 +115,37 @@ unsafe impl Allocator for Malloc {
     unsafe fn free(p: NonNull<u8>, _layout: Layout) {
         // SAFETY: p came from malloc(), posix_memalign() or realloc(), as the caller guarantees.
         unsafe { sys::free(p.as_ptr().cast()) }
+    }
+}
+
+/// Like [`Malloc`], but memory is erased before it is freed, also when growing or shrinking moves it, as
+/// `erase_and_free()` does in C. For keys, passphrases and other secrets, e.g. `Vec<u8, Erasing>`. Elements a
+/// [`Vec`] drops early, with [`Vec::pop()`] or [`Vec::truncate()`], stay in its memory until it is freed.
+pub struct Erasing;
+
+// SAFETY: memory comes from Malloc and goes back to libc once it is erased.
+unsafe impl Allocator for Erasing {
+    unsafe fn alloc(layout: Layout) -> Result<NonNull<u8>, AllocError> {
+        // SAFETY: layout is not zero-sized, as the caller guarantees.
+        unsafe { Malloc::alloc(layout) }
+    }
+
+    unsafe fn realloc(p: NonNull<u8>, old: Layout, new: Layout) -> Result<NonNull<u8>, AllocError> {
+        // Never realloc(), which may leave the old contents behind in the memory it frees.
+        // SAFETY: new is not zero-sized, as the caller guarantees.
+        let n = unsafe { Self::alloc(new)? };
+        // SAFETY: both blocks are valid for the smaller of the two sizes and do not overlap, the old one is ours
+        // to erase and free.
+        unsafe {
+            ptr::copy_nonoverlapping(p.as_ptr(), n.as_ptr(), old.size().min(new.size()));
+            Self::free(p, old);
+        }
+        Ok(n)
+    }
+
+    unsafe fn free(p: NonNull<u8>, _layout: Layout) {
+        // SAFETY: p came from malloc() or posix_memalign(), erase_and_free() erases all of it before freeing it.
+        unsafe { sys::erase_and_free(p.as_ptr().cast()) };
     }
 }
 
