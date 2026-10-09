@@ -14,7 +14,13 @@
 #include "userdb-glue.h"
 
 UserDBFlags nss_glue_userdb_flags(void) {
-        UserDBFlags flags = USERDB_EXCLUDE_NSS;
+        UserDBFlags flags = USERDB_EXCLUDE_CLIENT_NSS;
+
+        /* Server-side NSS usually returns the records that glibc already got from the NSS modules listed
+         * before nss-systemd in nsswitch.conf. A sandbox can bind mount the host's userdb sockets into
+         * /run/systemd/userdb/. In that sandbox, server-side NSS returns the host's records instead. */
+        if (secure_getenv_bool("SYSTEMD_NSS_SERVER_SIDE_NSS") <= 0)
+                flags |= USERDB_EXCLUDE_SERVER_NSS;
 
         /* Make sure that we don't go in circles when allocating a dynamic UID by checking our own database */
         if (secure_getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
