@@ -16,6 +16,7 @@ typedef struct JournalStorageSpace {
 
         uint64_t vfs_used; /* space used by journal files */
         uint64_t vfs_available;
+        uint64_t fs_size; /* total file system size */
 } JournalStorageSpace;
 
 typedef struct JournalStorage {
