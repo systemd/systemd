@@ -93,6 +93,8 @@ systemd_shared_sys_gen = rust.bindgen(
                 '--allowlist-var', 'POLL[A-Z]+|EPOLL[A-Z_]*|IN_[A-Z_]+|TFD_[A-Z_]+|EFD_[A-Z_]+',
                 '--allowlist-var', 'RLIMIT_[A-Z_]+|RLIM_[A-Z_]+|CAP_[A-Z_]+',
                 '--allowlist-var', 'PATH_MAX|NAME_MAX|LINE_MAX|ARG_MAX|HOST_NAME_MAX|IOV_MAX|NGROUPS_MAX|[A-Z0-9_]+_MAGIC',
+                # The X.509 bits crypto-util.h users look at.
+                '--allowlist-var', 'EXFLAG_[A-Z_]+|X?KU_[A-Z_]+|V_ASN1_NEG_INTEGER',
                 # What the allocator, the panic handler and print!() are built on, plus helpers that C code
                 # gets from libc directly.
                 '--allowlist-function', 'malloc|calloc|realloc|posix_memalign|free|abort|fwrite|strdup|fchmod',
@@ -168,6 +170,7 @@ systemd_shared_sources = files(
         'tests.rs',
         'tmpfile.rs',
         'voa.rs',
+        'x509.rs',
 )
 
 # The parent registers the tests, a subproject with tests of its own breaks meson test --setup= for setups
