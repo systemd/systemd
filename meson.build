@@ -2082,6 +2082,23 @@ subdir('src/shared')
 subdir('src/libudev')
 
 if have_rust
+        # The config.h conditions, so that Rust code says #[cfg(HAVE_FOO)] where C code says #if HAVE_FOO, and
+        # a misspelled one is reported.
+        rust_cfg_args = []
+        foreach key : conf.keys()
+                if key.startswith('HAVE_') or key.startswith('ENABLE_')
+                        rust_cfg_args += '--check-cfg=cfg(@0@)'.format(key)
+                        if '@0@'.format(conf.get(key)) == '1'
+                                rust_cfg_args += '--cfg=' + key
+                        endif
+                endif
+        endforeach
+        # And the one C code gets from the compiler.
+        rust_cfg_args += '--check-cfg=cfg(HAS_FEATURE_ADDRESS_SANITIZER)'
+        if get_option('b_sanitize').contains('address')
+                rust_cfg_args += '--cfg=HAS_FEATURE_ADDRESS_SANITIZER'
+        endif
+
         # meson judges the feature warnings of this block against the version compared here, not the
         # project's floor, which is older than what the Rust bits use.
         if meson.version().version_compare('>= 1.4.0')
@@ -2983,6 +3000,7 @@ if have_rust
                 # Nothing from the crates is exported. The linker exports what a DSO in the link also defines,
                 # and a stub of the crates would then preempt it for the libraries a program loads.
                 'link_args' : ['-Wl,--exclude-libs,ALL'],
+                'rust_args' : rust_cfg_args,
                 'build_by_default' : true,
         }
 
