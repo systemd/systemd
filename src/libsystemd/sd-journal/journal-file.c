@@ -21,6 +21,8 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -393,7 +395,6 @@ static int journal_file_init_header(
                 JournalFile *template,
                 const sd_id128_t *seqnum_id) {
 
-        ssize_t k;
         int r;
 
         assert(f);
@@ -436,13 +437,7 @@ static int journal_file_init_header(
         else
                 h.seqnum_id = h.file_id;
 
-        k = pwrite(f->fd, &h, sizeof(h), 0);
-        if (k < 0)
-                return -errno;
-        if (k != sizeof(h))
-                return -EIO;
-
-        return 0;
+        return pwritev_full(f->fd, &IOVEC_MAKE(&h, sizeof(h)), 1, 0, /* ret_written= */ NULL);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
