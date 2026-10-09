@@ -96,6 +96,8 @@ systemd_shared_sys_gen = rust.bindgen(
                 '--allowlist-var', 'POLL[A-Z]+|EPOLL[A-Z_]*|IN_[A-Z_]+|TFD_[A-Z_]+|EFD_[A-Z_]+',
                 '--allowlist-var', 'RLIMIT_[A-Z_]+|RLIM_[A-Z_]+|CAP_[A-Z_]+',
                 '--allowlist-var', 'PATH_MAX|NAME_MAX|LINE_MAX|ARG_MAX|HOST_NAME_MAX|IOV_MAX|NGROUPS_MAX|[A-Z0-9_]+_MAGIC',
+                # The X.509 bits crypto-util.h users look at.
+                '--allowlist-var', 'EXFLAG_[A-Z_]+|X?KU_[A-Z_]+|V_ASN1_NEG_INTEGER',
                 # What the allocator, the panic handler, print!() and the log macros are built on, plus helpers
                 # that C code gets from libc directly.
                 '--allowlist-function', 'malloc|calloc|realloc|posix_memalign|free|abort|fwrite|strdup|fchmod|__errno_location',
@@ -178,6 +180,7 @@ systemd_shared_sources = files(
         'tests.rs',
         'tmpfile.rs',
         'voa.rs',
+        'x509.rs',
 )
 
 systemd_shared_rust_sources = systemd_shared_sources + files('systemd_shared_sys.rs')
