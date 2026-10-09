@@ -803,6 +803,26 @@ static void manager_sync(Manager *m, bool wait) {
         m->sync_scheduled = false;
 }
 
+void manager_post_change(Manager *m) {
+        JournalFile *f;
+
+        assert(m);
+
+        /* Segmented files keep new entries in memory until the post change timer fires. A client that
+         * synchronized expects to read every entry that was processed, hence write them out now. This
+         * includes the runtime journal, which manager_sync() does not touch. Files without changes since
+         * the last post change are left alone, so that readers are not woken up for nothing. */
+
+        if (m->system_journal)
+                journal_file_post_change_pending(m->system_journal);
+
+        if (m->runtime_journal)
+                journal_file_post_change_pending(m->runtime_journal);
+
+        ORDERED_HASHMAP_FOREACH(f, m->user_journals)
+                journal_file_post_change_pending(f);
+}
+
 static void manager_do_vacuum(Manager *m, JournalStorage *storage, bool verbose) {
         int r;
 
@@ -1787,6 +1807,7 @@ void manager_full_sync(Manager *m, bool wait) {
 
         assert(m);
 
+        manager_post_change(m);
         manager_sync(m, wait);
 
         /* Let clients know when the most recent sync happened. */
