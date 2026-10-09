@@ -410,6 +410,9 @@ executables += [
                 'type' : 'unsafe',
         },
         test_template + {
+                'sources' : files('test-kernel-image.c'),
+        },
+        test_template + {
                 'sources' : files('test-kexec.c'),
                 'link_with' : [libshared],
         },
