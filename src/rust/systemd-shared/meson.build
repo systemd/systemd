@@ -167,6 +167,7 @@ systemd_shared_sources = files(
         'refcount.rs',
         'stdio.rs',
         'strv.rs',
+        'table.rs',
         'tests.rs',
         'tmpfile.rs',
         'voa.rs',
