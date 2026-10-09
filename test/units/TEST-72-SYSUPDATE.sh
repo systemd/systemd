@@ -294,6 +294,10 @@ EOF
     done
 
     cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+AppStream=https://example.com/appstream/second.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -307,6 +311,9 @@ MatchPartitionType=root-x86-64
 EOF
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -334,6 +341,9 @@ InstancesMax=3
 EOF
 
     cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/fourth.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -402,7 +412,7 @@ EOF
 Description=Optional Feature
 Documentation=https://example.com/optional
 Documentation=https://example.com/optional-more
-AppStream=https://example.com/optional.appstream.xml
+AppStream=https://example.com/appstream/optional.appstream-%o.xml
 EOF
 
     cat >"$CONFIGDIR/undocumented.feature" <<EOF
@@ -495,6 +505,8 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appStreamUrls') == "[\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" ]]
     else
         exit 1
     fi
@@ -509,7 +521,8 @@ EOF
     ' <<<"$feature_json" >/dev/null
     jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
-    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+    os_release_id="$(. /etc/os-release; echo "$ID")"
+    jq -e ".appStreamUrls == [\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" <<<"$feature_json" >/dev/null
 
     suggested_json="$("$SYSUPDATE" --json=short features suggested)"
     jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
@@ -582,7 +595,8 @@ EOF
         grep "Optional Feature" <<<"$feature_output" >/dev/null
         grep "Suggested: no" <<<"$feature_output" >/dev/null
         grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
-        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        grep "https://example.com/appstream/optional.appstream-${os_release_id}.xml" <<<"$feature_output" >/dev/null
         grep -F "99-optional" <<<"$feature_output" >/dev/null
         grep "malformed" <<<"$features_output" >/dev/null
         verify_object_fields "$features_output"
@@ -601,6 +615,9 @@ EOF
     new_version "$sector_size" v7
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -687,6 +704,16 @@ EOF
     else
         exit 1
     fi
+
+    # Check that the target versions are listed correctly.
+    [[ $("$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.current') == 'v9' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.appStreamUrls') == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
+    host="$(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -c '.targets[] | select(.id.class=="host")')"
+    [[ $(jq -cr '.allVersions' <<<"$host") == '["v9","v8","v7","v6"]' ]]
+    [[ $(jq -cr '.currentVersion' <<<"$host") == 'v9' ]]
+    [[ $(jq -cr '.appStreamUrls' <<<"$host") == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
