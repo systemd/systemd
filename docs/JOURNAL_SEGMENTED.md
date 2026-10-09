@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 The segmented variant of the journal file format builds on [Journal File Format](JOURNAL_FILE_FORMAT). Read that first.
 
-Status: experimental. New files use this format if `SYSTEMD_JOURNAL_SEGMENTED=1` is set. The classic format stays the default.
+New files use this format, unless `SYSTEMD_JOURNAL_SEGMENTED=0` is set.
 Files in this format have the `HEADER_INCOMPATIBLE_SEGMENTED` header flag, so older versions of systemd refuse to open them.
 
 ## The Problem
