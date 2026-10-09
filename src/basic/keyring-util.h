@@ -27,6 +27,7 @@ void proc_keys_entry_done(ProcKeysEntry *e);
 int proc_keys_entry_parse(const char *line, ProcKeysEntry *ret);
 bool proc_keys_entry_is_keyring(const ProcKeysEntry *e, const char *name);
 
+int keyring_find_by_name_at(int root_fd, const char *name, uid_t owner, key_serial_t *ret);
 int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret);
 /* The stream carries /proc/keys formatted rows, split out so tests can feed one */
 int keyring_find_by_name_from(FILE *f, const char *name, uid_t owner, key_serial_t *ret);
