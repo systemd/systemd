@@ -57,6 +57,7 @@ pub mod recurse_dir;
 pub mod refcount;
 pub mod stdio;
 pub mod strv;
+pub mod table;
 pub mod tests;
 pub mod tmpfile;
 pub mod voa;
