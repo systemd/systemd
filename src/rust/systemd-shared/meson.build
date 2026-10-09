@@ -4,8 +4,9 @@
 # needs a newer meson than the rest of the tree and meson checks feature warnings against the minimum
 # version of the project that uses them, so keeping the Rust bits in their own project lets the tree stay
 # at its own minimum. The parent hands us libsystemd-shared together with its include directories and
-# compile arguments as the 'systemd-shared-internal' dependency, and its C warning and hardening flags as
-# 'systemd-common-c-args' (add_project_arguments() does not cross project boundaries).
+# compile arguments as the 'systemd-shared-internal' dependency, its C warning and hardening flags as
+# 'systemd-common-c-args' (add_project_arguments() does not cross project boundaries), and its config.h
+# conditions as 'systemd-rust-cfg-args'.
 #
 # The floor is 1.8.0: bindgen() looks up this subproject's c_args option, which older versions only know
 # about when it was set on the command line.
@@ -22,6 +23,8 @@ bindgen = find_program('bindgen')
 
 shared_dep = dependency('systemd-shared-internal')
 common_c_args_dep = dependency('systemd-common-c-args')
+# The parent's config.h conditions as --cfg arguments.
+cfg_args = dependency('systemd-rust-cfg-args').get_variable(internal : 'args').split()
 # Rust targets only take the link side of it: meson < 1.9 refuses a Rust target that is handed C sources
 # through a dependency.
 shared_link_dep = shared_dep.partial_dependency(links : true, link_args : true)
@@ -168,5 +171,6 @@ libsystemd_shared_rs = static_library(
         'systemd_shared',
         systemd_shared_sources,
         rust_abi : 'rust',
+        rust_args : cfg_args,
         link_with : [libsystemd_shared_sys],
         build_by_default : false)
