@@ -12,6 +12,17 @@ CHANGES WITH 263 in spe:
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
 
+        Changes in systemd-udevd:
+
+        * systemd-udevd now uses fanotify rather than inotify to watch device
+          nodes (as enabled by the "watch" udev rule option, i.e.
+          OPTIONS+="watch"). The kernel must now be built with CONFIG_FANOTIFY.
+          Upgrading from an older, inotify-based systemd-udevd is seamless:
+          existing watches are migrated to fanotify automatically. Downgrading
+          back is not supported: after a downgrade, device watches must be
+          re-established by running "udevadm trigger" for all devices that have
+          a device node.
+
         Changes in systemd-networkd:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
