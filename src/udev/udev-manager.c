@@ -158,7 +158,8 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->locked_events_by_disk);
         sd_event_source_unref(manager->requeue_locked_events_timer_event_source);
 
-        safe_close(manager->inotify_fd);
+        safe_close(manager->fanotify_fd);
+        safe_close(manager->dev_fd);
 
         free(manager->worker_notify_socket_path);
 
@@ -166,7 +167,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_varlink_server_unref(manager->varlink_server);
 
-        sd_event_source_unref(manager->inotify_event);
+        sd_event_source_unref(manager->device_watch_event);
         set_free(manager->synthesize_change_child_event_sources);
         set_free(manager->synthesized_events);
         sd_event_source_unref(manager->synthesized_events_clear_event_source);
@@ -191,7 +192,8 @@ Manager* manager_new(void) {
                 return NULL;
 
         *manager = (Manager) {
-                .inotify_fd = -EBADF,
+                .fanotify_fd = -EBADF,
+                .dev_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
@@ -265,9 +267,9 @@ void manager_exit(Manager *manager) {
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
-        /* Disable the event source, but do not close the inotify fd here, as we may still receive
-         * notification messages about requests to add or remove inotify watches. */
-        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
+        /* Disable the event source for device watch. Any pending watch events will be processed after udevd
+         * is restarted. */
+        manager->device_watch_event = sd_event_source_disable_unref(manager->device_watch_event);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -532,7 +534,6 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
-        pid_t manager_pid = getpid_cached();
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
@@ -545,7 +546,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
                         .config = manager->config,
-                        .manager_pid = manager_pid,
+                        .fanotify_fd = manager->fanotify_fd,
                 };
 
                 if (manager->workers_cgroup) {
@@ -778,7 +779,7 @@ static int manager_requeue_locked_events(Manager *manager) {
 int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev) {
         int r;
 
-        /* When a new event for a block device is queued or we get an inotify event, assume that the
+        /* When a new event for a block device is queued or we get a device watch event, assume that the
          * device is not locked anymore. The assumption may not be true, but that should not cause any
          * issues, as in that case events will be requeued soon. */
 
@@ -1147,48 +1148,6 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        if (strv_contains(l, "INOTIFY_WATCH_ADD=1")) {
-                assert(worker->event);
-
-                r = manager_add_watch(manager, worker->event->dev);
-                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
-                        r = 0;
-                if (r < 0)
-                        log_device_warning_errno(worker->event->dev, r, "Failed to add inotify watch, ignoring: %m");
-
-                /* Send the result back to the worker process. */
-                r = pidref_sigqueue(&sender, SIGUSR1, r);
-                if (r < 0) {
-                        log_device_warning_errno(worker->event->dev, r,
-                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
-                                                 sender.pid);
-
-                        (void) pidref_kill(&sender, SIGTERM);
-                        worker->state = WORKER_KILLED;
-                }
-                return 0;
-        }
-
-        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
-                assert(worker->event);
-
-                r = manager_remove_watch(manager, worker->event->dev);
-                if (r < 0)
-                        log_device_warning_errno(worker->event->dev, r, "Failed to remove inotify watch, ignoring: %m");
-
-                /* Send the result back to the worker process. */
-                r = pidref_sigqueue(&sender, SIGUSR1, r);
-                if (r < 0) {
-                        log_device_warning_errno(worker->event->dev, r,
-                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
-                                                 sender.pid);
-
-                        (void) pidref_kill(&sender, SIGTERM);
-                        worker->state = WORKER_KILLED;
-                }
-                return 0;
-        }
-
         _cleanup_(event_enter_processedp) Event *event = worker_detach_event(worker);
 
         if (strv_contains(l, "TRY_AGAIN=1")) {
@@ -1292,7 +1251,6 @@ static int on_post_exit(Manager *manager) {
 
         (void) manager_serialize_events(manager);
 
-        udev_watch_dump();
         return sd_event_exit(manager->event, 0);
 }
 
@@ -1444,8 +1402,8 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
                         r = 0;
                 } else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
-                else if (streq(names[i], "inotify"))
-                        r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "fanotify"))
+                        r = manager_init_device_watch(manager, fd);
                 else if (streq(names[i], "config-serialization"))
                         r = manager_deserialize_config(manager, &fd);
                 else if (streq(names[i], "event-serialization"))
@@ -1511,7 +1469,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_inotify(manager);
+        r = manager_start_device_watch(manager);
         if (r < 0)
                 return r;
 

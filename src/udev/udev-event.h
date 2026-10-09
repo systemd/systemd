@@ -30,8 +30,8 @@ typedef struct UdevEvent {
         unsigned builtin_run;
         unsigned builtin_ret;
         UdevRuleEscapeType esc:8;
-        bool inotify_watch;
-        bool inotify_watch_final;
+        bool watch;
+        bool watch_final;
         bool group_final;
         bool owner_final;
         bool mode_final;

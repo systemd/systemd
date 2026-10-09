@@ -716,9 +716,6 @@ static int cleanup_db(void) {
         if (dir4)
                 cleanup_dir(dir4, 0, 2);
 
-        /* Do not remove /run/udev/watch. It will be handled by udevd well on restart.
-         * And should not be removed by external program when udevd is running. */
-
         return 0;
 }
 
