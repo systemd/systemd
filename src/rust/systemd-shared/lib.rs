@@ -43,6 +43,7 @@ pub mod command;
 pub mod conf_files;
 pub mod creds;
 pub mod cstr;
+pub mod dlopen;
 pub mod errno;
 pub mod event;
 pub mod fd;
