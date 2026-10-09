@@ -47,6 +47,7 @@ typedef enum NamingSchemeFlags {
         NAMING_SUBFUNC                   = 1 << 23, /* Generate names for auxiliary sub-function (SF) network
                                                      * devices (e.g. mlx5_core SFs), based on the parent PF's
                                                      * PCI path and the user-defined sfnum, with an "S" suffix. */
+        NAMING_SR_IOV_PF_PORT_NAME       = 1 << 24, /* Use the PF's phys_port_name when the VF does not expose one */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -71,6 +72,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V259 = NAMING_V258 | NAMING_DEVICETREE_ALIASES_WLAN,
         NAMING_V260 = NAMING_V259 | NAMING_MCTP,
         NAMING_V261 = NAMING_V260 | NAMING_SUBFUNC,
+        NAMING_V263 = NAMING_V261 | NAMING_SR_IOV_PF_PORT_NAME,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -109,3 +111,4 @@ int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int 
 int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);
 int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr);
 int device_get_sysattr_safe_string_filtered(sd_device *device, const char *sysattr, const char **ret_value);
+int device_get_sysattr_safe_string_filtered_from(sd_device *device, sd_device *source, const char *sysattr, const char **ret_value);
