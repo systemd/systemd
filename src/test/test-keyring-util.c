@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -7,9 +8,11 @@
 #include "format-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
+#include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 TEST(proc_keys_entry_parse) {
@@ -163,6 +166,41 @@ TEST(keyring_find_by_name) {
         (void) keyctl(KEYCTL_UNLINK, forgery, KEY_SPEC_THREAD_KEYRING, 0, 0);
         (void) keyctl(KEYCTL_UNLINK, victim, KEY_SPEC_THREAD_KEYRING, 0, 0);
         (void) keyctl(KEYCTL_UNLINK, other, KEY_SPEC_PROCESS_KEYRING, 0, 0);
+        (void) keyctl(KEYCTL_UNLINK, ring, KEY_SPEC_THREAD_KEYRING, 0, 0);
+}
+
+TEST(keyring_find_by_name_at) {
+        char name[STRLEN("test-keyring-util-find-at-") + DECIMAL_STR_MAX(pid_t)];
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_close_ int root_fd = -EBADF, empty_fd = -EBADF;
+        key_serial_t serial, ring;
+        int r;
+
+        /* Below a root without /proc there is no /proc/keys to look at */
+        ASSERT_OK(mkdtemp_malloc(NULL, &tmp));
+        ASSERT_OK_ERRNO(empty_fd = open(tmp, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_ERROR(keyring_find_by_name_at(empty_fd, "anything", getuid(), &serial), ENOENT);
+
+        /* The host root behaves like keyring_find_by_name() */
+        ASSERT_OK_ERRNO(root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        r = keyring_find_by_name_at(root_fd, ".this-keyring-does-not-exist", getuid(), &serial);
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || r == -ERFKILL) {
+                log_tests_skipped_errno(r, "/proc/keys not readable");
+                return;
+        }
+        ASSERT_ERROR(r, ENOKEY);
+
+        xsprintf(name, "test-keyring-util-find-at-" PID_FMT, getpid());
+        ring = add_key("keyring", name, NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        if (ring < 0) {
+                log_tests_skipped_errno(errno, "Cannot create keyring");
+                return;
+        }
+        ASSERT_OK(keyring_find_by_name_at(root_fd, name, getuid(), &serial));
+        ASSERT_EQ(serial, ring);
+        ASSERT_OK(keyring_find_by_name_at(XAT_FDROOT, name, getuid(), &serial));
+        ASSERT_EQ(serial, ring);
+
         (void) keyctl(KEYCTL_UNLINK, ring, KEY_SPEC_THREAD_KEYRING, 0, 0);
 }
 
