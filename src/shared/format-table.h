@@ -47,6 +47,7 @@ typedef enum TableDataType {
         TABLE_UINT64,
         TABLE_UINT64_HEX,
         TABLE_UINT64_HEX_0x,
+        TABLE_DOUBLE,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
@@ -69,6 +70,7 @@ typedef enum TableDataType {
         TABLE_SET_MAXIMUM_WIDTH,
         TABLE_SET_WEIGHT,
         TABLE_SET_ALIGN_PERCENT,
+        TABLE_SET_DECIMALS,
         TABLE_SET_ELLIPSIZE_PERCENT,
         TABLE_SET_COLOR,
         TABLE_SET_RGAP_COLOR,
@@ -119,6 +121,7 @@ int table_set_minimum_width(Table *t, TableCell *cell, size_t minimum_width);
 int table_set_maximum_width(Table *t, TableCell *cell, size_t maximum_width);
 int table_set_weight(Table *t, TableCell *cell, unsigned weight);
 int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
+int table_set_decimals(Table *t, TableCell *cell, unsigned decimals);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
 int table_set_rgap_color(Table *t, TableCell *cell, const char *color);
