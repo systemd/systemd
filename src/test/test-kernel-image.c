@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <elf.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glob-util.h"
 #include "kernel-image.h"
 #include "memfd-util.h"
+#include "path-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "unaligned.h"
 
@@ -30,10 +34,26 @@ static void assert_decompressed(int fd) {
         ASSERT_EQ(memcmp(data, banner, size), 0);
 }
 
+static void assert_uname(int fd, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+
+        ASSERT_OK(kernel_find_uname(fd, &s));
+        ASSERT_STREQ(s, expected);
+}
+
 TEST(uncompressed) {
         _cleanup_close_ int fd = memfd_with(banner, strlen(banner)), decompressed_fd = -EBADF;
 
         ASSERT_OK_ZERO(kernel_decompress(fd, &decompressed_fd));
+        assert_uname(fd, "6.1.0-test");
+}
+
+TEST(not_found) {
+        static const char data[] = "Linux version x.y (no digit) and Linux version 6.1 without parenthesis";
+        _cleanup_close_ int fd = memfd_with(data, strlen(data));
+        _cleanup_free_ char *s = NULL;
+
+        ASSERT_ERROR(kernel_find_uname(fd, &s), ENODATA);
 }
 
 TEST(lzma) {
@@ -51,6 +71,7 @@ TEST(lzma) {
 
         _cleanup_close_ int fd = memfd_with(lzma, sizeof(lzma));
         assert_decompressed(fd);
+        assert_uname(fd, "6.1.0-test");
 }
 
 TEST(gzip) {
@@ -62,6 +83,73 @@ TEST(gzip) {
         ASSERT_OK(compress_stream(COMPRESSION_GZIP, in, fd, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
 
         assert_decompressed(fd);
+        assert_uname(fd, "6.1.0-test");
+}
+
+TEST(x86_boot_header) {
+        uint8_t data[0x400] = {};
+        static const char version[] = "6.2.0-x86 (builder@host) #1 SMP";
+
+        memcpy(data + 0x202, "HdrS", 4);
+        unaligned_write_le16(data + 0x20e, 0x100);
+        memcpy(data + 0x300, version, strlen(version));
+
+        _cleanup_close_ int fd = memfd_with(data, sizeof(data));
+        assert_uname(fd, "6.2.0-x86");
+}
+
+TEST(elf_note) {
+        struct {
+                Elf64_Ehdr ehdr;
+                Elf64_Phdr phdr;
+                Elf64_Nhdr nhdr;
+                char name[8];
+                char desc[16];
+        } _packed_ elf = {
+                .ehdr = {
+                        .e_ident = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3, ELFCLASS64, ELFDATA2LSB, EV_CURRENT },
+                        .e_phoff = offsetof(typeof(elf), phdr),
+                        .e_phentsize = sizeof(Elf64_Phdr),
+                        .e_phnum = 1,
+                },
+                .phdr = {
+                        .p_type = PT_NOTE,
+                        .p_offset = offsetof(typeof(elf), nhdr),
+                        .p_filesz = sizeof(Elf64_Nhdr) + 8 + 16,
+                },
+                .nhdr = {
+                        .n_namesz = 6,
+                        .n_descsz = 10,
+                        .n_type = 0x100,
+                },
+                .name = "Linux",
+                .desc = "6.3.0-elf",
+        };
+
+        if (__BYTE_ORDER != __LITTLE_ENDIAN)
+                return (void) log_tests_skipped("test ELF file is little-endian");
+
+        _cleanup_close_ int fd = memfd_with(&elf, sizeof(elf));
+        assert_uname(fd, "6.3.0-elf");
+}
+
+TEST(installed_kernels) {
+        _cleanup_strv_free_ char **paths = NULL;
+
+        /* The directory name of an installed kernel is its version. */
+        int r = glob_extend(&paths, "/usr/lib/modules/*/vmlinuz", /* flags= */ 0);
+        if (r == -ENOENT)
+                return (void) log_tests_skipped("No installed kernels found");
+        ASSERT_OK(r);
+
+        STRV_FOREACH(path, paths) {
+                _cleanup_free_ char *dir = NULL, *version = NULL;
+                ASSERT_OK(path_extract_directory(*path, &dir));
+                ASSERT_OK(path_extract_filename(dir, &version));
+
+                _cleanup_close_ int fd = ASSERT_OK_ERRNO(open(*path, O_RDONLY|O_CLOEXEC));
+                assert_uname(fd, version);
+        }
 }
 
 static void test_zboot_one(Compression compression, const char *comp_type) {
