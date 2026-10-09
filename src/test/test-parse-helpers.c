@@ -96,15 +96,15 @@ static int test_path_simplify_and_warn_one(const char *p, const char *q, PathSim
         int a, b;
 
         a = path_simplify_and_warn(s, f, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, "Foobar=");
-        assert(streq_ptr(s, q));
+        ASSERT_STREQ(s, q);
 
         free(s);
         s = ASSERT_PTR(strdup(p));
 
         b = path_simplify_and_warn(s, f|PATH_CHECK_FATAL, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, "Foobar=");
-        assert(streq_ptr(s, q));
+        ASSERT_STREQ(s, q);
 
-        assert(a == b);
+        ASSERT_EQ(a, b);
 
         return a;
 }
