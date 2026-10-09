@@ -92,7 +92,10 @@
         <listitem><para>Set the system time zone to the specified
         value. Available timezones can be listed with
         <command>list-timezones</command>. If the RTC is configured to
-        be in the local time, this will also update the RTC time. This
+        be in the local time, this will also update the RTC time. If
+        the RTC is set to UTC, the kernel notion of the timezone will
+        also be set to UTC, otherwise it will be updated to the local
+        timezone (matching the early boot behavior of systemd). This
         call will alter the <filename>/etc/localtime</filename>
         symlink. See
         <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>

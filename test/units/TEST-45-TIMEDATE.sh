@@ -9,6 +9,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if timedatectl | grep -q 'RTC in local TZ: yes'; then
+    RTC_LOCALTIME=1
+else
+    RTC_LOCALTIME=0
+fi
+
 testcase_timedatectl() {
     timedatectl --no-pager --help
     timedatectl --version
@@ -30,12 +36,39 @@ testcase_timedatectl() {
     fi
 }
 
+check_kernel_tz() {
+    # In containers, settimeofday fails to set the kernel timezone, and the
+    # error is ignored: skip the test.
+    if ! systemd-detect-virt --container --quiet; then
+        assert_eq "$(/usr/lib/systemd/tests/unit-tests/manual/test-kernel-tz)" "$1"
+    fi
+}
+
 restore_timezone() {
     if [[ -f /tmp/timezone.bak ]]; then
         mv /tmp/timezone.bak /etc/timezone
     else
         rm -f /etc/timezone
     fi
+}
+
+restore_adjtime() {
+    if [[ -e /etc/adjtime.bak ]]; then
+        mv /etc/adjtime.bak /etc/adjtime
+    else
+        rm -f /etc/adjtime
+    fi
+}
+
+restore_kerneltz() {
+    # Restoring /etc/localtime and /etc/adjtime after the tests is not enough;
+    # make sure to restore the kernel timezone. Flip the flag twice to force the
+    # operation: if the system is configured for RTC=local, and the test left
+    # RTC=local, but a wrong timezone, we need to sync the right timezone into
+    # the kernel. Restart timedated to reread the configs.
+    systemctl restart systemd-timedated
+    timedatectl set-local-rtc "$((1 - RTC_LOCALTIME))"
+    timedatectl set-local-rtc "$RTC_LOCALTIME"
 }
 
 testcase_timezone() {
@@ -45,8 +78,11 @@ testcase_timezone() {
     if [[ -f /etc/timezone ]]; then
         mv /etc/timezone /tmp/timezone.bak
     fi
+    if [[ -e /etc/adjtime ]]; then
+        mv /etc/adjtime /etc/adjtime.bak
+    fi
 
-    trap restore_timezone RETURN
+    trap 'restore_timezone; restore_adjtime; restore_kerneltz' RETURN
 
     if [[ -L /etc/localtime ]]; then
         ORIG_TZ=$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')
@@ -64,6 +100,30 @@ testcase_timezone() {
     fi
     assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
+    echo 'set RTC to UTC'
+    timedatectl set-local-rtc 0
+    check_kernel_tz 0
+
+    echo 'set RTC to localtime'
+    timedatectl set-local-rtc 1
+    if timedatectl | grep -q "Time zone: .*EEST"; then
+        check_kernel_tz -180
+    else
+        check_kernel_tz -120
+    fi
+
+    echo 'set another timezone'
+    timedatectl set-timezone Europe/Warsaw
+    if timedatectl | grep -q "Time zone: .*CEST"; then
+        check_kernel_tz -120
+    else
+        check_kernel_tz -60
+    fi
+
+    echo 'set RTC back to UTC'
+    timedatectl set-local-rtc 0
+    check_kernel_tz 0
+
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'
         assert_eq "$(timedatectl set-timezone "$ORIG_TZ" 2>&1)" ""
@@ -71,14 +131,6 @@ testcase_timezone() {
         if [[ -f /etc/timezone ]]; then
             assert_eq "$(cat /etc/timezone)" "$ORIG_TZ"
         fi
-    fi
-}
-
-restore_adjtime() {
-    if [[ -e /etc/adjtime.bak ]]; then
-        mv /etc/adjtime.bak /etc/adjtime
-    else
-        rm /etc/adjtime
     fi
 }
 
@@ -95,7 +147,7 @@ testcase_adjtime() {
         mv /etc/adjtime /etc/adjtime.bak
     fi
 
-    trap restore_adjtime RETURN
+    trap 'restore_adjtime; restore_kerneltz' RETURN
 
     echo 'no adjtime file'
     rm -f /etc/adjtime
@@ -490,7 +542,7 @@ teardown_timedated_alternate_paths() {
 }
 
 testcase_timedated_alternate_paths() {
-    trap teardown_timedated_alternate_paths RETURN
+    trap 'teardown_timedated_alternate_paths; restore_kerneltz' RETURN
 
     mkdir -p /run/alternate-path
     mkdir -p /run/systemd/system/systemd-timedated.service.d
@@ -537,6 +589,16 @@ LOCAL"
         echo "/run/alternate-path/myadjtime still exists" >&2
         exit 1
     fi
+
+    # Test that the correct /etc/adjtime is read on restart.
+    printf '0.0 0 0\n0\nUTC\n' > /run/alternate-path/myadjtime
+    systemctl reset-failed systemd-timedated
+    systemctl restart systemd-timedated
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    printf '0.0 0 0\n0\nLOCAL\n' > /run/alternate-path/myadjtime
+    systemctl reset-failed systemd-timedated
+    systemctl restart systemd-timedated
+    assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
 }
 
 run_testcases

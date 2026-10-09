@@ -1732,6 +1732,15 @@ const char* etc_localtime(void) {
         return cached;
 }
 
+const char* etc_adjtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
+
+        return cached;
+}
+
 int mktime_or_timegm_usec(
                 struct tm *tm, /* input + normalized output */
                 bool utc,
