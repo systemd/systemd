@@ -3,7 +3,8 @@
 
 /* Aggregator header consumed by bindgen to generate the systemd_shared_sys crate. It lists the headers Rust
  * code uses; a wrapper that needs another one adds it here. The libc constants come by family, see the
- * allowlist in meson.build. */
+ * allowlist in meson.build. Same-named headers exist in src/basic/ and src/shared/ (tmpfile-util.h): the
+ * src/shared/ one is found first and includes its src/basic/ namesake, so both are bound. */
 
 /* The libc and kernel surface systemd code sees: the headers behind the constant families the allowlist in
  * meson.build picks, and what the allocator, the panic handler and print!() call. Listed here so that it does
@@ -45,20 +46,28 @@
 #include "sd-json.h"
 
 #include "build.h"
+#include "chase.h"
+#include "conf-files.h"
+#include "creds-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "forward.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "path-util.h"
+#include "recurse-dir.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "verbs.h"
 
 /* Object-like macros with casts are not constant expressions to bindgen. These give it something it can
