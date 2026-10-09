@@ -98,7 +98,7 @@ impl Event {
         accuracy: u64,
         callback: F,
     ) -> Result<EventSource> {
-        let userdata = Box::into_raw(Box::new(callback)?);
+        let userdata = Box::into_raw(Box::<F>::new(callback)?);
         let mut s: *mut sys::sd_event_source = ptr::null_mut();
         // SAFETY: s receives a new reference on success, the trampoline matches the closure type of the box
         // handed over as userdata.
@@ -115,7 +115,7 @@ impl Event {
         };
         if let Err(e) = check(r) {
             // SAFETY: C did not take the box.
-            drop(unsafe { Box::from_raw(userdata) });
+            drop(unsafe { Box::<F>::from_raw(userdata) });
             return Err(e);
         }
         // SAFETY: we own the reference sd_event_add_time_relative() handed out.
@@ -129,7 +129,7 @@ impl Event {
         }) {
             drop(source);
             // SAFETY: the source is gone without having called a destroy callback, the box is ours again.
-            drop(unsafe { Box::from_raw(userdata) });
+            drop(unsafe { Box::<F>::from_raw(userdata) });
             return Err(e);
         }
         Ok(source)
@@ -201,5 +201,5 @@ unsafe extern "C" fn time_trampoline<F: TimeHandler>(
 unsafe extern "C" fn drop_userdata<F: TimeHandler>(userdata: *mut c_void) {
     // SAFETY: userdata is the Box<F> add_time_relative() registered; sd-event calls the destroy callback once,
     // when the source is freed.
-    drop(unsafe { Box::from_raw(userdata.cast::<F>()) });
+    drop(unsafe { Box::<F>::from_raw(userdata.cast()) });
 }
