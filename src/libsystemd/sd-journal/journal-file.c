@@ -21,6 +21,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -392,7 +393,6 @@ static int journal_file_init_header(
                 JournalFileFlags file_flags,
                 JournalFile *template) {
 
-        ssize_t k;
         int r;
 
         assert(f);
@@ -429,13 +429,7 @@ static int journal_file_init_header(
         } else
                 h.seqnum_id = h.file_id;
 
-        k = pwrite(f->fd, &h, sizeof(h), 0);
-        if (k < 0)
-                return -errno;
-        if (k != sizeof(h))
-                return -EIO;
-
-        return 0;
+        return pwrite_full(f->fd, &h, sizeof(h), 0);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
