@@ -7,6 +7,8 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "memfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -132,11 +134,9 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
                 return fd;
 
         if (sz > 0) {
-                ssize_t n = pwrite(fd, data, sz, 0);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n != sz)
-                        return -EIO;
+                r = pwritev_full(fd, &IOVEC_MAKE((void*) data, sz), 1, 0, /* ret_written= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         r = memfd_set_sealed(fd);
