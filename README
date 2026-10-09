@@ -60,6 +60,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
+                     ≥ 5.13 for fanotify with FAN_REPORT_FID on tmpfs
                      ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
@@ -93,6 +94,7 @@ REQUIREMENTS:
         Kernel Config Options:
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it is OK to disable all controllers)
+          CONFIG_FANOTIFY
           CONFIG_INOTIFY_USER
           CONFIG_SIGNALFD
           CONFIG_TIMERFD
