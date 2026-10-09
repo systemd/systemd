@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "memfd-util.h"
 #include "string-util.h"
 #include "utf8.h"
@@ -137,11 +138,9 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
                 return fd;
 
         if (sz > 0) {
-                ssize_t n = pwrite(fd, data, sz, 0);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n != sz)
-                        return -EIO;
+                r = pwrite_full(fd, data, sz, 0);
+                if (r < 0)
+                        return r;
         }
 
         r = memfd_set_sealed(fd);
