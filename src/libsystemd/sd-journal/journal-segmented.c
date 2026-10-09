@@ -31,7 +31,7 @@ bool segmented_requested(void) {
         if (r < 0) {
                 if (r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_SEGMENTED environment variable, ignoring: %m");
-                return false;
+                return true;
         }
 
         return r;
