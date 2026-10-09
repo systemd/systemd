@@ -188,7 +188,24 @@ int extension_has_forbidden_content(const char *root) {
         return 0;
 }
 
-int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
+static int read_devnum_file_at(int dir_fd, const char *filename, dev_t *ret) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(filename);
+        assert(ret);
+
+        r = read_one_line_file_at(dir_fd, filename, &buf);
+        if (r < 0)
+                return r;
+
+        return parse_devnum(buf, ret);
+}
+
+int extension_overlay_block(const char *p, ImageClass image_class, bool recursive, dev_t *ret) {
+        struct stat st;
+        dev_t dev;
         int r;
 
         assert(p);
@@ -196,37 +213,67 @@ int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
         assert(IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
 
         /* Tries to read the backing device information systemd-sysext puts in
-         * the virtual file .systemd-sysext/.systemd-confext */
+         * .systemd-sysext/backing or .systemd-confext/backing. Before trusting it, verify the device number
+         * of the overlayfs against the dev file placed in the same metadata directory. */
 
         _cleanup_free_ char *j = path_join(p, image_class == IMAGE_CONFEXT ? ".systemd-confext" : ".systemd-sysext");
         if (!j)
                 return log_oom_debug();
 
-        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY);
-        if (fd < 0)
+        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        *ret = 0;
+                        return 0;
+                }
+
                 return log_debug_errno(errno, "Failed to open '%s': %m", j);
+        }
 
         r = fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine backing file system of '%s': %m", j);
-        if (r == 0)
-                return log_debug_errno(
-                                SYNTHETIC_ERRNO(ENOTTY), "Backing file system of '%s' is not an overlayfs.", j);
-
-        _cleanup_free_ char *buf = NULL;
-        r = read_one_line_file_at(fd, "backing", &buf);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read contents of '%s/backing': %m", j);
-
-        r = parse_devnum(buf, ret);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse contents of '%s/backing': %m", j);
-
-        if (major(*ret) == 0) { /* not a block device? */
+        if (r == 0) {
+                log_debug("Backing file system of '%s' is not an overlayfs.", j);
                 *ret = 0;
                 return 0;
         }
 
-        (void) block_get_originating(*ret, ret, /* recursive= */ false);
+        r = read_devnum_file_at(fd, "dev", &dev);
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        *ret = 0;
+                        return 0;
+                }
+
+                return log_debug_errno(r, "Failed to read device number from '%s/dev': %m", j);
+        }
+
+        if (lstat(p, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s': %m", p);
+
+        if (st.st_dev != dev) {
+                log_debug("Device number stored in '%s/dev' does not match file system of hierarchy '%s', ignoring.", j, p);
+                *ret = 0;
+                return 0;
+        }
+
+        r = read_devnum_file_at(fd, "backing", &dev);
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        *ret = 0;
+                        return 0;
+                }
+
+                return log_debug_errno(r, "Failed to read device number from '%s/backing': %m", j);
+        }
+
+        if (major(dev) == 0) { /* not a block device? */
+                *ret = 0;
+                return 0;
+        }
+
+        (void) block_get_originating(dev, &dev, recursive);
+        *ret = dev;
         return 1;
 }
