@@ -25,6 +25,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
