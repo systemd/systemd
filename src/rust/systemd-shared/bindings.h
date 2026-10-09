@@ -42,6 +42,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "sd-dlopen.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 
@@ -92,3 +93,4 @@ const nsec_t RUST_CONST_HELPER_NSEC_PER_USEC = NSEC_PER_USEC;
 const nsec_t RUST_CONST_HELPER_NSEC_PER_MSEC = NSEC_PER_MSEC;
 const nsec_t RUST_CONST_HELPER_NSEC_PER_SEC = NSEC_PER_SEC;
 const unsigned RUST_CONST_HELPER_VERB_ANY = VERB_ANY;
+const uint32_t RUST_CONST_HELPER_SD_ELF_NOTE_DLOPEN_TYPE = SD_ELF_NOTE_DLOPEN_TYPE;
