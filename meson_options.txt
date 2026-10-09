@@ -11,6 +11,8 @@ option('vcs-tag', type : 'boolean', value : true,
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
+option('experimental', type : 'combo', choices : ['auto', 'enabled', 'envvar', 'disabled'],
+       description : 'allow using features marked as experimental')
 
 # Linking of systemd programs
 option('libc', type : 'combo', choices : ['glibc', 'musl'],

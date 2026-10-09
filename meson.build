@@ -54,6 +54,12 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
 
+experimental = get_option('experimental')
+if experimental == 'auto'
+        experimental = conf.get('BUILD_MODE_DEVELOPER') == 1 ? 'enabled' : 'envvar'
+endif
+conf.set('EXPERIMENTAL', 'EXPERIMENTAL_@0@'.format(experimental.to_upper()))
+
 feature = get_option('log-message-verification')
 if feature.auto()
         have = conf.get('BUILD_MODE_DEVELOPER') == 1
@@ -3093,6 +3099,7 @@ endif
 alt_time_epoch = alt_time_epoch.stdout().strip()
 
 summary({
+        'experimental features'                     : experimental,
         'split bin-sbin'                            : split_bin,
         'prefix directory'                          : prefixdir,
         'sysconf directory'                         : sysconfdir,
