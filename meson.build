@@ -2278,6 +2278,7 @@ if have_rust
                 # Nothing from the crates is exported. The linker exports what a DSO in the link also defines,
                 # and a stub of the crates would then preempt it for the libraries a program loads.
                 'link_args' : ['-Wl,--exclude-libs,ALL'],
+                'rust_args' : rust_cfg_args,
         }
 
         rust_test_template = rust_executable_template + {
