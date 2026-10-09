@@ -162,6 +162,7 @@ systemd_shared_sources = files(
         'alloc.rs',
         'chase.rs',
         'command.rs',
+        'conf_files.rs',
         'creds.rs',
         'cstr.rs',
         'errno.rs',
@@ -178,6 +179,7 @@ systemd_shared_sources = files(
         'strv.rs',
         'tests.rs',
         'tmpfile.rs',
+        'voa.rs',
 )
 
 systemd_shared_rust_sources = systemd_shared_sources + files('systemd_shared_sys.rs')
