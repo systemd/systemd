@@ -168,6 +168,7 @@ systemd_shared_sources = files(
         'fd.rs',
         'fileio.rs',
         'json.rs',
+        'keyring.rs',
         'log.rs',
         'panic.rs',
         'prelude.rs',
