@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -982,6 +983,67 @@ TEST(defer_add_post) {
 
         /* Now the post handler should have been dispatched */
         ASSERT_TRUE(dispatched_post);
+}
+
+static unsigned expire_drain_count = 0;
+static int expire_drain_callback(sd_event_source *s, void *userdata) {
+        expire_drain_count++;
+
+        /* Consume the readiness, so that leaving the ratelimit doesn't generate a new epoll event */
+        ASSERT_OK(flush_fd(sd_event_source_get_io_fd(s)));
+
+        return 0;
+}
+
+TEST(ratelimit_expire_with_pending) {
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *io = NULL, *defer = NULL;
+        unsigned count = 0;
+        bool dispatched = false;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC|O_NONBLOCK));
+
+        ASSERT_OK(sd_event_add_io(e, &io, p[0], EPOLLIN, ratelimit_io_handler, &count));
+        ASSERT_OK(sd_event_source_set_ratelimit(io, 1 * USEC_PER_SEC, 1));
+        ASSERT_OK(sd_event_source_set_ratelimit_expire_callback(io, expire_drain_callback));
+
+        ASSERT_OK_EQ_ERRNO(write(p[1], "x", 1), 1);
+
+        /* The first dispatch opens the ratelimit window, the second one hits the burst limit. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_source_is_ratelimited(io));
+
+        /* Arm the CLOCK_BOOTTIME timer for the end of the ratelimit window, and let it elapse. */
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK(usleep_safe(1100 * USEC_PER_MSEC));
+
+        /* Now have an event source pending only in userspace, which never makes the epoll fd readable. */
+        ASSERT_OK(sd_event_add_defer(e, &defer, defer_post_handler, &dispatched));
+
+        /* sd_event_prepare() will see the pending defer source, and its sd_event_wait() call will run the
+         * ratelimit expiry callback. It must not report "nothing pending" afterwards, as otherwise callers
+         * like sd_event_run() would block indefinitely in epoll_wait(). */
+        ASSERT_OK_POSITIVE(sd_event_prepare(e));
+        ASSERT_EQ(expire_drain_count, 1U);
+        ASSERT_EQ(count, 1U);
+        ASSERT_OK_ZERO(sd_event_source_is_ratelimited(io));
+
+        /* No other callback is dispatched in the same iteration as the ratelimit expiry callback. */
+        ASSERT_OK_POSITIVE(sd_event_dispatch(e));
+        ASSERT_EQ(count, 1U);
+        ASSERT_FALSE(dispatched);
+
+        /* The IO event that hit the ratelimit stayed pending and is delivered first, then the defer source. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_EQ(count, 2U);
+        ASSERT_FALSE(dispatched);
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_TRUE(dispatched);
+        ASSERT_EQ(expire_drain_count, 1U);
 }
 
 static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *userdata) {
