@@ -110,7 +110,15 @@ static void test_sd_device_one(sd_device *d) {
 
         log_info("%s(%s)", __func__, syspath);
 
-        ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
+        r = sd_device_new_from_syspath(&dev, syspath);
+        if (ERRNO_IS_DEVICE_ABSENT(r)) {
+                /* Devices may be hot-unplugged while we are running, e.g. on Azure the accelerated
+                 * networking PCI VF behind a Hyper-V vmbus PCI bridge may be removed and re-added
+                 * during host servicing. Don't fail the test if a device vanished since enumeration. */
+                log_device_info(d, "Device disappeared while running the test, skipping.");
+                return;
+        }
+        ASSERT_OK(r);
         ASSERT_OK(sd_device_get_syspath(dev, &val));
         ASSERT_STREQ(syspath, val);
         ASSERT_NULL(dev = sd_device_unref(dev));
