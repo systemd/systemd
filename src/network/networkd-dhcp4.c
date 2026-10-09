@@ -1731,6 +1731,21 @@ int dhcp4_update_mac(Link *link) {
         return 0;
 }
 
+int dhcp4_update_hostname(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_client || !link->network)
+                return 0;
+
+        /* No hostname is sent when anonymized, and an explicitly configured one does not follow the
+         * system hostname. */
+        if (link->network->dhcp_anonymize || link->network->dhcp_hostname)
+                return 0;
+
+        /* The new hostname will be sent on the next renewal. */
+        return dhcp4_set_hostname(link);
+}
+
 int dhcp4_update_ipv6_connectivity(Link *link) {
         int r;
 

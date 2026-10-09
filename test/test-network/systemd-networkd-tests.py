@@ -9604,6 +9604,46 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
 
+    def test_dhcp_client_send_system_hostname(self):
+        # The hostname sent by the DHCP client must follow the system hostname.
+        # See https://github.com/systemd/systemd/issues/36440
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-server-veth-peer.network',
+            '25-dhcp-client-send-system-hostname.network',
+        )
+
+        self.addCleanup(socket.sethostname, socket.gethostname())
+        socket.sethostname('test-hostname-old')
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+        start_dnsmasq()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('client provides name: test-hostname-old', output)
+        self.assertNotIn('test-hostname-new', output)
+
+        since = datetime.datetime.now()
+        socket.sethostname('test-hostname-new')
+        if enable_debug:
+            self.check_networkd_log('System hostname changed', since=since)
+
+        networkctl('renew', 'veth99')
+
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if 'client provides name: test-hostname-new' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after renew')
+        print(output)
+        self.assertIn('client provides name: test-hostname-new', output)
+
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(
             '25-veth.netdev',
