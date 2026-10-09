@@ -693,7 +693,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_JOURNAL_SEGMENTED` – Takes a boolean. If enabled, journal files are
   written in the segmented format described in
   [Segmented Journal File Format](JOURNAL_SEGMENTED.md). Such files can only be
-  read by systemd versions that support the format. Disabled by default.
+  read by systemd versions that support the format. If disabled, journal files
+  are written in the classic format, which older versions can read. Enabled by
+  default.
 
 * `$SYSTEMD_JOURNAL_COMPRESS` – Takes a boolean, or one of the compression
   algorithms "XZ", "LZ4", and "ZSTD". If enabled, the default compression
