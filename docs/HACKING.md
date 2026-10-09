@@ -216,6 +216,10 @@ Some things to keep in mind:
   that pulls in std or alloc does not link: std brings a second panic handler
   and there is no global allocator.
 
+- Keys, passphrases and other secrets go into `Vec<u8, Erasing>` or
+  `Box<T, Erasing>`, whose memory is erased before it is freed or moved, like
+  `erase_and_free()` does in C.
+
 - Everything from systemd stays in the shared library, so a program written in
   Rust is not much bigger than its C equivalent. Stripped release builds:
   `test-cli-rust` is 29 KB, 24 KB with `-Db_lto=true`, `test-cli-c` is 16 KB.
