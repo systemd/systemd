@@ -9604,6 +9604,50 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
 
+    def test_dhcp_client_send_system_hostname(self):
+        # The hostname sent by the DHCP client must follow the system hostname.
+        # See https://github.com/systemd/systemd/issues/36440
+        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
+        # namespace, otherwise the message would not be delivered to a local address.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+        copy_network_unit('25-dhcp-client-send-system-hostname.network')
+
+        self.addCleanup(socket.sethostname, socket.gethostname())
+        socket.sethostname('test-hostname-old')
+
+        start_dnsmasq(namespace='ns-server')
+        start_networkd()
+        self.wait_online('veth99:routable')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('client provides name: test-hostname-old', output)
+        self.assertNotIn('test-hostname-new', output)
+
+        since = datetime.datetime.now()
+        socket.sethostname('test-hostname-new')
+        if enable_debug:
+            self.check_networkd_log('System hostname changed', since=since)
+
+        networkctl('renew', 'veth99')
+
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if 'client provides name: test-hostname-new' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after renew')
+        print(output)
+        self.assertIn('client provides name: test-hostname-new', output)
+
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(
             '25-veth.netdev',
