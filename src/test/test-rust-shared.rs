@@ -13,7 +13,7 @@ use core::ffi::{c_char, c_int, CStr};
 use core::mem::{align_of, size_of};
 use core::ptr;
 
-use systemd_shared::alloc::{Allocator, Malloc};
+use systemd_shared::alloc::{Allocator, Erasing, Malloc};
 use systemd_shared::cstr::{self, display};
 use systemd_shared::prelude::*;
 use systemd_shared::{fd, json, sys};
@@ -335,6 +335,34 @@ fn test_alloc() {
     unsafe { Malloc.deallocate(p.cast(), Layout::new::<[u8; 4]>()) };
 }
 
+fn test_alloc_erasing() {
+    // Growing allocates anew and erases the old memory, the contents move along
+    let mut secret = Vec::new_in(Erasing);
+    for i in 0..1000u32 {
+        secret.push(i.to_le_bytes()[0]).unwrap();
+    }
+    assert!(secret
+        .iter()
+        .zip(0..1000u32)
+        .all(|(&b, i)| b == i.to_le_bytes()[0]));
+    secret.extend_from_slice(b"hunter2").unwrap();
+    assert!(secret.ends_with(b"hunter2"));
+    let boxed: Box<[u8], Erasing> = secret.into_boxed_slice().unwrap();
+    assert!(boxed.ends_with(b"hunter2"));
+
+    // Alignments beyond malloc()'s and zero-sized types work as with Malloc
+    let mut lines: Vec<CacheLine, Erasing> = Vec::new_in(Erasing);
+    for i in 0..10u8 {
+        lines.push(CacheLine([i; 64])).unwrap();
+        assert_eq!(lines.as_ptr().addr() % align_of::<CacheLine>(), 0);
+    }
+    let mut units: Vec<(), Erasing> = Vec::new_in(Erasing);
+    units.push(()).unwrap();
+
+    let key = Box::new_in([0x42; 32], Erasing).unwrap();
+    assert_eq!(Box::into_inner(key), [0x42; 32]);
+}
+
 fn test_print() {
     println!("Hello from Rust, dynamically linked against libsystemd-shared.");
     print!("{} + {} = ", 1, 2);
@@ -365,6 +393,7 @@ define_test_main!(
         test_json,
         test_fd,
         test_alloc,
+        test_alloc_erasing,
         test_print,
         test_constants,
     ]
