@@ -177,6 +177,7 @@ systemd_shared_sources = files(
         'recurse_dir.rs',
         'stdio.rs',
         'strv.rs',
+        'table.rs',
         'tests.rs',
         'tmpfile.rs',
         'voa.rs',
