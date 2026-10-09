@@ -32,6 +32,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "module-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
