@@ -4,6 +4,11 @@ CHANGES WITH 263 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * inotify-backed device watch support will be removed in a future
+          release, making fanotify mandatory. This requires kernel ≥ v5.13
+          with CONFIG_FANOTIFY, CONFIG_TMPFS, and CONFIG_SHMEM. See also the
+          changes in systemd-udevd below.
+
         Feature Removals and Incompatible Changes:
 
         * systemd-networkd and networkctl have been merged into a single
@@ -11,6 +16,18 @@ CHANGES WITH 263 in spe:
           This should generally be invisible to users, but some packaging and
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
+
+        Changes in systemd-udevd:
+
+        * systemd-udevd now uses fanotify rather than inotify to watch device
+          nodes (as enabled by the "watch" udev rule option, i.e.
+          OPTIONS+="watch"). This requires kernel ≥ v5.13, CONFIG_FANOTIFY,
+          CONFIG_TMPFS, and CONFIG_SHMEM (for tmpfs-backed devtmpfs); on older
+          kernels or with CONFIG_SHMEM=n (ramfs), device watch uses inotify.
+          Upgrading from an older, inotify-based systemd-udevd is seamless:
+          existing watches are migrated automatically. Downgrading back is not
+          supported: after a downgrade, device watches must be re-established by
+          running "udevadm trigger" for all devices that have a device node.
 
         Changes in systemd-networkd:
 
