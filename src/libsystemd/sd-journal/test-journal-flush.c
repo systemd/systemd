@@ -192,11 +192,13 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 }
 
 TEST(journal_flush) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_journal_flush_one(saved_argc, saved_argv);
 }
 
 TEST(journal_flush_compact) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_journal_flush_one(saved_argc, saved_argv);
 }

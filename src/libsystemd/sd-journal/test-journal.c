@@ -133,7 +133,7 @@ TEST(non_empty) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
         test_non_empty_one();
-        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 }
 
 TEST(duplicate_entry_storage) {
@@ -257,7 +257,7 @@ TEST(empty) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
         test_empty_one();
-        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 }
 
 #if HAVE_COMPRESSION
@@ -349,7 +349,7 @@ TEST(min_compress_size) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
         test_min_compress_size_one();
-        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 }
 #endif
 
@@ -679,6 +679,10 @@ static int intro(void) {
                 return log_tests_skipped("/etc/machine-id not found");
 
         journal_auth_init();
+
+        /* Most tests check classic files. The tests for segmented files set $SYSTEMD_JOURNAL_SEGMENTED
+         * themselves. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 
         return EXIT_SUCCESS;
 }
