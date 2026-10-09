@@ -799,6 +799,13 @@ static void manager_sync(Manager *m, bool wait) {
                                                     "Failed to sync system journal, ignoring: %m");
         }
 
+        if (m->runtime_journal) {
+                r = journal_file_set_offline(m->runtime_journal, wait);
+                if (r < 0)
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                    "Failed to sync runtime journal, ignoring: %m");
+        }
+
         ORDERED_HASHMAP_FOREACH(f, m->user_journals) {
                 r = journal_file_set_offline(f, wait);
                 if (r < 0)
@@ -812,6 +819,26 @@ static void manager_sync(Manager *m, bool wait) {
                                             "Failed to disable sync timer source, ignoring: %m");
 
         m->sync_scheduled = false;
+}
+
+void manager_post_change(Manager *m) {
+        JournalFile *f;
+
+        assert(m);
+
+        /* Segmented files keep new entries in memory until the post change timer fires. A client that
+         * synchronized expects to read every entry that was processed, hence write them out now. This
+         * includes the runtime journal. Files without changes since the last post change are left alone,
+         * so that readers are not woken up for nothing. */
+
+        if (m->system_journal)
+                journal_file_post_change_pending(m->system_journal);
+
+        if (m->runtime_journal)
+                journal_file_post_change_pending(m->runtime_journal);
+
+        ORDERED_HASHMAP_FOREACH(f, m->user_journals)
+                journal_file_post_change_pending(f);
 }
 
 static void manager_do_vacuum(Manager *m, JournalStorage *storage, bool verbose) {
@@ -1794,6 +1821,7 @@ void manager_full_sync(Manager *m, bool wait) {
 
         assert(m);
 
+        manager_post_change(m);
         manager_sync(m, wait);
 
         /* Let clients know when the most recent sync happened. */
