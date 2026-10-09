@@ -35,6 +35,7 @@ _regex_words varlink-commands 'varlink command' \
     'call:invoke a method:$varlink_call' \
     'validate-idl:validate an interface description:$varlink_idl' \
     'list-sockets:List listening Varlink entrypoint sockets' \
+    'monitor:Monitor varlink traffic' \
     'help:show a help message'
 
 local -a varlinkcmd=( /$'[^\0]#\0'/ "$reply[@]" )
@@ -68,5 +69,8 @@ local -a opts=(
     '--collect[Collect multiple responses in a JSON array]'
     '--upgrade[Upgrade connection to raw protocol after method call]'
     {-j+,--json=}'[Output as json]:json-mode:(pretty short)'
+    {-u+,--uid=}'[Monitor only connections of specified UID]:uid:_users'
+    {-p+,--pid=}'[Filter monitored traffic by PID]:pid:_pids'
+    '--path=[Filter monitored traffic by socket path]:path:{_alternative "special:special:(anonymous)" "files:path:_files -g \"*(=)\"" }'
 )
 _arguments -S $opts '*:: := _varlinkctl_command'
