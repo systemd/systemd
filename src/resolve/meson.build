@@ -169,11 +169,13 @@ executables += [
                 'sources' : files('test-dns-query.c'),
         },
         resolve_test_template + {
-                'sources' : files('test-resolved-stream.c'),
+                'sources' : files('test-resolved-dummy-server.c'),
+                'export' : files('resolved-dummy-server-test-util.c'),
+                'type' : 'manual',
         },
         resolve_test_template + {
-                'sources' : files('test-resolved-dummy-server.c'),
-                'type' : 'manual',
+                'sources' : files('test-resolved-stream.c'),
+                'import' : ['systemd-resolved', 'test-resolved-dummy-server'],
         },
         resolve_fuzz_template + {
                 'sources' : files('fuzz-dns-packet.c'),
