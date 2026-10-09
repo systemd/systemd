@@ -1035,6 +1035,9 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
 
                 switch (test_client_sent_message_count) {
                 case 3:
+                        /* The FQDN can be changed while the client is running. */
+                        ASSERT_OK(sd_dhcp6_client_set_fqdn(client, "host.lab.intra"));
+
                         assert_se(sd_dhcp6_client_stop(client) >= 0);
                         assert_se(sd_dhcp6_client_start(client) >= 0);
                         assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
