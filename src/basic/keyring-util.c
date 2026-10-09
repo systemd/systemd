@@ -3,6 +3,7 @@
 #include <linux/magic.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -297,15 +298,17 @@ int keyring_find_by_name_from(FILE *f, const char *name, uid_t owner, key_serial
         return 0;
 }
 
-int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
+int keyring_find_by_name_at(int root_fd, const char *name, uid_t owner, key_serial_t *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
+        assert(wildcard_fd_is_valid(root_fd));
         assert(name);
 
-        f = fopen("/proc/keys", "re");
-        if (!f)
-                return -errno;
+        r = chase_and_fopenat_unlocked(root_fd, root_fd, "/proc/keys", /* chase_flags= */ 0, "re",
+                                       /* ret_path= */ NULL, &f);
+        if (r < 0)
+                return r;
 
         /* Containers mask it with an empty regular file, which root can still read */
         r = fd_is_fs_type(fileno(f), PROC_SUPER_MAGIC);
@@ -315,6 +318,10 @@ int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
                 return -ERFKILL;
 
         return keyring_find_by_name_from(f, name, owner, ret);
+}
+
+int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
+        return keyring_find_by_name_at(XAT_FDROOT, name, owner, ret);
 }
 
 /* KEYCTL_READ returns the serials of the keys linked into the keyring. Note that one entry per nested
