@@ -38,19 +38,24 @@ macro_rules! assert_layout {
 pub(crate) use assert_layout;
 
 pub mod alloc;
+pub mod chase;
 pub mod command;
+pub mod creds;
 pub mod cstr;
 pub mod errno;
 pub mod event;
 pub mod fd;
+pub mod fileio;
 pub mod json;
 pub mod log;
 mod panic;
 pub mod prelude;
 pub mod program;
+pub mod recurse_dir;
 pub mod refcount;
 pub mod stdio;
 pub mod strv;
 pub mod tests;
+pub mod tmpfile;
 
 pub use errno::{check, from_result, Errno, Result};
