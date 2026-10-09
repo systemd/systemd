@@ -47,6 +47,7 @@ pub mod fd;
 pub mod fileio;
 pub mod json;
 pub mod keyring;
+pub mod kmod;
 pub mod log;
 mod panic;
 pub mod prelude;
