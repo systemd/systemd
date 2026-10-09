@@ -231,6 +231,12 @@ Some things to keep in mind:
   stripped `test-cli-rust` binary is 32 KB, compared to 20 KB for `test-cli-c`.
   Without LTO, `test-cli-rust` is 87 KB.
 
+- Optional libraries are loaded at runtime with the `dlopen_*()` helpers of
+  libsystemd-shared, like in C. Declare such dependencies with
+  `libcrypto_note!()`, `libkmod_note!()` or `elf_note_dlopen!()`, so that
+  they are recorded in the `.note.dlopen` section of the program, where
+  packaging tools pick them up.
+
 - Rust programs are covered by `test-link-abi` too, so they may not use glibc
   symbols that are newer than the baseline the C programs are held to.
 
