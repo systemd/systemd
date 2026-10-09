@@ -1746,10 +1746,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                 return safe_atoi(value, &device->devlink_priority);
 
         case 'W':
-                /* Deprecated. Previously, watch handle is both saved in database and /run/udev/watch.
-                 * However, the handle saved in database may not be updated when the handle is updated
-                 * or removed. Moreover, it is not necessary to store the handle within the database,
-                 * as its value becomes meaningless when udevd is restarted. */
+                /* Deprecated. Was used for the inotify watch handle. */
                 return 0;
 
         case 'V':
