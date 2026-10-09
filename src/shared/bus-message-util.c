@@ -184,10 +184,10 @@ int bus_message_read_dns_servers(
                 return r;
 
         for (;;) {
-                const char *server_name;
+                const char *server_name = NULL; /* avoid false maybe-uninitialized warning */
                 union in_addr_union a;
-                uint16_t port;
-                int family;
+                uint16_t port = 0;              /* avoid false maybe-uninitialized warning */
+                int family = AF_UNSPEC;         /* avoid false maybe-uninitialized warning */
 
                 r = bus_message_read_dns_one(message, reterr_error, extended, &family, &a, &port, &server_name);
                 if (r < 0)
