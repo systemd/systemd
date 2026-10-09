@@ -371,6 +371,7 @@ int journal_file_parse_uid_from_filename(const char *path, uid_t *uid);
 int journal_file_dispose(int dir_fd, const char *fname);
 
 void journal_file_post_change(JournalFile *f);
+void journal_file_post_change_pending(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);
 
 void journal_reset_metrics(JournalMetrics *m);

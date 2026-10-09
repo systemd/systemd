@@ -2755,6 +2755,18 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
         return 1;
 }
 
+void journal_file_post_change_pending(JournalFile *f) {
+        assert(f);
+
+        /* Posts the change now if the post change timer is armed, instead of when it fires */
+
+        if (sd_event_source_get_enabled(f->post_change_timer, NULL) <= 0)
+                return;
+
+        (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
+        journal_file_post_change(f);
+}
+
 static void schedule_post_change(JournalFile *f) {
         sd_event *e;
         int r;
