@@ -19,6 +19,8 @@ void sync_req_varlink_reply(SyncReq *req) {
 
         if (req->offline)
                 manager_full_sync(req->manager, /* wait= */ true);
+        else
+                manager_post_change(req->manager);
 
         log_debug("Client request to sync journal (%s offlining) completed.", req->offline ? "with" : "without");
 

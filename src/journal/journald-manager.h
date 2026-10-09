@@ -176,6 +176,7 @@ int manager_set_namespace(Manager *m, const char *namespace);
 int manager_init(Manager *m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+void manager_post_change(Manager *m);
 void manager_full_sync(Manager *m, bool wait);
 void manager_vacuum(Manager *m, bool verbose);
 void manager_rotate(Manager *m);

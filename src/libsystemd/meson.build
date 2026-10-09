@@ -3,7 +3,12 @@
 sd_journal_sources = files(
         'sd-journal/catalog.c',
         'sd-journal/journal-authenticate-internal.c',
+        'sd-journal/journal-segmented.c',
+        'sd-journal/journal-segmented-index.c',
+        'sd-journal/journal-segmented-query.c',
+        'sd-journal/journal-segmented-write.c',
         'sd-journal/journal-file.c',
+        'sd-journal/journal-postings.c',
         'sd-journal/journal-send.c',
         'sd-journal/journal-vacuum.c',
         'sd-journal/journal-verify.c',
@@ -201,6 +206,7 @@ simple_tests += files(
         'sd-journal/test-journal-init.c',
         'sd-journal/test-journal-interleaving.c',
         'sd-journal/test-journal-match.c',
+        'sd-journal/test-journal-postings.c',
         'sd-journal/test-journal-send.c',
         'sd-journal/test-journal-stream.c',
         'sd-journal/test-journal.c',
@@ -273,6 +279,14 @@ libsystemd_tests += [
                 'type' : 'manual',
         },
         {
+                'sources' : files('sd-journal/test-journal-segmented.c'),
+                'timeout' : 360,
+        },
+        {
+                'sources' : files('sd-journal/test-journal-benchmark.c'),
+                'type' : 'manual',
+        },
+        {
                 'sources' : files('sd-journal/test-journal-dump.c'),
                 'type' : 'manual',
         },
@@ -306,4 +320,5 @@ simple_fuzzers += files(
         'sd-bus/fuzz-bus-match.c',
         'sd-bus/fuzz-bus-message.c',
         'sd-hwdb/fuzz-hwdb.c',
+        'sd-journal/fuzz-journal-segmented.c',
 )
