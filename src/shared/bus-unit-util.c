@@ -2885,6 +2885,7 @@ static const BusProperty timer_properties[] = {
         { "AccuracySec",                           bus_append_parse_sec_rename                   },
         { "RandomizedDelaySec",                    bus_append_parse_sec_rename                   },
         { "RandomizedOffsetSec",                   bus_append_parse_sec_rename                   },
+        { "MinIntervalSec",                        bus_append_parse_sec_rename                   },
         { "OnActiveSec",                           bus_append_timers_monotonic                   },
         { "OnBootSec",                             bus_append_timers_monotonic                   },
         { "OnStartupSec",                          bus_append_timers_monotonic                   },

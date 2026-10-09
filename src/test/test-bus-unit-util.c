@@ -961,6 +961,8 @@ TEST(timer_properties) {
                         "RandomizedDelaySec=0",
                         "RandomizedOffsetSec=15s",
                         "RandomizedOffsetSec=2min",
+                        "MinIntervalSec=10d",
+                        "MinIntervalSec=1w 12h",
                         "OnActiveSec=10s",
                         "OnActiveSec=5min",
                         "OnBootSec=30s",
