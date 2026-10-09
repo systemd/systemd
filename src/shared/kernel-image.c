@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <elf.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -9,13 +11,16 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "kernel-image.h"
+#include "linux-x86.h"
 #include "log.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "pe-binary.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 #define PE_SECTION_READ_MAX (16U*1024U)
 
@@ -371,4 +376,281 @@ int kernel_decompress(int fd, int *ret_fd) {
 
         *ret_fd = decompressed_fd;
         return 1;
+}
+
+#define LINUX_ELFNOTE_BUILD_SALT 0x100
+
+static bool uname_is_valid(const char *s) {
+        return version_is_valid(s, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS);
+}
+
+static int uname_from_x86_boot_header(int fd, char **ret) {
+        SetupHeader hdr;
+        ssize_t n;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        n = pread(fd, &hdr, sizeof(hdr), offsetof(BootParams, hdr));
+        if (n < 0)
+                return -errno;
+        if ((size_t) n < sizeof(hdr)) {
+                log_debug("Kernel image is too small for an x86 boot header.");
+                return 0;
+        }
+        if (le32toh(hdr.header) != SETUP_MAGIC) {
+                log_debug("Kernel image has no x86 boot header.");
+                return 0;
+        }
+
+        uint16_t offset = le16toh(hdr.kernel_version);
+        if (offset == 0) {
+                log_debug("x86 boot header does not contain the offset of the kernel version.");
+                return 0;
+        }
+
+        char text[129] = {};
+        n = pread(fd, text, sizeof(text) - 1, 0x200 + offset);
+        if (n < 0)
+                return -errno;
+
+        /* The string has the form "VERSION (USER@HOST) #BUILD ...". */
+        size_t l = strspn(text, ALPHANUMERICAL "._+-");
+        if (l == 0 || !startswith(text + l, " (")) {
+                log_debug("Kernel version in the x86 boot header is not followed by \" (\".");
+                return 0;
+        }
+
+        const char *p = text + l + 2;
+        p += strcspn(p, " )");
+        if (!startswith(p, ") #")) {
+                log_debug("Kernel version in the x86 boot header is not followed by \"(USER@HOST) #\".");
+                return 0;
+        }
+
+        _cleanup_free_ char *s = strndup(text, l);
+        if (!s)
+                return -ENOMEM;
+
+        if (!uname_is_valid(s)) {
+                log_debug("Kernel version '%s' in the x86 boot header is not valid.", s);
+                return 0;
+        }
+
+        *ret = TAKE_PTR(s);
+        return 1;
+}
+
+static int uname_from_elf_note(const uint8_t *data, size_t size, char **ret) {
+        assert(data || size == 0);
+        assert(ret);
+
+        /* The kernel stores CONFIG_BUILD_SALT in a note with the name "Linux" and the type
+         * LINUX_ELFNOTE_BUILD_SALT. Some distributions set CONFIG_BUILD_SALT to the kernel version. Others
+         * keep the upstream default, which is an empty string, or set another value. We only use the note
+         * if it contains a valid version. */
+
+        if (size < EI_NIDENT || memcmp(data, ELFMAG, SELFMAG) != 0) {
+                log_debug("Kernel image is not an ELF file.");
+                return 0;
+        }
+
+        if (!IN_SET(data[EI_CLASS], ELFCLASS32, ELFCLASS64) || !IN_SET(data[EI_DATA], ELFDATA2LSB, ELFDATA2MSB)) {
+                log_debug("Kernel ELF file has unknown class %u or data encoding %u.", data[EI_CLASS], data[EI_DATA]);
+                return 0;
+        }
+
+        bool is_64 = data[EI_CLASS] == ELFCLASS64, le = data[EI_DATA] == ELFDATA2LSB;
+
+#define READ16(p) (le ? unaligned_read_le16(p) : unaligned_read_be16(p))
+#define READ32(p) (le ? unaligned_read_le32(p) : unaligned_read_be32(p))
+#define READ64(p) (le ? unaligned_read_le64(p) : unaligned_read_be64(p))
+
+        size_t ehdr_size = is_64 ? sizeof(Elf64_Ehdr) : sizeof(Elf32_Ehdr);
+        if (size < ehdr_size) {
+                log_debug("Kernel ELF file is too small for an ELF header.");
+                return 0;
+        }
+
+        uint64_t phoff = is_64 ? READ64(data + offsetof(Elf64_Ehdr, e_phoff)) : READ32(data + offsetof(Elf32_Ehdr, e_phoff));
+        uint16_t phentsize = READ16(data + (is_64 ? offsetof(Elf64_Ehdr, e_phentsize) : offsetof(Elf32_Ehdr, e_phentsize))),
+                 phnum = READ16(data + (is_64 ? offsetof(Elf64_Ehdr, e_phnum) : offsetof(Elf32_Ehdr, e_phnum)));
+
+        if (phentsize < (is_64 ? sizeof(Elf64_Phdr) : sizeof(Elf32_Phdr))) {
+                log_debug("Kernel ELF file has program headers of %" PRIu16 " bytes, which is too small.", phentsize);
+                return 0;
+        }
+
+        for (uint16_t i = 0; i < phnum; i++) {
+                uint64_t ph = phoff + (uint64_t) i * phentsize;
+                if (ph > size || size - ph < phentsize) {
+                        log_debug("Program header %" PRIu16 " of the kernel ELF file is outside of the file.", i);
+                        return 0;
+                }
+
+                const uint8_t *p = data + ph;
+                uint32_t type = READ32(p + (is_64 ? offsetof(Elf64_Phdr, p_type) : offsetof(Elf32_Phdr, p_type)));
+                if (type != PT_NOTE)
+                        continue;
+
+                uint64_t offset = is_64 ? READ64(p + offsetof(Elf64_Phdr, p_offset)) : READ32(p + offsetof(Elf32_Phdr, p_offset)),
+                         filesz = is_64 ? READ64(p + offsetof(Elf64_Phdr, p_filesz)) : READ32(p + offsetof(Elf32_Phdr, p_filesz));
+                if (offset > size || filesz > size - offset) {
+                        log_debug("Note segment %" PRIu16 " of the kernel ELF file is outside of the file, ignoring.", i);
+                        continue;
+                }
+
+                for (uint64_t q = offset; q + 12 <= offset + filesz;) {
+                        uint32_t namesz = READ32(data + q), descsz = READ32(data + q + 4), ntype = READ32(data + q + 8);
+                        uint64_t name = q + 12, desc = name + ALIGN_TO_U64(namesz, 4), next = desc + ALIGN_TO_U64(descsz, 4);
+                        if (next > offset + filesz) {
+                                log_debug("Note in segment %" PRIu16 " of the kernel ELF file is outside of the segment, ignoring.", i);
+                                break;
+                        }
+
+                        q = next;
+
+                        if (ntype != LINUX_ELFNOTE_BUILD_SALT || namesz != 6 || memcmp(data + name, "Linux", 6) != 0)
+                                continue;
+
+                        size_t l = descsz;
+                        while (l > 0 && data[desc + l - 1] == 0)
+                                l--;
+
+                        if (l == 0) {
+                                log_debug("Build salt note of the kernel ELF file is empty, ignoring.");
+                                continue;
+                        }
+                        if (memchr(data + desc, 0, l)) {
+                                log_debug("Build salt note of the kernel ELF file contains a NUL byte, ignoring.");
+                                continue;
+                        }
+
+                        _cleanup_free_ char *s = memdup_suffix0(data + desc, l);
+                        if (!s)
+                                return -ENOMEM;
+
+                        if (!uname_is_valid(s)) {
+                                log_debug("Build salt note '%s' of the kernel ELF file is not a valid version, ignoring.", s);
+                                continue;
+                        }
+
+                        *ret = TAKE_PTR(s);
+                        return 1;
+                }
+        }
+
+#undef READ16
+#undef READ32
+#undef READ64
+
+        log_debug("Kernel ELF file has no build salt note with a valid version.");
+        return 0;
+}
+
+static int uname_from_banner(const uint8_t *data, size_t size, char **ret) {
+        static const char banner[] = "Linux version ";
+
+        assert(data || size == 0);
+        assert(ret);
+
+        /* Kernels for architectures other than x86 have no boot header that contains the version. The
+         * uncompressed kernel contains linux_banner from init/version-timestamp.c instead. /proc/version
+         * shows the same string. It has the form "Linux version VERSION (USER@HOST) (COMPILER) #BUILD
+         * ...". */
+
+        for (const uint8_t *p = data; p < data + size;) {
+                p = memmem_safe(p, data + size - p, banner, strlen(banner));
+                if (!p)
+                        break;
+
+                p += strlen(banner);
+
+                size_t l = 0;
+                while (p + l < data + size && !strchr(WHITESPACE, p[l]))
+                        l++;
+
+                size_t d = 0;
+                while (d < l && ascii_isdigit(p[d]))
+                        d++;
+
+                if (d == 0 || d >= l || p[d] != '.' || p + l + 2 > data + size || p[l] != ' ' || p[l + 1] != '(')
+                        continue;
+
+                _cleanup_free_ char *s = memdup_suffix0(p, l);
+                if (!s)
+                        return -ENOMEM;
+
+                if (!uname_is_valid(s)) {
+                        log_debug("Kernel version '%s' in the kernel banner is not valid, ignoring.", s);
+                        continue;
+                }
+
+                *ret = TAKE_PTR(s);
+                return 1;
+        }
+
+        log_debug("Kernel image contains no kernel banner with a valid version.");
+        return 0;
+}
+
+static int uname_from_image_data(int fd, char **ret) {
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
+
+        if (st.st_size == 0)
+                return 0;
+
+        void *p = mmap(/* addr= */ NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, /* offset= */ 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        r = uname_from_elf_note(p, st.st_size, ret);
+        if (r == 0)
+                r = uname_from_banner(p, st.st_size, ret);
+
+        (void) munmap(p, st.st_size);
+        return r;
+}
+
+int kernel_find_uname(int fd, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* fd can refer to an x86 bzImage, a ZBOOT EFI image, a vmlinux ELF file, an uncompressed kernel
+         * image, or a kernel image compressed with a format that kernel_decompress() supports. UKIs are not
+         * supported. inspect_kernel() reads the version from their .uname section. */
+
+        r = uname_from_x86_boot_header(fd, &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read x86 boot header: %m");
+        if (r == 0) {
+                _cleanup_close_ int decompressed_fd = -EBADF;
+
+                r = kernel_decompress(fd, &decompressed_fd);
+                if (r < 0)
+                        return r;
+
+                r = uname_from_image_data(r > 0 ? decompressed_fd : fd, &s);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to search kernel image for its version: %m");
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "Kernel image does not contain its version.");
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
