@@ -1104,6 +1104,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   an `AllocError` that converts into `-ENOMEM`. There is no global allocator, so
   a program that uses `alloc` regardless does not link.
 
+- Keep secrets in a `Box` or `Vec` with the `Erasing` allocator, e.g.
+  `Vec<u8, Erasing>`, which erases its memory before freeing or moving it, like
+  `erase_and_free()` does in C. The type then guarantees what C code does by
+  convention.
+
 
 ## Committing to git
 

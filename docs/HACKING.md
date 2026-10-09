@@ -226,6 +226,10 @@ Some things to keep in mind:
   handler, and so does one that allocates through `alloc`, since there is no
   global allocator.
 
+- Keys, passphrases and other secrets go into `Vec<u8, Erasing>` or
+  `Box<T, Erasing>`, whose memory is erased before it is freed or moved, like
+  `erase_and_free()` does in C.
+
 - Everything from systemd stays in the shared library, so a program written in
   Rust is not much bigger than its C equivalent. With `-Db_lto=true`, the
   stripped `test-cli-rust` binary is 32 KB, compared to 20 KB for `test-cli-c`.
