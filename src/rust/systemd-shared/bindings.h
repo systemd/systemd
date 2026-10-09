@@ -41,6 +41,7 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "verbs.h"
+#include "voa-util.h"
 
 /* Object-like macros with casts are not constant expressions to bindgen. These give it something it can
  * evaluate, the crate root renames them; values that do not fit a long (USEC_INFINITY, NSEC_INFINITY) are
