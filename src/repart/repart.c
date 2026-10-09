@@ -2201,12 +2201,20 @@ static int config_parse_copy_files(
                         continue;
 
                 if ((val = startswith(word, "fsverity="))) {
+                        CopyFlags f;
+
                         if (streq(val, "copy"))
-                                flags |= COPY_PRESERVE_FS_VERITY;
+                                f = COPY_PRESERVE_FS_VERITY;
+                        else if (streq(val, "enable"))
+                                f = COPY_ENABLE_FS_VERITY;
                         else if (streq(val, "off"))
-                                flags &= ~COPY_PRESERVE_FS_VERITY;
-                        else
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "fsverity= expects either 'off' or 'copy'.");
+                                f = 0;
+                        else {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "fsverity= expects 'off', 'copy' or 'enable'.");
+                                continue;
+                        }
+
+                        flags = (flags & ~(COPY_PRESERVE_FS_VERITY|COPY_ENABLE_FS_VERITY)) | f;
                 } else
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Encountered unknown option '%s', ignoring.", word);
         }
@@ -3057,7 +3065,7 @@ static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
                 flags |= MKFS_QUIET;
 
         FOREACH_ARRAY(cf, p->copy_files, p->n_copy_files)
-                if (cf->flags & COPY_PRESERVE_FS_VERITY) {
+                if (cf->flags & (COPY_PRESERVE_FS_VERITY|COPY_ENABLE_FS_VERITY)) {
                         flags |= MKFS_FS_VERITY;
                         break;
                 }
@@ -7206,6 +7214,12 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
+
+                        if (FLAGS_SET(line->flags, COPY_ENABLE_FS_VERITY)) {
+                                r = fd_enable_fs_verity(&tfd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to enable fs-verity on '%s%s': %m", strempty(root), line->target);
+                        }
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         if (copy_ownership)
