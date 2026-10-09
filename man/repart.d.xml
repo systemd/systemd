@@ -492,6 +492,16 @@
             then the fs-verity information for each file will be copied from the corresponding source
             file.</para>
 
+            <para>May also be set to <literal>enable</literal>, in which case fs-verity is enabled on every
+            regular file copied from this source with SHA-256 and a block size of 4096 bytes, the defaults of
+            <command>fsverity enable</command>, whether the source file has fs-verity or not. The source
+            file system does not need to support fs-verity. Like <literal>copy</literal>, this enables the
+            <literal>verity</literal> feature when creating an ext4 or f2fs file system, and requires that
+            either the target file system is populated after being mounted, or the temporary directory
+            supports fs-verity.</para>
+
+            <xi:include href="version-info.xml" xpointer="v263"/>
+
             <xi:include href="version-info.xml" xpointer="v258"/></listitem>
 
           </varlistentry>
