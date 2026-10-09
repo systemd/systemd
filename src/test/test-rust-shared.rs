@@ -257,7 +257,7 @@ struct CacheLine([u8; 64]);
 
 fn test_alloc() {
     // malloc() for anything it aligns, grown with realloc().
-    let mut bytes = Vec::new();
+    let mut bytes: Vec<u8> = Vec::new();
     for i in 0..10_000u32 {
         bytes.push(i.to_le_bytes()[0]).unwrap();
     }
@@ -282,19 +282,19 @@ fn test_alloc() {
     // An alignment beyond the size, which malloc() does not guarantee either.
     #[repr(align(16))]
     struct Small(u8);
-    let b = Box::new(Small(7)).unwrap();
+    let b: Box<Small> = Box::new(Small(7)).unwrap();
     assert_eq!(ptr::from_ref(&*b).addr() % align_of::<Small>(), 0);
     assert_eq!(Box::into_inner(b).0, 7);
 
     // Zero-sized types need no memory.
-    let mut units = Vec::new();
+    let mut units: Vec<()> = Vec::new();
     for _ in 0..1000 {
         units.push(()).unwrap();
     }
     assert_eq!(units.len(), 1000);
-    drop(Box::new(()).unwrap());
+    drop(Box::<()>::new(()).unwrap());
 
-    let mut v = Vec::from_elem(1u32, 3).unwrap();
+    let mut v: Vec<u32> = Vec::from_elem(1u32, 3).unwrap();
     v.extend_from_slice(&[2, 3]).unwrap();
     assert_eq!(v, [1, 1, 1, 2, 3]);
     assert_eq!(v.pop(), Some(3));
