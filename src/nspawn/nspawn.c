@@ -3619,8 +3619,11 @@ static int inner_child(
         if (!env_use)
                 return log_oom();
 
-        /* Let the parent know that we are ready and wait until the parent is ready with the setup, too... */
-        if (!barrier_place_and_sync(barrier)) /* #5 */
+        /* Tell the parent that we are fully set up and locked down. */
+        (void) barrier_place(barrier); /* #5 */
+
+        /* Wait until the parent removed the fully visible API file systems. */
+        if (!barrier_place_and_sync(barrier)) /* #6 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
 
         /* Note, this should be done this late (💣 and not moved earlier! 💣), so that all namespacing
@@ -5741,9 +5744,9 @@ static int run_container(
         if (r < 0)
                 return r;
 
-        /* Wait that the child is completely ready now, and has mounted their own copies of procfs and so on,
-         * before we take the fully visible instances away. */
-        if (!barrier_sync(&barrier)) /* #5.1 */
+        /* Wait until the child is fully set up and locked down before we take the fully visible API file
+         * systems away and report readiness. barrier_sync() alone would return on the child's #4. */
+        if (!barrier_place_and_sync(&barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
@@ -5755,7 +5758,7 @@ static int run_container(
 
         /* And now let the child know that we completed removing the procfs instances, and it can start the
          * payload. */
-        if (!barrier_place(&barrier)) /* #5.2 */
+        if (!barrier_place(&barrier)) /* #6 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service

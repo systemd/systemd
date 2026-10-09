@@ -1661,4 +1661,33 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_ready_after_lockdown() {
+    # https://github.com/systemd/systemd/issues/43976
+    local root container_name unit_name leader capbnd
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ready-after-lockdown.XXX)"
+    create_dummy_container "$root"
+    container_name="$(basename "$root")"
+    unit_name="nspawn-ready-after-lockdown.service"
+
+    # systemd-run returns once nspawn sent READY=1, by then the leader must be fully locked down
+    systemd-run --unit="$unit_name" \
+                --service-type=notify \
+                systemd-nspawn --directory="$root" \
+                               --as-pid2 \
+                               --drop-capability=CAP_NET_RAW \
+                               sleep infinity
+    leader="$(machinectl show --property=Leader --value "$container_name")"
+
+    # CAP_NET_RAW is capability 13
+    capbnd="$(awk '/^CapBnd:/ { print $2 }' "/proc/$leader/status")"
+    (( (0x$capbnd & (1 << 13)) == 0 ))
+    if systemctl --version | grep -F -- "+SECCOMP" >/dev/null; then
+        grep -E '^Seccomp:\s+2$' "/proc/$leader/status" >/dev/null
+    fi
+
+    systemctl stop "$unit_name"
+    rm -fr "$root"
+}
+
 run_testcases
