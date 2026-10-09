@@ -95,7 +95,7 @@ systemd_shared_sys_gen = rust.bindgen(
                 '--allowlist-var', 'PATH_MAX|NAME_MAX|LINE_MAX|ARG_MAX|HOST_NAME_MAX|IOV_MAX|NGROUPS_MAX|[A-Z0-9_]+_MAGIC',
                 # What the allocator, the panic handler and print!() are built on, plus helpers that C code
                 # gets from libc directly.
-                '--allowlist-function', 'malloc|calloc|realloc|posix_memalign|free|abort|fwrite|strdup',
+                '--allowlist-function', 'malloc|calloc|realloc|posix_memalign|free|abort|fwrite|strdup|fchmod',
                 '--allowlist-var', 'stdout',
                 # bindgen mis-serializes pointer-to-array parameters of static inline functions, see
                 # https://github.com/rust-lang/rust-bindgen/issues/3403.
@@ -146,20 +146,25 @@ libsystemd_shared_sys = static_library(
 systemd_shared_sources = files(
         'lib.rs',
         'alloc.rs',
+        'chase.rs',
         'command.rs',
+        'creds.rs',
         'cstr.rs',
         'errno.rs',
         'event.rs',
         'fd.rs',
+        'fileio.rs',
         'json.rs',
         'log.rs',
         'panic.rs',
         'prelude.rs',
         'program.rs',
+        'recurse_dir.rs',
         'refcount.rs',
         'stdio.rs',
         'strv.rs',
         'tests.rs',
+        'tmpfile.rs',
 )
 
 # The parent registers the tests, a subproject with tests of its own breaks meson test --setup= for setups
