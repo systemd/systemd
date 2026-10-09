@@ -148,6 +148,7 @@ systemd_shared_sources = files(
         'conf_files.rs',
         'creds.rs',
         'cstr.rs',
+        'dlopen.rs',
         'errno.rs',
         'fd.rs',
         'fileio.rs',
