@@ -308,9 +308,54 @@ for dev in /sys/block/*; do
     [ "$write_bytes" -le "$(( write_sectors * 512 ))" ]
 done
 
+# Sample the clock metrics anew, right before comparing them against /proc/uptime and date, so that the
+# margins below do not have to cover the time the checks above took.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+
+# The clock metrics are sampled together, hence boottime (which includes time spent suspended) can
+# never be smaller than monotonic. Uptime in the test VM is far below 2^53 ns, so jq reproduces those
+# values exactly. Realtime is not (it's ~1.8e18), hence compare that one in whole seconds only.
+boottime_ns="$(basic_number ClockBoottimeNSec)"
+monotonic_ns="$(basic_number ClockMonotonicNSec)"
+realtime_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.ClockRealtimeNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
+test -n "$boottime_ns"
+test -n "$monotonic_ns"
+test -n "$realtime_s"
+[ "$monotonic_ns" -gt 0 ]
+[ "$boottime_ns" -ge "$monotonic_ns" ]
+
+# /proc/uptime is CLOCK_BOOTTIME too, read after the metrics were sampled; allow for a generous margin.
+uptime_s="$(cut -d. -f1 /proc/uptime)"
+[ $(( boottime_ns / 1000000000 )) -le "$uptime_s" ]
+[ $(( boottime_ns / 1000000000 )) -ge $(( uptime_s - 60 )) ]
+
+now_s="$(date +%s)"
+[ "$realtime_s" -le "$now_s" ]
+[ "$realtime_s" -ge $(( now_s - 60 )) ]
+
+# Boottime and monotonic are counters, hence must not go backwards between two calls.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+[ "$(basic_number ClockBoottimeNSec)" -ge "$boottime_ns" ]
+[ "$(basic_number ClockMonotonicNSec)" -ge "$monotonic_ns" ]
+
+# DeploymentTimestampNSec is the birth time of the file system backing /var/, or of the root file system
+# if /var/ is not a mount point of its own. It is only reported if the file system records birth times
+# (which stat reports as 0 otherwise). The value is ~1.8e18, beyond what jq represents exactly, hence
+# compare in whole seconds and allow for one second of rounding error.
+if mountpoint -q /var/; then deploy_dir=/var/; else deploy_dir=/; fi
+deploy_expected_s="$(stat -c %W "$deploy_dir")"
+deploy_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.DeploymentTimestampNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
+if [ "$deploy_expected_s" -gt 0 ]; then
+    test -n "$deploy_s"
+    [ "$deploy_s" -ge $(( deploy_expected_s - 1 )) ]
+    [ "$deploy_s" -le $(( deploy_expected_s + 1 )) ]
+else
+    test -z "$deploy_s"
+fi
+
 # Every new metric family must be described, even those whose values depend on the environment.
 basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-for name in CPUUsage CPUWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DeploymentTimestampNSec DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
     echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
 done
 
