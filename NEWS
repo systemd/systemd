@@ -6,6 +6,15 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Changes in systemd-udevd:
+
+        * systemd-udevd now uses fanotify rather than inotify to watch device
+          nodes (as enabled by the "watch" udev rule option, i.e.
+          OPTIONS+="watch"). The kernel must now be built with CONFIG_FANOTIFY.
+          Downgrading to an older, inotify-based systemd-udevd is not supported:
+          after such a downgrade, device watches must be re-established by
+          running "udevadm trigger" for all devices that have a device node.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
