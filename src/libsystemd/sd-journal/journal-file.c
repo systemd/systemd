@@ -299,6 +299,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
 
         sd_event_source_disable_unref(f->post_change_timer);
+        sd_event_source_disable_unref(f->post_change_idle);
 
         if (f->segmented) {
                 /* The file might still be synced or archived in the background */
@@ -2729,6 +2730,17 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
         return 1;
 }
 
+static int post_change_idle_thunk(sd_event_source *s, void *userdata) {
+        JournalFile *f = ASSERT_PTR(userdata);
+
+        /* The timer would find nothing left to write out */
+        (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
+
+        journal_file_post_change(f);
+
+        return 1;
+}
+
 static void schedule_post_change(JournalFile *f) {
         sd_event *e;
         int r;
@@ -2741,6 +2753,14 @@ static void schedule_post_change(JournalFile *f) {
         /* If we are already going down, post the change immediately. */
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 goto fail;
+
+        if (f->post_change_idle) {
+                r = sd_event_source_set_enabled(f->post_change_idle, SD_EVENT_ONESHOT);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to enable idle post change event source: %m");
+                        goto fail;
+                }
+        }
 
         r = sd_event_source_get_enabled(f->post_change_timer, NULL);
         if (r < 0) {
@@ -2791,6 +2811,27 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         r = sd_event_source_set_enabled(timer, SD_EVENT_OFF);
         if (r < 0)
                 return r;
+
+        if (f->segmented) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *idle = NULL;
+
+                /* Readers do not see the entries of a segmented file until they are written out. Write
+                 * them out once the event loop has nothing else to do. If the event loop stays busy, the
+                 * timer writes them out t after the first new entry. */
+                r = sd_event_add_defer(e, &idle, post_change_idle_thunk, f);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(idle, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_enabled(idle, SD_EVENT_OFF);
+                if (r < 0)
+                        return r;
+
+                f->post_change_idle = TAKE_PTR(idle);
+        }
 
         f->post_change_timer = TAKE_PTR(timer);
         f->post_change_timer_period = t;

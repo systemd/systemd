@@ -94,6 +94,7 @@ typedef struct JournalFile {
         JournalMetrics metrics;
 
         sd_event_source *post_change_timer;
+        sd_event_source *post_change_idle;
         usec_t post_change_timer_period;
 
         OrderedHashmap *chain_cache;

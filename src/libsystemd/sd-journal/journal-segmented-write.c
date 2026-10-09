@@ -36,7 +36,7 @@
  * copied. The batch is written before segmented_append_entry() returns then. */
 #define EXTERNAL_SIZE_MIN (64 * U64_KB)
 
-/* The batch is written once it reaches this size, and otherwise by the post-change timer */
+/* The batch is written once it reaches this size, and otherwise by journal_file_post_change() */
 #define BATCH_SIZE_MAX (256 * U64_KB)
 
 /* A buffer larger than this is freed after each batch, so that one large payload does not keep its memory
@@ -541,7 +541,8 @@ int segmented_flush(JournalFile *f) {
         int r;
 
         /* Writes the batch with one system call. The batch holds the entries that were appended since
-         * the last call, which the post-change timer makes at most every 250 ms. */
+         * the last call. journald makes the call once its event loop has nothing else to do, and at
+         * most 250 ms after the first entry of the batch. */
 
         if (!w || w->n_pieces == 0)
                 return 0;
