@@ -31,7 +31,7 @@
  * smaller. Without the second limit, a small file would get no index until it is archived. */
 #define TAIL_SIZE_MAX (4 * U64_MB)
 
-/* The batch is written once it reaches this size, and otherwise by the post-change timer */
+/* The batch is written once it reaches this size, and otherwise by journal_file_post_change() */
 #define BATCH_SIZE_MAX (256 * U64_KB)
 
 /* A buffer larger than this is freed after each batch, so that one large payload does not keep its memory
@@ -411,7 +411,8 @@ int segmented_flush(JournalFile *f) {
         int r;
 
         /* Writes the batch with one system call. The batch holds the entries that were appended since
-         * the last call, which the post-change timer makes at most every 250 ms. */
+         * the last call. journald makes the call once its event loop has nothing else to do, and at
+         * most 250 ms after the first entry of the batch. */
 
         if (!w || w->buffer_size == 0)
                 return 0;

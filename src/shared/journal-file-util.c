@@ -497,6 +497,7 @@ JournalFile* journal_file_offline_close(JournalFile *f) {
 
         journal_file_post_change_pending(f);
         f->post_change_timer = sd_event_source_disable_unref(f->post_change_timer);
+        f->post_change_idle = sd_event_source_disable_unref(f->post_change_idle);
 
         journal_file_set_offline(f, true);
 
