@@ -498,6 +498,14 @@ done
         _values -s , "${_modes[@]}"
     }
 
+(( $+functions[_systemctl_boot_loader_entries] )) ||
+    _systemctl_boot_loader_entries() {
+        local -a _entries
+        _entries=( ${(f)"$(_call_program boot-loader-entries systemctl --boot-loader-entry=help 2>/dev/null)"} )
+        _wanted boot-loader-entries expl 'boot loader entry' compadd -a _entries
+    }
+
+
 (( $+functions[_systemctl_timestamp] )) ||
     _systemctl_timestamp() {
         local -a _styles
@@ -556,6 +564,7 @@ _sys_arguments=(
     '(-n --lines)'{-n+,--lines=}'[Journal entries to show]:number of entries'
     '(-o --output)'{-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes'
     '--firmware-setup[Tell the firmware to show the setup menu on next boot]'
+    '--boot-loader-entry=[Boot into a specific boot loader entry on next boot]:entry:_systemctl_boot_loader_entries'
     '--plain[When used with list-dependencies, print output as a list]'
     '--failed[Show failed units]'
     '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp'
