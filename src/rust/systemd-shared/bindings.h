@@ -56,6 +56,7 @@
 #include "fileio.h"
 #include "forward.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
