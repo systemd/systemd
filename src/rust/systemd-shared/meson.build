@@ -157,5 +157,6 @@ libsystemd_shared_rs = static_library(
         'systemd_shared',
         systemd_shared_sources,
         rust_abi : 'rust',
+        rust_args : rust_cfg_args,
         link_with : [libsystemd_shared_sys],
         build_by_default : false)
