@@ -799,6 +799,53 @@ TEST_RET(copy_with_verity) {
         return 0;
 }
 
+TEST_RET(copy_enable_verity) {
+        _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *verity_srcp = NULL, *refp = NULL, *dstp = NULL, *verity_dstp = NULL, *baddstp = NULL;
+        const char *files[] = { "one", "two" };
+        _cleanup_close_ int src = -EBADF, verity_src = -EBADF, ref = -EBADF, dst = -EBADF, verity_dst = -EBADF, baddst = -EBADF;
+
+        /* The source is on /tmp, usually tmpfs without fs-verity support: COPY_ENABLE_FS_VERITY doesn't need it. */
+        ASSERT_OK(src = mkdtemp_open("/tmp/test-copy_enable_verity-src.XXXXXX", 0, &srcp));
+        ASSERT_OK(ref = mkdtemp_open("/var/tmp/test-copy_enable_verity-ref.XXXXXX", 0, &refp));
+        ASSERT_OK(dst = mkdtemp_open("/var/tmp/test-copy_enable_verity-dst.XXXXXX", 0, &dstp));
+
+        FOREACH_ELEMENT(file, files)
+                ASSERT_OK(write_string_file_at(src, *file, *file, WRITE_STRING_FILE_CREATE));
+
+        /* The expected result: the files sealed with SHA-256, 4 KiB blocks and no salt. */
+        ASSERT_OK(copy_tree_at(src, ".", ref, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE, NULL, NULL));
+        if (!enable_fsverity(ref, "one", FS_VERITY_HASH_ALG_SHA256, NULL, 0))
+                return log_tests_skipped_errno(errno, "/var/tmp: fs-verity is not supported here");
+        ASSERT_TRUE(enable_fsverity(ref, "two", FS_VERITY_HASH_ALG_SHA256, NULL, 0));
+
+        ASSERT_OK(copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_ENABLE_FS_VERITY, NULL, NULL));
+        FOREACH_ELEMENT(file, files)
+                assert_fsverity_eq(ref, dst, *file);
+
+        /* fs-verity parameters of the source are not copied, the defaults are used regardless. */
+        ASSERT_OK(verity_src = mkdtemp_open("/var/tmp/test-copy_enable_verity-vsrc.XXXXXX", 0, &verity_srcp));
+        ASSERT_OK(verity_dst = mkdtemp_open("/var/tmp/test-copy_enable_verity-vdst.XXXXXX", 0, &verity_dstp));
+        FOREACH_ELEMENT(file, files)
+                ASSERT_OK(write_string_file_at(verity_src, *file, *file, WRITE_STRING_FILE_CREATE));
+        ASSERT_TRUE(enable_fsverity(verity_src, "one", FS_VERITY_HASH_ALG_SHA512, "edamame", 8));
+
+        ASSERT_OK(copy_tree_at(verity_src, ".", verity_dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_ENABLE_FS_VERITY, NULL, NULL));
+        FOREACH_ELEMENT(file, files)
+                assert_fsverity_eq(ref, verity_dst, *file);
+
+        /* Enabling fs-verity on a target that doesn't support it fails. /tmp is usually tmpfs, but not
+         * everywhere. */
+        ASSERT_OK(baddst = mkdtemp_open("/tmp/test-copy_enable_verity-dst.XXXXXX", 0, &baddstp));
+        ASSERT_OK(write_string_file_at(baddst, "probe", "probe", WRITE_STRING_FILE_CREATE));
+        if (enable_fsverity(baddst, "probe", FS_VERITY_HASH_ALG_SHA256, NULL, 0)) {
+                log_notice("/tmp supports fs-verity, not testing a target without it.");
+                return 0;
+        }
+        ASSERT_ERROR(copy_tree_at(src, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_ENABLE_FS_VERITY, NULL, NULL), ESOCKTNOSUPPORT);
+
+        return 0;
+}
+
 static void test_copy_times_one(
                 const struct timespec source[static 2],
                 usec_t ts_clamp,
