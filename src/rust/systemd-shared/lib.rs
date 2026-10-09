@@ -60,5 +60,7 @@ pub mod strv;
 pub mod tests;
 pub mod tmpfile;
 pub mod voa;
+#[cfg(HAVE_OPENSSL)]
+pub mod x509;
 
 pub use errno::{check, from_result, Errno, Result};
