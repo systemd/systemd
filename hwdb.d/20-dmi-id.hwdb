@@ -79,3 +79,7 @@ dmi:*:svnMicrosoftCorporation:pnSurfaceGo3:*
 # GPD Pocket 4 chassis type
 dmi:bvnAmericanMegatrendsInternational*:rvnGPD:rnG1628-04*
  ID_CHASSIS=convertible
+
+# Google Pixelbook (Eve) is a convertible, but reports chassis type 3 (Desktop)
+dmi:*:svnGoogle:pnEve:*
+ ID_CHASSIS=convertible
