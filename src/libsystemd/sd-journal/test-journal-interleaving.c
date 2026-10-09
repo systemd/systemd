@@ -22,6 +22,7 @@
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "journal-segmented.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "logs-show.h"
@@ -503,7 +504,7 @@ static void test_remove_unlinked_selected_file_one(bool truncate, bool refresh_s
                 if (refresh_stat)
                         ASSERT_ERROR(journal_file_fstat(f), EIDRM);
                 else {
-                        ASSERT_EQ(READ_NOW(f->header->state), STATE_OFFLINE);
+                        ASSERT_EQ(READ_NOW((f->segmented ? f->segmented->disk_header : f->header)->state), STATE_OFFLINE);
                         ASSERT_TRUE(mmap_cache_fd_got_sigbus(f->cache_fd));
                 }
         } else {
@@ -1069,6 +1070,10 @@ TEST(sequence_numbers) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_sequence_numbers_one();
 
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        test_sequence_numbers_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_COMPACT"));
 }
 
@@ -1358,6 +1363,9 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
 }
 
 TEST(generic_array_bisect) {
+        /* Tests entry arrays, which segmented files do not have. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
+
         for (size_t n = 1; n < 10; n++)
                 for (size_t m = 1; m <= n; m++)
                         test_generic_array_bisect_one(n, m);
@@ -1630,6 +1638,7 @@ static void append_test_entry_full(
                                         m,
                                         /* file_flags= */ JOURNAL_STRICT_ORDER,
                                         /* compress_threshold_bytes= */ UINT64_MAX,
+                                        /* seqnum_id= */ NULL,
                                         /* deferred_closes= */ NULL));
         }
 
@@ -1960,6 +1969,10 @@ static int intro(void) {
                 return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = saved_argc > 1;
+
+        /* Most tests check classic files. The tests for segmented files set $SYSTEMD_JOURNAL_SEGMENTED
+         * themselves. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 
         return EXIT_SUCCESS;
 }
