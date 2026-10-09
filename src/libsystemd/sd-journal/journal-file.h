@@ -27,6 +27,16 @@ typedef enum direction {
         _DIRECTION_INVALID = -EINVAL,
 } direction_t;
 
+typedef enum JournalSeek {
+        JOURNAL_SEEK_FIRST,     /* the first (or last) entry */
+        JOURNAL_SEEK_OFFSET,    /* the entry at or after (or before) the offset */
+        JOURNAL_SEEK_SEQNUM,
+        JOURNAL_SEEK_REALTIME,
+        JOURNAL_SEEK_MONOTONIC, /* within the boot */
+        _JOURNAL_SEEK_MAX,
+        _JOURNAL_SEEK_INVALID = -EINVAL,
+} JournalSeek;
+
 typedef enum LocationType {
         /* The first and last entries, resp. */
         LOCATION_HEAD,
@@ -125,7 +135,8 @@ typedef struct {
 
 extern const struct hash_ops journal_file_hash_ops_by_path;
 
-int journal_file_open(
+/* The sequence number ID is used when the file is created, in preference to the one of the template. */
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -135,7 +146,21 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret);
+static inline int journal_file_open(
+                int fd,
+                const char *fname,
+                int open_flags,
+                JournalFileFlags file_flags,
+                mode_t mode,
+                uint64_t compress_threshold_bytes,
+                JournalMetrics *metrics,
+                MMapCache *mmap_cache,
+                JournalFile *template,
+                JournalFile **ret) {
+        return journal_file_open_full(fd, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics, mmap_cache, template, /* seqnum_id= */ NULL, ret);
+}
 
 int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *f);
@@ -191,6 +216,7 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret);
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
@@ -213,9 +239,30 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
 
+/* The fields of an entry. Unlike the items of an entry object these never refer to anything but data. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
+
 int journal_file_data_payload(
                 JournalFile *f,
                 Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
+int journal_file_data_payload_pinned(
+                JournalFile *f,
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
@@ -262,10 +309,8 @@ int journal_file_append_entry(
                 uint64_t *ret_offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
@@ -280,8 +325,9 @@ int journal_file_move_to_entry_for_data(JournalFile *f, Object *d, direction_t d
 
 int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, Object *d, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+
+/* Same as the _for_data() calls above, but take the data itself instead of a data object. */
+int journal_file_seek_for_match(JournalFile *f, const void *data, uint64_t size, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, sd_id128_t *seqnum_id);
 

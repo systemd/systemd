@@ -21,6 +21,8 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -390,9 +392,9 @@ static Compression compression_requested(void) {
 static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
-                JournalFile *template) {
+                JournalFile *template,
+                const sd_id128_t *seqnum_id) {
 
-        ssize_t k;
         int r;
 
         assert(f);
@@ -423,19 +425,19 @@ static int journal_file_init_header(
                 return r; /* If we have no valid machine ID (test environment?), let's simply leave the
                            * machine ID field all zeroes. */
 
-        if (template) {
-                h.seqnum_id = template->header->seqnum_id;
+        if (template)
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
-        } else
+
+        /* The creator's sequence number ID wins over the template's, like it does for the first entry
+         * appended to an empty file. */
+        if (seqnum_id && !sd_id128_is_null(*seqnum_id))
+                h.seqnum_id = *seqnum_id;
+        else if (template)
+                h.seqnum_id = template->header->seqnum_id;
+        else
                 h.seqnum_id = h.file_id;
 
-        k = pwrite(f->fd, &h, sizeof(h), 0);
-        if (k < 0)
-                return -errno;
-        if (k != sizeof(h))
-                return -EIO;
-
-        return 0;
+        return pwritev_full(f->fd, &IOVEC_MAKE(&h, sizeof(h)), 1, 0, /* ret_written= */ NULL);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
@@ -848,7 +850,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static int journal_file_move_to(
+int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
@@ -1552,7 +1554,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         return true;
 }
 
-int journal_file_find_field_object_with_hash(
+static int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field,
                 uint64_t size,
@@ -1655,7 +1657,7 @@ int journal_file_find_field_object(
                         ret_object, ret_offset);
 }
 
-int journal_file_find_data_object_with_hash(
+static int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data,
                 uint64_t size,
@@ -2072,6 +2074,32 @@ int journal_file_data_payload(
                                         field_length, data_threshold, ret_data, ret_size);
 }
 
+int journal_file_data_payload_pinned(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        Object *o;
+        int r;
+
+        /* Callers look up the payload in other files afterwards. Data objects of all files share one window
+         * per category, hence pin the window, so that the payload stays mapped. */
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
+        if (r < 0)
+                return r;
+
+        r = journal_file_pin_object(f, o);
+        if (r < 0)
+                return r;
+
+        return journal_file_data_payload(f, o, offset, field, field_length, data_threshold, ret_data, ret_size);
+}
+
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
         uint64_t sz;
 
@@ -2086,6 +2114,47 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
                 return 0;
 
         return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
+}
+
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret) {
+        assert(f);
+        assert(o);
+        assert(ret);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        *ret = journal_file_entry_n_items(f, o);
+        return 0;
+}
+
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        assert(f);
+        assert(o);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        if (i >= journal_file_entry_n_items(f, o))
+                return -EADDRNOTAVAIL;
+
+        return journal_file_data_payload(
+                        f,
+                        /* o= */ NULL,
+                        journal_file_entry_item_object_offset(f, o, i),
+                        field, field_length,
+                        data_threshold,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -3732,7 +3801,7 @@ int journal_file_move_to_entry_by_offset_for_data(
                         ret, ret_offset);
 }
 
-int journal_file_move_to_entry_by_monotonic_for_data(
+static int journal_file_move_to_entry_by_monotonic_for_data(
                 JournalFile *f,
                 Object *d,
                 sd_id128_t boot_id,
@@ -3828,7 +3897,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(
                         ret_object, ret_offset);
 }
 
-int journal_file_move_to_entry_by_realtime_for_data(
+static int journal_file_move_to_entry_by_realtime_for_data(
                 JournalFile *f,
                 Object *d,
                 uint64_t realtime,
@@ -3848,6 +3917,43 @@ int journal_file_move_to_entry_by_realtime_for_data(
                         test_object_realtime,
                         direction,
                         ret, ret_offset);
+}
+
+int journal_file_seek_for_match(
+                JournalFile *f,
+                const void *data,
+                uint64_t size,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset) {
+
+        Object *d;
+        int r;
+
+        assert(f);
+        assert(data || size == 0);
+
+        r = journal_file_find_data_object(f, data, size, &d, NULL);
+        if (r <= 0)
+                return r;
+
+        switch (where) {
+        case JOURNAL_SEEK_FIRST:
+                return journal_file_move_to_entry_for_data(f, d, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_OFFSET:
+                return journal_file_move_to_entry_by_offset_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_SEQNUM:
+                return journal_file_move_to_entry_by_seqnum_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_REALTIME:
+                return journal_file_move_to_entry_by_realtime_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_MONOTONIC:
+                return journal_file_move_to_entry_by_monotonic_for_data(f, d, boot_id, needle, direction, ret_object, ret_offset);
+        default:
+                assert_not_reached();
+        }
 }
 
 void journal_file_dump(JournalFile *f) {
@@ -4130,7 +4236,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   m->n_max_files);
 }
 
-int journal_file_open(
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -4140,6 +4246,7 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         bool newly_created = false;
@@ -4235,7 +4342,7 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-                r = journal_file_init_header(f, file_flags, template);
+                r = journal_file_init_header(f, file_flags, template, seqnum_id);
                 if (r < 0)
                         goto fail;
 
