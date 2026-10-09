@@ -4292,6 +4292,14 @@ static int context_load_partition_table(Context *context) {
                         np->partno = partno;
                         np->current_label = TAKE_PTR(label_copy);
 
+                        /* Never touch foreign partitions: keep their UUID and label. Set here rather than in
+                         * context_acquire_partition_uuids_and_labels(), as --size=auto reloads the partition
+                         * table after that ran, which recreates the foreign partitions. */
+                        np->new_uuid = id;
+                        r = strdup_to(&np->new_label, np->current_label);
+                        if (r < 0)
+                                return log_oom();
+
                         np->current_partition = p;
                         sym_fdisk_ref_partition(p);
 
@@ -8072,18 +8080,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 sd_id128_t uuid;
 
-                /* Never touch foreign partitions */
-                if (PARTITION_IS_FOREIGN(p)) {
-                        p->new_uuid = p->current_uuid;
-
-                        if (p->current_label) {
-                                r = free_and_strdup_warn(&p->new_label, strempty(p->current_label));
-                                if (r < 0)
-                                        return r;
-                        }
-
+                /* Never touch foreign partitions, their UUID and label are set when loading them. */
+                if (PARTITION_IS_FOREIGN(p))
                         continue;
-                }
 
                 (void) context_notify(context, PROGRESS_ACQUIRING_PARTITION_LABELS, p->definition_path, UINT_MAX);
 
