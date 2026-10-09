@@ -39,6 +39,7 @@ pub(crate) use assert_layout;
 pub mod alloc;
 pub mod chase;
 pub mod command;
+pub mod conf_files;
 pub mod creds;
 pub mod cstr;
 pub mod errno;
@@ -55,5 +56,6 @@ pub mod stdio;
 pub mod strv;
 pub mod tests;
 pub mod tmpfile;
+pub mod voa;
 
 pub use errno::{check, from_result, Errno, Result};
