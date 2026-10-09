@@ -29,13 +29,12 @@
 
 #define TAIL_SIZE_MAX (4 * U64_MB)
 
-/* The batch is written once it reaches this size, and otherwise by the post-change timer */
+/* The batch is written once it reaches this size, and otherwise by journal_file_post_change() */
 #define BATCH_SIZE_MAX (256 * U64_KB)
 
 /* A buffer larger than this is freed after each batch, so that one large payload does not keep its memory
  * allocated until the file is closed */
 #define BUFFER_KEEP_MAX (1 * U64_MB)
-
 
 #define CONTEXTS_MAX 1024U
 
@@ -197,7 +196,7 @@ static int segment_field_acquire(JournalFile *f, const char *name, size_t size, 
                 }
 
         if (!journal_field_valid(name, size, /* allow_protected= */ true))
-                return -EUCLEAN; 
+                return -EUCLEAN;
 
         if (!GREEDY_REALLOC(w->fields, w->n_fields + 1))
                 return -ENOMEM;
@@ -241,8 +240,6 @@ static void segment_clear(SegmentedWriter *w) {
 
         segment_fields_clear(w);
 }
-
-
 
 static void entry_reset(SegmentedWriter *w) {
         assert(w);
@@ -376,9 +373,6 @@ int segmented_flush(JournalFile *f) {
         SegmentedWriter *w = a->writer;
         uint64_t written = 0;
         int r;
-
-        /* Writes the batch with one system call. The batch holds the entries that were appended since
-         * the last call, which the post-change timer makes at most every 250 ms. */
 
         if (!w || w->buffer_size == 0)
                 return 0;
@@ -651,7 +645,6 @@ static int batch_add_data(
                 } else
                         stored = 0;
 
-                
                 w->buffer_size -= size - 1 - stored;
 
                 if (stored == 0)
@@ -1418,7 +1411,6 @@ static void segmented_archive(JournalFile *f) {
         if (r < 0)
                 log_debug_errno(r, "Failed to write index to %s, ignoring: %m", f->path);
 
-        
         w->archived = true;
 }
 
