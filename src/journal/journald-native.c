@@ -14,6 +14,7 @@
 #include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-native.h"
@@ -261,6 +262,9 @@ static int manager_process_entry(
 
         r = 0; /* Success, we read the message. */
 
+        /* Count before any filtering or rate limiting */
+        manager_count_message(m, JOURNAL_TRANSPORT_NATIVE, priority);
+
         if (!client_context_test_priority(context, priority))
                 goto finish;
 
@@ -469,7 +473,7 @@ int manager_process_native_file(
                                                          "Failed to map memfd: %m");
 
                 manager_process_native_message(m, p, st.st_size, ucred, tv, label);
-                assert_se(munmap(p, ps) >= 0);
+                munmap_safe(p, ps);
 
                 return 0;
         }

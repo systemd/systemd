@@ -48,6 +48,7 @@ shared_sources = files(
         'condition.c',
         'conf-parser.c',
         'copy.c',
+        'counters-file.c',
         'coredump-util.c',
         'cpu-set-util.c',
         'creds-util.c',
