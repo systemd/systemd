@@ -1073,7 +1073,7 @@ TEST(sequence_numbers) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
         test_sequence_numbers_one();
 
-        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_COMPACT"));
 }
 
@@ -1371,8 +1371,6 @@ TEST(generic_array_bisect) {
                         test_generic_array_bisect_one(n, m);
 
         test_generic_array_bisect_one(100, 40);
-
-        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
 }
 
 typedef struct TestEntry {
@@ -1971,6 +1969,10 @@ static int intro(void) {
                 return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = saved_argc > 1;
+
+        /* Most tests check classic files. The tests for segmented files set $SYSTEMD_JOURNAL_SEGMENTED
+         * themselves. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 
         return EXIT_SUCCESS;
 }

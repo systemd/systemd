@@ -184,6 +184,7 @@ int main(int argc, char *argv[]) {
                 max_iterations = -1;
         }
 
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         run_test(verification_key, max_iterations);
 
