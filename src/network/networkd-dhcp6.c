@@ -815,6 +815,20 @@ int dhcp6_update_mac(Link *link) {
         return 0;
 }
 
+int dhcp6_update_hostname(Link *link) {
+        assert(link);
+
+        if (!link->dhcp6_client || !link->network)
+                return 0;
+
+        /* An explicitly configured hostname does not follow the system hostname. */
+        if (link->network->dhcp6_hostname)
+                return 0;
+
+        /* The new hostname will be sent on the next renewal. */
+        return dhcp6_set_hostname(link->dhcp6_client, link);
+}
+
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 

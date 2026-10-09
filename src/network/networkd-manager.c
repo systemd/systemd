@@ -33,6 +33,8 @@
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
+#include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -568,6 +570,48 @@ static int manager_set_keep_configuration(Manager *m) {
         return 0;
 }
 
+static int on_hostname_change(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        Link *link;
+
+        log_debug("System hostname changed, updating hostname in DHCP clients.");
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                (void) dhcp4_update_hostname(link);
+                (void) dhcp6_update_hostname(link);
+        }
+
+        return 0;
+}
+
+static int manager_watch_hostname(Manager *m) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(m);
+
+        /* The kernel wakes up pollers of this file when the hostname is changed. */
+        fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                log_warning_errno(errno, "Failed to open /proc/sys/kernel/hostname, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_event_add_io(m->event, &m->hostname_event_source, fd, 0, on_hostname_change, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add hostname event source: %m");
+
+        r = sd_event_source_set_io_fd_own(m->hostname_event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass ownership of hostname file descriptor to event source: %m");
+
+        TAKE_FD(fd);
+
+        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
+
+        return 0;
+}
+
 int manager_setup(Manager *m) {
         _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
         int r;
@@ -629,6 +673,10 @@ int manager_setup(Manager *m) {
                 return r;
 
         r = manager_connect_udev(m);
+        if (r < 0)
+                return r;
+
+        r = manager_watch_hostname(m);
         if (r < 0)
                 return r;
 
@@ -777,6 +825,7 @@ Manager* manager_free(Manager *m) {
         m->address_labels_by_section = hashmap_free(m->address_labels_by_section);
 
         sd_event_source_unref(m->speed_meter_event_source);
+        sd_event_source_unref(m->hostname_event_source);
         sd_event_unref(m->event);
 
         sd_device_monitor_unref(m->device_monitor);

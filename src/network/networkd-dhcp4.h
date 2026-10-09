@@ -12,6 +12,7 @@ typedef enum DHCPClientIdentifier {
 
 void network_adjust_dhcp4(Network *network);
 int dhcp4_update_mac(Link *link);
+int dhcp4_update_hostname(Link *link);
 int dhcp4_update_ipv6_connectivity(Link *link);
 int dhcp4_start_full(Link *link, bool set_ipv6_connectivity);
 static inline int dhcp4_start(Link *link) {
