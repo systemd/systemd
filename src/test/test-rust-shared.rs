@@ -14,6 +14,7 @@ use core::mem::{align_of, size_of};
 use core::ptr;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+use systemd_shared::alloc::Erasing;
 use systemd_shared::chase::{self, CHASE_MKDIR_0755};
 use systemd_shared::cstr::{self, display};
 use systemd_shared::keyring;
@@ -317,6 +318,32 @@ fn test_alloc() {
         Vec::<u8>::with_capacity(core::hint::black_box(usize::MAX / 2)).unwrap_err(),
         AllocError
     );
+}
+
+fn test_alloc_erasing() {
+    // Growing allocates anew and erases the old memory, the contents move along
+    let mut secret: Vec<u8, Erasing> = Vec::new();
+    for i in 0..1000u32 {
+        secret.push(i.to_le_bytes()[0]).unwrap();
+    }
+    assert!(secret
+        .iter()
+        .zip(0..1000u32)
+        .all(|(&b, i)| b == i.to_le_bytes()[0]));
+    secret.extend_from_slice(b"hunter2").unwrap();
+    assert!(secret.ends_with(b"hunter2"));
+
+    // Alignments beyond malloc()'s and zero-sized types work as with Malloc
+    let mut lines: Vec<CacheLine, Erasing> = Vec::new();
+    for i in 0..10u8 {
+        lines.push(CacheLine([i; 64])).unwrap();
+        assert_eq!(lines.as_ptr().addr() % align_of::<CacheLine>(), 0);
+    }
+    let mut units: Vec<(), Erasing> = Vec::new();
+    units.push(()).unwrap();
+
+    let key: Box<[u8; 32], Erasing> = Box::new([0x42; 32]).unwrap();
+    assert_eq!(Box::into_inner(key), [0x42; 32]);
 }
 
 fn test_print() {
@@ -969,6 +996,7 @@ define_test_main!(
         test_json,
         test_fd,
         test_alloc,
+        test_alloc_erasing,
         test_print,
         test_event_timer,
         test_event_handler_error,
