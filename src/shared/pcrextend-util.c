@@ -428,7 +428,7 @@ int pcrextend_imds_userdata_word(const struct iovec *data, char **ret) {
                 return log_oom();
 
         _cleanup_free_ char *data_encoded = NULL;
-        if (base64mem_full(data->iov_base, MIN(data->iov_len, IMDS_USERDATA_TRUNCATED_MAX), /* line_break= */ SIZE_MAX, &data_encoded) < 0)
+        if (base64mem_full(data->iov_base, MIN(data->iov_len, IMDS_USERDATA_TRUNCATED_MAX), /* line_break= */ SIZE_MAX, /* url_encoding= */ false, &data_encoded) < 0)
                 return log_oom();
 
         _cleanup_free_ char *word = strjoin("imds-userdata:", hash, ":", data_encoded);

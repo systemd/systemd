@@ -23,7 +23,7 @@ DLSYM_PROTOTYPE(curl_easy_init) = NULL;
 DLSYM_PROTOTYPE(curl_easy_perform) = NULL;
 DLSYM_PROTOTYPE(curl_easy_setopt) = NULL;
 DLSYM_PROTOTYPE(curl_easy_strerror) = NULL;
-#if LIBCURL_VERSION_NUM >= 0x075300
+#if HAVE_LIBCURL_HEADER
 DLSYM_PROTOTYPE(curl_easy_header) = NULL;
 #endif
 DLSYM_PROTOTYPE(curl_getdate) = NULL;
@@ -37,6 +37,14 @@ static DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
 static DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
+DLSYM_PROTOTYPE(curl_version_info) = NULL;
+#if HAVE_LIBCURL_URL
+DLSYM_PROTOTYPE(curl_free) = NULL;
+DLSYM_PROTOTYPE(curl_url) = NULL;
+DLSYM_PROTOTYPE(curl_url_cleanup) = NULL;
+DLSYM_PROTOTYPE(curl_url_get) = NULL;
+DLSYM_PROTOTYPE(curl_url_set) = NULL;
+#endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
 
@@ -282,7 +290,10 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
                 if (sd_event_source_set_enabled(g->timer, SD_EVENT_ONESHOT) < 0)
                         return -1;
         } else {
-                if (sd_event_add_time_relative(g->event, &g->timer, CLOCK_BOOTTIME, usec, 0, curl_glue_on_timer, g) < 0)
+                /* libcurl uses this timer to drive its nonblocking state machine. Do not use sd-event's
+                 * default 250ms timer accuracy here, or a zero-delay curl timeout may be coalesced far into
+                 * the future. */
+                if (sd_event_add_time_relative(g->event, &g->timer, CLOCK_BOOTTIME, usec, 1, curl_glue_on_timer, g) < 0)
                         return -1;
 
                 (void) sd_event_source_set_description(g->timer, "curl-timer");
@@ -615,7 +626,7 @@ int dlopen_curl(int log_level) {
                         DLSYM_ARG(curl_easy_perform),
                         DLSYM_ARG(curl_easy_setopt),
                         DLSYM_ARG(curl_easy_strerror),
-#if LIBCURL_VERSION_NUM >= 0x075300
+#if HAVE_LIBCURL_HEADER
                         DLSYM_ARG(curl_easy_header),
 #endif
                         DLSYM_ARG(curl_getdate),
@@ -628,7 +639,16 @@ int dlopen_curl(int log_level) {
                         DLSYM_ARG(curl_multi_setopt),
                         DLSYM_ARG(curl_multi_socket_action),
                         DLSYM_ARG(curl_slist_append),
-                        DLSYM_ARG(curl_slist_free_all));
+                        DLSYM_ARG(curl_slist_free_all),
+                        DLSYM_ARG(curl_version_info)
+#if HAVE_LIBCURL_URL
+                        , DLSYM_ARG(curl_free)
+                        , DLSYM_ARG(curl_url)
+                        , DLSYM_ARG(curl_url_cleanup)
+                        , DLSYM_ARG(curl_url_get)
+                        , DLSYM_ARG(curl_url_set)
+#endif
+                        );
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libcurl support is not compiled in.");

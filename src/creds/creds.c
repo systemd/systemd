@@ -365,7 +365,7 @@ static int transcode(
                 char *buf;
                 ssize_t l;
 
-                l = base64mem_full(input, input_size, 79, &buf);
+                l = base64mem_full(input, input_size, 79, /* url_encoding= */ false, &buf);
                 if (l < 0)
                         return l;
 
@@ -636,7 +636,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
-        base64_size = base64mem_full(output.iov_base, output.iov_len, arg_pretty ? 69 : 79, &base64_buf);
+        base64_size = base64mem_full(output.iov_base, output.iov_len, arg_pretty ? 69 : 79, /* url_encoding= */ false, &base64_buf);
         if (base64_size < 0)
                 return base64_size;
 

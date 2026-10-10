@@ -85,14 +85,19 @@ typedef struct DnsTransaction {
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        DnsHttpRequest *doh_request;
+#endif
+
         /* The active server */
         DnsServer *server;
 
-        /* The features of the DNS server at time of transaction start */
-        DnsServerFeatureLevel current_feature_level;
+        /* The DNS transport and message capabilities selected for this transaction */
+        DnsServerTransport current_transport;
+        DnsServerCapabilityLevel current_capability_level;
 
-        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used before. */
-        DnsServerFeatureLevel clamp_feature_level_servfail;
+        /* If we got SERVFAIL back, we retry the lookup, using fewer DNS message capabilities than before. */
+        DnsServerCapabilityLevel clamp_capability_level_servfail;
 
         uint16_t id;
 
@@ -104,6 +109,11 @@ typedef struct DnsTransaction {
         bool probing:1;
 
         bool seen_timeout:1;
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        bool doh_same_server_retry_used:1;
+        bool doh_fresh_connect_next:1;
+#endif
 
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
@@ -148,7 +158,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransactionTransport transport);
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error, DnsOverHttpsFailureAction failure_action);
+#endif
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
