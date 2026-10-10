@@ -287,6 +287,9 @@ All tools:
   the worker process is killed by the manager process. Defaults to 10 seconds,
   maximum allowed is 5 hours.
 
+* `$SYSTEMD_UDEV_USE_INOTIFY=` — If true, use inotify instead of fanotify for
+  device node watches (`OPTIONS+="watch"`). Defaults to false.
+
 `udevadm` and `systemd-hwdb`:
 
 * `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped

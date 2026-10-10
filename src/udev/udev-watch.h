@@ -3,13 +3,17 @@
 
 #include "udev-forward.h"
 
+/* inotify backend */
 void udev_watch_dump(void);
-
-int manager_init_inotify(Manager *manager, int fd);
-int manager_start_inotify(Manager *manager);
-
+int manager_init_inotify_watch(Manager *manager, int fd);
+int manager_start_inotify_watch(Manager *manager);
 int manager_add_watch(Manager *manager, sd_device *dev);
 int manager_remove_watch(Manager *manager, sd_device *dev);
+void inotify_watch_begin(UdevWorker *worker, sd_device *dev);
+void inotify_watch_end(UdevWorker *worker, sd_device *dev);
 
-int udev_watch_begin(UdevWorker *worker, sd_device *dev);
-int udev_watch_end(UdevWorker *worker, sd_device *dev);
+/* fanotify backend */
+int manager_init_fanotify_watch(Manager *manager, int fd);
+int manager_start_fanotify_watch(Manager *manager);
+void udev_watch_begin(UdevWorker *worker, sd_device *dev);
+void udev_watch_end(UdevWorker *worker, sd_device *dev);
