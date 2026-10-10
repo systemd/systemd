@@ -1743,6 +1743,9 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         if (arg_pkcs11_uri_auto) {
                 if (!use_libcryptsetup_plugin) {
                         r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &rsa_padding, &keyslot);
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "PKCS#11 token support not available, falling back to traditional unlocking.");
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1765,7 +1768,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 return log_oom();
 
         for (;;) {
-                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
+                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto) {
                         r = attach_luks2_by_pkcs11_via_plugin(
                                         cd,
                                         name,
@@ -1773,7 +1776,14 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         until,
                                         "cryptsetup.pkcs11-pin",
                                         flags);
-                else {
+                        if (r >= 0)
+                                return 0;
+                        /* EAGAIN means: token enrolled, but not currently present */
+                        if (r == -ENOENT) /* nothing enrolled, or the enrolled key object could not be
+                                           * found on the token: nothing to wait for, fall back right away */
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No PKCS#11 metadata enrolled in LUKS2 header, or referenced key not found on token, falling back to traditional unlocking.");
+                } else {
                         r = decrypt_pkcs11_key(
                                         name,
                                         friendly,
@@ -1788,8 +1798,20 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                 break;
                 }
 
-                if (r != -EAGAIN) /* EAGAIN means: token not found */
+                /* Don't mangle errors that mean the user actively cancelled the PIN prompt, that we're out
+                 * of memory, or that indicate the token was found but PIN acquisition itself failed
+                 * (timeout, no interactive/cached answer available, headless with no cached answer, or the
+                 * PIN was wrong/locked): propagate those verbatim instead of silently falling back and
+                 * re-prompting. This mirrors how the FIDO2 code path (acquire_fido2_key()) treats the same
+                 * set of errors from its own PIN prompt. */
+                if (ERRNO_IS_NEG_RESOURCE(r) ||
+                    IN_SET(r, -ECANCELED, -EINTR, -ETIME, -EUNATCH, -ENOEXEC, -ENOPKG, -EPERM))
                         return r;
+
+                if (r != -EAGAIN) /* EAGAIN means: token not found */
+                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                "PKCS#11 operation failed, falling back to traditional unlocking: %s",
+                                                STRERROR(r));
 
                 if (!monitor) {
                         /* We didn't find the token. In this case, watch for it via udev. Let's
