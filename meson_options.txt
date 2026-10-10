@@ -522,6 +522,8 @@ option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false'
        description : 'libpwquality support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
+option('rust', type : 'feature',
+       description : 'support for programs written in Rust (needs rustc and bindgen)')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
 option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,
