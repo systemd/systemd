@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
@@ -101,6 +107,82 @@ TEST(partition_node_of) {
         test_partition_node_of_one("/dev/", 1, NULL, -EISDIR);
         test_partition_node_of_one("/sda", 1, "/sda1", 0);
         test_partition_node_of_one(".", 1, NULL, -EADDRNOTAVAIL);
+}
+
+static void verify_range(int fd, uint64_t offset, uint64_t size, uint8_t expected) {
+        uint8_t buffer[4096];
+
+        /* Checks that every byte in the specified range of the file is 'expected' */
+
+        while (size > 0) {
+                ssize_t n;
+
+                n = pread(fd, buffer, MIN(size, sizeof(buffer)), offset);
+                ASSERT_OK_ERRNO(n);
+                ASSERT_GT(n, 0);
+
+                for (ssize_t i = 0; i < n; i++)
+                        ASSERT_EQ(buffer[i], expected);
+
+                offset += n;
+                size -= n;
+        }
+}
+
+TEST(blockdev_zero_out) {
+        _cleanup_(unlink_tempfilep) char path[] = "/tmp/test-blockdev-zero-out.XXXXXX";
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ uint8_t *pattern = NULL;
+        struct stat st;
+
+        /* Larger than the 64K buffer write_zeroes() operates with internally, so that the chunking is exercised */
+        const uint64_t file_size = 200U*1024U;
+
+        fd = mkostemp_safe(path);
+        ASSERT_OK(fd);
+
+        ASSERT_NOT_NULL(pattern = malloc(file_size));
+        memset(pattern, 0xAA, file_size);
+        ASSERT_OK(loop_write(fd, pattern, file_size));
+
+        /* Zero-sized range is a NOP */
+        ASSERT_OK(blockdev_zero_out(fd, 17, 0));
+        verify_range(fd, 0, file_size, 0xAA);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, file_size);
+
+        /* Overflowing range is refused */
+        ASSERT_ERROR(blockdev_zero_out(fd, UINT64_MAX - 5, 10), EOVERFLOW);
+        ASSERT_ERROR(blockdev_zero_out(fd, UINT64_MAX, 1), EOVERFLOW);
+        verify_range(fd, 0, file_size, 0xAA);
+
+        /* Unaligned range in the middle of the file, spanning multiple write_zeroes() chunks; bytes outside of
+         * it must stay intact */
+        const uint64_t offset = 1234, size = 150U*1024U + 77;
+        ASSERT_OK(blockdev_zero_out(fd, offset, size));
+        verify_range(fd, 0, offset, 0xAA);
+        verify_range(fd, offset, size, 0);
+        verify_range(fd, offset + size, file_size - offset - size, 0xAA);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, file_size);
+
+        /* Range extending beyond the end of the file grows it */
+        ASSERT_OK(blockdev_zero_out(fd, file_size - 100, 300));
+        verify_range(fd, offset + size, file_size - offset - size - 100, 0xAA);
+        verify_range(fd, file_size - 100, 300, 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, file_size + 200);
+
+        /* Range entirely beyond the end of the file grows it too, the gap reads back as zeroes */
+        ASSERT_OK(blockdev_zero_out(fd, file_size + 1000, 50));
+        verify_range(fd, file_size - 100, 1150, 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, file_size + 1050);
+
+        /* Neither a regular file nor a block device */
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC));
+        ASSERT_ERROR(blockdev_zero_out(pipe_fds[1], 0, 10), ENOTBLK);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
