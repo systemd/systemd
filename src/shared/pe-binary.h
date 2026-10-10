@@ -141,6 +141,7 @@ const IMAGE_SECTION_HEADER* pe_section_table_find(const IMAGE_SECTION_HEADER *se
 int pe_load_headers(int fd, IMAGE_DOS_HEADER **ret_dos_header, PeHeader **ret_pe_header);
 
 int pe_load_sections(int fd, const IMAGE_DOS_HEADER *dos_header, const PeHeader *pe_header, IMAGE_SECTION_HEADER **ret_sections);
+int pe_load_headers_and_sections(int fd, PeHeader **ret_pe_header, IMAGE_SECTION_HEADER **ret_sections);
 int pe_read_section_data(int fd, const IMAGE_SECTION_HEADER *section, size_t max_size, void **ret, size_t *ret_size);
 int pe_read_section_data_by_name(int fd, const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name, size_t max_size, void **ret, size_t *ret_size);
 
