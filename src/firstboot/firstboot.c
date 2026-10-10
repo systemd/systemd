@@ -794,7 +794,8 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
         }
 
         if (vl) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                /* Both the reply and the error id are borrowed from the connection, don't unref/free them. */
+                sd_json_variant *reply = NULL;
                 const char *error_id = NULL;
                 r = sd_varlink_callbo(
                                 vl,
