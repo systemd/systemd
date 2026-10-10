@@ -824,22 +824,30 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
         return 1;
 }
 
-static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
+static int varlink_normalize_incoming_parameters(sd_json_variant **framing, sd_json_variant **params) {
         int r;
-        assert(v);
 
-        /* Convert NULL or JSON null to empty object for method handlers (backward compatibility) */
-        if (!*v || sd_json_variant_is_null(*v)) {
+        /* UAPI.20 specifies that receivers of Varlink messages MUST treat "parameters" identically no matter
+         * if it is missing, explicitly null, or an empty object. Here, we choose to normalize "parameters"
+         * to an empty object if it is missing or null, which makes sd_varlink behave predictably (i.e.
+         * sd_varlink_call and similar never return write NULL to ret_parameters if they return r >= 0) */
+
+        assert(params);
+
+        if (!*params || sd_json_variant_is_null(*params)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
                 r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
-                return json_variant_unref_and_replace(*v, empty);
-        }
 
-        /* Ensure we have an object */
-        if (!sd_json_variant_is_object(*v))
-                return -EINVAL;
+                if (framing) {
+                        r = sd_json_variant_set_field(framing, "parameters", empty);
+                        if (r < 0)
+                                return r;
+                }
+
+                return json_variant_unref_and_replace(*params, empty);
+        }
 
         return 0;
 }
@@ -903,7 +911,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
         if (error && FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                 goto invalid;
 
-        r = varlink_sanitize_incoming_parameters(&parameters);
+        r = varlink_normalize_incoming_parameters(&v->current, &parameters);
         if (r < 0)
                 goto invalid;
 
@@ -1275,7 +1283,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
         if (!method)
                 goto invalid;
 
-        r = varlink_sanitize_incoming_parameters(&parameters);
+        r = varlink_normalize_incoming_parameters(NULL, &parameters);
         if (r < 0)
                 goto fail;
 
@@ -2360,15 +2368,6 @@ _public_ int sd_varlink_collect_full(
 
                         if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
                                 return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
-
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
-                        if (!p) {
-                                r = sd_json_variant_new_array(&empty, /* array= */ NULL, /* n= */ 0);
-                                if (r < 0)
-                                        return r;
-
-                                p = empty;
-                        }
 
                         r = sd_json_variant_append_array(&collected, p);
                         if (r < 0)
