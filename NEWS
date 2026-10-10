@@ -6,6 +6,12 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * RegisterService() now fails with org.freedesktop.resolve1.ShuttingDown
+          when called while systemd-resolved is already withdrawing its
+          published records on the way down: the registration could never be
+          announced. Clients may retry against the next instance of the
+          service.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
@@ -16,6 +22,18 @@ CHANGES WITH 263 in spe:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
+
+        Changes in systemd-resolved and resolvectl:
+
+        * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
+          section 10.1) for the DNS-SD services it publishes when they are
+          withdrawn — when the daemon is stopped, and when a *.dnssd file is
+          removed and the daemon reloaded — so peers drop them right away
+          instead of waiting out the record TTL. To let the goodbye of a
+          stopping daemon reach the network (and be repeated once, as that
+          section requires), stopping the daemon now takes about a second
+          longer on hosts that publish any such service. Hosts publishing none
+          are unaffected.
 
 CHANGES WITH 262:
 
