@@ -229,6 +229,8 @@ int nss_pack_group_record(
         assert(g->group_name);
         required = strlen(g->group_name) + 1;
 
+        required += 2; /* strlen(PASSWORD_SEE_SHADOW) + 1 */
+
         STRV_FOREACH(m, g->members) {
                 required += sizeof(char*);  /* space for ptr array entry */
                 required += strlen(*m) + 1;
@@ -267,11 +269,12 @@ int nss_pack_group_record(
         array[n] = NULL;
 
         *gr = (struct group) {
-                .gr_name = strcpy(p, g->group_name),
                 .gr_gid = g->gid,
-                .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
                 .gr_mem = array,
         };
+
+        gr->gr_name = stpcpy(p, g->group_name);
+        gr->gr_passwd = stpcpy(gr->gr_name, PASSWORD_SEE_SHADOW) + 1;
 
         return 0;
 }
