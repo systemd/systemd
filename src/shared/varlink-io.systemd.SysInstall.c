@@ -7,7 +7,6 @@
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 ProgressPhase,
-
                 SD_VARLINK_DEFINE_ENUM_VALUE(encrypt_credentials),
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_partitions),
                 SD_VARLINK_DEFINE_ENUM_VALUE(mount_partitions),
@@ -17,9 +16,8 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 DeviceFit,
-
                 SD_VARLINK_DEFINE_ENUM_VALUE(enough_free_space),
-                SD_VARLINK_DEFINE_ENUM_VALUE(insufficent_free_space),
+                SD_VARLINK_DEFINE_ENUM_VALUE(insufficient_free_space),
                 SD_VARLINK_DEFINE_ENUM_VALUE(disk_too_small),
                 SD_VARLINK_DEFINE_ENUM_VALUE(conflicting_disk_label_present));
 
