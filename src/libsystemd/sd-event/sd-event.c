@@ -4621,6 +4621,7 @@ _public_ int sd_event_prepare(sd_event *e) {
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
         PROTECT_EVENT(e);
 
+retry:
         if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
                 (void) sd_event_exit(e, 0);
 
@@ -4672,7 +4673,10 @@ pending:
         e->state = SD_EVENT_ARMED;
         r = sd_event_wait(e, 0);
         if (r == 0)
-                e->state = SD_EVENT_ARMED;
+                /* sd_event_wait() reset the state, e.g. because a ratelimit expiry callback might have
+                 * changed event sources or timers. Sources that are already pending won't wake up epoll,
+                 * so returning 0 here would make the caller block indefinitely. Prepare again instead. */
+                goto retry;
 
         return r;
 }
