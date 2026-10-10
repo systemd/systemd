@@ -158,16 +158,17 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->locked_events_by_disk);
         sd_event_source_unref(manager->requeue_locked_events_timer_event_source);
 
-        safe_close(manager->inotify_fd);
-
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
 
         sd_varlink_server_unref(manager->varlink_server);
 
+        /* udev watch */
         sd_event_source_unref(manager->inotify_event);
         set_free(manager->synthesize_change_child_event_sources);
+        safe_close(manager->inotify_fd);
+
         set_free(manager->synthesized_events);
         sd_event_source_unref(manager->synthesized_events_clear_event_source);
         sd_event_source_unref(manager->kill_workers_event);
