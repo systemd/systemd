@@ -598,11 +598,22 @@ wait_for_machine() {
     "
 }
 
-assert_unit_state() {
+assert_unit_state() (
+    set +ex
+
     local unit=${1:?}
     local activestate=${2:?}
     local substate=${3:?}
     local syspath=${4:-}
+
+    for _ in {0..60}; do
+        if [[ "$(systemctl show -q --property=ActiveState --value "$unit")" == "$activestate" ]] &&
+           [[ "$(systemctl show -q --property=SubState --value "$unit")" == "$substate" ]] &&
+           [[ -z "$syspath" || "$(systemctl show -q --property=SysFSPath --value "$unit")" == "$syspath" ]]; then
+            return 0
+        fi
+        sleep .5
+    done
 
     assert_eq "$(systemctl show -q --property=ActiveState --value "$unit")" "$activestate"
     assert_eq "$(systemctl show -q --property=SubState --value "$unit")" "$substate"
@@ -610,19 +621,34 @@ assert_unit_state() {
     if [[ -n "$syspath" ]]; then
         assert_eq "$(systemctl show -q --property=SysFSPath --value "$unit")" "$syspath"
     fi
-}
+)
 
-assert_wc_l() {
+assert_wc_l() (
+    set +ex
+
     local path=${1:?}
     local expected=${2:?}
-    local lines=0
+    local lines
+
+    for _ in {0..60}; do
+        if [[ -f "$path" ]]; then
+            lines=$(wc -l <"$path")
+        else
+            lines=0
+        fi
+
+        [[ "$lines" == "$expected" ]] && return 0
+        sleep .5
+    done
 
     if [[ -f "$path" ]]; then
         lines=$(wc -l <"$path")
+    else
+        lines=0
     fi
 
     assert_eq "$lines" "$expected"
-}
+)
 
 start_bound_service() {
     local path=${1:?}
