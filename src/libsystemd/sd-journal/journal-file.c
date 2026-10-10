@@ -892,7 +892,7 @@ static int journal_file_move_to_full(
         return 0;
 }
 
-static int journal_file_move_to(
+int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
@@ -2133,6 +2133,47 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
                 return 0;
 
         return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
+}
+
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret) {
+        assert(f);
+        assert(o);
+        assert(ret);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        *ret = journal_file_entry_n_items(f, o);
+        return 0;
+}
+
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        assert(f);
+        assert(o);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        if (i >= journal_file_entry_n_items(f, o))
+                return -EADDRNOTAVAIL;
+
+        return journal_file_data_payload(
+                        f,
+                        /* o= */ NULL,
+                        journal_file_entry_item_object_offset(f, o, i),
+                        field, field_length,
+                        data_threshold,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
