@@ -11,6 +11,7 @@
 #include "errno-util.h"
 #include "fiber-ops.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "time-util.h"
 
 uint32_t poll_events_to_epoll(uint32_t events) {
@@ -247,6 +248,48 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
         } while (nbytes > 0);
 
         return 0;
+}
+
+int pwritev_full(int fd, struct iovec *iovec, size_t n, uint64_t offset, uint64_t *ret_written) {
+        uint64_t written = 0;
+        int r = 0;
+
+        assert(fd >= 0);
+        assert(iovec || n == 0);
+
+        /* Writes all of the iovecs at the offset. The iovecs are advanced past what was written, and
+         * 'ret_written' tells how much that was, also if the write fails halfway. */
+
+        for (size_t i = 0;;) {
+                size_t m;
+                ssize_t k;
+
+                while (i < n && !iovec_is_set(iovec + i))
+                        i++;
+                if (i >= n)
+                        break;
+
+                m = MIN(n - i, (size_t) IOV_MAX);
+                k = pwritev(fd, iovec + i, m, offset + written);
+                if (k < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        r = -errno;
+                        break;
+                }
+                if (k == 0) {
+                        r = -EIO;
+                        break;
+                }
+
+                written += k;
+                (void) iovec_inc_many(iovec + i, m, k);
+        }
+
+        if (ret_written)
+                *ret_written = written;
+        return r;
 }
 
 int pipe_eof(int fd) {

@@ -139,6 +139,26 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
         return 0;
 }
 
+static int verify_compression(JournalFile *f, Object *o, uint64_t p) {
+        Compression c;
+
+        assert(f);
+        assert(o);
+
+        c = COMPRESSION_FROM_OBJECT(o);
+        if (c < 0) {
+                error(p, "Object has multiple compression flags set (flags: 0x%x)", o->object.flags);
+                return -EBADMSG;
+        }
+
+        if (c != COMPRESSION_NONE && !(le32toh(f->header->incompatible_flags) & COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(c))) {
+                error(p, "%s compressed object in file without %s compression", compression_to_string(c), compression_to_string(c));
+                return -EBADMSG;
+        }
+
+        return 0;
+}
+
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         assert(f);
         assert(offset);
@@ -810,6 +830,164 @@ static int verify_hash_table(
         return 0;
 }
 
+typedef struct VerifyTagState {
+        uint64_t n_tags;
+        uint64_t last_tag_end;
+        uint64_t last_epoch;
+        usec_t last_tag_realtime, last_tag_realtime_end;
+        usec_t min_entry_realtime, max_entry_realtime, last_entry_realtime;
+} VerifyTagState;
+
+static int verify_tag_add_entry(VerifyTagState *s, bool sealed, uint64_t p, usec_t realtime) {
+        assert(s);
+
+        if (sealed && s->n_tags <= 0) {
+                error(p, "First entry before first tag");
+                return -EBADMSG;
+        }
+
+        if (realtime < s->last_tag_realtime) {
+                error(p,
+                      "Older entry after newer tag (%"PRIu64" < %"PRIu64")",
+                      realtime,
+                      s->last_tag_realtime);
+                return -EBADMSG;
+        }
+
+        s->min_entry_realtime = MIN(s->min_entry_realtime, realtime);
+        s->max_entry_realtime = MAX(s->max_entry_realtime, realtime);
+        s->last_entry_realtime = realtime;
+        return 0;
+}
+
+static int verify_tag(JournalFile *f, VerifyTagState *s, uint64_t p, Object **o) {
+        uint64_t seqnum, epoch;
+        int r;
+
+        assert(f);
+        assert(s);
+        assert(o);
+
+        if (!JOURNAL_HEADER_SEALED(f->header)) {
+                error(p, "Tag object in file without sealing");
+                return -EBADMSG;
+        }
+
+        seqnum = le64toh((*o)->tag.seqnum);
+        epoch = le64toh((*o)->tag.epoch);
+
+        if (seqnum != s->n_tags + 1) {
+                error(p,
+                      "Tag sequence number out of synchronization (%"PRIu64" != %"PRIu64")",
+                      seqnum,
+                      s->n_tags + 1);
+                return -EBADMSG;
+        }
+
+        if (JOURNAL_HEADER_SEALED_CONTINUOUS(f->header)) {
+                if (!(s->n_tags == 0 || (s->n_tags == 1 && epoch == s->last_epoch) || epoch == s->last_epoch + 1)) {
+                        error(p,
+                              "Epoch sequence not continuous (%"PRIu64" vs %"PRIu64")",
+                              epoch,
+                              s->last_epoch);
+                        return -EBADMSG;
+                }
+        } else if (epoch < s->last_epoch) {
+                error(p,
+                      "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
+                      epoch,
+                      s->last_epoch);
+                return -EBADMSG;
+        }
+
+        if (journal_auth_supported()) {
+                uint8_t tag[TAG_LENGTH];
+                usec_t rt, rt_end;
+
+                CLEANUP_ERASE(tag);
+
+                debug(p, "Checking tag %"PRIu64"...", seqnum);
+
+                r = journal_file_auth_epoch_to_realtime_usec(f, epoch, &rt, &rt_end);
+                if (r < 0)
+                        return r;
+
+                /* rt_end is never 0, so this never triggers before the first entry. */
+                if (s->last_entry_realtime >= rt_end) {
+                        error(p,
+                              "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
+                              s->last_entry_realtime,
+                              rt_end);
+                        return -EBADMSG;
+                }
+                if (s->max_entry_realtime >= rt_end) {
+                        error(p,
+                              "Entry realtime (%"PRIu64", %s) is too late with respect to tag (%"PRIu64", %s)",
+                              s->max_entry_realtime, FORMAT_TIMESTAMP(s->max_entry_realtime),
+                              rt_end, FORMAT_TIMESTAMP(rt_end));
+                        return -EBADMSG;
+                }
+                if (s->min_entry_realtime < rt) {
+                        error(p,
+                              "Entry realtime (%"PRIu64", %s) is too early with respect to tag (%"PRIu64", %s)",
+                              s->min_entry_realtime, FORMAT_TIMESTAMP(s->min_entry_realtime),
+                              rt, FORMAT_TIMESTAMP(rt));
+                        return -EBADMSG;
+                }
+                s->min_entry_realtime = USEC_INFINITY;
+
+                r = journal_file_auth_seek(f, epoch);
+                if (r < 0)
+                        return r;
+
+                r = journal_file_auth_start(f);
+                if (r < 0)
+                        return r;
+
+                if (s->n_tags == 0) {
+                        r = journal_file_auth_put_header(f);
+                        if (r < 0)
+                                return r;
+                }
+
+                for (uint64_t q = s->last_tag_end; q <= p;) {
+                        Object *object;
+
+                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &object);
+                        if (r < 0)
+                                return r;
+
+                        r = journal_file_auth_put_object(f, OBJECT_UNUSED, object, q);
+                        if (r < 0)
+                                return r;
+
+                        q += ALIGN64(le64toh(object->object.size));
+                }
+
+                /* The traversal may have unmapped the tag. */
+                r = journal_file_move_to_object(f, OBJECT_TAG, p, o);
+                if (r < 0)
+                        return r;
+
+                r = journal_file_auth_end(f, tag);
+                if (r < 0)
+                        return r;
+
+                if (memcmp((*o)->tag.tag, tag, TAG_LENGTH) != 0) {
+                        error(p, "Tag failed verification");
+                        return -EBADMSG;
+                }
+
+                s->last_tag_realtime = rt;
+                s->last_tag_realtime_end = rt_end;
+        }
+
+        s->last_tag_end = p + ALIGN64(le64toh((*o)->object.size));
+        s->last_epoch = epoch;
+        s->n_tags++;
+        return 0;
+}
+
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
@@ -820,12 +998,14 @@ int journal_file_verify(
 
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0, last_tag_realtime_end = 0;
-        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
-        usec_t min_entry_realtime = USEC_INFINITY, max_entry_realtime = 0;
+        uint64_t p = 0;
+        uint64_t entry_seqnum = 0, entry_monotonic = 0;
+        VerifyTagState tag = {
+                .min_entry_realtime = USEC_INFINITY,
+        };
         sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
-        uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
+        uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0;
         usec_t last_usec = 0;
         _cleanup_close_ int data_fd = -EBADF, entry_fd = -EBADF, entry_array_fd = -EBADF;
         _cleanup_fclose_ FILE *data_fp = NULL, *entry_fp = NULL, *entry_array_fp = NULL;
@@ -932,7 +1112,7 @@ int journal_file_verify(
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
 
-        p = le64toh(f->header->header_size);
+        p = tag.last_tag_end = le64toh(f->header->header_size);
         for (;;) {
                 /* Early exit if there are no objects in the file, at all */
                 if (le64toh(f->header->tail_object_offset) == 0)
@@ -964,31 +1144,9 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if (!!(o->object.flags & OBJECT_COMPRESSED_XZ) +
-                    !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
-                    !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
-                        error(p, "Object has multiple compression flags set (flags: 0x%x)", o->object.flags);
-                        r = -EINVAL;
+                r = verify_compression(f, o, p);
+                if (r < 0)
                         goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_XZ) && !JOURNAL_HEADER_COMPRESSED_XZ(f->header)) {
-                        error(p, "XZ compressed object in file without XZ compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !JOURNAL_HEADER_COMPRESSED_LZ4(f->header)) {
-                        error(p, "LZ4 compressed object in file without LZ4 compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !JOURNAL_HEADER_COMPRESSED_ZSTD(f->header)) {
-                        error(p, "ZSTD compressed object in file without ZSTD compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
 
                 switch (o->object.type) {
 
@@ -1005,24 +1163,13 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY:
-                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
-                                error(p, "First entry before first tag");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
                         r = write_uint64(entry_fp, p);
                         if (r < 0)
                                 goto fail;
 
-                        if (le64toh(o->entry.realtime) < last_tag_realtime) {
-                                error(p,
-                                      "Older entry after newer tag (%"PRIu64" < %"PRIu64")",
-                                      le64toh(o->entry.realtime),
-                                      last_tag_realtime);
-                                r = -EBADMSG;
+                        r = verify_tag_add_entry(&tag, JOURNAL_HEADER_SEALED(f->header), p, le64toh(o->entry.realtime));
+                        if (r < 0)
                                 goto fail;
-                        }
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
@@ -1072,11 +1219,7 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        entry_realtime = le64toh(o->entry.realtime);
                         entry_realtime_set = true;
-
-                        max_entry_realtime = MAX(max_entry_realtime, le64toh(o->entry.realtime));
-                        min_entry_realtime = MIN(min_entry_realtime, le64toh(o->entry.realtime));
 
                         n_entries++;
                         break;
@@ -1117,135 +1260,10 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_TAG:
-                        if (!JOURNAL_HEADER_SEALED(f->header)) {
-                                error(p, "Tag object in file without sealing");
-                                r = -EBADMSG;
+                        r = verify_tag(f, &tag, p, &o);
+                        if (r < 0)
                                 goto fail;
-                        }
 
-                        if (le64toh(o->tag.seqnum) != n_tags + 1) {
-                                error(p,
-                                      "Tag sequence number out of synchronization (%"PRIu64" != %"PRIu64")",
-                                      le64toh(o->tag.seqnum),
-                                      n_tags + 1);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (JOURNAL_HEADER_SEALED_CONTINUOUS(f->header)) {
-                                if (!(n_tags == 0 || (n_tags == 1 && le64toh(o->tag.epoch) == last_epoch)
-                                      || le64toh(o->tag.epoch) == last_epoch + 1)) {
-                                        error(p,
-                                              "Epoch sequence not continuous (%"PRIu64" vs %"PRIu64")",
-                                              le64toh(o->tag.epoch),
-                                              last_epoch);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                        } else {
-                                if (le64toh(o->tag.epoch) < last_epoch) {
-                                        error(p,
-                                              "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
-                                              le64toh(o->tag.epoch),
-                                              last_epoch);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                        }
-
-                        if (JOURNAL_HEADER_SEALED(f->header) && journal_auth_supported()) {
-                                uint64_t q, rt, rt_end;
-
-                                debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
-
-                                r = journal_file_auth_epoch_to_realtime_usec(f, le64toh(o->tag.epoch), &rt, &rt_end);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (entry_realtime_set && entry_realtime >= rt_end) {
-                                        error(p,
-                                              "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
-                                              entry_realtime,
-                                              rt_end);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                if (max_entry_realtime >= rt_end) {
-                                        error(p,
-                                              "Entry realtime (%"PRIu64", %s) is too late with respect to tag (%"PRIu64", %s)",
-                                              max_entry_realtime, FORMAT_TIMESTAMP(max_entry_realtime),
-                                              rt_end, FORMAT_TIMESTAMP(rt_end));
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                if (min_entry_realtime < rt) {
-                                        error(p,
-                                              "Entry realtime (%"PRIu64", %s) is too early with respect to tag (%"PRIu64", %s)",
-                                              min_entry_realtime, FORMAT_TIMESTAMP(min_entry_realtime),
-                                              rt, FORMAT_TIMESTAMP(rt));
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                min_entry_realtime = USEC_INFINITY;
-
-                                /* OK, now we know the epoch. So let's now set
-                                 * it, and calculate the HMAC for everything
-                                 * since the last tag. */
-                                r = journal_file_auth_seek(f, le64toh(o->tag.epoch));
-                                if (r < 0)
-                                        goto fail;
-
-                                r = journal_file_auth_start(f);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (last_tag == 0) {
-                                        r = journal_file_auth_put_header(f);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        q = le64toh(f->header->header_size);
-                                } else
-                                        q = last_tag;
-
-                                while (q <= p) {
-                                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &o);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        r = journal_file_auth_put_object(f, OBJECT_UNUSED, o, q);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        q = q + ALIGN64(le64toh(o->object.size));
-                                }
-
-                                /* Position might have changed, let's reposition things */
-                                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
-                                if (r < 0)
-                                        goto fail;
-
-                                uint8_t tag[TAG_LENGTH];
-                                CLEANUP_ERASE(tag);
-
-                                r = journal_file_auth_end(f, tag);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (memcmp(o->tag.tag, tag, TAG_LENGTH) != 0) {
-                                        error(p, "Tag failed verification");
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-
-                                last_tag_realtime = rt;
-                                last_tag_realtime_end = rt_end;
-                        }
-
-                        last_tag = p + ALIGN64(le64toh(o->object.size));
-                        last_epoch = le64toh(o->tag.epoch);
-
-                        n_tags++;
                         break;
                 }
 
@@ -1304,10 +1322,10 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
-            n_tags != le64toh(f->header->n_tags)) {
+            tag.n_tags != le64toh(f->header->n_tags)) {
                 error(offsetof(Header, n_tags),
                       "Tag number mismatch (%"PRIu64" != %"PRIu64")",
-                      n_tags,
+                      tag.n_tags,
                       le64toh(f->header->n_tags));
                 r = -EBADMSG;
                 goto fail;
@@ -1351,10 +1369,10 @@ int journal_file_verify(
                 goto fail;
         }
 
-        if (entry_realtime_set && entry_realtime != le64toh(f->header->tail_entry_realtime)) {
+        if (entry_realtime_set && tag.last_entry_realtime != le64toh(f->header->tail_entry_realtime)) {
                 error(0,
                       "Invalid tail realtime timestamp (%"PRIu64" != %"PRIu64")",
-                      entry_realtime,
+                      tag.last_entry_realtime,
                       le64toh(f->header->tail_entry_realtime));
                 r = -EBADMSG;
                 goto fail;
@@ -1411,7 +1429,7 @@ int journal_file_verify(
         if (ret_first_contained)
                 *ret_first_contained = le64toh(f->header->head_entry_realtime);
         if (ret_last_validated)
-                *ret_last_validated = last_tag_realtime_end;
+                *ret_last_validated = tag.last_tag_realtime_end;
         if (ret_last_contained)
                 *ret_last_contained = le64toh(f->header->tail_entry_realtime);
 

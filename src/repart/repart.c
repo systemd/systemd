@@ -50,6 +50,7 @@
 #include "initrd-util.h"
 #include "install-file.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "iso9660.h"
 #include "json-util.h"
 #include "libmount-util.h"
@@ -6512,10 +6513,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
-        if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
-
-        r = loop_write(whole_fd, text, p->new_size);
+        r = pwritev_full(whole_fd, &IOVEC_MAKE(text, p->new_size), 1, p->offset, /* ret_written= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition %s: %m", strna(hint));
 
@@ -8593,11 +8591,9 @@ static int write_primary_descriptor(
         iso9660_datetime_zero(&desc.volume_expiration_date);
         iso9660_datetime_zero(&desc.volume_effective_date);
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 primary descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 primary descriptor");
+        r = pwritev_full(fd, &IOVEC_MAKE(&desc, sizeof(desc)), 1, ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE, /* ret_written= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 primary descriptor: %m");
 
         return 0;
 }
@@ -8617,11 +8613,9 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
 
         strncpy(desc.boot_system_identifier, "EL TORITO SPECIFICATION", sizeof(desc.boot_system_identifier));
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_ELTORITO_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 El-Torito descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 El-Torito descriptor");
+        int r = pwritev_full(fd, &IOVEC_MAKE(&desc, sizeof(desc)), 1, ISO9660_ELTORITO_DESCRIPTOR*ISO9660_BLOCK_SIZE, /* ret_written= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 El-Torito descriptor: %m");
 
         return 0;
 }
@@ -8638,11 +8632,9 @@ static int write_terminal_descriptor(int fd) {
 
         iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 terminal descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 terminal descriptor");
+        int r = pwritev_full(fd, &IOVEC_MAKE(&desc, sizeof(desc)), 1, ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE, /* ret_written= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 terminal descriptor: %m");
 
         return 0;
 }
@@ -8695,11 +8687,9 @@ static int write_boot_catalog(int fd, uint32_t load_block) {
         p = mempcpy(p, &sh, sizeof(sh));
         assert((size_t) (p - sector) <= sizeof(sector));
 
-        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_BOOT_CATALOG*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write El-Torito boot catalog: %m");
-        if (s != sizeof(sector))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write El-Torito boot catalog");
+        int r = pwritev_full(fd, &IOVEC_MAKE(&sector, sizeof(sector)), 1, ISO9660_BOOT_CATALOG*ISO9660_BLOCK_SIZE, /* ret_written= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write El-Torito boot catalog: %m");
 
         return 0;
 }
@@ -8758,11 +8748,9 @@ static int write_directories(
         p = mempcpy(p, &parent, sizeof(parent));
         assert((size_t) (p - sector) <= sizeof(sector));
 
-        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_ROOT_DIRECTORY*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 root directory: %m");
-        if (s != sizeof(sector))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 root directory");
+        r = pwritev_full(fd, &IOVEC_MAKE(&sector, sizeof(sector)), 1, ISO9660_ROOT_DIRECTORY*ISO9660_BLOCK_SIZE, /* ret_written= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 root directory: %m");
 
         return 0;
 }
