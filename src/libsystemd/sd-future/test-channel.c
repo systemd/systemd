@@ -179,7 +179,7 @@ TEST(channel_send_closed) {
         ASSERT_EQ(destroyed_count, 1u);
 }
 
-TEST(channel_recv_dropped_value_destroyed) {
+TEST(channel_recv_freed_item_stays) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
 
@@ -192,13 +192,258 @@ TEST(channel_recv_dropped_value_destroyed) {
         sd_future *f = NULL;
         ASSERT_OK(sd_channel_recv(c, &f));
         ASSERT_EQ(sd_future_state(f), SD_FUTURE_RESOLVED);
-
-        /* The item was never taken with sd_channel_recv_get(), so freeing the future destroys it. */
         f = sd_future_unref(f);
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 5);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_item_holds_capacity_until_popped) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 1, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        _cleanup_(sd_future_unrefp) sd_future *recv = NULL;
+        ASSERT_OK(sd_channel_recv(c, &recv));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_EQ(sd_future_state(recv), SD_FUTURE_RESOLVED);
+
+        ASSERT_ERROR(sd_channel_try_push(c, INT_TO_PTR(2)), ENOBUFS);
+
+        _cleanup_(sd_future_unrefp) sd_future *send_f = NULL;
+        ASSERT_OK(sd_channel_send(c, INT_TO_PTR(2), &send_f));
+        ASSERT_EQ(sd_future_state(send_f), SD_FUTURE_PENDING);
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_recv_get(recv, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+        ASSERT_EQ(sd_future_state(send_f), SD_FUTURE_RESOLVED);
+        ASSERT_OK_ZERO(sd_future_result(send_f));
+
+        ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 2);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_recv_get_after_item_popped) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 4, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(2)));
+
+        _cleanup_(sd_future_unrefp) sd_future *first = NULL, *second = NULL;
+        ASSERT_OK(sd_channel_recv(c, &first));
+        ASSERT_OK(sd_channel_recv(c, &second));
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+
+        ASSERT_OK_POSITIVE(sd_channel_recv_get(first, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 2);
+
+        ASSERT_ERROR(sd_channel_recv_get(second, &p), EAGAIN);
+        ASSERT_ERROR(sd_channel_recv_get(second, &p), ESTALE);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_freed_woken_recv_wakes_next) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 2, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        sd_future *first = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *second = NULL;
+        ASSERT_OK(sd_channel_recv(c, &first));
+        ASSERT_OK(sd_channel_recv(c, &second));
+
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_EQ(sd_future_state(first), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_state(second), SD_FUTURE_PENDING);
+
+        first = sd_future_unref(first);
+        ASSERT_EQ(sd_future_state(second), SD_FUTURE_RESOLVED);
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_recv_get(second, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_close_wakes_pending_recvs) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 2, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        _cleanup_(sd_future_unrefp) sd_future *first = NULL, *second = NULL;
+        ASSERT_OK(sd_channel_recv(c, &first));
+        ASSERT_OK(sd_channel_recv(c, &second));
+
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_EQ(sd_future_state(second), SD_FUTURE_PENDING);
+
+        ASSERT_OK(sd_channel_close(c));
+        ASSERT_EQ(sd_future_state(second), SD_FUTURE_RESOLVED);
+        ASSERT_OK_ZERO(sd_future_result(second));
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_recv_get(first, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+        ASSERT_ERROR(sd_channel_recv_get(second, &p), EPIPE);
+
+        ASSERT_ERROR(sd_channel_try_pop(c, &p), EPIPE);
+        sd_future *third = NULL;
+        ASSERT_ERROR(sd_channel_recv(c, &third), EPIPE);
+        ASSERT_NULL(third);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+static int pop_while_holding_woken_recv_fiber(void *userdata) {
+        sd_channel *c = ASSERT_PTR(userdata);
+        _cleanup_(sd_future_unrefp) sd_future *recv = NULL;
+        void *p;
+
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_OK(sd_channel_recv(c, &recv));
+        ASSERT_EQ(sd_future_state(recv), SD_FUTURE_RESOLVED);
+
+        /* The woken receive future that this fiber holds does not reserve item 1. */
+        ASSERT_OK(sd_channel_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+
+        ASSERT_ERROR(sd_channel_recv_get(recv, &p), EAGAIN);
+        return 0;
+}
+
+TEST(channel_pop_while_holding_woken_recv) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 1, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        ASSERT_OK(sd_fiber_new(e, "pop-woken-recv", pop_while_holding_woken_recv_fiber, c, &fiber));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(fiber));
+}
+
+static sd_channel *reentrant_channel;
+static int reentrant_pop_result;
+static void *reentrant_pop_item;
+
+static void reentrant_pop_destroy(void *p) {
+        reentrant_pop_result = sd_channel_try_pop(reentrant_channel, &reentrant_pop_item);
+}
+
+TEST(channel_drop_oldest_destroy_reenters) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new_conflated(e, reentrant_pop_destroy, &c));
+        reentrant_channel = c;
+
+        _cleanup_(sd_future_unrefp) sd_future *recv = NULL;
+        ASSERT_OK(sd_channel_recv(c, &recv));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+
+        /* The channel destroys item 1 only after it buffered item 2, so the destroy callback pops item 2. */
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(2)));
+        ASSERT_OK_POSITIVE(reentrant_pop_result);
+        ASSERT_EQ(PTR_TO_INT(reentrant_pop_item), 2);
+
+        void *p;
+        ASSERT_ERROR(sd_channel_recv_get(recv, &p), EAGAIN);
+
+        reentrant_channel = NULL;
+}
+
+TEST(channel_conflated_woken_recv_gets_latest) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new_conflated(e, int_destroy, &c));
+
+        _cleanup_(sd_future_unrefp) sd_future *recv = NULL;
+        ASSERT_OK(sd_channel_recv(c, &recv));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_EQ(sd_future_state(recv), SD_FUTURE_RESOLVED);
+
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(2)));
+        ASSERT_EQ(destroyed_count, 1u);
+
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_recv_get(recv, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 2);
+        ASSERT_ERROR(sd_channel_try_pop(c, &p), ENODATA);
         ASSERT_EQ(destroyed_count, 1u);
 }
 
-TEST(channel_direct_handoff_push_to_recv) {
+TEST(channel_recv_loses_wait_any_race) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 2, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *other = NULL;
+        sd_future *recv = NULL;
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
+        ASSERT_OK(sd_future_group_new(e, &other));
+        ASSERT_OK(sd_channel_recv(c, &recv));
+        ASSERT_OK(sd_future_group_add_many(group, other, recv));
+        ASSERT_OK(sd_future_group_seal(group));
+
+        /* Both children resolve before the group handles either of them. When the receive future loses,
+         * the channel must keep the item. */
+        ASSERT_OK(sd_future_resolve(other, 7));
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        ASSERT_EQ(sd_future_state(recv), SD_FUTURE_RESOLVED);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_RESOLVED);
+
+        /* sd-event dispatches the slot callbacks of the children in the order in which they were added,
+         * so `other` wins. If that order changes, this test no longer tests the lost race and has to
+         * be adjusted. */
+        ASSERT_EQ(sd_future_result(group), 7);
+
+        void *p;
+        recv = sd_future_unref(recv);
+        ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_push_resolves_pending_recv) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
 
@@ -405,7 +650,7 @@ TEST(channel_fiber_push_pop_fifo) {
 }
 
 /* Send futures and receive futures share channel_ops, so sd_channel_recv_get() accepts a send future.
- * The item of a completed send is in the buffer, so the call fails with -ESTALE. */
+ * A send future is never woken, so the call fails with -ESTALE. */
 TEST(channel_recv_get_on_send_future_returns_estale) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
@@ -834,7 +1079,8 @@ TEST(channel_pop_cancelled_after_delivery) {
         ASSERT_OK(sd_fiber_new(e, "pop", pop_fiber, &op, &fiber));
         run_until_awaiting(e, fiber);
 
-        /* The push hands item 5 to the fiber before the fiber wakes up from the cancellation. */
+        /* The push wakes the receive future of the fiber before the fiber wakes up from the
+         * cancellation. */
         ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(5)));
         ASSERT_OK(sd_future_cancel(fiber));
 
@@ -842,6 +1088,39 @@ TEST(channel_pop_cancelled_after_delivery) {
         ASSERT_OK_ZERO(op.result);
         ASSERT_ERROR(op.yield_result, ECANCELED);
         ASSERT_EQ(PTR_TO_INT(op.item), 5);
+        ASSERT_EQ(destroyed_count, 0u);
+}
+
+TEST(channel_pop_retries_after_item_popped) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        reset_destroy_counter();
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        ASSERT_OK(sd_channel_new(e, 1, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
+
+        FiberOp op = { .channel = c };
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        ASSERT_OK(sd_fiber_new(e, "pop", pop_fiber, &op, &fiber));
+        run_until_awaiting(e, fiber);
+
+        /* The push wakes the fiber, but the item is popped before the fiber runs. The fiber then finds
+         * the channel empty and waits for the next item. */
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(1)));
+        void *p;
+        ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
+        ASSERT_EQ(PTR_TO_INT(p), 1);
+
+        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                ;
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+
+        ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(2)));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(op.result);
+        ASSERT_EQ(PTR_TO_INT(op.item), 2);
         ASSERT_EQ(destroyed_count, 0u);
 }
 
