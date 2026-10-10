@@ -149,7 +149,7 @@ TEST(duplicate_entry_storage) {
                 IOVEC_MAKE_STRING(repeated_two),
         };
         char t[] = "/var/tmp/journal-XXXXXX";
-        uint64_t expected_xor = 0;
+        uint64_t expected_xor = 0, p, n;
         dual_timestamp ts;
         Object *o;
 
@@ -162,23 +162,21 @@ TEST(duplicate_entry_storage) {
         FOREACH_ELEMENT(i, iovec)
                 expected_xor ^= jenkins_hash64(i->iov_base, i->iov_len);
 
-        ASSERT_OK(journal_file_append_entry(f, &ts, NULL, iovec, ELEMENTSOF(iovec), NULL, NULL, &o, NULL));
+        ASSERT_OK(journal_file_append_entry(f, &ts, NULL, iovec, ELEMENTSOF(iovec), NULL, NULL, &o, &p));
         ASSERT_EQ(le64toh(o->entry.xor_hash), expected_xor);
-        ASSERT_EQ(journal_file_entry_n_items(f, o), 5U);
+        ASSERT_OK(journal_file_entry_n_fields(f, o, p, &n));
+        ASSERT_EQ(n, 5U);
 
-        for (uint64_t i = 0; i < journal_file_entry_n_items(f, o); i++) {
+        for (uint64_t i = 0; i < n; i++) {
                 const void *data;
                 size_t size;
 
-                ASSERT_OK_POSITIVE(journal_file_data_payload(
-                                f,
-                                NULL,
-                                journal_file_entry_item_object_offset(f, o, i),
-                                NULL,
-                                0,
-                                0,
-                                &data,
-                                &size));
+                ASSERT_OK(journal_file_move_to_object(f, OBJECT_ENTRY, p, &o));
+                ASSERT_OK_POSITIVE(journal_file_entry_field_payload(
+                                f, o, p, i,
+                                /* field= */ NULL, /* field_length= */ 0,
+                                /* data_threshold= */ 0,
+                                &data, &size));
 
                 if (memcmp_nn(data, size, binary, sizeof(binary)) == 0)
                         n_binary++;
