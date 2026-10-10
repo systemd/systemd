@@ -135,6 +135,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "verbs.h"
+#include "virt.h"
 #include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
@@ -1819,8 +1820,13 @@ static int setup_timezone(const char *dest) {
                         (void) touch(resolved);
 
                 r = mount_nofollow_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
-                if (r >= 0)
-                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                if (r >= 0) {
+                        r = bind_remount_one(resolved, MS_RDONLY|MS_NOSUID|MS_NODEV, MS_RDONLY|MS_NOSUID|MS_NODEV);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make %s read-only: %m", resolved);
+
+                        return 0;
+                }
 
                 _fallthrough_;
         }
@@ -1948,8 +1954,13 @@ static int setup_resolv_conf(const char *dest) {
                         (void) touch(resolved);
 
                 r = mount_nofollow_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
-                if (r >= 0)
-                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                if (r >= 0) {
+                        r = bind_remount_one(resolved, MS_RDONLY|MS_NOSUID|MS_NODEV, MS_RDONLY|MS_NOSUID|MS_NODEV);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make %s read-only: %m", resolved);
+
+                        return 0;
+                }
 
                 /* If that didn't work, let's copy the file */
         }
@@ -2735,9 +2746,9 @@ static int mount_tunnel_dig(const char *root) {
         if (r < 0)
                 return r;
 
-        r = mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        r = bind_remount_one(q, MS_RDONLY, MS_RDONLY);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to make %s read-only: %m", q);
 
         return 0;
 }
@@ -3892,7 +3903,8 @@ static int outer_child(
                 int fd_inner_socket,
                 FDSet *fds,
                 int netns_fd,
-                const char *unix_export_path) {
+                const char *unix_export_path,
+                bool pin_api_fs) {
 
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         bool idmap = false;
@@ -4027,9 +4039,10 @@ static int outer_child(
                 chown_range = UINT32_C(0x10000);
         }
 
-        if (arg_userns_mode != USER_NAMESPACE_NO) {
+        if (pin_api_fs) {
                 _cleanup_close_ int mntns_fd = -EBADF;
 
+                /* The parent needs this to remove the fully visible procfs and sysfs instances again */
                 mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to pin outer mount namespace: %m");
@@ -4037,8 +4050,9 @@ static int outer_child(
                 l = send_one_fd(fd_outer_socket, mntns_fd, 0);
                 if (l < 0)
                         return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
-                mntns_fd = safe_close(mntns_fd);
+        }
 
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Let the parent know which UID shift we read from the image */
                 l = send(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
@@ -4376,6 +4390,24 @@ static int outer_child(
 
         _cleanup_close_ int notify_fd = -EBADF;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
+                if (pin_api_fs) {
+                        /* In order to mount procfs and sysfs in an unprivileged container the kernel
+                         * requires that a fully visible instance is already present in the target mount
+                         * namespace. Mount one here so the inner child can mount its own instances. Later
+                         * we umount the temporary instances created here before we actually exec the
+                         * payload. Since we make the rootfs shared below, the umount will propagate into the
+                         * container. Note, the inner child wouldn't be able to unmount the instances on its
+                         * own since it doesn't own the originating mount namespace. IOW, the parent needs
+                         * to do this in our mount namespace.
+                         *
+                         * Do this before switching root, as the instances we inherited are left behind
+                         * then, and if we run in a user namespace we didn't create ourselves, we need them
+                         * to be able to mount new ones here too. */
+                        r = pin_fully_visible_api_fs(directory);
+                        if (r < 0)
+                                return r;
+                }
+
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
                  * bind mounts available in systemd services inside the container that create a new mount
                  * namespace.  See https://github.com/systemd/systemd/issues/3860 Further submounts (such as
@@ -4395,20 +4427,6 @@ static int outer_child(
                 r = mount_tunnel_open();
                 if (r < 0)
                         return r;
-
-                if (arg_userns_mode != USER_NAMESPACE_NO) {
-                        /* In order to mount procfs and sysfs in an unprivileged container the kernel
-                         * requires that a fully visible instance is already present in the target mount
-                         * namespace. Mount one here so the inner child can mount its own instances. Later
-                         * we umount the temporary instances created here before we actually exec the
-                         * payload. Since the rootfs is shared the umount will propagate into the container.
-                         * Note, the inner child wouldn't be able to unmount the instances on its own since
-                         * it doesn't own the originating mount namespace. IOW, the outer child needs to do
-                         * this. */
-                        r = pin_fully_visible_api_fs();
-                        if (r < 0)
-                                return r;
-                }
 
                 notify_fd = setup_notify_child(NULL);
         } else
@@ -5336,6 +5354,13 @@ static int run_container(
                                                "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
 
+        /* If the inner child's mount namespace isn't owned by the initial user namespace, the kernel only
+         * lets it mount procfs and sysfs if fully visible instances are around already. That's the case if
+         * we create a user namespace for it ourselves, but also if we run as root in a user namespace we
+         * didn't create, e.g. in a container, as our mount namespaces are owned by that one then. */
+        bool pin_api_fs = IN_SET(arg_userns_mode, USER_NAMESPACE_FIXED, USER_NAMESPACE_PICK) ||
+                (arg_userns_mode == USER_NAMESPACE_NO && running_in_userns() > 0);
+
         bool in_child;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 assert(userns_fd < 0);
@@ -5407,7 +5432,8 @@ static int run_container(
                                 fd_inner_socket_pair[1],
                                 fds,
                                 child_netns_fd,
-                                unix_export_host_dir);
+                                unix_export_host_dir,
+                                pin_api_fs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -5421,11 +5447,13 @@ static int run_container(
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
 
-        if (arg_userns_mode != USER_NAMESPACE_NO) {
+        if (pin_api_fs) {
                 mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
+        }
 
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* The child just let us know the UID shift it might have read from the image. */
                 l = recv(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
@@ -5746,7 +5774,7 @@ static int run_container(
         if (!barrier_sync(&barrier)) /* #5.1 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
+        if (pin_api_fs) {
                 r = wipe_fully_visible_api_fs(mntns_fd);
                 if (r < 0)
                         return r;
