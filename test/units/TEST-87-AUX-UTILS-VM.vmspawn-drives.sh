@@ -8,6 +8,7 @@
 # - io_uring retry callbacks (if QEMU lacks io_uring support)
 # - Multiple device_add commands
 # - blockdev-create job watching with deferred continuation (ephemeral)
+# - read-only extra drives with --ephemeral
 set -eux
 set -o pipefail
 
@@ -53,7 +54,7 @@ WORKDIR="$(mktemp -d)"
 
 at_exit() {
     set +e
-    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
+    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}" "${MACHINE_RO:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -63,6 +64,7 @@ at_exit() {
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_RO_PID:-}" ]] && kill "$VMSPAWN_RO_PID" 2>/dev/null && wait "$VMSPAWN_RO_PID" 2>/dev/null
     mountpoint -q "$WORKDIR/ro" && umount "$WORKDIR/ro"
     rm -rf "$WORKDIR"
 }
@@ -260,5 +262,93 @@ machinectl terminate "$MACHINE_GROW"
 timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
 echo "Grown ephemeral VM terminated cleanly"
+
+# --- Test 4: Read-only NVMe extra drive ---
+# QEMU does not tell the guest that an NVMe drive is read-only, so this is refused.
+
+# Both with an explicit nvme: prefix and with nvme inherited from --image-disk-type=.
+for image_disk_type in virtio-blk nvme; do
+    if [[ "$image_disk_type" == nvme ]]; then
+        spec="ro:$WORKDIR/extra1.raw"
+    else
+        spec="nvme:ro:$WORKDIR/extra1.raw"
+    fi
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --image-disk-type="$image_disk_type" \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "vmspawn unexpectedly accepted --image-disk-type=$image_disk_type --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "Read-only --extra-drive= is not supported with disk type nvme: '$WORKDIR/extra1.raw'\." "$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-nvme-ro.log"
+        exit 1
+    fi
+done
+echo "Read-only NVMe extra drive is refused"
+
+# --- Test 5: Ephemeral with read-only extra drives ---
+# Extra drives get no overlay, so --ephemeral accepts them only if they are
+# read-only.
+
+MACHINE_RO="test-vmspawn-ephemeral-ro-$$"
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+    --machine="$MACHINE_RO" \
+    --ram=256M \
+    --image="$WORKDIR/root.raw" \
+    --ephemeral \
+    --extra-drive="scsi-cd:$WORKDIR/extra1.raw" \
+    --extra-drive="ro:$WORKDIR/extra2.raw" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    root=/dev/vda rw \
+    &>"$WORKDIR/vmspawn-ro.log" &
+VMSPAWN_RO_PID=$!
+
+wait_for_machine "$MACHINE_RO" "$VMSPAWN_RO_PID" "$WORKDIR/vmspawn-ro.log"
+echo "Ephemeral machine '$MACHINE_RO' with read-only extra drives registered with machined"
+
+# The root drive is vmspawn-0, the extra drives vmspawn-1 and vmspawn-2.
+if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|chardev-add) failed:' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-1-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-2-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ro.log"
+    exit 1
+fi
+echo "Extra drives were added read-only"
+
+machinectl terminate "$MACHINE_RO"
+timeout 10 bash -c "while machinectl status '$MACHINE_RO' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_RO_PID' 2>/dev/null; do sleep .5; done"
+echo "Ephemeral VM with read-only extra drives terminated cleanly"
+
+# Writable extra drives, with the disk type inherited or explicit, are still refused.
+for disk_type in "" virtio-blk virtio-scsi nvme; do
+    spec="${disk_type:+$disk_type:}$WORKDIR/extra1.raw"
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --ephemeral \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-rw.log"; then
+        echo "vmspawn unexpectedly accepted --ephemeral with --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "only supports read-only --extra-drive=.*'$WORKDIR/extra1.raw' with disk type ${disk_type:-virtio-blk}\." "$WORKDIR/vmspawn-rw.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-rw.log"
+        exit 1
+    fi
+done
+echo "Writable extra drives are refused with --ephemeral"
 
 echo "All vmspawn drive setup tests passed"

@@ -3,6 +3,26 @@
 #include "machine-util.h"
 #include "tests.h"
 
+TEST(parse_disk_spec) {
+        ImageFormat format = IMAGE_FORMAT_RAW;
+        DiskType disk_type = _DISK_TYPE_INVALID;
+        bool read_only = false;
+        _cleanup_free_ char *path = NULL;
+
+        ASSERT_OK(parse_disk_spec("/srv/disk.raw", &format, &disk_type, &read_only, &path));
+        ASSERT_STREQ(path, "/srv/disk.raw");
+        ASSERT_EQ(format, IMAGE_FORMAT_RAW);
+        ASSERT_EQ(disk_type, _DISK_TYPE_INVALID);
+        ASSERT_FALSE(read_only);
+
+        path = mfree(path);
+        ASSERT_OK(parse_disk_spec("ro:nvme:qcow2:/srv/disk.qcow2", &format, &disk_type, &read_only, &path));
+        ASSERT_STREQ(path, "/srv/disk.qcow2");
+        ASSERT_EQ(format, IMAGE_FORMAT_QCOW2);
+        ASSERT_EQ(disk_type, DISK_TYPE_NVME);
+        ASSERT_TRUE(read_only);
+}
+
 TEST(bind_volume_parse_minimal) {
         _cleanup_(bind_volume_freep) BindVolume *v = NULL;
 

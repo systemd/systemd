@@ -8,6 +8,7 @@ typedef struct ExtraDrive {
         char *path;
         ImageFormat format;
         DiskType disk_type;
+        bool read_only;
 } ExtraDrive;
 
 typedef struct ExtraDriveContext {
