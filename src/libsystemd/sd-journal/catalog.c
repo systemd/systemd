@@ -528,7 +528,7 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
             !MUL_SAFE(&total, le64toh(h->catalog_item_size), le64toh(h->n_items)) ||
             !INC_SAFE(&total, le64toh(h->header_size)) ||
             (uint64_t) st.st_size < total) {
-                munmap(p, st.st_size);
+                munmap_safe(p, st.st_size);
                 return -EBADMSG;
         }
 
@@ -625,7 +625,7 @@ int catalog_get(const char *database, sd_id128_t id, char **ret_text) {
         else
                 r = strdup_to(ret_text, s);
 
-        (void) munmap(p, st.st_size);
+        munmap_safe(p, st.st_size);
         return r;
 }
 
@@ -705,7 +705,7 @@ int catalog_list(FILE *f, const char *database, bool oneline) {
                 last_id = items[n].id;
         }
 
-        (void) munmap(p, st.st_size);
+        munmap_safe(p, st.st_size);
         return 0;
 }
 
