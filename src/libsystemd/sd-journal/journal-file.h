@@ -251,6 +251,19 @@ static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o
         return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
 }
 
+/* The fields of an entry. Classic files ignore the offset of the entry object. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
 static inline uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) {
