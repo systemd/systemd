@@ -2741,6 +2741,10 @@ static EFI_STATUS load_extras(
         unsigned n = 0;
 
         STRV_FOREACH(i, entry->extras) {
+                /* Addons are loaded by systemd-stub, see export_entry_addons() */
+                if (endswith_no_case(*i, u".addon.efi"))
+                        continue;
+
                 _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, /* Attributes= */ 0);
                 if (err != EFI_SUCCESS) {
@@ -2871,6 +2875,45 @@ nothing:
         *ret_initrd_pages = (Pages) {};
         *ret_initrd_size = 0;
         return EFI_SUCCESS;
+}
+
+static void export_entry_addons(const BootEntry *entry) {
+        _cleanup_free_ char *buffer = NULL;
+        size_t sz = 0;
+        char *p;
+
+        assert(entry);
+
+        /* Addons referenced via 'extra' are not loaded by us, but by systemd-stub, which validates and
+         * measures them like the global and UKI-specific ones. Pass their paths on in LoaderEntryAddons, and
+         * make sure the variable is not left around from a previous attempt if the entry has none. */
+
+        STRV_FOREACH(i, entry->extras) {
+                if (!endswith_no_case(*i, u".addon.efi"))
+                        continue;
+
+                if (entry->type != LOADER_UKI) {
+                        log_warning("Addon '%ls' is only supported for entries with a 'uki' key, ignoring.", *i);
+                        continue;
+                }
+
+                sz += strsize16(*i);
+        }
+
+        if (sz == 0) {
+                (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryAddons", 0);
+                return;
+        }
+
+        p = buffer = xmalloc(sz);
+
+        STRV_FOREACH(i, entry->extras)
+                if (endswith_no_case(*i, u".addon.efi"))
+                        p = mempcpy(p, *i, strsize16(*i));
+
+        assert(p == buffer + sz);
+
+        (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntryAddons", buffer, sz, 0);
 }
 
 static EFI_STATUS expand_path(
@@ -3104,9 +3147,15 @@ static EFI_STATUS call_image_start(
                 (void) tpm_log_load_options(options, NULL);
         }
 
+        export_entry_addons(entry);
+
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
+
+        /* The image returned, make sure its addons are not picked up by whatever is started next */
+        (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryAddons", 0);
+
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
 
@@ -3284,6 +3333,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+                EFI_LOADER_FEATURE_ENTRY_ADDONS |
                 0;
 
         assert(loaded_image);
