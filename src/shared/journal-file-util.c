@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
@@ -13,6 +14,7 @@
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "journal-segmented.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "set.h"
@@ -295,6 +297,99 @@ static bool journal_file_set_offline_try_restart(JournalFile *f) {
         }
 }
 
+static int journal_file_start_offline_thread(JournalFile *f, void* (*func)(void*)) {
+        sigset_t ss, saved_ss;
+        int r, k;
+
+        assert(f);
+        assert(func);
+
+        assert_se(sigfillset(&ss) >= 0);
+        /* Don't block SIGBUS since the offlining thread of classic files accesses a memory mapped file.
+         * Asynchronous SIGBUS signals can safely be handled by either thread. */
+        assert_se(sigdelset(&ss, SIGBUS) >= 0);
+
+        r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+        if (r > 0) {
+                f->offline_state = OFFLINE_JOINED;
+                return -r;
+        }
+
+        r = pthread_create(&f->offline_thread, NULL, func, f);
+
+        k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
+        if (r > 0) {
+                f->offline_state = OFFLINE_JOINED;
+                return -r;
+        }
+        if (k > 0)
+                return -k;
+
+        return 0;
+}
+
+static void segmented_offline_and_defrag(JournalFile *f) {
+        /* On btrfs, copy-on-write moves the partly filled last block of the file whenever it changes after
+         * it was written back, hence the file gets a new extent for about every writeback. An archived file
+         * does not change anymore, so put its extents back together once. */
+        if (segmented_offline(f))
+                (void) btrfs_defrag_fd(f->fd);
+}
+
+static void* journal_file_segmented_offline_thread(void *arg) {
+        JournalFile *f = arg;
+
+        (void) pthread_setname_np(pthread_self(), "journal-offline");
+
+        for (;;) {
+                OfflineState tmp_state = OFFLINE_SYNCING;
+
+                segmented_offline_and_defrag(f);
+
+                if (__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_DONE,
+                                                false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                        break;
+
+                /* Another sync was requested while this one ran. It has to cover what was written since. */
+                __atomic_store_n(&f->offline_state, OFFLINE_SYNCING, __ATOMIC_SEQ_CST);
+        }
+
+        return NULL;
+}
+
+static int journal_file_set_offline_segmented(JournalFile *f, bool wait) {
+        int r;
+
+        assert(f);
+
+        /* The header of segmented files has no online state to clear. Offlining syncs them, and finishes
+         * archiving them if they are archived. */
+
+        if (f->archive)
+                /* First, so that a running sync archives the file when it is done, without waiting for it */
+                segmented_offline_prepare(f);
+
+        if (!wait && journal_file_set_offline_try_restart(f))
+                return 0;
+
+        r = journal_file_set_offline_thread_join(f);
+        if (r < 0)
+                return r;
+
+        if (f->header->state == STATE_ARCHIVED)
+                return 0;
+
+        segmented_offline_prepare(f);
+
+        if (wait) {
+                segmented_offline_and_defrag(f);
+                return segmented_offline_finish(f);
+        }
+
+        f->offline_state = OFFLINE_SYNCING;
+        return journal_file_start_offline_thread(f, journal_file_segmented_offline_thread);
+}
+
 /* Sets a journal offline.
  *
  * If wait is false then an offline is dispatched in a separate thread for a
@@ -317,6 +412,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 
         if (f->fd < 0 || !f->header)
                 return -EINVAL;
+
+        if (f->segmented)
+                return journal_file_set_offline_segmented(f, wait);
 
         target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
 
@@ -368,27 +466,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 f->offline_state = OFFLINE_JOINED;
 
         } else {
-                sigset_t ss, saved_ss;
-                int k;
-
-                assert_se(sigfillset(&ss) >= 0);
-                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
-                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
-                assert_se(sigdelset(&ss, SIGBUS) >= 0);
-
-                r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
-                if (r > 0)
-                        return -r;
-
-                r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
-
-                k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
-                if (r > 0) {
-                        f->offline_state = OFFLINE_JOINED;
-                        return -r;
-                }
-                if (k > 0)
-                        return -k;
+                r = journal_file_start_offline_thread(f, journal_file_set_offline_thread);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -415,9 +495,11 @@ JournalFile* journal_file_offline_close(JournalFile *f) {
         if (r < 0)
                 log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
 
-        if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
+        if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0 ||
+            sd_event_source_get_enabled(f->post_change_idle, NULL) > 0)
                 journal_file_post_change(f);
         f->post_change_timer = sd_event_source_disable_unref(f->post_change_timer);
+        f->post_change_idle = sd_event_source_disable_unref(f->post_change_idle);
 
         journal_file_set_offline(f, true);
 
@@ -447,6 +529,7 @@ int journal_file_rotate(
                 MMapCache *mmap_cache,
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
+                const sd_id128_t *seqnum_id,
                 Set *deferred_closes) {
 
         _cleanup_free_ char *path = NULL;
@@ -466,7 +549,7 @@ int journal_file_rotate(
 
         set_clear(deferred_closes);
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         path,
                         (*f)->open_flags,
@@ -476,6 +559,7 @@ int journal_file_rotate(
                         /* metrics= */ NULL,
                         mmap_cache,
                         /* template= */ *f,
+                        seqnum_id,
                         &new_file);
 
         journal_file_initiate_close(*f, deferred_closes);
@@ -492,12 +576,13 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
         int r;
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         fname,
                         open_flags,
@@ -507,6 +592,7 @@ int journal_file_open_reliably(
                         metrics,
                         mmap_cache,
                         /* template= */ NULL,
+                        seqnum_id,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -545,8 +631,8 @@ int journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, /* template= */ old_file, ret);
+        return journal_file_open_full(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+                                      mmap_cache, /* template= */ old_file, seqnum_id, ret);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(

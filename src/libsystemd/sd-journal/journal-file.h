@@ -27,6 +27,16 @@ typedef enum direction {
         _DIRECTION_INVALID = -EINVAL,
 } direction_t;
 
+typedef enum JournalSeek {
+        JOURNAL_SEEK_FIRST,     /* the first (or last) entry */
+        JOURNAL_SEEK_OFFSET,    /* the entry at or after (or before) the offset */
+        JOURNAL_SEEK_SEQNUM,
+        JOURNAL_SEEK_REALTIME,
+        JOURNAL_SEEK_MONOTONIC, /* within the boot */
+        _JOURNAL_SEEK_MAX,
+        _JOURNAL_SEEK_INVALID = -EINVAL,
+} JournalSeek;
+
 typedef enum LocationType {
         /* The first and last entries, resp. */
         LOCATION_HEAD,
@@ -84,6 +94,7 @@ typedef struct JournalFile {
         JournalMetrics metrics;
 
         sd_event_source *post_change_timer;
+        sd_event_source *post_change_idle;
         usec_t post_change_timer_period;
 
         OrderedHashmap *chain_cache;
@@ -99,6 +110,9 @@ typedef struct JournalFile {
 #endif
 
         JournalAuthContext *auth_context;
+
+        /* Set for segmented files. 'header' then points to a private copy (the shadow header). */
+        struct Segmented *segmented;
 
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
@@ -125,7 +139,8 @@ typedef struct {
 
 extern const struct hash_ops journal_file_hash_ops_by_path;
 
-int journal_file_open(
+/* The sequence number ID is used when the file is created, in preference to the one of the template. */
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -135,7 +150,21 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret);
+static inline int journal_file_open(
+                int fd,
+                const char *fname,
+                int open_flags,
+                JournalFileFlags file_flags,
+                mode_t mode,
+                uint64_t compress_threshold_bytes,
+                JournalMetrics *metrics,
+                MMapCache *mmap_cache,
+                JournalFile *template,
+                JournalFile **ret) {
+        return journal_file_open_full(fd, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics, mmap_cache, template, /* seqnum_id= */ NULL, ret);
+}
 
 int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *f);
@@ -191,13 +220,20 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+#define JOURNAL_HEADER_SEGMENTED(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_SEGMENTED)
+
+int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret);
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
+int journal_file_check_entry_header(Object *o, uint64_t offset);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
+/* Items of segmented files may also refer to contexts and inline values. Use
+ * journal_file_entry_n_fields() and journal_file_entry_field_payload() to get the data of an entry. */
 static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
         assert(f);
         assert(o);
@@ -222,16 +258,43 @@ int journal_file_data_payload(
                 size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size);
+int journal_file_data_payload_pinned(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 static inline size_t journal_file_data_payload_offset(JournalFile *f) {
+        if (JOURNAL_HEADER_SEGMENTED(f->header))
+                return offsetof(Object, segmented_data.payload);
+
         return JOURNAL_HEADER_COMPACT(f->header)
                         ? offsetof(Object, data.compact.payload)
                         : offsetof(Object, data.regular.payload);
 }
 
 static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
+        if (JOURNAL_HEADER_SEGMENTED(f->header))
+                return o->segmented_data.payload;
+
         return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
 }
+
+/* The fields of an entry, with contexts resolved. These work for all formats. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
@@ -250,6 +313,11 @@ static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret_object, uint64_t *ret_offset);
+uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum);
+int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size);
+int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id);
+int journal_file_maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize, Compression *ret_compression);
+
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -262,10 +330,8 @@ int journal_file_append_entry(
                 uint64_t *ret_offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
@@ -280,8 +346,22 @@ int journal_file_move_to_entry_for_data(JournalFile *f, Object *d, direction_t d
 
 int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, Object *d, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+
+/* Same as the _for_data() calls above, but take the data itself instead of a data object. */
+int journal_file_seek_for_match(JournalFile *f, const void *data, uint64_t size, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+
+/* Only segmented files implement these, others return -EOPNOTSUPP. A segmented file evaluates the whole match
+ * expression at once, and caches the result under 'generation'. */
+typedef struct Match Match;
+typedef struct SegmentedCursor SegmentedCursor;
+int journal_file_seek_for_expression(JournalFile *f, Match *m, uint64_t generation, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+int journal_file_enumerate_unique(JournalFile *f, const char *field, size_t field_length, size_t data_threshold, SegmentedCursor *c, const void **ret_data, size_t *ret_size);
+int journal_file_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size);
+
+/* Looks for entries that were appended since the last call, and returns > 0 if there are any. Only needed for
+ * segmented files, whose header does not count entries. */
+int journal_file_refresh(JournalFile *f, usec_t ts);
+void journal_file_request_refresh(JournalFile *f);
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, sd_id128_t *seqnum_id);
 
@@ -303,6 +383,7 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *ret_from, usec_t *ret_to);
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level);
+bool journal_file_fd_is_segmented(int fd);
 
 int journal_file_map_data_hash_table(JournalFile *f);
 int journal_file_map_field_hash_table(JournalFile *f);
