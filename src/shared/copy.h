@@ -35,6 +35,7 @@ typedef enum CopyFlags {
         COPY_MERGE_APPLY_STAT             = 1 << 21, /* When we reuse an existing directory inode, apply source ownership/mode/xattrs/timestamps */
         COPY_SEEK0_SOURCE                 = 1 << 22, /* Seek back to start of source file before copying */
         COPY_SEEK0_TARGET                 = 1 << 23, /* Seek back to start of target file before copying */
+        COPY_ENABLE_FS_VERITY             = 1 << 24, /* Enable fs-verity on copied files (fd_enable_fs_verity()). */
 } CopyFlags;
 
 typedef enum DenyType {
@@ -114,6 +115,8 @@ static inline int copy_rights(int fdf, int fdt) {
         return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
 }
 int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_flags);
+
+int fd_enable_fs_verity(int *fd);
 
 int reflink(int infd, int outfd);
 int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t size);
