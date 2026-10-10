@@ -60,6 +60,9 @@ static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
         if (h->MyLBA != lba_expected)
                 return false;
 
+        if (h->FirstUsableLBA > h->LastUsableLBA)
+                return false;
+
         if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY) ||
             (h->SizeOfPartitionEntry % sizeof(EFI_PARTITION_ENTRY)) != 0)
                 return false;
@@ -170,7 +173,10 @@ static EFI_STATUS try_gpt(
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
 
-                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
+                if (entry->EndingLBA < entry->StartingLBA ||
+                    entry->StartingLBA < gpt.FirstUsableLBA ||
+                    entry->EndingLBA > gpt.LastUsableLBA ||
+                    entry->EndingLBA == UINT64_MAX)
                         continue;
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
