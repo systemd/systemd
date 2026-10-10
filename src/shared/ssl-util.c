@@ -15,6 +15,7 @@ DLSYM_PROTOTYPE(SSL_CTX_set_options) = NULL;
 DLSYM_PROTOTYPE(SSL_do_handshake) = NULL;
 DLSYM_PROTOTYPE(SSL_free) = NULL;
 DLSYM_PROTOTYPE(SSL_get_error) = NULL;
+DLSYM_PROTOTYPE(SSL_get_verify_result) = NULL;
 DLSYM_PROTOTYPE(SSL_get_wbio) = NULL;
 DLSYM_PROTOTYPE(SSL_get0_param) = NULL;
 DLSYM_PROTOTYPE(SSL_get1_session) = NULL;
@@ -52,6 +53,7 @@ int dlopen_libssl(int log_level) {
                                 DLSYM_ARG(SSL_do_handshake),
                                 DLSYM_ARG(SSL_free),
                                 DLSYM_ARG(SSL_get_error),
+                                DLSYM_ARG(SSL_get_verify_result),
                                 DLSYM_ARG(SSL_get_wbio),
                                 DLSYM_ARG(SSL_get0_param),
                                 DLSYM_ARG(SSL_get1_session),
