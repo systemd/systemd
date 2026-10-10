@@ -248,15 +248,17 @@ testcase_shutdown() {
 
     # scheduled shutdown with wall message
     shutdown 2>&1
-    sleep 5
+    test -f /run/nologin
     shutdown -c || :
+    test ! -f /run/nologin
     # logind should still be running
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 
     # scheduled shutdown without wall message
     shutdown --no-wall 2>&1
-    sleep 5
+    test -f /run/nologin
     shutdown -c --no-wall || true
+    test ! -f /run/nologin
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 }
 
@@ -270,6 +272,9 @@ cleanup_session() (
     loginctl disable-linger logind-test-user
 
     systemctl stop getty@tty2.service
+
+    rm -rf /run/systemd/system/getty@tty2.service.d
+    systemctl daemon-reload
 
     for s in $(loginctl --no-legend list-sessions | grep -v manager | awk '$3 == "logind-test-user" { print $1 }'); do
         echo "INFO: stopping session $s"
@@ -298,9 +303,6 @@ cleanup_session() (
     if ! timeout 30 bash -c "while systemctl is-active --quiet user-${uid}.slice; do sleep 1; done"; then
         echo "WARNING: user-${uid}.slice is still active, ignoring."
     fi
-
-    rm -rf /run/systemd/system/getty@tty2.service.d
-    systemctl daemon-reload
 
     return 0
 )
@@ -623,10 +625,10 @@ testcase_list_users_sessions_seats() {
 teardown_stop_idle_session() (
     set +eux
 
+    cleanup_session
+
     rm -f /run/systemd/logind.conf.d/stop-idle-session.conf
     systemctl restart systemd-logind.service
-
-    cleanup_session
 )
 
 testcase_stop_idle_session() {
