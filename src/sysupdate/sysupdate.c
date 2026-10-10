@@ -1966,8 +1966,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         r = context_load_online(
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -2531,8 +2530,7 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         r = context_load_online(
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -2597,8 +2595,7 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         r = context_load_online_from_target(
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
         if (r == -ENOENT)
                 return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
         if (r < 0)
@@ -2635,7 +2632,6 @@ static int context_update(
                         c,
                         /* process_image_flags= */ 0,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
                         READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0) {
                 if (r != -ENOENT)
@@ -2918,7 +2914,6 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                         &context,
                         /* process_image_flags= */ 0,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
                         READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0)
                 return r;
@@ -2928,8 +2923,13 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         r = context_discover_update_sets_by_flag(&context, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
-        if (!context.newest_installed)
+        if (!context.newest_installed) {
+                if (context.n_transfers == 0) {
+                        log_warning("Couldn't find any suitable installed versions.");
+                        return 0;
+                }
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
+        }
 
         r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
         if (r < 0) /* yes, context.root is NULL here, but we have to pass something, and it's a lot more readable
