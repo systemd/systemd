@@ -49,7 +49,7 @@ if [[ "$ID" == "main" ]]; then
     truncate -s 32M /root/encrypted.raw
     echo -n "geheim" >/root/encrypted.secret
     cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom /root/encrypted.raw --key-file=/root/encrypted.secret
-    systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs= --unlock-key-file=/root/encrypted.secret /root/encrypted.raw
+    systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs= --tpm2-public-key-policyref= --unlock-key-file=/root/encrypted.secret /root/encrypted.raw
     rm -f /root/encrypted.secret
 fi
 
