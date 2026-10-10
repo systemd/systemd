@@ -444,6 +444,15 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
                 return 0; /* Report that we skipped this */
         }
 
+        /* The kernel refuses to operate on the font of a vc in KD_GRAPHICS (e.g. an explicitly specified vc
+         * running a splash screen), hence skip the font setup like setup_remaining_vcs() does.
+         * verify_source_vc() already warned about this at notice level. */
+        r = verify_vc_display_mode(fd);
+        if (r < 0) {
+                log_debug_errno(r, "Virtual console %s is not in KD_TEXT, skipping font setup.", vc);
+                return 0; /* Report that we skipped this */
+        }
+
         /* May be called on the dummy console (e.g. during keymap setup with fbcon deferred takeover). Font
          * changes are not supported here and will fail. */
         r = verify_vc_support_font(fd);
