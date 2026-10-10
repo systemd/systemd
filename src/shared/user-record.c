@@ -1925,7 +1925,7 @@ static const char *user_record_shell_real(UserRecord *h) {
         if (user_record_disposition(h) == USER_REGULAR)
                 return DEFAULT_USER_SHELL;
 
-        return NOLOGIN;
+        return nologin_shell();
 }
 
 const char* user_record_shell(UserRecord *h) {
@@ -1938,7 +1938,7 @@ const char* user_record_shell(UserRecord *h) {
         /* Return fallback shall if we are told so — except if the primary shell is already a nologin shell,
          * then let's not risk anything. */
         if (h->use_fallback && h->fallback_shell)
-                return is_nologin_shell(shell) ? NOLOGIN : h->fallback_shell;
+                return is_nologin_shell(shell) ? nologin_shell() : h->fallback_shell;
 
         return shell;
 }
