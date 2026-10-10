@@ -201,6 +201,7 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret);
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
@@ -222,6 +223,19 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+
+/* The fields of an entry. Unlike the items of an entry object these never refer to anything but data. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 int journal_file_data_payload(
                 JournalFile *f,
