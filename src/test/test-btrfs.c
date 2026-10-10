@@ -118,6 +118,38 @@ TEST(fallback_copy) {
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "snap", BTRFS_REMOVE_QUOTA), -EPERM);
 }
 
+TEST(fallback_copy_preserve_root_stat) {
+        _cleanup_(rm_rf_subvolume_and_freep) char *dir = NULL;
+        _cleanup_close_ int dir_fd = ASSERT_OK(open_test_subvol(&dir));
+
+        /* On btrfs, snapshotting a plain directory with FALLBACK_COPY creates a fresh subvolume via
+         * btrfs_subvol_make() (owned by the caller, mode 0755) and then copies the source tree into it. */
+        ASSERT_OK_ERRNO(mkdirat(dir_fd, "src", 0755));
+        ASSERT_OK(write_string_file_at(dir_fd, "src/file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fchmodat(dir_fd, "src", 0700, 0));
+
+        struct stat src_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "src", &src_st, 0));
+
+        ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "src", dir_fd, "snap",
+                                           BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_FALLBACK_DIRECTORY));
+
+        /* The snapshot root is a real subvolume (fresh-subvolume fallback), not a plain directory. */
+        ASSERT_OK_POSITIVE(btrfs_is_subvol_at(dir_fd, "snap"));
+
+        struct stat snap_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "snap", &snap_st, 0));
+        ASSERT_EQ(snap_st.st_mode & 07777, src_st.st_mode & 07777);
+        ASSERT_EQ(snap_st.st_uid, src_st.st_uid);
+        ASSERT_EQ(snap_st.st_gid, src_st.st_gid);
+
+        _cleanup_free_ char *content = NULL;
+        ASSERT_OK(read_full_file_at(dir_fd, "snap/file", &content, NULL));
+        ASSERT_STREQ(content, "hello\n");
+
+        ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "snap", BTRFS_REMOVE_QUOTA), -EPERM);
+}
+
 TEST(recursive) {
         _cleanup_(rm_rf_subvolume_and_freep) char *dir = NULL;
         _cleanup_close_ int dir_fd = ASSERT_OK(open_test_subvol(&dir));
