@@ -899,10 +899,10 @@ int sd_fiber_await(sd_future *target) {
         _unused_ _cleanup_(sd_future_unrefp) sd_future *ref = future_remove_waiter(&fiber_get(f)->wait);
 
         /* The target can resolve before a cancellation or timeout wakes us up. The operation has then
-         * already taken effect: a channel receive, for example, took an item out of the channel. If we
-         * reported the interruption, the caller would assume that nothing happened. Freeing the future
-         * would then destroy the received item before anyone saw it. Report the completion, and queue
-         * the interruption again so that the next suspension point returns it. */
+         * already taken effect: a channel send, for example, put its item into the channel. If we
+         * reported the interruption, the caller would assume that the send failed and could send the
+         * item again. Report the completion, and queue the interruption again so that the next
+         * suspension point returns it. */
         if (IN_SET(r, -ECANCELED, -ETIME) && sd_future_state(target) == SD_FUTURE_RESOLVED) {
                 assert_se(sd_fiber_resume(f, r) >= 0);
                 return 0;
