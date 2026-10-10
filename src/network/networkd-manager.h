@@ -85,6 +85,9 @@ typedef struct Manager {
         char* dynamic_hostname;
         char* dynamic_timezone;
 
+        /* For updating the hostname sent by DHCP clients */
+        sd_event_source *hostname_event_source;
+
         Set *rules;
 
         /* Manage nexthops by id. */
