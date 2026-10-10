@@ -58,9 +58,11 @@
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 #define DEFAULT_MINIMUM_UPTIME_USEC (15U * USEC_PER_SEC)
 
-static const char *arg_verb = NULL;
+static char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
+
+STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
 
 COMMAND(
         "systemd-shutdown\0",
@@ -157,9 +159,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_POSITIONAL:
-                        if (!arg_verb)
-                                arg_verb = opts.arg;
-                        else
+                        if (!arg_verb) {
+                                arg_verb = strdup(opts.arg);
+                                if (!arg_verb)
+                                        return log_oom();
+                        } else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;
                 }
