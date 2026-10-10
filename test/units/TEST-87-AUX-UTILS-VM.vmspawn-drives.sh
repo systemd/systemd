@@ -51,7 +51,7 @@ echo "Using kernel: $KERNEL"
 
 WORKDIR="$(mktemp -d)"
 
-at_exit() {
+at_exit() (
     set +e
     for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
         [[ -n "$m" ]] || continue
@@ -65,7 +65,7 @@ at_exit() {
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
     mountpoint -q "$WORKDIR/ro" && umount "$WORKDIR/ro"
     rm -rf "$WORKDIR"
-}
+)
 trap at_exit EXIT
 
 # Prints the path of QEMU's fd for the ephemeral overlay of the given machine, if the overlay is in the given

@@ -3,14 +3,14 @@
 set -eux
 set -o pipefail
 
-at_exit() {
+at_exit() (
     set +e
     rm -rf /var/lib/machines/mymachine.raw.v
     rm -rf /var/lib/machines/mytree.v
     rm -rf /var/lib/machines/testroot.v
     umount -l /tmp/dotvroot
     rmdir /tmp/dotvroot
-}
+)
 
 trap at_exit EXIT
 

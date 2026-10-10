@@ -18,7 +18,7 @@ MISSED_STAMP="/var/lib/systemd/timers/stamp-$MISSED_UNIT.timer"
 START_REALTIME="$(date "+%s")"
 START_MONOTONIC="$(cut -d . -f 1 /proc/uptime)"
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop \
@@ -36,7 +36,7 @@ at_exit() {
 
     END_MONOTONIC="$(cut -d . -f 1 /proc/uptime)"
     date --set="@$((START_REALTIME + END_MONOTONIC - START_MONOTONIC))"
-}
+)
 
 trap at_exit EXIT
 

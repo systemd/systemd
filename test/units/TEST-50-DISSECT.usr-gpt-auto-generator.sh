@@ -11,7 +11,7 @@ OUTPUT="$WORK_DIR/output"
 ROOT="$WORK_DIR/root"
 LOOP=""
 
-at_exit() {
+at_exit() (
     set +e
 
     if [[ -n "$LOOP" ]]; then
@@ -19,7 +19,7 @@ at_exit() {
     fi
 
     rm -rf "$WORK_DIR"
-}
+)
 
 trap at_exit EXIT
 

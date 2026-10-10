@@ -22,12 +22,12 @@ user=nobody  # Choose a core system user.
 group=adm  # Choose a core system group.
 mode=0420  # Allow the owner to read messages and anyone in the group to write.
 
-at_exit() {
+at_exit() (
     set +e
     systemctl stop mqueue-ownership.{service,socket}
     rm -f /run/systemd/system/mqueue-ownership.{service,socket}
     systemctl daemon-reload
-}
+)
 trap at_exit EXIT
 
 cat <<EOF >/run/systemd/system/mqueue-ownership.socket

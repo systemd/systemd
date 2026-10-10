@@ -20,7 +20,7 @@ if systemd-detect-virt -cq ; then
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     if [[ -n "${MOUNT_DIR:-}" ]] && mountpoint -q "$MOUNT_DIR"; then
@@ -33,7 +33,7 @@ at_exit() {
         rm -fr "$WORK_DIR"
     fi
     rm -fr /var/lib/storage/test-87-storage-*.volume
-}
+)
 trap at_exit EXIT
 
 # The storage providers are socket-activated by sockets.target, so the listening

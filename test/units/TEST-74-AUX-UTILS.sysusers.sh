@@ -19,11 +19,11 @@ if command -v userdbctl >/dev/null; then
     assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
 fi
 
-at_exit() {
+at_exit() (
     set +e
     userdel -r foobarbaz
     umount /run/systemd/userdb/
-}
+)
 
 # Check that we indeed run under root to make the rest of the test work
 [[ "$(id -u)" -eq 0 ]]

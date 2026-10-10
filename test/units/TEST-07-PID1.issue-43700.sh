@@ -25,7 +25,7 @@ GENERATOR=/run/systemd/system-generators/TEST-07-PID1-issue-43700
 MARKER=/run/TEST-07-PID1-issue-43700.reloading
 RELEASE=/run/TEST-07-PID1-issue-43700.release
 
-at_exit() {
+at_exit() (
     set +e
     [[ -n "${WAITER_PID:-}" ]] && kill "$WAITER_PID"
     systemctl stop "$UNIT".automount "$UNIT".mount
@@ -38,7 +38,7 @@ at_exit() {
     systemctl daemon-reload
     systemctl reset-failed "$UNIT".automount "$UNIT".mount
     rmdir "$MOUNT_POINT"
-}
+)
 
 trap at_exit EXIT
 

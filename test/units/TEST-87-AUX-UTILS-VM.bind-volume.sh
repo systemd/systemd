@@ -62,7 +62,7 @@ fi
 
 WORKDIR="$(mktemp -d /tmp/test-bind-volume.XXXXXXXXXX)"
 
-at_exit() {
+at_exit() (
     set +e
     if [[ -n "${MACHINE:-}" ]]; then
         if machinectl status "$MACHINE" &>/dev/null; then
@@ -73,7 +73,7 @@ at_exit() {
     [[ -n "${VMSPAWN_PID:-}" ]] && { kill "$VMSPAWN_PID" 2>/dev/null; wait "$VMSPAWN_PID" 2>/dev/null; }
     rm -rf "$WORKDIR"
     rm -f /var/lib/storage/test-bind-volume-*.volume
-}
+)
 trap at_exit EXIT
 
 # Build a minimal root for direct boot — guest just sleeps.

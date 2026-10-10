@@ -11,7 +11,7 @@ set -o pipefail
 
 IFNAME=test-netif-foo
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f /tmp/output-i /tmp/output-I
@@ -23,7 +23,7 @@ at_exit() {
     systemctl daemon-reload
 
     ip link del "$IFNAME"
-}
+)
 
 trap at_exit EXIT
 

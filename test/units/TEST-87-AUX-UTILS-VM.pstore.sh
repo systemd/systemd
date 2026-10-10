@@ -120,14 +120,14 @@ start_pstore() {
     journalctl --sync
 }
 
-at_exit() {
+at_exit() (
     set +e
 
     mountpoint -q /sys/fs/pstore && umount /sys/fs/pstore
     rm -fr /var/lib/systemd/pstore/*
     rm -f /run/systemd/system/systemd-pstore.service.d/99-StartLimitInterval.conf
     rm -f /run/systemd/pstore.conf.d/99-test.conf
-}
+)
 
 trap at_exit EXIT
 

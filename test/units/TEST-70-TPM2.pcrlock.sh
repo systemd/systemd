@@ -17,7 +17,7 @@ if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     if [[ $? -ne 0 ]]; then
         # Dump the event log on fail, to make debugging a bit easier
         [[ -e /run/log/systemd/tpm2-measure.log ]] && jq --seq --slurp </run/log/systemd/tpm2-measure.log
@@ -43,7 +43,7 @@ at_exit() {
     fi
     rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
     systemctl daemon-reload
-}
+)
 
 trap at_exit EXIT
 

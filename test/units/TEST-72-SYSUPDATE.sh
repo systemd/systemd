@@ -59,7 +59,7 @@ systemctl daemon-reload
 SIGTEST_GPGHOME=
 SIGTEST_OTHERHOME=
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop test-sysupdate-notify-recorder.socket
@@ -78,7 +78,7 @@ at_exit() {
     fi
 
     rm -rf "$WORKDIR"
-}
+)
 
 trap at_exit EXIT
 

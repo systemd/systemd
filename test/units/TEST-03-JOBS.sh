@@ -14,7 +14,7 @@ set -o pipefail
 # aborting subtest had in flight, as in TEST-26-SYSTEMCTL.sh.
 ORIG_LOG_LEVEL="$(systemctl log-level)"
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl log-level "$ORIG_LOG_LEVEL"
@@ -24,7 +24,7 @@ at_exit() {
         rm -f /run/systemd/system/"$UNIT_NAME"
         systemctl daemon-reload
     fi
-}
+)
 
 trap at_exit EXIT
 

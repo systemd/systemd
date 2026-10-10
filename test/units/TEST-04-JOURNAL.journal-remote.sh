@@ -14,7 +14,7 @@ if ! command -v openssl >/dev/null; then
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop systemd-journal-upload
@@ -22,7 +22,7 @@ at_exit() {
     # Remove any remote journals on exit, so we don't try to export them together
     # with the local journals, causing a mess
     rm -rf /var/log/journal/remote
-}
+)
 
 trap at_exit EXIT
 

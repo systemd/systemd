@@ -17,7 +17,7 @@ MARKER="$MARKER_DIR/done"
 SOCK_DIR="$(mktemp -d /tmp/issue8102.sock.XXXXXX)"
 SOCK_PATH="$SOCK_DIR/sock"
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop issue8102-second.service issue8102-first.service
@@ -37,7 +37,7 @@ at_exit() {
     rm -f /run/systemd/system/issue8102-nop-{main,dep}.service
     rm -rf "$MARKER_DIR" "$SOCK_DIR"
     systemctl daemon-reload
-}
+)
 
 trap at_exit EXIT
 

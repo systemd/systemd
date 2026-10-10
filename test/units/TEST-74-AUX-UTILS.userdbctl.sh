@@ -11,11 +11,11 @@ fi
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-cleanup() {
+cleanup() (
     set +e
     userdel -r test-74-userdbctl
     groupdel test-74-userdbctl
-}
+)
 
 trap cleanup EXIT
 

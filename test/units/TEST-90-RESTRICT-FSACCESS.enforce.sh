@@ -109,7 +109,7 @@ if [[ "$CHECK_RC" -eq 77 ]]; then
     exit 77
 fi
 
-at_exit() {
+at_exit() (
     set +e
     # Kill the attach helper to detach BPF programs synchronously
     [[ -n "${HELPER_PID:-}" ]] && kill "$HELPER_PID" 2>/dev/null && wait "$HELPER_PID" 2>/dev/null || true
@@ -126,7 +126,7 @@ at_exit() {
     # Clean up background processes
     [[ -n "${SLEEP_PID:-}" ]] && kill "$SLEEP_PID" 2>/dev/null || true
     rm -rf /tmp/restrict-fsaccess-attach.out
-}
+)
 trap at_exit EXIT
 
 # ------ Preconditions: helper "check" must agree with the cmdline ------

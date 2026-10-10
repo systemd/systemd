@@ -12,7 +12,7 @@ FSTYPE=$(stat --file-system --format "%T" /usr)
 shopt -s nullglob
 
 # shellcheck disable=SC2317
-at_exit() {
+at_exit() (
     set +ex
 
     local target
@@ -27,7 +27,7 @@ at_exit() {
     done
 
     rm -rf "${FAKE_ROOTS_DIR}"
-}
+)
 
 trap at_exit EXIT
 

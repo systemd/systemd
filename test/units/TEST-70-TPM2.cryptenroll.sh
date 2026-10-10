@@ -3,13 +3,13 @@
 set -eux
 set -o pipefail
 
-cryptenroll_wipe_and_check() {(
+cryptenroll_wipe_and_check() (
     set +o pipefail
 
     : >/tmp/cryptenroll.out
     systemd-cryptenroll "$@" |& tee /tmp/cryptenroll.out
     grep -qE "Wiped slot [[:digit:]]+" /tmp/cryptenroll.out
-)}
+)
 
 at_exit() {
     rm -f "${IMAGE:-}" "${VL_IMAGE:-}" /tmp/cryptenroll.out /tmp/password

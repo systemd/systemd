@@ -5,13 +5,13 @@ set -o pipefail
 
 # For issue #39247.
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -rf /run/systemd/system/systemd-resolved.service.d/
     systemctl daemon-reload
     systemctl restart systemd-resolved.service
-}
+)
 
 trap at_exit EXIT
 

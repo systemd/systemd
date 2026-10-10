@@ -6,12 +6,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-at_exit() {
+at_exit() (
     set +e
 
     [[ -n "${LOOP:-}" ]] && losetup -d "$LOOP"
     [[ -n "${WORK_DIR:-}" ]] && rm -fr "$WORK_DIR"
-}
+)
 
 (! systemd-detect-virt -cq)
 
@@ -155,7 +155,7 @@ timeout 60 bash -c "while [[ -e /sys/$LOOP_AUTO_DEVPATH/loop/backing_file ]]; do
 dd if=/dev/zero of="$WORK_DIR/owner-vfat.img" bs=1M count=16
 mkfs.vfat -n owner-vfat "$WORK_DIR/owner-vfat.img"
 LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
-# If the synthesized uevent triggered by inotify event has been processed earlier than the kernel finishes to
+# If the synthesized uevent triggered by device watch has been processed earlier than the kernel finishes to
 # attach the backing file, then SYSTEMD_READY=0 is set for the device. As a workaround, monitor sysattr
 # and re-trigger uevent after that.
 LOOP_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$LOOP")

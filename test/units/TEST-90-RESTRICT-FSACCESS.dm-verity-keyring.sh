@@ -72,11 +72,11 @@ if ! keyctl restrict_keyring %:.dm-verity; then
 fi
 echo "Provisioned .dm-verity keyring with mkosi.crt"
 
-at_exit() {
+at_exit() (
     set +e
     [[ -n "${HELPER_PID:-}" ]] && kill "$HELPER_PID" 2>/dev/null && wait "$HELPER_PID" 2>/dev/null || true
     rm -rf /tmp/restrict-fsaccess-dvk-attach.out
-}
+)
 trap at_exit EXIT
 
 HELPER_PID=

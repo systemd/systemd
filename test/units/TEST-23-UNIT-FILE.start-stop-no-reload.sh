@@ -7,7 +7,7 @@ set -o pipefail
 
 # Test start & stop operations without daemon-reload
 
-at_exit() {
+at_exit() (
     set +e
 
     rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload.target
@@ -18,7 +18,7 @@ at_exit() {
     systemctl stop TEST-23-UNIT-FILE-no-reload.service
     systemctl stop TEST-23-UNIT-FILE-no-reload-2.service
     systemctl stop TEST-23-UNIT-FILE-no-reload-3.service
-}
+)
 
 trap at_exit EXIT
 

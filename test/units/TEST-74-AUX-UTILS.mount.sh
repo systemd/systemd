@@ -6,12 +6,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-at_exit() {
+at_exit() (
     set +e
 
     [[ -n "${LOOP:-}" ]] && losetup -d "$LOOP"
     [[ -n "${WORK_DIR:-}" ]] && rm -fr "$WORK_DIR"
-}
+)
 
 trap at_exit EXIT
 

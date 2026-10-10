@@ -651,13 +651,13 @@ testcase_locale_gen_leading_space() {
     localectl set-locale en_US.UTF-8
 }
 
-teardown_localed_alternate_paths() {
+teardown_localed_alternate_paths() (
     set +eu
 
     rm -rf /run/systemd/system/systemd-localed.service.d
     systemctl daemon-reload
     systemctl restart systemd-localed
-}
+)
 
 testcase_localed_alternate_paths() {
     trap teardown_localed_alternate_paths RETURN

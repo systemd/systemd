@@ -6,13 +6,13 @@ set -o pipefail
 # Segmentation fault in timer_enter_waiting while masking a unit
 # Issue: https://github.com/systemd/systemd/issues/1981
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop my.timer my.service
     rm -f /run/systemd/system/my.{service,timer}
     systemctl daemon-reload
-}
+)
 
 trap at_exit EXIT
 

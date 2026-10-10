@@ -16,14 +16,14 @@ fi
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
 
-at_exit() {
+at_exit() (
     set +e
     rm -rf /tmp/validatefs-test/
     rm -f /var/tmp/validatefs-test.raw
     systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
     umount /tmp/validatefs-test.fake
     rmdir /tmp/validatefs-test.fake
-}
+)
 
 trap at_exit EXIT
 

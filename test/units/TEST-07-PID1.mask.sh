@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-at_exit() {
+at_exit() (
     set +e
 
     systemctl stop mask-test.service
@@ -11,7 +11,7 @@ at_exit() {
     systemctl daemon-reload
 
     rm -f /tmp/should-not-exist-by-*
-}
+)
 
 trap at_exit EXIT
 

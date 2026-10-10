@@ -30,7 +30,7 @@ tpm_check_failure_with_wrong_pin() {
     tpm2_dictionarylockout -c
 }
 
-at_exit() {
+at_exit() (
     set +e
 
     umount /tmp/dditest.mnt
@@ -48,7 +48,7 @@ at_exit() {
 
     rm -rf /tmp/dditest /tmp/dditest.mnt
     rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub
-}
+)
 
 trap at_exit EXIT
 

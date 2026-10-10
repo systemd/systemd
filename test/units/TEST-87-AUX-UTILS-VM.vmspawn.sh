@@ -48,7 +48,7 @@ echo "Using kernel: $KERNEL"
 MACHINE="test-vmspawn-qmp-$$"
 WORKDIR="$(mktemp -d)"
 
-at_exit() {
+at_exit() (
     set +e
 
     for m in "$MACHINE" "${MACHINE2:-}" "${STRESS_MACHINE:-}"; do
@@ -65,7 +65,7 @@ at_exit() {
     [[ -n "${VMSPAWN_PID:-}" ]] && kill "$VMSPAWN_PID" 2>/dev/null && wait "$VMSPAWN_PID" 2>/dev/null
     [[ -n "${VMSPAWN2_PID:-}" ]] && kill "$VMSPAWN2_PID" 2>/dev/null && wait "$VMSPAWN2_PID" 2>/dev/null
     rm -rf "$WORKDIR"
-}
+)
 trap at_exit EXIT
 
 # Create a minimal root filesystem. The guest does not need to fully boot -- we only need QEMU running

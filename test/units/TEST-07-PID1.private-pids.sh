@@ -14,7 +14,7 @@ if findmnt --mountpoint /proc/scsi; then
     HAS_EXISTING_SCSI_MOUNT=yes
 fi
 
-at_exit() {
+at_exit() (
     set +e
 
     # Unmount any file systems
@@ -30,7 +30,7 @@ at_exit() {
     systemctl kill --signal=KILL TEST-07-PID1-private-pid.service
     # Remove any failed transient units
     systemctl reset-failed
-}
+)
 
 trap at_exit EXIT
 
