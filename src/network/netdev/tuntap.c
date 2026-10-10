@@ -236,6 +236,10 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    "Please set it in the corresponding .network file.",
                                    netdev_kind_to_string(netdev->kind), filename);
 
+        /* Resolving User= and Group= talks to userdb and NSS, which verification and tests must not depend on. */
+        if (netdev->manager->test_mode)
+                return 0;
+
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
