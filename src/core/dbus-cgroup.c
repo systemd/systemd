@@ -378,6 +378,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
         SD_BUS_PROPERTY("DelegateControllers", "as", property_get_delegate_controllers, 0, 0),
         SD_BUS_PROPERTY("DelegateSubgroup", "s", NULL, offsetof(CGroupContext, delegate_subgroup), 0),
+        SD_BUS_PROPERTY("ControlGroupPreserve", "b", bus_property_get_bool, offsetof(CGroupContext, preserve), 0),
         SD_BUS_PROPERTY("CPUWeight", "t", NULL, offsetof(CGroupContext, cpu_weight), 0),
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
