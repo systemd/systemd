@@ -348,6 +348,7 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
     systemd-run --wait --pipe -p RestrictFileSystems="" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS,foo,bar" ls /
     (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
     (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="foo" ls /)
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc

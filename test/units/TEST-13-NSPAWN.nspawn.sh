@@ -115,12 +115,14 @@ testcase_sanity() {
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile \
+                   --restrict-address-families=unix,inet \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile=yes \
+                   --restrict-address-families='unix inet' \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
@@ -128,6 +130,7 @@ testcase_sanity() {
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile=state \
+                   --restrict-address-families=unix,inet,inet6 \
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
@@ -397,6 +400,30 @@ EOF
     (! systemd-nspawn --volatile="")
     (! systemd-nspawn --volatile=-1)
     (! systemd-nspawn --rlimit==)
+}
+
+testcase_restrict_address_families() {
+    local root
+
+    root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.restrict-af.XXX)"
+    create_dummy_container "$root"
+
+    # ip(8) needs an AF_NETLINK socket, so it must fail when netlink is not allowed...
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=unix,inet ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families='AF_UNIX AF_INET' ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=~netlink ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=none ip link show lo)
+    # ...and work when it is, however the list is spelled.
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families=unix,inet,netlink ip link show lo
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families='unix inet AF_NETLINK' ip link show lo
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families=~packet ip link show lo
+    # Repeated options are combined.
+    systemd-nspawn --register=no --directory="$root" \
+                   --restrict-address-families=unix,inet \
+                   --restrict-address-families=netlink \
+                   ip link show lo
+
+    rm -fr "$root"
 }
 
 testcase_check_default_inaccessible_paths() {
