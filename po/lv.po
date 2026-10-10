@@ -8,141 +8,159 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-26 10:57+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
+"PO-Revision-Date: 2026-10-10 18:18+0000\n"
+"Last-Translator: Rihards Prieditis <rprieditis@gmail.com>\n"
+"Language-Team: Latvian <https://translate.fedoraproject.org/projects/systemd/"
+"main/lv/>\n"
 "Language: lv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n % 10 == 0 || n % 100 >= 11 && n % 100 <= "
 "19) ? 0 : ((n % 10 == 1 && n % 100 != 11) ? 1 : 2);\n"
+"X-Generator: Weblate 2026.10.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "Nosūtīt paroles frāzi atpakaļ sistēmai"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
+"Lai nosūtītu ievadīto paroles frāzi atpakaļ sistēmai, nepieciešama "
+"autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Pārvaldīt sistēmas pakalpojumus vai citas vienības"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
+"Lai pārvaldītu sistēmas pakalpojumus vai citas vienības, nepieciešama "
+"autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Pārvaldīt sistēmas pakalpojumu vai vienību failus"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
+"Lai pārvaldītu sistēmas pakalpojumu vai vienību failus, nepieciešama "
+"autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
+msgstr "Iestatīt vai noņemt sistēmas un pakalpojumu pārvaldnieka vides mainīgos"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Lai iestatītu vai noņemtu sistēmas un pakalpojumu pārvaldnieka vides "
+"mainīgos, nepieciešama autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "Pārlādēt systemd stāvokli"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "Lai pārlādētu systemd stāvokli, nepieciešama autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Izgāzt systemd stāvokli bez ātruma ierobežojumiem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
+"Lai izgāzt systemd stāvokli bez ātruma ierobežojumiem, nepieciešama "
+"autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Izveidot mājas apgabalu"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Lai izveidotu lietotāja mājas apgabalu, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Dzēst mājas apgabalu"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Lai dzēstu lietotāja mājas apgabalu, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Pārbaudīt mājas apgabala akreditācijas datus"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Lai pārbaudītu lietotāja mājas apgabala akreditācijas datus, nepieciešama "
+"autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Atjaunināt mājas apgabalu"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Lai atjauninātu lietotāja mājas apgabalu, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "Atjaunināt savu mājas apgabalu"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Lai atjauninātu savu mājas apgabalu, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Mainīt mājas apgabala izmēru"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
+"Lai mainītu lietotāja mājas apgabala izmēru, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Mainīt mājas apgabala paroli"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
+"Lai mainītu lietotāja mājas apgabala paroli, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "Aktivizēt mājas apgabalu"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Lai aktivizētu lietotāja mājas apgabalu, nepieciešama autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Pārvaldīt mājas direktoriju parakstīšanas atslēgas"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
+"Lai pārvaldītu mājas direktoriju parakstīšanas atslēgas, nepieciešama "
+"autentifikācija."
 
 #: src/home/pam_systemd_home.c:328
 #, c-format
@@ -150,28 +168,30 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Lietotāja %s mājas apgabals pašlaik nav pieejams, lūdzu, pievienojiet "
+"nepieciešamo krātuves ierīci vai pamata failu sistēmu."
 
 #: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Pārāk bieži pieteikšanās mēģinājumi lietotājam %s, mēģiniet vēlāk."
 
 #: src/home/pam_systemd_home.c:345
 msgid "Password: "
-msgstr ""
+msgstr "Parole: "
 
 #: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Parole ir nepareiza vai nepietiekama lietotāja %s autentifikācijai."
 
 #: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Atvainojiet, mēģiniet vēlreiz: "
 
 #: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
-msgstr ""
+msgstr "Atkopšanas atslēga: "
 
 #: src/home/pam_systemd_home.c:372
 #, c-format
@@ -179,19 +199,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Parole/atkopšanas atslēga ir nepareiza vai nepietiekama lietotāja %s "
+"autentifikācijai."
 
 #: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Atvainojiet, ievadiet atkopšanas atslēgu vēlreiz: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Lietotāja %s drošības marķieris nav ievietots."
 
 #: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
-msgstr ""
+msgstr "Mēģiniet vēlreiz ar paroli: "
 
 #: src/home/pam_systemd_home.c:396
 #, c-format
@@ -199,1086 +221,1208 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Parole ir nepareiza vai nepietiekama, un lietotāja %s konfigurētais drošības "
+"marķieris nav ievietots."
 
 #: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Drošības marķieris PIN: "
 
 #: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Lūdzu, fiziski autentificējieties lietotāja %s drošības marķierī."
 
 #: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Lūdzu, apstipriniet klātbūtni lietotāja %s drošības marķierī."
 
 #: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Lūdzu, verificējiet lietotāju lietotāja %s drošības marķierī."
 
 #: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"Drošības marķiera PIN ir bloķēts, lūdzu, vispirms to atbloķējiet. (Padoms: "
+"var pietikt ar izņemšanu un atkārtotu ievietošanu.)"
 
 #: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Lietotāja %s drošības marķiera PIN ir nepareizs."
 
 #: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
 #: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Atvainojiet, ievadiet drošības marķiera PIN vēlreiz: "
 
 #: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"Lietotāja %s drošības marķiera PIN ir nepareizs (atlikuši tikai daži "
+"mēģinājumi!)"
 
 #: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Lietotāja %s drošības marķiera PIN ir nepareizs (atlicis tikai viens "
+"mēģinājums!)"
 
 #: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Lietotāja %s mājas direktorija pašlaik nav aktīva, lūdzu, vispirms "
+"pieslēdzieties lokāli."
 
 #: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Lietotāja %s mājas direktorija pašlaik ir bloķēta, lūdzu, vispirms "
+"atbloķējiet to lokāli."
 
 #: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Pārāk daudz neveiksmīgu lietotāja %s pieteikšanās mēģinājumu, piekļuve "
+"liegta."
 
 #: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Lietotāja ieraksts ir bloķēts, piekļuve liegta."
 
 #: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Lietotāja ieraksts vēl nav derīgs, piekļuve liegta."
 
 #: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Lietotāja ieraksts vairs nav derīgs, piekļuve liegta."
 
 #: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Lietotāja ieraksts nav derīgs, piekļuve liegta."
 
 #: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Pārāk daudz pieteikšanās mēģinājumu, mēģiniet vēlreiz pēc %s."
 
 #: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
-msgstr ""
+msgstr "Nepieciešama paroles maiņa."
 
 #: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Paroles derīguma termiņš ir beidzies, nepieciešama maiņa."
 
 #: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"Paroles derīguma termiņš ir beidzies, bet to nevar nomainīt; pieteikšanās "
+"atteikta."
 
 #: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Paroles derīguma termiņš drīz beigsies, lūdzu, nomainiet to."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
-msgstr ""
+msgstr "Iestatīt resursdatora nosaukumu"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
 msgstr ""
+"Lai iestatītu vietējā resursdatora nosaukumu, nepieciešama autentifikācija."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "Iestatīt statisko resursdatora nosaukumu"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
+"Lai iestatītu statiski konfigurēto vietējā resursdatora nosaukumu, kā arī "
+"skaisto nosaukumu, nepieciešama autentifikācija."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
-msgstr ""
+msgstr "Iestatīt datora informāciju"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "Lai iestatītu vietējā datora informāciju, nepieciešama autentifikācija."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Iegūt produkta UUID"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr ""
+msgstr "Lai iegūtu produkta UUID, nepieciešama autentifikācija."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Iegūt aparatūras sērijas numuru"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
+msgstr "Lai iegūtu aparatūras sērijas numuru, nepieciešama autentifikācija."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "Iegūt sistēmas aprakstu"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr ""
+msgstr "Lai iegūtu sistēmas aprakstu, nepieciešama autentifikācija."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr ""
+msgstr "Importēt diska tēlu"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr ""
+msgstr "Lai importētu tēlu, nepieciešama autentifikācija."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr ""
+msgstr "Eksportēt diska tēlu"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr ""
+msgstr "Lai eksportētu diska tēlu, nepieciešama autentifikācija."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
-msgstr ""
+msgstr "Lejupielādēt diska tēlu"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr ""
+msgstr "Lai lejupielādētu diska tēlu, nepieciešama autentifikācija."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Atcelt diska tēla pārsūtīšanu"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
+"Lai atceltu notiekošo diska tēla pārsūtīšanu, nepieciešama autentifikācija."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "Iestatīt sistēmas lokāli"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "Lai iestatītu sistēmas lokāli, nepieciešama autentifikācija."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "Iestatīt sistēmas tastatūras iestatījumus"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
 msgstr ""
+"Lai iestatītu sistēmas tastatūras iestatījumus, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt sistēmas izslēgšanu"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr ""
+"Lai lietotne varētu bloķēt sistēmas izslēgšanu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "Atļaut lietotnēm aizkavēt sistēmas izslēgšanu"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
+"Lai lietotne varētu aizkavēt sistēmas izslēgšanu, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt sistēmas miega režīmu"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
+"Lai lietotne varētu bloķēt sistēmas miega režīmu, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr ""
+msgstr "Atļaut lietotnēm aizkavēt sistēmas miega režīmu"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
+"Lai lietotne varētu aizkavēt sistēmas miega režīmu, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt sistēmas automātisko iemidzināšanu"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
+"Lai lietotne varētu bloķēt sistēmas automātisko iemidzināšanu, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt barošanas taustiņa apstrādi sistēmā"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
 msgstr ""
+"Lai lietotne varētu bloķēt barošanas taustiņa apstrādi sistēmā, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt iemidzināšanas taustiņa apstrādi sistēmā"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
 msgstr ""
+"Lai lietotne varētu bloķēt iemidzināšanas taustiņa apstrādi sistēmā, "
+"nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt hibernēšanas taustiņa apstrādi sistēmā"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
 msgstr ""
+"Lai lietotne varētu bloķēt hibernēšanas taustiņa apstrādi sistēmā, "
+"nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt vāka slēdža apstrādi sistēmā"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
 msgstr ""
+"Lai lietotne varētu bloķēt vāka slēdža apstrādi sistēmā, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
+msgstr "Atļaut lietotnēm bloķēt restartēšanas taustiņa apstrādi sistēmā"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
+"Lai lietotne varētu bloķēt restartēšanas taustiņa apstrādi sistēmā, "
+"nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "Atļaut lietotājam, kurš nav pieteicies, palaist programmas"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
+"Lai lietotājs, kurš nav pieteicies, varētu palaist programmas, nepieciešams "
+"nepārprotams pieprasījums."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "Atļaut lietotājiem, kuri nav pieteikušies, palaist programmas"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
+"Lai lietotājs, kurš nav pieteicies, varētu palaist programmas, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
+msgstr "Atļaut piesaistīt ierīces sēdvietām"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
+msgstr "Lai piesaistītu ierīci sēdvietai, ir nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr ""
+msgstr "Notīrīt ierīču piesaisti sēdvietām"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
+"Lai atiestatītu ierīču piesaisti sēdvietām, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "Izslēgt sistēmu"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr ""
+msgstr "Lai izslēgtu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr ""
+msgstr "Izslēgt sistēmu, kamēr citi lietotāji ir pieteikušies"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
+"Lai izslēgtu sistēmu, kamēr citi lietotāji ir pieteikušies, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
+msgstr "Izslēgt sistēmu, kamēr lietotne bloķē šo darbību"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
+"Lai izslēgtu sistēmu, kamēr lietotne bloķē šo darbību, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Pārstartēt sistēmu"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr ""
+msgstr "Lai pārstartētu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr ""
+msgstr "Pārstartēt sistēmu, kamēr citi lietotāji ir pieslēgušies"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
+"Lai pārstartētu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
+msgstr "Pārstartēt sistēmu, kamēr lietotne to bloķē"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
+"Lai pārstartētu sistēmu, kamēr lietotne to bloķē, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "Apturēt sistēmu"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr ""
+msgstr "Lai apturētu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "Apturēt sistēmu, kamēr citi lietotāji ir pieslēgušies"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
+"Lai apturētu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
+msgstr "Apturēt sistēmu, kamēr lietotne to bloķē"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
+"Lai apturētu sistēmu, kamēr lietotne to bloķē, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "Iemidzināt sistēmu"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
+msgstr "Lai iemidzinātu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
+msgstr "Iemidzināt sistēmu, kamēr citi lietotāji ir pieslēgušies"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
+"Lai iemidzinātu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
+msgstr "Iemidzināt sistēmu, kamēr lietotne to bloķē"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
+"Lai iemidzinātu sistēmu, kamēr lietotne to bloķē, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "Hibernēt sistēmu"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
+msgstr "Lai hibernētu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "Hibernēt sistēmu, kamēr citi lietotāji ir pieteikušies"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
+"Lai hibernētu sistēmu, kamēr citi lietotāji ir pieteikušies, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
+msgstr "Hibernēt sistēmu, kamēr lietojumprogramma to bloķē"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
+"Lai hibernētu sistēmu, kamēr lietojumprogramma to bloķē, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Pārvaldīt aktīvās sesijas, lietotājus un vietas"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
+"Aktīvo sesiju, lietotāju un vietu pārvaldīšanai ir nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Bloķēt vai atbloķēt aktīvās sesijas"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
+"Aktīvo sesiju bloķēšanai vai atbloķēšanai ir nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "Iestatīt pārstartēšanas \"iemeslu\" kodolā"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
+"Pārstartēšanas \"iemesla\" iestatīšanai kodolā ir nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
+msgstr "Norādīt programmatūrai ielādēt iestatījumu saskarni"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
+"Lai norādītu aparātprogrammatūrai ielādēt iestatījumu saskarni, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "Norādīt sāknētājam ielādēt sāknētāja izvēlni"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
+"Lai norādītu sāknētājam ielādēt sāknētāja izvēlni, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "Norādīt sāknētājam ielādēt konkrētu ierakstu"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
+"Lai norādītu sāknētājam ielādēt konkrētu sāknētāja ierakstu, nepieciešama "
+"autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr ""
+msgstr "Iestatīt apraides ziņojumu"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
-msgstr ""
+msgstr "Apraides ziņojuma iestatīšanai ir nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Mainīt sesiju"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr ""
+msgstr "Virtuālā termināļa maiņai ir nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
-msgstr ""
+msgstr "Pieteikties lokālajā konteinerā"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
+msgstr "Lai pieteiktos lokālajā konteinerā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
-msgstr ""
+msgstr "Pieteikties lokālajā resursdatorā"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr ""
+msgstr "Lai pieteiktos lokālajā resursdatorā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
-msgstr ""
+msgstr "Iegūt čaulu lokālajā konteinerā"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
+msgstr "Lai iegūtu čaulu lokālajā konteinerā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Iegūt čaulu lokālajā resursdatorā"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
+msgstr "Lai iegūtu čaulu lokālajā resursdatorā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
-msgstr ""
+msgstr "Iegūt pseido TTY lokālajā konteinerā"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
+"Lai iegūtu pseido TTY lokālajā konteinerā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Iegūt pseido TTY lokālajā resursdatorā"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
 msgstr ""
+"Lai iegūtu pseido TTY lokālajā resursdatorā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr ""
+msgstr "Pārvaldīt lokālās virtuālās mašīnas un konteinerus"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
+"Lai pārvaldītu lokālās virtuālās mašīnas un konteinerus, nepieciešama "
+"autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "Pārbaudīt lokālās virtuālās mašīnas un konteinerus"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
+"Lai pārbaudītu lokālās virtuālās mašīnas un konteinerus, nepieciešama "
+"autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
-msgstr ""
+msgstr "Izveidot lokālo virtuālo mašīnu vai konteineru"
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
+"Lai izveidotu lokālo virtuālo mašīnu vai konteineru, nepieciešama "
+"autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
-msgstr ""
+msgstr "Reģistrēt lokālo virtuālo mašīnu vai konteineru"
 
 #: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
+"Lai reģistrētu lokālo virtuālo mašīnu vai konteineru, nepieciešama "
+"autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Pārvaldīt lokālo virtuālo mašīnu un konteineru tēlus"
 
 #: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
+"Lai pārvaldītu lokālo virtuālo mašīnu un konteineru tēlus, nepieciešama "
+"autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Pārbaudīt lokālo virtuālo mašīnu un konteineru tēlus"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"Lai pārbaudītu lokālo virtuālo mašīnu un konteineru tēlus, nepieciešama "
+"autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "Iestatīt NTP serverus"
 
 #: src/network/org.freedesktop.network1.policy:23
 msgid "Authentication is required to set NTP servers."
-msgstr ""
+msgstr "Lai iestatītu NTP serverus, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "Iestatīt DNS serverus"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
 msgid "Authentication is required to set DNS servers."
-msgstr ""
+msgstr "Lai iestatītu DNS serverus, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Iestatīt domēnus"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
-msgstr ""
+msgstr "Lai iestatītu domēnus, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Iestatīt noklusējuma maršrutu"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr ""
+msgstr "Lai iestatītu noklusējuma maršrutu, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Iespējot/atspējot LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
+msgstr "Lai iespējotu vai atspējotu LLMNR, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Iespējot/atspējot multiraides DNS"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr ""
+"Lai iespējotu vai atspējotu multiraides DNS, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Iespējot/atspējot DNS pār TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
+msgstr "Lai iespējotu vai atspējotu DNS pār TLS, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Iespējot/atspējot DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr ""
+msgstr "Lai iespējotu vai atspējotu DNSSEC, nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "Iestatīt DNSSEC negatīvos uzticamības enkurus"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
+"DNSSEC negatīvo uzticamības enkuru iestatīšanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "Atiestatīt NTP iestatījumus"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
+msgstr "NTP iestatījumu atiestatīšanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "Atiestatīt DNS iestatījumus"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
+msgstr "DNS iestatījumu atiestatīšanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "DHCP serveris nosūta piespiedu atjaunošanas ziņojumu"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
 msgstr ""
+"Piespiedu atjaunošanas ziņojuma nosūtīšanai no DHCP servera nepieciešama "
+"autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Atjaunot dinamiskās adreses"
 
 #: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
-msgstr ""
+msgstr "Dinamisko adrešu atjaunošanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Pārlādēt tīkla iestatījumus"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
+msgstr "Tīkla iestatījumu pārlādēšanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Pārkonfigurēt tīkla saskarni"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
+msgstr "Tīkla saskarnes pārkonfigurēšanai nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr ""
+msgstr "Norādīt, vai systemd-networkd ir pieejama pastāvīgā krātuve"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Lai norādītu, vai systemd-networkd ir pieejama pastāvīgā krātuve, "
+"nepieciešama autentifikācija."
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Pārvaldīt tīkla saites"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "Tīkla saišu pārvaldīšanai nepieciešama autentifikācija."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Pārbaudīt pārnēsājamā pakalpojuma tēlu"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr ""
+msgstr "Pārnēsājamā pakalpojuma tēla pārbaudei nepieciešama autentifikācija."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Pievienot vai atvienot pārnēsājama pakalpojuma tēlu"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
+"Pārnēsājama pakalpojuma tēla pievienošanai vai atvienošanai nepieciešama "
+"autentifikācija."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Dzēst vai modificēt pārnēsājama pakalpojuma tēlu"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
+"Pārnēsājama pakalpojuma tēla dzēšanai vai modificēšanai nepieciešama "
+"autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "Reģistrēt DNS-SD pakalpojumu"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
-msgstr ""
+msgstr "DNS-SD pakalpojuma reģistrēšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "Dereģistrēt DNS-SD pakalpojumu"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr ""
+msgstr "DNS-SD pakalpojuma dereģistrēšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Atjaunot vārdu izšķiršanas iestatījumus"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
+"Vārdu izšķiršanas iestatījumu atiestatīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Abonēt vaicājumu rezultātus"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 msgid "Authentication is required to subscribe query results."
-msgstr ""
+msgstr "Vaicājumu rezultātu abonēšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Abonēt DNS konfigurāciju"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
+msgstr "DNS konfigurācijas abonēšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
-msgstr ""
+msgstr "Izvadīt kešatmiņu"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 msgid "Authentication is required to dump cache."
-msgstr ""
+msgstr "Kešatmiņas izvadīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump server state"
-msgstr ""
+msgstr "Izvadīt servera stāvokli"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
+msgstr "Servera stāvokļa izvadīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr ""
+msgstr "Izvadīt statistiku"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
-msgstr ""
+msgstr "Statistikas izvadīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
-msgstr ""
+msgstr "Atiestatīt statistiku"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr ""
+msgstr "Statistikas atiestatīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Iztīrīt DNS kešatmiņas"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "DNS kešatmiņu iztīrīšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Atiestatīt servera funkcijas"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "Servera funkciju atiestatīšanai nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
-msgstr ""
+msgstr "Pārbaudīt sistēmas atjauninājumus"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
-msgstr ""
+msgstr "Sistēmas atjauninājumu pārbaudei nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Atcelt sistēmas atjauninājumu pārbaudi"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
 msgstr ""
+"Sistēmas atjauninājumu pārbaudes atcelšanai nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
-msgstr ""
+msgstr "Instalēt sistēmas atjauninājumus"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
-msgstr ""
+msgstr "Sistēmas atjauninājumu instalēšanai nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Atcelt sistēmas atjauninājumu instalēšanu"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
 msgstr ""
+"Sistēmas atjauninājumu instalēšanas atcelšanai nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
-msgstr ""
+msgstr "Instalēt noteiktu sistēmas versiju"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr ""
+"Sistēmas atjaunināšanai uz noteiktu (iespējams, vecu) versiju nepieciešama "
+"autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Atcelt noteiktas sistēmas versijas instalēšanu"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Sistēmas atjaunināšanas uz noteiktu (iespējams, vecu) versiju atcelšanai "
+"nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Iztīrīt vecos sistēmas atjauninājumus"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "Veco sistēmas atjauninājumu iztīrīšanai nepieciešama autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Atcelt veco sistēmas atjauninājumu tīrīšanu"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Lai atceltu veco sistēmas atjauninājumu tīrīšanu, nepieciešama "
+"autentifikācija."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
-msgstr ""
+msgstr "Pārvaldīt papildiespējas"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
-msgstr ""
+msgstr "Lai pārvaldītu papildiespējas, nepieciešama autentifikācija."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "Iestatīt sistēmas laiku"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
-msgstr ""
+msgstr "Lai iestatītu sistēmas laiku, nepieciešama autentifikācija."
 
 #: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
-msgstr ""
+msgstr "Iestatīt sistēmas laika joslu"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr ""
+msgstr "Lai iestatītu sistēmas laika joslu, nepieciešama autentifikācija."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr ""
+msgstr "Iestatīt RTC uz vietējo laika joslu vai UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
+"Lai kontrolētu, vai RTC glabā vietējo vai UTC laiku, nepieciešama "
+"autentifikācija."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
-msgstr ""
+msgstr "Ieslēgt vai izslēgt tīkla laika sinhronizāciju"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
+"Lai kontrolētu, vai tīkla laika sinhronizācija ir ieslēgta, nepieciešama "
+"autentifikācija."
 
 #: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
-msgstr ""
+msgstr "Lai startētu '$(unit)', nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
-msgstr ""
+msgstr "Lai apturētu '$(unit)', nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
-msgstr ""
+msgstr "Lai pārlādētu '$(unit)', nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
-msgstr ""
+msgstr "Lai restartētu '$(unit)', nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
+"Lai nosūtītu UNIX signālu '$(unit)' procesiem, nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
+"Lai nosūtītu UNIX signālu '$(unit)' apakšgrupas procesiem, nepieciešama "
+"autentifikācija."
 
 #: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
+"Lai atiestatītu '$(unit)' stāvokli \"failed\", nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
+msgstr "Lai iestatītu '$(unit)' īpašības, nepieciešama autentifikācija."
 
 #: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
+"Lai dzēstu ar '$(unit)' saistītos failus un direktorijas, nepieciešama "
+"autentifikācija."
 
 #: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
+"Lai iesaldētu vai atsaldētu vienības '$(unit)' procesus, nepieciešama "
+"autentifikācija."
 
 #: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Lūdzu, apstipriniet klātbūtni uz drošības marķiera, lai atšifrētu."
 
 #: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Lūdzu, verificējiet lietotāju uz drošības marķiera, lai atšifrētu."
 
 #: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
+"Lūdzu, ievadiet drošības marķiera PIN (atlikušie mēģinājumi pirms "
+"bloķēšanas: %d):"
 
 #: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Lūdzu, ievadiet drošības marķiera PIN:"
