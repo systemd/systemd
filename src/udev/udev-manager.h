@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <sys/statfs.h>
+
 #include "sd-device.h"
 #include "sd-event.h"
 
@@ -10,13 +12,13 @@
 #include "udev-config.h"
 #include "udev-forward.h"
 
-/* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
- * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
- * receive events that needs to be serialized anyway. */
+/* This should have a higher priority than the device monitor and device watch, to make them stopped as soon
+ * as possible when the signal is received. Otherwise, we may continue receive events that needs to be
+ * serialized anyway. */
 #define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 7)
-/* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
- * than notifications about requests of adding/removing inotify watches. */
-#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 6)
+/* This must have a higher priority than the worker notification, to make device watch events received
+ * earlier than worker notifications. */
+#define EVENT_PRIORITY_DEVICE_WATCH   (SD_EVENT_PRIORITY_NORMAL - 6)
 /* This must have a higher priority than the worker exit event, to make notifications about completions of
  * processing events received before exit. */
 #define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 5)
@@ -56,7 +58,12 @@ typedef struct Manager {
 
         /* used by udev-watch */
         int inotify_fd;
-        sd_event_source *inotify_event;
+        int fanotify_fd;
+        int dev_fd;
+        struct statfs dev_statfs;
+        sd_event_source *device_watch_event;
+
+        /* used by udev-synth */
         Set *synthesize_change_child_event_sources;
         Set *synthesized_events;
         sd_event_source *synthesized_events_clear_event_source;
