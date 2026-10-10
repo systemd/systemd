@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <link.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -26,6 +27,7 @@
 #include "memory-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rm-rf.h"
@@ -1149,6 +1151,27 @@ TEST(restrict_suid_sgid) {
         }
 }
 
+static int libeatmydata_phdr_callback(struct dl_phdr_info *info, size_t size, void *userdata) {
+        bool *found = ASSERT_PTR(userdata);
+
+        assert(info);
+
+        /* dlpi_name is empty for the main program and "linux-vdso.so.1" or similar for the vDSO.
+         * For everything else it is the path the dynamic linker loaded the object from. */
+        if (!isempty(info->dlpi_name) && startswith(last_path_component(info->dlpi_name), "libeatmydata.so")) {
+                *found = true;
+                return 1; /* Stop iterating */
+        }
+
+        return 0;
+}
+
+static bool libeatmydata_loaded(void) {
+        bool found = false;
+        (void) dl_iterate_phdr(libeatmydata_phdr_callback, &found);
+        return found;
+}
+
 static void test_seccomp_suppress_sync_child(void) {
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -1185,6 +1208,12 @@ TEST(seccomp_suppress_sync) {
         int r;
 
         CHECK_SECCOMP(/* skip_container= */ false);
+
+        if (libeatmydata_loaded())
+                /* libeatmydata turns fsync(), fdatasync(), sync(), syncfs() and friends into NOPs and strips
+                 * O_SYNC from open() in userspace. If it is loaded, the libc wrappers never reach the
+                 * kernel, hence we cannot check whether our seccomp filter does its job. */
+                return (void) log_tests_skipped("libeatmydata is loaded, sync() is already suppressed in userspace");
 
         r = ASSERT_OK(pidref_safe_fork("(suppress-sync)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
