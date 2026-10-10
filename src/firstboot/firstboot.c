@@ -23,6 +23,7 @@
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -59,6 +60,7 @@
 #include "user-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -116,6 +118,7 @@ COMMAND(
 );
 
 static bool welcome_done = false;
+static bool host_offline = false;
 
 static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
@@ -125,12 +128,16 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         assert(rfd >= 0);
         assert(mute_console_link);
 
-        /* Needs to be called before mute_console or it will garble the screen */
-        if (arg_welcome)
-                (void) plymouth_hide_splash();
+        /* --root=/--image= do not change the console used for prompts. Only suppress console services when
+         * firstboot itself is in a chroot or an offline environment. */
+        if (!host_offline) {
+                /* Needs to be called before mute_console or it will garble the screen. */
+                if (arg_welcome)
+                        (void) plymouth_hide_splash();
 
-        if (!*mute_console_link && arg_mute_console)
-                (void) mute_console(mute_console_link);
+                if (!*mute_console_link && arg_mute_console)
+                        (void) mute_console(mute_console_link);
+        }
 
         if (!arg_welcome)
                 return;
@@ -787,14 +794,18 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 else {
                         hostname = resolved;
 
-                        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to connect to systemd-hostnamed, writing /etc/hostname directly: %m");
+                        if (!host_offline) {
+                                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to connect to systemd-hostnamed, "
+                                                             "writing /etc/hostname directly: %m");
+                        }
                 }
         }
 
         if (vl) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                /* Both the reply and error ID are borrowed from the connection. */
+                sd_json_variant *reply = NULL;
                 const char *error_id = NULL;
                 r = sd_varlink_callbo(
                                 vl,
@@ -1722,6 +1733,24 @@ static void end_marker(void) {
         fflush(stdout);
 }
 
+static bool firstboot_is_offline(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_OFFLINE");
+        if (r >= 0)
+                return r > 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE, ignoring: %m");
+
+        r = running_in_chroot();
+        if (r < 0) {
+                log_debug_errno(r, "Failed to check if we're running in a chroot, assuming offline: %m");
+                return true;
+        }
+
+        return r > 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -1745,9 +1774,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        bool offline = arg_root || arg_image;
+        host_offline = firstboot_is_offline();
+        bool offline = arg_root || arg_image || host_offline;
 
-        if (!offline) {
+        if (!arg_root && !arg_image) {
                 /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
                  * command line option, because we are called to provision the host with basic settings (as
                  * opposed to some other file system tree/image) */
