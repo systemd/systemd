@@ -11,6 +11,7 @@ set -o pipefail
 
 # This is a test case for issue #34637.
 
+# shellcheck disable=SC2329
 at_exit() (
     set +e
 
