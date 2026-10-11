@@ -155,6 +155,9 @@ static inline bool stat_is_set(const struct stat *st) {
 static inline bool statx_is_set(const struct statx *sx) {
         return sx && sx->stx_mask != 0;
 }
+static inline bool statfs_is_set(const struct statfs *sfs) {
+        return sfs && sfs->f_type != 0;
+}
 
 static inline bool inode_type_can_hardlink(mode_t m) {
         /* returns true for all inode types that support hardlinks on linux. Note this is effectively all

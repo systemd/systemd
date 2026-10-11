@@ -60,6 +60,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
+                     ≥ 5.13 for fanotify with FAN_REPORT_FID on tmpfs
                      ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
@@ -104,6 +105,11 @@ REQUIREMENTS:
 
         udev will fail to work with the legacy sysfs layout:
           CONFIG_SYSFS_DEPRECATED=n
+
+        Required for fanotify-backed device node watches in systemd-udevd (OPTIONS+="watch"):
+          CONFIG_FANOTIFY
+          CONFIG_SHMEM
+          CONFIG_TMPFS
 
         Legacy hotplug slows down the system and confuses udev:
           CONFIG_UEVENT_HELPER_PATH=""

@@ -17,7 +17,8 @@ typedef struct UdevWorker {
 
         UdevConfig config;
 
-        pid_t manager_pid;
+        pid_t manager_pid; /* used by inotify backed device watch */
+        int fanotify_fd;
 } UdevWorker;
 
 void udev_worker_done(UdevWorker *worker);
