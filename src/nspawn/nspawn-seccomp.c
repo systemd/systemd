@@ -226,8 +226,8 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                 SCMP_SYS(socket),
                                 2,
-                                SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
-                                SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
+                                SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_MAX, AF_NETLINK),
+                                SCMP_A2(SCMP_CMP_MASKED_EQ, UINT32_MAX, NETLINK_AUDIT));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add audit seccomp rule, ignoring: %m");
                         continue;
