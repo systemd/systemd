@@ -1633,6 +1633,14 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
 
                 bool local = !eh || streq(eh, ".host");
 
+                if (local && u) {
+                        int r;
+
+                        r = get_user_creds(u, 0, NULL, NULL, NULL, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
                 /* Ideally we'd always use the "--user" and "--quiet" switches to systemd-stdio-bridge here,
                  * but they're only available in recent systemd versions, meaning we can only use them if
                  * we're not connecting to a container. Using the "-p" switch with an explicit path is a
@@ -1829,6 +1837,20 @@ void bus_enter_closing(sd_bus *bus, int exit_code) {
 
         if (!IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))
                 return;
+
+        if (pidref_is_set(&bus->busexec_pidref)) {
+                siginfo_t si = {};
+
+                if (pidref_wait_for_terminate(&bus->busexec_pidref, &si) >= 0) {
+                        pidref_done(&bus->busexec_pidref);
+                        if (si.si_code == CLD_EXITED) {
+                                if (si.si_status == 217)
+                                        exit_code = -ESRCH;
+                                else if (si.si_status != EXIT_SUCCESS)
+                                        exit_code = -EACCES;
+                        }
+                }
+        }
 
         bus_set_state(bus, BUS_CLOSING);
         bus->exit_code = exit_code;
@@ -2393,8 +2415,23 @@ int bus_ensure_running(sd_bus *bus) {
                 return 1;
 
         for (;;) {
-                if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
-                        return -ENOTCONN;
+                if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING)) {
+                        if (pidref_is_set(&bus->busexec_pidref)) {
+                                siginfo_t si = {};
+
+                                if (pidref_wait_for_terminate(&bus->busexec_pidref, &si) >= 0) {
+                                        pidref_done(&bus->busexec_pidref);
+                                        if (si.si_code == CLD_EXITED) {
+                                                if (si.si_status == 217)
+                                                        bus->exit_code = -ESRCH;
+                                                else if (si.si_status != EXIT_SUCCESS)
+                                                        bus->exit_code = -EACCES;
+                                        }
+                                }
+                        }
+
+                        return bus->exit_code < 0 ? bus->exit_code : -ENOTCONN;
+                }
 
                 r = sd_bus_process(bus, NULL);
                 if (r < 0)
