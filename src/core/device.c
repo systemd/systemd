@@ -80,11 +80,16 @@ static void device_unset_sysfs(Device *d) {
         d->sysfs = mfree(d->sysfs);
 }
 
-static int device_set_sysfs(Device *d, const char *sysfs) {
+static int device_set_sysfs(Device *d, sd_device *dev) {
         Unit *u = UNIT(ASSERT_PTR(d));
         int r;
 
-        assert(sysfs);
+        assert(dev);
+
+        const char *sysfs;
+        r = sd_device_get_syspath(dev, &sysfs);
+        if (r < 0)
+                return r;
 
         if (path_equal(d->sysfs, sysfs))
                 return 0; /* unchanged */
@@ -442,21 +447,12 @@ static int device_deserialize_sysfs(Device *d, const char *value) {
                                 "Failed to validate deserialized sysfs path '%s': %m",
                                 value);
 
-        /* For safety, normalize the syspath. */
-        const char *syspath;
-        r = sd_device_get_syspath(dev, &syspath);
-        if (r < 0)
-                return log_unit_debug_errno(
-                                UNIT(d), r,
-                                "Failed to get syspath from sd_device generated from deserialized sysfs path '%s': %m",
-                                value);
-
-        r = device_set_sysfs(d, syspath);
+        r = device_set_sysfs(d, dev);
         if (r < 0)
                 return log_unit_debug_errno(
                                 UNIT(d), r,
                                 "Failed to set deserialized sysfs path '%s': %m",
-                                syspath);
+                                value);
 
         return 0;
 }
@@ -701,13 +697,6 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Devic
         assert(dev || found != DEVICE_FOUND_UDEV);
         assert(IN_SET(found, DEVICE_FOUND_UDEV, DEVICE_FOUND_MOUNT, DEVICE_FOUND_SWAP));
 
-        const char *sysfs = NULL;
-        if (dev) {
-                r = sd_device_get_syspath(dev, &sysfs);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device: %m");
-        }
-
         _cleanup_free_ char *e = NULL;
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
@@ -755,14 +744,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Devic
         /* If this was created via some dependency and has not actually been seen yet, ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
         bool sysfs_updated = false;
-        if (sysfs) {
-                r = device_set_sysfs(d, sysfs);
+        if (dev) {
+                r = device_set_sysfs(d, dev);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
+                        return log_unit_error_errno(u, r, "Failed to set sysfs path: %m");
                 sysfs_updated = r > 0;
 
                 /* The additional systemd udev properties we only interpret for the main object */
-                if (path_equal(sysfs, path))
+                if (path_equal(d->sysfs, path))
                         (void) device_add_udev_wants(u, dev);
         }
 
