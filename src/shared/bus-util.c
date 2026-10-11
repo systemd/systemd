@@ -55,14 +55,36 @@ int bus_log_address_error(int r, BusTransport transport) {
                                       "Failed to set bus address: %m");
 }
 
-int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope) {
+int bus_log_connect_full_host(int log_level, int r, BusTransport transport, const char *host, RuntimeScope scope) {
         bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
-             hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
+             hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r),
+             hint_user = transport == BUS_TRANSPORT_MACHINE && host && strchr(host, '@') && ERRNO_IS_NEG_BAD_ACCOUNT(r);
 
-        return log_full_errno(log_level, r,
-                              hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                              hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                                          "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
+        if (hint_user)
+                return log_full_errno(
+                                log_level,
+                                r,
+                                "Failed to connect to %s scope bus via %s transport: %s",
+                                runtime_scope_to_string(scope),
+                                bus_transport_to_string(transport),
+                                STRERROR_USER(r));
+
+        return log_full_errno(
+                        log_level,
+                        r,
+                        hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                        hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                    "Failed to connect to %s scope bus via %s transport: %m",
+                        runtime_scope_to_string(scope),
+                        bus_transport_to_string(transport));
+}
+
+int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope) {
+        return bus_log_connect_full_host(log_level, r, transport, NULL, scope);
+}
+
+int bus_log_connect_error_host(int r, BusTransport transport, const char *host, RuntimeScope scope) {
+        return bus_log_connect_full_host(LOG_ERR, r, transport, host, scope);
 }
 
 int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
@@ -504,6 +526,7 @@ int bus_connect_transport(
                 sd_bus **ret) {
 
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        const char *unique;
         int r;
 
         assert(transport >= 0);
@@ -573,6 +596,12 @@ int bus_connect_transport(
         r = sd_bus_set_exit_on_disconnect(bus, true);
         if (r < 0)
                 return r;
+
+        if (transport == BUS_TRANSPORT_MACHINE) {
+                r = sd_bus_get_unique_name(bus, &unique);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(bus);
         return 0;

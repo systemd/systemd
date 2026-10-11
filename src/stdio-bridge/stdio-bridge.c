@@ -158,7 +158,7 @@ static int run(int argc, char *argv[]) {
 
         r = sd_bus_start(a);
         if (r < 0)
-                return bus_log_connect_full(priority, r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_full_host(priority, r, arg_transport, arg_bus_path, arg_runtime_scope);
 
         r = sd_bus_get_bus_id(a, &server_id);
         if (r < 0)
