@@ -59,6 +59,15 @@ int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeSc
         bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
              hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
 
+        if (ERRNO_IS_NEG_BAD_ACCOUNT(r))
+                return log_full_errno(
+                                log_level,
+                                r,
+                                "Failed to connect to %s scope bus via %s transport: %s",
+                                runtime_scope_to_string(scope),
+                                bus_transport_to_string(transport),
+                                STRERROR_USER(r));
+
         return log_full_errno(log_level, r,
                               hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
                               hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
@@ -571,6 +580,10 @@ int bus_connect_transport(
                 return r;
 
         r = sd_bus_set_exit_on_disconnect(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_get_unique_name(bus, &(const char *){});
         if (r < 0)
                 return r;
 
