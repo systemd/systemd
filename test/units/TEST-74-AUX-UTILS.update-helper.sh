@@ -188,6 +188,25 @@ mv "$PRIVATE.real" "$PRIVATE"
 user_systemctl_private() {
     run0 -u testuser systemctl --user "$@"
 }
+
+. /etc/os-release
+if [[ "$ID" =~ "opensuse" ]]; then
+    # openSUSE may install a block-restart.conf drop-in file,
+    # which prevents dbus.service from being manually stopped.
+    mkdir -p /run/systemd/user/dbus-broker.service.d/
+    ln -s /dev/null /run/systemd/user/dbus-broker.service.d/block-restart.conf
+
+    # Also allow to restart dbus.socket
+    mkdir -p /run/systemd/user/dbus.socket.d/
+    cat >/run/systemd/user/dbus.socket.d/99-allow-manual-restart.conf <<EOF
+[Unit]
+RefuseManualStart=false
+RefuseManualStop=false
+EOF
+
+    user_systemctl_private daemon-reload
+fi
+
 user_systemctl start update-helper-test.service
 id="$(user_systemctl show -P InvocationID update-helper-test.service)"
 user_systemctl_private stop dbus.socket dbus.service
