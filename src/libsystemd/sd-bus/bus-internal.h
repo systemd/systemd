@@ -24,6 +24,8 @@
  * reserved in sd-bus-vtable.h to make sure it never collides with a future public flag. */
 #define SD_BUS_VTABLE_METHOD_FIBER (UINT64_C(1) << 10)
 
+#define EXIT_USER 217
+
 typedef struct BusReplyCallback {
         sd_bus_message_handler_t callback;
         usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
@@ -199,6 +201,7 @@ typedef struct sd_bus {
         bool attach_timestamp;
         bool connected_signal;
         bool close_on_exit;
+        bool is_machine;
 
         RuntimeScope runtime_scope;
 

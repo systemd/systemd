@@ -40,7 +40,9 @@ int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope
 int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
 
 int bus_log_address_error(int r, BusTransport transport);
+int bus_log_connect_full_host(int log_level, int r, BusTransport transport, const char *host, RuntimeScope scope);
 int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope);
+int bus_log_connect_error_host(int r, BusTransport transport, const char *host, RuntimeScope scope);
 int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope);
 
 #define bus_log_parse_error(r)                                  \
