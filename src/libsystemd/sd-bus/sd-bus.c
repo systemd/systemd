@@ -49,6 +49,8 @@
 #include "time-util.h"
 #include "user-util.h"
 
+#define BUSEXEC_EXIT_USER 217
+
 #define log_debug_bus_message(m)                                         \
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
@@ -598,7 +600,7 @@ fail:
          * which is the propagated up towards the event loop. Let's also invalidate the connection, so that
          * if the user then calls back into us again we won't wait any longer. */
 
-        bus_set_state(bus, BUS_CLOSING);
+        bus_enter_closing(bus, r);
         return r;
 }
 
@@ -1660,6 +1662,7 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                         return -ENOMEM;
         }
 
+        b->is_machine = true;
         return free_and_replace(b->address, a);
 }
 
@@ -1775,6 +1778,39 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         return 0;
 }
 
+static void bus_check_busexec(sd_bus *bus) {
+        assert(bus);
+
+        if (!bus->is_machine)
+                return;
+
+        if (!pidref_is_set(&bus->busexec_pidref))
+                return;
+
+        siginfo_t si = {};
+        int r;
+
+        r = pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, &si);
+        if (r < 0) {
+                if (r != -ENOMEDIUM)
+                        return;
+
+                for (unsigned i = 0; i < 50; i++) {
+                        r = waitid(P_PID, bus->busexec_pidref.pid, &si, WEXITED | WNOHANG);
+                        if (r >= 0 && si.si_pid != 0)
+                                break;
+                        (void) usleep(1000);
+                }
+                if (si.si_pid == 0)
+                        return;
+        }
+
+        pidref_done(&bus->busexec_pidref);
+
+        if (si.si_code == CLD_EXITED && si.si_status == BUSEXEC_EXIT_USER)
+                bus->busexec_error = -ESRCH;
+}
+
 _public_ void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
@@ -1782,6 +1818,8 @@ _public_ void sd_bus_close(sd_bus *bus) {
                 return;
         if (bus_origin_changed(bus))
                 return;
+
+        bus_check_busexec(bus);
 
         /* Don't leave ssh hanging around */
         pidref_done_sigterm_wait(&bus->busexec_pidref);
@@ -1832,6 +1870,8 @@ void bus_enter_closing(sd_bus *bus, int exit_code) {
 
         bus_set_state(bus, BUS_CLOSING);
         bus->exit_code = exit_code;
+
+        bus_check_busexec(bus);
 
         /* Cancel all outstanding fiber-dispatched method handlers. Most cancellations are scheduled
          * asynchronously (fibers resolve with -ECANCELED the next time they run), but a fiber still
@@ -2393,8 +2433,10 @@ int bus_ensure_running(sd_bus *bus) {
                 return 1;
 
         for (;;) {
-                if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
-                        return -ENOTCONN;
+                if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING)) {
+                        bus_check_busexec(bus);
+                        return (bus->is_machine && bus->busexec_error < 0) ? bus->busexec_error : -ENOTCONN;
+                }
 
                 r = sd_bus_process(bus, NULL);
                 if (r < 0)
