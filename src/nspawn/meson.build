@@ -24,7 +24,7 @@ nspawn_export_sources = files(
 nspawn_gperf_c = custom_target(
         input : 'nspawn-gperf.gperf',
         output : 'nspawn-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += nspawn_gperf_c
 nspawn_export_sources += nspawn_gperf_c

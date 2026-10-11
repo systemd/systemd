@@ -126,7 +126,7 @@ load_fragment_gperf_gperf = custom_target(
 load_fragment_gperf_c = custom_target(
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
@@ -219,19 +219,42 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         ]
 endif
 
+if get_option('build-static')
+        if (get_option('b_pie') and
+            cc.links(basic_c_prog, args : '-static-pie', name : '-static-pie'))
+                systemd_link_args = ['-static-pie', '-Wl,-static,-pie']
+        else
+                systemd_link_args = ['-static']
+        endif
+else
+        systemd_link_args = []
+endif
+
 executables += [
         libexec_template + {
                 'name' : 'systemd',
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
-                'link_args_static' : get_option('build-static') ? ['-static'] : [],
+                'link_args_static' : systemd_link_args,
                 'link_with' : [
                         libcore,
                         libshared,
                 ],
                 'dependencies' : systemd_deps,
                 'install' : get_option('build-static') ? 'static' : 'yes',
+                'symlinks' : [
+                        {
+                                'name' : 'init',
+                                'install_dir' : sbindir,
+                        },
+                        {
+                                # Alias for external callers when the executor is built into systemd
+                                'name' : 'systemd-executor',
+                                'public' : true,
+                                'conditions' : ['SYSTEMD_MULTICALL_BINARY'],
+                        },
+                ],
         },
 
         fuzz_template + {
@@ -258,12 +281,7 @@ executables += [
         },
 ]
 
-if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
-        # Symlink for external callers
-        install_symlink('systemd-executor',
-                        pointing_to : 'systemd',
-                        install_dir : libexecdir)
-else
+if conf.get('SYSTEMD_MULTICALL_BINARY') != 1
         executables += [
                 libexec_template + {
                         'name' : 'systemd-executor',
@@ -333,11 +351,6 @@ if install_sysconfdir
                         pointing_to : '../../systemd/user',
                         install_dir : sysconfdir / 'xdg/systemd')
 endif
-
-assert(fs.parent(sbindir) / 'lib/systemd' == libexecdir)
-install_symlink('init',
-                pointing_to : '../lib/systemd/systemd',
-                install_dir : sbindir)
 
 ############################################################
 

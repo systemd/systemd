@@ -120,6 +120,19 @@ rerun the test.
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
 
+`TEST_MKOSI_ARGS=options`: Extra options (split like a shell command line)
+passed to the `mkosi` invocation that launches the test image, without
+affecting the image build. Only the `--option=value` syntax is accepted. For example,
+`TEST_MKOSI_ARGS="--format=directory --output-dir=build/mkosi.output.dir"`
+boots the test container from a directory format output (which has to be built
+beforehand, into a separate output directory), allowing boot mode tests to run
+in environments that can't dissect disk images, such as unprivileged
+containers, where loop devices and udev are not available.
+
+`TEST_BIND_DIRS=directories`: Host directories (split like a shell command
+line) to bind read-only into the test container in nspawn boot mode, each at
+`/work/<basename>`.
+
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
 expression.
@@ -140,6 +153,42 @@ journal file will be saved only when the test is failed. Defaults to `fail`.
 `TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
+
+## Confidential computing (coco) tests
+
+Tests that exercise systemd inside a confidential VM (currently `TEST-94-COCO`)
+launch a real Intel TDX or AMD SEV-SNP guest with `systemd-vmspawn --coco=`. They
+only run on a coco-capable host and skip everywhere else. A confidential VM cannot
+be nested, so these tests run in boot (nspawn) mode on a bare-metal coco host,
+as root. The host must have coco enabled in firmware and in the kernel (for SEV-SNP
+e.g. `kvm_amd.sev_snp=1`, with `/dev/sev` accessible). On a host without the requested
+technology, or when running in `mkosi vm` mode, the tests are skipped.
+
+Inside each guest, `guest-test-runner.sh` runs the guest-side checks and reports
+their results back to the host over a vsock socket, while the guest's overall
+pass/fail is relayed separately through its exit status. The host side collects
+both to produce the subtest result.
+
+```
+meson test
+  └─ integration-test-wrapper.py
+      └─ mkosi boot  ──►  systemd-nspawn container
+          └─ TEST-94-COCO.sh
+              └─ TEST-94-COCO.*.sh
+                  └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
+                          └─ guest-test-runner.sh
+```
+
+Verifying SNP attestation reports requires the AMD certificate chain, fetched
+once on the host into a directory named `snp-certs` and passed to the test via
+`TEST_BIND_DIRS=/path/to/snp-certs`. The VCEK is per-machine and derived from
+an attestation report of this host, e.g. one generated with `snpguest report`
+in a manually booted SNP guest:
+
+```shell
+$ snpguest fetch ca pem snp-certs <processor-model>
+$ snpguest fetch vcek pem snp-certs <attestation-report>
+```
 
 ## Running the integration tests without building systemd from source
 

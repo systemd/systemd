@@ -2,28 +2,40 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "creds-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "generator.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "network-generator.h"
-#include "options.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
+#define NETWORKD_CONF_DROPIN_DIRECTORY "/run/systemd/networkd.conf.d/"
 
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
+COMMAND(
+        "systemd-network-generator\0",
+        "Generate network configuration from the kernel command line.",
+        .argspec = "[-- KERNEL_CMDLINE]\0",
+        .man_pages = "systemd-network-generator.service(8)\0",
+);
 
 static int network_save(Network *network, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -130,45 +142,28 @@ static int context_save(Context *context) {
         Link *link;
         int r;
 
-        _cleanup_free_ char *p = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
-        if (!p)
-                return log_oom();
+        assert(context);
+        assert(context->network_dir);
 
-        r = mkdir_p(p, 0755);
+        r = mkdir_p(context->network_dir, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " NETWORK_UNIT_DIRECTORY ": %m");
 
         HASHMAP_FOREACH(network, context->networks_by_name)
-                RET_GATHER(r, network_save(network, p));
+                RET_GATHER(r, network_save(network, context->network_dir));
 
         HASHMAP_FOREACH(netdev, context->netdevs_by_name)
-                RET_GATHER(r, netdev_save(netdev, p));
+                RET_GATHER(r, netdev_save(netdev, context->network_dir));
 
         HASHMAP_FOREACH(link, context->links_by_filename)
-                RET_GATHER(r, link_save(link, p));
+                RET_GATHER(r, link_save(link, context->network_dir));
 
         return r;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
         assert(ret_args);
@@ -179,15 +174,19 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_LONG("root", "PATH",
-                            "Operate on an alternate filesystem root"):
-                        arg_root = opts.arg;
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
@@ -208,6 +207,14 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        context.network_dir = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
+        if (!context.network_dir)
+                return log_oom();
+
+        context.networkd_conf_dropin_dir = path_join(arg_root, NETWORKD_CONF_DROPIN_DIRECTORY);
+        if (!context.networkd_conf_dropin_dir)
+                return log_oom();
 
         if (strv_isempty(args)) {
                 r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
@@ -241,11 +248,11 @@ static int run(int argc, char *argv[]) {
 
         RET_GATHER(ret, context_save(&context));
 
-        static const PickUpCredential table[] = {
-                { "network.conf.",    "/run/systemd/networkd.conf.d/", ".conf"    },
-                { "network.link.",    NETWORK_UNIT_DIRECTORY,          ".link"    },
-                { "network.netdev.",  NETWORK_UNIT_DIRECTORY,          ".netdev"  },
-                { "network.network.", NETWORK_UNIT_DIRECTORY,          ".network" },
+        const PickUpCredential table[] = {
+                { "network.conf.",    context.networkd_conf_dropin_dir, ".conf"    },
+                { "network.link.",    context.network_dir,              ".link"    },
+                { "network.netdev.",  context.network_dir,              ".netdev"  },
+                { "network.network.", context.network_dir,              ".network" },
         };
         RET_GATHER(ret, pick_up_credentials(table, ELEMENTSOF(table)));
 

@@ -6,15 +6,19 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-rr.h"
 #include "extract-word.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -23,7 +27,7 @@
 
 #define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 
-DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
+DnssdTxtData* dnssd_txtdata_free(DnssdTxtData *txt_data) {
         if (!txt_data)
                 return NULL;
 
@@ -33,7 +37,7 @@ DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
         return mfree(txt_data);
 }
 
-DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
+static DnssdTxtData* dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         DnssdTxtData *next;
 
         if (!txt_data)
@@ -46,12 +50,14 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         return dnssd_txtdata_free_all(next);
 }
 
-DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service) {
+DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *service) {
         if (!service)
                 return NULL;
 
         if (service->manager)
                 hashmap_remove(service->manager->dnssd_registered_services, service->id);
+
+        sd_bus_track_unref(service->bus_track);
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
@@ -66,6 +72,114 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         free(service->name_template);
 
         return mfree(service);
+}
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dnssd_registered_service_hash_ops,
+        char,
+        string_hash_func,
+        string_compare_func,
+        DnssdRegisteredService,
+        dnssd_registered_service_free);
+
+static int dnssd_registered_service_make_goodbye(
+                DnssdRegisteredService *service,
+                DnsScope *scope,
+                DnsAnswer **ret) {
+
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        size_t n_rrs = 3;
+        int r;
+
+        assert(service);
+        assert(scope);
+        assert(ret);
+
+        /* Collects those of the service's RRs that are established in the scope's zone (or under
+         * re-verification, in which case they are still served from the zone), flagged as goodbye (TTL 0),
+         * so that only this service is withdrawn, and only where we actually asserted ownership of the
+         * records, i.e. not while a record is still being probed for uniqueness, was withdrawn again after
+         * a conflict, or was never published in this scope in the first place. */
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                n_rrs++;
+
+        answer = dns_answer_new(n_rrs);
+        if (!answer)
+                return -ENOMEM;
+
+        DnsResourceRecord *rrs[] = { service->ptr_rr, service->sub_ptr_rr, service->srv_rr };
+
+        FOREACH_ELEMENT(rr, rrs) {
+                if (!*rr)
+                        continue;
+
+                DnsZoneItem *i = dns_zone_get(&scope->zone, *rr);
+                if (!i || !IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        continue;
+
+                r = dns_answer_add(answer, *rr, /* ifindex= */ 0,
+                                   dns_resource_key_is_dnssd_ptr((*rr)->key) ?
+                                   DNS_ANSWER_GOODBYE : (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH),
+                                   /* rrsig= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items) {
+                if (!txt_data->rr)
+                        continue;
+
+                DnsZoneItem *i = dns_zone_get(&scope->zone, txt_data->rr);
+                if (!i || !IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        continue;
+
+                r = dns_answer_add(answer, txt_data->rr, /* ifindex= */ 0,
+                                   DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH, /* rrsig= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(answer);
+        return 0;
+}
+
+void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
+        Link *l;
+        int r;
+
+        assert(service);
+
+        Manager *m = ASSERT_PTR(service->manager);
+
+        /* Takes the service out of service: sends goodbye messages for it, removes its RRs from all mDNS
+         * zones, and drops it from the manager. Note that this also frees the passed object. */
+
+        HASHMAP_FOREACH(l, m->links)
+                FOREACH_ELEMENT(scope, ((DnsScope*[]) { l->mdns_ipv4_scope, l->mdns_ipv6_scope })) {
+                        if (!*scope)
+                                continue;
+
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *goodbye = NULL;
+
+                        r = dnssd_registered_service_make_goodbye(service, *scope, &goodbye);
+                        if (r >= 0)
+                                r = dns_scope_send_goodbye(*scope, goodbye);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send goodbye messages, ignoring: %m");
+
+                        dns_zone_remove_rr(&(*scope)->zone, service->ptr_rr);
+                        dns_zone_remove_rr(&(*scope)->zone, service->sub_ptr_rr);
+                        dns_zone_remove_rr(&(*scope)->zone, service->srv_rr);
+                        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                dns_zone_remove_rr(&(*scope)->zone, txt_data->rr);
+                }
+
+        /* This drops the service from the manager's hashmap, hence the subsequent refresh will not simply
+         * add its RRs back. */
+        dnssd_registered_service_free(service);
+
+        manager_refresh_rrs(m);
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
@@ -158,7 +272,7 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &dnssd_registered_service_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
@@ -328,10 +442,11 @@ oom:
         return -ENOMEM;
 }
 
-int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {
+static int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
 
+        assert(key);
         assert(ret_item);
 
         length = strlen(key);
@@ -359,6 +474,8 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         size_t length;
         DnsTxtItem *i;
 
+        assert(key);
+        assert(data || size == 0);
         assert(ret_item);
 
         length = strlen(key);
@@ -385,6 +502,8 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
 int dnssd_signal_conflict(Manager *manager, const char *name) {
         DnssdRegisteredService *s;
         int r;
+
+        assert(manager);
 
         if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;

@@ -413,9 +413,11 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         unsigned k = 0;
         Unit *u;
+
+        assert(nodes);
 
         l = new0(char*, hashmap_size(m->units)+1);
         if (!l)
@@ -812,6 +814,8 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
 
+        m->api_bus_ready = true;
+
         log_debug("Successfully connected to API bus.");
 
         return 0;
@@ -1093,9 +1097,14 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
-        /* Possibly flush unwritten data, but only if we are
-         * unprivileged, since we don't want to sync here */
-        if (!MANAGER_IS_SYSTEM(m))
+        /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
+         * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
+         * connection to completion via bus_ensure_running(), which blocks us synchronously for up to
+         * BUS_AUTH_TIMEOUT if the peer accepted the connection but never answers authentication (e.g. a
+         * socket-activated D-Bus service that is hung or already gone during session teardown).
+         * sd_bus_flush() only touches the write queue once that step succeeds, so anything queued on a
+         * connection that does not reach RUNNING is discarded either way - not worth blocking for. */
+        if (!MANAGER_IS_SYSTEM(m) && sd_bus_is_ready(*bus) > 0)
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
@@ -1104,6 +1113,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
 void bus_done_api(Manager *m) {
         destroy_bus(m, &m->api_bus);
+
+        m->api_bus_ready = false;
 }
 
 void bus_done_system(Manager *m) {

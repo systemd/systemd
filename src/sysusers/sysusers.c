@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"
@@ -16,7 +18,6 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -29,7 +30,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -114,6 +114,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+COMMAND(
+        "systemd-sysusers\0",
+        "Create system user and group accounts.",
+        .argspec = "[CONFIGURATION FILE…]\0",
+        .man_pages = "systemd-sysusers.service(8)\0",
+        .pager_flags = &arg_pager_flags,
+);
+
 typedef struct Context {
         int audit_fd;
 
@@ -132,6 +140,8 @@ typedef struct Context {
 
         UGIDAllocationRange login_defs;
         bool login_defs_need_warning;
+
+        LabelContext *label_context;
 } Context;
 
 static void context_done(Context *c) {
@@ -152,6 +162,7 @@ static void context_done(Context *c) {
 
         set_free(c->names);
         uid_range_free(c->uid_range);
+        mac_label_context_free(c->label_context);
 }
 
 static void maybe_emit_login_defs_warning(Context *c) {
@@ -303,7 +314,7 @@ static int load_group_database(Context *c) {
         return r;
 }
 
-static int make_backup(const char *target, const char *x) {
+static int make_backup(const char *target, const char *x, LabelContext *label_context) {
         _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_close_ int src = -EBADF;
@@ -325,11 +336,13 @@ static int make_backup(const char *target, const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        r = fopen_temporary_label(
+        r = fopen_temporary_at_label(
+                        AT_FDCWD,
                         target,   /* The path for which to the look up the label */
                         x,        /* Where we want the file actually to end up */
                         &dst,     /* The temporary file we write to */
-                        &dst_tmp);
+                        &dst_tmp,
+                        label_context);
         if (r < 0)
                 return r;
 
@@ -527,7 +540,7 @@ static int write_temporary_passwd(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, passwd_path, passwd_path, &passwd, &passwd_tmp, c->label_context);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", passwd_path);
 
@@ -655,7 +668,7 @@ static int write_temporary_shadow(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, shadow_path, shadow_path, &shadow, &shadow_tmp, c->label_context);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
@@ -792,7 +805,7 @@ static int write_temporary_group(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, group_path, group_path, &group, &group_tmp, c->label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary copy of %s: %m", group_path);
 
@@ -911,7 +924,7 @@ static int write_temporary_gshadow(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, gshadow_path, gshadow_path, &gshadow, &gshadow_tmp, c->label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary copy of %s: %m", gshadow_path);
 
@@ -927,10 +940,13 @@ static int write_temporary_gshadow(
                 while ((r = fgetsgent_sane(original, &sg)) > 0) {
 
                         i = ordered_hashmap_get(c->groups, sg->sg_namp);
-                        if (i && i->todo_group)
-                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                                       "%s: Group \"%s\" already exists.",
-                                                       gshadow_path, sg->sg_namp);
+                        if (i && i->todo_group) {
+                                /* The group already exists in /etc/gshadow. Only the
+                                 * /etc/gshadow stage is left, so we can safely remove
+                                 * the item from the todo set. */
+                                i->todo_group = false;
+                                ordered_hashmap_remove(c->todo_gids, GID_TO_PTR(i->gid));
+                        }
 
                         r = putsgent_with_members(c, sg, gshadow);
                         if (r < 0)
@@ -1021,23 +1037,23 @@ static int write_files(Context *c) {
 
         /* Make a backup of the old files */
         if (group) {
-                r = make_backup("/etc/group", group_path);
+                r = make_backup(group_path, group_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", group_path);
         }
         if (gshadow) {
-                r = make_backup("/etc/gshadow", gshadow_path);
+                r = make_backup(gshadow_path, gshadow_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", gshadow_path);
         }
 
         if (passwd) {
-                r = make_backup("/etc/passwd", passwd_path);
+                r = make_backup(passwd_path, passwd_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", passwd_path);
         }
         if (shadow) {
-                r = make_backup("/etc/shadow", shadow_path);
+                r = make_backup(shadow_path, shadow_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", shadow_path);
         }
@@ -2086,46 +2102,6 @@ static int cat_config(void) {
         return cat_files(NULL, files, arg_cat_flags);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *cmds = NULL, *opts = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-sysusers.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&cmds);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &opts);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, cmds, opts);
-
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sCreates system user and group accounts.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(cmds);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-
-        r = table_print_or_warn(opts);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -2137,6 +2113,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_GROUP("Commands"): {}
+
                 OPTION_COMMON_CAT_CONFIG:
                         arg_cat_flags = CAT_CONFIG_ON;
                         break;
@@ -2146,7 +2124,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -2182,7 +2160,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_replace = opts.arg;
                         break;
 
-                OPTION_LONG("dry-run", NULL, "Just print what would be done"):
+                OPTION('n', "dry-run", NULL, "Just print what would be done"):
                         arg_dry_run = true;
                         break;
 
@@ -2193,6 +2171,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);
@@ -2350,6 +2331,10 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+
+        r = mac_label_context_new(arg_root, &c.label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
 
         /* Prepare to emit audit events, but only if we're operating on the host system. */
         if (!arg_root)

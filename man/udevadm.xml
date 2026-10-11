@@ -103,13 +103,8 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-V</option></term>
-        <term><option>--version</option></term>
-        <xi:include href="standard-options.xml" xpointer="version-text" />
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version-V" />
     </variablelist>
 
     <refsect2>
@@ -158,6 +153,9 @@
           <listitem>
             <para>When showing device properties using the <option>--query=property</option>
             option, print only their values, and skip the property name and <literal>=</literal>.</para>
+            <para>When showing device symlinks using the <option>--query=symlink</option> option,
+            print one path per line instead of separating paths with spaces. An empty line is printed
+            after each device, including the last one.</para>
             <para>Cannot be used together with <option>-x/--export</option> or
             <option>-P/--export-prefix</option>.</para>
 

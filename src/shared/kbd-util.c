@@ -58,7 +58,7 @@ static int keymap_recurse_dir_callback(
         if (!IN_SET(de->d_type, DT_REG, DT_LNK))
                 return RECURSE_DIR_CONTINUE;
 
-        const char *e = endswith(de->d_name, ".map") ?: endswith(de->d_name, ".map.gz");
+        const char *e = ENDSWITH_SET(de->d_name, ".map", ".map.gz", ".kmap", ".kmap.gz");
         if (!e)
                 return RECURSE_DIR_CONTINUE;
 
@@ -85,6 +85,8 @@ int get_keymaps(char ***ret) {
         _cleanup_set_free_ Set *keymaps = NULL;
         _cleanup_strv_free_ char **keymap_dirs = NULL;
         int r;
+
+        assert(ret);
 
         r = keymap_directories(&keymap_dirs);
         if (r < 0)

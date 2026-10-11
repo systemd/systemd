@@ -110,6 +110,7 @@ DLSYM_PROTOTYPE(EC_GROUP_get0_generator) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_order) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_curve) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_curve_name) = NULL;
+static DLSYM_PROTOTYPE(EC_GROUP_get_degree) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_field_type) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_new_by_curve_name) = NULL;
 DLSYM_PROTOTYPE(EC_POINT_free) = NULL;
@@ -126,6 +127,7 @@ static DLSYM_PROTOTYPE(ERR_peek_last_error) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_ctrl) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_free) = NULL;
 static DLSYM_PROTOTYPE(EVP_CIPHER_CTX_get_block_size) = NULL;
+DLSYM_PROTOTYPE(EVP_CIPHER_CTX_get_tag_length) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_new) = NULL;
 static DLSYM_PROTOTYPE(EVP_CIPHER_fetch) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_free) = NULL;
@@ -254,6 +256,7 @@ DLSYM_PROTOTYPE(PEM_read_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_read_X509) = NULL;
 static DLSYM_PROTOTYPE(PEM_read_bio_PrivateKey) = NULL;
 static DLSYM_PROTOTYPE(PEM_read_bio_X509) = NULL;
+DLSYM_PROTOTYPE(PEM_write) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_write_X509) = NULL;
@@ -434,6 +437,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EC_GROUP_get0_order),
                         DLSYM_ARG(EC_GROUP_get_curve),
                         DLSYM_ARG(EC_GROUP_get_curve_name),
+                        DLSYM_ARG(EC_GROUP_get_degree),
                         DLSYM_ARG(EC_GROUP_get_field_type),
                         DLSYM_ARG(EC_GROUP_new_by_curve_name),
                         DLSYM_ARG(EC_POINT_free),
@@ -450,6 +454,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_CIPHER_CTX_ctrl),
                         DLSYM_ARG(EVP_CIPHER_CTX_free),
                         DLSYM_ARG(EVP_CIPHER_CTX_get_block_size),
+                        DLSYM_ARG(EVP_CIPHER_CTX_get_tag_length),
                         DLSYM_ARG(EVP_CIPHER_CTX_new),
                         DLSYM_ARG(EVP_CIPHER_fetch),
                         DLSYM_ARG(EVP_CIPHER_free),
@@ -576,6 +581,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(PEM_read_X509),
                         DLSYM_ARG(PEM_read_bio_PrivateKey),
                         DLSYM_ARG(PEM_read_bio_X509),
+                        DLSYM_ARG(PEM_write),
                         DLSYM_ARG(PEM_write_PUBKEY),
                         DLSYM_ARG(PEM_write_PrivateKey),
                         DLSYM_ARG(PEM_write_X509),
@@ -1611,8 +1617,8 @@ int rsa_pkey_to_n_e(
         if (!n || !e)
                 return log_oom_debug();
 
-        assert(sym_BN_bn2bin(bn_n, n) == (int) n_size);
-        assert(sym_BN_bn2bin(bn_e, e) == (int) e_size);
+        assert_se(sym_BN_bn2bin(bn_n, n) == (int) n_size);
+        assert_se(sym_BN_bn2bin(bn_e, e) == (int) e_size);
 
         *ret_n = TAKE_PTR(n);
         *ret_n_size = n_size;
@@ -1733,24 +1739,43 @@ int ecc_pkey_to_curve_x_y(
         if (!sym_EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &bn_y))
                 return log_openssl_errors(LOG_DEBUG, "Failed to get ECC point y");
 
-        size_t x_size = sym_BN_num_bytes(bn_x), y_size = sym_BN_num_bytes(bn_y);
-        _cleanup_free_ void *x = malloc(x_size), *y = malloc(y_size);
+        /* The affine coordinates are elements of the curve's underlying field and must be
+         * marshalled at the fixed field width. BN_bn2bin() writes the minimal big-endian
+         * encoding, dropping any leading zero bytes, so a coordinate whose most significant byte
+         * is zero (roughly 1 in 256 keys per coordinate) comes out one or more bytes short. A short
+         * coordinate makes callers such as tpm2_tpm2b_public_from_openssl_pkey() build a
+         * TPM2B_PUBLIC that TPM2_LoadExternal() rejects with TPM_RC_KEY. The object name hashes
+         * the marshalled public area, so the name a TPM derives for the key also stops matching
+         * the name systemd computes in software. Size the buffers to the field width and
+         * zero-pad. */
+        _cleanup_(EC_GROUP_freep) EC_GROUP *group = sym_EC_GROUP_new_by_curve_name(curve_id);
+        if (!group)
+                return log_openssl_errors(LOG_DEBUG, "ECC curve id %d not supported", curve_id);
+
+        int bits = sym_EC_GROUP_get_degree(group);
+        assert(bits > 0);
+
+        size_t size = DIV_ROUND_UP(bits, 8);
+        _cleanup_free_ void *x = malloc(size), *y = malloc(size);
         if (!x || !y)
                 return log_oom_debug();
 
-        assert(sym_BN_bn2bin(bn_x, x) == (int) x_size);
-        assert(sym_BN_bn2bin(bn_y, y) == (int) y_size);
+        if (sym_BN_bn2binpad(bn_x, x, size) < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point x to %zu bytes.", size);
+
+        if (sym_BN_bn2binpad(bn_y, y, size) < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to marshal ECC point y to %zu bytes.", size);
 
         if (ret_curve_id)
                 *ret_curve_id = curve_id;
         if (ret_x)
                 *ret_x = TAKE_PTR(x);
         if (ret_x_size)
-                *ret_x_size = x_size;
+                *ret_x_size = size;
         if (ret_y)
                 *ret_y = TAKE_PTR(y);
         if (ret_y_size)
-                *ret_y_size = y_size;
+                *ret_y_size = size;
 
         return 0;
 }

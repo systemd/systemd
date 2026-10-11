@@ -19,7 +19,11 @@ import tempfile
 import textwrap
 from pathlib import Path
 from types import FrameType
-from typing import Optional
+from typing import NoReturn, Optional
+
+# Journal MESSAGE_ID under which the per-subtest results are logged.
+# Keep in sync with test/units/test-control.sh.
+SUBTEST_RESULT_MESSAGE_ID = '27479699ef7fb3465eb94a6a2224ac15'
 
 EMERGENCY_EXIT_DROPIN = '''\
 [Unit]
@@ -114,6 +118,7 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
             'info',
             *(coredump['exe'] for coredump in coredumps),
         ],
+        stdout=sys.stderr,
         check=True,
     )  # fmt: skip
 
@@ -285,6 +290,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--zstd',
                 ],
                 input=tarball,
+                stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
 
@@ -305,6 +311,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '-delete',
                 ],
                 input=tarball,
+                stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
 
@@ -319,6 +326,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     f'{os.fspath(summary.builddir / summary.buildsubdir)}/',
                     os.fspath(Path(tmp) / 'work/build'),
                 ],
+                stdout=sys.stderr,
                 check=True,
             )
 
@@ -343,6 +351,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--no-external',
                     '--quiet',
                 ],
+                stdout=sys.stderr,
                 check=True,
                 cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
@@ -356,6 +365,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--output-file', output,
                     '--quiet',
                 ],
+                stdout=sys.stderr,
                 check=True,
                 cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
@@ -363,6 +373,101 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
             Path(f'{output}.new').unlink()
 
             print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
+
+
+def in_userns() -> bool:
+    # The initial user namespace has a well-known inode number (USER_NS_INIT_INO, linux/nsfs.h).
+    # Without kernel support for user namespaces, ours can only be the initial one.
+    try:
+        return os.stat('/proc/self/ns/user').st_ino != 0xEFFFFFFD
+    except OSError:
+        return False
+
+
+def coco_host_type() -> Optional[str]:
+    try:
+        if Path('/sys/module/kvm_intel/parameters/tdx').read_text().strip() == 'Y':
+            return 'tdx'
+    except OSError:
+        pass
+    try:
+        if (
+            Path('/sys/module/kvm_amd/parameters/sev_snp').read_text().strip() == 'Y'
+            and Path('/dev/sev').exists()
+        ):
+            return 'sev-snp'
+    except OSError:
+        pass
+    return None
+
+
+def coco_nspawn_args(coco_type: str) -> list[str]:
+    # systemd-nspawn args (appended after '--' in boot mode) that expose the devices vmspawn needs to
+    # launch a confidential guest from inside the boot-mode container.
+    binds = ['--bind=/dev/kvm', '--bind=/dev/vhost-vsock']
+    if coco_type == 'sev-snp':
+        binds += ['--bind=/dev/sev']
+    # TDX guests obtain quotes via the host's Quote Generation Service; forward its socket if present.
+    if coco_type == 'tdx' and Path('/run/tdx-qgs/qgs.socket').exists():
+        binds += ['--bind=/run/tdx-qgs/qgs.socket']
+    return binds
+
+
+@dataclasses.dataclass(frozen=True)
+class SubtestResult:
+    name: str
+    result: str  # pass, fail or skip
+
+
+def read_subtest_results(journal_file: Path) -> list[SubtestResult]:
+    # The records are best-effort (see test-control.sh): tests without subtests, or environments
+    # whose logger can't reach the journal, simply yield none.
+    result = subprocess.run(
+        [
+            'journalctl',
+            '--file', journal_file,
+            '--output', 'json',
+            f'MESSAGE_ID={SUBTEST_RESULT_MESSAGE_ID}',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )  # fmt: skip
+    if result.returncode != 0:
+        return []
+
+    results = []
+    # Not splitlines(): it also splits on U+0085/U+2028/U+2029, which journalctl's JSON output
+    # leaves unescaped, and a record torn apart at one of them would fail to parse.
+    for line in result.stdout.split('\n'):
+        if not line:
+            continue
+        j = json.loads(line)
+        name, res = j.get('SUBTEST'), j.get('SUBTEST_RESULT')
+        # An embedded newline in the name would inject lines into the TAP stream, and anything
+        # but the known result values would be misreported as a pass.
+        if isinstance(name, str) and '\n' not in name and res in ('pass', 'fail', 'skip'):
+            results.append(SubtestResult(name=name, result=res))
+    return results
+
+
+def emit_tap(results: list[SubtestResult]) -> None:
+    print('TAP version 13')
+    print(f'1..{len(results)}')
+    for i, r in enumerate(results, start=1):
+        # '#' would start a TAP directive mid-description.
+        line = f'{"ok" if r.result != "fail" else "not ok"} {i} - {r.name.replace("#", "_")}'
+        if r.result == 'skip':
+            line += ' # SKIP'
+        print(line)
+
+
+def exit_skip(tap: bool, reason: str) -> NoReturn:
+    print(reason, file=sys.stderr)
+    if tap:
+        print('TAP version 13')
+        print(f'1..0 # SKIP {reason.replace("#", "_")}')
+        exit(0)
+    exit(77)
 
 
 def statfs(path: Path) -> str:
@@ -406,8 +511,11 @@ def main() -> None:
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm-images', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--coco', default=None, choices=('tdx', 'sev-snp', 'any'))
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--tap', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -434,24 +542,17 @@ def main() -> None:
         exit(1)
 
     if args.slow and not bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '0'))):
-        print(
-            f'SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}',
-            file=sys.stderr,
-        )
-        exit(77)
+        exit_skip(args.tap, f'SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}')
 
     if args.vm and bool(int(os.getenv('TEST_NO_QEMU', '0'))):
-        print(f'TEST_NO_QEMU=1, skipping {args.name}', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, f'TEST_NO_QEMU=1, skipping {args.name}')
 
     if args.skip:
-        print(f'meson requirements for test {args.name} were not fulfilled, skipping', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, f'meson requirements for test {args.name} were not fulfilled, skipping')
 
     for s in os.getenv('TEST_SKIP', '').split():
         if s in args.name:
-            print(f'Skipping {args.name} due to TEST_SKIP', file=sys.stderr)
-            exit(77)
+            exit_skip(args.tap, f'Skipping {args.name} due to TEST_SKIP')
 
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
@@ -459,8 +560,7 @@ def main() -> None:
 
     # Keep list in sync with TEST-06-SELINUX.sh
     if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('centos', 'fedora', 'opensuse'):
-        print('Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE', file=sys.stderr)
-        exit(77)
+        exit_skip(args.tap, 'Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE')
 
     if shell and not sys.stdin.isatty():
         print(
@@ -581,6 +681,68 @@ def main() -> None:
 
     vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
+    # Extra host directories to expose to the test, each bound read-only into the boot-mode
+    # container at /work/<basename>.
+    bind_dirs_args: list[str] = []
+    for bind_dir in shlex.split(os.getenv('TEST_BIND_DIRS', '')):
+        path = Path(bind_dir)
+        if not path.is_absolute() or path.name in ('', '..') or ':' in bind_dir:
+            sys.exit(f"TEST_BIND_DIRS entries must be absolute, named and without ':', got: {bind_dir}")
+        if not path.is_dir():
+            sys.exit(f'TEST_BIND_DIRS entry is not a directory: {bind_dir}')
+        bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
+
+    # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
+    # installed test artifacts. Bind the output directory read-only into the boot-mode container at
+    # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
+    vm_images_args: list[str] = []
+    if args.vm_images and not vm:
+        output_dir = args.meson_build_dir / 'mkosi.output'
+        if output_dir.exists():
+            vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
+        else:
+            print(
+                f'--vm-images requested but {output_dir} does not exist (images not built?); '
+                f'/work/vm-images will be unavailable and tests depending on it will skip',
+                file=sys.stderr,
+            )
+
+    # Coco needs to launch a real (L1) confidential guest, which requires the boot-mode nspawn on
+    # a coco-capable bare-metal host. Nested QEMU VM (vm mode) won't work.
+    coco_boot_args: list[str] = []
+    if args.coco:
+        if vm:
+            exit_skip(
+                args.tap,
+                f'{args.name} needs bare-metal boot mode (root, no nesting) for confidential VMs, skipping',
+            )
+        host = coco_host_type()
+        if host is None or (args.coco != 'any' and host != args.coco):
+            exit_skip(
+                args.tap, f'Host does not provide coco={args.coco} (detected: {host}), skipping {args.name}'
+            )
+        if not Path('/dev/vhost-vsock').exists():
+            exit_skip(
+                args.tap,
+                f'{args.name} needs /dev/vhost-vsock (load the vhost_vsock module) for the guest '
+                f'notify channel, skipping',
+            )
+        coco_boot_args = coco_nspawn_args(host)
+        # /sys/module/*/parameters isn't reliably readable inside the nspawn container, so hand the
+        # resolved coco type to the test via the environment instead of making it re-detect.
+        dropin += textwrap.dedent(
+            f'''
+            [Service]
+            Environment=COCO_TYPE={host}
+            '''
+        )
+
+    # Extra mkosi options for this invocation only. Each has to use the '--option=value' syntax.
+    test_mkosi_args = shlex.split(os.getenv('TEST_MKOSI_ARGS', ''))
+    for arg in test_mkosi_args:
+        if not re.fullmatch('--[^=]+=.*', arg):
+            sys.exit(f"TEST_MKOSI_ARGS must contain only '--option=value' mkosi options, got: {arg}")
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -624,16 +786,38 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
+        *test_mkosi_args,
         'vm' if vm else 'boot',
         *(
-            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}']
+            [
+                '--',
+                '--capability=CAP_BPF',
+                f'--suppress-sync={"yes" if args.suppress_sync else "no"}',
+                # In a non-initial user namespace the kernel only allows mounting a fresh proc or
+                # sysfs if the mount namespace already contains a fully visible mount of the same
+                # filesystem type (mount_too_revealing()), which nspawn's pivoted root doesn't.
+                # Satisfy the check with read-only binds, but only when actually confined, as
+                # they expose the outer proc and sysfs to the container. Bind non-recursively:
+                # carried-along submounts (e.g. lxcfs overmounts of container runtimes) would
+                # spoil full visibility wherever they end up locked, and --bind-ro wouldn't make
+                # them read-only either.
+                *(
+                    ['--bind-ro=/proc:/work/proc:norbind', '--bind-ro=/sys:/work/sys:norbind']
+                    if in_userns()
+                    else []
+                ),
+                *bind_dirs_args,
+                *vm_images_args,
+                *coco_boot_args,
+            ]
             if not vm
             else []
         ),
     ]  # fmt: skip
 
     try:
-        result = subprocess.run(cmd)
+        # All test output goes to stderr: stdout is reserved for machine-readable results.
+        result = subprocess.run(cmd, stdout=sys.stderr)
 
         # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
@@ -643,13 +827,9 @@ def main() -> None:
                 f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
                 file=sys.stderr,
             )
-            result = subprocess.run(cmd)
+            result = subprocess.run(cmd, stdout=sys.stderr)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
-                print(
-                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
-                    file=sys.stderr,
-                )
-                exit(77)
+                exit_skip(args.tap, f'Test {args.name} failed due to QEMU crash (error 247), ignoring')
             print(
                 f'Test {args.name} worked on re-run after QEMU crash (error 247)',
                 file=sys.stderr,
@@ -670,6 +850,10 @@ def main() -> None:
         and not sanitizer
     ):
         process_coverage(args, summary, name, journal_file)
+
+    subtest_results: list[SubtestResult] = []
+    if args.tap:
+        subtest_results = read_subtest_results(journal_file)
 
     if keep_journal == '0' or (
         keep_journal == 'fail'
@@ -710,6 +894,22 @@ def main() -> None:
         print(
             f'Test {exit_str}, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr
         )
+
+    if args.tap:
+        results = subtest_results
+        if not results:
+            # No subtest records: a test without subtests, or an environment without journal
+            # records. Report the whole test as a single point.
+            whole_test = {'succeeded': 'pass', 'skipped': 'skip', 'failed': 'fail'}[exit_str]
+            results = [SubtestResult(name=args.name, result=whole_test)]
+        elif exit_str == 'failed' and all(r.result != 'fail' for r in results):
+            # The failure is not attributable to any subtest: it happened outside of them, or
+            # coredumps/sanitizer findings failed the test. Report it as a point of its own.
+            results = [*results, SubtestResult(name=args.name, result='fail')]
+        emit_tap(results)
+        # The TAP stream carries the verdict; a non-zero exit would make meson report ERROR
+        # instead of attributing the failure to the failed points.
+        exit(0)
 
     exit(exit_code)
 

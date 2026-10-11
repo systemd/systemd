@@ -5,6 +5,7 @@ basic_sources = files(
         'af-list.c',
         'alloc-util.c',
         'ansi-color.c',
+        'ansi-seq.c',
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
@@ -161,7 +162,7 @@ foreach item : [
                 target = custom_target(
                         input : gperf_file,
                         output : '@0@-from-name.inc'.format(item[0]),
-                        command : [gperf,
+                        command : [gperf_cmdline,
                                 '-L', 'ANSI-C', '-t', '--ignore-case',
                                 '-N', 'lookup_@0@'.format(item[0]),
                                 '-H', 'hash_@0@_name'.format(item[0]),
@@ -196,15 +197,14 @@ filesystems_gperf_gperf = custom_target(
 filesystems_gperf_h = custom_target(
         input : filesystems_gperf_gperf,
         output : 'filesystems-gperf.h',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [filesystem_sets_c, filesystems_gperf_gperf, filesystems_gperf_h]
 basic_sources += [filesystem_sets_c, filesystems_gperf_h]
 
 test('kernel-filesystem-magics',
      filesystem_sets_py,
-     args : ['check'],
-     env : ['CPP=@0@'.format(cpp)])
+     args : ['check', cpp, system_include_args])
 
 libbasic_static = static_library(
         'basic',

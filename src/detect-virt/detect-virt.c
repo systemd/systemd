@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
-#include "ansi-color.h"
+#include "sd-json.h"
+
 #include "build.h"
 #include "confidential-virt.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
-#include "pretty-print.h"
 #include "string-table.h"
+#include "verbs.h"
 #include "virt.h"
 
 static bool arg_quiet = false;
+
 static enum {
         ANY_VIRTUALIZATION,
         ONLY_VM,
@@ -22,32 +21,11 @@ static enum {
         ONLY_CVM,
 } arg_mode = ANY_VIRTUALIZATION;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-detect-virt", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n"
-               "\n%sDetect execution in a virtualized environment.%s\n"
-               "\nOptions:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-detect-virt\0",
+        "Detect execution in a virtualized environment.",
+        .man_pages = "systemd-detect-virt(1)\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -58,7 +36,7 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -88,10 +66,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("cvm", NULL, "Only detect whether we are run in a confidential VM"):
                         arg_mode = ONLY_CVM;
-                        return 1;
+                        break;
 
                 OPTION_LONG("list-cvm", NULL, "List all known and detectable types of confidential virtualization"):
                         return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

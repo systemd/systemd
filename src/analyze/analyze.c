@@ -20,6 +20,7 @@
 #include "analyze-chid.h"
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
+#include "analyze-cpu-features.h"
 #include "analyze-critical-chain.h"
 #include "analyze-dlopen-metadata.h"
 #include "analyze-dot.h"
@@ -57,8 +58,6 @@
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
@@ -198,62 +197,14 @@ static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void
         return 0;
 }
 
-static int help(void) {
-        static const char *const vgroups[] = {
-                "Boot Analysis",
-                "Dependency Analysis",
-                "Configuration Files and Search Paths",
-                "Enumerate OS Concepts",
-                "Expression Evaluation",
-                "Clock & Time",
-                "Unit & Service Analysis",
-                "Executable Analysis",
-                "TPM Operations",
-        };
+COMMAND(
+        "systemd-analyze\0",
+        "Profile systemd, show unit dependencies, check unit files.",
+        .man_pages = "systemd-analyze(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
-        Table *vtables[ELEMENTSOF(vgroups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 9);
-        (void) table_sync_column_widths(0, options, vtables[0], vtables[1], vtables[2],
-                                        vtables[3], vtables[4], vtables[5], vtables[6],
-                                        vtables[7], vtables[8]);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Profile systemd, show unit dependencies, check unit files.");
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                help_section(vgroups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-analyze", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 /* When updating this list, including descriptions, apply changes to
  * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
@@ -263,19 +214,19 @@ VERB_SCOPE(, verb_time, "time", NULL, VERB_ANY, 1, VERB_DEFAULT,
            "Print time required to boot the machine");
 VERB_SCOPE(, verb_blame, "blame", NULL, VERB_ANY, 1, 0,
            "Print list of running units ordered by time to init");
-VERB_SCOPE(, verb_critical_chain, "critical-chain", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_critical_chain, "critical-chain", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Print a tree of the time critical chain of units");
 
 VERB_GROUP("Dependency Analysis");
 VERB_SCOPE(, verb_plot, "plot", NULL, VERB_ANY, 1, 0,
            "Output SVG graphic showing service initialization");
-VERB_SCOPE(, verb_dot, "dot", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dot, "dot", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Output dependency graph in dot(1) format");
-VERB_SCOPE(, verb_dump, "dump", "[PATTERN...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dump, "dump", "[PATTERN...]\0", VERB_ANY, VERB_ANY, 0,
            "Output state serialization of service manager");
 
 VERB_GROUP("Configuration Files and Search Paths");
-VERB_SCOPE(, verb_cat_config, "cat-config", "NAME|PATH...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_cat_config, "cat-config", "NAME|PATH...\0", 2, VERB_ANY, 0,
            "Show configuration file and drop-ins");
 VERB_SCOPE(, verb_unit_files, "unit-files", NULL, VERB_ANY, VERB_ANY, 0,
            "List files and symlinks for units");
@@ -283,57 +234,59 @@ VERB_SCOPE(, verb_unit_paths, "unit-paths", NULL, 1, 1, 0,
            "List load directories for units");
 
 VERB_GROUP("Enumerate OS Concepts");
-VERB_SCOPE(, verb_exit_status, "exit-status", "[STATUS...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_exit_status, "exit-status", "[STATUS...]\0", VERB_ANY, VERB_ANY, 0,
            "List exit status definitions");
-VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]\0", VERB_ANY, VERB_ANY, 0,
            "List capability definitions");
-VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List syscalls in seccomp filters");
-VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known filesystems");
-VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known architectures");
+VERB_SCOPE(, verb_cpu_features, "cpu-features", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
+           "List known CPU features");
 VERB_SCOPE(, verb_smbios11, "smbios11", NULL, VERB_ANY, 1, 0,
            "List strings passed via SMBIOS Type #11");
 VERB_SCOPE(, verb_chid, "chid", NULL, VERB_ANY, VERB_ANY, 0,
            "List local CHIDs");
-VERB(verb_transient_settings, "transient-settings", "TYPE...", 2, VERB_ANY, 0,
+VERB(verb_transient_settings, "transient-settings", "TYPE...\0", 2, VERB_ANY, 0,
      "List transient settings for unit TYPE");
 
 VERB_GROUP("Expression Evaluation");
-VERB_SCOPE(, verb_condition, "condition", "CONDITION...", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_condition, "condition", "CONDITION...\0", VERB_ANY, VERB_ANY, 0,
            "Evaluate conditions and asserts");
-VERB_SCOPE(, verb_compare_versions, "compare-versions", "V1 [OP] V2", 3, 4, 0,
+VERB_SCOPE(, verb_compare_versions, "compare-versions", "V1 [OP] V2\0", 3, 4, 0,
            "Compare two version strings");
-VERB_SCOPE(, verb_image_policy, "image-policy", "POLICY...", 2, 2, 0,
+VERB_SCOPE(, verb_image_policy, "image-policy", "POLICY...\0", 2, 2, 0,
            "Analyze image policy string");
 
 VERB_GROUP("Clock & Time");
-VERB_SCOPE(, verb_calendar, "calendar", "SPEC...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_calendar, "calendar", "SPEC...\0", 2, VERB_ANY, 0,
            "Validate repetitive calendar time events");
-VERB_SCOPE(, verb_timestamp, "timestamp", "TIMESTAMP...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_timestamp, "timestamp", "TIMESTAMP...\0", 2, VERB_ANY, 0,
            "Validate a timestamp");
-VERB_SCOPE(, verb_timespan, "timespan", "SPAN...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_timespan, "timespan", "SPAN...\0", 2, VERB_ANY, 0,
            "Validate a time span");
 
 VERB_GROUP("Unit & Service Analysis");
-VERB_SCOPE(, verb_verify, "verify", "FILE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_verify, "verify", "FILE...\0", 2, VERB_ANY, 0,
            "Check unit files for correctness");
-VERB_SCOPE(, verb_security, "security", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_security, "security", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Analyze security of unit");
-VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...\0", 2, VERB_ANY, 0,
            "Show file descriptor store contents of service");
-VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]\0", VERB_ANY, VERB_ANY, 0,
            "Dump malloc stats of a D-Bus service");
-VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE\0", 2, VERB_ANY, 0,
            "Attach a debugger to the given running service");
-VERB_SCOPE(, verb_unit_shell, "unit-shell", "SERVICE [COMMAND ...]", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_unit_shell, "unit-shell", "SERVICE [COMMAND ...]\0", 2, VERB_ANY, 0,
            "Run command on the namespace of the service");
 
 VERB_GROUP("Executable Analysis");
-VERB_SCOPE(, verb_elf_inspection, "inspect-elf", "FILE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_elf_inspection, "inspect-elf", "FILE...\0", 2, VERB_ANY, 0,
            "Parse and print ELF package metadata");
-VERB_SCOPE(, verb_dlopen_metadata, "dlopen-metadata", "FILE", 2, 2, 0,
+VERB_SCOPE(, verb_dlopen_metadata, "dlopen-metadata", "FILE\0", 2, 2, 0,
            "Parse and print ELF dlopen metadata");
 
 VERB_GROUP("TPM Operations");
@@ -341,11 +294,11 @@ VERB_SCOPE(, verb_has_tpm2, "has-tpm2", NULL, VERB_ANY, 1, 0,
            "Report whether TPM2 support is available");
 VERB_SCOPE(, verb_identify_tpm2, "identify-tpm2", NULL, VERB_ANY, 1, 0,
            "Show TPM2 vendor information");
-VERB_SCOPE(, verb_pcrs, "pcrs", "[PCR...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_pcrs, "pcrs", "[PCR...]\0", VERB_ANY, VERB_ANY, 0,
            "Show TPM2 PCRs and their names");
-VERB_SCOPE(, verb_nvpcrs, "nvpcrs", "[NVPCR...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_nvpcrs, "nvpcrs", "[NVPCR...]\0", VERB_ANY, VERB_ANY, 0,
            "Show additional TPM2 PCRs stored in NV indexes");
-VERB_SCOPE(, verb_srk, "srk", "[>FILE]", VERB_ANY, 1, 0,
+VERB_SCOPE(, verb_srk, "srk", "[>FILE]\0", VERB_ANY, 1, 0,
            "Write TPM2 SRK (to FILE)");
 
 /* The following are deprecated and not shown in --help. */
@@ -386,7 +339,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -610,6 +563,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         strv_free_and_replace(arg_debugger_args, l);
                         break;
                 }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         _cleanup_strv_free_ char **args = strv_copy(option_parser_get_args(&opts)); /* args is [arg1, arg2, …] */
@@ -625,9 +581,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                        "Option --offline= requires one or more units to perform a security review.");
 
         if (arg_json_format_flags != SD_JSON_FORMAT_OFF &&
-            !STRPTR_IN_SET(verb, "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs", "architectures", "capability", "exit-status"))
+            !STRPTR_IN_SET(verb,
+                           "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs",
+                           "architectures", "cpu-features", "capability", "exit-status", "chid", "blame",
+                           "identify-tpm2"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, capability, exit-status right now.");
+                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2 right now.");
 
         if (arg_threshold != 100 && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

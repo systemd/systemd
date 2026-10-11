@@ -1140,7 +1140,9 @@
         semantics. <option>exit</option> causes the manager to exit following the normal shutdown procedure,
         and <option>exit-force</option> causes it terminate without shutting down services. When
         <option>exit</option> or <option>exit-force</option> is used by default the exit status of the main
-        process of the unit (if this applies) is returned from the service manager. However, this may be
+        process of the unit (if this applies) is returned from the service manager. If there is no such
+        status, <varname>FailureAction=</varname> returns 255 instead, while
+        <varname>SuccessAction=</varname> leaves the exit status unchanged. However, this may be
         overridden with
         <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see below.
         <option>soft-reboot</option> will trigger a userspace reboot operation.
@@ -1779,8 +1781,10 @@
         <varlistentry>
           <term><varname>ConditionPathExists=</varname></term>
 
-          <listitem><para>Check for the existence of a file. If the specified absolute path name does not exist,
-          the condition will fail. If the absolute path name passed to
+          <listitem><para>Check for the existence of a path. This applies to any file system object (such as a
+          regular file, directory, device node, FIFO, or socket), not only regular files. Symbolic links
+          are followed, so a broken symbolic link is not considered to exist. If the specified absolute
+          path name does not exist, the condition will fail. If the absolute path name passed to
           <varname>ConditionPathExists=</varname> is prefixed with an exclamation mark
           (<literal>!</literal>), the test is negated, and the unit is only started if the path does not
           exist.</para>
@@ -2053,6 +2057,11 @@
           <literal>mte</literal>,
           among others. For the full list, see the documentation on
           <ulink url="https://docs.kernel.org/arch/arm64/elf_hwcaps.html">ARM64 ELF hwcaps</ulink>.</para>
+
+          <para>See
+          <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <command>cpu-features</command> command for the complete list of known CPU features for the system.
+          </para>
 
           <para>To avoid ambiguities in mixed-architecture fleets, the value can be prefixed
           with the architecture name using the form <literal>ARCH.FEATURE</literal>. If the

@@ -22,7 +22,7 @@ set -o pipefail
 . /etc/os-release
 if [[ "$ID" =~ opensuse ]]; then
     echo "Skipping cgroup test with too small MemoryMax= setting on openSUSE."
-    exit 0
+    exit 77
 fi
 
 cat >/run/systemd/system/testslice.slice <<EOF

@@ -18,6 +18,7 @@
 #include "hashmap.h"
 #include "hwdb-internal.h"
 #include "log.h"
+#include "memory-util.h"
 #include "nulstr-util.h"
 #include "string-util.h"
 
@@ -457,8 +458,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
 static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
         assert(hwdb);
 
-        if (hwdb->map)
-                munmap((void *)hwdb->map, hwdb->st.st_size);
+        munmap_safe((void*) hwdb->map, hwdb->st.st_size);
         safe_fclose(hwdb->f);
         ordered_hashmap_free(hwdb->properties);
         return mfree(hwdb);

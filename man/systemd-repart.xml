@@ -97,12 +97,14 @@
       <listitem><para>Partitions that shall be created are now allocated on the disk, taking the size
       constraints and weights declared in the configuration files into account. Free space is used within the
       limits set by size and padding requests. In addition, existing partitions that should be grown are
-      grown. New partitions are always appended to the end of the partition table, taking the first partition
-      table slot whose index is greater than the indexes of all existing partitions. Partitions are never
-      reordered and thus partition numbers remain stable. When partitions are created, they are placed in the
-      smallest area of free space that is large enough to satisfy the size and padding limits. This means
-      that partitions might have different order on disk than in the partition table. Note that this
-      allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
+      grown. When possible, newly created partitions are assigned partition table slots after existing
+      partitions of the same type, as those are matched to configuration files in partition number order
+      and a new partition inserted before an existing one would change that matching on the next
+      invocation. If no such slot is available, the first unused slot is used. Partitions are never
+      reordered and thus partition numbers remain stable. When partitions are created, they are placed
+      in the smallest area of free space that is large enough to satisfy the size and padding limits.
+      This means that partitions might have different order on disk than in the partition table. Note
+      that this allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
 
       <listitem><para>All existing partitions for which configuration files exist and which currently have no
       GPT partition label set will be assigned a label, either explicitly configured in the configuration or
@@ -171,13 +173,15 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>-n</option></term>
         <term><option>--dry-run=</option></term>
 
         <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
         <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
-        touch the device's partition table.</para>
+        touch the device's partition table. The short option <option>-n</option> is equivalent to
+        <option>--dry-run=yes</option> and was added in version 262.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -800,6 +804,36 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SOURCE_DATE_EPOCH</varname></term>
+
+        <listitem><para>Takes a UNIX timestamp in seconds. Clamps access and modification times written
+        into the image. See the
+        <ulink url="https://reproducible-builds.org/specs/source-date-epoch/">reproducible builds
+        specification</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Byte-for-byte reproducible images require <option>--offline=yes</option> mode. Populating a file
+    system through the kernel writes metadata that cannot be corrected from userspace afterwards.</para>
+
+    <para><varname>Format=</varname><literal>vfat</literal> images have additional noise: the
+    directory entry of the volume label is written with a wallclock timestamp by
+    <citerefentry project='man-pages'><refentrytitle>mkfs.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    with dosfstools versions up to and including 4.2. A later release or a backport of the
+    <ulink url="https://github.com/dosfstools/dosfstools/commit/8da7bc93315c">upstream fix</ulink>
+    sets it to <varname>$SOURCE_DATE_EPOCH</varname>.</para>
+
+    <para>Offline and online mode also write <literal>vfat</literal> short names differently, so images
+    built in both ways never match each other.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
 
     <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
@@ -830,7 +864,7 @@ systemd-repart -C \
 systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
-      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
     </example>
 
     <example>

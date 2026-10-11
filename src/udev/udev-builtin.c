@@ -76,7 +76,7 @@ void udev_builtin_reload(UdevReloadFlags flags) {
 void udev_builtin_list(void) {
         FOREACH_ELEMENT(b, builtins)
                 if (*b)
-                        fprintf(stderr, "  %-14s  %s\n", (*b)->name, (*b)->help);
+                        printf("  %-14s  %s\n", (*b)->name, (*b)->help);
 }
 
 const char* udev_builtin_name(UdevBuiltinCommand cmd) {

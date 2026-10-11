@@ -2,14 +2,14 @@
 
 if get_option('hostname-wordlist')
         install_data(
-                'adverbs',
-                'adjectives',
-                'nouns',
+                'weather',
+                'colors',
+                'worlds',
                 install_dir : libexecdir / 'hostname-wordlist')
 
         # The '$' hostname tokens look up word lists by position ("1", "2", "3", …); ship those names as
         # symlinks to the semantic lists so the same files back both.
-        foreach link : [['1', 'adverbs'], ['2', 'adjectives'], ['3', 'nouns']]
+        foreach link : [['1', 'weather'], ['2', 'colors'], ['3', 'worlds']]
                 install_symlink(
                         link[0],
                         install_dir : libexecdir / 'hostname-wordlist',

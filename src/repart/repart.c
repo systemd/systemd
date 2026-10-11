@@ -32,7 +32,6 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
-#include "efivars.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "factory-reset.h"
@@ -62,7 +61,6 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -89,6 +87,7 @@
 #include "utf8.h"
 #include "varlink-io.systemd.Repart.h"
 #include "varlink-util.h"
+#include "verbs.h"
 #include "xattr-util.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
@@ -249,6 +248,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_eltorito_system, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_eltorito_volume, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_eltorito_publisher, freep);
 
+COMMAND(
+        "systemd-repart\0",
+        "Grow and add partitions to a partition table, and generate disk images (DDIs).",
+        .argspec = "[DEVICE]\0",
+        .man_pages = "systemd-repart(8)\0",
+        .pager_flags = &arg_pager_flags,
+);
+
 typedef enum ProgressPhase {
         PROGRESS_LOADING_DEFINITIONS,
         PROGRESS_LOADING_TABLE,
@@ -343,6 +350,11 @@ typedef struct PartitionEncryptedVolume {
         bool fixate_volume_key;
 } PartitionEncryptedVolume;
 
+typedef struct PartitionEncryptAddToken {
+        char *type;                /* token type name, always set */
+        sd_json_variant *data;     /* extra fields (excluding type/keyslots), may be NULL */
+} PartitionEncryptAddToken;
+
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
         if (!c)
                 return NULL;
@@ -352,6 +364,19 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         free(c->options);
 
         return mfree(c);
+}
+
+static void partition_encrypt_add_token_done(PartitionEncryptAddToken *t) {
+        assert(t);
+        free(t->type);
+        sd_json_variant_unref(t->data);
+}
+
+static void partition_encrypt_add_token_free_many(PartitionEncryptAddToken *tokens, size_t n) {
+        assert(tokens || n == 0);
+        FOREACH_ARRAY(t, tokens, n)
+                partition_encrypt_add_token_done(t);
+        free(tokens);
 }
 
 typedef struct CopyFiles {
@@ -538,6 +563,8 @@ typedef struct Partition {
         size_t n_mountpoints;
 
         PartitionEncryptedVolume *encrypted_volume;
+        PartitionEncryptAddToken *encrypt_add_tokens;
+        size_t n_encrypt_add_tokens;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -866,6 +893,7 @@ static Partition* partition_free(Partition *p) {
         p->n_mountpoints = 0;
 
         partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
 
         partition_unlink_supplement(p);
 
@@ -926,6 +954,9 @@ static void partition_foreignize(Partition *p) {
         p->n_mountpoints = 0;
 
         p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+        p->encrypt_add_tokens = NULL;
+        p->n_encrypt_add_tokens = 0;
 
         partition_unlink_supplement(p);
 }
@@ -1759,16 +1790,42 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static uint64_t find_first_unused_partno(Context *context) {
+static uint64_t find_unused_partno(Context *context, const Partition *partition) {
         uint64_t partno = 0;
+        size_t nents;
 
         assert(context);
+        assert(partition);
 
+        /* Keep new partitions after existing partitions of the same type, as those are matched
+         * to definitions in partition number order. */
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (PARTITION_EXISTS(p) && p->partno != UINT64_MAX &&
+                    sd_id128_equal(p->type.uuid, partition->type.uuid))
+                        partno = MAX(partno, p->partno + 1);
+
+        nents = sym_fdisk_get_npartitions(context->fdisk_context);
+
+        /* Prefer a free slot after all existing partitions of the same type. */
+        for (; partno < nents; partno++) {
+                bool found = false;
+                LIST_FOREACH(partitions, p, context->partitions)
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        return partno;
+        }
+
+        /* Fall back to the first unused slot if there is no such slot. */
         for (partno = 0;; partno++) {
                 bool found = false;
                 LIST_FOREACH(partitions, p, context->partitions)
-                        if (p->partno != UINT64_MAX && p->partno == partno)
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
                                 found = true;
+                                break;
+                        }
                 if (!found)
                         break;
         }
@@ -1804,7 +1861,7 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = find_first_unused_partno(context);
+                        p->partno = find_unused_partno(context, p);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
@@ -2661,7 +2718,7 @@ static int config_parse_encrypted_volume(
         int r;
 
         if (isempty(rvalue)) {
-                p->encrypted_volume = mfree(p->encrypted_volume);
+                p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
                 return 0;
         }
 
@@ -2723,6 +2780,139 @@ static int config_parse_encrypted_volume(
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
                 .fixate_volume_key = fixate_volume_key,
+        };
+
+        return 0;
+}
+
+static int config_parse_encrypt_add_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+                p->encrypt_add_tokens = NULL;
+                p->n_encrypt_add_tokens = 0;
+                return 0;
+        }
+
+        /* Syntax: EncryptAddToken=<type>[:<source>:<value>]
+         *   where source is "file" (path) or "data" (base64-encoded JSON).
+         * The token type name is always supplied explicitly and stored separately.
+         * Extra metadata may be supplied as:
+         *   :file:/path/to/metadata.json   — read JSON from file
+         *   :data:<base64>                 — inline base64-encoded JSON
+         */
+
+        _cleanup_free_ char *type = NULL, *source = NULL;
+        const char *q = rvalue;
+
+        /* Extract only type and source; leave the rest of q as the value verbatim.
+         * This allows ':' in the value (e.g. file paths containing colons). */
+        r = extract_many_words(&q, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &type, &source);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "Failed to parse %s=: %s", lvalue, rvalue);
+        if (r < 1)
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= requires at least a token type name.", lvalue);
+
+        /* Validate the type name: it becomes the suffix of libcryptsetup-token-<type>.so, so it must
+         * be a valid filename component — no slashes, no '.' or '..' path traversal. */
+        if (isempty(type) || dot_or_dot_dot(type) || !filename_part_is_valid(type))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Invalid token type name in %s= (must be a valid filename component): %s", lvalue, type);
+
+        /* Refuse the token type names systemd own cryptsetup token plugins use */
+        if (STR_IN_SET(type, "systemd-tpm2", "systemd-fido2", "systemd-pkcs11", "systemd-recovery"))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Token type name in %s= is reserved for systemd's own use: %s", lvalue, type);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *extra = NULL;
+
+        if (source) {
+                /* EXTRACT_DONT_COALESCE_SEPARATORS yields an empty-string source for inputs like
+                 * 'type:' (trailing colon) or 'type::value' (double colon) — reject explicitly. */
+                if (isempty(source))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Empty source in %s=, expected 'file' or 'data': %s", lvalue, rvalue);
+                /* Value is the remainder of the input after source, so ':' in it is preserved. */
+                if (isempty(q))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= source '%s' requires a value.", lvalue, source);
+
+                _cleanup_free_ char *json_text = NULL;
+
+                if (streq(source, "file")) {
+                        if (!path_is_absolute(q))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Path in %s= is not absolute: %s", lvalue, q);
+
+                        /* Load JSON from a file; cap at 64K — token metadata is tiny */
+                        r = read_full_file_full(
+                                        AT_FDCWD, q,
+                                        /* offset= */ UINT64_MAX,
+                                        /* size= */ 64 * 1024,
+                                        READ_FULL_FILE_FAIL_WHEN_LARGER | READ_FULL_FILE_VERIFY_REGULAR,
+                                        /* bind_name= */ NULL,
+                                        &json_text, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to read token data file '%s': %m", q);
+                } else if (streq(source, "data")) {
+                        /* Decode base64-encoded JSON */
+                        _cleanup_free_ void *decoded = NULL;
+                        size_t decoded_size = 0;
+                        r = unbase64mem(q, &decoded, &decoded_size);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to decode base64 token data in %s=: %m", lvalue);
+                        /* JSON cannot contain raw NUL bytes; reject early rather than silently truncating */
+                        if (memchr(decoded, '\0', decoded_size))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Base64-decoded token data in %s= contains embedded NUL bytes.", lvalue);
+                        json_text = strndup(decoded, decoded_size);
+                        if (!json_text)
+                                return log_oom();
+                } else
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Unknown source '%s' in %s=, expected 'file' or 'data'.", source, lvalue);
+
+                r = sd_json_parse(json_text, SD_JSON_PARSE_MUST_BE_OBJECT, &extra, NULL, NULL);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                          "Token data in %s= is not a valid JSON object: %m", lvalue);
+
+                /* Reject any pre-set "type" or "keyslots" — we manage those */
+                if (sd_json_variant_by_key(extra, "type"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"type\" field (set by the type name argument).", lvalue);
+                if (sd_json_variant_by_key(extra, "keyslots"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"keyslots\" field (set automatically).", lvalue);
+        }
+
+        if (!GREEDY_REALLOC(p->encrypt_add_tokens, p->n_encrypt_add_tokens + 1))
+                return log_oom();
+
+        p->encrypt_add_tokens[p->n_encrypt_add_tokens++] = (PartitionEncryptAddToken) {
+                .type = TAKE_PTR(type),
+                .data = TAKE_PTR(extra),
         };
 
         return 0;
@@ -2962,6 +3152,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptAddToken",          config_parse_encrypt_add_token, 0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3174,6 +3365,10 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->n_encrypt_add_tokens > 0 && p->encrypt == ENCRYPT_OFF)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "EncryptAddToken= has no effect with Encrypt=off.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5442,6 +5637,39 @@ static size_t dmcrypt_proper_key_size(Partition *p) {
         }
 }
 
+#if HAVE_LIBCRYPTSETUP
+static int partition_add_tokens_for_keyslot(Partition *p, struct crypt_device *cd, int keyslot) {
+        int r;
+
+        assert(p);
+        assert(cd);
+
+        char keyslot_str[DECIMAL_STR_MAX(int)];
+        xsprintf(keyslot_str, "%i", keyslot);
+
+        FOREACH_ARRAY(t, p->encrypt_add_tokens, p->n_encrypt_add_tokens) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                /* Start with extra data if any (NULL-safe), then inject type and keyslots.
+                 * merge_objectbo handles a blank/NULL *v by replacing it with the merged object,
+                 * so this works whether or not t->data is set. */
+                v = sd_json_variant_ref(t->data);
+                r = sd_json_variant_merge_objectbo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("type", t->type),
+                                SD_JSON_BUILD_PAIR("keyslots",
+                                        SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_str))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build LUKS2 token JSON for type '%s': %m", t->type);
+
+                r = cryptsetup_add_token_json(cd, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add LUKS2 token '%s' to header: %m", t->type);
+        }
+
+        return 0;
+}
+#endif
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -5646,8 +5874,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                int key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                r = partition_add_tokens_for_keyslot(p, cd, key_file_keyslot);
+                if (r < 0)
+                        return r;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -5852,6 +6086,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = cryptsetup_add_token_json(cd, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
+
+                /* For key-file+tpm2 the custom tokens were already bound to the key-file keyslot
+                 * above; only bind them to the TPM2 keyslot in pure TPM2 mode. */
+                if (p->encrypt == ENCRYPT_TPM2) {
+                        r = partition_add_tokens_for_keyslot(p, cd, keyslot);
+                        if (r < 0)
+                                return r;
+                }
 
                 passphrase = base64_encoded;
                 passphrase_size = strlen(base64_encoded);
@@ -6493,12 +6735,13 @@ static int shallow_join_strv(char ***ret, char **a, char **b) {
 
         STRV_FOREACH(i, a)
                 *(iter++) = *i;
+        *iter = NULL;
 
         STRV_FOREACH(i, b)
-                if (!strv_contains(joined, *i))
+                if (!strv_contains(joined, *i)) {
                         *(iter++) = *i;
-
-        *iter = NULL;
+                        *iter = NULL;
+                }
 
         *ret = TAKE_PTR(joined);
         return 0;
@@ -6773,6 +7016,17 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
         return 0;
 }
 
+/* Adding an entry to a directory bumps its mtime. Clamp it back to ts. */
+static int clamp_directory_mtime(int dir_fd, usec_t ts) {
+        assert(dir_fd >= 0);
+
+        if (ts == USEC_INFINITY)
+                return 0;
+
+        /* chase() hands out O_PATH descriptors. */
+        return futimens_opath(dir_fd, (const struct timespec[2]) { TIMESPEC_OMIT, *TIMESPEC_STORE(ts) });
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
@@ -6796,6 +7050,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
         }
 
         bool copy_ownership = fstype_can_ownership(p->format);
+        usec_t ts = parse_source_date_epoch();
 
         /* copy_tree_at() automatically copies the permissions of source directories to target directories if
          * it created them. However, the root directory is created by us, so we have to manually take care
@@ -6820,7 +7075,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
                 if (copy_ownership)
                         (void) copy_access(sfd, rfd);
-                (void) copy_times(sfd, rfd, 0);
+                (void) copy_times_full(sfd, rfd, /* flags= */ 0, ts);
 
                 break;
         }
@@ -6832,7 +7087,6 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
-                usec_t ts = parse_source_date_epoch();
 
                 r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
                 if (r < 0)
@@ -6881,19 +7135,35 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
-                                r = copy_tree_at(
+                                r = copy_tree_at_full(
                                                 sfd, ".",
                                                 pfd, fn,
                                                 uid, gid,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                ts,
+                                                denylist, subvolumes_by_source_inode,
+                                                /* progress_path= */ NULL,
+                                                /* progress_bytes= */ NULL,
+                                                /* userdata= */ NULL);
+                                if (r >= 0) {
+                                        /* Creating the target bumped the parent directory's mtime,
+                                         * just like in the regular file case below. */
+                                        r = clamp_directory_mtime(pfd, ts);
+                                        if (r < 0)
+                                                return log_error_errno(
+                                                        r, "Failed to set timestamp of '%s': %m", dn);
+                                }
                         } else
-                                r = copy_tree_at(
+                                r = copy_tree_at_full(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 uid, gid,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                ts,
+                                                denylist, subvolumes_by_source_inode,
+                                                /* progress_path= */ NULL,
+                                                /* progress_bytes= */ NULL,
+                                                /* userdata= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
@@ -6940,15 +7210,12 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         if (copy_ownership)
                                 (void) copy_access(sfd, tfd);
-                        (void) copy_times(sfd, tfd, 0);
+                        (void) copy_times_full(sfd, tfd, /* flags= */ 0, ts);
 
-                        if (ts != USEC_INFINITY) {
-                                struct timespec tspec;
-                                timespec_store(&tspec, ts);
-
-                                if (futimens(pfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
-                                        return -errno;
-                        }
+                        /* Creating the file bumped the parent directory's mtime. */
+                        r = clamp_directory_mtime(pfd, ts);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set timestamp of '%s': %m", dn);
                 }
         }
 
@@ -6983,6 +7250,7 @@ static int do_make_directories(Partition *p, const char *root) {
 }
 
 static int do_make_symlinks(Partition *p, const char *root) {
+        usec_t ts = parse_source_date_epoch();
         int r;
 
         assert(p);
@@ -6998,6 +7266,18 @@ static int do_make_symlinks(Partition *p, const char *root) {
 
                 if (symlinkat(*target, parent_fd, f) < 0)
                         return log_error_errno(errno, "Failed to create symlink at %s to %s: %m", *path, *target);
+
+                /* The new symlink carries the wall clock, and creating it bumped the directory we put
+                 * it into. We are the last population step, so nothing overwrites this again. */
+                if (ts != USEC_INFINITY &&
+                    utimensat(parent_fd, f,
+                              (const struct timespec[2]) { *TIMESPEC_STORE(ts), *TIMESPEC_STORE(ts) },
+                              AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "Failed to set timestamp of symlink '%s': %m", *path);
+
+                r = clamp_directory_mtime(parent_fd, ts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set timestamp of '%s': %m", *path);
         }
 
         return 0;
@@ -7183,6 +7463,21 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         r = mkdir(root, 0755);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
+
+        /* Nothing below touches its atime (adding an entry to a directory only moves mtime), so stamp here. */
+        usec_t ts = parse_source_date_epoch();
+        if (ts != USEC_INFINITY) {
+                _cleanup_close_ int rfd = -EBADF;
+                struct timespec tspec;
+
+                rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (rfd < 0)
+                        return log_error_errno(errno, "Failed to open temporary directory: %m");
+
+                timespec_store(&tspec, ts);
+                if (futimens(rfd, (const struct timespec[2]) { tspec, tspec }) < 0)
+                        return log_error_errno(errno, "Failed to set timestamp of temporary directory: %m");
+        }
 
         r = do_copy_files(context, p, root);
         if (r < 0)
@@ -8577,7 +8872,7 @@ static int context_partscan(Context *context) {
                 log_info("Informing kernel about changed partitions...");
                 (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
 
-                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0, /* args= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
@@ -10167,62 +10462,6 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-repart", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        static const char *const option_groups[] = {
-                "Options",
-                "Operation",
-                "Output",
-                "Factory Reset",
-                "Configuration & Image Control",
-                "Verity",
-                "Encryption",
-                "Partition Control",
-                "Copying",
-                "DDI Profile",
-                "Auxiliary Resource Generation",
-                "El Torito boot catalog",
-        };
-
-        Table *option_tables[ELEMENTSOF(option_groups)] = {};
-        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0,
-                                        option_tables[0], option_tables[1], option_tables[2],
-                                        option_tables[3], option_tables[4], option_tables[5],
-                                        option_tables[6], option_tables[7], option_tables[8],
-                                        option_tables[9], option_tables[10], option_tables[11]);
-
-        printf("%s [OPTIONS...] [DEVICE]\n"
-               "\n%sGrow and add partitions to a partition table, and generate disk images (DDIs).%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), option_groups[i], ansi_normal());
-
-                r = table_print_or_warn(option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -10237,7 +10476,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -10251,6 +10490,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_GROUP("Operation"): {}
+
+                OPTION_SHORT('n', NULL, "Run dry-run operation"):
+                        arg_dry_run = true;
+                        break;
 
                 OPTION_LONG("dry-run", "BOOL",
                             "Whether to run dry-run operation"):
@@ -10449,7 +10692,7 @@ static int parse_argv(int argc, char *argv[]) {
                         r = blockdev_list(
                                         BLOCKDEV_LIST_SHOW_SYMLINKS|
                                         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
-                                        BLOCKDEV_LIST_IGNORE_ZRAM|
+                                        BLOCKDEV_LIST_IGNORE_RAMDISK|
                                         BLOCKDEV_LIST_IGNORE_READ_ONLY,
                                         /* ret_devices= */ NULL,
                                         /* ret_n_devices= */ NULL);
@@ -10761,6 +11004,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (option_parser_get_n_args(&opts) > 1)
@@ -10921,54 +11167,6 @@ static int parse_proc_cmdline_factory_reset(void) {
                         log_notice("Honouring factory reset requested via kernel command line or EFI variable.");
         }
 
-        return 0;
-}
-
-static int parse_efi_variable_factory_reset(void) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
-        /* NB: This is legacy, people should move to the newer FactoryResetRequest variable! */
-
-        // FIXME: Remove this in v260
-
-        if (arg_factory_reset >= 0) /* Never override what is specified on the process command line */
-                return 0;
-
-        if (!in_initrd()) /* Never honour EFI variable factory reset request outside of the initrd */
-                return 0;
-
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), &value);
-        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
-
-        log_warning("Warning, EFI variable FactoryReset is in use, please migrate to use FactoryResetRequest instead, support will be removed in v260!");
-
-        r = parse_boolean(value);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse EFI variable FactoryReset: %m");
-
-        arg_factory_reset = r;
-        if (r)
-                log_notice("Factory reset requested via EFI variable FactoryReset.");
-
-        return 0;
-}
-
-static int remove_efi_variable_factory_reset(void) {
-        int r;
-
-        // FIXME: Remove this in v260, see above
-
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), NULL, 0);
-        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
-
-        log_info("Successfully unset EFI variable FactoryReset.");
         return 0;
 }
 
@@ -11745,10 +11943,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = parse_efi_variable_factory_reset();
-        if (r < 0)
-                return r;
-
         if (arg_image) {
                 assert(!arg_root);
 
@@ -11883,11 +12077,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                /* We actually did a factory reset! */
-                r = remove_efi_variable_factory_reset();
-                if (r < 0)
-                        return r;
-
                 /* Reload the reduced partition table */
                 context_unload_partition_table(context);
                 r = context_load_partition_table(context);

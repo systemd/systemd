@@ -37,6 +37,7 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
                 { "no-pager",                 no_argument,      },
                 { "help",                     no_argument,      },
                 { "version",                  no_argument,      },
+                { "introspect-cli",           no_argument,      },
                 { "dump-configuration-items", no_argument,      },
                 { "dump-bus-properties",      no_argument,      },
                 { "bus-introspect",           required_argument },

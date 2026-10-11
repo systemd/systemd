@@ -3,27 +3,29 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "cpu-set-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "verbs.h"
 #include "virt.h"
 
 typedef struct Group {
@@ -87,6 +89,15 @@ static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
+static bool arg_root_memory_system = false; /* false — default, sum of memory.current over direct children, */
+                                            /* true — whole system, /proc/meminfo (MemTotal - MemAvailable) */
+
+COMMAND(
+        "systemd-cgtop\0",
+        "Show top control groups by their resource usage.",
+        .argspec = "[CGROUP]\0",
+        .man_pages = "systemd-cgtop(1)\0",
+);
 
 static const char *order_table[_ORDER_MAX] = {
         [ORDER_PATH]   = "path",
@@ -325,6 +336,7 @@ static int process(
                 Hashmap *a,
                 Hashmap *b,
                 unsigned iteration,
+                uint64_t *root_children_memory_sum,
                 Group **ret) {
 
         Group *g;
@@ -405,6 +417,14 @@ static int process(
         if (r < 0)
                 return r;
 
+        /* Accumulate depth-1 cgroup memory into the root sum as we go, so
+         * display() can paint the root row in O(1). The caller (refresh()
+         * at depth 0, itself called from loop()) owns the sum and resets
+         * it at the start of each cycle. */
+        if (root_children_memory_sum &&
+            g->memory_valid && !is_root_cgroup(path) && !strchr(path, '/'))
+                *root_children_memory_sum += g->memory;
+
         r = process_io(g, iteration);
         if (r < 0)
                 return r;
@@ -425,6 +445,7 @@ static int refresh(
                 Hashmap *b,
                 unsigned iteration,
                 unsigned depth,
+                uint64_t *root_children_memory_sum,
                 Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
@@ -440,7 +461,7 @@ static int refresh(
                 return 0;
         }
 
-        r = process(path, a, b, iteration, &ours);
+        r = process(path, a, b, iteration, root_children_memory_sum, &ours);
         if (r < 0)
                 return r;
 
@@ -469,7 +490,7 @@ static int refresh(
 
                 path_simplify(p);
 
-                r = refresh(p, a, b, iteration, depth + 1, &child);
+                r = refresh(p, a, b, iteration, depth + 1, root_children_memory_sum, &child);
                 if (r < 0)
                         return r;
                 if (r > 0 &&
@@ -577,11 +598,12 @@ static int group_compare(Group * const *a, Group * const *b) {
         return path_compare(x->path, y->path);
 }
 
-static void display(Hashmap *a) {
+static void display(Hashmap *a, uint64_t root_children_memory_sum) {
         Group *g;
         Group **array;
         signed path_columns;
-        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
+        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3, /* 3 for ellipsize() to work properly */
+                maxpcpu = 6; /* minimum width for "%CPU" header */
 
         assert(a);
 
@@ -604,13 +626,19 @@ static void display(Hashmap *a) {
                                strlen(array[j]->path));
         }
 
+        if (arg_cpu_type == CPU_PERCENTAGE) {
+                unsigned n_cpus;
+                if (cpus_online(&n_cpus) >= 0)
+                        maxpcpu = MAX(maxpcpu, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
+        }
+
         rows = lines();
         if (rows <= 10)
                 rows = 10;
 
         if (on_tty()) {
                 const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? (int) maxpcpu : (int) maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -651,6 +679,12 @@ static void display(Hashmap *a) {
 
                 path = empty_to_root(g->path);
                 ellipsized = ellipsize(path, path_columns, 33);
+
+                if (is_root_cgroup(g->path) && arg_root_memory_system) {
+                        g->memory = root_children_memory_sum;
+                        g->memory_valid = true;
+                }
+
                 printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
@@ -660,9 +694,9 @@ static void display(Hashmap *a) {
 
                 if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
-                                printf(" %6.1f", g->cpu_fraction*100);
+                                printf(" %*.1f", (int) maxpcpu, g->cpu_fraction*100);
                         else
-                                fputs("      -", stdout);
+                                printf(" %*s", (int) maxpcpu, "-");
                 } else
                         printf(" %*s",
                                (int) maxtcpu,
@@ -676,33 +710,6 @@ static void display(Hashmap *a) {
         }
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-cgtop", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [CGROUP]\n\n"
-               "%sShow top control groups by their resource usage.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
@@ -714,7 +721,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -811,9 +818,23 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse depth parameter '%s': %m", opts.arg);
                         break;
 
+                OPTION_LONG("root-memory", "MODE",
+                            "Root row memory source (cgroup|system, default: cgroup)"):
+                        if (streq(opts.arg, "cgroup"))
+                                arg_root_memory_system = false;
+                        else if (streq(opts.arg, "system"))
+                                arg_root_memory_system = true;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid argument to --root-memory=: %s", opts.arg);
+                        break;
+
                 OPTION_COMMON_MACHINE:
                         arg_machine = opts.arg;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         size_t n_args = option_parser_get_n_args(&opts);
@@ -840,6 +861,10 @@ static int loop(const char *root) {
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool immediate_refresh = false;
+        /* Running sum of memory.current across depth-1 children, filled in by
+         * process() during the refresh() walk and consumed by display() for
+         * the root row when arg_root_memory_mode == ROOT_MEMORY_CGROUP. */
+        uint64_t root_children_memory_sum = 0;
         int r;
 
         a = hashmap_new(&group_hash_ops);
@@ -855,7 +880,10 @@ static int loop(const char *root) {
 
                 if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
-                        r = refresh(root, a, b, iteration++, /* depth= */ 0, /* ret= */ NULL);
+                        root_children_memory_sum = 0;
+
+                        r = refresh(root, a, b, iteration++, /* depth= */ 0,
+                                    &root_children_memory_sum, /* ret= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 
@@ -866,7 +894,7 @@ static int loop(const char *root) {
                         immediate_refresh = false;
                 }
 
-                display(b);
+                display(b, root_children_memory_sum);
 
                 if (arg_iterations && iteration >= arg_iterations)
                         return 0;
@@ -926,6 +954,11 @@ static int loop(const char *root) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
                         break;
 
+                case '/':
+                        arg_root_memory_system = !arg_root_memory_system;
+                        immediate_refresh = true;
+                        break;
+
                 case 'k':
                         arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
                         fprintf(stdout, "\nCounting: %s.", counting_what());
@@ -977,7 +1010,7 @@ static int loop(const char *root) {
                                 "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
                                 "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
                                 "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$sq%2$s> Quit",
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
                                 ansi_highlight(), ansi_normal());
                         fflush(stdout);
                         sleep(3);

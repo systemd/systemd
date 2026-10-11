@@ -13,9 +13,9 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-21 11:10+0000\n"
-"Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"PO-Revision-Date: 2026-08-02 00:09+0000\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -37,27 +37,28 @@ msgstr "Чтобы отправить пароль системе, необхо�
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr "Управление системными службами и юнитами"
+msgstr "Управление системными службами и другими юнитами"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Для управления системными службами и юнитами, необходимо пройти "
+"Для управления системными службами и другими юнитами необходимо пройти "
 "аутентификацию."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr "Управление файлами конфигурации системных служб и юнитов"
+msgstr "Управление файлами системных служб и юнитов"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Для управления файлами конфигурации системных служб и юнитов, необходимо "
-"пройти аутентификацию."
+"Для управления файлами системных служб и юнитов необходимо пройти "
+"аутентификацию."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Настроить переменные окружения для системного менеджера"
+msgstr ""
+"Установить или удалить переменные окружения системного и менеджера служб"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
@@ -79,13 +80,13 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr "Создавать дампы состояния systemd без ограничений частоты"
+msgstr "Создавать дамп состояния systemd без ограничений по частоте"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
-"Для создания дампов состояния systemd без ограничения частоты необходимо "
+"Для создания дампов состояния systemd без ограничения по частоте необходимо "
 "пройти аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -179,7 +180,7 @@ msgstr ""
 "Для управления ключами подписи домашних каталогов, необходимо пройти "
 "аутентификацию."
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:328
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -188,33 +189,30 @@ msgstr ""
 "Домашняя папка пользователя %s в настоящее время отсутствует, подключите "
 "необходимое устройство хранения данных или резервную файловую систему."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Слишком частые попытки войти в систему со стороны пользователя %s, повторите "
-"попытку позже."
+msgstr "Слишком частые попытки входа для пользователя %s, повторите позже."
 
-#: src/home/pam_systemd_home.c:344
+#: src/home/pam_systemd_home.c:345
 msgid "Password: "
 msgstr "Пароль: "
 
-#: src/home/pam_systemd_home.c:346
+#: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
-"Неверно указан пароль или его недостаточно для аутентификации пользователя "
-"%s."
+"Пароль неверен или его недостаточно для аутентификации пользователя %s."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
 msgstr "Извините, повторите попытку: "
 
-#: src/home/pam_systemd_home.c:369
+#: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
 msgstr "Ключ восстановления: "
 
-#: src/home/pam_systemd_home.c:371
+#: src/home/pam_systemd_home.c:372
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -223,20 +221,20 @@ msgstr ""
 "Пароль/ключ восстановления неверен или его недостаточно для аутентификации "
 "пользователя %s."
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
 msgstr "Извините, ещё раз введите ключ восстановления: "
 
-#: src/home/pam_systemd_home.c:392
+#: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Не вставлен токен безопасности пользователя %s."
 
-#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
 msgstr "Повторите попытку с паролем: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -245,116 +243,116 @@ msgstr ""
 "Пароль неверен или его недостаточно, а настроенный токен безопасности "
 "пользователя %s не вставлен."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
 msgstr "PIN-код токена безопасности: "
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Пожалуйста, пройдите физическую аутентификацию по токену безопасности "
 "пользователя %s."
 
-#: src/home/pam_systemd_home.c:443
+#: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Пожалуйста, подтвердите наличие токена безопасности пользователя %s."
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Пожалуйста, подтвердите пользователя на токене безопасности %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"PIN-код токена безопасности заблокирован. Пожалуйста, сначала снимите его "
-"блокировку. (Подсказка: иногда достаточно вынуть и снова вставить токен.)"
+"PIN-код токена безопасности заблокирован. Пожалуйста, сначала разблокируйте "
+"его. (Подсказка: иногда достаточно извлечь и снова вставить токен.)"
 
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Неверный PIN-код токена безопасности для пользователя %s."
 
-#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
 msgstr "Извините, повторите попытку введения PIN-кода токена безопасности: "
 
-#: src/home/pam_systemd_home.c:490
+#: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Неверный PIN-код токена безопасности пользователя %s (осталось всего "
 "несколько попыток!)"
 
-#: src/home/pam_systemd_home.c:509
+#: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Неверный PIN-код токена безопасности пользователя %s (осталась всего одна "
 "попытка!)"
 
-#: src/home/pam_systemd_home.c:676
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Домашняя папка пользователя %s в настоящее время неактивна, пожалуйста, "
 "сначала войдите в систему локально."
 
-#: src/home/pam_systemd_home.c:678
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Домашняя папка пользователя %s в настоящее время заблокирована, сначала "
 "разблокируйте её локально."
 
-#: src/home/pam_systemd_home.c:712
+#: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Слишком много неудачных попыток входа в систему для пользователя %s. В "
 "доступе отказано."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
 msgstr "Запись пользователя заблокирована. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Запись пользователя ещё не вступила в силу. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Запись пользователя больше не действительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
 msgstr "Запись пользователя недействительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1044
+#: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Слишком много попыток войти. Повторите попытку через %s."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
 msgstr "Требуется смена пароля."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
 msgstr "Срок действия пароля истёк, требуется его замена."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Срок действия пароля истёк, но его невозможно изменить. Вход в систему "
 "запрещён."
 
-#: src/home/pam_systemd_home.c:1069
+#: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
 msgstr "Срок действия пароля скоро истечёт, пожалуйста, измените его."
 
@@ -368,14 +366,14 @@ msgstr "Чтобы настроить имя компьютера, необхо�
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr "Настроить статическое имя компьютера"
+msgstr "Задать статическое имя компьютера"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
-"Чтобы настроить статическое имя компьютера, а также его «красивое» имя, "
+"Чтобы задать статическое имя компьютера, а также его «красивое» имя, "
 "необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
@@ -389,11 +387,11 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr "Получить UUID продукта"
+msgstr "Получить UUID устройства"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr "Чтобы получить UUID продукта, необходимо пройти аутентификацию."
+msgstr "Чтобы получить UUID устройства, необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
@@ -521,8 +519,8 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
-"Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку "
-"выключения"
+"Разрешить приложениям блокировать обработку системой нажатий на кнопку "
+"питания"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
@@ -590,7 +588,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr "Разрешить работу программ в фоновом режиме после завершения сеанса"
+msgstr "Разрешить запуск программ не вошедшим в систему пользователем"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
@@ -600,9 +598,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
-"Разрешить пользователям оставлять программы в фоновом режиме после "
-"завершения сеанса"
+msgstr "Разрешить запуск программ пользователями, не вошедшими в систему"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
@@ -612,7 +608,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr "Разрешить подключение устройств к рабочим местам"
+msgstr "Разрешить привязку устройств к рабочим местам"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
@@ -840,8 +836,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Запустить режим настройки прошивки материнской платы при следующей загрузке"
+msgstr "Указать прошивке загрузиться в интерфейс настройки"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
@@ -877,12 +872,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr "Отправить сообщение на все терминалы"
+msgstr "Отправить широковещательное сообщение"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
 msgstr ""
-"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
+"Чтобы отправить широковещательное сообщение, необходимо пройти "
+"аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -968,7 +964,8 @@ msgstr "Проверка локальных виртуальных машин и
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
-"Требуется авторизация для проверки локальных виртуальных машин и контейнеров."
+"Для проверки локальных виртуальных машин и контейнеров необходимо пройти "
+"аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -1450,7 +1447,7 @@ msgstr ""
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Чтобы перезапустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:568
+#: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1458,7 +1455,7 @@ msgstr ""
 "Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1466,18 +1463,18 @@ msgstr ""
 "Чтобы отправить сигнал UNIX процессам подгруппы «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:649
+#: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Чтобы сбросить состояние «failed» у юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:679
+#: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Чтобы изменить параметры юнита «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1485,29 +1482,29 @@ msgstr ""
 "Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо "
 "пройти аутентификацию."
 
-#: src/core/dbus-unit.c:813
+#: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "Чтобы отправить сигнал заморозки или разморозки процессам юнита «$(unit)», "
 "необходимо пройти аутентификацию."
 
-#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
 msgstr "Подтвердите присутствие на токене безопасности для разблокировки."
 
-#: src/shared/libfido2-util.c:516
+#: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
 msgstr "Подтвердите пользователя на токене безопасности для разблокировки."
 
-#: src/shared/libfido2-util.c:936
+#: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
 "Введите PIN-код токена безопасности (осталось попыток до блокировки: %d):"
 
-#: src/shared/libfido2-util.c:948
+#: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
 msgstr "Введите PIN-код токена безопасности:"
 

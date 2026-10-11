@@ -9,6 +9,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "cgroup.h"
 #include "conf-parser.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -38,6 +39,15 @@ STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 
 /* For testing type compatibility. */
 _unused_ static ConfigPerfItemLookup unused_lookup = load_fragment_gperf_lookup;
+
+static size_t cgroup_device_allow_count(const CGroupContext *c) {
+        size_t n = 0;
+
+        LIST_FOREACH(device_allow, a, c->device_allow)
+                n++;
+
+        return n;
+}
 
 TEST_RET(unit_file_get_list) {
         int r;
@@ -80,6 +90,13 @@ static void check_execcommand(ExecCommand *c,
         if (n > 1)
                 ASSERT_STREQ(c->argv[2], argv2);
         ASSERT_EQ(FLAGS_SET(c->flags, EXEC_COMMAND_IGNORE_FAILURE), ignore);
+}
+
+static void count_syntax_warnings(_unused_ const char *unit, int level, void *userdata) {
+        unsigned *n_syntax_warnings = ASSERT_PTR(userdata);
+
+        if (level <= LOG_WARNING)
+                (*n_syntax_warnings)++;
 }
 
 TEST(config_parse_exec) {
@@ -402,6 +419,59 @@ TEST(config_parse_exec) {
         ASSERT_NULL(c);
 
         exec_command_free_list(c);
+}
+
+TEST(config_parse_bind_paths) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        ExecContext c = {};
+        unsigned n_syntax_warnings = 0;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
+
+        {
+                _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
+
+                set_log_syntax_callback(count_syntax_warnings, &n_syntax_warnings);
+                ASSERT_OK(config_parse_bind_paths(NULL, "fake", 1, "section", 1,
+                                                  "BindReadOnlyPaths", 0,
+                                                  "  /usr/bin  /usr/lib     /lib64   ",
+                                                  &c, u));
+        }
+
+        ASSERT_EQ(n_syntax_warnings, 0U);
+        ASSERT_EQ(c.n_bind_mounts, 3U);
+
+        ASSERT_STREQ(c.bind_mounts[0].source, "/usr/bin");
+        ASSERT_STREQ(c.bind_mounts[0].destination, "/usr/bin");
+        ASSERT_TRUE(c.bind_mounts[0].read_only);
+        ASSERT_TRUE(c.bind_mounts[0].recursive);
+        ASSERT_FALSE(c.bind_mounts[0].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[1].source, "/usr/lib");
+        ASSERT_STREQ(c.bind_mounts[1].destination, "/usr/lib");
+        ASSERT_TRUE(c.bind_mounts[1].read_only);
+        ASSERT_TRUE(c.bind_mounts[1].recursive);
+        ASSERT_FALSE(c.bind_mounts[1].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[2].source, "/lib64");
+        ASSERT_STREQ(c.bind_mounts[2].destination, "/lib64");
+        ASSERT_TRUE(c.bind_mounts[2].read_only);
+        ASSERT_TRUE(c.bind_mounts[2].recursive);
+        ASSERT_FALSE(c.bind_mounts[2].ignore_enoent);
+
+        exec_context_done(&c);
 }
 
 TEST(config_parse_log_extra_fields) {
@@ -876,6 +946,62 @@ TEST(config_parse_memory_limit) {
                                                     test->value, &c, NULL));
                 ASSERT_EQ(*test->result, test->expected);
         }
+}
+
+TEST(config_parse_device_allow) {
+        _cleanup_(cgroup_context_done) CGroupContext c = {};
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        CGroupDeviceAllow *a;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new() failed");
+
+        ASSERT_OK(r);
+
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, "null.service"));
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 1, "Service", 1,
+                                                 "DeviceAllow", 0, "/dev/%N rw",
+                                                 &c, u));
+        ASSERT_EQ(cgroup_device_allow_count(&c), 1U);
+        ASSERT_NOT_NULL(a = c.device_allow);
+        ASSERT_STREQ(a->path, "/dev/null");
+        ASSERT_EQ(a->permissions, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 2, "Service", 1,
+                                                 "DeviceAllow", 0, "char-pts rwm",
+                                                 &c, u));
+        ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
+        ASSERT_NOT_NULL(a = c.device_allow);
+        ASSERT_STREQ(a->path, "char-pts");
+        ASSERT_EQ(a->permissions, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE|CGROUP_DEVICE_MKNOD);
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 3, "Service", 1,
+                                                 "DeviceAllow", 0, "%Q rw",
+                                                 &c, u));
+        ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 4, "Service", 1,
+                                                 "DeviceAllow", 0, "/dev/zero invalid",
+                                                 &c, u));
+        ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 5, "Service", 1,
+                                                 "DeviceAllow", 0, "/dev/zero",
+                                                 &c, u));
+        ASSERT_EQ(cgroup_device_allow_count(&c), 3U);
+        ASSERT_NOT_NULL(a = c.device_allow);
+        ASSERT_STREQ(a->path, "/dev/zero");
+        ASSERT_EQ(a->permissions, _CGROUP_DEVICE_PERMISSIONS_ALL);
+
+        ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 6, "Service", 1,
+                                                 "DeviceAllow", 0, "",
+                                                 &c, u));
+        ASSERT_NULL(c.device_allow);
 }
 
 TEST(contains_instance_specifier_superset) {

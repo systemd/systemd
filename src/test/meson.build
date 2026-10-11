@@ -57,6 +57,7 @@ generated_sources += [test_libsystemd_sym_c, test_libudev_sym_c]
 
 simple_tests += files(
         'test-alloc-util.c',
+        'test-ansi-seq.c',
         'test-architecture.c',
         'test-argv-util.c',
         'test-arphrd-util.c',
@@ -147,6 +148,8 @@ simple_tests += files(
         'test-login-util.c',
         'test-machine-util.c',
         'test-macro.c',
+        'test-main-func-fiber.c',
+        'test-main-func.c',
         'test-memfd-util.c',
         'test-memory-util.c',
         'test-mempool.c',
@@ -171,6 +174,7 @@ simple_tests += files(
         'test-path-lookup.c',
         'test-path-util.c',
         'test-percent-util.c',
+        'test-pidfd-util.c',
         'test-pidref.c',
         'test-plymouth-util.c',
         'test-pressure.c',
@@ -290,6 +294,11 @@ executables += [
                 ],
         },
         test_template + {
+                'sources' : files('test-console-stdio.c'),
+                'type' : 'unsafe',
+                'parallel' : false,
+        },
+        test_template + {
                 'sources' : files('test-coredump-stacktrace.c'),
                 'type' : 'manual',
                 # This test intentionally crashes with SIGSEGV by dereferencing a NULL pointer
@@ -313,14 +322,15 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
+                'sources' : files('test-dbus-name-holder.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-display-quota.c'),
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files(
-                        'test-dlopen-so.c',
-                        'gcrypt-util.c',
-                ),
+                'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
                         libacl_cflags,
                         libapparmor_cflags,
@@ -332,7 +342,6 @@ executables += [
                         libcurl_cflags,
                         libfdisk_cflags,
                         libfido2_cflags,
-                        libgcrypt_cflags,
                         libgnutls_cflags,
                         libidn2_cflags,
                         libkmod_cflags,
@@ -393,8 +402,15 @@ executables += [
                 'timeout' : 180,
         },
         test_template + {
+                'sources' : files('test-hostname-pick-word.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-ipcrm.c'),
                 'type' : 'unsafe',
+        },
+        test_template + {
+                'sources' : files('test-kernel-image.c'),
         },
         test_template + {
                 'sources' : files('test-kexec.c'),

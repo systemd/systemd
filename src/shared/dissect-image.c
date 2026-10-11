@@ -966,16 +966,31 @@ static int compare_arch(Architecture a, Architecture b) {
         return 0;
 }
 
-static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label) {
+bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label) {
         assert(d < _PARTITION_DESIGNATOR_MAX);
 
         if (d < 0) /* For unspecified designators we have no filter expression */
                 return true;
 
-        if (!filter || !filter->pattern[d])
+        if (!filter)
                 return true;
 
-        return fnmatch(filter->pattern[d], strempty(label),  FNM_NOESCAPE) == 0;
+        const char *pattern = filter->pattern[d];
+
+        /* If there's no filter for this specific designator but it's a verity partition, fall back to the
+         * filter for the corresponding data partition. This ensures that e.g. image_filter=usr=250 also
+         * constrains which usr verity (and verity sig) partitions are selected. This assumes verity
+         * partitions carry the same label as their corresponding data partition. */
+        if (!pattern) {
+                PartitionDesignator data = partition_verity_to_data(d);
+                if (data >= 0)
+                        pattern = filter->pattern[data];
+        }
+
+        if (!pattern)
+                return true;
+
+        return fnmatch(pattern, strempty(label), FNM_NOESCAPE) == 0;
 }
 
 static int dissect_image_from_unpartitioned(
@@ -1309,7 +1324,7 @@ static int dissect_image(
                 start = sym_blkid_partition_get_start(pp);
                 if (start < 0)
                         return errno_or_else(EIO);
-                if ((uint64_t) start >= UINT64_MAX/512)
+                if ((uint64_t) start > INT64_MAX / 512)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
                                                "Partition start LBA too large to convert to a byte offset, refusing.");
 
@@ -1317,9 +1332,14 @@ static int dissect_image(
                 size = sym_blkid_partition_get_size(pp);
                 if (size < 0)
                         return errno_or_else(EIO);
-                if ((uint64_t) size >= UINT64_MAX/512)
+                if ((uint64_t) size > INT64_MAX / 512)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
                                                "Partition size in LBA too large to convert to a byte offset, refusing.");
+
+                /* Ensure the partition's exclusive end LBA can be converted to a byte offset. */
+                if ((uint64_t) start + (uint64_t) size > INT64_MAX / 512)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                               "Partition end LBA too large to convert to a byte offset, refusing.");
 
                 /* While probing we need the non-diskseq device node name to access the thing, hence mask off
                  * DISSECT_IMAGE_DISKSEQ_DEVNODE. */
@@ -3555,6 +3575,19 @@ success:
 
         return 0;
 }
+
+static void dissected_image_undo_decrypt(DissectedImage *m) {
+        assert(m);
+
+        FOREACH_ELEMENT(p, m->partitions) {
+                if (!p->decrypted_node) /* Only look at partitions which we decrypted */
+                        continue;
+
+                p->decrypted_node = mfree(p->decrypted_node);
+                p->decrypted_fstype = mfree(p->decrypted_fstype);
+                p->mount_node_fd = safe_close(p->mount_node_fd);
+        }
+}
 #endif
 
 int dissected_image_decrypt(
@@ -3618,22 +3651,27 @@ int dissected_image_decrypt(
                 if (k >= 0) {
                         r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, d);
                         if (r < 0)
-                                return r;
+                                goto fail;
                 }
 
                 r = decrypt_partition(m, p, passphrase, flags, fl, d);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
                         r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
-                                return r;
+                                goto fail;
                 }
         }
 
         m->decrypted_image = TAKE_PTR(d);
         return 1;
+
+fail:
+        /* Undo partial activation */
+        dissected_image_undo_decrypt(m);
+        return r;
 #else
         return -EOPNOTSUPP;
 #endif

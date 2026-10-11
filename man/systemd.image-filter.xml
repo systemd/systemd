@@ -37,8 +37,10 @@
     <option>home</option>, <option>srv</option>, <option>esp</option>, <option>xbootldr</option>,
     <option>swap</option>, <option>root-verity</option>, <option>root-verity-sig</option>,
     <option>usr-verity</option>, <option>usr-verity-sig</option>, <option>tmp</option>,
-    <option>var</option>. These identifiers match the relevant partition types in the Discoverable Partitions
-    Specification, but are agnostic to CPU architectures.</para>
+    <option>var</option>. You can abbreviate the <literal>-verity</literal> and <literal>-verity-sig</literal>
+    suffixes as <literal>-vty</literal> and <literal>-vsig</literal>, for example <option>usr-vsig</option>.
+    These identifiers match the relevant partition types in the Discoverable
+    Partitions Specification, but are agnostic to CPU architectures.</para>
   </refsect1>
 
   <refsect1>

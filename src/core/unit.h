@@ -670,7 +670,7 @@ typedef struct UnitVTable {
         void (*notify_pidref)(Unit *u, PidRef *parent_pidref, PidRef *child_pidref);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
-        void (*bus_name_owner_change)(Unit *u, const char *new_owner);
+        void (*bus_name_owner_change)(Unit *u, const char *new_owner, bool from_signal);
 
         /* Called for each property that is being set */
         int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *reterr_error);
@@ -1017,6 +1017,7 @@ void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
+bool unit_has_invocation_id(const Unit *u);
 int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
 

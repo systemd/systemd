@@ -44,6 +44,78 @@
 #include "user-util.h"
 #include "virt.h"
 
+TEST(condition_test_list) {
+        Condition *condition, *sibling;
+        Architecture arch, other_arch;
+
+        ASSERT_OK(arch = uname_architecture());
+
+        ASSERT_OK_POSITIVE(condition_test_list(NULL, environ, NULL, NULL, NULL));
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free_list(condition);
+
+        other_arch = arch == ARCHITECTURE_X86_64 ? ARCHITECTURE_X86 : ARCHITECTURE_X86_64;
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(other_arch), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+}
+
 TEST(condition_test_path) {
         Condition *condition;
 
@@ -846,51 +918,63 @@ TEST(condition_test_credential) {
         ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true));
 }
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 TEST(condition_test_cpufeature) {
         Condition *condition;
 
-#if defined(__i386__)
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
+        switch (uname_architecture()) {
+        case ARCHITECTURE_X86:
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
 
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86.fpu", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86.fpu", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
 
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+                ASSERT_OK_ZERO(condition_test(condition, environ));
+                condition_free(condition);
+                break;
+        case ARCHITECTURE_X86_64:
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86-64.fpu", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+                ASSERT_OK_ZERO(condition_test(condition, environ));
+                condition_free(condition);
+                break;
+        case ARCHITECTURE_ARM64: {
+                int expected = native_architecture() == ARCHITECTURE_ARM64;
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fp", false, false)));
+                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                condition_free(condition);
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "asimd", false, false)));
+                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                condition_free(condition);
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "arm64.asimd", false, false)));
+                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                condition_free(condition);
+
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.asimd", false, false)));
+                ASSERT_OK_ZERO(condition_test(condition, environ));
+                condition_free(condition);
+                break;
+        }
+        default:
+                ;
+        }
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.featurethatshouldnotexist", false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
-#elif defined(__x86_64__)
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86-64.fpu", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
-        condition_free(condition);
-#elif defined(__aarch64__)
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fp", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "asimd", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "arm64.asimd", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.asimd", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
-        condition_free(condition);
-#endif
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
@@ -900,7 +984,6 @@ TEST(condition_test_cpufeature) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 }
-#endif
 
 TEST(condition_test_security) {
         Condition *condition;

@@ -1,7 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#if HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#endif
 
 #include "sd-id128.h"
 #include "sd-journal.h"
@@ -9,14 +16,23 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "chattr-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
+#include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "logs-show.h"
+#include "lookup3.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "sigbus.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -262,6 +278,18 @@ static void test_cursor(sd_journal *j) {
                 ASSERT_OK(sd_journal_next(j));
                 ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
         }
+
+        STRV_FOREACH(c, cursors) {
+                ASSERT_OK(sd_journal_seek_cursor(j, *c));
+                ASSERT_OK(sd_journal_previous(j));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
+        }
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        STRV_FOREACH_BACKWARDS(c, cursors) {
+                ASSERT_OK(sd_journal_previous(j));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
+        }
 }
 
 static void test_skip_one(void (*setup)(void)) {
@@ -433,6 +461,458 @@ static void test_skip_one(void (*setup)(void)) {
 TEST(skip) {
         test_skip_one(setup_sequential);
         test_skip_one(setup_interleaved);
+}
+
+/* Read the first entry so that two.journal becomes the next candidate with LOCATION_SEEK, then simulate
+ * vacuuming removing it while it is still open and mapped. */
+static void test_remove_unlinked_selected_file_one(bool truncate, bool refresh_stat) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        uint8_t type = OBJECT_UNUSED;
+        JournalFile *f;
+        struct stat st;
+
+        ASSERT_TRUE(!refresh_stat || truncate);
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-unlinked-XXXXXX", &t);
+        setup_interleaved();
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+
+        f = ASSERT_NOT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
+        ASSERT_EQ((int) f->location_type, LOCATION_SEEK);
+
+        if (truncate && !refresh_stat)
+                sigbus_install();
+
+        /* Keep the file open and mapped while the name goes away, like vacuuming does. */
+        fd = ASSERT_OK_ERRNO(open("two.journal", O_WRONLY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(unlink("two.journal"));
+
+        if (truncate) {
+                /* The lookup only stats the file when the selected entry falls outside the cached size, and
+                 * journal_file_fstat() then reports the unlinked file as -EIDRM. Truncating to the selected
+                 * offset and refreshing the stat takes that path. Truncating the whole file without
+                 * refreshing leaves the cached size stale, so touching the mapping raises SIGBUS and the
+                 * lookup fails with -EIO. */
+                ASSERT_OK_ERRNO(ftruncate(fd, refresh_stat ? f->current_offset : 0));
+                if (refresh_stat)
+                        ASSERT_ERROR(journal_file_fstat(f), EIDRM);
+                else {
+                        ASSERT_EQ(READ_NOW(f->header->state), STATE_OFFLINE);
+                        ASSERT_TRUE(mmap_cache_fd_got_sigbus(f->cache_fd));
+                }
+        } else {
+                /* Emulate a deallocated range, which reads back as zeroes, by zeroing the selected entry's
+                 * object type. */
+                ASSERT_OK_EQ_ERRNO(pwrite(fd, &type, sizeof(type), f->current_offset), (ssize_t) sizeof(type));
+                ASSERT_OK_ERRNO(fsync(fd));
+        }
+
+        ASSERT_OK_ERRNO(fstat(f->fd, &st));
+        ASSERT_EQ(st.st_nlink, 0U);
+        if (refresh_stat)
+                ASSERT_EQ((uint64_t) st.st_size, f->current_offset);
+        else if (truncate)
+                ASSERT_EQ(st.st_size, 0);
+
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        if (truncate && !refresh_stat)
+                sigbus_reset();
+        test_check_number(j, 3);
+        ASSERT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
+}
+
+TEST(remove_unlinked_selected_file) {
+        test_remove_unlinked_selected_file_one(/* truncate= */ false, /* refresh_stat= */ false);
+}
+
+TEST(remove_truncated_unlinked_selected_file) {
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        return (void) log_tests_skipped("SIGBUS recovery cannot be tested under AddressSanitizer");
+#endif
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_tests_skipped("SIGBUS recovery cannot be tested under Valgrind");
+#endif
+
+        test_remove_unlinked_selected_file_one(/* truncate= */ true, /* refresh_stat= */ false);
+}
+
+TEST(remove_truncated_unlinked_selected_file_after_fstat) {
+        test_remove_unlinked_selected_file_one(/* truncate= */ true, /* refresh_stat= */ true);
+}
+
+/* Corruption in a file that is still linked must stay visible to the caller. Whether libsystemd should
+ * skip such a file, or just the corrupt entry, is a separate question; this only pins today's behaviour. */
+TEST(keep_linked_selected_file_error) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        JournalFile *f;
+        uint8_t type = OBJECT_UNUSED;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-linked-XXXXXX", &t);
+        setup_interleaved();
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+
+        f = ASSERT_NOT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
+        ASSERT_EQ((int) f->location_type, LOCATION_SEEK);
+
+        fd = ASSERT_OK_ERRNO(open("two.journal", O_WRONLY|O_CLOEXEC));
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &type, sizeof(type), f->current_offset), (ssize_t) sizeof(type));
+        ASSERT_OK_ERRNO(fsync(fd));
+
+        ASSERT_ERROR(sd_journal_next(j), EBADMSG);
+        ASSERT_NOT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
+}
+
+static void assert_no_current_entry(sd_journal *j) {
+        _cleanup_free_ char *cursor = NULL;
+        sd_id128_t id;
+        const void *data;
+        uint64_t value;
+        size_t size;
+
+        ASSERT_ERROR(sd_journal_get_data(j, "NUMBER", &data, &size), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_cursor(j, &cursor), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_realtime_usec(j, &value), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_monotonic_usec(j, &value, &id), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_seqnum(j, &value, &id), EADDRNOTAVAIL);
+}
+
+static unsigned count_journal_entries(sd_journal *j) {
+        unsigned n = 0;
+        int r;
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        for (;;) {
+                ASSERT_OK(r = sd_journal_next(j));
+                if (r == 0)
+                        return n;
+
+                n++;
+        }
+}
+
+TEST(reader_position_invalidation) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-position-XXXXXX", &t);
+        setup_sequential();
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        assert_no_current_entry(j);
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+        ASSERT_OK_ZERO(sd_journal_previous(j));
+        test_check_number(j, 1);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_number(j, 1);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_number(j, 9);
+        ASSERT_OK_ZERO(sd_journal_next(j));
+        test_check_number(j, 9);
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+
+        ASSERT_OK(sd_journal_add_conjunction(j));
+        test_check_number(j, 1);
+        ASSERT_OK(sd_journal_add_disjunction(j));
+        test_check_number(j, 1);
+
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=2", SIZE_MAX));
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=2", SIZE_MAX));
+        test_check_number(j, 2);
+        ASSERT_OK(sd_journal_add_conjunction(j));
+        test_check_number(j, 2);
+        ASSERT_OK(sd_journal_add_disjunction(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_add_match(j, "LESS_THAN_FIVE=yes", SIZE_MAX));
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        sd_journal_flush_matches(j);
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+}
+
+TEST(cursor_and_data_lifetime) {
+        static const uint8_t binary[] = { 'B', 'I', 'N', 'A', 'R', 'Y', '=', 'a', 0, 'b' };
+        static const char small[] = "SMALL=x";
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *cursor = NULL, *expected = NULL, *with_unknown = NULL;
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(small),
+                IOVEC_MAKE((void*) binary, sizeof(binary)),
+        };
+        uint64_t seqnum = 0, value, expected_xor;
+        sd_id128_t seqnum_id, boot_id, id;
+        dual_timestamp ts;
+        const void *data;
+        size_t size;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-cursor-XXXXXX", &t);
+        ASSERT_OK(sd_id128_randomize(&seqnum_id));
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+
+        f = test_open_internal("test.journal", 0);
+        ASSERT_OK(journal_file_append_entry(
+                        f,
+                        &ts,
+                        &boot_id,
+                        iovec,
+                        ELEMENTSOF(iovec),
+                        &seqnum,
+                        &seqnum_id,
+                        NULL,
+                        NULL));
+        ASSERT_EQ(seqnum, 1U);
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+
+        expected_xor = jenkins_hash64(small, strlen(small)) ^ jenkins_hash64(binary, sizeof(binary));
+        ASSERT_OK(asprintf(
+                        &expected,
+                        "s=%s;i=1;b=%s;m=%" PRIx64 ";t=%" PRIx64 ";x=%" PRIx64,
+                        SD_ID128_TO_STRING(seqnum_id),
+                        SD_ID128_TO_STRING(boot_id),
+                        ts.monotonic,
+                        ts.realtime,
+                        expected_xor));
+        ASSERT_OK(sd_journal_get_cursor(j, &cursor));
+        ASSERT_STREQ(cursor, expected);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_OK_ZERO(sd_journal_test_cursor(j, "i=0"));
+        ASSERT_ERROR(sd_journal_test_cursor(j, "broken"), EINVAL);
+
+        ASSERT_NOT_NULL(with_unknown = strjoin(cursor, ";q=ignored"));
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, with_unknown));
+        ASSERT_ERROR(sd_journal_test_cursor(j, "provider=ignored"), EINVAL);
+        ASSERT_OK(sd_journal_seek_cursor(j, with_unknown));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+
+        ASSERT_ERROR(sd_journal_seek_cursor(j, "provider=ignored"), EINVAL);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_ERROR(sd_journal_seek_cursor(j, "i=not-a-number"), EINVAL);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_seek_cursor(j, ""), EINVAL));
+
+        ASSERT_OK(sd_journal_set_data_threshold(j, 4));
+        ASSERT_OK(sd_journal_get_data_threshold(j, &size));
+        ASSERT_EQ(size, 4U);
+        ASSERT_OK(sd_journal_get_data(j, "BINARY", &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+        ASSERT_EQ(value, ts.realtime);
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, &value, &id));
+        ASSERT_EQ(value, ts.monotonic);
+        ASSERT_EQ_ID128(id, boot_id);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_ERROR(sd_journal_get_data(j, "MISSING", &data, &size), ENOENT);
+
+        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
+        sd_journal_restart_data(j);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
+        ASSERT_EQ(size, strlen(small));
+        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_OK(sd_journal_get_seqnum(j, &value, &id));
+        ASSERT_EQ(value, seqnum);
+        ASSERT_EQ_ID128(id, seqnum_id);
+        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK_ZERO(sd_journal_enumerate_data(j, &data, &size));
+
+        ASSERT_OK(sd_journal_query_unique(j, "BINARY"));
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK_ZERO(sd_journal_enumerate_unique(j, &data, &size));
+        sd_journal_restart_unique(j);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+
+        unsigned n_fields = 0;
+        sd_journal_restart_fields(j);
+        for (;;) {
+                const char *field;
+                int r;
+
+                ASSERT_OK(r = sd_journal_enumerate_fields(j, &field));
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+                ASSERT_TRUE(STR_IN_SET(field, "BINARY", "SMALL"));
+                n_fields++;
+        }
+        ASSERT_EQ(n_fields, 2U);
+}
+
+TEST(open_and_follow_edge_cases) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_free_ char *bad = NULL, *moved = NULL, *one = NULL, *renamed = NULL, *two = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *writer = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close_ int directory_fd = -EBADF, failure_fd = -EBADF;
+        int owned_directory_fd, r;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-open-XXXXXX", &t);
+        setup_sequential();
+
+        ASSERT_NOT_NULL(bad = path_join(t, "bad.journal"));
+        ASSERT_NOT_NULL(moved = path_join(t, "moved.journal"));
+        ASSERT_NOT_NULL(one = path_join(t, "one.journal"));
+        ASSERT_NOT_NULL(renamed = strjoin(t, ".renamed"));
+        ASSERT_NOT_NULL(two = path_join(t, "two.journal"));
+        ASSERT_OK(write_string_file(bad, "not a journal", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_EQ(count_journal_entries(j), 9U);
+        sd_journal_close(j);
+        j = NULL;
+
+        const char *bad_paths[] = { bad, NULL };
+        ASSERT_FAIL(sd_journal_open_files(&j, bad_paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_NULL(j);
+
+        const char *paths[] = { one, two, NULL };
+        ASSERT_OK(sd_journal_open_files(&j, paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_EQ(count_journal_entries(j), 6U);
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, 0));
+        ASSERT_OK_POSITIVE(sd_journal_get_fd(j));
+        ASSERT_EQ(sd_journal_get_events(j), POLLIN);
+        uint64_t timeout;
+        ASSERT_OK_ZERO(sd_journal_get_timeout(j, &timeout));
+        ASSERT_EQ(timeout, UINT64_MAX);
+        ASSERT_OK_POSITIVE(sd_journal_reliable_fd(j));
+        ASSERT_OK_ZERO(sd_journal_process(j));
+
+        writer = test_open("one.journal");
+        append_number(writer, 10, NULL, NULL, NULL);
+        ASSERT_OK(r = sd_journal_wait(j, 5 * USEC_PER_SEC));
+        ASSERT_TRUE(IN_SET(r, SD_JOURNAL_APPEND, SD_JOURNAL_INVALIDATE));
+        sd_journal_flush_matches(j);
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 10);
+        writer = journal_file_offline_close(writer);
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_fd(j), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_events(j), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_timeout(j, &timeout), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_wait(j, 0), EUNATCH));
+        ASSERT_OK_POSITIVE(sd_journal_reliable_fd(j));
+
+        r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        if (r == 0) {
+                ASSERT_RETURN_EXPECTED_SE(sd_journal_next(j) == -ECHILD);
+                ASSERT_RETURN_EXPECTED_SE(sd_journal_get_fd(j) == -ECHILD);
+                sd_journal_close(j);
+                _exit(EXIT_SUCCESS);
+        }
+        ASSERT_OK(r);
+        sd_journal_close(j);
+        j = NULL;
+
+        directory_fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        ASSERT_OK_ERRNO(directory_fd);
+        owned_directory_fd = directory_fd;
+        ASSERT_OK(sd_journal_open_directory_fd(
+                        &j,
+                        TAKE_FD(directory_fd),
+                        SD_JOURNAL_TAKE_DIRECTORY_FD|SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        ASSERT_OK_ERRNO(rename(t, renamed));
+        ASSERT_OK_ERRNO(mkdir(t, 0755));
+        ASSERT_EQ(count_journal_entries(j), 10U);
+        sd_journal_close(j);
+        j = NULL;
+        ASSERT_ERROR_ERRNO(fcntl(owned_directory_fd, F_GETFD), EBADF);
+        ASSERT_OK_ERRNO(rmdir(t));
+        ASSERT_OK_ERRNO(rename(renamed, t));
+
+        failure_fd = open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        ASSERT_OK_ERRNO(failure_fd);
+        int failure_fds[] = { failure_fd, -EBADF };
+        ASSERT_ERROR(sd_journal_open_files_fd(
+                             &j,
+                             failure_fds,
+                             ELEMENTSOF(failure_fds),
+                             SD_JOURNAL_ASSUME_IMMUTABLE), EBADF);
+        ASSERT_NULL(j);
+        ASSERT_OK_ERRNO(fcntl(failure_fd, F_GETFD));
+
+        int fds[] = {
+                open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
+                open(two, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
+        };
+        ASSERT_OK_ERRNO(fds[0]);
+        ASSERT_OK_ERRNO(fds[1]);
+        ASSERT_OK_ERRNO(rename(one, moved));
+        ASSERT_OK(sd_journal_open_files_fd(&j, fds, ELEMENTSOF(fds), SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK_ERRNO(unlink(moved));
+        ASSERT_OK_ERRNO(unlink(two));
+        ASSERT_EQ(count_journal_entries(j), 7U);
+        sd_journal_flush_matches(j);
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 10);
 }
 
 static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
@@ -1326,6 +1806,152 @@ TEST(seek_time) {
                         test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ false, e->ts.monotonic + 1, data);
                 }
         }
+}
+
+static void append_number_at(
+                JournalFile *f,
+                unsigned n,
+                const sd_id128_t *boot_id,
+                const sd_id128_t *machine_id,
+                uint64_t realtime,
+                uint64_t monotonic) {
+
+        _cleanup_free_ char *p = NULL, *q = NULL, *m = NULL;
+        dual_timestamp ts = { .realtime = realtime, .monotonic = monotonic };
+        struct iovec iovec[3];
+        size_t n_iov = 0;
+
+        ASSERT_OK(asprintf(&p, "NUMBER=%u", n));
+        iovec[n_iov++] = IOVEC_MAKE_STRING(p);
+
+        if (boot_id) {
+                ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
+                iovec[n_iov++] = IOVEC_MAKE_STRING(q);
+        }
+
+        if (machine_id) {
+                ASSERT_NOT_NULL((m = strjoin("_MACHINE_ID=", SD_ID128_TO_STRING(*machine_id))));
+                iovec[n_iov++] = IOVEC_MAKE_STRING(m);
+        }
+
+        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, NULL, NULL, NULL, NULL));
+}
+
+TEST(cursor_broken_rtc) {
+        /* Reproducer for https://github.com/systemd/systemd/issues/31516.
+         *
+         * On systems without a reliable (or missing) RTC, the realtime clock can go backwards across
+         * reboots. This creates journal files where a later boot's first entries have lower realtime
+         * timestamps than the previous boot's last entries.
+         *
+         * compare_boot_ids() orders boots by their newest realtime timestamp, so it considers boot 1
+         * "earlier" than boot 2 (since boot 2 eventually catches up). But when seeking to a cursor pointing
+         * at boot 2's first entry (which has low realtime), the realtime-based positioning in boot 1's file
+         * finds a nearby entry, and compare_locations() (via compare_boot_ids()) incorrectly picks that
+         * entry because boot 1 is globally "earlier".
+         *
+         * A minimal setup for such scenario - 2 files with 3 entries:
+         *
+         *   one.journal (boot 1): entry at realtime=2s
+         *   two.journal (boot 2): entry at realtime=1s (earlier than boot 1), then entry at realtime=3s */
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-cursor-rtc-XXXXXX", &t);
+
+        {
+                _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL;
+                sd_id128_t boot1, boot2;
+
+                f1 = test_open("one.journal");
+                f2 = test_open("two.journal");
+
+                ASSERT_OK(sd_id128_randomize(&boot1));
+                ASSERT_OK(sd_id128_randomize(&boot2));
+
+                log_info("boot1: %s, boot2: %s",
+                         SD_ID128_TO_STRING(boot1), SD_ID128_TO_STRING(boot2));
+
+                append_number_at(f1, 1, &boot1, NULL, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &boot2, NULL, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 3, &boot2, NULL, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+        }
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        /* Test cursor seeking */
+        test_cursor(j);
+
+        /* Also verify forward and backward iterations */
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_numbers_down(j, 3);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_numbers_up(j, 3);
+}
+
+TEST(merge_interleaving) {
+        /* Reproducer for https://github.com/systemd/systemd/issues/34169.
+         *
+         * Simulate journals received via systemd-journal-remote from two different source
+         * machines. journal-remote stamps all files with the receiving machine's machine_id
+         * (per the journal file format spec), so all files share the same header machine_id
+         * even though the entries originate from different machines with different boot IDs.
+         *
+         * This defeats the machine_id guard in compare_boot_ids(), which then orders entries
+         * by boot rather than interleaving them by realtime. The expected behavior is that
+         * forward iteration produces entries in realtime order regardless of boot ID.
+         *
+         * Setup: 2 files with different boot IDs, entries interleaved by realtime. Each
+         * entry carries a _MACHINE_ID= field identifying the source machine (as journal-remote
+         * preserves from the source):
+         *
+         *   machine-a.journal (boot A, machine A): entries at realtime = 1s, 3s, 5s (NUMBER = 1, 3, 5)
+         *   machine-b.journal (boot B, machine B): entries at realtime = 2s, 4s, 6s (NUMBER = 2, 4, 6) */
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-merge-XXXXXX", &t);
+
+        {
+                _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL;
+                sd_id128_t bootA, bootB, machineA, machineB;
+
+                f1 = test_open("machine-a.journal");
+                f2 = test_open("machine-b.journal");
+
+                ASSERT_OK(sd_id128_randomize(&bootA));
+                ASSERT_OK(sd_id128_randomize(&bootB));
+                ASSERT_OK(sd_id128_randomize(&machineA));
+                ASSERT_OK(sd_id128_randomize(&machineB));
+
+                log_info("bootA: %s, bootB: %s, machineA: %s, machineB: %s",
+                         SD_ID128_TO_STRING(bootA), SD_ID128_TO_STRING(bootB),
+                         SD_ID128_TO_STRING(machineA), SD_ID128_TO_STRING(machineB));
+
+                append_number_at(f1, 1, &bootA, &machineA, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &bootB, &machineB, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f1, 3, &bootA, &machineA, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f2, 4, &bootB, &machineB, 4 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f1, 5, &bootA, &machineA, 5 * USEC_PER_SEC, 300 * USEC_PER_MSEC);
+                append_number_at(f2, 6, &bootB, &machineB, 6 * USEC_PER_SEC, 300 * USEC_PER_MSEC);
+        }
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        /* Test cursor seeking */
+        test_cursor(j);
+
+        /* Verify forward and backward iterations */
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_numbers_down(j, 6);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_numbers_up(j, 6);
 }
 
 static int intro(void) {

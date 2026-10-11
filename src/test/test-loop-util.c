@@ -672,7 +672,7 @@ static void test_nested_partition_table_one(const char *nested_table) {
         ASSERT_TRUE(dissected->partitions[PARTITION_ROOT].found);
         node = ASSERT_NOT_NULL(dissected->partitions[PARTITION_ROOT].node);
 
-        /* Carve a nested partition table into that partition, mimicking the pmOS/android case (663f0bf5cb)
+        /* Carve a nested partition table into that partition, mimicking the Alpine/Nura case (663f0bf5cb)
          * where a partition carries a partition table the kernel won't scan, as partition devices don't
          * support partition scanning. We write and read it back through the same partition node, so the
          * buffer cache stays coherent. */

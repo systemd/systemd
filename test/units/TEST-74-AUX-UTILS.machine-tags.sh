@@ -9,7 +9,7 @@ set -o pipefail
 
 if ! command -v hostnamectl >/dev/null; then
     echo "hostnamectl not found, skipping the test"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

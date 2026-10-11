@@ -74,13 +74,18 @@ REQUIREMENTS:
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.8 for STATX_MNT_ID_UNIQUE
-                     ≥ 6.9 for pidfs and MPOL_WEIGHTED_INTERLEAVE NUMA policy
+                     ≥ 6.9 for pidfs, PIDFD_THREAD flag for pidfd_open(), and
+                               MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
                      ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
-                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
+                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS,
+                                PIDFD_INFO_COREDUMP by ioctl(PIDFD_GET_INFO)
+                     ≥ 6.17 for coredump socket pattern ('@@' prefix)
+                     ≥ 6.19 for PIDFD_INFO_SUPPORTED_MASK and PIDFD_INFO_COREDUMP_SIGNAL
+                     ≥ 7.1 for PIDFD_INFO_COREDUMP_CODE
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
@@ -143,7 +148,7 @@ REQUIREMENTS:
           CONFIG_CFS_BANDWIDTH
 
         Required for IPAddressDeny=, IPAddressAllow=, IPIngressFilterPath=,
-        IPEgressFilterPath= in resource control unit settings unit settings:
+        IPEgressFilterPath= in resource control unit settings:
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
           CONFIG_BPF_JIT
@@ -258,8 +263,8 @@ REQUIREMENTS:
             >= 13.1.0 is required to build BPF program by using GCC
         binutils >= 2.35
         awk, sed, grep, and similar tools
-        clang,llvm >= 10 (optional, required to build BPF programs)
-                   >= 13 (optional, required to build the entire project)
+        clang, llvm >= 10 (optional, required to build BPF programs)
+                    >= 13 (optional, required to build the entire project)
 
         During runtime, you need the following additional
         dependencies:
@@ -271,8 +276,8 @@ REQUIREMENTS:
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         polkit (optional)
-        gnupg >= 2.4 optional (for signature verification in: importctl,
-                               systemd-sysupdate)
+        gnupg >= 2.4 (optional, for signature verification in: importctl,
+                      systemd-sysupdate)
 
         To build in directory build/:
           meson setup build/ && ninja -C build/

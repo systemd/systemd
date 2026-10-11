@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 set -o pipefail
+shopt -s nullglob
 
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
 REPORT=/usr/lib/systemd/systemd-report
+
+# systemd-report is optional
+[ -x "$REPORT" ] || exit 77
 
 "$REPORT" --help
 "$REPORT" help
@@ -61,6 +65,224 @@ net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.system
 echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"192.0.2.1/32"' | grep '"family":"ipv4"' >/dev/null
 ip address del 192.0.2.1/32 dev lo
 
+# test io.systemd.HWMon Metrics
+hwmon_tests() {
+    # The hwmon socket is conditioned out in containers, since temperature sensors belong to the host
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping io.systemd.HWMon tests in container."
+        return 0
+    fi
+
+    systemctl start systemd-report-hwmon.socket
+    varlinkctl info /run/systemd/report/io.systemd.HWMon
+    varlinkctl list-methods /run/systemd/report/io.systemd.HWMon
+    hwmon_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.HWMon io.systemd.Metrics.Describe {})"
+    echo "$hwmon_describe" | jq --seq -r 'select(.name == "io.systemd.HWMon.TemperatureCelsius") | .type' | grep -wx gauge >/dev/null
+    # An empty result set is signalled through the io.systemd.Metrics.NoSuchMetric sentinel error, which is what
+    # VMs without any hwmon devices produce, hence treat it as success.
+    hwmon_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.HWMon io.systemd.Metrics.List {})"
+    # At most one row per readable, non-faulted temp<N>_input attribute in sysfs. A sensor may become
+    # transiently unreadable between the two samples, hence only check the bound. VMs typically expose no hwmon
+    # devices at all, in which case both counts are zero.
+    hwmon_expected=0
+    for f in /sys/class/hwmon/hwmon*/temp*_input; do
+        hwmon_fault="${f%_input}_fault"
+        if [[ -f "$hwmon_fault" ]] && [[ "$(cat "$hwmon_fault")" == 1 ]]; then
+            continue
+        fi
+        if cat "$f" >/dev/null 2>&1; then
+            hwmon_expected=$((hwmon_expected + 1))
+        fi
+    done
+    hwmon_reported="$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.HWMon.TemperatureCelsius") | .fields.sensor' | wc -l)"
+    [[ "$hwmon_reported" -le "$hwmon_expected" ]]
+    if [[ "$hwmon_reported" -gt 0 ]]; then
+        # Every row must carry a numeric value, an object and a sensor field of the form temp<N>
+        [[ "$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.HWMon.TemperatureCelsius") | ((.value | type) == "number") and ((.object | type) == "string") and (.fields.sensor | test("^temp[0-9]+$")) | tostring' | sort -u)" == "true" ]]
+    fi
+    "$REPORT" describe io.systemd.HWMon
+    "$REPORT" metrics io.systemd.HWMon
+}
+
+hwmon_tests
+
+# test io.systemd.NetworkStatistics Metrics
+systemctl start systemd-report-netstat.socket
+varlinkctl info /run/systemd/report/io.systemd.NetworkStatistics
+varlinkctl list-methods /run/systemd/report/io.systemd.NetworkStatistics
+netstat_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.Describe {})"
+for m in CarrierChanges Collisions ReceiveBytes ReceiveDropped ReceiveErrors ReceiveMulticastPackets ReceivePackets \
+         TransmitBytes TransmitDropped TransmitErrors TransmitPackets; do
+    echo "$netstat_describe" | jq --seq -r --arg n "io.systemd.NetworkStatistics.$m" 'select(.name == $n) | .type' | grep -wx counter >/dev/null
+done
+for m in MTU SpeedBitsPerSecond TransmitQueueLength; do
+    echo "$netstat_describe" | jq --seq -r --arg n "io.systemd.NetworkStatistics.$m" 'select(.name == $n) | .type' | grep -wx gauge >/dev/null
+done
+
+# Create a veth pair with the peer in a scratch network namespace, push some traffic through it, and check
+# that our end is reported with plausible values, while the peer (which lives in a different network
+# namespace) is not.
+netstat_cleanup() {
+    ip link del report-ns0 || :
+    ip netns del report-netstat || :
+}
+trap netstat_cleanup EXIT
+
+ip netns add report-netstat
+ip link add report-ns0 mtu 1400 type veth peer name report-ns1 mtu 1400 netns report-netstat
+ip address add 192.0.2.10/24 dev report-ns0
+ip -n report-netstat address add 192.0.2.11/24 dev report-ns1
+ip link set report-ns0 up
+ip -n report-netstat link set report-ns1 up
+ping -c 5 -i 0.2 -W 5 192.0.2.11
+
+netstat_value() {
+    echo "$1" | jq --seq -r --arg n "io.systemd.NetworkStatistics.$2" --arg o "$3" 'select(.name == $n and .object == $o) | .value | tostring'
+}
+
+netstat_tx_bytes_before="$(cat /sys/class/net/report-ns0/statistics/tx_bytes)"
+netstat_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
+netstat_tx_bytes_after="$(cat /sys/class/net/report-ns0/statistics/tx_bytes)"
+
+# Every metric of the interface carries the same fields
+[[ "$(echo "$netstat_metrics" | jq --seq -r 'select(.object == "report-ns0") | .fields.ifindex | tostring' | sort -u)" == "$(cat /sys/class/net/report-ns0/ifindex)" ]]
+[[ "$(echo "$netstat_metrics" | jq --seq -r 'select(.object == "report-ns0") | .fields.kind' | sort -u)" == veth ]]
+[[ "$(echo "$netstat_metrics" | jq --seq -r 'select(.object == "report-ns0") | .fields.type' | sort -u)" == ether ]]
+[[ "$(echo "$netstat_metrics" | jq --seq -r 'select(.object == "report-ns0") | .name' | wc -l)" -eq 14 ]]
+(! echo "$netstat_metrics" | jq --seq -r '.object' | grep -Fx report-ns1 >/dev/null)
+
+[[ "$(netstat_value "$netstat_metrics" MTU report-ns0)" == 1400 ]]
+# veth reports a fixed link speed of 10 Gbit/s
+[[ "$(netstat_value "$netstat_metrics" SpeedBitsPerSecond report-ns0)" == 10000000000 ]]
+[[ "$(netstat_value "$netstat_metrics" TransmitPackets report-ns0)" -ge 5 ]]
+[[ "$(netstat_value "$netstat_metrics" ReceivePackets report-ns0)" -ge 5 ]]
+[[ "$(netstat_value "$netstat_metrics" ReceiveErrors report-ns0)" == 0 ]]
+[[ "$(netstat_value "$netstat_metrics" TransmitErrors report-ns0)" == 0 ]]
+# The interface may still see some traffic (IPv6 router solicitations, …), hence only check the bounds
+netstat_tx_bytes="$(netstat_value "$netstat_metrics" TransmitBytes report-ns0)"
+[[ "$netstat_tx_bytes" -ge "$netstat_tx_bytes_before" ]]
+[[ "$netstat_tx_bytes" -le "$netstat_tx_bytes_after" ]]
+[[ "$netstat_tx_bytes" -ge $((5 * 84)) ]]
+
+# Loopback is reported too, but has no link speed
+[[ "$(echo "$netstat_metrics" | jq --seq -r 'select(.object == "lo") | .fields.type' | sort -u)" == loopback ]]
+netstat_value "$netstat_metrics" ReceivePackets lo | grep -E '^[0-9]+$' >/dev/null
+[[ -z "$(netstat_value "$netstat_metrics" SpeedBitsPerSecond lo)" ]]
+
+# Counters must not go backwards
+ping -c 2 -i 0.2 -W 5 192.0.2.11
+netstat_metrics2="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
+[[ "$(netstat_value "$netstat_metrics2" TransmitPackets report-ns0)" -ge "$(( $(netstat_value "$netstat_metrics" TransmitPackets report-ns0) + 2 ))" ]]
+[[ "$(netstat_value "$netstat_metrics2" TransmitBytes report-ns0)" -gt "$netstat_tx_bytes" ]]
+
+# Once removed, the interface is not reported anymore
+netstat_cleanup
+trap - EXIT
+netstat_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
+(! echo "$netstat_metrics" | jq --seq -r '.object' | grep -Fx report-ns0 >/dev/null)
+
+"$REPORT" describe io.systemd.NetworkStatistics
+"$REPORT" metrics io.systemd.NetworkStatistics
+
+# test io.systemd.DiskSpace Metrics
+
+# Mount a scratch ext4 file system and check that it is reported with plausible numbers, that a tmpfs next to
+# it is not, that additional bind mounts of it do not result in additional rows but the shortest writable
+# mount path wins regardless of mount order, that it disappears from the report once remounted read-only,
+# and that a device mapper device stacked on top of it is reported with the loop device as originating
+# source.
+diskspace_mount_tests() {
+    # Loop devices and device mapper are not available in containers
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping io.systemd.DiskSpace mount tests in container."
+        return
+    fi
+
+    DISKSPACE_WORK="$(mktemp -d /var/tmp/report-diskspace.XXXXXX)"
+    diskspace_cleanup() {
+        set +e
+        umount "$DISKSPACE_WORK/tmpfs" "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/longer" "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/dm"
+        dmsetup remove report-diskspace
+        systemd-dissect --detach "$DISKSPACE_WORK/scratch.raw"
+        rm -rf "$DISKSPACE_WORK"
+        set -e
+    }
+    trap diskspace_cleanup EXIT
+    mkdir "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/longer" "$DISKSPACE_WORK/dm" "$DISKSPACE_WORK/tmpfs"
+    truncate -s 64M "$DISKSPACE_WORK/scratch.raw"
+    mkfs.ext4 -q "$DISKSPACE_WORK/scratch.raw"
+    DISKSPACE_LOOP="$(systemd-dissect --attach --loop-ref=report-diskspace "$DISKSPACE_WORK/scratch.raw")"
+    mount "$DISKSPACE_LOOP" "$DISKSPACE_WORK/ext4"
+    # "a" sorts before "b" and is just as short, but is read-only, hence "b" must be picked
+    mount --bind -o ro "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/a"
+    mount --bind "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/b"
+    # "longer" is writable too, but has a longer path, hence must not win even though it is mounted last
+    mount --bind "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/longer"
+    mount -t tmpfs tmpfs "$DISKSPACE_WORK/tmpfs"
+    dd if=/dev/urandom of="$DISKSPACE_WORK/ext4/fill" bs=1M count=8
+    sync -f "$DISKSPACE_WORK/ext4"
+
+    diskspace_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+    # Exactly one row per metric for the scratch file system, reported under the shortest writable mount path
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg s "$DISKSPACE_LOOP" 'select(.name == "io.systemd.DiskSpace.SizeBytes" and .fields.source == $s) | .object')" == "$DISKSPACE_WORK/b" ]]
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg s "$DISKSPACE_LOOP" 'select(.name == "io.systemd.DiskSpace.FreeBytes" and .fields.source == $s) | .object')" == "$DISKSPACE_WORK/b" ]]
+    diskspace_size="$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.SizeBytes" and .object == $o) | .value')"
+    diskspace_free="$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.FreeBytes" and .object == $o) | .value')"
+    # The file system cannot be larger than the image, and at least the 8M we wrote must be missing from the
+    # free space.
+    [[ "$diskspace_size" -gt 0 ]]
+    [[ "$diskspace_size" -le $((64 * 1024 * 1024)) ]]
+    [[ "$diskspace_free" -gt 0 ]]
+    [[ $((diskspace_free + 8 * 1024 * 1024)) -le "$diskspace_size" ]]
+    # df(1) derives the same two numbers from statfs(), hence they must match exactly.
+    read -r diskspace_df_size diskspace_df_avail < <(df -B1 --output=size,avail "$DISKSPACE_WORK/ext4" | sed 1d)
+    [[ "$diskspace_size" == "$diskspace_df_size" ]]
+    [[ "$diskspace_free" == "$diskspace_df_avail" ]]
+    # Both rows must carry the file system type as field, and no originating source, as a loop device is not
+    # stacked on anything
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.object == $o) | .fields.fileSystemType' | sort -u)" == "ext4" ]]
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.object == $o) | .fields | has("originatingSource") | tostring' | sort -u)" == "false" ]]
+    # The tmpfs may not be reported
+    (! echo "$diskspace_metrics" | jq -r '.object' | grep -Fx "$DISKSPACE_WORK/tmpfs" >/dev/null)
+
+    # Once remounted read-only the file system must no longer be reported, regardless of the mount path
+    mount -o remount,ro "$DISKSPACE_WORK/ext4"
+    diskspace_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+    (! echo "$diskspace_metrics" | jq -r '.fields.source' | grep -Fx "$DISKSPACE_LOOP" >/dev/null)
+
+    # Now stack a (linear) device mapper device on top of the loop device, and mount the file system through
+    # that: the DM device must be reported as source, and the loop device it sits on as originating source. The
+    # loop device must be unmounted first, as DM needs exclusive access to it.
+    umount "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/longer" "$DISKSPACE_WORK/ext4"
+    dmsetup create report-diskspace --table "0 $(blockdev --getsz "$DISKSPACE_LOOP") linear $DISKSPACE_LOOP 0"
+    udevadm wait --timeout=30 --settle /dev/mapper/report-diskspace
+    mount /dev/mapper/report-diskspace "$DISKSPACE_WORK/dm"
+    diskspace_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/dm" 'select(.object == $o) | .fields.source' | sort -u)" == "/dev/mapper/report-diskspace" ]]
+    [[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/dm" 'select(.object == $o) | .fields.originatingSource' | sort -u)" == "$DISKSPACE_LOOP" ]]
+
+    diskspace_cleanup
+    trap - EXIT
+}
+
+# The socket and service are only built if libmount is available
+if ! systemctl cat systemd-report-diskspace.socket &>/dev/null; then
+    echo "systemd-report-diskspace.socket is not installed, skipping io.systemd.DiskSpace tests."
+else
+    systemctl start systemd-report-diskspace.socket
+    varlinkctl info /run/systemd/report/io.systemd.DiskSpace
+    varlinkctl list-methods /run/systemd/report/io.systemd.DiskSpace
+    # varlinkctl emits a JSON-SEQ stream for --more; strip the record separators so that plain jq can consume it
+    diskspace_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.Describe {} | tr -d '\036')"
+    echo "$diskspace_describe" | jq -r 'select(.name == "io.systemd.DiskSpace.FreeBytes") | .type' | grep -wx gauge >/dev/null
+    echo "$diskspace_describe" | jq -r 'select(.name == "io.systemd.DiskSpace.SizeBytes") | .type' | grep -wx gauge >/dev/null
+
+    diskspace_mount_tests
+
+    "$REPORT" describe io.systemd.DiskSpace
+    "$REPORT" metrics io.systemd.DiskSpace
+fi
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
@@ -77,19 +299,143 @@ id2="$(. /etc/os-release; echo "$ID")"
 basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
 # NB: '| tostring' turns the numeric value into a raw string, so 'jq -r' prints it cleanly
 # (numbers, unlike strings, are otherwise still emitted with the json-seq record separator).
-basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
+basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\") | .value | tostring"; }
+# Like basic_value, but the value must be a JSON number (jq's 'numbers' filter emits the value
+# only if it is one, so a non-empty result confirms both presence and type), and an optional
+# second argument gives a jq condition further restricting the match, e.g. on .object or .fields.
+basic_number() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\" and ${2:-true}) | .value | numbers | tostring"; }
 
-# The three classic load average fields must be present and numeric (jq's 'numbers' filter
-# emits the value only if it is a JSON number, so a non-empty result confirms both).
+# The three classic load average fields must be present and numeric.
 for field in LoadAverage1Min LoadAverage5Min LoadAverage15Min; do
-    loadavg="$(echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$field\") | .value | numbers | tostring")"
-    test -n "$loadavg"
+    test -n "$(basic_number "$field")"
 done
 
 # SwapBytes must match the total the kernel reports in /proc/meminfo (which is in kB).
-swap_reported="$(basic_value io.systemd.Basic.SwapBytes)"
+swap_reported="$(basic_value SwapBytes)"
 swap_expected=$(( $(awk '/^SwapTotal:/ { print $2; found=1 } END { if (!found) print 0 }' /proc/meminfo) * 1024 ))
 [ "$swap_reported" = "$swap_expected" ]
+
+# SwapUsedBytes must be numeric and cannot exceed the configured total.
+swap_used="$(basic_number SwapUsedBytes)"
+test -n "$swap_used"
+[ "$swap_used" -le "$swap_reported" ]
+
+# Those fields must be reported with a numeric nanoseconds value.
+for type in user system; do
+    test -n "$(basic_number CPUUsage ".fields.type == \"$type\"")"
+done
+
+# The values are USER_HZ ticks converted to nanoseconds. The metrics were sampled before the
+# current /proc/stat state, and the idle counter mostly grows, so the reported idle time
+# should be positive and no larger than what /proc/stat shows now with some margin.
+cpu_idle_reported="$(basic_number CPUWait '.fields.type == "idle"')"
+awk -v hz="$(getconf CLK_TCK)" -v sampled="$cpu_idle_reported" \
+    '/^cpu / { exit !(sampled > 0 && sampled <= ($5 + 1) / hz * 1e9 ) }' /proc/stat
+
+# iowait/idle/steal must be valid nanoseconds values, but can go up and down.
+for type in idle iowait steal; do
+    test -n "$(basic_number CPUWait ".fields.type == \"$type\"")"
+done
+
+# MemoryUsedBytes is MemTotal − MemAvailable, so it cannot exceed the MemTotal reported by the
+# same file. (PhysicalMemoryBytes is not a valid bound here: it is capped by the root cgroup's
+# memory limit, so it can legitimately be smaller than the value computed from /proc/meminfo.)
+mem_used="$(basic_number MemoryUsedBytes)"
+mem_total=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) * 1024 ))
+test -n "$mem_used"
+[ "$mem_used" -le "$mem_total" ]
+
+# Pressure metrics are only reported if the kernel supports PSI.
+if cat /proc/pressure/cpu >/dev/null 2>&1; then
+    for family in PressureAvg10 PressureStallSeconds; do
+        for resource in cpu memory io; do
+            test -n "$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"some\"")"
+            # "full" is deliberately not emitted for cpu, where the kernel always reports 0.
+            full="$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"full\"")"
+            if [ "$resource" = cpu ]; then
+                test -z "$full"
+            else
+                test -n "$full"
+            fi
+        done
+    done
+
+    # The avg10 values are percentages, so they must lie in the 0…100 range. This would catch a
+    # wrong fixed-point conversion, which would inflate the value 2048x.
+    echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.PressureAvg10") | .value | tostring' |
+        awk '{ if ($1 < 0 || $1 > 100) exit 1 }'
+fi
+
+# Every whole physical block device (not partitions, not virtual or stacked devices) must be
+# reported, with byte values derived from the 512-byte sector counters in sysfs. Those counters
+# only grow, so the values sampled above cannot exceed what sysfs shows now.
+for dev in /sys/block/*; do
+    devpath="$(udevadm info --query=property --value --property=DEVPATH "$dev" || :)"
+    devname="$(udevadm info --query=property --value --property=DEVNAME "$dev" || :)"
+    [[ -n "$devpath" && -n "$devname" ]] || continue
+
+    [[ "$devpath" =~ "/devices/virtual/" ]] && continue
+
+    read_bytes="$(basic_number DiskReadBytes ".object == \"${devname}\"")"
+    write_bytes="$(basic_number DiskWriteBytes ".object == \"${devname}\"")"
+    test -n "$read_bytes"
+    test -n "$write_bytes"
+
+    read -r _ _ read_sectors _ _ _ write_sectors _ <"$dev/stat"
+    [ "$read_bytes" -le "$(( read_sectors * 512 ))" ]
+    [ "$write_bytes" -le "$(( write_sectors * 512 ))" ]
+done
+
+# Sample the clock metrics anew, right before comparing them against /proc/uptime and date, so that the
+# margins below do not have to cover the time the checks above took.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+
+# The clock metrics are sampled together, hence boottime (which includes time spent suspended) can
+# never be smaller than monotonic. Uptime in the test VM is far below 2^53 ns, so jq reproduces those
+# values exactly. Realtime is not (it's ~1.8e18), hence compare that one in whole seconds only.
+boottime_ns="$(basic_number ClockBoottimeNSec)"
+monotonic_ns="$(basic_number ClockMonotonicNSec)"
+realtime_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.ClockRealtimeNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
+test -n "$boottime_ns"
+test -n "$monotonic_ns"
+test -n "$realtime_s"
+[ "$monotonic_ns" -gt 0 ]
+[ "$boottime_ns" -ge "$monotonic_ns" ]
+
+# /proc/uptime is CLOCK_BOOTTIME too, read after the metrics were sampled; allow for a generous margin.
+uptime_s="$(cut -d. -f1 /proc/uptime)"
+[ $(( boottime_ns / 1000000000 )) -le "$uptime_s" ]
+[ $(( boottime_ns / 1000000000 )) -ge $(( uptime_s - 60 )) ]
+
+now_s="$(date +%s)"
+[ "$realtime_s" -le "$now_s" ]
+[ "$realtime_s" -ge $(( now_s - 60 )) ]
+
+# Boottime and monotonic are counters, hence must not go backwards between two calls.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+[ "$(basic_number ClockBoottimeNSec)" -ge "$boottime_ns" ]
+[ "$(basic_number ClockMonotonicNSec)" -ge "$monotonic_ns" ]
+
+# DeploymentTimestampNSec is the birth time of the file system backing /var/, or of the root file system
+# if /var/ is not a mount point of its own. It is only reported if the file system records birth times
+# (which stat reports as 0 otherwise). The value is ~1.8e18, beyond what jq represents exactly, hence
+# compare in whole seconds and allow for one second of rounding error.
+if mountpoint -q /var/; then deploy_dir=/var/; else deploy_dir=/; fi
+deploy_expected_s="$(stat -c %W "$deploy_dir")"
+deploy_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.DeploymentTimestampNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
+if [ "$deploy_expected_s" -gt 0 ]; then
+    test -n "$deploy_s"
+    [ "$deploy_s" -ge $(( deploy_expected_s - 1 )) ]
+    [ "$deploy_s" -le $(( deploy_expected_s + 1 )) ]
+else
+    test -z "$deploy_s"
+fi
+
+# Every new metric family must be described, even those whose values depend on the environment.
+basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
+for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DeploymentTimestampNSec DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+    echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
+done
 
 # io.systemd.Manager.Version should be non-empty and match what `systemctl --version` reports
 metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.Version") | .value')"
@@ -169,6 +515,9 @@ at_exit() {
     systemctl stop fake-report-server fake-report-server-tls
     systemctl stop systemd-report.socket systemd-report-files.socket systemd-report-sign-plain.socket
     rm -f /run/systemd/report.files/testreportfile /run/systemd/report.files/binaryfile
+    rm -f /run/systemd/report.files/maskedfile /var/lib/systemd/report.files/maskedfile /var/lib/systemd/report.files/dirshadowed
+    rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
+    rmdir /run/systemd/report.files/dirshadowed 2>/dev/null
     rm -rf "$CERTDIR" "${SIGN_WORK:-}"
 }
 trap at_exit EXIT
@@ -179,6 +528,12 @@ systemctl status fake-report-server
 "$REPORT" generate io.systemd.Manager.UnitsTotal
 
 "$REPORT" generate io.systemd.Manager.UnitsTotal | jq .
+
+# Without --nonce= no nonce field is included, with it the nonce is included verbatim
+"$REPORT" generate io.systemd.Manager.UnitsTotal | jq -e 'has("nonce") | not' >/dev/null
+NONCE="$(openssl rand -base64 32)"
+[ "$("$REPORT" generate --nonce="$NONCE" io.systemd.Manager.UnitsTotal | jq -r .nonce)" = "$NONCE" ]
+(! "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal)
 
 "$REPORT" upload --url=http://localhost:8089/
 
@@ -221,6 +576,26 @@ files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.
 [ -z "$(files_value io.systemd.Files.binaryfile)" ]
 rm -f /run/systemd/report.files/binaryfile
 
+# An entry in an earlier directory that is a symlink to /dev/null masks the one
+# in a later directory: it must be neither listed nor described. An entry that
+# isn't a regular file is ignored, so the later one is reported instead.
+mkdir -p /var/lib/systemd/report.files
+echo masked >/var/lib/systemd/report.files/maskedfile
+echo shadowed >/var/lib/systemd/report.files/dirshadowed
+ln -s /dev/null /run/systemd/report.files/maskedfile
+mkdir /run/systemd/report.files/dirshadowed
+echo fifo-shadowed >/var/lib/systemd/report.files/fifoshadowed
+mkfifo /run/systemd/report.files/fifoshadowed
+files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
+files_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.Describe {})"
+[ -z "$(files_value io.systemd.Files.maskedfile)" ]
+(! echo "$files_describe" | jq --seq -r .name | grep -wx io.systemd.Files.maskedfile >/dev/null)
+[ "$(files_value io.systemd.Files.dirshadowed)" = "shadowed" ]
+[ "$(files_value io.systemd.Files.fifoshadowed)" = "fifo-shadowed" ]
+rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
+rm -f /run/systemd/report.files/maskedfile /var/lib/systemd/report.files/maskedfile /var/lib/systemd/report.files/dirshadowed
+rmdir /run/systemd/report.files/dirshadowed
+
 # -----------------------------------------------------------------------------
 # Test report signing through the plain software backend, driven entirely via
 # the io.systemd.Report Varlink interface (the GenerateSigned method). The plain
@@ -245,6 +620,14 @@ varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned 
 # the trailing newline, so 'head -n1' reproduces it verbatim.
 head -n1 "$SIGN_WORK/report.seq" >"$SIGN_WORK/message.bin"
 tr -d '\036' <"$SIGN_WORK/message.bin" | jq -e '.mediaType == "application/vnd.io.systemd.report"' >/dev/null
+tr -d '\036' <"$SIGN_WORK/message.bin" | jq -e 'has("nonce") | not' >/dev/null
+
+# A nonce passed to GenerateSigned must show up in the signed report object
+NONCE="$(openssl rand -base64 32)"
+varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned \
+    "{\"matches\":[\"io.systemd.Manager.UnitsTotal\"],\"nonce\":\"$NONCE\"}" |
+    jq -r .reportData | base64 -d | jq --seq -r 'select(.mediaType == "application/vnd.io.systemd.report") | .nonce' |
+    grep -Fx "$NONCE" >/dev/null
 
 # The remaining record(s) are signature objects. With only the plain backend
 # enabled there is exactly one, with mechanism "plain".

@@ -2,9 +2,9 @@
 
 #include <stdlib.h>
 
+#include "sd-json.h"
 #include "sd-messages.h"
 
-#include "alloc-util.h"
 #include "argv-util.h"
 #include "build.h"
 #include "capability-util.h"
@@ -18,45 +18,24 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "format-table.h"
 #include "label-util.h"
 #include "log.h"
 #include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "selinux-util.h"
 #include "static-destruct.h"
+#include "verbs.h"
 
 static FILE *arg_serialization = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table_ns("systemd-executor", &options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n\n"
-               "%sSandbox and execute processes.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-executor\0",
+        "Sandbox and execute processes.",
+        .man_pages = "systemd(1)\0",
+        .option_namespace = "systemd-executor",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -72,7 +51,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("systemd-executor"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_name("systemd-executor");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -128,6 +107,9 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_serialization = f;
                         break;
                 }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_serialization)

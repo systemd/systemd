@@ -9,11 +9,20 @@
 #define REPORT_CERT_FILE     CERTIFICATE_ROOT "/certs/systemd-report.pem"
 #define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
+typedef enum ReportSignMode {
+        REPORT_SIGN_NO,
+        REPORT_SIGN_BEST_EFFORT,
+        REPORT_SIGN_REQUIRE_ONE,
+        REPORT_SIGN_REQUIRE_ALL,
+        _REPORT_SIGN_MODE_MAX,
+        _REPORT_SIGN_MODE_INVALID = -EINVAL,
+} ReportSignMode;
+
 extern sd_json_format_flags_t arg_json_format_flags;
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
 extern char **arg_extra_headers;
 extern usec_t arg_network_timeout_usec;
-extern bool arg_sign;
+extern ReportSignMode arg_sign_mode;
 
 typedef enum Action {
         ACTION_LIST_METRICS,
@@ -32,6 +41,7 @@ typedef struct Context {
         char **matches;  /* Metric families to include, or NULL/empty for all */
         sd_json_variant **metrics;  /* Collected metrics for sorting */
         size_t n_metrics, n_skipped_metrics, n_invalid_metrics, n_contacted_sources, n_skipped_sources;
+        const struct iovec *nonce;
 
         int upload_result;
         struct iovec_wrapper upload_answer;

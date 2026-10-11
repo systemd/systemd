@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "binfmt-util.h"
+#include "build.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "constants.h"
@@ -34,6 +35,7 @@
 #include "killall.h"
 #include "log.h"
 #include "luo-util.h"
+#include "main-func.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -48,6 +50,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umount.h"
+#include "verbs.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -55,9 +58,18 @@
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 #define DEFAULT_MINIMUM_UPTIME_USEC (15U * USEC_PER_SEC)
 
-static const char *arg_verb = NULL;
+static char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
+
+STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
+
+COMMAND(
+        "systemd-shutdown\0",
+        "Execute the final phase of system shutdown.",
+        .argspec = "reboot|poweroff|halt|kexec|exit\0",
+        .man_pages = "systemd-shutdown(8)\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
@@ -73,6 +85,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
 
                 OPTION_COMMON_LOG_LEVEL:
                         r = log_set_max_level_from_string(opts.arg);
@@ -138,9 +159,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_POSITIONAL:
-                        if (!arg_verb)
-                                arg_verb = opts.arg;
-                        else
+                        if (!arg_verb) {
+                                arg_verb = strdup(opts.arg);
+                                if (!arg_verb)
+                                        return log_oom();
+                        } else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;
                 }
@@ -148,7 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (!arg_verb)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb argument missing.");
 
-        return 0;
+        return 1; /* Further action */
 }
 
 static int switch_root_initramfs(void) {
@@ -366,7 +389,7 @@ static void sleep_until_minimum_uptime(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         static const char* const dirs[] = {
                 SYSTEM_SHUTDOWN_PATH,
                 NULL
@@ -402,9 +425,16 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
+        r = parse_argv(argc, argv);
         if (getpid_cached() != 1) {
-                log_error("Not executed by init (PID 1). Refusing to operate.");
-                return EXIT_FAILURE;
+                /* If we're a normal user space process, our work is done. Either we hit an error, or were
+                 * called with --help, --version, or another option that was handled by parse_argv(), or it
+                 * looks like we're being asked to do some real work, but we should do that only as part of
+                 * the real shutdown sequence. */
+                if (r <= 0)
+                        return r;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not executed by init (PID 1). Refusing to operate.");
         }
 
         log_set_always_reopen_console(true);
@@ -414,8 +444,7 @@ int main(int argc, char *argv[]) {
          * through kernel. */
         (void) reboot(RB_ENABLE_CAD);
 
-        r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto error;
 
         log_open();
@@ -619,13 +648,18 @@ int main(int argc, char *argv[]) {
                         argv[0] = (char*) "/shutdown";
 
                         (void) setsid();
-                        (void) make_console_stdio();
+                        /* Preserve a graphical splash retained across the exitrd handoff. */
+                        (void) make_console_stdio(/* switch_to_text= */ false);
 
                         log_info("Successfully changed into root pivot.\n"
                                  "Entering exitrd...");
 
                         execv("/shutdown", argv);
-                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
+                        r = -errno;
+
+                        /* The exitrd could not take over. Make subsequent diagnostics visible again. */
+                        (void) make_console_stdio(/* switch_to_text= */ true);
+                        log_error_errno(r, "Failed to execute shutdown binary: %m");
                 } else
                         log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
         }
@@ -668,7 +702,6 @@ int main(int argc, char *argv[]) {
         switch (cmd) {
 
         case LINUX_REBOOT_CMD_KEXEC:
-
                 if (!in_container) {
                         /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
                          * The session fd must stay open until the kexec syscall. */
@@ -706,14 +739,24 @@ int main(int argc, char *argv[]) {
                 /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
 error:
-        log_struct_errno(LOG_EMERG, r,
-                         LOG_MESSAGE("Critical error while doing system shutdown: %m"),
-                         LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
+        /* Do not leave a graphical splash covering the fatal error before freezing. */
+        (void) make_console_stdio(/* switch_to_text= */ true);
+
+        if (r == 0)
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Non-shutdown operation requested, cannot operate."),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
+        else
+                log_struct_errno(LOG_EMERG, r,
+                                 LOG_MESSAGE("Critical error while doing system shutdown: %m"),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
         freeze();
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

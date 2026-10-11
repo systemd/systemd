@@ -31,6 +31,10 @@ integration_test_template = {
         'sanitizer-exclude-regex' : '',
         'rtc' : false,
         'tpm' : false,
+        # Bind the mkosi output (built images) read-only into the boot-mode container at /work/vm-images, for
+        # tests that boot a nested VM from a full image.
+        'vm-images' : false,
+        'coco' : '',
         'suppress-sync' : true,
 }
 
@@ -106,6 +110,8 @@ foreach dirname : [
         'TEST-91-LIVEUPDATE',
         'TEST-92-TPM2-SWTPM',
         'TEST-93-CLONESETUP',
+        'TEST-94-COCO',
+        'TEST-95-DBUS-RECONNECT',
 ]
         subdir(dirname)
 endforeach
@@ -120,7 +126,8 @@ foreach integration_test : integration_tests
                 '--exit-code', integration_test['exit-code'].to_string(),
                 '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
                 '--sanitizer-exclude-regex', integration_test['sanitizer-exclude-regex'],
-                '--unit', '@0@.service'.format(integration_test['name'])
+                '--unit', '@0@.service'.format(integration_test['name']),
+                '--tap',
         ]
 
         if integration_test['vm']
@@ -133,6 +140,14 @@ foreach integration_test : integration_tests
 
         if integration_test['tpm']
                 integration_test_args += ['--tpm']
+        endif
+
+        if integration_test['vm-images']
+                integration_test_args += ['--vm-images']
+        endif
+
+        if integration_test['coco'] != ''
+                integration_test_args += ['--coco', integration_test['coco']]
         endif
 
         if not integration_test['enabled']
@@ -175,5 +190,6 @@ foreach integration_test : integration_tests
                 timeout : integration_test['timeout'],
                 priority : integration_test['priority'],
                 suite : 'integration-tests',
+                protocol : 'tap',
         )
 endforeach

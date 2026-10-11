@@ -96,6 +96,8 @@ static int mangle_patterns(char **args, char ***ret) {
         _cleanup_strv_free_ char **mangled = NULL;
         int r;
 
+        assert(ret);
+
         STRV_FOREACH(arg, args) {
                 char *t;
 

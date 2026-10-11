@@ -939,11 +939,8 @@
       <varlistentry>
         <term><option>tpm2-measure-bank=</option></term>
 
-        <listitem><para>Selects one or more TPM2 PCR banks to measure the volume key into, as configured with
-        <option>tpm2-measure-pcr=</option> above. Multiple banks may be specified, separated by a colon
-        character. If not specified, automatically determines available and used banks. Expects a message
-        digest name (e.g. <literal>sha1</literal>, <literal>sha256</literal>, …) as argument, to identify the
-        bank.</para>
+        <listitem><para>This option is deprecated and has no effect since version 262. All suitable PCR
+        banks are used.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>

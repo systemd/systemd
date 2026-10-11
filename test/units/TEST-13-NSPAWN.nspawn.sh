@@ -410,7 +410,7 @@ testcase_check_default_inaccessible_paths() {
         "/proc/timer_list"
     )
 
-    # /proc/kcore may not exist on some kernels, e.g. Alpine/postmarketOS.
+    # /proc/kcore may not exist on some kernels, e.g. Alpine/Nura.
     if [[ -e /proc/kcore ]]; then
         inaccessible_paths+=(
             "/proc/kcore"
@@ -1209,6 +1209,26 @@ matrix_run_one() {
     rm -fr "$root"
 
     return 0
+}
+
+testcase_ping_group_range() {
+    local range root
+
+    if [[ "$IS_USERNS_SUPPORTED" == "no" ]]; then
+        echo "Skipping user namespace test..."
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ping-group-range.XXX)"
+    create_dummy_container "$root"
+    trap 'rm -fr "$root"' RETURN ERR
+
+    range="$(systemd-nspawn --pipe --register=no \
+                            --directory="$root" \
+                            --private-network \
+                            --private-users=pick \
+                            cat /proc/sys/net/ipv4/ping_group_range)"
+    assert_eq "${range//[[:space:]]/ }" "0 65535"
 }
 
 testcase_api_vfs() {

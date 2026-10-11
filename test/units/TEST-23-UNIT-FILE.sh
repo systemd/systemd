@@ -7,6 +7,4 @@ set -o pipefail
 . "$(dirname "$0")"/test-control.sh
 
 # Note: the signal shenanigans are necessary for the Upholds= tests
-run_subtests_with_signals SIGUSR1 SIGUSR2 SIGRTMIN+1
-
-touch /testok
+run_subtests_with_signals_and_exit SIGUSR1 SIGUSR2 SIGRTMIN+1

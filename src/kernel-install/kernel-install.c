@@ -4,6 +4,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "ansi-color.h"
 #include "argv-util.h"
 #include "boot-entry.h"
@@ -22,7 +24,6 @@
 #include "find-esp.h"
 #include "format-table.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "kernel-config.h"
@@ -30,11 +31,11 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -62,6 +63,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
+
+COMMAND(
+        "kernel-install\0",
+        "Add and remove kernel and initrd images to and from the boot partition.",
+        .footer = "This program may also be invoked as 'installkernel':\n"
+                  "  installkernel [OPTION…] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
+                  "(The optional arguments are passed by kernel build system, but ignored.)",
+        .man_pages = "kernel-install(8)\0",
+        .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_HELP_SEPARATE,  /* the verb table is very wide */
+);
 
 typedef enum Action {
         ACTION_ADD,
@@ -108,11 +120,18 @@ typedef struct Context {
         char **initrds;
         char *initrd_generator;
         char *uki_generator;
+        char *entry_name_format;
+        char *entry_name;
         char *staging_area;
         char **plugins;
         char **argv;
         char **envp;
 } Context;
+
+/* Longest filename suffix plugins append to the entry name (from 90-uki-copy.install) */
+#define ENTRY_NAME_SUFFIX_MAX STRLEN(".efi.extra.d")
+
+#define DEFAULT_ENTRY_NAME_FORMAT "%e-%v"
 
 #define CONTEXT_NULL                                                    \
         (Context) {                                                     \
@@ -137,6 +156,8 @@ static void context_done(Context *c) {
         strv_free(c->initrds);
         free(c->initrd_generator);
         free(c->uki_generator);
+        free(c->entry_name_format);
+        free(c->entry_name);
         if (c->action == ACTION_INSPECT)
                 free(c->staging_area);
         else
@@ -199,6 +220,9 @@ static int context_copy(const Context *source, Context *ret) {
         if (r < 0)
                 return r;
         r = strdup_to(&copy.uki_generator, source->uki_generator);
+        if (r < 0)
+                return r;
+        r = strdup_to(&copy.entry_name_format, source->entry_name_format);
         if (r < 0)
                 return r;
         r = strdup_to(&copy.staging_area, source->staging_area);
@@ -327,6 +351,63 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
         return context_set_string(s, source, "UKI_GENERATOR", &c->uki_generator);
 }
 
+static int context_set_entry_name_format(Context *c, const char *s, const char *source) {
+        assert(c);
+        return context_set_string(s, source, "ENTRY_NAME_FORMAT", &c->entry_name_format);
+}
+
+static int context_resolve_entry_name(Context *c) {
+        assert(c);
+
+        if (c->entry_name)
+                return 0;
+
+        const Specifier table[] = {
+                { 'e', specifier_string,           c->entry_token },
+                { 'm', specifier_id128,            &c->machine_id },
+                { 'v', specifier_string,           c->version ?: "KERNEL_VERSION" },
+                { 'a', specifier_architecture,     NULL },
+                { 'A', specifier_os_image_version, NULL },
+                { 'B', specifier_os_build_id,      NULL },
+                { 'H', specifier_hostname,         NULL },
+                { 'l', specifier_short_hostname,   NULL },
+                { 'q', specifier_pretty_hostname,  NULL },
+                { 'M', specifier_os_image_id,      NULL },
+                { 'o', specifier_os_id,            NULL },
+                { 'w', specifier_os_version_id,    NULL },
+                { 'W', specifier_os_variant_id,    NULL },
+                {}
+        };
+
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        r = specifier_printf(
+                        c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT,
+                        NAME_MAX - ENTRY_NAME_SUFFIX_MAX,
+                        table,
+                        arg_root,
+                        /* userdata= */ c,
+                        &resolved);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand entry name format '%s': %m",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT);
+
+        if (isempty(resolved))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry name format '%s' resolved to empty string.",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT);
+
+        if (!filename_is_valid(resolved))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry name format '%s' resolved to invalid filename: %s",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT, resolved);
+
+        c->entry_name = TAKE_PTR(resolved);
+        log_debug("Using entry name: %s", c->entry_name);
+        return 0;
+}
+
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
@@ -449,12 +530,14 @@ static int context_load_environment(Context *c) {
         (void) context_set_boot_root(c, getenv("BOOT_ROOT"), "environment");
         (void) context_set_conf_root(c, getenv("KERNEL_INSTALL_CONF_ROOT"), "environment");
         (void) context_set_plugins(c, getenv("KERNEL_INSTALL_PLUGINS"), "environment");
+        (void) context_set_entry_name_format(c, getenv("KERNEL_INSTALL_ENTRY_NAME_FORMAT"), "environment");
         return 0;
 }
 
 static int context_load_install_conf(Context *c) {
         _cleanup_free_ char *machine_id = NULL, *boot_root = NULL, *layout = NULL,
-                            *initrd_generator = NULL, *uki_generator = NULL;
+                            *initrd_generator = NULL, *uki_generator = NULL,
+                            *entry_name_format = NULL;
         int r;
 
         assert(c);
@@ -467,7 +550,8 @@ static int context_load_install_conf(Context *c) {
                         &boot_root,
                         &layout,
                         &initrd_generator,
-                        &uki_generator);
+                        &uki_generator,
+                        &entry_name_format);
         if (r <= 0)
                 return r;
 
@@ -476,6 +560,7 @@ static int context_load_install_conf(Context *c) {
         (void) context_set_layout(c, layout, "config");
         (void) context_set_initrd_generator(c, initrd_generator, "config");
         (void) context_set_uki_generator(c, uki_generator, "config");
+        (void) context_set_entry_name_format(c, entry_name_format, "config");
 
         log_debug("Loaded config.");
         return 0;
@@ -1032,6 +1117,10 @@ static int context_build_environment(Context *c) {
         if (c->envp)
                 return 0;
 
+        r = context_resolve_entry_name(c);
+        if (r < 0)
+                return r;
+
         r = strv_env_assign_many(&e,
                                  "LC_COLLATE",                      SYSTEMD_DEFAULT_LOCALE,
                                  "KERNEL_INSTALL_VERBOSE",          one_zero(arg_verbose),
@@ -1043,7 +1132,8 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
                                  "KERNEL_INSTALL_BOOT_ENTRY_TYPE",  boot_entry_type_to_string(c->entry_type),
-                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
+                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area,
+                                 "KERNEL_INSTALL_ENTRY_NAME",       c->entry_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
 
@@ -1093,10 +1183,10 @@ static int context_execute(Context *c) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ");
                 log_debug("Using plugins: %s", strna(x));
 
-                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ");
                 log_debug("Plugin environment: %s", strna(y));
 
                 _cleanup_free_ char *z = strv_join(strv_skip(c->argv, 1), " ");
@@ -1191,7 +1281,7 @@ static int do_add(
         return context_execute(c);
 }
 
-VERB(verb_add, "add", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, 0,
+VERB(verb_add, "add", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\0", 1, VERB_ANY, 0,
      "Add a kernel and initrd images to the boot partition");
 static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *version, *kernel;
@@ -1304,7 +1394,7 @@ static int run_as_installkernel(char **args) {
         return verb_add(3, STRV_MAKE("add", args[0], args[1]), /* data= */ 0, /* userdata= */ NULL);
 }
 
-VERB(verb_remove, "remove", "KERNEL-VERSION", 2, VERB_ANY, 0,
+VERB(verb_remove, "remove", "KERNEL-VERSION\0", 2, VERB_ANY, 0,
      "Remove a kernel from the boot partition");
 static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -1342,7 +1432,7 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_execute(&c);
 }
 
-VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, VERB_DEFAULT,
+VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\0", 1, VERB_ANY, VERB_DEFAULT,
      "Print details about the installation");
 static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -1413,6 +1503,10 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
                            TABLE_STRING, boot_entry_token_type_to_string(c.entry_token_type),
                            TABLE_FIELD, "Entry Token",
                            TABLE_STRING, c.entry_token,
+                           TABLE_FIELD, "Entry Name Format",
+                           TABLE_STRING, c.entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT,
+                           TABLE_FIELD, "Entry Name",
+                           TABLE_STRING, c.entry_name,
                            TABLE_FIELD, "Entry Directory",
                            TABLE_STRING, c.entry_dir,
                            TABLE_FIELD, "Kernel Version",
@@ -1516,44 +1610,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        /* Note: column widths are not synced, because the verbs table is very wide. */
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Add and remove kernel and initrd images to and from the boot partition.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n"
-               "This program may also be invoked as 'installkernel':\n"
-               "  installkernel [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
-               "(The optional arguments are passed by kernel build system, but ignored.)\n");
-
-        help_man_page_reference("kernel-install", "8");
-
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO_PROGRAM("kernel-install");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -1567,7 +1624,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_name("kernel-install");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1652,6 +1709,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_image && arg_root)
@@ -1661,6 +1721,17 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
+
+/* Definition for the compat interface to populate introspection data.
+ * Keep below the VERB definitions for the main command. */
+COMMAND(
+        "installkernel\0",
+        "Add and remove kernel and initrd images to and from the boot partition.",
+        .argspec = "VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\0",
+        .footer = "This is a compat interface intended only to be called from kernel Makefiles.",
+        .man_pages = "kernel-install(8)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int run(int argc, char* argv[]) {
         int r;

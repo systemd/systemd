@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bpf-restrict-fs.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
@@ -75,9 +74,6 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        if (!bpf_restrict_fs_supported(/* initialize= */ true))
-                return log_tests_skipped("LSM BPF hooks are not supported");
-
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
@@ -86,8 +82,18 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(setenv_unit_path(unit_dir));
         ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
 
-        ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        r = manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m);
+        if (manager_errno_skip_test(r))
+                return log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        r = manager_startup(m, NULL, NULL, NULL, NULL);
+        if (manager_errno_skip_test(r))
+                return log_tests_skipped_errno(r, "manager_startup");
+        ASSERT_OK(r);
+
+        if (!m->restrict_fs)
+                return log_tests_skipped("LSM BPF hooks are not supported");
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block and @application */

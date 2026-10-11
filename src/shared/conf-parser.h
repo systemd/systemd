@@ -237,6 +237,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_int32);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_double);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_iec_size_long);
 CONFIG_PARSER_PROTOTYPE(config_parse_si_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64_infinity);

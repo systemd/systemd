@@ -8,13 +8,13 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-login.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "options.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -24,29 +24,11 @@
 #include "udevadm.h"
 #include "udevadm-util.h"
 #include "unit-def.h"
+#include "verbs.h"
 #include "virt.h"
 
 static usec_t arg_timeout_usec = 120 * USEC_PER_SEC;
 static const char *arg_exists = NULL;
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-settle", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("settle [OPTIONS]");
-        help_abstract("Wait for pending udev events.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -62,10 +44,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-settle"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("settle");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('t', "timeout", "SEC", "Maximum time to wait for events"):
                         r = parse_sec(opts.arg, &arg_timeout_usec);
@@ -86,6 +68,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
                                               "Option -%c no longer supported.",
                                               opts.opt->short_code);
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
@@ -209,8 +194,8 @@ int verb_settle_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         (void) emit_deprecation_warning();
 
         if (getuid() == 0) {
-                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec));
-                if (r < 0)
+                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec), /* ignore_connection_failure= */ true);
+                if (r <= 0)
                         return r;
         } else {
                 /* For non-privileged users, at least check if udevd is running. */

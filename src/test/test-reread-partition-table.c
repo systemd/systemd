@@ -82,7 +82,7 @@ TEST(rereadpt) {
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
 
         /* No change */
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
 
         /* Create */
@@ -93,7 +93,7 @@ TEST(rereadpt) {
                "start=, size=20M, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n");
 
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
@@ -105,11 +105,11 @@ TEST(rereadpt) {
         pfd = safe_close(pfd);
 
         /* No change */
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
         /* No change, but synthesize change anyway */
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ REREADPT_FORCE_UEVENT));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ REREADPT_FORCE_UEVENT, /* args= */ NULL));
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
         /* Resize */
@@ -120,7 +120,7 @@ TEST(rereadpt) {
                "start=, size=30M, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n");
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
         ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
@@ -129,7 +129,7 @@ TEST(rereadpt) {
         pfd = safe_close(pfd);
 
         /* No change */
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
 
         /* Move */
@@ -140,11 +140,11 @@ TEST(rereadpt) {
                "start=50M, size=15M, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\n");
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
+        ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL), EBUSY);
         pfd = safe_close(pfd);
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
 
         pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
@@ -152,7 +152,7 @@ TEST(rereadpt) {
         pfd = safe_close(pfd);
 
         /* No change */
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
 
         /* Remove */
@@ -162,11 +162,11 @@ TEST(rereadpt) {
                "label: gpt\n");
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
+        ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL), EBUSY);
         pfd = safe_close(pfd);
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
 }
 

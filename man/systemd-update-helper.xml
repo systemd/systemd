@@ -1,0 +1,212 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-update-helper"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-update-helper</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-update-helper</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-update-helper</refname>
+    <refpurpose>Enable, disable, stop, and restart units when packages are installed, upgraded, or removed</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-update-helper</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">UNIT</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Package managers call <command>systemd-update-helper</command> from the scriptlets of packages
+    that contain unit files. The systemd RPM macros and file triggers call it. It has to run as root.</para>
+
+    <para>By default, the commands operate on the system service manager and the system unit directories.
+    With <option>--global</option>, they operate on the global user unit configuration and on every running
+    user service manager, i.e. every active <filename>user@<replaceable>UID</replaceable>.service</filename>
+    unit. A user service manager that fails or does not finish the operation within 15 seconds is skipped
+    and does not affect the others. The timeout is set at build time with the
+    <option>-Dupdate-helper-user-timeout-sec=</option> option.</para>
+
+    <para>If the system was not booted with systemd, or the helper runs in a
+    <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    environment, the commands only change unit files and skip all operations on service managers. Set
+    <varname>$SYSTEMD_OFFLINE=</varname> to override this detection, see
+    <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink>.</para>
+
+    <para>A <replaceable>UNIT</replaceable> argument is either a unit name or the absolute path of a unit
+    file directly in <filename>/usr/lib/systemd/system/</filename> or <filename>/etc/systemd/system/</filename>,
+    or in <filename>/usr/lib/systemd/user/</filename> or <filename>/etc/systemd/user/</filename> with
+    <option>--global</option>. The path does not have to exist. Template units passed to
+    <command>remove-units</command>, <command>mark-restart-units</command>, and
+    <command>mark-reload-units</command> apply to all active instances of the template.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>install-units</option> <replaceable>UNIT</replaceable>…</term>
+
+        <listitem><para>Enables or disables the units according to the preset policy, like
+        <command>systemctl preset</command> does. With <option>--global</option>, applies the user preset
+        policy to the global user unit configuration, like <command>systemctl --global preset</command>
+        does.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>remove-units</option> <replaceable>UNIT</replaceable>…</term>
+
+        <listitem><para>Disables the units and stops them. With <option>--global</option>, each running user
+        service manager also disables the units in the configuration of its user, where
+        <command>systemctl --user enable</command> creates its symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>mark-restart-units</option> <replaceable>UNIT</replaceable>…</term>
+        <term><option>mark-reload-units</option> <replaceable>UNIT</replaceable>…</term>
+
+        <listitem><para>Marks the units to be restarted or reloaded by the next
+        <command>enqueue-marked</command>. See <command>enqueue-marked</command> in
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>daemon-reload</option></term>
+
+        <listitem><para>Reloads the configuration of the service manager. With <option>--global</option>,
+        reloads every running user service manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>enqueue-marked</option></term>
+
+        <listitem><para>Restarts or reloads the units that are marked for it, and waits for the jobs to
+        finish.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>daemon-reload-enqueue-marked</option></term>
+
+        <listitem><para>Runs <command>daemon-reload</command>, then <command>enqueue-marked</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operates on the system service manager and the system unit directories. This is the
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--global</option></term>
+
+        <listitem><para>Operates on the global user unit configuration and on every running user service
+        manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem><para>Reads the units from standard input, one unit name or unit file path per line,
+        instead of from the arguments. Lines that do not name a unit, or name a path outside of the unit
+        directories, are ignored. The RPM file triggers pass the unit files of removed packages this
+        way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem><para>Logs the changes and operations without performing them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Only logs errors.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise. A failure to preset a unit with
+    <command>install-units</command> makes the command fail. Failures to disable, stop, mark, restart, or
+    reload individual units, and failures of individual user service managers, are logged and do not change
+    the exit status.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Disable and stop the units of a removed package</title>
+
+      <programlisting># printf '%s\n' /usr/lib/systemd/system/sshd.service /usr/lib/systemd/system/sshd@.service | \
+    /usr/lib/systemd/systemd-update-helper --stdin remove-units</programlisting>
+
+      <para>This disables <filename>sshd.service</filename> and <filename>sshd@.service</filename>, and stops
+      <filename>sshd.service</filename> and all active instances of <filename>sshd@.service</filename>.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

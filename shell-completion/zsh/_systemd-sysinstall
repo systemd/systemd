@@ -11,6 +11,8 @@ _systemd-sysinstall_devices() {
 _arguments \
     '(- *)'{-h,--help}'[Show help text]' \
     '(- *)--version[Show package version]' \
+    '--device-auto[Automatically pick the target disk once the device list settled]' \
+    '--device-auto-timeout=[Settle timeout for --device-auto]:time span' \
     '--welcome=[Show welcome text]:boolean:(yes no)' \
     '--chrome=[Show colored bars at top and bottom of the terminal]:boolean:(yes no)' \
     '--erase=[Erase target disk before installation]:boolean:(yes no auto)' \

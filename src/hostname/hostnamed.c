@@ -46,6 +46,7 @@
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+#include "verbs.h"
 #include "virt.h"
 #include "vsock-util.h"
 
@@ -2013,6 +2014,12 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
         (void) load_env_file_pairs(/* f= */ NULL, etc_machine_info(), &machine_info_pairs);
 
+        /* Silently drop any invalid tags that might have been written into the file by hand */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &tags);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse machine tags '%s', ignoring: %m", strnull(c->data[PROP_TAGS]));
+
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("Hostname", hn ?: dhn),
@@ -2037,6 +2044,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageID", c->data[PROP_OS_IMAGE_ID]),
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageVersion", c->data[PROP_OS_IMAGE_VERSION]),
                         SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
+                        SD_JSON_BUILD_PAIR_STRV("MachineTags", tags),
                         SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
@@ -2627,6 +2635,7 @@ static int connect_varlink(Context *c) {
                         "io.systemd.Hostname.SetTags",           vl_method_set_tags,
                         "io.systemd.service.Ping",               varlink_method_ping,
                         "io.systemd.service.SetLogLevel",        varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",        varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",     varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
@@ -2654,6 +2663,16 @@ static bool context_check_idle(void *userdata) {
                 hashmap_isempty(c->polkit_registry);
 }
 
+COMMAND(
+        "systemd-hostnamed\0",
+        "Manage the system hostname and related metadata.",
+        .man_pages = "systemd-hostnamed.service(8)\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_destroy) Context context = {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
@@ -2664,9 +2683,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-hostnamed.service",
-                               "Manage the system hostname and related metadata.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

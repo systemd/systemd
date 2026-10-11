@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "blockdev-util.h"
@@ -16,30 +17,27 @@
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
-#include "bootctl-util.h"
 #include "bootspec-util.h"
 #include "build.h"
 #include "crypto-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "format-table.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -108,6 +106,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
+
+COMMAND(
+        "bootctl\0",
+        "Control EFI firmware boot settings and manage boot loader.",
+        .man_pages = "bootctl(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -290,85 +295,14 @@ GracefulMode arg_graceful(void) {
         return _arg_graceful;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("bootctl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        static const char *const verb_groups[] = {
-                "Generic EFI Firmware/Boot Loader Commands",
-                "Boot Loader Specification Commands",
-                "Boot Loader Interface Commands",
-                "systemd-boot Commands",
-                "Kernel Image Commands",
-        };
-
-        static const char *const option_groups[] = {
-                "Block Device Discovery Commands",
-                "Options",
-        };
-
-        Table *verb_tables[ELEMENTSOF(verb_groups)] = {};
-        CLEANUP_ELEMENTS(verb_tables, table_unref_array_clear);
-        Table *option_tables[ELEMENTSOF(option_groups)] = {};
-        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
-                r = verbs_get_help_table_group(verb_groups[i], &verb_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0,
-                                        verb_tables[0], verb_tables[1], verb_tables[2],
-                                        verb_tables[3], verb_tables[4],
-                                        option_tables[0], option_tables[1]);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sControl EFI firmware boot settings and manage boot loader.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), verb_groups[i], ansi_normal());
-
-                r = table_print_or_warn(verb_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), option_groups[i], ansi_normal());
-
-                r = table_print_or_warn(option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 VERB_GROUP("Generic EFI Firmware/Boot Loader Commands");
 
 VERB_SCOPE(, verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT,
            "Show status of installed boot loader and EFI variables");
 
-VERB_SCOPE(, verb_reboot_to_firmware, "reboot-to-firmware", "[BOOL]", VERB_ANY, 2, 0,
+VERB_SCOPE(, verb_reboot_to_firmware, "reboot-to-firmware", "[BOOL]\0", VERB_ANY, 2, 0,
            "Query or set reboot-to-firmware EFI flag");
 
 VERB_GROUP("Boot Loader Specification Commands");
@@ -376,10 +310,10 @@ VERB_GROUP("Boot Loader Specification Commands");
 VERB_SCOPE_NOARG(, verb_list, "list",
            "List boot loader entries");
 
-VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
+VERB_SCOPE(, verb_unlink, "unlink", "ID\0", VERB_ANY, 2, 0,
            "Remove boot loader entry");
 
-VERB_SCOPE(, verb_link, "link", "KERNEL", 2, 2, 0,
+VERB_SCOPE(, verb_link, "link", "KERNEL\0", 2, 2, 0,
            "Create boot loader entry for specified kernel");
 
 VERB_SCOPE_NOARG(, verb_link_auto, "link-auto",
@@ -390,22 +324,22 @@ VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
 
 VERB_GROUP("Boot Loader Interface Commands");
 
-VERB_SCOPE(, verb_set_efivar, "set-default", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-default", "ID\0", 2, 2, 0,
            "Set default boot loader entry");
 
-VERB_SCOPE(, verb_set_efivar, "set-oneshot", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-oneshot", "ID\0", 2, 2, 0,
            "Set default boot loader entry, for next boot only");
 
-VERB_SCOPE(, verb_set_efivar, "set-sysfail", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-sysfail", "ID\0", 2, 2, 0,
            "Set boot loader entry used in case of a system failure");
 
-VERB_SCOPE(, verb_set_efivar, "set-timeout", "SECONDS", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-timeout", "SECONDS\0", 2, 2, 0,
            "Set the menu timeout");
 
-VERB_SCOPE(, verb_set_efivar, "set-timeout-oneshot", "SECONDS", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-timeout-oneshot", "SECONDS\0", 2, 2, 0,
            "Set the menu timeout for the next boot only");
 
-VERB_SCOPE(, verb_set_efivar, "set-preferred", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-preferred", "ID\0", 2, 2, 0,
            /* help= */ NULL);
 
 VERB_GROUP("systemd-boot Commands");
@@ -427,10 +361,10 @@ VERB_SCOPE_NOARG(, verb_random_seed, "random-seed",
 
 VERB_GROUP("Kernel Image Commands");
 
-VERB_SCOPE(, verb_kernel_identify, "kernel-identify", "KERNEL-IMAGE", 2, 2, 0,
+VERB_SCOPE(, verb_kernel_identify, "kernel-identify", "KERNEL-IMAGE\0", 2, 2, 0,
            "Identify kernel image type");
 
-VERB_SCOPE(, verb_kernel_inspect, "kernel-inspect", "KERNEL-IMAGE", 2, 2, 0,
+VERB_SCOPE(, verb_kernel_inspect, "kernel-inspect", "KERNEL-IMAGE\0", 2, 2, 0,
            "Prints details about the kernel image");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
@@ -479,7 +413,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -612,7 +546,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("dry-run", NULL, "Dry run (unlink and cleanup)"):
+                OPTION('n', "dry-run", NULL, "Dry run (unlink and cleanup)"):
                         arg_dry_run = true;
                         break;
 
@@ -765,7 +699,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         arg_tries_left = u;
                         break;
-                }}
+                }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
+                }
 
         char **args = option_parser_get_args(&opts);
 

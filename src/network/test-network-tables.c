@@ -4,6 +4,7 @@
 
 #include "sd-dhcp-lease.h"
 
+#include "bareudp.h"
 #include "bond-util.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
@@ -22,6 +23,7 @@
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
+        test_table(BareUDPProtocol, bare_udp_protocol, BARE_UDP_PROTOCOL);
         test_table(BondAdSelect, bond_ad_select, NETDEV_BOND_AD_SELECT);
         test_table(BondArpAllTargets, bond_arp_all_targets, NETDEV_BOND_ARP_ALL_TARGETS);
         test_table(BondArpValidate, bond_arp_validate, NETDEV_BOND_ARP_VALIDATE);

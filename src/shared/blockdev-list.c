@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -166,8 +167,46 @@ int blockdev_list_one(
                         goto no_match;
         }
 
-        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
-                r = device_sysname_startswith(dev, "zram");
+        bool is_loop = false;
+        if (flags & (BLOCKDEV_LIST_IGNORE_LOOP|BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+                r = device_sysname_startswith(dev, "loop");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+
+                is_loop = r > 0;
+                if (is_loop && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_LOOP))
+                        goto no_match;
+        }
+
+        /* Loopback devices are virtual devices too, but they are covered by BLOCKDEV_LIST_IGNORE_LOOP above,
+         * hence exclude them here. */
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL) && !is_loop) {
+                const char *devpath;
+
+                r = sd_device_get_devpath(dev, &devpath);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to acquire device path of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+
+                if (path_startswith(devpath, "/devices/virtual/"))
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_PARTITIONS)) {
+                r = device_is_devtype(dev, "partition");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check if device is a partition '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+                if (r > 0)
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_RAMDISK)) {
+                r = device_sysname_startswith(dev, "ram", "zram");
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
                         goto skipped;
@@ -255,9 +294,35 @@ int blockdev_list_one(
                 }
 
                 uint64_t diskseq = UINT64_MAX;
-                r = sd_device_get_diskseq(dev, &diskseq);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_DISKSEQ)) {
+                        r = sd_device_get_diskseq(dev, &diskseq);
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                }
+
+                uint64_t read_bytes, write_bytes;
+                bool bytes_good = false;
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_RW_STATS)) {
+                        const char *v;
+
+                        r = sd_device_get_sysattr_value(dev, "stat", &v);
+                        if (r < 0)
+                                log_device_full_errno(dev, ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING,
+                                                      r, "%s: failed to read 'stat' attribute, ignoring: %m", node);
+                        else {
+                                /* Fields 3 and 7: the number of sectors read and written. The "stat" attribute
+                                 * always counts in 512 byte sectors, regardless of the device's logical block size.
+                                 * The skipped fields are consumed with %*s, since their values may exceed any fixed
+                                 * integer width. */
+                                if (sscanf(v, "%*s %*s %"SCNu64" %*s %*s %*s %"SCNu64, &read_bytes, &write_bytes) < 2)
+                                        log_device_warning(dev, "%s: failed to parse 'stat' attribute.", node);
+                                else if (!MUL_SAFE(&read_bytes, read_bytes, UINT64_C(512)) ||
+                                         !MUL_SAFE(&write_bytes, write_bytes, UINT64_C(512)))
+                                        log_device_debug(dev, "%s: sector counters out of range, ignoring.", node);
+                                else
+                                        bytes_good = true;
+                        }
+                }
 
                 _cleanup_free_ char *m = strdup(node);
                 if (!m)
@@ -266,11 +331,13 @@ int blockdev_list_one(
                 *ret = (BlockDevice) {
                         .node = TAKE_PTR(m),
                         .symlinks = TAKE_PTR(list),
-                        .diskseq = diskseq,
-                        .size = size,
                         .model = TAKE_PTR(model),
                         .vendor = TAKE_PTR(vendor),
                         .subsystem = TAKE_PTR(subsystem),
+                        .diskseq = diskseq,
+                        .size = size,
+                        .read_bytes = bytes_good ? read_bytes : UINT64_MAX,
+                        .write_bytes = bytes_good ? write_bytes : UINT64_MAX,
                         .read_only = ro,
                 };
 
@@ -288,7 +355,13 @@ skipped:
         return BLOCKDEV_LIST_MATCH_SKIPPED;
 }
 
-int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
+int blockdev_list_full(
+                BlockDevListFlags flags,
+                dev_t root_devno,
+                dev_t whole_root_devno,
+                BlockDevice **ret_devices,
+                size_t *ret_n_devices) {
+
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
@@ -301,8 +374,8 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         size_t n = 0;
         CLEANUP_ARRAY(l, n, block_device_array_free);
 
-        dev_t root_devno = 0, whole_root_devno = 0;
-        (void) blockdev_list_get_root_devnos(flags, &root_devno, &whole_root_devno);
+        if (root_devno == 0 && whole_root_devno == 0)
+                (void) blockdev_list_get_root_devnos(flags, &root_devno, &whole_root_devno);
 
         if (sd_device_enumerator_new(&e) < 0)
                 return log_oom();
@@ -310,6 +383,13 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subsystem match: %m");
+
+        if (!(flags & (BLOCKDEV_LIST_REQUIRE_LUKS | BLOCKDEV_LIST_SHOW_SYMLINKS | BLOCKDEV_LIST_METADATA))) {
+                /* If everything we need comes from the device name or sysfs directly, no udev db entry is needed. */
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to allow uninitialized devices, ignoring: %m");
+        }
 
         if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_LUKS)) {
                 /* blockdev_list_one() enforces this filter authoritatively; the enumerator match is just

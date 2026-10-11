@@ -5,12 +5,12 @@ set -o pipefail
 
 if ! command -v bootctl >/dev/null; then
     echo "bootctl not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
     echo "sd-boot is not installed, skipping."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/util.sh
@@ -619,7 +619,7 @@ EOF
     test -f "$ESP/$TOKEN/testuki.efi"
 
     # --- Test 5: --dry-run leaves everything in place ---
-    "${BOOTCTL[@]}" --dry-run unlink "${TOKEN}-commit_30.conf"
+    "${BOOTCTL[@]}" -n unlink "${TOKEN}-commit_30.conf"
     test -f "$ESP/loader/entries/${TOKEN}-commit_30.conf"
     test -f "$ESP/$TOKEN/testuki.efi"
 

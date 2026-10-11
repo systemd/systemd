@@ -953,11 +953,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Controls the secure bits set for the executed process. Takes a space-separated combination of
         options from the following list: <option>keep-caps</option>, <option>keep-caps-locked</option>,
-        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>, and
-        <option>noroot-locked</option>. This option may appear more than once, in which case the secure bits are
+        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>,
+        <option>noroot-locked</option>, <option>no-cap-ambient-raise</option>, <option>no-cap-ambient-raise-locked</option>,
+        <option>exec-restrict-file</option>, <option>exec-restrict-file-locked</option>,
+        <option>exec-deny-interactive</option>, and <option>exec-deny-interactive-locked</option>.
+        This option may appear more than once, in which case the secure bits are
         ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
         prefixed with <literal>+</literal>. See <citerefentry
-        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        and <ulink url="https://docs.kernel.org/userspace-api/check_exec.html">Executability check</ulink> for
         details.</para></listitem>
       </varlistentry>
 
@@ -2818,6 +2822,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
         defaults to off.</para>
 
+        <para>This setting is implemented using seccomp filtering. For system calls where the mode bits are
+        passed directly as arguments, the call is denied only when the SUID or SGID bits are set. For system
+        calls where those bits are passed indirectly and cannot be inspected by the filter, such as
+        <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
+
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
@@ -3357,7 +3366,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         assignments made through <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>, inherited from
         the system manager's global set of environment variables, inherited via <varname>PassEnvironment=</varname>,
         set by the service manager itself (such as <varname>$NOTIFY_SOCKET</varname> and such), or set by a PAM module
-        (in case <varname>PAMName=</varname> is used).</para>
+        (in case <varname>PAMName=</varname> is used). Note that variable expansion in the command lines of
+        <varname>ExecStart=</varname> and friends is not affected by this option, as it happens before the
+        unsetting is applied.</para>
 
         <para>See "Environment Variables in Spawned Processes" below for a description of how those
         settings combine to form the inherited environment. See <citerefentry
@@ -3409,7 +3420,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         system object to standard input. An absolute path following the <literal>:</literal> character is expected,
         which may refer to a regular file, a FIFO or special file. If an <constant>AF_UNIX</constant> socket in the
         file system is specified, a stream socket is connected to it. The latter is useful for connecting standard
-        input of processes to arbitrary system services.</para>
+        input of processes to arbitrary system services. Note that the file system object is opened by the
+        service manager before the executable is invoked; see the note on the security context this
+        happens in for <varname>StandardOutput=</varname> below.</para>
 
         <para>The <option>socket</option> option is valid in socket-activated services only, and requires the relevant
         socket unit file (see
@@ -3503,6 +3516,14 @@ SystemCallErrorNumber=EPERM</programlisting>
         only one process runs at a time, such as services with a single <varname>ExecStart=</varname> and no
         <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>, <varname>ExecStop=</varname> or
         similar.</para>
+
+        <para>Note that for <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option> and
+        <option>truncate:<replaceable>path</replaceable></option> of <varname>StandardOutput=</varname>,
+        <varname>StandardError=</varname> or <varname>StandardInput=</varname>, the target path is opened
+        by the service manager before the executable is invoked — and hence before
+        <varname>SELinuxContext=</varname> or any policy-defined transition takes effect. The resulting
+        descriptor is then inherited across that transition into the unit's own domain.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
@@ -4156,7 +4177,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
     <para>If the same environment variable is set by multiple of these sources, the later source — according
     to the order of the list above — wins. Note that as the final step all variables listed in
     <varname>UnsetEnvironment=</varname> are removed from the compiled environment variable list, immediately
-    before it is passed to the executed process.</para>
+    before it is passed to the executed process. This unsetting happens after variable expansion in
+    the command lines of <varname>ExecStart=</varname> and friends is performed, hence command line
+    expansion is not affected by <varname>UnsetEnvironment=</varname>.</para>
 
     <para>The general philosophy is to expose a small curated list of environment variables to processes.
     Services started by the system manager (PID 1) will be started, without additional service-specific
@@ -4180,11 +4203,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$PATH</varname></term>
 
           <listitem><para>Colon-separated list of directories to use when launching
-          executables. <command>systemd</command> uses a fixed value of
+          executables. <command>systemd</command> uses a built-in value of
           <literal><filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename></literal>
           in the system manager. In case of the user manager, a different path may be configured by the
-          distribution. It is recommended to not rely on the order of entries, and have only one program
-          with a given name in <varname>$PATH</varname>.</para>
+          distribution. The distribution may also add other paths to the end of this list for both the
+          system and the user manager. It is recommended to not rely on the order of entries, and have only
+          one program with a given name in <varname>$PATH</varname>.</para>
 
           <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>

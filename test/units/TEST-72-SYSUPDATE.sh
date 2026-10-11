@@ -5,7 +5,7 @@
 set -eux
 set -o pipefail
 
-SYSUPDATE=/usr/bin/systemd-sysupdate
+SYSUPDATE=/usr/lib/systemd/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
 UPDATECTL=""
 VARLINK_SOCKET=/run/systemd/io.systemd.SysUpdate
@@ -254,7 +254,10 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
+    [[ "${updatectl_output}" != *"Unexpected object field"* &&
+       "${updatectl_output}" != *"Missing object field"* &&
+       "${updatectl_output}" != *"Failed to dispatch JSON"* &&
+       "${updatectl_output}" != *"Failed to parse JSON"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -397,6 +400,26 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+Documentation=https://example.com/optional
+Documentation=https://example.com/optional-more
+AppStream=https://example.com/optional.appstream.xml
+EOF
+
+    cat >"$CONFIGDIR/undocumented.feature" <<EOF
+[Feature]
+Description=Feature Without Documentation
+EOF
+
+    cat >"$CONFIGDIR/malformed.feature" <<EOF
+[Feature]
+Description=Feature With Invalid Suggest Condition
+SuggestOnFirmware=smbios-field(malformed)
+EOF
+
+    cat >"$CONFIGDIR/suggested.feature" <<EOF
+[Feature]
+Description=Suggested Feature
+Suggest=yes
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -476,6 +499,31 @@ EOF
         exit 1
     fi
 
+    feature_json="$("$SYSUPDATE" --json=short features optional)"
+    jq -e '.id == "optional"' <<<"$feature_json" >/dev/null
+    jq -e '
+        .documentation == [
+            "https://example.com/optional",
+            "https://example.com/optional-more"
+        ]
+    ' <<<"$feature_json" >/dev/null
+    jq -e '.enabled == false' <<<"$feature_json" >/dev/null
+    jq -e '.suggested == false' <<<"$feature_json" >/dev/null
+    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+
+    suggested_json="$("$SYSUPDATE" --json=short features suggested)"
+    jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
+
+    undocumented_json="$("$SYSUPDATE" --json=short features undocumented)"
+    jq -e '.id == "undocumented" and (.documentation == null)' <<<"$undocumented_json" >/dev/null
+    "$SYSUPDATE" features undocumented | grep -F "Feature Without Documentation" >/dev/null
+
+    malformed_json="$("$SYSUPDATE" --json=short features malformed)"
+    jq -e '.id == "malformed" and (has("suggested") | not)' <<<"$malformed_json" >/dev/null
+    "$SYSUPDATE" features malformed | grep -F "error (Invalid argument)" >/dev/null
+    all_features_output="$("$SYSUPDATE" features)"
+    grep -F "malformed" <<<"$all_features_output" >/dev/null
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -521,9 +569,25 @@ EOF
     if [[ -x "$UPDATECTL" ]]; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        verify_object_fields "$("$UPDATECTL" list 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        updatectl_output="$("$UPDATECTL" list 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host@v6 2>&1)"
+        verify_object_fields "$updatectl_output"
+        features_output="$("$UPDATECTL" features)"
+        grep "optional" <<<"$features_output" >/dev/null
+        grep "undocumented" <<<"$features_output" >/dev/null
+        feature_output="$("$UPDATECTL" features optional)"
+        grep "Optional Feature" <<<"$feature_output" >/dev/null
+        grep "Suggested: no" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        grep -F "99-optional" <<<"$feature_output" >/dev/null
+        grep "malformed" <<<"$features_output" >/dev/null
+        verify_object_fields "$features_output"
+        malformed_feature_output="$("$UPDATECTL" features malformed)"
+        (! grep -F "Suggested:" <<<"$malformed_feature_output")
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
@@ -635,6 +699,11 @@ done
 # that a ‘default’ component is only listed by sysupdate if it’s fully configured
 mv "$CONFIGDIR" "$CONFIGDIR.backup"
 mkdir -p /run/sysupdate.some-component.d
+cat >/run/sysupdate.some-component.component <<EOF
+[Component]
+Documentation=https://example.com/some-component
+Documentation=https://example.com/some-component-more
+EOF
 tee /run/sysupdate.some-component.d/portable.transfer << EOF
 [Transfer]
 ChangeLog=https://example.com/changelog/@v
@@ -652,6 +721,9 @@ MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+component_output="$("$SYSUPDATE" components)"
+grep -F "https://example.com/some-component" <<<"$component_output" >/dev/null
+grep -F "https://example.com/some-component-more" <<<"$component_output" >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 mkdir /run/sysupdate.d
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
@@ -670,6 +742,7 @@ varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.tar
 # Clean up regression test
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
+rm -f /run/sysupdate.some-component.component
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
@@ -1281,7 +1354,153 @@ EOF
     cmp "$sigdir/payload-v2.raw" "$target/payload-v2.raw"
 }
 
+backup_import_keyring() {
+    local path="$1"
+    local backup="$2"
+
+    rm -f "$backup"
+    if [ -e "$path" ] || [ -L "$path" ]; then
+        mv "$path" "$backup"
+    fi
+}
+
+restore_import_keyring() {
+    local path="$1"
+    local backup="$2"
+
+    rm -f "$path"
+    if [ -e "$backup" ] || [ -L "$backup" ]; then
+        mv "$backup" "$path"
+    fi
+}
+
+test_signature_keyring_overlay() (
+    if ! command -v gpg >/dev/null; then
+        echo "gpg not available, skipping signature overlay test"
+        exit 0
+    fi
+
+    local gpg_version gpg_rest
+    gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
+    gpg_rest="${gpg_version#*.}"
+    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
+        echo "gpg $gpg_version too old (need >= 2.4), skipping signature overlay test"
+        exit 0
+    fi
+
+    local sigdir="$WORKDIR/sigtest-overlay-source"
+    local defdir="$WORKDIR/sigtest-overlay-defs"
+    local user_home="$WORKDIR/sigtest-overlay-userhome"
+    local vendor_home="$WORKDIR/sigtest-overlay-vendorhome"
+    local other_home="$WORKDIR/sigtest-overlay-otherhome"
+    local target="$WORKDIR/sigtest-overlay-target"
+    local user_keyring="$WORKDIR/sigtest-overlay-user.gpg"
+    local vendor_keyring="$WORKDIR/sigtest-overlay-vendor.gpg"
+    local other_keyring="$WORKDIR/sigtest-overlay-other.gpg"
+    local etc_pgp_backup="$WORKDIR/import-pubring.etc.pgp.bak"
+    local etc_gpg_backup="$WORKDIR/import-pubring.etc.gpg.bak"
+    local usr_pgp_backup="$WORKDIR/import-pubring.usr.pgp.bak"
+    # Called via trap on EXIT; shellcheck cannot see the indirect invocation.
+    # shellcheck disable=SC2329,SC2317
+    cleanup_overlay_keyrings() {
+        set +e
+        gpgconf --homedir "$user_home" --kill all 2>/dev/null || :
+        gpgconf --homedir "$vendor_home" --kill all 2>/dev/null || :
+        gpgconf --homedir "$other_home" --kill all 2>/dev/null || :
+        restore_import_keyring /etc/systemd/import-pubring.pgp "$etc_pgp_backup"
+        restore_import_keyring /etc/systemd/import-pubring.gpg "$etc_gpg_backup"
+        restore_import_keyring /usr/lib/systemd/import-pubring.pgp "$usr_pgp_backup"
+    }
+
+    mkdir -p "$sigdir" "$defdir" "$user_home" "$vendor_home" "$other_home" "$target" /etc/systemd /usr/lib/systemd
+    chmod 700 "$user_home" "$vendor_home" "$other_home"
+
+    trap cleanup_overlay_keyrings EXIT
+
+    backup_import_keyring /etc/systemd/import-pubring.pgp "$etc_pgp_backup"
+    backup_import_keyring /etc/systemd/import-pubring.gpg "$etc_gpg_backup"
+    backup_import_keyring /usr/lib/systemd/import-pubring.pgp "$usr_pgp_backup"
+
+    GNUPGHOME="$user_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay User <overlay-user@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$user_home" gpg --export --output "$user_keyring"
+
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay Vendor <overlay-vendor@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$vendor_home" gpg --export --output "$vendor_keyring"
+
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay Other <overlay-other@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$other_home" gpg --export --output "$other_keyring"
+
+    install -Dm0644 "$user_keyring" /etc/systemd/import-pubring.gpg
+    install -Dm0644 "$vendor_keyring" /usr/lib/systemd/import-pubring.pgp
+    rm -f /etc/systemd/import-pubring.pgp
+
+    dd if=/dev/urandom of="$sigdir/payload-v1.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw > SHA256SUMS)
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+
+    cat >"$defdir/01-sigtest.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$sigdir
+MatchPattern=payload-@v.raw
+
+[Target]
+Type=regular-file
+Path=$target
+MatchPattern=payload-@v.raw
+InstancesMax=3
+EOF
+
+    "$SYSUPDATE" --definitions="$defdir" check-new
+    "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v1.raw" "$target/payload-v1.raw"
+
+    dd if=/dev/urandom of="$sigdir/payload-v2.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw > SHA256SUMS)
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    if "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update signed by a key not in the default keyrings" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v2.raw" ]; then
+        echo "ERROR: payload-v2 should not have been installed" >&2
+        exit 1
+    fi
+
+    dd if=/dev/urandom of="$sigdir/payload-v3.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw payload-v3.raw > SHA256SUMS)
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    if SYSTEMD_OPENPGP_KEYRING="$other_keyring" "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update with an override keyring that lacks the signing key" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v3.raw" ]; then
+        echo "ERROR: payload-v3 should not have been installed" >&2
+        exit 1
+    fi
+
+    install -Dm0644 "$user_keyring" /etc/systemd/import-pubring.pgp
+    rm -f /etc/systemd/import-pubring.gpg
+    dd if=/dev/urandom of="$sigdir/payload-v4.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw payload-v3.raw payload-v4.raw > SHA256SUMS)
+    GNUPGHOME="$user_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v4.raw" "$target/payload-v4.raw"
+)
+
 test_signature_verification
+test_signature_keyring_overlay
 
 # Test '**/' as prefix in MatchPattern= for subpaths in SHA256SUMS
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
@@ -1717,12 +1936,20 @@ EOF
 assert_dropin "$(comp_enable_dropin compx)" yes
 test ! -e "$(comp_enable_dropin compy)"
 
-# 'disable-component --component-suggested' reconciles the other way around: it
-# acts on the components that are *not* suggested (i.e. compy).
+# 'disable-component --component-suggested' acts on the very same set, i.e. it
+# undoes what the enable above did. The non-suggested compy is left untouched.
 "$SYSUPDATE" --component-suggested disable-component
-assert_dropin "$(comp_enable_dropin compy)" no
-# compx must be left as it was (still enabled from above).
+assert_dropin "$(comp_enable_dropin compx)" no
+test ! -e "$(comp_enable_dropin compy)"
+
+# Reconciling the system with the current suggestions is a two step operation:
+# disable all components, then enable the suggested ones. Unlike the single
+# 'disable-component --component-suggested' above this makes the non-suggested
+# compy explicitly disabled.
+"$SYSUPDATE" --component-all disable-component
+"$SYSUPDATE" --component-suggested enable-component
 assert_dropin "$(comp_enable_dropin compx)" yes
+assert_dropin "$(comp_enable_dropin compy)" no
 
 # --component-suggested is not supported for the update verb.
 (! "$SYSUPDATE" --component-suggested --verify=no update) |& grep -F "not supported" >/dev/null
@@ -1796,7 +2023,8 @@ compfeat_source v1
 mkdir -p /run/sysupdate.d
 compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
 # feata: suggested (Suggest=yes); featb: not suggested (Suggest=no);
-# featc: suggested on a machine tag we will set below.
+# featc: suggested on a machine tag we will set below; featd: malformed
+# suggestion condition, which should be skipped without aborting the operation.
 cat >/run/sysupdate.d/feata.feature <<EOF
 [Feature]
 Suggest=yes
@@ -1809,12 +2037,24 @@ cat >/run/sysupdate.d/featc.feature <<EOF
 [Feature]
 SuggestOnMachineTag=sysupdate-test-tag
 EOF
+cat >/run/sysupdate.d/featd.feature <<EOF
+[Feature]
+SuggestOnFirmware=smbios-field(malformed)
+EOF
 
 # --feature-all operates on every known feature.
 "$SYSUPDATE" enable-feature --feature-all
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featb)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
+assert_dropin "$(feat_enable_dropin_default featd)" yes
+
+# ... and so does 'disable-feature --feature-all', in the other direction.
+"$SYSUPDATE" disable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" no
+assert_dropin "$(feat_enable_dropin_default featb)" no
+assert_dropin "$(feat_enable_dropin_default featc)" no
+assert_dropin "$(feat_enable_dropin_default featd)" no
 
 # --feature-suggested (no machine tag): only the Suggest=yes feature is picked.
 rm -rf /etc/sysupdate.d
@@ -1823,6 +2063,7 @@ set_machine_tags unrelated
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
 test ! -e "$(feat_enable_dropin_default featc)"
+test ! -e "$(feat_enable_dropin_default featd)"
 
 # --feature-suggested with the machine tag set: feata + featc are picked.
 rm -rf /etc/sysupdate.d
@@ -1831,6 +2072,23 @@ set_machine_tags sysupdate-test-tag
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
+test ! -e "$(feat_enable_dropin_default featd)"
+
+# 'disable-feature --feature-suggested' selects the same features as the enable
+# above, i.e. it undoes it and leaves the non-suggested featb untouched.
+"$SYSUPDATE" disable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" no
+assert_dropin "$(feat_enable_dropin_default featc)" no
+test ! -e "$(feat_enable_dropin_default featb)"
+test ! -e "$(feat_enable_dropin_default featd)"
+
+# The same two step reconciliation for features: disable all of them, then
+# enable the suggested ones, leaving the non-suggested featb explicitly off.
+"$SYSUPDATE" disable-feature --feature-all
+"$SYSUPDATE" enable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+assert_dropin "$(feat_enable_dropin_default featc)" yes
+assert_dropin "$(feat_enable_dropin_default featb)" no
 set_machine_tags ""
 
 # --component-all must still include the default component when all of its

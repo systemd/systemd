@@ -3,18 +3,17 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "build.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
+#include "socket-util.h"
 #include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -26,6 +25,12 @@ static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
+
+COMMAND(
+        "systemd-ssh-issue\0",
+        "Create or remove the /run/issue.d/ file announcing the SSH VSOCK address.",
+        .man_pages = "systemd-ssh-issue(1)\0",
+);
 
 static int acquire_cid(unsigned *ret_cid) {
         int r;
@@ -80,9 +85,15 @@ static int verb_make_vsock(int argc, char *argv[], uintptr_t _data, void *_userd
         } else
                 out = stdout;
 
-        fprintf(out,
-                "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
-                "\n", cid);
+        if (VSOCK_CID_IS_REGULAR(cid))
+                fprintf(out,
+                        "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
+                        "\n", cid);
+        else
+                /* Even when hwdb reports VSOCK_ACCEPT_VMADDR_CID_ANY=1, do not print
+                 * VMADDR_CID_ANY in the output. It will be rejected by systemd-ssh-proxy,
+                 * because it is still not a valid destination CID. */
+                fputs("This VM's SSH server is available over AF_VSOCK.\n\n", out);
 
         if (f) {
                 if (fchmod(fileno(f), 0644) < 0)
@@ -113,47 +124,6 @@ static int verb_rm_vsock(int argc, char *argv[], uintptr_t _data, void *_userdat
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-ssh-issue", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sCreate/remove ssh /run/issue.d/ file reporting VSOCK address.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(), ansi_normal(),
-               ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
@@ -167,7 +137,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -191,6 +161,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         arg_issue_stdout = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_issue_path && !arg_issue_stdout) {

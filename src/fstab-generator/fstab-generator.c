@@ -341,6 +341,7 @@ static int write_dependency(
                 const char *where,
                 const char *opts,
                 const char *filter,
+                const char *suffix,
                 const char* const *unit_settings) {
 
         _cleanup_strv_free_ char **unit_names = NULL;
@@ -360,7 +361,9 @@ static int write_dependency(
         STRV_FOREACH(s, unit_names) {
                 _cleanup_free_ char *mangled = NULL;
 
-                r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &mangled);
+                r = suffix ?
+                        unit_name_mangle_with_suffix(*s, "as dependency", 0, suffix, &mangled) :
+                        unit_name_mangle(*s, 0, &mangled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate dependency unit name for '%s': %m", where);
 
@@ -376,22 +379,24 @@ static int write_dependency(
 
 static int write_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.after\0", STRV_MAKE_CONST("After"));
+                                "x-systemd.after\0", /* suffix= */ ".mount", STRV_MAKE_CONST("After"));
 }
 
 static int write_requires_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.requires\0", STRV_MAKE_CONST("Requires", "After"));
+                                "x-systemd.requires\0", /* suffix= */ ".mount",
+                                STRV_MAKE_CONST("Requires", "After"));
 }
 
 static int write_wants_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.wants\0", STRV_MAKE_CONST("Wants", "After"));
+                                "x-systemd.wants\0", /* suffix= */ ".mount",
+                                STRV_MAKE_CONST("Wants", "After"));
 }
 
 static int write_before(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.before\0", STRV_MAKE_CONST("Before"));
+                                "x-systemd.before\0", /* suffix= */ ".mount", STRV_MAKE_CONST("Before"));
 }
 
 static int write_mounts_for(
@@ -426,6 +431,11 @@ static int write_mounts_for(
         return 0;
 }
 
+static int write_on_failure(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.onfailure\0", /* suffix= */ NULL, STRV_MAKE_CONST("OnFailure"));
+}
+
 static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
 
@@ -457,6 +467,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
 
         r = write_mounts_for(f, where, opts,
                              "x-systemd.wants-mounts-for\0", "WantsMountsFor");
+        if (r < 0)
+                return r;
+
+        r = write_on_failure(f, where, opts);
         if (r < 0)
                 return r;
 

@@ -7,7 +7,7 @@ set -o pipefail
 
 if ! journalctl --version | grep -F +OPENSSL >/dev/null; then
     echo "Built without openssl, skipping the FSS tests"
-    exit 0
+    exit 77
 fi
 
 # output key and related info in json format

@@ -144,7 +144,7 @@
     <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter
     so that devices whose sysname equals to <parameter>sysname</parameter> are excluded from the
     enumeration. This is useful for excluding specific devices from the enumeration process.
-    When called multiple times, features are ANDed.</para>
+    When called multiple times, filters are ANDed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_tag()</function> function adds a filter so that
     only devices tagged with <parameter>tag</parameter> are enumerated. When called multiple times,

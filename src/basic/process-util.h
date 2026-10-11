@@ -53,6 +53,8 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
+int pidref_has_sigcgt(const PidRef *pidref, int sig);
+int pidref_has_sigblk(const PidRef *pidref, int sig);
 
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
@@ -69,6 +71,8 @@ typedef enum WaitFlags {
 int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
 
 int kill_and_sigcont(pid_t pid, int sig);
+
+int procfs_get_stat_flags(const char *path, unsigned long long *ret);
 
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
@@ -197,9 +201,10 @@ int namespace_fork_full(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                NamespaceEnterFlags namespace_flags,
                 PidRef *ret);
 
-static inline int namespace_fork(
+int namespace_fork(
                 const char *outer_name,
                 const char *inner_name,
                 ForkFlags flags,
@@ -208,12 +213,7 @@ static inline int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                PidRef *ret) {
-
-        return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
-                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
-                                   ret);
-}
+                PidRef *ret);
 
 bool oom_score_adjust_is_valid(int oa);
 int set_oom_score_adjust(int value);

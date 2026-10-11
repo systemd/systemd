@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 """
 Compare statically linked dlopen symbols against shared library ELF notes.
 
@@ -33,6 +35,9 @@ except ImportError:
 # Function filter: Maps wrapper/sentinel symbols to real symbols or an empty list (ignore).
 FUNCTION_FILTER = {
     # Filtered out (internal helpers, verbose loggers, sentinels)
+    'dlopen_compress': [],
+    'dlopen_compress_journal': [],
+    'dlopen_compress_default': [],
     'dlopen_safe': [],
     'dlopen_verbose': [],
     'dlopen_many_sym_or_warn_sentinel': [],

@@ -331,7 +331,7 @@ static int sd_nfnl_message_new_masq_rule(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -386,7 +386,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -449,7 +449,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -548,7 +548,7 @@ static int nft_new_set(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(set_name);
 
-        r = sd_nfnl_nft_message_new_set(nfnl, &m, family, nft_table_name(), set_name, set_id, klen);
+        r = sd_nfnl_nft_message_new_set(nfnl, &m, /* add= */ true, family, nft_table_name(), set_name, set_id, klen);
         if (r < 0)
                 return r;
 
@@ -734,23 +734,23 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         /* Set F_EXCL so table add fails if the table already exists. */
-        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], family, nft_table_name());
+        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name());
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "prerouting", "nat",
                                               NF_INET_PRE_ROUTING, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "output", "nat",
                                               NF_INET_LOCAL_OUT, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "postrouting", "nat",
                                               NF_INET_POST_ROUTING, NF_IP_PRI_NAT_SRC + 1);
         if (r < 0)
@@ -802,47 +802,27 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         return 0;
 }
 
-static int nft_message_append_setelem_iprange(
-                sd_netlink_message *m,
-                const union in_addr_union *source,
-                unsigned prefixlen) {
-
-        uint32_t mask, start, end;
-        unsigned nplen;
+int fw_nftables_del_table(sd_netlink *nfnl, int family) {
         int r;
 
-        assert(m);
-        assert(source);
-        assert(prefixlen <= 32);
+        assert(nfnl);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
-        nplen = 32 - prefixlen;
-
-        mask = (1U << nplen) - 1U;
-        mask = htobe32(~mask);
-        start = source->in.s_addr & mask;
-
-        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        r = sd_nfnl_nft_message_new_table(nfnl, &m, /* add= */ false, family, nft_table_name());
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, &start, sizeof(start), NULL, 0, 0);
-        if (r < 0)
+        r = sd_nfnl_call_batch(nfnl, &m, /* n_messages= */ 1, NFNL_DEFAULT_TIMEOUT_USECS);
+        if (r < 0 && r != -ENOENT)
                 return r;
 
-        end = be32toh(start) + (1U << nplen);
-        if (end < be32toh(start))
-                end = 0U;
-        end = htobe32(end);
-
-        r = sd_nfnl_nft_message_append_setelem(m, 1, &end, sizeof(end), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
+        return 0;
 }
 
-static int nft_message_append_setelem_ip6range(
+static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
+                int af,
                 const union in_addr_union *source,
                 unsigned prefixlen) {
 
@@ -850,9 +830,10 @@ static int nft_message_append_setelem_ip6range(
         int r;
 
         assert(m);
+        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(source);
 
-        r = in_addr_prefix_range(AF_INET6, source, prefixlen, &start, &end);
+        r = in_addr_prefix_range(af, source, prefixlen, &start, &end);
         if (r < 0)
                 return r;
 
@@ -860,11 +841,15 @@ static int nft_message_append_setelem_ip6range(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0, 0);
+        r = sd_nfnl_nft_message_append_setelem(
+                        m, /* index= */ 0, &start, FAMILY_ADDRESS_SIZE(af),
+                        /* data= */ NULL, /* data_len= */ 0, /* flags= */ 0);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
+        r = sd_nfnl_nft_message_append_setelem(
+                        m, /* index= */ 1, &end, FAMILY_ADDRESS_SIZE(af),
+                        /* data= */ NULL, /* data_len= */ 0, NFT_SET_ELEM_INTERVAL_END);
         if (r < 0)
                 return r;
 
@@ -889,21 +874,13 @@ int nft_set_element_modify_iprange(
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
-
-        if (!source || source_prefixlen == 0)
-                return -EINVAL;
-
-        if (af == AF_INET6 && source_prefixlen < 8)
-                return -EINVAL;
+        assert(source);
 
         r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
-        if (af == AF_INET)
-                 r = nft_message_append_setelem_iprange(m, source, source_prefixlen);
-        else
-                 r = nft_message_append_setelem_ip6range(m, source, source_prefixlen);
+        r = nft_message_append_setelem_iprange(m, af, source, source_prefixlen);
         if (r < 0)
                 return r;
 
@@ -927,9 +904,7 @@ int nft_set_element_modify_ip(
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
-
-        if (!source)
-                return -EINVAL;
+        assert(source);
 
         r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
@@ -1002,6 +977,7 @@ int fw_nftables_add_masquerade(
 
         assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(source);
 
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;

@@ -160,10 +160,10 @@ TEST(description) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "server", server, INT_TO_PTR(fd), /* destroy= */ NULL, &f_server));
+        ASSERT_OK(sd_fiber_new(e, "server", server, INT_TO_PTR(fd), &f_server));
         TAKE_FD(fd);
 
-        ASSERT_OK(sd_fiber_new(e, "client", client, a, /* destroy= */ NULL, &f_client));
+        ASSERT_OK(sd_fiber_new(e, "client", client, a, &f_client));
 
         ASSERT_OK(sd_event_loop(e));
 

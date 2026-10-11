@@ -17,7 +17,7 @@
 #include "socket-netlink.h"
 #include "time-util.h"
 
-StreamSyncReq *stream_sync_req_free(StreamSyncReq *ssr) {
+StreamSyncReq* stream_sync_req_free(StreamSyncReq *ssr) {
         if (!ssr)
                 return NULL;
 

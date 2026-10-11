@@ -3,7 +3,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
 #include "fd-util.h"
@@ -13,8 +15,11 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "proc-cmdline.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "string-util.h"
 
 /* DMVERITY_DEVICES_MAX lives in bpf-restrict-fsaccess.h for sharing with tests. */
 
@@ -39,10 +44,9 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
 #include "bpf-util.h"
-#include "bpf-link.h"
 #include "restrict-fsaccess-skel.h"
 
-static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_fsaccess_bpf *obj) {
+static struct restrict_fsaccess_bpf* restrict_fsaccess_bpf_free(struct restrict_fsaccess_bpf *obj) {
         restrict_fsaccess_bpf__destroy(obj);
         return NULL;
 }
@@ -82,7 +86,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
 }
 
-bool dm_verity_require_signatures(void) {
+static bool dm_verity_require_signatures(void) {
         int r;
 
         r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
@@ -93,6 +97,129 @@ bool dm_verity_require_signatures(void) {
         }
 
         return r > 0;
+}
+
+/* proc_mem.force_override= is __ro_after_init. We require "never" because "ptrace" still lets a tracer
+ * rewrite its tracee. */
+static int proc_mem_force_override_restricted(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = proc_cmdline_get_key("proc_mem.force_override", /* flags= */ 0, &value);
+        if (r <= 0)
+                return r;
+
+        return streq(value, "never");
+}
+
+/* Unknown command line options are silently ignored, so verify the kernel really refuses FOLL_FORCE
+ * writes. Returns > 0 if a write through /proc/self/mem overrode a read-only mapping, 0 if it was refused. */
+static int proc_mem_can_force_override(void) {
+        _cleanup_close_ int fd = -EBADF;
+        const uint8_t zero = 0;
+        ssize_t n;
+        void *p;
+        int r;
+
+        p = mmap(/* addr= */ NULL, page_size(), PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, /* fd= */ -1, /* offset= */ 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        fd = open("/proc/self/mem", O_RDWR|O_CLOEXEC);
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* Without FOLL_FORCE access_remote_vm() copies nothing and mem_rw() fails with EIO. */
+        n = pwrite(fd, &zero, sizeof(zero), (off_t) (uintptr_t) p);
+        if (n < 0)
+                r = errno == EIO ? 0 : -errno;
+        else
+                r = n > 0 ? 1 : -EIO; /* Nothing written and no error is not a refusal, fail closed. */
+
+finish:
+        munmap_safe(p, page_size());
+        return r;
+}
+
+/* Both /proc/<pid>/mem gates: the command line says "never", and the kernel honours it. */
+static int restrict_fsaccess_check_proc_mem(void) {
+        int r;
+
+        r = proc_mem_force_override_restricted();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to read the kernel command line: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override is not set to \"never\", so "
+                                       "/proc/<pid>/mem can rewrite executable pages and bypass "
+                                       "RestrictFileSystemAccess=. Add proc_mem.force_override=never to the kernel "
+                                       "command line, or boot with systemd.restrict_filesystem_access=no to disable "
+                                       "the policy.");
+
+        r = proc_mem_can_force_override();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to probe whether /proc/self/mem overrides "
+                                       "memory protections: %m");
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override=never is on the kernel command "
+                                       "line, but a write through /proc/self/mem still overrides memory protections. "
+                                       "The kernel apparently does not support the option (Linux 6.12 or newer is "
+                                       "required). Boot with systemd.restrict_filesystem_access=no to disable the "
+                                       "policy.");
+
+        return 0;
+}
+
+/* The kernel-side prerequisites of the policy, shared with test-bpf-restrict-fsaccess. */
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        int r;
+
+        r = dlopen_bpf(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                return log_error_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is "
+                                       "used: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
+        log_debug("bpf-restrict-fsaccess: BPF LSM: supported.");
+
+        if (!dm_verity_require_signatures())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
+                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
+                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
+        log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
+
+        return restrict_fsaccess_check_proc_mem();
+}
+
+/* The seccomp filter survives execve() so ensure that we're not installing another filter. */
+static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->restrict_fsaccess_ptrace_filter)
+                return 0;
+
+        r = seccomp_restrict_ptrace();
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "bpf-restrict-fsaccess: seccomp support is not available, cannot block "
+                                       "ptrace() code injection.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
+
+        m->restrict_fsaccess_ptrace_filter = true;
+        return 0;
 }
 
 static int get_root_s_dev(uint32_t *ret) {
@@ -110,94 +237,107 @@ static int get_root_s_dev(uint32_t *ret) {
         return 0;
 }
 
-int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
+/* On failure sets *reterr_load_failed to true if the verifier rejected the object, which the caller may
+ * retry with resolution off, and to false for setup errors, which are fatal and already logged. */
+static int restrict_fsaccess_load_variant(
+                bool compat,
+                bool have_real_data_inode,
+                struct restrict_fsaccess_bpf **ret,
+                bool *reterr_load_failed) {
+
         _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
         int r;
 
         assert(ret);
+        assert(reterr_load_failed);
 
-        /* Try the preferred version first — it reads the const void *value
-         * argument for defense-in-depth. On kernels before v6.16 (missing
-         * 1271a40eeafa) the verifier rejects loads from const void * context
-         * arguments, so we fall back to the _compat variant that only reads
-         * the size argument via raw ctx access. */
         obj = restrict_fsaccess_bpf__open();
-        if (!obj)
+        if (!obj) {
+                *reterr_load_failed = false;
                 return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to open BPF object: %m");
-
-        r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
-
-        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable compat program: %m");
-
-        r = restrict_fsaccess_bpf__load(obj);
-        if (r >= 0) {
-                log_debug("bpf-restrict-fsaccess: Loaded with full const void * access.");
-                *ret = TAKE_PTR(obj);
-                return 0;
         }
 
-        log_debug_errno(r, "bpf-restrict-fsaccess: Full version failed to load (%m), trying compat variant.");
-        obj = restrict_fsaccess_bpf_free(obj);
-
-        obj = restrict_fsaccess_bpf__open();
-        if (!obj)
-                return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to reopen BPF object: %m");
-
         r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
-        if (r < 0)
+        if (r < 0) {
+                *reterr_load_failed = false;
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
+        }
 
-        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity, false);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable full program: %m");
+        r = sym_bpf_program__set_autoload(compat ? obj->progs.restrict_fsaccess_bdev_setintegrity
+                                                 : obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
+        if (r < 0) {
+                *reterr_load_failed = false;
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable %s bdev_setintegrity program: %m",
+                                       compat ? "full" : "compat");
+        }
+
+        /* The .rodata map is read-only and frozen once loaded — unlike the .bss globals, this flag can
+         * only be written between open and load. */
+        obj->rodata->have_real_data_inode = have_real_data_inode;
 
         r = restrict_fsaccess_bpf__load(obj);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object (compat): %m");
+        if (r < 0) {
+                *reterr_load_failed = true;
+                return r;
+        }
 
-        log_debug("bpf-restrict-fsaccess: Loaded with compat bdev_setintegrity.");
         *ret = TAKE_PTR(obj);
         return 0;
 }
 
-bool bpf_restrict_fsaccess_supported(void) {
-        _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
-        static int supported = -1;
+int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
+        static int cached_have_real_data_inode = -1;
         int r;
 
-        if (supported >= 0)
-                return supported;
-        if (dlopen_bpf(LOG_WARNING) < 0)
-                return (supported = false);
+        assert(ret);
 
-        r = lsm_supported("bpf");
-        if (r == -ENOPKG) {
-                log_debug_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
-                return (supported = false);
-        }
-        if (r < 0) {
-                log_warning_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is used: %m");
-                return (supported = false);
-        }
-        if (r == 0) {
-                log_info("bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
-                return (supported = false);
-        }
+        /* Whether the kernel provides the kfunc cannot change at runtime, and probing it parses the
+         * whole vmlinux BTF. */
+        if (cached_have_real_data_inode < 0)
+                cached_have_real_data_inode = bpf_kernel_has_kfunc("bpf_real_data_inode");
 
-        r = bpf_restrict_fsaccess_prepare(&obj);
-        if (r < 0)
-                return (supported = false);
+        bool have_real_data_inode = cached_have_real_data_inode;
 
-        if (!bpf_can_link_lsm_program(obj->progs.restrict_fsaccess_bprm_check)) {
-                log_warning("bpf-restrict-fsaccess: Failed to link program; assuming BPF LSM is not available.");
-                return (supported = false);
+        /* Try the preferred bdev_setintegrity variant first — it reads the const void *value argument
+         * for defense-in-depth. On kernels before v6.16 (missing 1271a40eeafa) the verifier rejects
+         * loads from const void * context arguments, so we fall back to the _compat variant that only
+         * reads the size argument via raw ctx access.
+         *
+         * Independently of that, union filesystem resolution is enabled when the kernel BTF advertises
+         * bpf_real_data_inode(). BTF only proves the function exists, not that it is registered as an
+         * LSM kfunc with the expected signature, so if loading with the resolution enabled fails, retry
+         * without it: files on union filesystems are then denied (fail closed) instead of the whole
+         * feature — and with it PID1 startup — failing. */
+        for (;;) {
+                bool load_failed;
+
+                r = restrict_fsaccess_load_variant(/* compat= */ false, have_real_data_inode, ret, &load_failed);
+                if (r >= 0) {
+                        log_debug("bpf-restrict-fsaccess: Loaded with full const void * access%s.",
+                                  have_real_data_inode ? " and union filesystem resolution" : "");
+                        return 0;
+                }
+                if (!load_failed)
+                        return r;
+
+                log_debug_errno(r, "bpf-restrict-fsaccess: Full version failed to load (%m), trying compat variant.");
+
+                r = restrict_fsaccess_load_variant(/* compat= */ true, have_real_data_inode, ret, &load_failed);
+                if (r >= 0) {
+                        log_debug("bpf-restrict-fsaccess: Loaded with compat bdev_setintegrity%s.",
+                                  have_real_data_inode ? " and union filesystem resolution" : "");
+                        return 0;
+                }
+                if (!load_failed)
+                        return r;
+
+                if (!have_real_data_inode)
+                        return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object (compat): %m");
+
+                log_warning_errno(r, "bpf-restrict-fsaccess: Kernel BTF advertises bpf_real_data_inode() but loading with it failed, "
+                                  "retrying without union filesystem resolution: %m");
+                have_real_data_inode = false;
         }
-
-        return (supported = true);
 }
 
 /* Partial deserialization (some FDs but not all) is fatal: continuing
@@ -401,24 +541,29 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                 return r;
                 }
 
+                /* A v261 PID 1 neither checked this nor installed the filter. Enforcement is active already,
+                 * so only complain. */
+                (void) restrict_fsaccess_check_proc_mem();
+                (void) restrict_fsaccess_install_ptrace_filter(m);
+
                 return 0;
         }
 
-        /* Fresh setup: verify BPF LSM is available */
-        if (!bpf_restrict_fsaccess_supported())
-                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                         "bpf-restrict-fsaccess: BPF LSM is not available.");
+        r = bpf_restrict_fsaccess_check_prerequisites();
+        if (r < 0)
+                return r;
 
-        /* Require dm-verity signature enforcement */
-        if (!dm_verity_require_signatures())
-                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
-                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
-                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
+        r = restrict_fsaccess_install_ptrace_filter(m);
+        if (r < 0)
+                return r;
 
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
                 return r;
+
+        if (!obj->rodata->have_real_data_inode)
+                log_info("bpf-restrict-fsaccess: Kernel does not provide the bpf_real_data_inode() kfunc, "
+                         "files on union filesystems are not resolved to their backing device and will be denied.");
 
         /* If we're still in the initramfs, allow execution from it by recording
          * its s_dev. After switch_root, PID1 re-execs and in_initrd() returns
@@ -511,7 +656,15 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        if (!MANAGER_IS_SYSTEM(m) || m->restrict_filesystem_access <= RESTRICT_FILESYSTEM_ACCESS_NO)
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        /* Process state, not policy state: the filter outlives the setting being turned off. */
+        r = serialize_bool_elide(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
+        if (m->restrict_filesystem_access <= RESTRICT_FILESYSTEM_ACCESS_NO)
                 return 0;
 
         FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds) {
@@ -529,12 +682,8 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
 
 #else /* ! BPF_FRAMEWORK || ! HAVE_LSM_INTEGRITY_TYPE */
 
-bool dm_verity_require_signatures(void) {
-        return false;
-}
-
-bool bpf_restrict_fsaccess_supported(void) {
-        return false;
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        return -EOPNOTSUPP;
 }
 
 int bpf_restrict_fsaccess_setup(Manager *m) {

@@ -48,6 +48,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(sortKey, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The version of the entry"),
                 SD_VARLINK_DEFINE_FIELD(version, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The kernel version from the UKI's .uname section"),
+                SD_VARLINK_DEFINE_FIELD(uname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Machine ID of the OS installation belonging to the entry, if known"),
                 SD_VARLINK_DEFINE_FIELD(machineId, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("EFI architecture name for this entry"),

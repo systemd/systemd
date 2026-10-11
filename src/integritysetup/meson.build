@@ -7,6 +7,7 @@ endif
 executables += [
         libexec_template + {
                 'name' : 'systemd-integritysetup',
+                'public' : true,
                 'sources' : files('integritysetup.c'),
                 'export' : files('integrity-util.c'),
                 'dependencies' : libcryptsetup_cflags,

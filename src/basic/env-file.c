@@ -665,30 +665,33 @@ static void write_env_var(FILE *f, const char *v) {
         fputc_unlocked('\n', f);
 }
 
-int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags, LabelContext *label_context) {
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(fname);
 
-        bool call_label_ops_post = false;
         if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL)) {
-                r = label_ops_pre(dir_fd, fname, S_IFREG);
+                r = label_ops_pre(dir_fd, fname, S_IFREG, label_context);
                 if (r < 0)
                         return r;
-
-                call_label_ops_post = true;
         }
 
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
         r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
-        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f) : 0;
-        if (r < 0)
+        if (r < 0) {
+                if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL))
+                        (void) label_ops_post(dir_fd, fname, /* created= */ false, label_context);
                 return r;
+        }
         CLEANUP_TMPFILE_AT(dir_fd, p);
-        if (k < 0)
-                return k;
+
+        if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL)) {
+                r = label_ops_post(fileno(f), /* path= */ NULL, /* created= */ true, label_context);
+                if (r < 0)
+                        return r;
+        }
 
         r = fchmod_umask(fileno(f), 0644);
         if (r < 0)
@@ -717,5 +720,5 @@ int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
                 "# Written by systemd-localed(8) or systemd-firstboot(1), read by systemd-localed",
                 "# and systemd-vconsole-setup(8). Use localectl(1) to update this file.");
 
-        return write_env_file(dir_fd, fname, headers, l, WRITE_ENV_FILE_LABEL);
+        return write_env_file_label(dir_fd, fname, headers, l, WRITE_ENV_FILE_LABEL, /* label_context= */ NULL);
 }

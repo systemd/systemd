@@ -9,17 +9,17 @@
 #define PATH_MERGED_BIN(x) x "bin"
 #define PATH_MERGED_BIN_NULSTR(x) x "bin\0"
 
-#define DEFAULT_PATH_WITH_FULL_SBIN PATH_SPLIT_BIN("/usr/local/") ":" PATH_SPLIT_BIN("/usr/")
-#define DEFAULT_PATH_WITH_LOCAL_SBIN PATH_SPLIT_BIN("/usr/local/") ":" PATH_MERGED_BIN("/usr/")
-#define DEFAULT_PATH_WITHOUT_SBIN PATH_MERGED_BIN("/usr/local/") ":" PATH_MERGED_BIN("/usr/")
+#define DEFAULT_PATH_WITH_FULL_SBIN PATH_SPLIT_BIN("/usr/local/") ":" PATH_SPLIT_BIN("/usr/") EXTRA_EXEC_SEARCH_PATH_SUFFIX
+#define DEFAULT_PATH_WITH_LOCAL_SBIN PATH_SPLIT_BIN("/usr/local/") ":" PATH_MERGED_BIN("/usr/") EXTRA_EXEC_SEARCH_PATH_SUFFIX
+#define DEFAULT_PATH_WITHOUT_SBIN PATH_MERGED_BIN("/usr/local/") ":" PATH_MERGED_BIN("/usr/") EXTRA_EXEC_SEARCH_PATH_SUFFIX
 
-#define DEFAULT_PATH_COMPAT DEFAULT_PATH_WITH_FULL_SBIN ":" PATH_SPLIT_BIN("/")
+#define DEFAULT_PATH_COMPAT PATH_SPLIT_BIN("/usr/local/") ":" PATH_SPLIT_BIN("/usr/") ":" PATH_SPLIT_BIN("/") EXTRA_EXEC_SEARCH_PATH_SUFFIX
 
 const char* default_PATH(void);
 
 static inline const char* default_user_PATH(void) {
 #ifdef DEFAULT_USER_PATH
-        return DEFAULT_USER_PATH;
+        return DEFAULT_USER_PATH EXTRA_EXEC_SEARCH_PATH_SUFFIX;
 #else
         return default_PATH();
 #endif

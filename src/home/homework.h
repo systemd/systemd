@@ -48,6 +48,7 @@ typedef struct HomeSetup {
         bool undo_mount:1;            /* Whether to unmount /run/systemd/user-home-mount */
         bool do_offline_fitrim:1;
         bool do_offline_fallocate:1;
+        bool tolerate_offline_fallocate_enospc:1;
         bool do_mark_clean:1;
         bool do_drop_caches:1;
 
@@ -82,6 +83,9 @@ typedef enum HomeSetupFlags {
         HOME_SETUP_RESIZE_DONT_GROW            = 1 << 4, /* If the resize would grow, gracefully terminate operation */
         HOME_SETUP_RESIZE_DONT_SHRINK          = 1 << 5, /* If the resize would shrink, gracefully terminate operation */
         HOME_SETUP_RESIZE_DONT_UNDO            = 1 << 6, /* Leave loopback/DM device context open after successful operation */
+
+        /* LUKS backend: */
+        HOME_SETUP_LUKS_DONT_FALLOCATE         = 1 << 7, /* Skip setup-time backing file allocation */
 } HomeSetupFlags;
 
 int home_setup_done(HomeSetup *setup);

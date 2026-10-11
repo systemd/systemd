@@ -9,7 +9,7 @@ typedef struct Feature {
         char *id;
 
         char *description;
-        char *documentation;
+        char **documentation;
         char *appstream;
 
         bool enabled;
@@ -27,4 +27,4 @@ extern const struct hash_ops feature_hash_ops;
 
 int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *conf_file_dirs);
 
-int feature_is_suggested(Feature *f);
+int feature_is_suggested(const Feature *f);

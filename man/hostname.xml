@@ -58,7 +58,7 @@
     cryptographic hashing. Each <literal>$</literal> is positional: the first <literal>$</literal> uses the word
     list file named <filename>1</filename>, the second <filename>2</filename>, and so on. This allows
     human-friendly names, for example <literal>$-$-$-????</literal> might expand to
-    <literal>wildly-happy-octopus-92a9</literal>. The word lists are searched for in
+    <literal>sunny-red-europa-92a9</literal>. The word lists are searched for in
     <filename>/etc/systemd/hostname-wordlist/</filename>, <filename>/run/systemd/hostname-wordlist/</filename>,
     <filename>/usr/local/lib/systemd/hostname-wordlist/</filename> and
     <filename>/usr/lib/systemd/hostname-wordlist/</filename> (the first directory providing a given list wins,

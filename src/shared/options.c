@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
+#include "ansi-color.h"
+#include "build.h"
 #include "format-table.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "options.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -64,7 +69,7 @@ static int partial_match_error(
 
         assert(strv_length(s) == n_partial_matches);
 
-        _cleanup_free_ char *p = strv_join_full(s, ", ", /* prefix= */ NULL, /* escape_separator= */ false);
+        _cleanup_free_ char *p = strv_join(s, ", ");
         return log_full_errno(LOG_ERR + state->log_level_shift,
                               SYNTHETIC_ERRNO(EINVAL),
                               "%s: option '%s' is ambiguous; possibilities: %s",
@@ -196,18 +201,27 @@ int option_parse(
                  * First, figure out if we have a long option or a short option. */
                 assert(handling_positional_arg || state->argv[state->optind][0] == '-');
 
-                if (handling_positional_arg)
-                        /* We are supposed to return the positional arg to be handled. */
+                if (handling_positional_arg) {
+                        /* Find the positional arg to be handled. */
+
+                        const char *group = NULL;  /* We start in the default unnamed group. */
+
                         for (option = state->namespace_start;; option++) {
                                 /* If OPTION_PARSER_RETURN_POSITIONAL_ARGS is specified,
                                  * OPTION_POSITIONAL must be used. */
                                 assert(option < state->namespace_end);
 
+                                /* If state.option_groups are specified, ignore options outside of the group */
+                                if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                        group = option->long_code;
+                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                        continue;
+
                                 if (FLAGS_SET(option->flags, OPTION_POSITIONAL_ENTRY))
                                         break;
                         }
 
-                else if (state->argv[state->optind][1] == '-') {
+                } else if (state->argv[state->optind][1] == '-') {
                         /* We have a long option. */
                         char *eq = strchr(state->argv[state->optind], '=');
                         if (eq) {
@@ -223,8 +237,20 @@ int option_parse(
                                 /* argument (if any) is separate */
                                 optname = state->argv[state->optind];
 
+                        /* An empty name, i.e. "--=…", would be a prefix of every option, so reject it
+                         * right away rather than let it match. */
+                        if (isempty(optname + 2)) {
+                                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                                   SYNTHETIC_ERRNO(EINVAL),
+                                                   "%s: unrecognized option '%s'",
+                                                   program_invocation_short_name, optname);
+                                goto fail;
+                        }
+
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
+
+                        const char *group = NULL;  /* We start in the default unnamed group. */
 
                         for (option = state->namespace_start;; option++) {
                                 if (option >= state->namespace_end) {
@@ -249,6 +275,12 @@ int option_parse(
                                         option = last_partial;
                                         break;
                                 }
+
+                                /* If state.option_groups are specified, ignore options outside of the group */
+                                if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                        group = option->long_code;
+                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                        continue;
 
                                 if (option_is_metadata(option) || !option->long_code)
                                         continue;
@@ -278,6 +310,8 @@ int option_parse(
                 }
                 optname = _optname;
 
+                const char *group = NULL;  /* We start in the default unnamed group. */
+
                 for (option = state->namespace_start;; option++) {
                         if (option >= state->namespace_end) {
                                 r = log_full_errno(LOG_ERR + state->log_level_shift,
@@ -286,6 +320,12 @@ int option_parse(
                                                    program_invocation_short_name, optname);
                                 goto fail;
                         }
+
+                        /* If state.option_groups are specified, ignore options outside of the group */
+                        if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                group = option->long_code;
+                        if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                continue;
 
                         if (option_is_metadata(option) || optchar != option->short_code)
                                 continue;
@@ -306,6 +346,18 @@ int option_parse(
         }
 
         assert(option);
+
+        if (!handling_positional_arg &&
+            FLAGS_SET(option->flags, OPTION_EXPERIMENTAL) &&
+            !experimental_enabled()) {
+                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                   SYNTHETIC_ERRNO(EPERM),
+                                   EXPERIMENTAL == EXPERIMENTAL_DISABLED ?
+                                           "%s: option '%s' is experimental and not supported in this build" :
+                                           "%s: option '%s' is experimental and requires $SYSTEMD_EXPERIMENTAL=1 to be set, refusing",
+                                   program_invocation_short_name, optname);
+                goto fail;
+        }
 
         if (!handling_positional_arg && optval && !option_takes_arg(option)) {
                 r = log_full_errno(LOG_ERR + state->log_level_shift,
@@ -460,44 +512,107 @@ char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metav
                        option_arg_optional(opt) ? "]" : "");
 }
 
-int _option_parser_get_help_table_full(
+static bool options_find_namespace_in(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace,
-                const char *group,
-                Table **ret) {
+                const Option **ret_start,
+                const Option **ret_end) {
+
+        assert(ret_start);
+        assert(ret_end);
+
+        for (const Option *opt = options; opt < options_end; opt++)
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER) &&
+                    streq(namespace, ASSERT_PTR(opt->long_code))) {
+                        *ret_start = opt + 1;
+                        *ret_end = options_end;
+                        return true;
+                }
+
+        return false;
+}
+
+bool options_find_namespace(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace,
+                const Option **ret_start,
+                const Option **ret_end) {
+
+        assert(ret_start);
+        assert(ret_end);
+
+        /* We check *two* locations: the area specified by the caller ([options; options_end)),
+         * and any options specified in libsystemd-shared. When the caller uses
+         * __start_SYSTEMD_OPTIONS/__stop_SYSTEMD_OPTIONS, they get pointers to *their*
+         * SYSTEMD_OPTIONS section. Here, when we use those, we get pointers to *our*
+         * SYSTEMD_OPTIONS section in libsystemd-shared.
+         *
+         * This works in both directions: a program may describe a command whose options are
+         * defined here (the "service" namespace in service-util.c), and the code here may describe
+         * commands whose options are defined in the program, as long as the program's section is
+         * what the caller passes in. The caller's area is empty if the program defines no options
+         * of its own. When everything is linked statically, the two areas are one and the same. */
+
+        if (!namespace) {
+                /* The first part is the default unnamed namespace, so if the namespace
+                 * name was not specified, we are in the right namespace. */
+                *ret_start = options;
+                *ret_end = options_end;
+                return true;
+        }
+
+        if (options_find_namespace_in(options, options_end, namespace, ret_start, ret_end))
+                return true;
+
+        if (options == __start_SYSTEMD_OPTIONS)
+                return false; /* The same area, no point in looking again. Not found :/ */
+
+        return options_find_namespace_in(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,
+                                         namespace, ret_start, ret_end);
+}
+
+int options_get_help_table_group(
+                const Option options[],
+                const Option options_end[],
+                const char *option_groups,
+                Table **ret,
+                const char **ret_group) {
         int r;
 
         assert(ret);
 
-        _cleanup_(table_unrefp) Table *table = table_new("names", "help");
-        if (!table)
-                return log_oom();
+        _cleanup_(table_unrefp) Table *table = NULL;
 
-        bool in_ns = namespace == NULL;  /* Are we currently in the section of the array that forms namespace
-                                          * <namespace>? The first part is the default unnamed namespace, so
-                                          * if the namespace was not specified, we are in it. */
+        assert(options_end > options);
 
-        bool in_group = group == NULL;  /* Are we currently in the section of the array that forms group
-                                         * <group>? The first part is the default group, so if the group was
-                                         * not specified, we are in it. */
+        bool group_marker = FLAGS_SET(options[0].flags, OPTION_GROUP_MARKER);
+        const char *group = group_marker ? ASSERT_PTR(options[0].long_code) : NULL;
 
-        for (const Option *opt = options; opt < options_end; opt++) {
-                bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
-                if (!in_ns) {
-                        in_ns = ns_marker && streq(namespace, opt->long_code);
+        /* Determine if we should ignore the whole option group. We do this if the option_groups option is
+         * specified and the current group name is not listed. The unnamed group cannot be specified by the
+         * nulstr, so always ignore it. */
+        bool ignore_group = option_groups && !(group && nulstr_contains(option_groups, group));
+
+        if (!ignore_group) {
+                table = table_new("names", "help");
+                if (!table)
+                        return log_oom();
+        }
+
+        const Option *opt;
+        for (opt = options + group_marker; opt < options_end; opt++) {
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER))
+                        /* End of our namespace */
+                        break;
+
+                if (FLAGS_SET(opt->flags, OPTION_GROUP_MARKER))
+                        /* End of the group */
+                        break;
+
+                if (ignore_group)
                         continue;
-                }
-                if (ns_marker)
-                        break;  /* End of namespace */
-
-                bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
-                if (!in_group) {
-                        in_group = group_marker && streq(group, opt->long_code);
-                        continue;
-                }
-                if (group_marker)
-                        break;  /* End of group */
 
                 if (!opt->help)
                         /* No help string — we do not show the option */
@@ -516,7 +631,11 @@ int _option_parser_get_help_table_full(
                 if (!t)
                         return log_oom();
 
-                r = table_add_many(table, TABLE_STRING, t);
+                bool experimental = FLAGS_SET(opt->flags, OPTION_EXPERIMENTAL);
+
+                r = table_add_many(table,
+                                   TABLE_STRING, t,
+                                   TABLE_SET_COLOR, experimental ? ansi_bright_yellow() : NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -524,14 +643,126 @@ int _option_parser_get_help_table_full(
                 if (!split)
                         return log_oom();
 
+                if (experimental) {
+                        r = strv_extend(&split, "(experimental)");
+                        if (r < 0)
+                                return log_oom();
+                }
+
                 r = table_add_many(table, TABLE_STRV_WRAPPED, split);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        assert(!table_isempty(table));  /* The namespace or group were not found. Something is off. */
+        if (!ignore_group) {
+                assert(!table_isempty(table));  /* Empty group? Something is off. */
+                table_set_header(table, false);
+        }
 
-        table_set_header(table, false);
         *ret = TAKE_PTR(table);
+        if (ret_group)
+                *ret_group = group;
+
+        assert(opt - options < INT_MAX);
+        return opt - options;
+}
+
+static int option_build_json(const Option *opt, const char *group, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL;
+        int r;
+
+        assert(opt);
+        assert(opt->short_code != 0 || opt->long_code);
+        assert(ret);
+
+        if (opt->short_code != 0) {
+                char s[3] = { '-', opt->short_code };
+
+                r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                if (r < 0)
+                        return r;
+        }
+
+        if (opt->long_code) {
+                _cleanup_free_ char *s = strjoin("--", opt->long_code);
+                if (!s)
+                        return -ENOMEM;
+
+                r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                if (r < 0)
+                        return r;
+        }
+
+        const char *argtype =
+                option_arg_required(opt) ? "required_argument" :
+                option_arg_optional(opt) ? "optional_argument" :
+                "no_argument";
+
+        /* The "isExperimental" field is an extension not (yet) covered by the specification. */
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_VARIANT("names", names),
+                        SD_JSON_BUILD_PAIR_STRING("argument", argtype),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!opt->metavar,
+                                        "metavar", SD_JSON_BUILD_STRING(opt->metavar)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!opt->help, "help", SD_JSON_BUILD_STRING(opt->help)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!group,
+                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(opt->flags, OPTION_EXPERIMENTAL),
+                                        "isExperimental", SD_JSON_BUILD_BOOLEAN(true)));
+}
+
+int options_build_json(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace,
+                const char *option_groups,
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        const char *group = NULL;
+        int r;
+
+        assert(ret);
+
+        const Option *start, *stop;
+        if (!options_find_namespace(options, options_end, namespace, &start, &stop))
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Option namespace %s not found.",
+                                       namespace ?: "(unnamed)");
+
+        for (const Option *opt = start; opt < stop; opt++) {
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER))
+                        break;  /* End of our namespace */
+
+                if (FLAGS_SET(opt->flags, OPTION_GROUP_MARKER)) {
+                        group = opt->long_code;
+                        continue;
+                }
+
+                if (option_is_metadata(opt))
+                        /* Positional and help entries are only used for display */
+                        continue;
+
+                if (option_groups && !(group && nulstr_contains(option_groups, group)))
+                        /* This group shall be ignored */
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+                r = option_build_json(opt, group, &o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON object for option '%s': %m",
+                                               opt->long_code ?: CHAR_TO_STR(opt->short_code));
+
+                r = sd_json_variant_append_array(&array, o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        *ret = TAKE_PTR(array);
         return 0;
 }

@@ -249,7 +249,7 @@ PaddingMinBytes=92M
 EOF
 
     systemd-repart --definitions="$defs" \
-                   --dry-run=yes \
+                   -n \
                    --seed="$seed" \
                    --include-partitions=home,swap \
                    "-"
@@ -1559,8 +1559,8 @@ EOF
 testcase_verity_encrypt() {
     local defs imgs output loop drh hrh part_size dm_devno verity_dep
 
-    if ( . /etc/os-release && [[ "$ID" == "postmarketos" ]] ); then
-        echo "Skipping verity+encrypt test on postmarketOS."
+    if ( . /etc/os-release && [[ "$ID" == "nura" ]] ); then
+        echo "Skipping verity+encrypt test on Nura."
         return
     fi
 
@@ -2166,7 +2166,7 @@ EOF
 }
 
 testcase_make_symlinks() {
-    local defs imgs output
+    local defs imgs output epoch
 
     if systemd-detect-virt --quiet --container; then
         echo "Skipping MakeSymlinks= test in container."
@@ -2191,7 +2191,13 @@ MakeSymlinks=/dir/foo-%a:/bar-%a
 MakeSymlinks=/dir/bar-%a:../bar-%a
 EOF
 
-    systemd-repart --offline="$OFFLINE" \
+    # Build with an epoch, so that this also covers do_make_symlinks()' time stamping. It has to
+    # stamp the symlink itself and repair the directory it lands in, because creating an entry there
+    # bumps that directory back to the wall clock.
+    epoch=1700000000
+
+    env SOURCE_DATE_EPOCH="$epoch" \
+        systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
                    --empty=create \
                    --size=1G \
@@ -2205,6 +2211,12 @@ EOF
     assert_eq "$(readlink "$imgs/mnt/dir/foo")" "/bar"
     assert_eq "$(readlink "$imgs/mnt/dir/foo-${architecture}")" "/bar-${architecture}"
     assert_eq "$(readlink "$imgs/mnt/dir/bar-${architecture}")" "../bar-${architecture}"
+
+    # the symlink's own mtime (no -L)
+    assert_eq "$(stat -c %Y "$imgs/mnt/dir/foo")" "$epoch"
+    # a MakeDirectories= dir, stamped with the epoch and then bumped by the symlinks below it.
+    assert_eq "$(stat -c %Y "$imgs/mnt/dir")" "$epoch"
+
     systemd-dissect -U "$imgs/mnt"
 }
 
@@ -2756,6 +2768,123 @@ EOF
     cmp "$imgs/test1.img" "$imgs/test2.img"
 }
 
+testcase_vfat_reproducibility() {
+    local defs imgs img dot_efi dot_linux
+
+    if ! command -v mdir >/dev/null; then
+        echo "Skipping vfat reproducibility test, mtools is not installed."
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+CopyFiles=/:/
+EOF
+
+    # $SOURCE_DATE_EPOCH is a clamp, not an override, so put one file on either side of it to cover
+    # both directions.
+    mkdir -p "$imgs/tree/EFI/Linux"
+    echo old >"$imgs/tree/EFI/Linux/old.efi"
+    echo new >"$imgs/tree/EFI/Linux/new.efi"
+    touch --date=@1600000000 "$imgs/tree/EFI/Linux/old.efi"
+    touch --date=@1750000000 "$imgs/tree/EFI/Linux/new.efi"
+
+    # The timestamps as mdir(1) reports them.
+    local -r time_epoch="2023-11-14  22:13"   # $SOURCE_DATE_EPOCH below, i.e. @1700000000
+    local -r time_old="2020-09-13  12:26"     # old.efi's mtime, before the epoch
+    local -r time_new="2025-06-15  15:06"     # new.efi's mtime, after the epoch
+
+    # Build $1 from the tree and set $img to it, in the "file@@offset" form mdir(1) wants. The
+    # remaining arguments are passed to env(1), to control $SOURCE_DATE_EPOCH.
+    build_image() {
+        local name="$1" output offset
+        shift
+
+        output=$(env "$@" \
+            systemd-repart \
+            --offline="$OFFLINE" \
+            --definitions="$defs" \
+            --empty=create \
+            --size=auto \
+            --seed="$seed" \
+            --dry-run=no \
+            --root="$imgs/tree" \
+            --json=pretty \
+            "$imgs/$name")
+
+        offset=$(jq -r '.[0].offset' <<<"$output")
+        img="$imgs/$name@@$offset"
+
+        # dump listing for debugging
+        fat_entry -/ ::/
+    }
+
+    # Print $img's mdir(1) entry for the given path. mdir lists a directory's contents; a trailing `*`
+    # gets the directory's own entry instead. Insensitive path matching, thus works with mtools' 8.3
+    # lower case and kernel vfat's upper case names.
+    fat_entry() {
+        env MTOOLS_SKIP_CHECK=1 TZ=UTC mdir -i "$img" "$@"
+    }
+
+    # Same, for the "." entry of directory $1, which cannot be addressed directly.
+    fat_dot_entry() {
+        fat_entry "$1" | grep -E '^\. +<DIR>'
+    }
+
+    build_image epoch.img SOURCE_DATE_EPOCH=1700000000
+
+    # The directories and the file newer than the epoch are clamped down to it, ...
+    assert_in "$time_epoch" "$(fat_entry '::/EFI*')"
+    assert_in "$time_epoch" "$(fat_entry '::/EFI/Linux*')"
+    assert_in "$time_epoch" "$(fat_entry '::/EFI/Linux/new.efi')"
+    # ... while the older one keeps its own mtime.
+    assert_in "$time_old" "$(fat_entry '::/EFI/Linux/old.efi')"
+
+    # "." and ".." behave differently
+    dot_efi=$(fat_dot_entry '::/EFI')
+    dot_linux=$(fat_dot_entry '::/EFI/Linux')
+    if [[ "$OFFLINE" == "yes" ]]; then
+        # mmd creates them and respects SOURCE_DATE_EPOCH
+        assert_in "$time_epoch" "$dot_efi"
+        assert_in "$time_epoch" "$dot_linux"
+    else
+        # The kernel's vfat driver creates them with wallclock mtime. Our utimensat()
+        # afterwards only rewrites the directory's entry in its *parent*, never this pair.
+        # Out of reach from userspace, remains unreproducible. Just log them.
+        echo "'.' entries carry the wall clock, as expected online: $dot_efi / $dot_linux"
+    fi
+
+    # Without an epoch, both files keep their own mtime.
+    build_image wallclock.img -u SOURCE_DATE_EPOCH
+
+    assert_in "$time_new" "$(fat_entry '::/EFI/Linux/new.efi')"
+    assert_in "$time_old" "$(fat_entry '::/EFI/Linux/old.efi')"
+
+    # A value we cannot parse is dropped rather than passed on
+    build_image bogus.img SOURCE_DATE_EPOCH=99999999999999999999
+
+    assert_in "$time_new" "$(fat_entry '::/EFI/Linux/new.efi')"
+    assert_in "$time_old" "$(fat_entry '::/EFI/Linux/old.efi')"
+
+    # SOURCE_DATE_EPOCH in hex - we do parse that, but mtools doesn't
+    build_image hex.img SOURCE_DATE_EPOCH=0x6553F100
+
+    assert_in "$time_epoch" "$(fat_entry '::/EFI*')"
+
+    # Note the images still are not reproducible byte for byte: the volume label entry carries
+    # mkfs.fat's wall clock, in *both* modes, and that needs a dosfstools with $SOURCE_DATE_EPOCH
+    # support (https://github.com/dosfstools/dosfstools/commit/8da7bc93315c, release > 4.2). Once
+    # that lands, offline mode can move to a `cmp` like in testcase_ext_reproducibility; online
+    # mode cannot, because of the "." and ".." entries above.
+}
+
 testcase_luks2_keyhash() {
     local defs imgs output root
 
@@ -2809,6 +2938,192 @@ EOF
     [ ! -f "/dev/mapper/$volume" ] || exit 1
 
     losetup -d "$loop"
+}
+
+testcase_encrypt_add_token() {
+    local defs imgs loop token_json metadata_json metadata_b64
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for EncryptAddToken= (plain type name, no extra data) ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-plain.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-plain.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :data: base64) ***"
+
+    rm -f "$defs/root.conf"
+
+    # Build base64-encoded JSON for the extra metadata (no type/keyslots)
+    metadata_json='{"trustee.kbs.url":"http://kbs-service:8080"}'
+    metadata_b64="$(echo -n "$metadata_json" | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-data.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-data.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:8080', 'Extra field not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :file:) ***"
+
+    rm -f "$defs/root.conf"
+
+    echo -n '{"trustee.kbs.url":"http://kbs-service:9090"}' > "$imgs/token-meta.json"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:file:${imgs}/token-meta.json
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-file.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-file.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:9090', 'Extra field from file not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (multiple tokens on one partition) ***"
+
+    rm -f "$defs/root.conf"
+
+    metadata_b64="$(echo -n '{"extra-key":"extra-val"}' | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=first-token
+EncryptAddToken=second-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-multi.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-multi.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Both tokens should appear in luksDump
+    cryptsetup luksDump "${loop}p1" | grep "first-token" >/dev/null
+    cryptsetup luksDump "${loop}p1" | grep "second-token" >/dev/null
+
+    # Verify each token individually
+    cryptsetup token export --token-id 0 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'first-token', 'Wrong first token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot not in first token: {}'.format(d)
+"
+    cryptsetup token export --token-id 1 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'second-token', 'Wrong second token type: {}'.format(d['type'])
+assert d.get('extra-key') == 'extra-val', 'Extra field missing in second token: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot not in second token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
 }
 
 testcase_fstab_crypttab_in_repart() {
@@ -3022,7 +3337,7 @@ EOF
     assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
     dm_btrfs_encrypted="$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)"
     if [[ "$dm_btrfs_encrypted" != "/dev/mapper/btrfs-replace-encrypted" ]]; then
-        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/postmarketOS),
+        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/Nura),
         # it creates a device node under /dev/mapper/ instead of relying on udev to create a symlink.
         # In this case, verify that both device nodes refer to the same underlying device.
         assert_eq "$(stat -c %Hr:%Lr "$dm_btrfs_encrypted")" "$(stat -c %Hr:%Lr /dev/mapper/btrfs-replace-encrypted)"
@@ -3159,6 +3474,81 @@ EOF
     assert_in "$imgs/leftover2.img1 : start=        2048, size=       20480, type=$xbootldr_guid," "$output"
     assert_in "$imgs/leftover2.img2 : start=       22528, size=        4096, type=$usr_guid," "$output"
     assert_in "$imgs/leftover2.img3 : start=       26624, size=       24536, type=$esp_guid," "$output"
+}
+
+testcase_partition_number_gap() {
+    local defs imgs image output before after
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    image="$imgs/gap.img"
+
+    tee "$defs/10-a.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=a
+SizeMinBytes=20M
+SizeMaxBytes=20M
+EOF
+
+    tee "$defs/20-b.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=b
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    # Initially create two partitions with consecutive partition numbers.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=create \
+                   --size=64M \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk -d "$image")"
+    assert_in "${image}1 :" "$output"
+    assert_in "${image}2 :" "$output"
+
+    # Remove the first partition, leaving partition number 1 unused while
+    # partition number 2 remains occupied.
+    sfdisk --delete "$image" 1
+
+    output="$(sfdisk -d "$image")"
+    assert_not_in "${image}1 :" "$output"
+    assert_in "${image}2 :" "$output"
+
+    # Repart should append the new partition after the highest existing
+    # partition of the same type instead of filling the lower-numbered gap.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk -d "$image")"
+    assert_not_in "${image}1 :" "$output"
+    assert_in "${image}2 : start=       43008, size=       40960, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    assert_in "${image}3 : start=        2048, size=       20480, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+
+    # A subsequent invocation should not rematch the definitions and modify
+    # the partition table again.
+    before="$output"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$image"
+
+    after="$(sfdisk -d "$image")"
+    assert_eq "$after" "$before"
 }
 
 OFFLINE="yes"

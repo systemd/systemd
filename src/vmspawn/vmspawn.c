@@ -13,6 +13,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -25,6 +26,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -37,12 +39,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fork-notify.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
 #include "group-record.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -54,12 +54,10 @@
 #include "machine-credential.h"
 #include "machine-register.h"
 #include "main-func.h"
-#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "options.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -92,6 +90,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "verbs.h"
 #include "vmspawn-bind-volume.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
@@ -233,55 +232,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 
-static int help(void) {
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        static const char* const groups[] = {
-                NULL,
-                "Image",
-                "Host Configuration",
-                "Networking",
-                "Execution",
-                "System Identity",
-                "Properties",
-                "User Namespacing",
-                "Mounts",
-                "Logging",
-                "SSH",
-                "Input/Output",
-                "Credentials",
-        };
-
-        Table* tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(
-                        0, tables[0], tables[1], tables[2], tables[3], tables[4],
-                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10],
-                        tables[11], tables[12]);
-
-        help_cmdline("[OPTIONS...] [ARGUMENTS...]");
-        help_abstract("Spawn a command or OS in a virtual machine.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i] ?: "Options");
-
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("systemd-vmspawn", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-vmspawn\0",
+        "Spawn a command or OS in a virtual machine.",
+        .argspec = "[ARGUMENTS…]\0",
+        .man_pages = "systemd-vmspawn(1)\0",
+        .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
+);
 
 static int parse_environment(void) {
         const char *e;
@@ -344,13 +302,17 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        /* Our positional arguments are kernel command line arguments rather than a command to
+         * execute, and those never begin with a dash, so there's no reason to stop looking for
+         * options at the first of them. "--" still ends option parsing, for the rare argument that
+         * does look like an option. */
+        OptionParser opts = { argc, argv };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -423,6 +385,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_size(opts.arg, 1024, &arg_grow_image);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
+
+                        if (arg_grow_image > UINT64_MAX - 4095)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                                       "Specified --grow-image= size too large: %s", opts.arg);
+                        arg_grow_image = ROUND_UP(arg_grow_image, 4096);
                         break;
 
                 OPTION_GROUP("Host Configuration"): {}
@@ -948,6 +915,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         /* Drop duplicate --bind-user= and --bind-user-group= entries */
@@ -2088,12 +2058,6 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        /* Round up to multiple of 4K */
-        size = DIV_ROUND_UP(size, 4096);
-        if (size > UINT64_MAX / 4096)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified file size too large, refusing.");
-        size *= 4096;
-
         _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
@@ -2355,10 +2319,9 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
         return 0;
 }
 
-static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
+static int prepare_primary_drive(DriveInfos *drives) {
         int r;
 
-        assert(runtime_dir);
         assert(drives);
 
         if (!arg_image)
@@ -2406,18 +2369,54 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
          * as qcow2 via blockdev-create, so no filesystem path is needed.
          * Skip for read-only drives (e.g. CDROM) where overlays are not meaningful. */
         if (arg_ephemeral && !FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) {
-                _cleanup_close_ int overlay_fd = open(runtime_dir, O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
-                if (overlay_fd < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                                return log_error_errno(errno, "Failed to create ephemeral overlay in '%s': %m", runtime_dir);
+                _cleanup_close_ int overlay_fd = -EBADF;
+                _cleanup_free_ char *image_dir = NULL;
+                const char *overlay_dir = NULL;
 
-                        /* Fallback to memfd if O_TMPFILE is not supported */
-                        overlay_fd = memfd_new("vmspawn-overlay");
+                /* /dev/ is a devtmpfs. An overlay next to a block device would therefore use host memory. A
+                 * memfd or a deleted file has no links, and therefore no directory to create the overlay in.
+                 * fd_get_path() returns the path of the opened file. If arg_image is a symlink, the overlay is
+                 * therefore created next to the symlink target. */
+                if (S_ISREG(st.st_mode) && st.st_nlink > 0) {
+                        _cleanup_free_ char *image_path = NULL;
+                        r = fd_get_path(d->fd, &image_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get path of '%s': %m", arg_image);
+
+                        r = path_extract_directory(image_path, &image_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from '%s': %m", image_path);
+
+                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR|O_CLOEXEC);
                         if (overlay_fd < 0)
-                                return log_error_errno(overlay_fd, "Failed to create ephemeral overlay via memfd: %m");
+                                log_debug_errno(overlay_fd,
+                                                "Failed to create ephemeral overlay in '%s', using the directory for large temporary files instead: %m",
+                                                image_dir);
+                        else
+                                overlay_dir = image_dir;
                 }
+
+                if (overlay_fd < 0) {
+                        r = var_tmp_dir(&overlay_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
+
+                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        if (overlay_fd < 0)
+                                return log_error_errno(overlay_fd, "Failed to create ephemeral overlay in '%s': %m", overlay_dir);
+                }
+
+                /* The guest makes small random writes to the overlay. On btrfs, small random writes fragment a
+                 * copy-on-write file. FS_NOCOW_FL only takes effect while the file is still empty. */
+                r = chattr_fd(overlay_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable copy-on-write for ephemeral overlay, ignoring: %m");
+
+                log_debug("Created ephemeral overlay in '%s'.", overlay_dir);
+
                 d->overlay_fd = TAKE_FD(overlay_fd);
                 d->flags |= QMP_DRIVE_NO_FLUSH;
+                d->grow_to = arg_grow_image;
         }
 
         drives->drives[drives->n_drives++] = TAKE_PTR(d);
@@ -2515,10 +2514,9 @@ static int assign_pcie_ports(MachineConfig *c) {
         return 0;
 }
 
-static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
+static int prepare_device_info(MachineConfig *c) {
         int r;
 
-        assert(runtime_dir);
         assert(c);
 
         DriveInfos *drives = &c->drives;
@@ -2529,7 +2527,7 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
         if (!drives->drives)
                 return log_oom();
 
-        r = prepare_primary_drive(runtime_dir, drives);
+        r = prepare_primary_drive(drives);
         if (r < 0)
                 return r;
 
@@ -2549,8 +2547,8 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
  * deviate slightly from our own names for the same modes (cf. confidential_computing_to_string()):
  * "sev-snp" vs. "amd-sev-snp", and "tdx" vs. "intel-tdx". */
 static const char* const coco_firmware_feature_table[_COCO_MAX] = {
-        [COCO_AMD_SEV_SNP] = "amd-sev-snp",
-        [COCO_INTEL_TDX]   = "intel-tdx",
+        [COCO_SEV_SNP] = "amd-sev-snp",
+        [COCO_TDX]     = "intel-tdx",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(coco_firmware_feature, ConfidentialComputing);
@@ -2595,7 +2593,8 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
+        /* Always assigned paths below the runtime directory, whose removal takes them along. */
+        _cleanup_free_ char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
@@ -2605,6 +2604,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 .network = { .fd = -EBADF },
                 .vsock   = { .fd = -EBADF },
         };
+        /* Declared before the CLEANUP_ARRAY() below, so that cleanup order (reverse of declaration) lets
+         * fork_notify_terminate_many() reap the helpers before this directory goes away: their sockets,
+         * state, and the QEMU config file all live below it, and pulling it out from under them gives
+         * spurious errors and can leave the directory behind. */
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -2734,8 +2738,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
          * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-
         r = runtime_directory_make(arg_runtime_scope, "systemd/vmspawn", arg_machine, &runtime_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to create runtime directory: %m");
@@ -2792,11 +2794,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "snp0");
                 if (r < 0)
                         return r;
-        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+        } else if (arg_confidential_computing == COCO_TDX) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "tdx0");
                 if (r < 0)
                         return r;
@@ -2994,7 +2996,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 /* SNP marks encrypted guest pages via the "C-bit" in the page table entry. On all
                  * SNP-capable processors (Milan and later) the C-bit lives at bit 51, which reduces
                  * the usable guest physical address space by one bit.
@@ -3008,7 +3010,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "kernel-hashes", "on");
                 if (r < 0)
                         return r;
-        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+        } else if (arg_confidential_computing == COCO_TDX) {
                 r = qemu_config_section(config_file, "object", "tdx0",
                                         "qom-type", "tdx-guest");
                 if (r < 0)
@@ -3068,9 +3070,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * CPU model. */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
-                arg_confidential_computing == COCO_INTEL_TDX   ? "host"    :
-                                                                 "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_SEV_SNP ? "EPYC-v4" :
+                arg_confidential_computing == COCO_TDX     ? "host"    :
+                                                             "max,hv_relaxed,hv-vapic,hv-time";
 #else
                 "max";
 #endif
@@ -3249,14 +3251,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                if (arg_image_disk_type != DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                        /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+                        if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
+                            strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
+                                return log_oom();
+                } else if (!arg_ephemeral) {
+                        /* In ephemeral mode the original image is never written to, the requested size is
+                         * applied to the qcow2 overlay instead, see prepare_primary_drive(). */
                         r = grow_image(arg_image, arg_grow_image);
                         if (r < 0)
                                 return r;
-                /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
-                } else if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
-                           strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
-                        return log_oom();
+                }
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -3644,7 +3650,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
          * continue to use the SMBIOS path below, which works with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
-        bool use_initrd_cpio = arg_confidential_computing == COCO_AMD_SEV_SNP &&
+        bool use_initrd_cpio = arg_confidential_computing == COCO_SEV_SNP &&
                                arg_credentials.n_credentials > 0;
 
         _cleanup_(unlink_and_freep) char *credentials_cpio_path = NULL;
@@ -3851,17 +3857,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
-        r = prepare_device_info(runtime_dir, &config);
+        r = prepare_device_info(&config);
         if (r < 0)
                 return r;
 
         /* Connect to VMM backend */
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
-        r = vmspawn_qmp_init(&bridge, bridge_fds[0], event);
+        r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
         if (r < 0)
                 return r;
-
-        TAKE_FD(bridge_fds[0]);
 
         /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
         r = vmspawn_qmp_probe_features(bridge);
@@ -4109,12 +4113,23 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
 
-                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                        switch (i->type) {
+                        case IMAGE_RAW:
+                        case IMAGE_BLOCK:
                                 r = free_and_strdup(&arg_image, i->path);
-                        else if (IN_SET(i->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
+                                break;
+
+                        case IMAGE_DIRECTORY:
+                        case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
-                        else
-                                assert_not_reached();
+                                break;
+
+                        default:
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Image '%s' at '%s' has unsupported type '%s'. "
+                                                       "Please use 'systemd-nspawn -M %s' instead.",
+                                                       arg_machine, i->path, image_type_to_string(i->type), arg_machine);
+                        }
                         if (r < 0)
                                 return log_oom();
                 } else {
@@ -4225,7 +4240,9 @@ static int verify_arguments(void) {
                         log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
         }
 
-        if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2)
+        /* In ephemeral mode the size is picked when creating the qcow2 overlay, so the base image format
+         * doesn't matter. */
+        if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2 && !arg_ephemeral)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
 
@@ -4242,7 +4259,7 @@ static int verify_arguments(void) {
                                                "confidential computing firmware is stateless. Use 'off' or 'auto'.");
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 if (native_architecture() != ARCHITECTURE_X86_64)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "--coco=sev-snp is only supported on x86_64.");
@@ -4265,7 +4282,7 @@ static int verify_arguments(void) {
                                                "so kernel, initrd and cmdline are covered by the launch measurement.");
         }
 
-        if (arg_confidential_computing == COCO_INTEL_TDX) {
+        if (arg_confidential_computing == COCO_TDX) {
                 if (native_architecture() != ARCHITECTURE_X86_64)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "--coco=tdx is only supported on x86_64.");

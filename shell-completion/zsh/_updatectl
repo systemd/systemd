@@ -1,0 +1,79 @@
+#compdef updatectl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_updatectl_targets() {
+    local expl
+    local -a targets=( ${(@f)"$(
+        _call_program targets updatectl --no-pager --no-legend list 2>/dev/null |
+            sed -n 's/^[^[:alnum:]_.@%+=:,~-]*\([[:alnum:]_.@%+=:,~-]\+\).*/\1/p'
+    )"} )
+    _wanted targets expl 'target' compadd "$@" -a - targets
+}
+
+_updatectl_features() {
+    local expl
+    local -a features=( ${(@f)"$(
+        _call_program features updatectl --no-pager --no-legend features 2>/dev/null |
+            sed -n 's/^[^[:space:]]\+[[:space:]]\+\([[:alnum:]_.@%+=:,~-]\+\).*/\1/p'
+    )"} )
+    _wanted features expl 'feature' compadd "$@" -a - features
+}
+
+local context state state_descr line
+typeset -A opt_args
+local ret=1
+
+local -a opts=(
+    {-h,--help}'[Show help message and exit]'
+    '--version[Show package version and exit]'
+    '--no-pager[Do not pipe output into a pager]'
+    '--no-legend[Do not show the headers and footers]'
+    '--no-ask-password[Do not prompt for password]'
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host'
+    '--reboot[Reboot after updating to newer version]'
+    '--offline[Do not fetch metadata from the network]'
+    '--now[Download/delete resources immediately]'
+)
+
+local -a commands=(
+    'list:List available targets and versions'
+    'check:Check for updates'
+    'update:Install updates'
+    'vacuum:Clean up old updates'
+    'features:List and inspect optional features on host OS'
+    'enable:Enable optional feature on host OS'
+    'disable:Disable optional feature on host OS'
+)
+
+_arguments -s -A '-*' \
+    "$opts[@]" \
+    ':command:->command' \
+    '*:: :->argument' && ret=0
+
+case $state in
+    command)
+        _describe -t commands 'updatectl command' commands && ret=0
+        ;;
+    argument)
+        local curcontext=${curcontext%:*:*}:updatectl-$words[1]:
+        case $words[1] in
+            list)
+                _arguments -s "$opts[@]" ':target:_updatectl_targets' && ret=0
+                ;;
+            check|update|vacuum)
+                _arguments -s "$opts[@]" '*:target:_updatectl_targets' && ret=0
+                ;;
+            features)
+                _arguments -s "$opts[@]" ':feature:_updatectl_features' && ret=0
+                ;;
+            enable|disable)
+                _arguments -s "$opts[@]" '*:feature:_updatectl_features' && ret=0
+                ;;
+            *)
+                _arguments -s "$opts[@]" && ret=0
+                ;;
+        esac
+        ;;
+esac
+
+return ret

@@ -31,7 +31,7 @@
       <command>systemd-cgls</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain"><option>--unit</option>|<option>--user-unit</option></arg>
-      <arg choice="opt" rep="repeat">UNIT</arg>
+      <arg choice="plain" rep="repeat">UNIT</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 

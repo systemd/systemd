@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Dell Inc. Latitude 5455",
+    "compatible": "dell,latitude-5455",
+    "hwids": [
+        "4d1ff2c8-dd8d-556b-befa-0cab2bc86be3",
+        "2d75e18e-e107-5c79-8a69-5f163d28ee6f",
+        "9195a554-2255-55ce-ab3f-59a2aba05c4e",
+        "6329967e-8fcd-5544-8869-36881d8b997b",
+        "f069ee1a-448c-55df-b8a2-eebce2ccaf7f",
+        "75d1456b-5a14-5868-b877-7b9f58f4dd0d",
+        "d33d10f9-d59d-5dc6-b13b-686ac24ea3c0",
+        "745f5023-2386-5aaa-944d-b825bea80756",
+        "9e9723ce-65b3-57d5-a98d-bf4e0b8f87ed",
+        "2f11e817-91c9-5aa2-acb1-bd1d317c9ba6",
+        "53c465c5-6425-51cd-b0aa-3382f3ad3622",
+        "dfb300e4-c621-562c-a147-521e95ce6b7f",
+        "838cf30a-6594-5200-8432-b94de34ce905"
+    ]
+}

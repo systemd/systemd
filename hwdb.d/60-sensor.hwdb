@@ -350,7 +350,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:rvnDefaultstring:rnCherryTrailCR:*:sku2017
 # Cytrix (Mytrix)
 #########################################
 
-sensor:modalias:acpi:KIOX000A:*:dmi:svnCytrixTechnology:pnComplex11t:*    # Complex 11t
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCytrixTechnology:pnComplex11t:*    # Complex 11t
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
@@ -381,6 +381,7 @@ sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC4:*    # La
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC5:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC7:*    # Precision 5490
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC8:*    # Precision 5690
+sensor:modalias:acpi:HID-SENSOR-200076:dmi:*:svnDellInc.:*:sku0A42:*    # Latitude 5320
  ACCEL_LOCATION=base
 
 sensor:modalias:acpi:INVN6500:*:dmi:*:svnDellInc.:pnVenue8Pro3845:*         # Venue 8 Pro 3845
@@ -794,6 +795,13 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnMicrotech:pne-tabPro:*    # Microtech e
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Minisforum
+#########################################
+
+sensor:modalias:acpi:SMOCF05:*:dmi:*:svnMicroComputer(HK)TechLimited:pnV3*:*    # V3, V3 SE
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # MPMAN
 #########################################
 
@@ -876,6 +884,10 @@ sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:bd07/17/20
 sensor:modalias:acpi:BMI0160:*:dmi:*:rnONEXPLAYER:rvrV01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
+# One-Netbook OneXPlayer Super X
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnONE-NETBOOK:pnONEXPLAYERSUPERX:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # OrangePi
 #########################################
@@ -896,13 +908,6 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnDefaultstring*:pnP612F:*    # P612F
 
 sensor:modalias:acpi:SMO8500:*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*    # MMC1010 2-in-1
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-#########################################
-# Pine64
-#########################################
-
-sensor:modalias:of:NaccelerometerT_null_Csilan,sc7a20:*    # PineTab2
- ACCEL_MOUNT_MATRIX=0, 0, -1; 1, 0, 0; 0, -1, 0
 
 #########################################
 # Pipo
@@ -996,6 +1001,13 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnRCA:pnW101SA23T1:*    # W101SA23T1
 
 sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrSCH12i.WJ210Z.KtBJRCA*:*    # SCT101CTM
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# Shift
+#########################################
+
+sensor:modalias:acpi:SMOCF00:*:dmi:*:svnSHIFT:pnSHIFT13mi:*    # SHIFTbook 1
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # Teclast

@@ -9,11 +9,11 @@
 #include "capability-util.h"
 #include "errno-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
-#include "strv.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -29,7 +29,7 @@ void save_argc_argv(int argc, char **argv) {
 }
 
 bool invoked_as(char *argv[], const char *token) {
-        const char *progname = secure_getenv("SYSTEMD_INVOKED_AS");
+        const char *progname = empty_to_null(secure_getenv("SYSTEMD_INVOKED_AS"));
 
         if (!progname && argv)
                 progname = argv[0];
@@ -67,32 +67,6 @@ bool invoked_by_systemd(void) {
 
         cached = getpid_cached() == p;
         return cached;
-}
-
-bool argv_looks_like_help(int argc, char **argv) {
-        char **l;
-
-        /* Scans the command line for indications the user asks for help. This is supposed to be called by
-         * tools that do not implement getopt()-style command line parsing because they are not primarily
-         * user-facing. Detects four ways of asking for help:
-         *
-         * 1. Passing zero arguments
-         * 2. Passing "help" as first argument
-         * 3. Passing --help as any argument
-         * 4. Passing -h as any argument
-         */
-        assert(argc == 0 || argv);
-
-        if (argc <= 1)
-                return true;
-
-        if (streq_ptr(argv[1], "help"))
-                return true;
-
-        l = strv_skip(argv, 1);
-
-        return strv_contains(l, "--help") ||
-                strv_contains(l, "-h");
 }
 
 static int update_argv(const char name[], size_t l) {
@@ -150,7 +124,7 @@ static int update_argv(const char name[], size_t l) {
                         r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0);
                         if (r < 0) {
                                 log_debug_errno(r, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
-                                (void) munmap(nn, nn_size);
+                                munmap_safe(nn, nn_size);
                                 return r;
                         }
 
@@ -166,8 +140,7 @@ static int update_argv(const char name[], size_t l) {
                                 log_debug_errno(r, "PR_SET_MM_ARG_END failed, proceeding without: %m");
                 }
 
-                if (mm)
-                        (void) munmap(mm, mm_size);
+                munmap_safe(mm, mm_size);
 
                 mm = nn;
                 mm_size = nn_size;

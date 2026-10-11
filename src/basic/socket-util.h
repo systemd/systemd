@@ -240,8 +240,12 @@ int socket_get_mtu(int fd, int af, size_t *ret);
 int connect_unix_path(int fd, int dir_fd, const char *path);
 
 static inline bool VSOCK_CID_IS_REGULAR(unsigned cid) {
-        /* 0, 1, 2, UINT32_MAX are special, refuse those */
-        return cid > 2 && cid < UINT32_MAX;
+        /* Refuse special CID values */
+        return !IN_SET(cid,
+                       VMADDR_CID_HYPERVISOR,
+                       VMADDR_CID_LOCAL,
+                       VMADDR_CID_HOST,
+                       VMADDR_CID_ANY);
 }
 
 int vsock_parse_port(const char *s, unsigned *ret);

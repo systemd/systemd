@@ -8,7 +8,7 @@ set -o pipefail
 
 if ! command -v systemd-firstboot >/dev/null; then
     echo "systemd-firstboot not found, skipping the test"
-    exit 0
+    exit 77
 fi
 
 restore_etc_hostname() {

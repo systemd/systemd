@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
+#include "build.h"
 #include "conf-files.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "options.h"
 #include "parse-argument.h"
@@ -11,31 +12,13 @@
 #include "static-destruct.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 
 static char *arg_root = NULL;
 static CatFlags arg_cat_flags = 0;
 static bool arg_config = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-cat", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("cat [OPTIONS...] [FILE...]");
-        help_abstract("Show udev rules files.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -52,10 +35,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("udevadm-cat"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("cat");
 
-                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION_LONG("root", "PATH",
                             "Operate on an alternate filesystem root"):
@@ -73,6 +56,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "Show udev.conf rather than udev rules files"):
                         arg_config = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_config && option_parser_get_n_args(&opts) > 0)

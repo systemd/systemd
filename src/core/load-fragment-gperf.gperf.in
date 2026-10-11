@@ -549,7 +549,7 @@ Socket.Timestamping,                          config_parse_socket_timestamping, 
 Socket.TCPCongestion,                         config_parse_string,                                0,                                  offsetof(Socket, tcp_congestion)
 Socket.ReusePort,                             config_parse_bool,                                  0,                                  offsetof(Socket, reuse_port)
 Socket.MessageQueueMaxMessages,               config_parse_long,                                  0,                                  offsetof(Socket, mq_maxmsg)
-Socket.MessageQueueMessageSize,               config_parse_long,                                  0,                                  offsetof(Socket, mq_msgsize)
+Socket.MessageQueueMessageSize,               config_parse_iec_size_long,                         0,                                  offsetof(Socket, mq_msgsize)
 Socket.RemoveOnStop,                          config_parse_bool,                                  0,                                  offsetof(Socket, remove_on_stop)
 Socket.Symlinks,                              config_parse_unit_path_strv_printf,                 0,                                  offsetof(Socket, symlinks)
 Socket.FileDescriptorName,                    config_parse_fdname,                                0,                                  0
@@ -634,6 +634,7 @@ Path.TriggerLimitIntervalSec,                 config_parse_sec,                 
 Path.TriggerLimitBurst,                       config_parse_unsigned,                              0,                                  offsetof(Path, trigger_limit.burst)
 Slice.ConcurrencySoftMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_soft_max)
 Slice.ConcurrencyHardMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_hard_max)
+Slice.ActivatingConcurrencyMax,               config_parse_concurrency_max,                       0,                                  offsetof(Slice, activating_concurrency_max)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Slice') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}

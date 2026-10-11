@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
-#include "ansi-color.h"
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -12,12 +13,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
-#include "help-util.h"
 #include "kbd-util.h"
 #include "locale-setup.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -37,6 +36,13 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static bool arg_convert = true;
 static bool arg_full = false;
+
+COMMAND(
+        "localectl\0",
+        "Query or change system locale and keyboard settings.",
+        .man_pages = "localectl(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 typedef struct StatusInfo {
         char **locale;
@@ -180,7 +186,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
         return print_status_info(&info);
 }
 
-VERB(verb_set_locale, "set-locale", "LOCALE...", 2, VERB_ANY, 0,
+VERB(verb_set_locale, "set-locale", "LOCALE...\0", 2, VERB_ANY, 0,
      "Set system locale");
 static int verb_set_locale(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -226,7 +232,7 @@ static int verb_list_locales(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_set_vconsole_keymap, "set-keymap", "MAP [MAP]", 2, 3, 0,
+VERB(verb_set_vconsole_keymap, "set-keymap", "MAP [MAP]\0", 2, 3, 0,
      "Set console and X11 keyboard mappings");
 static int verb_set_vconsole_keymap(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -269,7 +275,7 @@ static int verb_list_vconsole_keymaps(int argc, char *argv[], uintptr_t _data, v
         return 0;
 }
 
-VERB(verb_set_x11_keymap, "set-x11-keymap", "LAYOUT [MODEL [VARIANT [OPTIONS]]]", 2, 5, 0,
+VERB(verb_set_x11_keymap, "set-x11-keymap", "LAYOUT [MODEL [VARIANT [OPTIONS]]]\0", 2, 5, 0,
      "Set X11 and console keyboard mappings");
 static int verb_set_x11_keymap(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -310,7 +316,7 @@ VERB_NOARG(verb_list_x11_keymaps, "list-x11-keymap-models",
            "Show known X11 keyboard mapping models");
 VERB_NOARG(verb_list_x11_keymaps, "list-x11-keymap-layouts",
            "Show known X11 keyboard mapping layouts");
-VERB(verb_list_x11_keymaps, "list-x11-keymap-variants", "[LAYOUT]", VERB_ANY, 2, 0,
+VERB(verb_list_x11_keymaps, "list-x11-keymap-variants", "[LAYOUT]\0", VERB_ANY, 2, 0,
      "Show known X11 keyboard mapping variants");
 VERB_NOARG(verb_list_x11_keymaps, "list-x11-keymap-options",
            "Show known X11 keyboard mapping options");
@@ -420,39 +426,7 @@ static int verb_list_x11_keymaps(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Query or change system locale and keyboard settings.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("localectl", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -466,7 +440,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -497,6 +471,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("no-convert", NULL, "Don't convert keyboard mappings"):
                         arg_convert = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *remaining_args = option_parser_get_args(&opts);

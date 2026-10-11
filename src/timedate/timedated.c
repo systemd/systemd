@@ -46,6 +46,7 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "verbs.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -311,7 +312,7 @@ static int context_write_data_timezone(Context *c) {
         }
 
         return symlinkat_atomic_full(source, AT_FDCWD, etc_localtime(),
-                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME"));
+                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME") ? SYMLINK_MAKE_RELATIVE : 0);
 }
 
 static const char* etc_adjtime(void) {
@@ -672,6 +673,7 @@ static int property_get_ntp(
 
 static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *old_zone = NULL, *zone = NULL;
         int interactive, r;
         const char *z;
 
@@ -701,13 +703,17 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = free_and_strdup(&c->zone, z);
-        if (r < 0)
-                return r;
+        zone = strdup(z);
+        if (!zone)
+                return -ENOMEM;
+
+        old_zone = TAKE_PTR(c->zone);
+        c->zone = TAKE_PTR(zone);
 
         /* 1. Write new configuration file */
         r = context_write_data_timezone(c);
         if (r < 0) {
+                free_and_replace(c->zone, old_zone);
                 log_error_errno(r, "Failed to set time zone: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
         }
@@ -778,11 +784,14 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 return 1;
 
         if (lrtc != c->local_rtc) {
+                bool old_local_rtc = c->local_rtc;
+
                 c->local_rtc = lrtc;
 
                 /* 1. Write new configuration file */
                 r = context_write_data_local_rtc(c);
                 if (r < 0) {
+                        c->local_rtc = old_local_rtc;
                         log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
                         return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
                 }
@@ -1159,6 +1168,16 @@ static bool context_check_idle(void *userdata) {
         return hashmap_isempty(c->polkit_registry);
 }
 
+COMMAND(
+        "systemd-timedated\0",
+        "Manage the system clock and timezone and NTP enablement.",
+        .man_pages = "systemd-timedated.service(8)\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1169,9 +1188,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-timedated.service",
-                               "Manage the system clock and timezone and NTP enablement.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

@@ -264,20 +264,20 @@ char** path_strv_resolve(char **l, const char *root) {
         if (strv_isempty(l))
                 return l;
 
-        /* Goes through every item in the string list and canonicalize
-         * the path. This works in place and won't rollback any
-         * changes on failure. */
+        /* Go through every item in the string list and canonicalize the path.
+         * This works in place and doesn't roll back any changes on failure. */
 
         STRV_FOREACH(s, l) {
                 _cleanup_free_ char *orig = NULL;
                 char *t, *u;
 
-                if (!path_is_absolute(*s)) {
-                        free(*s);
-                        continue;
-                }
-
                 if (root) {
+                        if (!path_is_absolute(*s)) {
+                                log_debug("Ignoring non-absolute search path '%s'.", *s);
+                                free(*s);
+                                continue;
+                        }
+
                         orig = *s;
                         t = path_join(root, orig);
                         if (!t) {

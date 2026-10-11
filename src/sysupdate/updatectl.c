@@ -18,7 +18,6 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -38,6 +37,13 @@ static bool arg_now = false;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
+
+COMMAND(
+        "updatectl\0",
+        "Manage system updates.",
+        .man_pages = "updatectl(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 #define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
@@ -645,7 +651,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-VERB(verb_list, "list", "[TARGET[@VERSION]]", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
+VERB(verb_list, "list", "[TARGET[@VERSION]]\0", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
      "List available targets and versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -758,7 +764,7 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-VERB(verb_check, "check", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_check, "check", "[TARGET...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Check for updates");
 static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1300,7 +1306,7 @@ static int do_update(sd_bus *bus, char **targets) {
         return did_anything ? 1 : 0;
 }
 
-VERB(verb_update, "update", "[TARGET[@VERSION]...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_update, "update", "[TARGET[@VERSION]...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Install updates");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1355,7 +1361,7 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
         return count + disabled > 0 ? 1 : 0;
 }
 
-VERB(verb_vacuum, "vacuum", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_vacuum, "vacuum", "[TARGET...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Clean up old updates");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1380,18 +1386,26 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 typedef struct Feature {
-        char *name;
+        char *id;
         char *description;
         bool enabled;
-        char *documentation;
+        int suggested;
+        char **documentation;
+        char *appstream;
         char **transfers;
 } Feature;
 
+#define FEATURE_NULL             \
+        (Feature) {              \
+                .suggested = -1, \
+        }
+
 static void feature_done(Feature *f) {
         assert(f);
-        f->name = mfree(f->name);
+        f->id = mfree(f->id);
         f->description = mfree(f->description);
-        f->documentation = mfree(f->documentation);
+        f->documentation = strv_free(f->documentation);
+        f->appstream = mfree(f->appstream);
         f->transfers = strv_free(f->transfers);
 }
 
@@ -1399,16 +1413,18 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(feature_done) Feature f = {};
+        _cleanup_(feature_done) Feature f = FEATURE_NULL;
         char *json;
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",             SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, name),          SD_JSON_MANDATORY },
-                { "description",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, description),   0                 },
-                { "enabled",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Feature, enabled),       SD_JSON_MANDATORY },
-                { "documentationUrl", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, documentation), 0                 },
-                { "transfers",        SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, transfers),     0                 },
+                { "id",            SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, id),            SD_JSON_MANDATORY },
+                { "description",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, description),   SD_JSON_NULLABLE  },
+                { "enabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),       SD_JSON_MANDATORY },
+                { "suggested",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Feature, suggested),     SD_JSON_NULLABLE  },
+                { "documentation", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, documentation), SD_JSON_NULLABLE  },
+                { "appStream",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, appstream),     SD_JSON_NULLABLE  },
+                { "transfers",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, transfers),     SD_JSON_NULLABLE  },
                 {}
         };
 
@@ -1437,7 +1453,7 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON: %m");
 
-        r = sd_json_dispatch(v, dispatch_table, 0, &f);
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to dispatch JSON: %m");
 
@@ -1475,15 +1491,15 @@ static int list_features(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         STRV_FOREACH(feature, features) {
-                _cleanup_(feature_done) Feature f = {};
+                _cleanup_(feature_done) Feature f = FEATURE_NULL;
                 _cleanup_free_ char *name_link = NULL;
 
                 r = describe_feature(bus, *feature, &f);
                 if (r < 0)
                         return r;
 
-                if (urlify_enabled() && f.documentation) {
-                        name_link = strjoin(f.name, glyph(GLYPH_EXTERNAL_LINK));
+                if (urlify_enabled() && !strv_isempty(f.documentation)) {
+                        name_link = strjoin(f.id, glyph(GLYPH_EXTERNAL_LINK));
                         if (!name_link)
                                 return log_oom();
                 }
@@ -1491,8 +1507,8 @@ static int list_features(sd_bus *bus) {
                 r = table_add_many(table,
                                    TABLE_BOOLEAN_CHECKMARK, f.enabled,
                                    TABLE_SET_COLOR, ansi_highlight_green_red(f.enabled),
-                                   TABLE_STRING, name_link ?: f.name,
-                                   TABLE_SET_URL, f.documentation,
+                                   TABLE_STRING, name_link ?: f.id,
+                                   TABLE_SET_URL, strv_isempty(f.documentation) ? NULL : f.documentation[0],
                                    TABLE_STRING, f.description);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1501,12 +1517,12 @@ static int list_features(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, VERB_ONLINE_ONLY,
+VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, VERB_ONLINE_ONLY,
      "List and inspect optional features on host OS");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(feature_done) Feature f = {};
+        _cleanup_(feature_done) Feature f = FEATURE_NULL;
         int r;
 
         if (argc == 1)
@@ -1522,11 +1538,19 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 
         r = table_add_many(table,
                            TABLE_FIELD, "Name",
-                           TABLE_STRING, f.name,
+                           TABLE_STRING, f.id,
                            TABLE_FIELD, "Enabled",
                            TABLE_BOOLEAN, f.enabled);
         if (r < 0)
                 return table_log_add_error(r);
+
+        if (f.suggested >= 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Suggested",
+                                   TABLE_BOOLEAN, f.suggested);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (f.description) {
                 r = table_add_many(table, TABLE_FIELD, "Description", TABLE_STRING, f.description);
@@ -1534,11 +1558,19 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         return table_log_add_error(r);
         }
 
-        if (f.documentation) {
+        if (!strv_isempty(f.documentation)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Documentation",
-                                   TABLE_STRING, f.documentation,
-                                   TABLE_SET_URL, f.documentation);
+                                   TABLE_STRV_WRAPPED, f.documentation);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (f.appstream) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "AppStream",
+                                   TABLE_STRING, f.appstream,
+                                   TABLE_SET_URL, f.appstream);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1552,9 +1584,9 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
 }
 
-VERB(verb_enable, "enable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_enable, "enable", "FEATURE...\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
      "Enable optional feature on host OS");
-VERB(verb_enable, "disable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_enable, "disable", "FEATURE...\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
      "Disable optional feature on host OS");
 static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1635,58 +1667,7 @@ static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("updatectl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Verbs", &verbs2);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, verbs2, options);
-
-        printf("%s [OPTIONS...] [VERSION]\n"
-               "\n%sManage system updates.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-        r = table_print_or_warn(verbs2);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -1696,6 +1677,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
 
                 OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
                         arg_reboot = true;
@@ -1722,17 +1709,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_legend = false;
                         break;
 
-                OPTION_GROUP("Verbs"): {}
-
                 OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                OPTION_COMMON_HELP:
-                        return help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);

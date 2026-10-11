@@ -17,6 +17,7 @@ executables += [
                         'qcow2-util.c',
                 ),
                 'dependencies' : [
+                        libacl_cflags,
                         libarchive_cflags,
                         libselinux_cflags,
                 ],
@@ -90,6 +91,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-oci-util.c'),
+                'import' : ['systemd-importd'],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-qcow2.c'),
                 'import' : ['systemd-importd'],
         },
 ]

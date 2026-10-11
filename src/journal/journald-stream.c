@@ -19,6 +19,7 @@
 #include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-stream.h"
@@ -241,10 +242,13 @@ static int stdout_stream_log(
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
 
-        if (!client_context_test_priority(s->context, priority))
+        if (isempty(p))
                 return 0;
 
-        if (isempty(p))
+        /* Count before any filtering or rate limiting */
+        manager_count_message(s->manager, JOURNAL_TRANSPORT_STREAM, priority);
+
+        if (!client_context_test_priority(s->context, priority))
                 return 0;
 
         r = client_context_check_keep_log(s->context, p, strlen(p));
@@ -687,7 +691,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Got invalid event from epoll for stdout server fd: %" PRIx32,
+                                       "Got invalid event from epoll for stdout fd: %" PRIx32,
                                        revents);
 
         fd = accept4(m->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
@@ -926,11 +930,11 @@ int manager_open_stdout_socket(Manager *m, const char *stdout_socket) {
 
         r = sd_event_add_io(m->event, &m->stdout_event_source, m->stdout_fd, EPOLLIN, stdout_stream_new, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
+                return log_error_errno(r, "Failed to add stdout fd to event source: %m");
 
         r = sd_event_source_set_priority(m->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
+                return log_error_errno(r, "Failed to adjust priority of stdout event source: %m");
 
         return 0;
 }

@@ -16,6 +16,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-netlink.h"
 #include "sd-path.h"
 #include "sd-varlink.h"
@@ -54,7 +55,6 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "fork-notify.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
@@ -93,7 +93,6 @@
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
 #include "nsresource.h"
-#include "options.h"
 #include "os-util.h"
 #include "osc-context.h"
 #include "pager.h"
@@ -135,6 +134,7 @@
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
@@ -318,6 +318,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 
+COMMAND(
+        "systemd-nspawn\0",
+        "Spawn a command or OS in a lightweight container.",
+        .argspec = "[PATH] [ARGUMENTS…]\0",
+        .man_pages = "systemd-nspawn(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_private_users(
                 const char *s,
                 UserNamespaceMode *ret_userns_mode,
@@ -380,69 +388,6 @@ static int parse_private_users(
                 *ret_userns_mode = USER_NAMESPACE_FIXED;
         }
 
-        return 0;
-}
-
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("systemd-nspawn", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        static const char* const groups[] = {
-                NULL,
-                "Image",
-                "Execution",
-                "System Identity",
-                "Properties",
-                "User Namespacing",
-                "Networking",
-                "Security",
-                "Resources",
-                "Integration",
-                "Mounts",
-                "Input/Output",
-                "Credentials",
-                "Other",
-        };
-
-        Table* tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3],
-                                        tables[4], tables[5], tables[6], tables[7],
-                                        tables[8], tables[9], tables[10], tables[11],
-                                        tables[12], tables[13]);
-
-        printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
-               "%sSpawn a command or OS in a lightweight container.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(tables[0]);
-        if (r < 0)
-                return r;
-
-        for (size_t i = 1; i < ELEMENTSOF(groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), groups[i], ansi_normal());
-
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
@@ -614,7 +559,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1445,6 +1390,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("system", NULL, "Run in the system service manager scope"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
         }
 
@@ -3315,6 +3263,16 @@ static int patch_sysctl(void) {
         int r;
 
         flags = effective_clone_ns_flags();
+
+        if (FLAGS_SET(flags, CLONE_NEWUSER|CLONE_NEWNET) && !arg_network_namespace_path) {
+                /* Follow the system-wide default from sysctl.d/50-default.conf, but clamp it to the
+                 * groups mapped into the container's user namespace. */
+                r = sysctl_writef("net/ipv4/ping_group_range", "0 " GID_FMT,
+                                 MIN(arg_uid_range - 1, (gid_t) INT32_MAX));
+                if (r < 0)
+                        log_warning_errno(r,
+                                          "Failed to set sysctl 'net.ipv4.ping_group_range', ignoring: %m");
+        }
 
         STRV_FOREACH_PAIR(k, v, arg_sysctl) {
                 bool good = false;
@@ -5318,6 +5276,15 @@ static int run_container(
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
+        assert(runtime_dir);
+        assert(directory);
+        assert(veth_name);
+        assert(veth_created);
+        assert(expose_args);
+        assert(master);
+        assert(pid);
+        assert(ret);
+
         /* Set up the unix export host directory on the host first */
         r = setup_unix_export_dir_outside(runtime_dir, &unix_export_host_dir);
         if (r < 0)
@@ -6506,7 +6473,7 @@ static int run(int argc, char *argv[]) {
                                         &arg_verity_settings,
                                         arg_image, NULL, NULL);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
+                                log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
                                 goto finish;
                         }
 

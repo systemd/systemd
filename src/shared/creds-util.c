@@ -180,7 +180,7 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
 }
 
 int read_credential_with_decryption(const char *name, void **ret, size_t *ret_size) {
-        _cleanup_(iovec_done_erase) struct iovec ret_iovec = {};
+        _cleanup_(iovec_done_erase) struct iovec decrypted = {};
         _cleanup_(erase_and_freep) void *data = NULL;
         _cleanup_free_ char *fn = NULL;
         size_t sz = 0;
@@ -218,16 +218,20 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         if (!fn)
                 return log_oom();
 
+        /* Encrypted credentials are stored as Base64, unlike the plaintext credentials checked above. */
         r = read_full_file_full(
                         AT_FDCWD, fn,
-                        UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE,
+                        UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL,
                         (char**) &data, &sz);
         if (r == -ENOENT)
                 goto not_found;
+        if (r == -E2BIG)
+                return log_error_errno(r, "Encrypted credential '%s' exceeds the size limit.", name);
         if (r < 0)
-                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+                return log_error_errno(
+                                r, "Failed to read or Base64-decode encrypted credential '%s': %m", name);
 
         if (geteuid() != 0)
                 r = ipc_decrypt_credential(
@@ -236,7 +240,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                                 getuid(),
                                 &IOVEC_MAKE(data, sz),
                                 CREDENTIAL_ANY_SCOPE,
-                                &ret_iovec);
+                                &decrypted);
         else
                 r = decrypt_credential_and_warn(
                                 name,
@@ -246,14 +250,20 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                                 getuid(),
                                 &IOVEC_MAKE(data, sz),
                                 CREDENTIAL_ANY_SCOPE,
-                                &ret_iovec);
+                                &decrypted);
         if (r < 0)
                 return r;
 
+        /* Match read_credential(): without a size output, the caller expects a string. */
+        if (!ret_size && decrypted.iov_len > 0 && memchr(decrypted.iov_base, 0, decrypted.iov_len))
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "Decrypted credential '%s' contains embedded NUL bytes, refusing.", name);
+
         if (ret)
-                *ret = TAKE_PTR(ret_iovec.iov_base);
+                *ret = TAKE_PTR(decrypted.iov_base);
         if (ret_size)
-                *ret_size = ret_iovec.iov_len;
+                *ret_size = decrypted.iov_len;
 
         return 1; /* found */
 
@@ -1107,14 +1117,16 @@ int encrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to acquired randomized IV: %m");
         }
 
-        tsz = 16; /* FIXME: On OpenSSL 3 there is EVP_CIPHER_CTX_get_tag_length(), until then let's hardcode this */
-
         context = sym_EVP_CIPHER_CTX_new();
         if (!context)
                 return log_openssl_errors(LOG_ERR, "Failed to allocate encryption object");
 
         if (sym_EVP_EncryptInit_ex(context, cc, NULL, md, iv.iov_base) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize encryption context");
+
+        tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
+        if (tsz <= 0 || (size_t) tsz > CREDENTIAL_FIELD_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid tag size reported by OpenSSL.");
 
         /* Just an upper estimate */
         output.iov_len =
@@ -1336,8 +1348,9 @@ int decrypt_credential_and_warn(
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
         const EVP_CIPHER *cc;
+        uint32_t tag_size;
         size_t p, hs;
-        int r, added;
+        int r, added, tsz;
 
         assert(iovec_is_valid(input));
         assert(ret);
@@ -1349,7 +1362,7 @@ int decrypt_credential_and_warn(
 
         /* Relevant error codes:
          *
-         *   -EBADMSG      → Corrupted file
+         *   -EBADMSG      → Corrupted file, or unparsable PCR signature file
          *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
          *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
          *   -EHWPOISON    → Attempt to unlock with NULL key and either CREDENTIAL_ALLOW_REFUSE is on, or CREDENTIAL_ALLOW_NULL is off, but the system has a TPM and SecureBoot is on
@@ -1373,6 +1386,8 @@ int decrypt_credential_and_warn(
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
+                if (r == -EBADMSG)
+                        return log_error_errno(r, "PCR signature file is malformed.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
@@ -1405,7 +1420,9 @@ int decrypt_credential_and_warn(
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected block size in header.");
         if (le32toh(h->iv_size) > CREDENTIAL_FIELD_SIZE_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "IV size too large.");
-        if (le32toh(h->tag_size) != 16) /* FIXME: On OpenSSL 3, let's verify via EVP_CIPHER_CTX_get_tag_length() */
+
+        tag_size = le32toh(h->tag_size);
+        if (tag_size == 0 || tag_size > CREDENTIAL_FIELD_SIZE_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected tag size in header.");
 
         /* Ensure we have space for the full header now (we don't know the size of the name hence this is a
@@ -1417,7 +1434,7 @@ int decrypt_credential_and_warn(
             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-            le32toh(h->tag_size))
+            tag_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
         p = ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size));
@@ -1428,7 +1445,7 @@ int decrypt_credential_and_warn(
                 struct tpm2_public_key_credential_header *z_pubkey = NULL;
                 struct tpm2_pinned_srk_credential_header *z_srk = NULL;
 
-                if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
+                if (!TPM2_PCR_MASK_VALID(le64toh(t->pcr_mask)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
                 if (!tpm2_hash_alg_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");
@@ -1448,7 +1465,7 @@ int decrypt_credential_and_warn(
                     ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                     ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                    le32toh(h->tag_size))
+                    tag_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                 p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) +
@@ -1469,7 +1486,7 @@ int decrypt_credential_and_warn(
                             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                            le32toh(h->tag_size))
+                            tag_size)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                         p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) +
@@ -1487,7 +1504,7 @@ int decrypt_credential_and_warn(
                             ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + le32toh(z_srk->size)) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                            le32toh(h->tag_size))
+                            tag_size)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                         p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) +
@@ -1519,8 +1536,10 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
@@ -1538,7 +1557,7 @@ int decrypt_credential_and_warn(
                     p +
                     sizeof(struct scoped_credential_header) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                    le32toh(h->tag_size))
+                    tag_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                 p += sizeof(struct scoped_credential_header);
@@ -1553,7 +1572,9 @@ int decrypt_credential_and_warn(
         if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
-        sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        r = sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        if (r < 0)
+                return r;
 
         if (CRED_KEY_IS_SCOPED(h->id)) {
                 r = mangle_uid_into_key(uid, md);
@@ -1580,6 +1601,12 @@ int decrypt_credential_and_warn(
         if (sym_EVP_DecryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize decryption context");
 
+        tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
+        if (tsz <= 0 || (size_t) tsz > CREDENTIAL_FIELD_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid tag size reported by OpenSSL.");
+        if (tag_size != (uint32_t) tsz)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected tag size in header.");
+
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, le32toh(h->iv_size), NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set IV size on decryption context");
 
@@ -1589,7 +1616,7 @@ int decrypt_credential_and_warn(
         if (sym_EVP_DecryptUpdate(context, NULL, &added, input->iov_base, p) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
-        plaintext.iov_base = malloc(input->iov_len - p - le32toh(h->tag_size));
+        plaintext.iov_base = malloc(input->iov_len - p - tag_size);
         if (!plaintext.iov_base)
                 return -ENOMEM;
 
@@ -1598,14 +1625,14 @@ int decrypt_credential_and_warn(
                             plaintext.iov_base,
                             &added,
                             (uint8_t*) input->iov_base + p,
-                            input->iov_len - p - le32toh(h->tag_size)) != 1)
+                            input->iov_len - p - tag_size) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to decrypt data");
 
         assert(added >= 0);
-        assert((size_t) added <= input->iov_len - p - le32toh(h->tag_size));
+        assert((size_t) added <= input->iov_len - p - tag_size);
         plaintext.iov_len = added;
 
-        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, le32toh(h->tag_size), (uint8_t*) input->iov_base + input->iov_len - le32toh(h->tag_size)) != 1)
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, tag_size, (uint8_t*) input->iov_base + input->iov_len - tag_size) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set tag");
 
         if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) plaintext.iov_base + plaintext.iov_len, &added) != 1) {
@@ -1959,10 +1986,11 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
         { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
         { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
-        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's not allowed during decryption." },
         { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
-        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.UnexpectedPCRState",     EPERM,        "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.PCRsKeptChanging",       EUCLEAN,      "PCR values kept changing while unsealing the TPM2 secret, something on this system extends a PCR continuously." },
         { "io.systemd.Credentials.NVIndexUnusable",        EADDRNOTAVAIL, "The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system." },
 };
 

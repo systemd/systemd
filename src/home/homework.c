@@ -436,7 +436,10 @@ int home_setup_done(HomeSetup *setup) {
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
                         q = run_fallocate(setup->image_fd, NULL);
-                        if (q < 0)
+                        if (setup->tolerate_offline_fallocate_enospc &&
+                            ERRNO_IS_NEG_DISK_SPACE(q))
+                                log_warning_errno(q, "Failed to allocate backing file, ignoring: %m");
+                        else if (q < 0)
                                 r = q;
                 }
 
@@ -468,6 +471,7 @@ int home_setup_done(HomeSetup *setup) {
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
         setup->do_offline_fallocate = false;
+        setup->tolerate_offline_fallocate_enospc = false;
         setup->do_mark_clean = false;
 
         setup->dm_name = mfree(setup->dm_name);
@@ -1370,6 +1374,7 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
         int r;
 
         assert(h);
+        assert(ret_home);
 
         if (!h->user_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks name, refusing.");
@@ -1685,7 +1690,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
                 return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         }
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1787,7 +1792,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1865,7 +1870,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 

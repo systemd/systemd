@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "ansi-color.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
-#include "options.h"
 #include "parse-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
@@ -12,35 +11,17 @@
 #include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
 #include "time-util.h"
+#include "verbs.h"
 
-static int shutdown_help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("shutdown", &options);
-        if (r < 0)
-                return r;
-
-        /* Note: if you are tempted to add new command line switches here, please do not. Let this
-         * compatibility command rest in peace. Its interface is not even owned by us as much as it is by
-         * sysvinit. If you add something new, add it to "systemctl halt", "systemctl reboot", "systemctl
-         * poweroff" instead. */
-
-        help_cmdline("[OPTIONS…] [TIME] [WALL…]");
-        help_abstract("Shut down the system.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n%sThis is a compatibility interface, please use the more powerful 'systemctl halt',\n"
-               "'systemctl poweroff', 'systemctl reboot' commands instead.%s\n",
-               ansi_highlight_red(), ansi_normal());
-
-        help_man_page_reference("shutdown", "8");
-        return 0;
-}
+COMMAND(
+        "shutdown\0",
+        "Shut down the system.",
+        .argspec = "[TIME] [WALL…]\0",
+        .footer = "This is a compatibility interface, please use the more powerful 'systemctl halt', "
+                  "'systemctl poweroff', 'systemctl reboot' commands instead.",
+        .man_pages = "shutdown(8)\0",
+        .option_namespace = "shutdown",
+);
 
 static int parse_shutdown_time_spec(const char *t, usec_t *ret) {
         int r;
@@ -128,13 +109,20 @@ int shutdown_parse_argv(int argc, char *argv[], int log_level_shift) {
                 .log_level_shift = log_level_shift,
         };
 
+        /* Note: if you are tempted to add new command line switches here, please do not. Let this
+         * compatibility command rest in peace. Its interface is not even owned by us as much as it
+         * is by sysvinit. If you add something new, add it to "systemctl halt", "systemctl
+         * reboot", "systemctl poweroff" instead. */
+
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_NAMESPACE("shutdown"): {}
 
                 OPTION_LONG("help", NULL, "Show this help"):
-                        return shutdown_help();
+                        return command_print_help_full(
+                                        "shutdown",
+                                        /* footer_ansi_seq= */ ansi_highlight_red());
 
                 OPTION('H', "halt", NULL, "Halt the machine"):
                         arg_action = ACTION_HALT;
@@ -182,6 +170,9 @@ int shutdown_parse_argv(int argc, char *argv[], int log_level_shift) {
                 OPTION_SHORT('F', NULL,  /* help= */ NULL): {}
                 OPTION_SHORT('t', "ARG", /* help= */ NULL):
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

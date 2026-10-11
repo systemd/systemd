@@ -1810,7 +1810,6 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 _cleanup_free_ char *p = NULL;
                 struct libmnt_fs *fs;
                 const char *path;
-                int id1, id2;
 
                 r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1825,29 +1824,30 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 if (isempty(path_startswith(path, prefix)))
                         continue;
 
-                id1 = sym_mnt_fs_get_id(fs);
-                r = path_get_mnt_id(path, &id2);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
+                /* The path may be hidden by another over-mount or already remounted; skip it in that case
+                 * (libmount_fs_id_matches_path() already logs the details at debug level). */
+                r = libmount_fs_id_matches_path(fs, path);
+                if (r <= 0)
                         continue;
-                }
-                if (id1 != id2) {
-                        /* The path may be hidden by another over-mount or already remounted. */
-                        log_debug("The mount IDs of '%s' obtained by libmount and path_get_mnt_id() are different (%i vs %i), ignoring.",
-                                  path, id1, id2);
-                        continue;
-                }
 
                 /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original mount.
                  * Otherwise MNT_DETACH of the source path could propagate through and unmount the
                  * just-moved nested children at the destination (relevant for preserving nested mounts
-                 * under sysext hierarchies). */
+                 * under sysext hierarchies).
+                 *
+                 * Also, pass AT_NO_AUTOMOUNT so that we clone automount points (i.e. autofs mounts) as
+                 * they are, instead of triggering them. OPEN_TREE_CLONE would otherwise force them to be
+                 * mounted, and — worse — block until the automount request has been served. If the
+                 * automount point is managed by PID 1 itself (as is the case for systemd's own
+                 * /proc/sys/fs/binfmt_misc automount point, which is cloned whenever a private /proc is
+                 * set up for a service) this can take a long time during boot, since the resulting mount
+                 * job competes with the ongoing boot transaction. */
                 static bool mount_attr_unsupported = false;
 
                 if (!mount_attr_unsupported) {
                         mount_fd = open_tree_attr_with_fallback(
                                         AT_FDCWD, path,
-                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE,
+                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT,
                                         &(struct mount_attr) { .propagation = MS_PRIVATE });
                         if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;
@@ -1861,7 +1861,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 }
 
                 if (mount_attr_unsupported) {
-                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT));
                         if (mount_fd == -ENOENT)
                                 continue;
                         if (mount_fd < 0)
@@ -1946,7 +1946,7 @@ int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source
         assert(dest);
 
         if (S_ISDIR(source_mode))
-                return mkdirat_label(dir_fd, dest, target_mode & 07777);
+                return mkdirat_label(dir_fd, dest, target_mode & 07777, /* label_context= */ NULL);
         else
                 return RET_NERRNO(mknodat(dir_fd, dest, S_IFREG|(target_mode & 07666), 0)); /* Mask off X bit */
 }

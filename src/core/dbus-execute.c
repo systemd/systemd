@@ -1634,14 +1634,6 @@ int bus_property_get_exec_ex_command_list(
         return sd_bus_message_close_container(reply);
 }
 
-static char* exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
-        return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)        ? "|" : "");
-}
-
 int bus_set_transient_exec_command(
                 Unit *u,
                 const char *name,
@@ -1767,32 +1759,13 @@ int bus_set_transient_exec_command(
                 fprintf(f, "%s=\n", written_name);
 
                 LIST_FOREACH(command, c, *exec_command) {
-                        _cleanup_free_ char *a = NULL, *exec_chars = NULL;
-                        UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS |
-                                (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
-                        bool via_shell = FLAGS_SET(c->flags, EXEC_COMMAND_VIA_SHELL);
+                        _cleanup_free_ char *a = NULL;
 
-                        exec_chars = exec_command_flags_to_exec_chars(c->flags);
-                        if (!exec_chars)
-                                return -ENOMEM;
+                        r = exec_command_to_setting(c, &a);
+                        if (r < 0)
+                                return r;
 
-                        a = unit_concat_strv(via_shell ? strv_skip(c->argv, 1) : c->argv, esc_flags);
-                        if (!a)
-                                return -ENOMEM;
-
-                        if (via_shell || streq(c->path, c->argv[0]))
-                                fprintf(f, "%s=%s%s%s\n",
-                                        written_name, exec_chars, via_shell && c->argv[0][0] == '-' ? "@" : "", a);
-                        else {
-                                _cleanup_free_ char *t = NULL;
-                                const char *p;
-
-                                p = unit_escape_setting(c->path, esc_flags, &t);
-                                if (!p)
-                                        return -ENOMEM;
-
-                                fprintf(f, "%s=%s@%s %s\n", written_name, exec_chars, p, a);
-                        }
+                        fprintf(f, "%s=%s\n", written_name, a);
                 }
 
                 r = memstream_finalize(&m, &buf, NULL);

@@ -180,8 +180,13 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
 int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret) {
         const char *url, *text;
 
-        url = strjoina("man:", page, "(", section, ")");
-        text = strjoina(page, "(", section, ")", suffix);
+        if (section) {
+                url = strjoina("man:", page, "(", section, ")");
+                text = strjoina(page, "(", section, ")", suffix);
+        } else {
+                url = strjoina("man:", page);
+                text = strjoina(page, suffix);
+        }
 
         return terminal_urlify(url, text, ret);
 }
@@ -441,9 +446,9 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
 
 int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
-        char **prefixes = NULL; /* explicit initialization to appease gcc */
-        bool is_collection;
-        const char *extension;
+        char **prefixes = NULL;       /* explicit initialization to appease gcc */
+        bool is_collection = false;   /* explicit initialization to appease gcc */
+        const char *extension = NULL; /* explicit initialization to appease gcc */
         int r;
 
         r = guess_type(&name, &prefixes, &is_collection, &extension);

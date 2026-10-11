@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -27,7 +29,6 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "json-util.h"
 #include "locale-setup.h"
@@ -36,7 +37,6 @@
 #include "machine-credential.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -44,11 +44,16 @@
 #include "prompt-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysinstall-auto-device.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-io.systemd.SysInstall.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 static char *arg_node = NULL;
+static bool arg_device_auto = false;
+static usec_t arg_device_auto_timeout = 30 * USEC_PER_SEC;
 static bool arg_welcome = true;
 static int arg_erase = -1;            /* tri-state */
 static bool arg_confirm = true;
@@ -69,6 +74,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
+
+COMMAND(
+        "systemd-sysinstall\0",
+        "Install the OS to another block device.",
+        .argspec = "[DEVICE]\0",
+        .man_pages = "systemd-sysinstall(8)\0",
+);
 
 typedef enum ProgressPhase {
         PROGRESS_ENCRYPT_CREDENTIALS,
@@ -155,27 +167,6 @@ static void sysinstall_context_done(SysInstallContext *c) {
         sd_varlink_unref(c->link);
 }
 
-static int help(void) {
-        int r;
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] [DEVICE]");
-        help_abstract("Installs the OS to another block device.");
-        help_section("Options:");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-sysinstall", "8");
-
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -188,10 +179,22 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_LONG("device-auto", NULL, "Automatically pick the target disk, once exactly one candidate is present and the device list settled"):
+                        arg_device_auto = true;
+                        break;
+
+                OPTION_LONG("device-auto-timeout", "SECS", "How long the list of candidate disks must remain unchanged before a disk is picked"):
+                        r = parse_sec(opts.arg, &arg_device_auto_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --device-auto-timeout= parameter: %s", opts.arg);
+                        if (arg_device_auto_timeout == USEC_INFINITY)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--device-auto-timeout= cannot be infinite, refusing.");
+                        break;
 
                 OPTION_LONG("welcome", "no", "Disable the welcome text"):
                         r = parse_boolean_argument("--welcome=", opts.arg, &arg_welcome);
@@ -289,6 +292,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);
@@ -296,6 +302,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (strv_length(args) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
         if (!strv_isempty(args)) {
+                if (arg_device_auto)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --device-auto with an explicitly specified device, refusing.");
+
                 arg_node = strdup(args[0]);
                 if (!arg_node)
                         return log_oom();
@@ -380,7 +389,12 @@ static int acquire_device_list(
                 sd_varlink **link,
                 char ***ret_menu,
                 char ***ret_accepted) {
+
         int r;
+
+        assert(link);
+        assert(ret_menu);
+        assert(ret_accepted);
 
         r = connect_to_repart(link);
         if (r < 0)
@@ -1828,6 +1842,10 @@ static int vl_method_list_candidate_devices(
 
         assert(link);
 
+        /* Refuse multiple requests */
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         sd_varlink_server *varlink_server = sd_varlink_get_server(link);
         sd_event *event = sd_varlink_server_get_event(varlink_server);
         Hashmap **polkit_registry = ASSERT_PTR(sd_varlink_server_get_userdata(varlink_server));
@@ -2080,7 +2098,7 @@ static void end_marker(void) {
         if (!arg_welcome)
                 return;
 
-        printf("\n%sExiting first boot settings tool.%s\n\n", ansi_grey(), ansi_normal());
+        printf("\n%sExiting system installer tool.%s\n\n", ansi_grey(), ansi_normal());
         fflush(stdout);
 }
 
@@ -2132,6 +2150,18 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
         if (arg_node) {
                 r = print_welcome(&mute_console_link);
+                if (r < 0)
+                        return r;
+
+                r = validate_run(&repart_link, arg_node);
+                if (r < 0)
+                        return r;
+        } else if (arg_device_auto) {
+                r = print_welcome(&mute_console_link);
+                if (r < 0)
+                        return r;
+
+                r = sysinstall_auto_pick_block_device(arg_device_auto_timeout, &arg_node);
                 if (r < 0)
                         return r;
 
@@ -2209,6 +2239,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         putchar('\n');
+
+        /* All questions asked, we are about to begin the installation. Let the service manager know (it's
+         * fine if we sent READY=1 before already, e.g. from the device auto-pick logic). */
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = sysinstall_context_run(&context);
         if (r < 0)

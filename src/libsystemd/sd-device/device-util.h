@@ -110,3 +110,10 @@ int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, co
         device_sysname_startswith_strv(device, STRV_MAKE(__VA_ARGS__), NULL)
 
 bool device_property_can_set(const char *property) _pure_;
+
+int device_build_default_trigger_args(bool with_timestamp, char ***ret);
+int device_trigger_with_timestamp(
+                sd_device *dev,
+                sd_device_action_t action,
+                char * const *args,
+                sd_id128_t *ret_uuid);

@@ -71,7 +71,7 @@
         credentials.</para>
 
         <para>Note the relationship to the <varname>firstboot.keymap</varname> credential understood by
-        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
         both ultimately affect the same setting, but <varname>firstboot.keymap</varname> is written into
         <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
         there by <command>systemd-vconsole-setup</command>, while <varname>vconsole.keymap</varname> is read
@@ -85,11 +85,13 @@
         <term><varname>vconsole.font</varname></term>
         <term><varname>vconsole.font_map</varname></term>
         <term><varname>vconsole.font_unimap</varname></term>
+        <term><varname>vconsole.font_scale</varname></term>
 
         <listitem><para>The console font settings to apply. The matching options in
         <filename>vconsole.conf</filename> and on the kernel command line take precedence over these
         credentials.</para>
 
+        <para><varname>vconsole.font_scale</varname> was added in version 262.</para>
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>

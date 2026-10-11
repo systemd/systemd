@@ -100,6 +100,9 @@ struct Link {
 };
 
 typedef struct Context {
+        char *network_dir;
+        char *networkd_conf_dropin_dir;
+
         Hashmap *networks_by_name;
         Hashmap *netdevs_by_name;
         Hashmap *links_by_filename;

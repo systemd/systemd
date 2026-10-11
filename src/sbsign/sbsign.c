@@ -2,8 +2,9 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "authenticode.h"
 #include "build.h"
@@ -13,16 +14,13 @@
 #include "efi.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "pe-binary.h"
-#include "pretty-print.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -48,46 +46,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
+COMMAND(
+        "systemd-sbsign\0",
+        "Sign PE binaries for EFI Secure Boot.",
+        .man_pages = "systemd-sbsign(1)\0",
+);
 
-        r = terminal_urlify_man("systemd-sbsign", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sSign binaries for EFI Secure Boot%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(), ansi_normal(),
-               ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -101,7 +66,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -163,6 +128,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
 
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_private_key_source && !arg_certificate)
@@ -397,7 +365,7 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
         return 0;
 }
 
-VERB(verb_sign, "sign", "EXEFILE", 2, 2, 0,
+VERB(verb_sign, "sign", "EXEFILE\0", 2, 2, 0,
      "Sign the given binary for EFI Secure Boot");
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
@@ -513,7 +481,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         size_t pehashsz;
         r = pe_hash(srcfd, sym_EVP_sha256(), &pehash, &pehashsz);
         if (r < 0)
-                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[0]);
+                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[1]);
 
         _cleanup_free_ uint8_t *idcraw = NULL;
         size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */

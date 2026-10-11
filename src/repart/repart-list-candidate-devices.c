@@ -157,18 +157,25 @@ int vl_method_list_candidate_devices(
         if (r != 0)
                 return r;
 
+        /* The filtering below should probably be kept in sync with the one done in src/sysinstall/sysinstall-auto-device.c! */
+
         const BlockDevListFlags listflags =
                 BLOCKDEV_LIST_SHOW_SYMLINKS|
                 BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
-                BLOCKDEV_LIST_IGNORE_ZRAM|
-                BLOCKDEV_LIST_METADATA|
+                BLOCKDEV_LIST_IGNORE_RAMDISK|
                 BLOCKDEV_LIST_IGNORE_READ_ONLY|
+                BLOCKDEV_LIST_METADATA|
+                BLOCKDEV_LIST_DISKSEQ|
                 (p.ignore_empty ? BLOCKDEV_LIST_IGNORE_EMPTY : 0)|
                 (p.ignore_root ? BLOCKDEV_LIST_IGNORE_ROOT : 0);
 
         _cleanup_(list_candidate_devices_context_freep) ListCandidateDevicesContext *c = NULL;
 
         if (p.subscribe) {
+                /* Refuse multiple requests per connection. */
+                if (sd_varlink_get_userdata(link))
+                        return -EBUSY;
+
                 /* Start the monitor *before* the initial enumeration so we don't lose events that fire
                  * during the enumeration window. Duplicate add events for the same device are
                  * legitimate and documented; clients upsert by identifier. */

@@ -339,6 +339,26 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     assert_eq "$(run0 --pipe echo -n foo)" "foo"
     assert_eq "$(run0 --pipe --pty echo -n foo)" "foo"
 
+    # When run0 is used in a pipeline, the caller's TTY is passed through as an fd. Its
+    # ownership/access mode must not be changed to the target user.
+    script -qec 'bash -euxc '"'"'
+        set -o pipefail
+        tty_path="$(tty)"
+        tty_stat="$(stat -Lc "%u:%g:%a" "$tty_path")"
+        run0 --user=testuser echo -n foo | cat >/dev/null
+        [[ "$(stat -Lc "%u:%g:%a" "$tty_path")" == "$tty_stat" ]]
+    '"'" /dev/null
+
+    # --pty also passes a service PTY as an fd. It must still provide a usable TTY to
+    # the target user without changing the caller's TTY ownership/access mode.
+    script -qec 'bash -euxc '"'"'
+        tty_path="$(tty)"
+        tty_stat="$(stat -Lc "%u:%g:%a" "$tty_path")"
+        run0 --pty --user=testuser bash -xec \
+            "test \"\$(id -un)\" = testuser; test -t 0; test -t 1; test -t 2; tty >/dev/null"
+        [[ "$(stat -Lc "%u:%g:%a" "$tty_path")" == "$tty_stat" ]]
+    '"'" /dev/null
+
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"

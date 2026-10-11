@@ -45,6 +45,10 @@ All tools:
 * `$SYSTEMD_INVOKED_AS=name` — override argv[0] for detection of a multicall
   binary. E.g. `SYSTEMD_INVOKED_AS=systemd-udevd build/udevadm`.
 
+* `$SYSTEMD_EXPERIMENTAL=0|1` — if set to true, experimental features may be
+  used. This variable is not checked if the build was configured with
+  "-Dexperimental=disabled".
+
 * `$SYSTEMD_PROC_CMDLINE` — if set, the contents are used as the kernel command
   line instead of the actual one in `/proc/cmdline`. This is useful for
   debugging, in order to test generators and other code against specific kernel
@@ -516,8 +520,9 @@ is suppressed by default.
 
 * `$SYSTEMD_OPENPGP_KEYRING` — takes an absolute path to an OpenPGP keyring
   file. If set and non-empty, signature verification on download uses this
-  keyring instead of the default `/etc/systemd/import-pubring.pgp` and
-  `/usr/lib/systemd/import-pubring.pgp` keyrings.
+  keyring instead of the default `/etc/systemd/import-pubring.pgp`,
+  `/etc/systemd/import-pubring.gpg`, and `/usr/lib/systemd/import-pubring.pgp`
+  keyrings.
   Useful when running unprivileged in the user context, with custom transfer
   definitions (e.g. `systemd-sysupdate --definitions=…`), or for testing.
   Has no effect when signature verification is disabled.
@@ -733,6 +738,17 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   be overridden via a correspondingly named environment variable. For example,
   to override the filesystem type for all partitions with `Type=root`, you can
   set `SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT=ext4`.
+
+`systemd-sysinstall`:
+
+* `$SYSTEMD_SYSINSTALL_PERMIT_AUTO_TARGET_LOOP` – takes a boolean. If true,
+  loopback block devices are considered as candidates when the installation
+  target device is picked automatically (i.e. when `--device-auto` is used).
+  By default, loopback devices are never picked automatically, since they are
+  hardly ever the disk an unattended installation is supposed to end up on.
+  This is primarily useful for testing purposes, where loopback devices are
+  used as stand-ins for real disks. Only honoured if `systemd-sysinstall` is
+  not invoked with elevated privileges (i.e. via `secure_getenv()`).
 
 `systemd-nspawn`, `systemd-networkd`:
 

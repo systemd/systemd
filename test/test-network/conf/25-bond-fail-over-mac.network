@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bond99
+
+[Network]
+IPv6AcceptRA=no
+Address=192.168.123.45/24

@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -10,10 +11,7 @@
 #include "conf-parser.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
@@ -21,6 +19,12 @@
 
 static char *arg_target_solution = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_target_solution, freep);
+
+COMMAND(
+        "iocost\0",
+        "Set up iocost model and qos solutions for block devices.",
+        .man_pages = "iocost.conf(5)\0",
+);
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -51,33 +55,7 @@ static int parse_config(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract("Set up iocost model and qos solutions for block devices.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        return table_print_or_warn(options);
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -90,10 +68,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
@@ -280,13 +261,13 @@ static int query_solutions_for_path(const char *path) {
         return 0;
 }
 
-VERB(verb_query, "query", "PATH", 2, 2, 0,
+VERB(verb_query, "query", "PATH\0", 2, 2, 0,
      "Query the known solution for the device");
 static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return query_solutions_for_path(ASSERT_PTR(argv[1]));
 }
 
-VERB(verb_apply, "apply", "PATH [SOLUTION]", 2, 3, 0,
+VERB(verb_apply, "apply", "PATH [SOLUTION]\0", 2, 3, 0,
      "Apply solution for the device if found, do nothing otherwise");
 static int verb_apply(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return apply_solution_for_path(

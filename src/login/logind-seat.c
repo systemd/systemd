@@ -277,6 +277,7 @@ static int seat_trigger_devices(Seat *s) {
         int r;
 
         assert(s);
+        assert(s->manager);
 
         set_clear(s->uevents);
 
@@ -313,7 +314,7 @@ static int seat_trigger_devices(Seat *s) {
                         continue;
 
                 sd_id128_t uuid;
-                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, s->manager->device_trigger_args, &uuid);
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
                         continue;

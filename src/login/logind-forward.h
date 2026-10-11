@@ -20,3 +20,4 @@ typedef struct Session Session;
 typedef struct User User;
 typedef struct Inhibitor Inhibitor;
 typedef struct Button Button;
+typedef struct LoginCounters LoginCounters;

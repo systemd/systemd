@@ -23,7 +23,6 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
@@ -81,47 +80,6 @@ static void push_fds_done(PushFds *p) {
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Introspect Varlink Services.");
-
-        help_section("Commands");
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nWith --exec, specify the command to invoke:\n"
-               "  %s --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n",
-               program_invocation_short_name);
-
-        help_man_page_reference("varlinkctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -134,7 +92,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -248,6 +206,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         /* If more than one reply is expected, imply JSON-SEQ output, and set SD_JSON_FORMAT_FLUSH */
@@ -325,8 +286,17 @@ static void get_info_data_done(GetInfoData *d) {
         d->interfaces = strv_free(d->interfaces);
 }
 
-VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
-VERB(verb_info, "list-interfaces", "ADDRESS", 2, 2, 0, "List interfaces implemented by service");
+COMMAND(
+        "varlinkctl\0",
+        "Introspect Varlink Services.",
+        .man_pages = "varlinkctl(1)\0",
+        .footer = "With --exec, specify the command to invoke:\n"
+                  "  varlinkctl --exec call ADDRESS METHOD PARAMS -- CMDLINE…",
+        .pager_flags = &arg_pager_flags,
+);
+
+VERB(verb_info, "info", "ADDRESS\0", 2, 2, 0, "Show service information");
+VERB(verb_info, "list-interfaces", "ADDRESS\0", 2, 2, 0, "List interfaces implemented by service");
 static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
@@ -420,8 +390,8 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
-VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0, "Show interface definition");
-VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0,
+VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0, "Show interface definition");
+VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0,
      "List methods implemented by services or specific interfaces");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -739,7 +709,7 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         return 0;
 }
 
-VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]", 3, VERB_ANY, 0, "Invoke method");
+VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]\0", 3, VERB_ANY, 0, "Invoke method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -1013,7 +983,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_validate_idl, "validate-idl", "[FILE]", 1, 2, 0, "Validate interface description");
+VERB(verb_validate_idl, "validate-idl", "[FILE]\0", 1, 2, 0, "Validate interface description");
 static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
@@ -1416,7 +1386,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
-VERB(verb_serve, "serve", "METHOD CMDLINE…", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
+VERB(verb_serve, "serve", "METHOD CMDLINE…\0", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
 static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1487,6 +1457,8 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         return 0;
 }
+
+VERB_COMMON_HELP_AUTO();
 
 static int run(int argc, char *argv[]) {
         int r;

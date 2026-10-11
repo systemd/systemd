@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:04+0000\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"PO-Revision-Date: 2026-08-02 00:09+0000\n"
 "Last-Translator: Priit Jõerüüt "
 "<jrtkbfdr@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -152,7 +152,7 @@ msgstr "Halda kodukausta allkirjastamisvõtmeid"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "Autentimine on vajalik, et hallata kodukaustade allkirjastamisvõtmeid."
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:328
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -161,29 +161,29 @@ msgstr ""
 "Kasutaja %s kodu on puudu. Palun sisesta vajalik salvestusseade või "
 "failisüsteem."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Liiga tihedad kasutaja %s sisselogimiskatsed, proovi hiljem uuesti."
 
-#: src/home/pam_systemd_home.c:344
+#: src/home/pam_systemd_home.c:345
 msgid "Password: "
 msgstr "Parool: "
 
-#: src/home/pam_systemd_home.c:346
+#: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Parool on vale või pole kasutaja %s autentimiseks piisav."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
 msgstr "Vabandust, proovi uuesti: "
 
-#: src/home/pam_systemd_home.c:369
+#: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
 msgstr "Taastamisvõti: "
 
-#: src/home/pam_systemd_home.c:371
+#: src/home/pam_systemd_home.c:372
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -191,20 +191,20 @@ msgid ""
 msgstr ""
 "Parool/taastamisvõti on vale või pole kasutaja %s autentimiseks piisav."
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
 msgstr "Vabandust, sisesta taastamisvõti uuesti: "
 
-#: src/home/pam_systemd_home.c:392
+#: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Kasutaja %s turvatunnus pole sisestatud."
 
-#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
 msgstr "Proovi uuesti parooliga: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -213,105 +213,105 @@ msgstr ""
 "Parool on vale või pole kasutaja %s autentimiseks piisav ning "
 "konfigureeritud turvatunnus pole sisestatud."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
 msgstr "Turvatunnuse PIN: "
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Palun autendi füüsiliselt kasutaja %s turvatunnust."
 
-#: src/home/pam_systemd_home.c:443
+#: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Palun kinnita kasutaja %s turvatunnuse kohalolekut."
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Palun kinnita %s kasutaja tunnusloal märgitud kasutaja."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
 msgstr "Vabandust, proovi sisestada turvatunnuste PIN uuesti: "
 
-#: src/home/pam_systemd_home.c:490
+#: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "Kasutaja %s turvatunnuse PIN on vale (järele jäänud paar proovi veel!)"
 
-#: src/home/pam_systemd_home.c:509
+#: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Kasutaja %s turvatunnuse PIN on vale (järele jäänud ainult üks proovi veel!)"
 
-#: src/home/pam_systemd_home.c:676
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "%s kasutaja kodukaust pole hetkel aktiivne, palun logi esmalt kohalikku "
 "arvutisse."
 
-#: src/home/pam_systemd_home.c:678
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "%s kasutaja kodukaust on hetkel lukus, palun esmalt eemalda kohalikus "
 "arvutis lukustus."
 
-#: src/home/pam_systemd_home.c:712
+#: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Liiga palju ebaõnnestunuid kasutaja %s sisselogimiskatseid, keeldun."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
 msgstr "Kasutajakirje on blokeeritud - ligipääs on keelatud."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Kasutajakirje pole veel kehtiv - ligipääs on keelatud."
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Kasutajakirje pole enam kehtiv - ligipääs on keelatud."
 
-#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
 msgstr "Kasutajakirje pole kehtiv - ligipääs on keelatud."
 
-#: src/home/pam_systemd_home.c:1044
+#: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Liiga palju sisselogimiskatseid, proovi uuesti %s aja pärast."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
 msgstr "Parool vajab vahetamist."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
 msgstr "Parool on aegunud, vaja on vahetamist."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Parool on aegunud, aga ei saa seda muuta. Keeldun sisselogimast."
 
-#: src/home/pam_systemd_home.c:1069
+#: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
 msgstr "Parool varsti aegub, palun muuda seda."
 
@@ -1303,14 +1303,14 @@ msgstr "Autentimine on vajalik, et laadida '$(unit)' uuesti."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentimine on vajalik, et restartida '$(unit)'."
 
-#: src/core/dbus-unit.c:568
+#: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
 "Autentimine on vajalik, et saata UNIX signaali '$(unit)' protsessidele."
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1318,43 +1318,43 @@ msgstr ""
 "Autentimine on vajalik, et saata UNIX signaali '$(unit)' alamgrupi "
 "protsessidele."
 
-#: src/core/dbus-unit.c:649
+#: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentimine on vajalik, et lähtestada '$(unit)' \"ebaõnnestunud\" olekut."
 
-#: src/core/dbus-unit.c:679
+#: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentimine on vajalik, et määrata '$(unit)' omadusi."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr "Autentimine on vajalik, et kustutada '$(unit)' faile ja kauste."
 
-#: src/core/dbus-unit.c:813
+#: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "„$(unit)“ ühikfaili protsesside külmitamiseks või ülessulatamiseks on "
 "vajalik autentimine."
 
-#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:516
+#: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:936
+#: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
 
-#: src/shared/libfido2-util.c:948
+#: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
 msgstr ""
 

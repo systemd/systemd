@@ -38,6 +38,7 @@ struct udev_device {
 
         struct udev_device *parent;
         bool parent_set;
+        int parent_errno;
 
         struct udev_list *properties;
         uint64_t properties_generation;
@@ -393,9 +394,12 @@ _public_ struct udev_device* udev_device_get_parent(struct udev_device *udev_dev
         if (!udev_device->parent_set) {
                 udev_device->parent_set = true;
                 udev_device->parent = device_new_from_parent(udev_device);
+                udev_device->parent_errno = udev_device->parent ? 0 : errno;
         }
 
-        /* TODO: errno will differ here in case parent == NULL */
+        if (!udev_device->parent)
+                errno = udev_device->parent_errno;
+
         return udev_device->parent;
 }
 

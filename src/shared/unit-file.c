@@ -384,6 +384,11 @@ int unit_file_build_name_map(
         uint64_t timestamp_hash;
         int r;
 
+        assert(lp);
+        POINTER_MAY_BE_NULL(cache_timestamp_hash);
+        assert(unit_ids_map);
+        assert(unit_names_map);
+
         /* Before doing anything, check if the timestamp hash that was passed is still valid.
          * If yes, do nothing. */
         if (cache_timestamp_hash &&
@@ -635,6 +640,9 @@ int unit_file_remove_from_name_map(
 
         int r;
 
+        assert(lp);
+        assert(unit_ids_map);
+        assert(unit_names_map);
         assert(path);
 
         /* This assumes the specified path is already removed, and drops the relevant entries from the maps. */
@@ -655,7 +663,8 @@ int unit_file_remove_from_name_map(
         _unused_ _cleanup_free_ char *key = NULL;
         free(hashmap_remove2(*unit_ids_map, name, (void**) &key));
         string_strv_hashmap_remove(*unit_names_map, name, name);
-        free(set_remove(*path_cache, path));
+        if (path_cache)
+                free(set_remove(*path_cache, path));
 
         return 0;
 }

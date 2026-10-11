@@ -28,6 +28,7 @@ static void slice_init(Unit *u) {
         u->ignore_on_isolate = true;
         s->concurrency_hard_max = UINT_MAX;
         s->concurrency_soft_max = UINT_MAX;
+        s->activating_concurrency_max = UINT_MAX;
 }
 
 static void slice_set_state(Slice *s, SliceState state) {
@@ -410,6 +411,25 @@ unsigned slice_get_currently_active(Slice *slice, Unit *ignore, bool with_pendin
         return n;
 }
 
+static unsigned slice_get_currently_activating(Slice *slice, Unit *ignore) {
+        Unit *u = ASSERT_PTR(UNIT(slice));
+        unsigned n = 0;
+        Unit *member;
+
+        UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF) {
+                if (member == ignore)
+                        continue;
+
+                if (unit_active_state(member) == UNIT_ACTIVATING)
+                        n++;
+
+                if (member->type == UNIT_SLICE)
+                        n += slice_get_currently_activating(SLICE(member), ignore);
+        }
+
+        return n;
+}
+
 bool slice_concurrency_soft_max_reached(Slice *slice, Unit *ignore) {
         assert(slice);
 
@@ -434,6 +454,20 @@ bool slice_concurrency_hard_max_reached(Slice *slice, Unit *ignore) {
         Unit *parent = UNIT_GET_SLICE(UNIT(slice));
         if (parent)
                 return slice_concurrency_hard_max_reached(SLICE(parent), ignore);
+
+        return false;
+}
+
+bool slice_activating_concurrency_max_reached(Slice *slice, Unit *ignore) {
+        assert(slice);
+
+        if (slice->activating_concurrency_max != UINT_MAX &&
+            slice_get_currently_activating(slice, ignore) >= slice->activating_concurrency_max)
+                return true;
+
+        Unit *parent = UNIT_GET_SLICE(UNIT(slice));
+        if (parent)
+                return slice_activating_concurrency_max_reached(SLICE(parent), ignore);
 
         return false;
 }

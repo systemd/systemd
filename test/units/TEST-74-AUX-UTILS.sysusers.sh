@@ -34,7 +34,7 @@ root="$(mktemp -d)"
 cred="$(mktemp -d)"
 mkdir -p "$root/etc"
 printf 'relative-shell' >"$cred/passwd.shell.creduser"
-(! env CREDENTIALS_DIRECTORY="$cred" systemd-sysusers --dry-run --root="$root" --inline 'u creduser 999 "Cred User" / -')
+(! env CREDENTIALS_DIRECTORY="$cred" systemd-sysusers -n --root="$root" --inline 'u creduser 999 "Cred User" / -')
 (! env CREDENTIALS_DIRECTORY="$cred" systemd-sysusers --root="$root" --inline 'u creduser 999 "Cred User" / -')
 (! grep -F creduser "$root/etc/passwd" >/dev/null 2>&1)
 rm -rf "$root" "$cred"

@@ -347,6 +347,23 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
         return 1;
 }
 
+static int bus_append_parse_size_i64(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t v;
+        int r;
+
+        r = parse_size(eq, /* base= */ 1024, &v);
+        if (r < 0)
+                return parse_log_error(r, field, eq);
+        if (v > INT64_MAX)
+                return parse_log_error(SYNTHETIC_ERRNO(ERANGE), field, eq);
+
+        r = sd_bus_message_append(m, "(sv)", field, "x", (int64_t) v);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -619,6 +636,10 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         _cleanup_free_ char *_path = NULL;
         ExecCommandFlags flags = 0;
         int r;
+
+        assert(m);
+        assert(field);
+        assert(eq);
 
         do {
                 switch (*eq) {
@@ -2062,7 +2083,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(r, "Failed to parse flags for %s=: '%s'", field, flags);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2178,7 +2199,7 @@ static int bus_append_quota_directory(sd_bus_message *m, const char *field, cons
                 if (r < 0) {
                         r = parse_size(eq, 1024, &quota_absolute);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+                                return log_error_errno(r, "Failed to parse argument: %s=%s", field, eq);
                 } else
                         quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
 
@@ -2811,7 +2832,6 @@ static const BusProperty socket_properties[] = {
         { "SocketMode",                            bus_append_parse_mode                         },
         { "DirectoryMode",                         bus_append_parse_mode                         },
         { "MessageQueueMaxMessages",               bus_append_safe_atoi64                        },
-        { "MessageQueueMessageSize",               bus_append_safe_atoi64                        },
         { "TimeoutSec",                            bus_append_parse_sec_rename                   },
         { "KeepAliveTimeSec",                      bus_append_parse_sec_rename                   },
         { "KeepAliveIntervalSec",                  bus_append_parse_sec_rename                   },
@@ -2822,6 +2842,7 @@ static const BusProperty socket_properties[] = {
         { "ReceiveBuffer",                         bus_append_parse_size                         },
         { "SendBuffer",                            bus_append_parse_size                         },
         { "PipeSize",                              bus_append_parse_size                         },
+        { "MessageQueueMessageSize",               bus_append_parse_size_i64                     },
         { "ExecStartPre",                          bus_append_exec_command                       },
         { "ExecStartPost",                         bus_append_exec_command                       },
         { "ExecReload",                            bus_append_exec_command                       },
@@ -3071,11 +3092,15 @@ int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_
                         "PIDs", "au", 1, pidref->pid);
 }
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
+int bus_deserialize_unit_file_changes(sd_bus_message *m, InstallChange **ret_changes, size_t *ret_n_changes) {
         const char *type, *path, *source;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         int r;
+
+        assert(m);
+        assert(ret_changes);
+        assert(ret_n_changes);
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
@@ -3105,6 +3130,23 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        *ret_changes = TAKE_PTR(changes);
+        *ret_n_changes = n_changes;
+
+        return 0;
+}
+
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        int r;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        r = bus_deserialize_unit_file_changes(m, &changes, &n_changes);
+        if (r < 0)
+                return r;
 
         install_changes_dump(0, NULL, changes, n_changes, quiet);
 

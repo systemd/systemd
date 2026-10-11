@@ -13,12 +13,11 @@ executables += [
                 'name' : 'storagectl',
                 'public' : true,
                 'sources' : files('storagectl.c'),
+                'symlinks' : [
+                        { 'name' : 'mount.storage', 'install_dir' : sbindir },
+                ],
         },
 ]
-
-install_symlink('mount.storage',
-                pointing_to : sbin_to_bin + 'storagectl',
-                install_dir : sbindir)
 
 install_data('io.systemd.storage.policy',
              install_dir : polkitpolicydir)

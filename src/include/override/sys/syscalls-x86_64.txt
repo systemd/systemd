@@ -80,6 +80,7 @@ fchmodat2	452
 fchown	93
 fchown32
 fchownat	260
+fchroot	472
 fcntl	72
 fcntl64
 fdatasync	75

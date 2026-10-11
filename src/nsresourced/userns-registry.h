@@ -37,6 +37,10 @@ typedef struct UserNamespaceInfo {
         uid_t target_uid;
         gid_t start_gid;
         gid_t target_gid;
+        int setgroups_deny; /* Whether setgroups() is denied for this namespace via the BPF-LSM, so the
+                             * denial can be re-established after a restart that reset the BPF maps.
+                             * Negative in entries written before we recorded this, and stays that way
+                             * when such an entry is updated, so the answer is never faked. */
         uint64_t *cgroups;
         size_t n_cgroups;
         char **netifs;
@@ -93,8 +97,10 @@ typedef enum UserNamespaceReapStatus {
  * namespace id and, if it is authoritatively dead, releases its registry entry (restoring any ranges
  * it received via delegation to their ancestors). Returns a non-negative UserNamespaceReapStatus
  * describing what happened, or a negative errno on genuine failure. The caller must hold the registry
- * lock (or otherwise be free of concurrent writers). */
-int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
+ * lock (or otherwise be free of concurrent writers). If ret_info is passed it receives the entry this
+ * had to load anyway, so that callers that go on to work on the entry need not parse it a second time.
+ * It is set to NULL whenever no entry survives the call. */
+int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode, UserNamespaceInfo **ret_info);
 
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info);
 int userns_registry_remove(int dir_fd, UserNamespaceInfo *info);

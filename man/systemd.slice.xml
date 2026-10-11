@@ -139,6 +139,46 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ActivatingConcurrencyMax=</varname></term>
+
+        <listitem><para>Configures a limit on the maximum number of units assigned to this
+        slice (or any descendent slices) that may be in the <emphasis>activating</emphasis> state
+        at the same time. Unlike <varname>ConcurrencySoftMax=</varname> which limits units in the
+        <emphasis>active</emphasis> state, this option limits units while they are starting up.
+        Once a unit leaves the <emphasis>activating</emphasis> state (whether to
+        <emphasis>active</emphasis>, <emphasis>failed</emphasis>, or any other state), it no longer
+        counts toward this limit, allowing the next queued unit to begin starting.</para>
+
+        <para>This is particularly useful for managing the "thundering herd" problem during system
+        boot, where many long-running services (such as container workloads) attempt to start
+        simultaneously. By setting <varname>ActivatingConcurrencyMax=</varname>, you can pace the
+        startup process to limit CPU and I/O pressure, while still allowing all services to
+        eventually reach the <emphasis>active</emphasis> state.</para>
+
+        <para>When the limit is reached, further activation requests are queued and will be
+        dispatched automatically once running activations complete. No error is returned to the
+        caller. Note that if a unit becomes stuck in the activating state (for example, due to
+        a hung process or missing dependency), it will continue to occupy a slot until it
+        leaves that state. Configure appropriate timeouts (e.g.,
+        <varname>TimeoutStartSec=</varname>) on individual units to prevent indefinite blocking.</para>
+
+        <para>Setting <varname>ActivatingConcurrencyMax=0</varname> blocks all activation
+        requests in the slice hierarchy indefinitely. Queued units will never start until
+        the limit is raised. This can be used to intentionally freeze slice startup,
+        matching the behavior of <varname>ConcurrencySoftMax=0</varname>.</para>
+
+        <para>If the special value <literal>infinity</literal> is specified, no concurrency limit
+        is enforced. This is the default.</para>
+
+        <para>Note that this option has a hierarchical effect: a limit set for a slice unit will
+        apply to both the units immediately within the slice and all units further down the slice
+        tree. Note that slice units themselves never enter the activating state, so nested slices
+        do not count toward the limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

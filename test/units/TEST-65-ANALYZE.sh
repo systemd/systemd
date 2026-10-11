@@ -18,6 +18,7 @@ systemd-analyze time || :
 systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
+systemd-analyze blame --json=pretty
 systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame --no-pager
 (! systemd-analyze blame --global)
 # plot
@@ -1124,6 +1125,16 @@ systemd-analyze architectures x86-64
 systemd-analyze architectures native
 systemd-analyze architectures uname
 
+if systemd-analyze --no-legend architectures native | grep -E '^(x86|x86-64|arm64|arm64-be)[[:space:]]' >/dev/null; then
+    rc=0
+else
+    rc=1
+fi
+assert_rc "$rc" systemd-analyze cpu-features
+assert_rc "$rc" systemd-analyze cpu-features --json=pretty
+assert_rc "$rc" systemd-analyze cpu-features foo hoge fpu fp
+assert_rc "$rc" systemd-analyze cpu-features --json=pretty foo hoge fpu fp avx
+
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
 
@@ -1139,6 +1150,8 @@ systemd-analyze security --instance=tmp systemd-growfs@.service
 systemd-analyze has-tpm2 ||:
 if systemd-analyze has-tpm2 -q ; then
     echo "have tpm2"
+    systemd-analyze identify-tpm2
+    systemd-analyze identify-tpm2 --json=pretty
 else
     echo "have no tpm2"
 fi

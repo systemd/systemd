@@ -5,7 +5,7 @@ set -o pipefail
 
 if [[ ! -x /usr/lib/systemd/systemd-journal-gatewayd ]]; then
     echo "Built without systemd-journal-gatewayd support, skipping the test"
-    exit 0
+    exit 77
 fi
 
 LOG_FILE="$(mktemp)"

@@ -41,7 +41,7 @@ static JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
                 return NULL;
 
         if (c->fss_file)
-                munmap(c->fss_file, c->fss_mmap_size);
+                munmap_safe(c->fss_file, c->fss_mmap_size);
         else
                 iovec_done_erase(&c->fsprg_state);
 
@@ -60,12 +60,7 @@ static JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalAuthContext*, journal_auth_free);
 
 static void* fssheader_free(FSSHeader *p) {
-        /* mmap() returns MAP_FAILED on error and sets the errno */
-        if (!p || p == MAP_FAILED)
-                return NULL;
-
-        assert_se(munmap(p, PAGE_ALIGN(sizeof(FSSHeader))) >= 0);
-        return NULL;
+        return munmap_safe(p, PAGE_ALIGN(sizeof(FSSHeader)));
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);

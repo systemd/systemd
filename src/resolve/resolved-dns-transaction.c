@@ -1812,9 +1812,16 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* For the initial attempt or when no stale data is requested, disable serve stale
                  * and answer the question from the cache (honors ttl property).
                  * On the second attempt, if StaleRetentionSec is greater than zero,
-                 * try to answer the question using stale date (honors until property) */
+                 * try to answer the question using stale data (honors until property).
+                 *
+                 * Serving stale data is a fallback for unicast DNS, where a retry means the configured
+                 * server did not respond. The link-local protocols have no such server: a retry there
+                 * means no peer answered, and for mDNS RFC 6762 treats TTL expiry as a presence signal.
+                 * Hence never serve stale data on those scopes. */
                 uint64_t query_flags = t->query_flags;
-                if (t->n_attempts == 1 || t->scope->manager->stale_retention_usec == 0)
+                if (t->n_attempts == 1 ||
+                    t->scope->protocol != DNS_PROTOCOL_DNS ||
+                    t->scope->manager->stale_retention_usec == 0)
                         query_flags |= SD_RESOLVED_NO_STALE;
 
                 r = dns_cache_lookup(

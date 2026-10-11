@@ -11,7 +11,7 @@ set -o pipefail
 # unavailable, since the kernel version alone is not a reliable indicator.
 if ! socket_inode_supports_user_xattrs; then
     echo "Socket inode extended attributes unsupported on this kernel, skipping." >&2
-    exit 0
+    exit 77
 fi
 
 ENTRYPOINT_PATH="/run/test-list-sockets-entrypoint.sock"

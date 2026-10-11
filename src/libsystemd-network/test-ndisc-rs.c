@@ -105,6 +105,7 @@ static void router_dump(sd_ndisc_router *rt) {
                 log_info("Hop limit: %u", hop_limit);
 
         assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
+        ASSERT_EQ(flags & UINT64_C(0x00ffffffffffff00), UINT64_C(0x0066554433221100));
         log_info("Flags: <%s|%s>",
                  flags & ND_RA_FLAG_OTHER ? "OTHER" : "",
                  flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
@@ -218,7 +219,7 @@ static void router_dump(sd_ndisc_router *rt) {
 static int send_ra(uint8_t flags) {
         uint8_t advertisement[] = {
                 /* struct nd_router_advert */
-                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4,
+                0x86, 0x00, 0x00, 0x00, 0x40, 0xc0, 0x00, 0xb4,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 /* type = 0x03 (SD_NDISC_OPTION_PREFIX_INFORMATION), length = 32 */
                 0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4,
@@ -235,6 +236,8 @@ static int send_ra(uint8_t flags) {
                 0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 /* type = 0x01 (SD_NDISC_OPTION_SOURCE_LL_ADDRESS), length = 8 */
                 0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
+                /* type = 0x1a (SD_NDISC_OPTION_FLAGS_EXTENSION), length = 8 */
+                0x1a, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
         };
 
         advertisement[5] = flags;
@@ -269,7 +272,7 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         router_dump(rt);
 
         assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
-        assert_se(flags == flags_array[idx]);
+        ASSERT_EQ(flags & 0xff, flags_array[idx]);
         idx++;
 
         log_debug("%s: Got event 0x%02" PRIx64, __func__, flags);
@@ -293,6 +296,15 @@ static void test_callback_count(
 
         if (event == SD_NDISC_EVENT_ROUTER)
                 (*count)++;
+}
+
+static int on_recv_rs_exit(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
+        ASSERT_EQ(icmp6_packet_get_type(packet), ND_ROUTER_SOLICIT);
+
+        return ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), 0));
 }
 
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -321,6 +333,39 @@ TEST(rs_ifindex_mismatch) {
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         test_fd[1] = safe_close(test_fd[1]);
+}
+
+TEST(rs_after_zero_lifetime_ra) {
+        static const struct nd_router_advert advertisement = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+        };
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        unsigned count = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, 0));
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_count, &count));
+        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, 0,
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
+        ASSERT_OK(sd_ndisc_start(nd));
+
+        ASSERT_EQ(write(test_fd[1], &advertisement, sizeof(advertisement)), (ssize_t) sizeof(advertisement));
+        ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
+        ASSERT_EQ(count, 1U);
+        ASSERT_OK_POSITIVE(sd_event_source_get_enabled(nd->timeout_event_source, NULL));
+
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_exit, e));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        ASSERT_OK(sd_event_source_set_time(nd->timeout_event_source, 0));
+        ASSERT_OK(sd_event_loop(e));
+
+        test_fd[1] = -EBADF;
 }
 
 TEST(rs) {
@@ -362,7 +407,7 @@ TEST(rs) {
 static int send_ra_invalid_domain(uint8_t flags) {
         uint8_t advertisement[] = {
                 /* struct nd_router_advert */
-                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4,
+                0x86, 0x00, 0x00, 0x00, 0x40, 0xc0, 0x00, 0xb4,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 /* type = 0x03 (SD_NDISC_OPTION_PREFIX_INFORMATION), length = 32 */
                 0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4,
@@ -390,6 +435,8 @@ static int send_ra_invalid_domain(uint8_t flags) {
                 0xdb, 0x12, 0x9c, 0x75, 0x22, 0x5f, 0x12, 0x00,
                 /* type = 0x01 (SD_NDISC_OPTION_SOURCE_LL_ADDRESS), length = 8 */
                 0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
+                /* type = 0x1a (SD_NDISC_OPTION_FLAGS_EXTENSION), length = 8 */
+                0x1a, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
         };
 
         advertisement[5] = flags;

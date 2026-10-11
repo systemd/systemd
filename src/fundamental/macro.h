@@ -76,6 +76,7 @@
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
+#define _always_inline_ __attribute__((__always_inline__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _const_ __attribute__((__const__))
 #define _deprecated_ __attribute__((__deprecated__))
@@ -519,7 +520,7 @@ assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
 
 /* In GCC 14 (C23) we can force enums to have the right types, and not solely rely on language extensions anymore */
-#if (__GNUC__ >= 14 || __STDC_VERSION__ >= 202311L) && !defined(__EDG__)
+#if __GNUC__ >= 14 || __STDC_VERSION__ >= 202311L
 #  define ENUM_TYPE_S64(id) id : int64_t
 #else
 #  define ENUM_TYPE_S64(id) id

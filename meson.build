@@ -27,8 +27,8 @@ else
         project_minor_version = '0'
 endif
 
-libsystemd_version = '0.44.0'
-libudev_version = '1.7.14'
+libsystemd_version = '0.45.0'
+libudev_version = '1.7.15'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
@@ -53,6 +53,12 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
+
+experimental = get_option('experimental')
+if experimental == 'auto'
+        experimental = conf.get('BUILD_MODE_DEVELOPER') == 1 ? 'enabled' : 'envvar'
+endif
+conf.set('EXPERIMENTAL', 'EXPERIMENTAL_@0@'.format(experimental.to_upper()))
 
 feature = get_option('log-message-verification')
 if feature.auto()
@@ -128,7 +134,6 @@ endif
 prefixdir_noslash = '/' + prefixdir.strip('/')
 bindir = prefixdir / get_option('bindir')
 sbindir = prefixdir / (split_bin ? 'sbin' : 'bin')
-sbin_to_bin = split_bin ? '../bin/' : ''
 libdir = prefixdir / get_option('libdir')
 sysconfdir = prefixdir / get_option('sysconfdir')
 includedir = prefixdir / get_option('includedir')
@@ -511,6 +516,10 @@ if get_option('mode') == 'release'
         possible_common_cc_flags += '-ftrivial-auto-var-init=zero'
 endif
 
+if get_option('pack-relative-relocs')
+        possible_link_flags += '-Wl,-z,pack-relative-relocs'
+endif
+
 possible_cc_flags = [
         '-fno-strict-aliasing',
         '-fstrict-flex-arrays=1',
@@ -695,6 +704,10 @@ endif
 message(f'gperf len type is @gperf_len_type@')
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
+
+# The default gperf search leaves most slots of a large hash table empty, and every empty slot takes up space
+# in the binary. More search iterations make the large tables about 25% smaller.
+gperf_cmdline = [gperf, '--multiple-iterations=10']
 
 #####################################################################
 
@@ -956,6 +969,9 @@ endif
 # Do not use set_quoted() here, so that the value is available as an integer.
 conf.set('TTY_MODE', tty_mode)
 
+var_log_mode = get_option('var-log-mode')
+conf.set_quoted('VAR_LOG_MODE', var_log_mode)
+
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
 
@@ -1018,6 +1034,17 @@ if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
 endif
 
+extra_exec_search_path = get_option('extra-exec-search-path')
+if extra_exec_search_path != ''
+        foreach p : extra_exec_search_path.split(':')
+                if not p.startswith('/')
+                        error(f'Extra exec search path is not absolute: "@p@"')
+                endif
+        endforeach
+        extra_exec_search_path = f':@extra_exec_search_path@'
+endif
+conf.set_quoted('EXTRA_EXEC_SEARCH_PATH_SUFFIX', extra_exec_search_path)
+
 #####################################################################
 
 libm = cc.find_library('m')
@@ -1025,9 +1052,8 @@ libm = cc.find_library('m')
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
 # If it is installed, but not needed, it will be dropped because of --as-needed.
-if cc.links('''int main(int argc, char **argv) { return 0; }''',
-            args : '-latomic',
-            name : 'libatomic')
+basic_c_prog = '''int main(int argc, char **argv) { return 0; }'''
+if cc.links(basic_c_prog, args : '-latomic', name : 'libatomic')
         libatomic = declare_dependency(link_args : '-latomic')
 else
         libatomic = []
@@ -1544,10 +1570,19 @@ conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
 conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
+have = get_option('measure').require(
+        conf.get('HAVE_BLKID') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_TPM2') == 1,
+        error_message : 'blkid, openssl, and tpm2 required for systemd-measure').allowed()
+conf.set10('ENABLE_MEASURE', have)
+
 have = get_option('repart').require(
         conf.get('HAVE_LIBFDISK') == 1,
         error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
+
+conf.set10('ENABLE_REPORT', get_option('report').allowed())
 
 default_dnssec = get_option('default-dnssec')
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
@@ -1757,7 +1792,7 @@ have = get_option('bootloader').require(
         pyelftools.found() and get_option('efi') and efi_arch != '',
         error_message : 'unsupported EFI arch or EFI support is disabled').allowed()
 conf.set10('ENABLE_BOOTLOADER', have)
-conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
+conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
 
 efi_arch_alt = ''
 efi_cpu_family_alt = ''
@@ -2039,6 +2074,17 @@ endif
 #
 # For executables matched by the install-standalone list, a .standalone variant
 # will be installed if install is true.
+#
+# The 'symlinks' field, if present, is a list of dictionaries, each describing an alias
+# name for the executable (for multicall binaries dispatching on argv[0]):
+#   'name'           : (required) the name of the symlink.
+#   'install_dir'    : where to install the symlink. Defaults to the install directory
+#                      of the executable.
+#   'conditions'     : a list of config options that must all be enabled for the
+#                      symlink to be created.
+#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+# The symlinks are also created in the build directory, pointing to the executable in
+# the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
         'include_directories' : includes,
         'link_with' : [libshared],
@@ -2239,6 +2285,7 @@ subdir('src/tmpfiles')
 subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
+subdir('src/update-helper')
 subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')
@@ -2297,6 +2344,20 @@ foreach dict : executables
                 continue
         endif
 
+        symlinks = []
+        foreach item : dict.get('symlinks', [])
+                enabled = true
+                foreach cond : item.get('conditions', [])
+                        if conf.get(cond) != 1
+                                enabled = false
+                                break
+                        endif
+                endforeach
+                if enabled
+                        symlinks += [item]
+                endif
+        endforeach
+
         exe_sources = dict.get('sources', []) + dict.get('export', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
@@ -2310,7 +2371,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static']
+                           'bpf_programs', 'link_args_static', 'symlinks']
                         continue
                 endif
 
@@ -2454,6 +2515,73 @@ foreach dict : executables
                                 public_programs += exe_static
                         endif
                 endif
+        endif
+
+        if symlinks.length() > 0
+                if install == 'static'
+                        exe_primary = exe_static
+                        build_by_default_primary = build_by_default_static
+                        install_primary = install_static
+                else
+                        exe_primary = exe
+                        build_by_default_primary = build_by_default_shared
+                        install_primary = install_shared
+                endif
+
+                exe_install_dir = kwargs.get('install_dir', bindir)
+                # The symlinks get the same install tag of the executable: whatever was specified,
+                # or 'runtime', which meson assigns to executables by default.
+                symlink_kwargs = { 'install_tag' : kwargs.get('install_tag', 'runtime') }
+
+                foreach symlink : symlinks
+                        symlink_name = symlink['name']
+
+                        # Build-directory alias, e.g. build/systemd-networkd → networkctl, allowing
+                        # the alias to be run from the build tree. We only need (and can) this if
+                        # the target name is different than the symlink name.
+                        if symlink_name != name
+                                link = custom_target(
+                                        symlink_name,
+                                        output : symlink_name,
+                                        command : [ln, '-fs', name, '@OUTPUT@'],
+                                        depends : exe_primary,
+                                        build_by_default : build_by_default_primary)
+
+                                if build_by_default_primary
+                                        if symlink.get('dbus', false)
+                                                dbus_programs += link
+                                        endif
+                                        if symlink.get('public', false)
+                                                public_programs += link
+                                        endif
+                                endif
+                        endif
+
+                        if not install_primary
+                                continue
+                        endif
+
+                        symlink_dir = symlink.get('install_dir', exe_install_dir)
+
+                        if symlink_dir == exe_install_dir
+                                install_symlink(symlink_name,
+                                                pointing_to : name,
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        elif meson.version().version_compare('>=1.3.0')
+                                install_symlink(symlink_name,
+                                                pointing_to : fs.relative_to(exe_install_dir / name, symlink_dir),
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        else
+                                # fs.relative_to() is not available before meson 1.3
+                                install_emptydir(symlink_dir, kwargs : symlink_kwargs)
+                                meson.add_install_script(sh, '-c',
+                                                         ln_s.format(exe_install_dir / name,
+                                                                     symlink_dir / symlink_name),
+                                                         kwargs : symlink_kwargs)
+                        endif
+                endforeach
         endif
 
         if is_test
@@ -2904,7 +3032,7 @@ if spatch.found()
                                 args : [meson.project_source_root() / dir,
                                         meson.project_source_root() / 'coccinelle'],
                                 suite : 'coccinelle',
-                                timeout : 120,
+                                timeout : 300,
                         )
                 endif
         endforeach
@@ -2971,6 +3099,7 @@ endif
 alt_time_epoch = alt_time_epoch.stdout().strip()
 
 summary({
+        'experimental features'                     : experimental,
         'split bin-sbin'                            : split_bin,
         'prefix directory'                          : prefixdir,
         'sysconf directory'                         : sysconfdir,
@@ -3100,6 +3229,7 @@ foreach tuple : [
         ['localed'],
         ['logind'],
         ['machined'],
+        ['measure'],
         ['mountfsd'],
         ['networkd'],
         ['nspawn'],
@@ -3114,6 +3244,7 @@ foreach tuple : [
         ['quotacheck'],
         ['randomseed'],
         ['repart'],
+        ['report'],
         ['resolve'],
         ['rfkill'],
         ['sysext'],

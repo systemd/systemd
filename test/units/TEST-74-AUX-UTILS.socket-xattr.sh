@@ -12,7 +12,7 @@ set -o pipefail
 # indicator.
 if ! socket_inode_supports_user_xattrs; then
     echo "Socket inode extended attributes unsupported on this kernel, skipping." >&2
-    exit 0
+    exit 77
 fi
 
 UNIT_SOCKET_PATH="/run/test-socket-xattr.sock"

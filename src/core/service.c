@@ -70,6 +70,8 @@
 
 #define SERVICE_FD_STORE_POPULATED(s) (!!(s)->fd_store)
 
+#define SERVICE_BUS_NAME_GRACE_USEC (2 * USEC_PER_SEC)
+
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD]                       = UNIT_INACTIVE,
         [SERVICE_CONDITION]                  = UNIT_ACTIVATING,
@@ -77,6 +79,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START]                      = UNIT_ACTIVATING,
         [SERVICE_START_POST]                 = UNIT_ACTIVATING,
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_RUNNING_REVALIDATING]       = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
         [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
@@ -111,6 +114,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_START]                      = UNIT_ACTIVE,
         [SERVICE_START_POST]                 = UNIT_ACTIVE,
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_RUNNING_REVALIDATING]       = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
         [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
@@ -141,6 +145,7 @@ static int service_dispatch_pid_file_retry(sd_event_source *source, void *userda
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata);
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
@@ -156,7 +161,7 @@ static void service_set_state(Service *s, ServiceState state);
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START, SERVICE_START_POST,
-                      SERVICE_RUNNING,
+                      SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING,
@@ -178,7 +183,7 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
 static bool SERVICE_STATE_WITH_WATCHDOG(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START_POST,
-                      SERVICE_RUNNING,
+                      SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING);
@@ -216,6 +221,7 @@ static void service_init(Unit *u) {
 
         s->oom_policy = _OOM_POLICY_INVALID;
         s->reload_begin_usec = USEC_INFINITY;
+        s->revalidate_runtime_begin_usec = USEC_INFINITY;
         s->reload_signal = SIGHUP;
 
         s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
@@ -624,6 +630,7 @@ static void service_done(Unit *u) {
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         s->pid_file_retry_event_source = sd_event_source_disable_unref(s->pid_file_retry_event_source);
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1677,6 +1684,9 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
+        if (state != SERVICE_RUNNING_REVALIDATING)
+                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+
         if (!SERVICE_STATE_WITH_MAIN_PROCESS(state)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
@@ -1789,6 +1799,14 @@ static int service_coldplug(Unit *u) {
         r = service_arm_timer(s, /* relative= */ false, service_coldplug_timeout(s));
         if (r < 0)
                 return r;
+
+        if (s->deserialized_state == SERVICE_RUNNING_REVALIDATING) {
+                r = unit_arm_timer(UNIT(s), &s->bus_name_grace_event_source, /* relative= */ true,
+                                   SERVICE_BUS_NAME_GRACE_USEC,
+                                   service_dispatch_bus_name_grace);
+                if (r < 0)
+                        return r;
+        }
 
         if (pidref_is_set(&s->main_pid) &&
             pidref_is_unwaited(&s->main_pid) > 0 &&
@@ -2303,7 +2321,7 @@ static int service_spawn_internal(
                 }
 
                 if (env_source != s) {
-                        if (!sd_id128_is_null(UNIT(env_source)->invocation_id))
+                        if (unit_has_invocation_id(UNIT(env_source)))
                                 if (asprintf(our_env + n_env++, "%sINVOCATION_ID=" SD_ID128_FORMAT_STR,
                                              monitor_prefix, SD_ID128_FORMAT_VAL(UNIT(env_source)->invocation_id)) < 0)
                                         return -ENOMEM;
@@ -2769,13 +2787,10 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
 }
 
-static bool service_good(Service *s) {
+static bool service_good_except_bus_name(Service *s) {
         int main_pid_ok;
 
         assert(s);
-
-        if (s->type == SERVICE_DBUS && !s->bus_name_good)
-                return false;
 
         main_pid_ok = main_pid_good(s);
         if (main_pid_ok > 0) /* It's alive */
@@ -2788,6 +2803,26 @@ static bool service_good(Service *s) {
          * instead. */
 
         return cgroup_good(s) != 0;
+}
+
+static bool service_good(Service *s) {
+        assert(s);
+
+        if (s->type == SERVICE_DBUS && !s->bus_name_good)
+                return false;
+
+        return service_good_except_bus_name(s);
+}
+
+static void service_enter_exited_or_stop(Service *s) {
+        assert(s);
+
+        s->revalidate_runtime_begin_usec = USEC_INFINITY;
+
+        if (s->remain_after_exit)
+                service_set_state(s, SERVICE_EXITED);
+        else
+                service_enter_stop(s, SERVICE_SUCCESS);
 }
 
 static void service_enter_running(Service *s, ServiceResult f) {
@@ -2812,7 +2847,17 @@ static void service_enter_running(Service *s, ServiceResult f) {
                 else {
                         service_set_state(s, SERVICE_RUNNING);
 
-                        r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+                        /* We're resuming. Recompute the budget from the current config (which was measured
+                         * from when we entered revalidation). */
+                        usec_t remaining = USEC_INFINITY;
+                        if (s->revalidate_runtime_begin_usec != USEC_INFINITY)
+                                remaining = usec_sub_unsigned(service_running_timeout(s), s->revalidate_runtime_begin_usec);
+                        s->revalidate_runtime_begin_usec = USEC_INFINITY;
+
+                        if (remaining != USEC_INFINITY)
+                                r = service_arm_timer(s, /* relative= */ true, remaining);
+                        else
+                                r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
                         if (r < 0) {
                                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                                 service_enter_running(s, SERVICE_FAILURE_RESOURCES);
@@ -2820,10 +2865,33 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         }
                 }
 
-        } else if (s->remain_after_exit)
-                service_set_state(s, SERVICE_EXITED);
-        else
-                service_enter_stop(s, SERVICE_SUCCESS);
+        } else if (s->type == SERVICE_DBUS && !s->bus_name_good && service_good_except_bus_name(s)) {
+
+                /* If we're already revalidating, just keep waiting on the timer we armed on the way in, so a
+                 * flapping broker that reconnects repeatedly can't keep pushing the deadline out. */
+                if (s->state == SERVICE_RUNNING_REVALIDATING)
+                        return;
+
+                log_unit_warning(UNIT(s),
+                                 "D-Bus name %s vanished (possibly from an unsupported broker restart), giving it %s to return.",
+                                 s->bus_name,
+                                 FORMAT_TIMESPAN(SERVICE_BUS_NAME_GRACE_USEC, USEC_PER_SEC));
+
+                r = unit_arm_timer(UNIT(s), &s->bus_name_grace_event_source, /* relative= */ true,
+                                   SERVICE_BUS_NAME_GRACE_USEC, service_dispatch_bus_name_grace);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to arm D-Bus name grace timer: %m");
+                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                        return;
+                }
+
+                if (s->state == SERVICE_RUNNING)
+                        s->revalidate_runtime_begin_usec = now(CLOCK_MONOTONIC);
+
+                service_set_state(s, SERVICE_RUNNING_REVALIDATING);
+
+        } else
+                service_enter_exited_or_stop(s);
 }
 
 static void service_enter_start_post(Service *s) {
@@ -3167,6 +3235,53 @@ static void service_enter_reload_post(Service *s) {
                 service_reload_finish(s, SERVICE_SUCCESS);
 }
 
+static int service_check_reload_signal_handler(Service *s, const char *missing_suffix, const char *error_suffix) {
+        int r;
+
+        assert(s);
+
+        if (!pidref_is_set(&s->main_pid) || IN_SET(s->reload_signal, SIGKILL, SIGSTOP))
+                return 0;
+
+        /* Check if the process has a traditional signal handler (SigCgt) */
+        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+        if (r < 0) {
+                if (r != -ESRCH)
+                        log_unit_warning_errno(
+                                        UNIT(s), r,
+                                        "Failed to check for reload signal handler%s: %m",
+                                        strempty(error_suffix));
+                return r;
+        }
+
+        if (r == 0) {
+                /* No traditional handler, check if the signal is blocked (SigBlk). A blocked signal is
+                 * typically handled via signalfd, which is a valid way to handle signals (e.g., via
+                 * sd_event_add_signal() with SD_EVENT_SIGNAL_PROCMASK). */
+                r = pidref_has_sigblk(&s->main_pid, s->reload_signal);
+                if (r < 0) {
+                        if (r != -ESRCH)
+                                log_unit_warning_errno(
+                                                UNIT(s), r,
+                                                "Failed to check for blocked reload signal%s: %m",
+                                                strempty(error_suffix));
+                        return r;
+                }
+        }
+
+        if (r == 0) {
+                log_unit_warning(
+                                UNIT(s),
+                                "Main process " PID_FMT " lacks handler for reload signal %s%s.",
+                                s->main_pid.pid,
+                                signal_to_string(s->reload_signal),
+                                strempty(missing_suffix));
+                return -EOPNOTSUPP;
+        }
+
+        return 0;
+}
+
 static void service_enter_reload_signal(Service *s) {
         int r;
 
@@ -3190,6 +3305,14 @@ static void service_enter_reload_signal(Service *s) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
                 }
+
+                /* This is naturally racy, but that's fine. The issue we're looking for is almost always a
+                 * static programming error (handler not yet installed), but if a user wants to shoot
+                 * themself in the foot intentionally by racing with us, who are we to stop them :-) */
+                (void) service_check_reload_signal_handler(
+                                s,
+                                ", sending reload signal anyway",
+                                ", sending reload signal anyway");
 
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
@@ -3534,6 +3657,7 @@ static int service_start(Unit *u) {
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
         s->reload_begin_usec = USEC_INFINITY;
+        s->revalidate_runtime_begin_usec = USEC_INFINITY;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
@@ -3652,6 +3776,7 @@ static int service_stop(Unit *u) {
                 return 0;
 
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
         case SERVICE_EXITED:
                 service_enter_stop(s, SERVICE_SUCCESS);
                 return 1;
@@ -3670,7 +3795,7 @@ static int service_stop(Unit *u) {
 static int service_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
-        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
+        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING, SERVICE_EXITED));
 
         s->reload_result = SERVICE_SUCCESS;
         s->refreshed_mask = 0;
@@ -3898,6 +4023,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_usec(f, "watchdog-override-usec", s->watchdog_override_usec);
 
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
+        (void) serialize_usec(f, "revalidate-runtime-begin-usec", s->revalidate_runtime_begin_usec);
 
         if (s->refreshed_mask > 0) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -4333,6 +4459,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "reload-begin-usec"))
                 (void) deserialize_usec(value, &s->reload_begin_usec);
+        else if (streq(key, "revalidate-runtime-begin-usec"))
+                (void) deserialize_usec(value, &s->revalidate_runtime_begin_usec);
         else if (streq(key, "refreshed-mask")) {
                 r = service_refresh_on_reload_from_string_many(value, &s->refreshed_mask);
                 if (r < 0)
@@ -4614,6 +4742,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 break;
 
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
                 /* service_enter_running() will figure out what to do */
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
@@ -4675,6 +4804,7 @@ static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
 
         case SERVICE_EXITED:
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
                 if (s->oom_policy == OOM_STOP)
                         service_enter_stop(s, SERVICE_FAILURE_OOM_KILL);
                 else if (s->oom_policy == OOM_KILL)
@@ -4839,6 +4969,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                         _fallthrough_;
                                 case SERVICE_RUNNING:
+                                case SERVICE_RUNNING_REVALIDATING:
                                         service_enter_running(s, f);
                                         break;
 
@@ -5461,7 +5592,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
         if (strv_contains(tags, "STOPPING=1")) {
                 s->notify_state = NOTIFY_STOPPING;
 
-                if (IN_SET(s->state, SERVICE_RUNNING,
+                if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                                      SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                                      SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
                         service_enter_stop_by_notify(s);
@@ -5469,11 +5600,20 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
         }
 
-        /* Disallow resurrecting a dying service */
-        if (s->notify_state == NOTIFY_STOPPING)
-                return;
-
         if (strv_contains(tags, "READY=1")) {
+                if (s->notify_state == NOTIFY_STOPPING) {
+                        log_unit_error(UNIT(s),
+                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to READY.");
+                        return;
+                }
+
+                if (s->type == SERVICE_NOTIFY_RELOAD && s->state == SERVICE_START) {
+                        r = service_check_reload_signal_handler(s, ", refusing service startup", ", ignoring");
+                        if (r == -EOPNOTSUPP) {
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                return;
+                        }
+                }
 
                 if (s->notify_state == NOTIFY_RELOADING)
                         s->notify_state = NOTIFY_RELOAD_READY;
@@ -5489,7 +5629,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                                 /* Valid Type=notify-reload protocol? Then we're all good. */
                                 service_enter_reload_post(s);
 
-                        else if (s->state == SERVICE_RUNNING) {
+                        else if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING)) {
                                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                                 /* Propagate a reload explicitly for plain RELOADING=1 (semantically equivalent to
@@ -5511,6 +5651,11 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         service_enter_reload_post(s);
 
         } else if (strv_contains(tags, "RELOADING=1")) {
+                if (s->notify_state == NOTIFY_STOPPING) {
+                        log_unit_error(UNIT(s),
+                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to RELOADING.");
+                        return;
+                }
 
                 s->notify_state = NOTIFY_RELOADING;
 
@@ -5525,6 +5670,8 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                          * don't need reload propagation nor do we want to restart the timeout. */
                         service_set_state(s, SERVICE_RELOAD_NOTIFY);
 
+                /* The reload will still be preserved by service_enter_running() replaying it once the bus
+                 * name returns. */
                 if (s->state == SERVICE_RUNNING)
                         service_enter_reload_by_notify(s);
         }
@@ -5559,7 +5706,7 @@ static void service_notify_message(
 
         r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
         if (r > 0 &&
-            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
+            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                              SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                              SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                              SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
@@ -5703,7 +5850,7 @@ static void service_notify_message(
         }
 
         /* Interpret RESTART_RESET=1 */
-        if (strv_contains(tags, "RESTART_RESET=1") && IN_SET(s->state, SERVICE_RUNNING, SERVICE_STOP)) {
+        if (strv_contains(tags, "RESTART_RESET=1") && IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING, SERVICE_STOP)) {
                 log_unit_struct(u, LOG_NOTICE,
                                 LOG_UNIT_MESSAGE(u, "Got RESTART_RESET=1, resetting restart counter from %u.", s->n_restarts),
                                 LOG_ITEM("N_RESTARTS=0"),
@@ -5878,7 +6025,19 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
         return 1;
 }
 
-static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(SERVICE(userdata));
+
+        assert(source == s->bus_name_grace_event_source);
+        assert(s->state == SERVICE_RUNNING_REVALIDATING);
+
+        log_unit_warning(UNIT(s), "D-Bus name %s still not owned after grace period, giving up.", s->bus_name);
+        service_enter_exited_or_stop(s);
+
+        return 0;
+}
+
+static void service_bus_name_owner_change(Unit *u, const char *new_owner, bool from_signal) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
@@ -5890,10 +6049,12 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         s->bus_name_good = new_owner;
 
         if (s->type == SERVICE_DBUS) {
-                /* service_enter_running() will figure out what to do */
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_running(s, SERVICE_SUCCESS);
-                else if (s->state == SERVICE_START && new_owner)
+                if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING)) {
+                        if (!new_owner && from_signal)
+                                service_enter_exited_or_stop(s);
+                        else
+                                service_enter_running(s, SERVICE_SUCCESS);
+                } else if (s->state == SERVICE_START && new_owner)
                         service_enter_start_post(s);
 
         } else if (new_owner && pick_up_pid_from_bus_name(s)) {
@@ -6016,6 +6177,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_START,
                       SERVICE_START_POST,
                       SERVICE_RUNNING,
+                      SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS,
                       SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD,
@@ -6370,22 +6532,26 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
         else
                 r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
         if (r < 0) {
-                log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
+                log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring: %m", c->path);
                 return -ENODATA;
         }
 
         r = mac_selinux_get_create_label_from_exe(path, ret);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
-                log_unit_debug_errno(UNIT(s), r, "Reading SELinux label off binary '%s' is not supported, ignoring.", path);
+                log_unit_debug_errno(UNIT(s), r, "Reading SELinux label off binary '%s' is not supported, ignoring: %m", path);
                 return -ENODATA;
         }
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                log_unit_debug_errno(UNIT(s), r, "Can't read SELinux label off binary '%s', due to privileges, ignoring.", path);
+                log_unit_debug_errno(UNIT(s), r, "Can't read SELinux label off binary '%s', due to privileges, ignoring: %m", path);
                 return -ENODATA;
         }
-        if (r < 0)
-                return log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s': %m", path);
+        if (r < 0) {
+                if (mac_selinux_enforcing())
+                        return log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s': %m", path);
 
+                log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s', SELinux in permissive mode, ignoring: %m", path);
+                return -ENODATA;
+        }
         return 0;
 }
 

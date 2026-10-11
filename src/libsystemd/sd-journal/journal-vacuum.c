@@ -141,6 +141,7 @@ int journal_directory_vacuum(
         CLEANUP_ARRAY(list, n_list, vacuum_info_array_free);
 
         assert(directory);
+        POINTER_MAY_BE_NULL(oldest_usec);
 
         if (max_use <= 0 && max_retention_usec <= 0 && n_max_files <= 0)
                 return 0;

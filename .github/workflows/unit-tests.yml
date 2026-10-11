@@ -48,7 +48,7 @@ jobs:
       CROSS_ARCH: ${{ matrix.cross_arch || '' }}
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Install build dependencies
@@ -63,24 +63,27 @@ jobs:
         run: sudo --preserve-env=GITHUB_ACTIONS,CI,CROSS_ARCH .github/workflows/unit-tests.sh RUN_${{ matrix.run_phase }}
 
   build-musl:
-    name: Build & test (musl, postmarketOS)
+    name: Build & test (musl, Nura)
     runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-musl-${{ github.ref }}
       cancel-in-progress: true
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
-      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+      - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
+        with:
+          # Bootstrapping a Nura tools tree on the Ubuntu host needs apk
+          apk: true
 
       - name: Build tools tree
         run: |
           tee mkosi/mkosi.local.conf <<EOF
           [Build]
-          ToolsTreeDistribution=postmarketos
+          ToolsTreeDistribution=nura
           EOF
 
           mkosi -f box -- true

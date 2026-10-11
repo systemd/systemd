@@ -79,6 +79,7 @@ static SD_VARLINK_DEFINE_ERROR(NullKeyNotAllowed);
 static SD_VARLINK_DEFINE_ERROR(KeyBelongsToOtherTPM);
 static SD_VARLINK_DEFINE_ERROR(TPMInDictionaryLockout);
 static SD_VARLINK_DEFINE_ERROR(UnexpectedPCRState);
+static SD_VARLINK_DEFINE_ERROR(PCRsKeptChanging);
 static SD_VARLINK_DEFINE_ERROR(NVIndexUnusable);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -105,7 +106,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_BadScope,
                 SD_VARLINK_SYMBOL_COMMENT("PCR signature required for decryption, but not found."),
                 &vl_error_CantFindPCRSignature,
-                SD_VARLINK_SYMBOL_COMMENT("The key was encrypted with a null key, but that's now allowed during decryption."),
+                SD_VARLINK_SYMBOL_COMMENT("The key was encrypted with a null key, but that's not allowed during decryption."),
                 &vl_error_NullKeyNotAllowed,
                 SD_VARLINK_SYMBOL_COMMENT("The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted."),
                 &vl_error_KeyBelongsToOtherTPM,
@@ -113,5 +114,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_TPMInDictionaryLockout,
                 SD_VARLINK_SYMBOL_COMMENT("Unexpected TPM PCR state of the system."),
                 &vl_error_UnexpectedPCRState,
+                SD_VARLINK_SYMBOL_COMMENT("PCR values kept changing while unsealing the TPM2 secret, something on this system extends a PCR continuously."),
+                &vl_error_PCRsKeptChanging,
                 SD_VARLINK_SYMBOL_COMMENT("The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system."),
                 &vl_error_NVIndexUnusable);

@@ -50,7 +50,7 @@ testcase_basic() {
     systemd-run -p PrivatePIDs=yes --remain-after-exit --unit TEST-07-PID1-private-pid sleep infinity
     # Wait for ExecMainPID to be correctly populated as there might be a race between spawning service
     # and actual exec child process
-    # Note, Alpine/postmarketOS build coreutils with --enable-single-binary=symlinks. In that case, coreutils
+    # Note, Alpine/Nura build coreutils with --enable-single-binary=symlinks. In that case, coreutils
     # calls prctl(PR_SET_NAME, argv[0]), hence the comm will be the path to the symlink. If the sleep file is
     # a dedicated binary (like most other distributions do), the comm will be the filename, i.e. "sleep". So,
     # here we need to cut the directory part.

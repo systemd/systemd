@@ -41,6 +41,7 @@
 #include "strv.h"
 #include "sysupdate-target.h"
 #include "sysupdate-util.h"
+#include "verbs.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
@@ -666,6 +667,8 @@ static int job_node_enumerator(
         Job *j;
         unsigned k = 0;
 
+        assert(nodes);
+
         l = new0(char*, hashmap_size(m->jobs) + 1);
         if (!l)
                 return -ENOMEM;
@@ -758,6 +761,8 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *target_arg = NULL;
         int r;
+
+        assert(ret);
 
         if (t) {
                 r = target_get_argument(t, &target_arg);
@@ -1617,6 +1622,8 @@ static int target_node_enumerator(
         unsigned k = 0;
         int r;
 
+        assert(nodes);
+
         r = manager_ensure_targets(m);
         if (r < 0)
                 return r;
@@ -2154,15 +2161,24 @@ static int manager_run(Manager *m) {
                                         m);
 }
 
+COMMAND(
+        "systemd-sysupdated\0",
+        "Manage system updates.",
+        .man_pages = "systemd-sysupdated.service(8)\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+        .flags = COMMAND_EXPERIMENTAL,
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         log_setup();
 
-        r = service_parse_argv("systemd-sysupdated.service",
-                               "System update management service.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

@@ -40,6 +40,14 @@ size_t malloc_sizeof_safe(void **xp) {
         if (_unlikely_(!xp || !*xp))
                 return 0;
 
+        /* Prevent the compiler from retaining a tighter object-size bound on *xp from a prior allocator call
+         * (e.g. realloc()). This adds a simple no-op barrier after which the *xp pointer becomes clobbered,
+         * which forces clang to skip fortify checks. Without this, clang's __builtin_dynamic_object_size()
+         * (used with _FORTIFY_SOURCE=3) keeps the requested-size bound from realloc() and ignores
+         * expand_to_usable()'s __alloc_size__, causing false-positive fortify failures when we zero the
+         * malloc_usable_size() region in realloc0()/greedy_realloc0(). */
+        asm volatile("" : "+r"(*xp));
+
         size_t sz = malloc_usable_size(*xp);
         *xp = expand_to_usable(*xp, sz);
         /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly

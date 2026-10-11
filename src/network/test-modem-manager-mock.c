@@ -13,16 +13,16 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "verbs.h"
 
 static char *arg_ifname = NULL;
 static char *arg_ipv4_address = NULL;
@@ -280,7 +280,7 @@ static int handle_get_managed_objects(sd_bus_message *msg, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
@@ -305,7 +305,7 @@ static int handle_get_all(sd_bus_message *msg, void *userdata, sd_bus_error *err
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
@@ -325,7 +325,7 @@ static int handle_simple_connect(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
@@ -364,20 +364,10 @@ static int filter_handler(sd_bus_message *m, void *userdata, sd_bus_error *error
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Mock ModemManager D-Bus service for testing.");
-
-        help_section("Options");
-        return table_print_or_warn(options);
-}
+COMMAND(
+        "test-modem-manager-mock\0",
+        "Mock ModemManager D-Bus service for testing.",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -391,7 +381,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -432,6 +422,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse IPv6 prefix length: %m");
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_ifname)

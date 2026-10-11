@@ -46,7 +46,11 @@
     <para><filename>systemd-pcrnvdone.service</filename></para>
     <para><filename>systemd-pcrphase-factory-reset.service</filename></para>
     <para><filename>systemd-pcrphase-storage-target-mode.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <replaceable>WORD</replaceable></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--file-system=<replaceable>PATH</replaceable></option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--machine-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--product-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--login=<replaceable>UID</replaceable>|<replaceable>USER</replaceable></option></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -233,17 +237,6 @@
         TPM2 device will cause the invocation to fail.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--early</option></term>
-
-        <listitem><para>Selects early-boot mode. Specifically this means that the NvPCR anchor secret is not
-        attempted to be written into <filename>/var/lib/</filename> and the boot loader partition in addition
-        to <filename>/run/</filename>. (Unlike the latter the former are generally not mounted and writable
-        during early boot or in the initrd.)</para>
-
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -5,6 +5,9 @@
 
 #include "forward.h"
 
+int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret, const char *event);
+int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event);
+
 int pcrextend_file_system_word(const char *path, char **ret, char **ret_normalized_path);
 int pcrextend_machine_id_word(char **ret);
 int pcrextend_product_id_word(char **ret);

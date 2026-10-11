@@ -30,8 +30,8 @@
     <para><filename>systemd-mkswap@<replaceable>device</replaceable>.service</filename></para>
     <para><filename>systemd-growfs@<replaceable>mountpoint</replaceable>.service</filename></para>
     <para><filename>systemd-growfs-root.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-makefs</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-growfs</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-makefs</filename> <replaceable>FSTYPE</replaceable> <replaceable>DEVICE</replaceable></para>
+    <para><filename>/usr/lib/systemd/systemd-growfs</filename> <replaceable>MOUNTPOINT</replaceable></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -37,7 +37,7 @@
     <title>Description</title>
 
     <para><filename>systemd-factory-reset</filename> is a tool that can query the current factory reset
-    state, request factory request operations or complete them.</para>
+    state, request factory reset operations or complete them.</para>
 
     <para>Some of the functionality is also available via the
     <filename>/run/systemd/io.systemd.FactoryReset</filename> Varlink service (implemented via the

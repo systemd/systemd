@@ -1,7 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
+#include "ansi-color.h"
+#include "env-util.h"
+#include "format-table.h"
 #include "options.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "tests.h"
 
 typedef struct Entry {
@@ -194,6 +200,20 @@ TEST(option_parse) {
                               STRV_MAKE("string1",
                                         "--help"),
                               OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                              NULL);
+
+        test_option_parse_one(STRV_MAKE("arg0",
+                                        "string1",
+                                        "--help",
+                                        "string2"),
+                              options,
+                              (Entry[]) {
+                                      { "help" },
+                                      {}
+                              },
+                              STRV_MAKE("string1",
+                                        "string2"),
+                              OPTION_PARSER_NORMAL,
                               NULL);
 
         test_option_parse_one(STRV_MAKE("arg0",
@@ -1564,6 +1584,92 @@ TEST(option_get_synopsis) {
 
         test_option_get_synopsis_one(&(const Option) { 0, OPTION_HELP_ENTRY_VERBATIM, 'u', "special special",  "unused" }, "/",  true, "special special");
         test_option_get_synopsis_one(&(const Option) { 0, OPTION_POSITIONAL_ENTRY, 'u', "(fixed)", "unused" }, "/",  true, "(fixed)");
+}
+
+TEST(option_empty_long_name) {
+        static const Option one_option[] = {
+                { 1, .short_code = 'o', .long_code = "output", .metavar = "ARG" },
+                {}
+        };
+
+        static const Option two_options[] = {
+                { 1, .short_code = 'o', .long_code = "output", .metavar = "ARG" },
+                { 2, .long_code = "help" },
+                {}
+        };
+
+        /* "--=…" carries an empty long option name, which must not prefix-match every defined option.
+         * With a single option defined that would otherwise look like a unique partial match. */
+        test_option_invalid_one(STRV_MAKE("arg0", "--=foo"), one_option);
+        test_option_invalid_one(STRV_MAKE("arg0", "--="), one_option);
+        test_option_invalid_one(STRV_MAKE("arg0", "--=foo"), two_options);
+        test_option_invalid_one(STRV_MAKE("arg0", "--="), two_options);
+}
+
+TEST(option_experimental) {
+        static const Option options[] = {
+                { 1, .short_code = 'o', .long_code = "output", .metavar = "ARG", .help = "A stable option" },
+                { 2, .long_code = "future", .flags = OPTION_EXPERIMENTAL, .help = "An experimental option" },
+                {}
+        };
+        const Option *options_end = options + ELEMENTSOF(options) - 1;
+
+        _cleanup_free_ char *saved_term = NULL, *saved_color = NULL, *saved_columns = NULL;
+        const char *e;
+
+        e = getenv("TERM");
+        if (e)
+                ASSERT_NOT_NULL((saved_term = strdup(e)));
+        e = getenv("SYSTEMD_COLORS");
+        if (e)
+                ASSERT_NOT_NULL((saved_color = strdup(e)));
+        e = getenv("COLUMNS");
+        if (e)
+                ASSERT_NOT_NULL((saved_columns = strdup(e)));
+
+        /* The color of the option name is decided when the table is built, so enable colors first. */
+        ASSERT_OK_ERRNO(setenv("COLUMNS", "200", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "1", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("TERM", FALLBACK_TERM, /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        _cleanup_(table_unrefp) Table *table = NULL;
+        ASSERT_OK(options_get_help_table_group(options, options_end, /* option_groups= */ NULL,
+                                               &table, /* ret_group= */ NULL));
+
+        /* The experimental option gets a note appended to its help text and its name is highlighted. */
+        _cleanup_free_ char *formatted = NULL;
+        ASSERT_OK(table_format(table, &formatted));
+        ASSERT_STREQ(formatted,
+                     "  -o --output=ARG A stable option\n"
+                     ANSI_BRIGHT_YELLOW "     --future    " ANSI_NORMAL
+                     " An experimental option (experimental)\n");
+
+        /* Without colors, only the note remains. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "0", /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        formatted = mfree(formatted);
+        ASSERT_OK(table_format(table, &formatted));
+        ASSERT_STREQ(formatted,
+                     "  -o --output=ARG A stable option\n"
+                     "     --future     An experimental option (experimental)\n");
+
+        ASSERT_OK(set_unset_env("COLUMNS", saved_columns, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("SYSTEMD_COLORS", saved_color, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("TERM", saved_term, /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        /* The flag is also exposed in the --introspect-cli output. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        ASSERT_OK(options_build_json(options, options_end, /* namespace= */ NULL,
+                                     /* option_groups= */ NULL, &json));
+        ASSERT_EQ(sd_json_variant_elements(json), 2u);
+        ASSERT_NULL(sd_json_variant_by_key(sd_json_variant_by_index(json, 0), "isExperimental"));
+
+        sd_json_variant *flag = sd_json_variant_by_key(sd_json_variant_by_index(json, 1), "isExperimental");
+        ASSERT_NOT_NULL(flag);
+        ASSERT_TRUE(sd_json_variant_boolean(flag));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

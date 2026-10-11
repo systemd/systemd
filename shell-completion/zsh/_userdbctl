@@ -1,4 +1,5 @@
 #compdef userdbctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 local context state state_descr line
 typeset -A opt_args

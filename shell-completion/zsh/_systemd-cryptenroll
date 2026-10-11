@@ -71,6 +71,7 @@ _arguments -s \
     '--tpm2-argon2id-parallelism=[Argon2id parallelism]:threads:' \
     '--tpm2-pcrs=[Specify TPM2 PCRs to seal against]:PCRs:' \
     '--tpm2-public-key=[Enroll signed TPM2 PCR policy against PEM public key]:public key file:_files' \
+    '--tpm2-public-key-policyref=[Enroll signed TPM2 PCR policy with the specified policy reference]:policyref:' \
     '--tpm2-public-key-pcrs=[Enroll signed TPM2 PCR policy for specified TPM2 PCRs]:PCRs:' \
     '--tpm2-signature=[Validate public key enrollment works with JSON signature file]:signature file:_files' \
     '--tpm2-pcrlock=[Specify pcrlock policy to lock against]:pcrlock file:_files' \

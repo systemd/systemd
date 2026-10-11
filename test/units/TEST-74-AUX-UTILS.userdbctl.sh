@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v userdbctl >/dev/null; then
     echo "userdbctl is not installed, skipping the test."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/util.sh
@@ -54,6 +54,9 @@ assert_eq "$(userdbctl user 0 -j | jq -r .userName)" root
 assert_eq "$(userdbctl user 2147352576 -j | jq -r .userName)" foreign-0
 assert_eq "$(userdbctl user 2147352577 -j | jq -r .userName)" foreign-1
 assert_eq "$(userdbctl user 2147418110 -j | jq -r .userName)" foreign-65534
+
+(! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa user root)
+(! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa group root)
 
 # Make sure that -F shows same data as if we'd ask directly
 userdbctl user root -j | userdbctl -F- user | cmp - <(userdbctl user root)

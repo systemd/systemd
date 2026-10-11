@@ -112,7 +112,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
 
-        memzero(dup + 3, malloc_usable_size(dup) - sizeof(int) * 3);
+        memzero(dup + 3, MALLOC_SIZEOF_SAFE(dup) - sizeof(int) * 3);
 
         p = dup;
         assert_se(GREEDY_REALLOC0(dup, 2) == p);

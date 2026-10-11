@@ -13,23 +13,29 @@
 #include <string.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
 #include "build.h"
 #include "device-nodes.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "strv.h"
 #include "udev-util.h"
 #include "unaligned.h"
+#include "verbs.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
 static bool arg_export = false;
 static const char *arg_device = NULL;
+
+COMMAND(
+        "ata_id\0",
+        "Identify ATA storage devices.",
+        .argspec = "DEVICE\0",
+);
 
 static int disk_scsi_inquiry_command(
                 int fd,
@@ -359,20 +365,6 @@ static int disk_identify(int fd,
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] DEVICE");
-        help_section("Options");
-
-        return table_print_or_warn(options);
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -383,7 +375,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -392,6 +384,9 @@ static int parse_argv(int argc, char *argv[]) {
                        "Print values as environment keys"):
                         arg_export = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

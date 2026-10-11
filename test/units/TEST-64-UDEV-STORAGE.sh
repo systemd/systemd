@@ -659,7 +659,7 @@ testcase_lvm_basic() {
 
     . /etc/os-release
     if [[ "$ID" == "ubuntu" || "${ID_LIKE:-}" == "alpine" ]]; then
-        echo "LVM on Ubuntu/alpine/postmarketos is broken, skipping the test" | tee --append /skipped
+        echo "LVM on Ubuntu/Alpine/Nura is broken, skipping the test" | tee --append /skipped
         exit 77
     fi
 

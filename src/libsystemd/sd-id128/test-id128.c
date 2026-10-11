@@ -20,6 +20,7 @@
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
+#define UUID_URN_WALDI "urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10"
 #define STR_NULL "00000000000000000000000000000000"
 
 TEST(id128) {
@@ -70,18 +71,30 @@ TEST(id128) {
         ASSERT_OK(sd_id128_from_string(UUID_WALDI, &id));
         ASSERT_EQ_ID128(id, ID128_WALDI);
 
+        ASSERT_OK(sd_id128_from_string(UUID_URN_WALDI, &id));
+        ASSERT_EQ_ID128(id, ID128_WALDI);
+
+        ASSERT_OK(sd_id128_from_string("URN:UUID:01020304-0506-0708-090a-0b0c0d0e0f10", &id));
+        ASSERT_EQ_ID128(id, ID128_WALDI);
+
         ASSERT_FAIL(sd_id128_from_string("", &id));
         ASSERT_FAIL(sd_id128_from_string("01020304-0506-0708-090a-0b0c0d0e0f101", &id));
         ASSERT_FAIL(sd_id128_from_string("01020304-0506-0708-090a-0b0c0d0e0f10-", &id));
         ASSERT_FAIL(sd_id128_from_string("01020304-0506-0708-090a0b0c0d0e0f10", &id));
         ASSERT_FAIL(sd_id128_from_string("010203040506-0708-090a-0b0c0d0e0f10", &id));
+        ASSERT_FAIL(sd_id128_from_string("urn:uuid:0102030405060708090a0b0c0d0e0f10", &id));
+        ASSERT_FAIL(sd_id128_from_string("urn:uuid:01020304-0506-0708-090a0b0c0d0e0f10", &id));
 
         ASSERT_OK(id128_from_string_nonzero(STR_WALDI, &id));
+        ASSERT_OK(id128_from_string_nonzero(UUID_URN_WALDI, &id));
         ASSERT_ERROR(id128_from_string_nonzero(STR_NULL, &id), ENXIO);
+        ASSERT_ERROR(id128_from_string_nonzero("urn:uuid:00000000-0000-0000-0000-000000000000", &id),
+                     ENXIO);
         ASSERT_FAIL(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f101", &id));
         ASSERT_FAIL(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f10-", &id));
         ASSERT_FAIL(id128_from_string_nonzero("01020304-0506-0708-090a0b0c0d0e0f10", &id));
         ASSERT_FAIL(id128_from_string_nonzero("010203040506-0708-090a-0b0c0d0e0f10", &id));
+        ASSERT_FAIL(id128_from_string_nonzero("urn:uuid:0102030405060708090a0b0c0d0e0f10", &id));
 
         ASSERT_TRUE(id128_is_valid(STR_WALDI));
         ASSERT_TRUE(id128_is_valid(UUID_WALDI));

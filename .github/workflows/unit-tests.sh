@@ -108,6 +108,8 @@ for phase in "${PHASES[@]}"; do
                     MESON_ARGS+=(-Dman=enabled)
                 else
                     MESON_ARGS+=(-Dmode=release --optimization=2)
+                    CFLAGS+=" -D_FORTIFY_SOURCE=3"
+                    CXXFLAGS+=" -D_FORTIFY_SOURCE=3"
                 fi
 
                 # Some variation: remove machine-id, like on Debian builders to ensure unit tests still work.

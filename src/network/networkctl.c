@@ -3,10 +3,9 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "build.h"
 #include "dlopen-note.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -18,7 +17,7 @@
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
 #include "networkctl-status-link.h"
-#include "options.h"
+#include "networkd.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -41,73 +40,50 @@ bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
+COMMAND(
+        "networkctl\0",
+        "Query and control the networking subsystem.",
+        .man_pages = "networkctl(1)\0",
+        .option_namespace = "networkctl",
+        .pager_flags = &arg_pager_flags,
+);
+
+VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...]\0",  VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
            "List links");
-VERB_SCOPE(, verb_link_status,                "status",             "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_status,                "status",             "[PATTERN...]\0",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show link status");
-VERB_SCOPE(, verb_dhcp_lease,                 "dhcp-lease",         "INTERFACE [CODE[:FORMAT]...]", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_dhcp_lease,                 "dhcp-lease",         "INTERFACE [CODE[:FORMAT]...]\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
            "Show DHCP lease");
-VERB_SCOPE(, verb_link_lldp_status,           "lldp",               "[PATTERN...]",  VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_link_lldp_status,           "lldp",               "[PATTERN...]\0",  VERB_ANY, VERB_ANY, 0,
            "Show LLDP neighbors");
 VERB_SCOPE(, verb_list_address_labels,        "label",              NULL,            1,        1,        0,
            "Show current address label entries in the kernel");
-VERB_SCOPE(, verb_link_delete,                "delete",             "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_delete,                "delete",             "DEVICES...\0",    2,        VERB_ANY, 0,
            "Delete virtual netdevs");
-VERB_SCOPE(, verb_link_varlink_simple_method, "up",                 "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_varlink_simple_method, "up",                 "DEVICES...\0",    2,        VERB_ANY, 0,
            "Bring devices up");
-VERB_SCOPE(, verb_link_varlink_simple_method, "down",               "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_varlink_simple_method, "down",               "DEVICES...\0",    2,        VERB_ANY, 0,
            "Bring devices down");
-VERB_SCOPE(, verb_link_varlink_simple_method, "renew",              "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "renew",              "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Renew dynamic configurations");
-VERB_SCOPE(, verb_link_varlink_simple_method, "forcerenew",         "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "forcerenew",         "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Trigger DHCP reconfiguration of all connected clients");
-VERB_SCOPE(, verb_link_varlink_simple_method, "reconfigure",        "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "reconfigure",        "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Reconfigure interfaces");
 VERB_SCOPE(, verb_reload,                     "reload",             NULL,            1,        1,        VERB_ONLINE_ONLY,
            "Reload .network and .netdev files");
-VERB_SCOPE(, verb_edit,                       "edit",               "FILES|DEVICES...",   2,   VERB_ANY, 0,
+VERB_SCOPE(, verb_edit,                       "edit",               "FILES|DEVICES...\0",   2,   VERB_ANY, 0,
            "Edit network configuration files");
-VERB_SCOPE(, verb_cat,                        "cat",                "[FILES|DEVICES...]", 1,   VERB_ANY, 0,
+VERB_SCOPE(, verb_cat,                        "cat",                "[FILES|DEVICES...]\0", 1,   VERB_ANY, 0,
            "Show network configuration files");
-VERB_SCOPE(, verb_mask,                       "mask",               "FILES...",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_mask,                       "mask",               "FILES...\0",      2,        VERB_ANY, 0,
            "Mask network configuration files");
-VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...\0",      2,        VERB_ANY, 0,
            "Unmask network configuration files");
-VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL",          2,        2,        0,
+VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL\0",          2,        2,        0,
            "Notify systemd-networkd if persistent storage is ready");
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract("Query and control the networking subsystem.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("networkctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("networkctl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -116,13 +92,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, .namespace = "networkctl" };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_NAMESPACE("networkctl"): {}
+
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_name("networkctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -205,6 +183,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("stdin", NULL, "Read new contents of edited file from stdin"):
                         arg_stdin = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
@@ -217,6 +198,9 @@ static int run(int argc, char* argv[]) {
 
         COMPRESS_JOURNAL_NOTE;
         LIBSELINUX_NOTE(recommended);
+
+        if (invoked_as(argv, "networkd"))
+                return run_networkd(argc, argv);
 
         log_setup();
 

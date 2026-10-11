@@ -40,6 +40,22 @@ wait_for_state() {
     timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
+cleanup_update_auto_resize_mode_without_space() (
+    set +e
+
+    rm -f /tmp/no-space-update.create /home/no-space-update.filler /home/no-space-update.home
+
+    if homectl inspect no-space-update >/dev/null 2>&1; then
+        homectl deactivate no-space-update 2>/dev/null
+        wait_for_state no-space-update inactive 2>/dev/null
+        homectl remove no-space-update 2>/dev/null
+    fi
+
+    mount /home -o remount,size=290M || :
+    systemctl restart systemd-homed.service || :
+    return 0
+)
+
 FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
@@ -265,6 +281,175 @@ testcase_basic() {
 
     wait_for_state test-user inactive
     homectl remove test-user
+}
+
+testcase_recovery_key_file() (
+    local KEY_DIR
+    KEY_DIR="$(mktemp -d /tmp/homed-recovery-key-file.XXXXXX)"
+    local KEY_FILE="$KEY_DIR/recovery-key"
+    local KEY_FILE2="$KEY_DIR/recovery-key-update"
+    local DRY_RUN_OUTPUT="$KEY_DIR/dry-run.out"
+    local DRY_RUN_ERROR="$KEY_DIR/dry-run.err"
+    local UPDATE_EXISTING_OUTPUT="$KEY_DIR/update-existing.out"
+    local KEY_FILE_CONTENT
+
+    homectl remove recoverykeyfiletest 2>/dev/null || true
+
+    trap 'homectl remove recoverykeyfiletest 2>/dev/null || true; rm -rf "$KEY_DIR"' EXIT ERR
+
+    (! NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key-file="$KEY_FILE" \
+        --enforce-password-policy=no )
+
+    SYSTEMD_HOME_DRY_RUN=1 \
+    NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" \
+        --enforce-password-policy=no \
+        >"$DRY_RUN_OUTPUT" \
+        2>"$DRY_RUN_ERROR"
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$DRY_RUN_OUTPUT" >/dev/null
+    test ! -e "$KEY_FILE"
+
+    NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        --enforce-password-policy=no
+
+    test -s "$KEY_FILE"
+    [[ "$(stat -c "%a" "$KEY_FILE")" == "600" ]]
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$KEY_FILE" >/dev/null
+    PASSWORD="$(cat "$KEY_FILE")" homectl authenticate recoverykeyfiletest
+
+    KEY_FILE_CONTENT="$(cat "$KEY_FILE")"
+    PASSWORD=Secr3tRecovery \
+        homectl update recoverykeyfiletest \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" \
+        >"$UPDATE_EXISTING_OUTPUT"
+    [[ "$(cat "$KEY_FILE")" == "$KEY_FILE_CONTENT" ]]
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$UPDATE_EXISTING_OUTPUT" >/dev/null
+    PASSWORD="$(cat "$UPDATE_EXISTING_OUTPUT")" homectl authenticate recoverykeyfiletest
+
+    PASSWORD=Secr3tRecovery \
+        homectl update recoverykeyfiletest \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE2"
+
+    test -s "$KEY_FILE2"
+    [[ "$(stat -c "%a" "$KEY_FILE2")" == "600" ]]
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$KEY_FILE2" >/dev/null
+    PASSWORD="$(cat "$KEY_FILE2")" homectl authenticate recoverykeyfiletest
+
+    homectl remove recoverykeyfiletest
+    rm -rf "$KEY_DIR"
+)
+
+testcase_update_auto_resize_mode_without_space() {
+    local blocks bsize create_output fill_mbytes fill_size filler home_size image
+    local fs_stat image_stat image_blocks image_size image_unallocated
+
+    create_output="/tmp/no-space-update.create"
+    filler="/home/no-space-update.filler"
+    home_size=512M
+    image="/home/no-space-update.home"
+
+    trap cleanup_update_auto_resize_mode_without_space RETURN ERR EXIT
+
+    mount /home -o remount,size="$home_size"
+
+    if ! NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create no-space-update \
+        --storage=luks \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="$image" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        >"$create_output" 2>&1; then
+
+        if grep -F "System does not support selected storage backend" "$create_output" >/dev/null; then
+            cat "$create_output"
+            echo "LUKS storage backend not supported, skipping update without space test."
+            return 0
+        fi
+
+        cat "$create_output" >&2
+        return 1
+    fi
+    cat "$create_output"
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update --disk-size=max
+    wait_for_state no-space-update inactive
+
+    # Activation still fully allocates luksDiscard=no images while space is available.
+    PASSWORD=xEhErW0ndafV4s homectl activate no-space-update
+    wait_for_state no-space-update active
+    homectl deactivate no-space-update
+    wait_for_state no-space-update inactive
+
+    PASSWORD=xEhErW0ndafV4s homectl resize no-space-update 256M
+    wait_for_state no-space-update inactive
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update --disk-size=max
+    wait_for_state no-space-update inactive
+
+    image_stat="$(stat -c '%s %b' "$image")"
+    read -r image_size image_blocks <<<"$image_stat"
+    [[ "$image_size" =~ ^[0-9]+$ && "$image_blocks" =~ ^[0-9]+$ ]]
+    image_unallocated=$((image_size - image_blocks * 512))
+    fs_stat="$(stat --file-system --format "%a %S" /home)"
+    read -r blocks bsize <<<"$fs_stat"
+    [[ "$blocks" =~ ^[0-9]+$ && "$bsize" =~ ^[0-9]+$ ]]
+    fill_size=$((blocks * bsize - 128 * 1024 * 1024))
+    fill_mbytes=$((fill_size / 1024 / 1024))
+    if [[ "$fill_mbytes" -le 0 ]]; then
+        echo "Not enough free space to set up update without space test, skipping."
+        return 0
+    fi
+
+    # Leave enough room for the small identity update below, but not enough for the old full-image fallocate().
+    dd if=/dev/zero of="$filler" bs=1M count="$fill_mbytes"
+
+    fs_stat="$(stat --file-system --format "%a %S" /home)"
+    read -r blocks bsize <<<"$fs_stat"
+    [[ "$blocks" =~ ^[0-9]+$ && "$bsize" =~ ^[0-9]+$ ]]
+    if [[ "$image_unallocated" -le $((blocks * bsize)) ]]; then
+        printf 'Not enough backing space for the update test: '
+        printf 'image_unallocated=%s free_space=%s fill_mbytes=%s\n' \
+            "$image_unallocated" "$((blocks * bsize))" "$fill_mbytes"
+        return 0
+    fi
+
+    systemctl restart systemd-homed.service
+    wait_for_exist no-space-update
+
+    PASSWORD=xEhErW0ndafV4s homectl authenticate no-space-update
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update \
+        --luks-discard=yes \
+        --luks-offline-discard=no
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update \
+        --luks-discard=no \
+        --luks-offline-discard=yes
+
+    PASSWORD=xEhErW0ndafV4s NEWPASSWORD=yPN4N0fYNKUkOq homectl passwd no-space-update
+    PASSWORD=yPN4N0fYNKUkOq homectl update no-space-update --auto-resize-mode=off
+
+    homectl inspect no-space-update | grep -F "Auto Resize: off" >/dev/null
 }
 
 testcase_blob() {
@@ -1115,6 +1300,7 @@ testcase_identity_groups() {
 
     machinectl shell idgrouptest@ /usr/bin/bash -euxo pipefail -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/idgrouptest/.identity > /home/idgrouptest/.identity.new && mv -f /home/idgrouptest/.identity.new /home/idgrouptest/.identity"
     jq -e '.memberOf | index("systemd-journal") != null' /home/idgrouptest/.identity
+    wait_for_state idgrouptest active
 
     PASSWORD=foobar homectl authenticate idgrouptest
 

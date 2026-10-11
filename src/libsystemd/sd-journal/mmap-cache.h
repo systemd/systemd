@@ -39,7 +39,8 @@ int mmap_cache_fd_get(
         uint64_t offset,
         size_t size,
         struct stat *st,
-        void **ret);
+        void **ret,
+        size_t *ret_size);
 
 int mmap_cache_fd_pin(
         MMapFileDescriptor *f,

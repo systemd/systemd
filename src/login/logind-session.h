@@ -15,6 +15,8 @@ typedef enum SessionState {
         _SESSION_STATE_INVALID = -EINVAL,
 } SessionState;
 
+/* Used as index into LoginCounters.n_sessions_started[], hence changing this changes the layout of the
+ * counters file: add new classes at the end only, and bump LOGIN_COUNTERS_VERSION when doing so. */
 typedef enum SessionClass {
         SESSION_USER,               /* A regular user session */
         SESSION_USER_EARLY,         /* A user session, that is not ordered after systemd-user-sessions.service (i.e. for root) */

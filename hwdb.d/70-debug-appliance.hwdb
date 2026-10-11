@@ -15,6 +15,15 @@ usb:v1B8EpC003*
 usb:v1B8EpC004*
  ID_DEBUG_APPLIANCE=aml_burn_mode
 
+# Apple Silicon Macs and iOS devices in debug USB mode
+# Used to interact with devices over KIS / DebugUSB, see:
+# https://github.com/AsahiLinux/kisd
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/AsahiLinux/kisd/blob/555c3b0d0e39e8a5ffaaa70d54452f263ac4df21/src/main.rs#L147
+usb:v05ACp1881*
+ ID_DEBUG_APPLIANCE=apple_debugusb
+
 # Samsung devices in download mode
 # Used to interact with devices over Odin protocol, see:
 # https://en.wikipedia.org/wiki/Odin_(firmware_flashing_software)

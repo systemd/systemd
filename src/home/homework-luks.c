@@ -1430,7 +1430,7 @@ int home_setup_luks(
                 if (run_mark_dirty(setup->image_fd, true) > 0)
                         setup->do_mark_clean = true;
 
-                if (!user_record_luks_discard(h)) {
+                if (!FLAGS_SET(flags, HOME_SETUP_LUKS_DONT_FALLOCATE) && !user_record_luks_discard(h)) {
                         r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
@@ -1505,7 +1505,9 @@ int home_setup_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
 
-                setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
+                setup->do_offline_fitrim = user_record_luks_offline_discard(h);
+                setup->do_offline_fallocate = !setup->do_offline_fitrim;
+                setup->tolerate_offline_fallocate_enospc = FLAGS_SET(flags, HOME_SETUP_LUKS_DONT_FALLOCATE);
         }
 
         if (!sd_id128_is_null(found_partition_uuid))
@@ -1609,7 +1611,7 @@ int home_activate_luks(
 
         r = home_setup_luks(
                         h,
-                        0,
+                        flags,
                         NULL,
                         setup,
                         cache,
@@ -2572,7 +2574,7 @@ int home_create_luks(
 
         if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
-                (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0);
+                (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0, /* args= */ NULL);
         else {
                 assert(setup->temporary_image_path);
 
@@ -3546,7 +3548,7 @@ int home_resize_luks(
                         log_info("Growing of partition completed.");
 
                 if (S_ISBLK(st.st_mode))
-                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0);
+                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0, /* args= */ NULL);
 
                 /* Tell LUKS about the new bigger size too */
                 /* libcrypsetup uses units of 512B sectors for size */
@@ -3648,7 +3650,7 @@ int home_resize_luks(
                         log_info("Shrinking of partition completed.");
 
                 if (S_ISBLK(st.st_mode))
-                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0);
+                        (void) reread_partition_table_fd(image_fd, /* flags= */ 0, /* args= */ NULL);
 
         } else { /* → Grow */
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {

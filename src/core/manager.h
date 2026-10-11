@@ -341,6 +341,11 @@ typedef struct Manager {
         sd_bus_track *subscribed;
         char **subscribed_as_strv;
 
+        /* Set once bus_setup_api() succeeded for the current API bus connection, i.e. after any
+         * subscriptions deserialized from a previous reload/reexec were coldplugged. Unset when the
+         * connection is torn down. */
+        bool api_bus_ready;
+
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
         sd_id128_t bus_id, deserialized_bus_id;
@@ -509,6 +514,9 @@ typedef struct Manager {
         int restrict_fsaccess_link_fds[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
         int restrict_fsaccess_bss_map_fd;
 
+        /* Whether the ptrace seccomp filter is installed in this process; it survives execve() */
+        bool restrict_fsaccess_ptrace_filter;
+
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
@@ -529,7 +537,7 @@ typedef struct Manager {
         unsigned soft_reboots_count;
 
         /* When LUO is enabled we can count consecutive kexec reboots. */
-        unsigned kexecs_count;
+        unsigned kexec_count;
 
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;

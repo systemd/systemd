@@ -11,7 +11,7 @@ set -o pipefail
 
 if ! command -v /usr/lib/systemd/systemd-keyutil >/dev/null; then
     echo "systemd-keyutil not found, skipping."
-    exit 0
+    exit 77
 fi
 
 cat >/tmp/openssl.conf <<EOF

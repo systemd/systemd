@@ -28,14 +28,17 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-button.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-device.h"
+#include "logind-metrics.h"
 #include "logind-seat.h"
 #include "logind-session-device.h"
 #include "logind-user.h"
 #include "logind-utmp.h"
 #include "logind-varlink.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -46,6 +49,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
@@ -86,6 +90,10 @@ static int manager_new(Manager **ret) {
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
+
+        r = device_build_default_trigger_args(/* with_timestamp= */ false, &m->device_trigger_args);
+        if (r < 0)
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -159,12 +167,17 @@ static Manager* manager_free(Manager *m) {
         sd_device_monitor_unref(m->device_button_monitor);
         sd_device_monitor_unref(m->device_uaccess_monitor);
 
+        strv_free(m->device_trigger_args);
+
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
 
         hashmap_free(m->polkit_registry);
 
         manager_varlink_done(m);
+        manager_metrics_done(m);
+
+        m->counters = munmap_safe(m->counters, sizeof(*m->counters));
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -519,8 +532,8 @@ static int manager_attach_session_fd_one_consume(Manager *m, const char *fdname,
         s = hashmap_get(m->sessions, id);
         if (!s) {
                 /* If the session doesn't exist anymore, let's simply close this fd. */
-                r = log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
-                                    "Cannot attach fd '%s' to unknown session '%s', ignoring.", fdname, id);
+                log_debug("Cannot attach fd '%s' to unknown session '%s', ignoring.", fdname, id);
+                r = 0;
                 goto fail_close;
         }
 
@@ -577,12 +590,13 @@ static int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
-static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
+static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd, int *ret_metrics_fd) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int varlink_fd = -EBADF, n, r = 0;
+        int varlink_fd = -EBADF, metrics_fd = -EBADF, n;
 
         assert(m);
         assert(ret_varlink_fd);
+        assert(ret_metrics_fd);
 
         n = sd_listen_fds_with_names(/* unset_environment= */ true, &fdnames);
         if (n < 0)
@@ -597,13 +611,18 @@ static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
                         continue;
                 }
 
-                RET_GATHER(r, manager_attach_session_fd_one_consume(m, fdnames[i], fd));
+                if (streq(fdnames[i], "varlink-metrics")) {
+                        assert(metrics_fd < 0);
+                        metrics_fd = fd;
+                        continue;
+                }
+
+                (void) manager_attach_session_fd_one_consume(m, fdnames[i], fd);
         }
 
-        if (r >= 0)
-                *ret_varlink_fd = varlink_fd;
-
-        return r;
+        *ret_varlink_fd = varlink_fd;
+        *ret_metrics_fd = metrics_fd;
+        return 0;
 }
 
 static int manager_enumerate_inhibitors(Manager *m) {
@@ -1208,7 +1227,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static int manager_startup(Manager *m) {
-        _cleanup_close_ int varlink_fd = -EBADF;
+        _cleanup_close_ int varlink_fd = -EBADF, metrics_fd = -EBADF;
         int r;
         Seat *seat;
         Session *session;
@@ -1217,6 +1236,8 @@ static int manager_startup(Manager *m) {
         Inhibitor *inhibitor;
 
         assert(m);
+
+        (void) manager_map_counters(m);
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
@@ -1266,7 +1287,7 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Session enumeration failed: %m");
 
-        r = manager_enumerate_fds(m, &varlink_fd);
+        r = manager_enumerate_fds(m, &varlink_fd, &metrics_fd);
         if (r < 0)
                 log_warning_errno(r, "File descriptor enumeration failed: %m");
 
@@ -1279,6 +1300,10 @@ static int manager_startup(Manager *m) {
                 log_warning_errno(r, "Button enumeration failed: %m");
 
         r = manager_varlink_init(m, TAKE_FD(varlink_fd));
+        if (r < 0)
+                return r;
+
+        r = manager_metrics_init(m, TAKE_FD(metrics_fd));
         if (r < 0)
                 return r;
 
@@ -1347,6 +1372,16 @@ static int manager_run(Manager *m) {
         }
 }
 
+COMMAND(
+        "systemd-logind\0",
+        "Manage user logins and devices and privileged operations.",
+        .man_pages = "systemd-logind.service(8)\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
@@ -1359,9 +1394,7 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_AUTH);
         log_setup();
 
-        r = service_parse_argv("systemd-logind.service",
-                               "Manager for user logins and devices and privileged operations.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

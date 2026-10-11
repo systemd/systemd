@@ -2079,18 +2079,23 @@ static char* align_string_mem(const char *str, const char *url, size_t new_lengt
         } else
                 clickable_length = old_length;
 
-        /* Determine current width on screen */
+        /* Determine current width on screen. Use the same helper the measuring pass uses, so that this
+         * function cannot keep a second, more permissive idea of both validity and width of its own.
+         * Note that our caller only gets here after utf8_console_width() succeeded on the very same
+         * string, so the invalid case below should not be reachable in practice. */
         p = str;
         while (p < str + old_length) {
-                char32_t c;
-
-                if (utf8_encoded_to_unichar(p, &c) < 0) {
-                        p++, w++; /* count invalid chars as 1 */
+                int n = utf8_char_console_width(p);
+                if (n < 0) {
+                        /* Count an invalid sequence as one character of width one. Skip all of it, so
+                         * that its continuation bytes are not charged a cell each of their own. */
+                        p = utf8_next_char(p);
+                        w++;
                         continue;
                 }
 
                 p = utf8_next_char(p);
-                w += unichar_iswide(c) ? 2 : 1;
+                w += n;
         }
 
         /* Already wider than the target, if so, don't do anything */
@@ -2172,7 +2177,7 @@ static const char* table_data_rgap_underline(const TableData *d) {
         return NULL;
 }
 
-int table_data_requested_width(Table *table, size_t column, size_t *ret) {
+static int table_data_requested_width(Table *table, size_t column, size_t *ret) {
         size_t width = 0;
         int r;
 
@@ -2218,34 +2223,25 @@ int table_set_column_width(Table *t, size_t column, size_t width) {
         return r;
 }
 
-int _table_sync_column_widths(size_t column, Table *a, ...) {
+int table_sync_all_column_widths(size_t column, Table **a) {
         size_t max = 0;
-        va_list ap;
-        int r = 0;
-
-        assert(a);
+        int r;
 
         /* Make the specified column have the same width in the tables. */
 
-        va_start(ap, a);
-        for (Table *t = a; t; t = va_arg(ap, Table*)) {
+        for (Table **t = a; t && *t; t++) {
                 size_t w;
 
-                r = table_data_requested_width(t, column, &w);
+                r = table_data_requested_width(*t, column, &w);
                 if (r < 0)
-                        break;
+                        return log_error_errno(r, "Failed to query table column width: %m");
 
                 max = MAX(max, w);
         }
-        va_end(ap);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query table column width: %m");
 
         r = 0;
-        va_start(ap, a);
-        for (Table *t = a; t; t = va_arg(ap, Table*))
-                RET_GATHER(r, table_set_column_width(t, column, max));
-        va_end(ap);
+        for (Table **t = a; t && *t; t++)
+                RET_GATHER(r, table_set_column_width(*t, column, max));
 
         return r;
 }

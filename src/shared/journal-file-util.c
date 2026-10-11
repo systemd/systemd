@@ -530,7 +530,7 @@ int journal_file_open_reliably(
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
-        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing: %m", fname);
 
         /* The file is corrupted. Try opening it read-only as the template before rotating to inherit its
          * sequence number and ID. */

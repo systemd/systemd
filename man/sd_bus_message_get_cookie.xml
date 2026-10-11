@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>sd_bus_message_get_cookie</refname>
     <refname>sd_bus_message_get_reply_cookie</refname>
-    <refpurpose>Returns the transaction cookie of a message</refpurpose>
+    <refpurpose>Return the transaction cookie of a message</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -86,7 +86,7 @@
 
           <listitem><para>No cookie has been assigned to this message.  This either indicates that the
           message has not been sent yet and hence has no cookie assigned, or that the message is not a method
-          response message and hence carries a reply cookie field.</para></listitem>
+          response message and hence does not carry a reply cookie field.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

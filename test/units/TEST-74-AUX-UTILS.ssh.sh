@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v ssh >/dev/null || ! command -v sshd >/dev/null ; then
     echo "ssh/sshd not found, skipping test." >&2
-    exit 0
+    exit 77
 fi
 
 systemctl -q is-active sshd-unix-local.socket
@@ -31,7 +31,8 @@ removesshid() {
 
 ssh-keygen -N '' -C '' -t rsa -f "$ROOTID"
 
-mkdir -p 0700 /root/.ssh
+# shellcheck disable=SC2174
+mkdir -p -m 0700 /root/.ssh
 # Add a newline in case authorized_keys wasn't terminated correctly.
 echo >>/root/.ssh/authorized_keys
 cat "$ROOTID".pub >>/root/.ssh/authorized_keys

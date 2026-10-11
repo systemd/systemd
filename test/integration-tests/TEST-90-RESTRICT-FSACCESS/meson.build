@@ -6,6 +6,10 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'vm' : true,
                 'firmware' : 'auto',
+                # Keep require_signatures the only gate that fails the helper's "check" here.
+                'cmdline' : integration_test_template['cmdline'] + [
+                        'proc_mem.force_override=never',
+                ],
                 'configuration' : integration_test_template['configuration'] + {
                         'env' : {'TEST_MATCH_SUBTEST' : 'config'},
                 },
@@ -14,7 +18,8 @@ integration_tests += [
 
 # Enforce subtest: with require_signatures=1 — tests actual BPF enforcement
 # via the SecureBoot DB → .platform keyring path (firmware: auto enables
-# UEFI/SecureBoot in the test VM).
+# UEFI/SecureBoot in the test VM). proc_mem.force_override=never is the
+# other command line prerequisite of RestrictFileSystemAccess=.
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()) + '-enforce',
@@ -22,6 +27,7 @@ integration_tests += [
                 'firmware' : 'auto',
                 'cmdline' : integration_test_template['cmdline'] + [
                         'dm_verity.require_signatures=1',
+                        'proc_mem.force_override=never',
                 ],
                 'configuration' : integration_test_template['configuration'] + {
                         'command' : '/usr/lib/systemd/tests/testdata/units/' + fs.name(meson.current_source_dir()) + '.sh',
@@ -41,6 +47,7 @@ integration_tests += [
                 'cmdline' : integration_test_template['cmdline'] + [
                         'dm_verity.require_signatures=1',
                         'dm_verity.keyring_unsealed=1',
+                        'proc_mem.force_override=never',
                 ],
                 'configuration' : integration_test_template['configuration'] + {
                         'command' : '/usr/lib/systemd/tests/testdata/units/' + fs.name(meson.current_source_dir()) + '.sh',

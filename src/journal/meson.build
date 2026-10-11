@@ -10,14 +10,17 @@ systemd_journald_export_sources = files(
         'journald-config.c',
         'journald-console.c',
         'journald-context.c',
+        'journald-counters.c',
         'journald-kmsg.c',
         'journald-manager.c',
+        'journald-metrics.c',
         'journald-native.c',
         'journald-rate-limit.c',
         'journald-socket.c',
         'journald-stream.c',
         'journald-sync.c',
         'journald-syslog.c',
+        'journald-transport.c',
         'journald-varlink.c',
         'journald-wall.c',
 )
@@ -25,7 +28,7 @@ systemd_journald_export_sources = files(
 journald_gperf_c = custom_target(
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += journald_gperf_c
 systemd_journald_export_sources += journald_gperf_c

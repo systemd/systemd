@@ -23,14 +23,12 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -82,6 +80,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
+
+COMMAND(
+        "systemd-sysupdate\0",
+        "Update OS images.",
+        .man_pages = "systemd-sysupdate(8)\0",
+        .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
+);
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
@@ -1937,7 +1943,7 @@ static int verify_polkit(Context *context, sd_varlink *link, const char *action,
                         &s->polkit_registry);
 }
 
-VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
+VERB(verb_list, "list", "[VERSION]\0", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
@@ -2014,7 +2020,9 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 }
 
-VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
+static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret);
+
+VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
@@ -2050,6 +2058,20 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "Optional feature not found: %s",
                                                feature_id);
+
+                if (sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                        r = feature_to_json(&context, f, &json);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON: %m");
+
+                        return 0;
+                }
 
                 table = table_new_vertical();
                 if (!table)
@@ -2087,11 +2109,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return table_log_add_error(r);
                 }
 
-                if (f->documentation) {
+                if (!strv_isempty(f->documentation)) {
                         r = table_add_many(table,
                                            TABLE_FIELD, "Documentation",
-                                           TABLE_STRING, f->documentation,
-                                           TABLE_SET_URL, f->documentation);
+                                           TABLE_STRV_WRAPPED, f->documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -2137,8 +2158,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         r = table_add_many(table,
                                            TABLE_STRING, f->id,
                                            TABLE_STRING, f->description,
-                                           TABLE_STRING, f->documentation,
-                                           TABLE_SET_URL, f->documentation);
+                                           TABLE_STRV_WRAPPED, f->documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -2243,10 +2263,12 @@ static int context_enable_feature(
                 Feature *f;
                 HASHMAP_FOREACH(f, c->features) {
                         r = feature_is_suggested(f);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine if feature '%s' of component '%s' shall be enabled: %m", f->id, context_component_display(c));
-                        if (!!r != !!enable) {
-                                log_debug("Skipping feature '%s' of component '%s'.", f->id, context_component_display(c));
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to determine if feature '%s' of component '%s' is suggested, skipping: %m", f->id, context_component_display(c));
+                                continue;
+                        }
+                        if (r == 0) {
+                                log_debug("Feature '%s' of component '%s' is not suggested, skipping.", f->id, context_component_display(c));
                                 continue;
                         }
 
@@ -2307,9 +2329,9 @@ static int context_enable_feature(
         return ret;
 }
 
-VERB(verb_enable_feature, "enable-feature", "FEATURE…", 1, VERB_ANY, 0,
+VERB(verb_enable_feature, "enable-feature", "FEATURE…\0", 1, VERB_ANY, 0,
      "Enable optional feature");
-VERB(verb_enable_feature, "disable-feature", "FEATURE…", 1, VERB_ANY, 0,
+VERB(verb_enable_feature, "disable-feature", "FEATURE…\0", 1, VERB_ANY, 0,
      "Disable optional feature");
 static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-feature");
@@ -2399,7 +2421,7 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
 static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_strv_free_ char **transfers = NULL;
-        const char *documentation_strv[2] = { NULL, };
+        int suggested;
         int r;
 
         assert(context);
@@ -2410,17 +2432,20 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
         if (r < 0)
                 return r;
 
-        /* FIXME: Long term we’d like to support an array of documentation, but currently the D-Bus interface
-         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
-        documentation_strv[0] = f->documentation;
+        suggested = feature_is_suggested(f);
+        if (suggested < 0)
+                log_debug_errno(suggested,
+                                "Failed to determine whether feature '%s' is suggested, omitting field: %m",
+                                f->id);
 
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", (char **) documentation_strv),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appStream", f->appstream),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", f->enabled),
+                        SD_JSON_BUILD_PAIR_CONDITION(suggested >= 0, "suggested", SD_JSON_BUILD_BOOLEAN(suggested > 0)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
         if (r < 0)
                 return log_oom();
@@ -2754,7 +2779,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 }
 
-VERB(verb_update, "update", "[VERSION]", VERB_ANY, 2, 0,
+VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
      "Install new version now");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         UpdateActionFlags flags = UPDATE_ACTION_INSTALL;
@@ -2765,7 +2790,7 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return verb_update_impl(argc, argv, flags);
 }
 
-VERB(verb_acquire, "acquire", "[VERSION]", VERB_ANY, 2, 0,
+VERB(verb_acquire, "acquire", "[VERSION]\0", VERB_ANY, 2, 0,
      "Acquire (download) new version now");
 static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
@@ -3068,14 +3093,11 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
-
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
                                         TABLE_STRING, cc.component_description,
-                                        TABLE_STRING, doc,
-                                        TABLE_SET_URL, doc);
+                                        TABLE_STRV_WRAPPED, cc.component_documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -3084,8 +3106,9 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
+                                   SD_JSON_BUILD_PAIR_STRV("components", component_names));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -3158,9 +3181,9 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
                         SD_JSON_BUILD_PAIR_VARIANT("targets", l));
 }
 
-VERB(verb_enable_component, "enable-component", "COMPONENT…", 1, VERB_ANY, 0,
+VERB(verb_enable_component, "enable-component", "COMPONENT…\0", 1, VERB_ANY, 0,
      "Enable component");
-VERB(verb_enable_component, "disable-component", "COMPONENT…", 1, VERB_ANY, 0,
+VERB(verb_enable_component, "disable-component", "COMPONENT…\0", 1, VERB_ANY, 0,
      "Disable component");
 static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-component");
@@ -3245,15 +3268,11 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
 
                         r = context_component_is_suggested(&cc);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to determine whether '%s' shall be enabled, skipping: %m", *name);
+                                log_warning_errno(r, "Failed to determine whether '%s' is suggested, skipping: %m", *name);
                                 continue;
                         }
-
-                        /* This reconciles the system with the suggestions: on 'enable-component' we act on
-                         * the components that are suggested, on 'disable-component' we act on the ones that
-                         * are not. Hence pick the components whose suggestion state matches the operation. */
-                        if (!!r != !!enable) {
-                                log_debug("Skipping '%s'.", *name);
+                        if (r == 0) {
+                                log_debug("Component '%s' is not suggested, skipping.", *name);
                                 continue;
                         }
 
@@ -3305,46 +3324,7 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&common_options);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, common_options, options);
-
-        help_cmdline("[OPTIONS…] [VERSION]");
-        help_abstract("Update OS images.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        r = table_print_or_warn(common_options);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-sysupdate", "8");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -3358,13 +3338,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
-
-                OPTION_GROUP("Options"):
-                        break;
 
                 OPTION('C', "component", "NAME",
                        "Select component to update"):
@@ -3500,6 +3477,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
 
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_image && arg_root)

@@ -7,12 +7,10 @@
 #include "sd-device.h"
 #include "sd-event.h"
 #include "sd-json.h"
-#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
-#include "crypto-util.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -27,7 +25,6 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
@@ -37,11 +34,10 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcrextend-util.h"
 #include "pkcs11-util.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -123,7 +119,6 @@ static bool arg_tpm2_pin = false;
 static char *arg_tpm2_pcrlock = NULL;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
-static char **arg_tpm2_measure_banks = NULL;
 static char *arg_tpm2_measure_keyslot_nvpcr = NULL;
 static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
@@ -140,13 +135,18 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_keyslot_nvpcr, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
+
+COMMAND(
+        "systemd-cryptsetup\0",
+        "Attach or detach an encrypted block device.",
+        .man_pages = "systemd-cryptsetup(8)\0",
+);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR]      = "passphrase",
@@ -537,30 +537,9 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-measure-bank="))) {
 
-#if HAVE_OPENSSL
-                _cleanup_strv_free_ char **l = NULL;
-
-                r = dlopen_libcrypto(LOG_ERR);
-                if (r < 0)
-                        return r;
-
-                l = strv_split(val, ":");
-                if (!l)
-                        return log_oom();
-
-                STRV_FOREACH(i, l) {
-                        const EVP_MD *implementation;
-
-                        implementation = sym_EVP_get_digestbyname(*i);
-                        if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", val);
-
-                        if (strv_extend(&arg_tpm2_measure_banks, sym_EVP_MD_get0_name(implementation)) < 0)
-                                return log_oom();
-                }
-#else
-                log_error("Build lacks OpenSSL support, cannot measure to PCR banks, ignoring: %s", option);
-#endif
+                /* Deprecated: the PCR banks to measure into are now chosen by systemd-pcrextend
+                 * (it extends all suitable banks). Kept for compatibility, but ignored. */
+                log_warning("The tpm2-measure-bank= option is deprecated and has no effect, ignoring.");
 
         } else if ((val = startswith(option, "tpm2-measure-keyslot-nvpcr="))) {
 
@@ -1041,57 +1020,21 @@ static int measure_volume_key(
                 return 0;
         }
 
-#if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
-        if (r < 0)
-                return r;
-
-        _cleanup_strv_free_ char **l = NULL;
-        if (strv_isempty(arg_tpm2_measure_banks)) {
-                r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Could not verify pcr banks: %m");
-        }
-
-        _cleanup_free_ char *joined = strv_join(l ?: arg_tpm2_measure_banks, ", ");
-        if (!joined)
-                return log_oom();
-
-        /* Note: we don't directly measure the volume key, it might be a security problem to send an
-         * unprotected direct hash of the secret volume key over the wire to the TPM. Hence let's instead
-         * send a HMAC signature instead. */
-
         _cleanup_free_ char *prefix = NULL;
 
         /* Note: what is extended to the SHA256 bank here must match the expected hash of 'fixate-volume-key='
          * calculated by cryptsetup_get_volume_key_id(). */
         r = cryptsetup_get_volume_key_prefix(cd, name, &prefix);
-        if (r)
-                return log_error_errno(r, "Could not verify pcr banks: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get volume key prefix: %m");
 
-        r = tpm2_pcr_extend_bytes(
-                        c,
-                        /* banks= */ l ?: arg_tpm2_measure_banks,
-                        /* pcr_index = */ arg_tpm2_measure_pcr,
-                        /* data = */ &IOVEC_MAKE_STRING(prefix),
-                        /* secret = */ &IOVEC_MAKE(volume_key, volume_key_size),
-                        /* event_type = */ TPM2_EVENT_VOLUME_KEY,
-                        /* description = */ prefix);
+        /* Pass the volume key as HMAC secret. pcrextend extends HMAC(volume_key, prefix),
+         * never a bare hash. Matches cryptsetup_get_volume_key_id(). */
+        r = pcrextend_pcr_now(arg_tpm2_measure_pcr, prefix, &IOVEC_MAKE(volume_key, volume_key_size), "volume_key");
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                   LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, prefix, joined),
-                   LOG_ITEM("MEASURING=%s", prefix),
-                   LOG_ITEM("PCR=%u", arg_tpm2_measure_pcr),
-                   LOG_ITEM("BANKS=%s", joined));
-
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring volume key.");
-#endif
 }
 
 static int measure_keyslot(
@@ -1100,9 +1043,8 @@ static int measure_keyslot(
                 const char *mechanism,
                 int keyslot) {
 
-#if HAVE_TPM2
         int r;
-#endif
+
         assert(cd);
         assert(name);
 
@@ -1111,7 +1053,6 @@ static int measure_keyslot(
                 return 0;
         }
 
-#if HAVE_TPM2
         r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
@@ -1119,11 +1060,6 @@ static int measure_keyslot(
                 log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
                 return 0;
         }
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
-        if (r < 0)
-                return r;
 
         _cleanup_free_ char *escaped = NULL;
         escaped = xescape(name, ":"); /* avoid ambiguity around ":" once we join things below */
@@ -1139,28 +1075,11 @@ static int measure_keyslot(
         if (!s)
                 return log_oom();
 
-        r = tpm2_nvpcr_extend_bytes(
-                        c,
-                        /* session= */ NULL,
-                        arg_tpm2_measure_keyslot_nvpcr,
-                        &IOVEC_MAKE_STRING(s),
-                        /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ false,
-                        TPM2_EVENT_KEYSLOT,
-                        s);
+        r = pcrextend_nvpcr_now(arg_tpm2_measure_keyslot_nvpcr, s, "keyslot");
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TPM_NVPCR_EXTEND_STR,
-                   LOG_MESSAGE("Successfully extended NvPCR index '%s' with '%s'.", arg_tpm2_measure_keyslot_nvpcr, s),
-                   "MEASURING=%s", s,
-                   "NVPCR=%s", arg_tpm2_measure_keyslot_nvpcr);
-
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring keyslot.");
-#endif
 }
 
 static int log_external_activation(int r, const char *volume) {
@@ -2460,51 +2379,7 @@ static int attach_luks_or_plain_or_bitlk(
         return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-cryptsetup", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "%sAttach or detach an encrypted block device.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -2517,10 +2392,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
@@ -2606,7 +2484,7 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
-VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]", 3, 5, 0,
+VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\0", 3, 5, 0,
      "Attach an encrypted block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -2853,7 +2731,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+VERB(verb_detach, "detach", "VOLUME\0", 2, 2, 0,
      "Detach an encrypted block device");
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -2885,7 +2763,6 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 static int run(int argc, char *argv[]) {
         int r;
 
-        LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(required);
         LIBFIDO2_NOTE(suggested);

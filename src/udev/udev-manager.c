@@ -174,13 +174,19 @@ Manager* manager_free(Manager *manager) {
         sd_event_unref(manager->event);
 
         free(manager->workers_cgroup);
+        strv_free(manager->device_trigger_args);
         return mfree(manager);
 }
 
 Manager* manager_new(void) {
-        Manager *manager;
+        int r;
 
-        manager = new(Manager, 1);
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ false, &args);
+        if (r < 0)
+                return NULL;
+
+        Manager *manager = new(Manager, 1);
         if (!manager)
                 return NULL;
 
@@ -191,6 +197,7 @@ Manager* manager_new(void) {
                 .config_by_kernel = UDEV_CONFIG_INIT,
                 .config_by_control = UDEV_CONFIG_INIT,
                 .config = UDEV_CONFIG_INIT,
+                .device_trigger_args = TAKE_PTR(args),
         };
 
         return manager;
@@ -247,6 +254,9 @@ int manager_reset_kill_workers_timer(Manager *manager) {
 void manager_exit(Manager *manager) {
         assert(manager);
 
+        if (manager->exit)
+                return;
+
         manager->exit = true;
 
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
@@ -277,6 +287,9 @@ void notify_ready(Manager *manager) {
 
         assert(manager);
 
+        if (manager->exit)
+                return;
+
         r = sd_notifyf(/* unset_environment= */ false,
                        "READY=1\n"
                        "STATUS=Processing with %u children at max", manager->config.children_max);
@@ -291,6 +304,9 @@ void manager_reload(Manager *manager, bool force) {
         int r;
 
         assert(manager);
+
+        if (manager->exit)
+                return;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &now_usec) >= 0);
         if (!force && now_usec < usec_add(manager->last_usec, 3 * USEC_PER_SEC))
@@ -1298,13 +1314,22 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
+        /* Check whether there are uevents not received yet. If so, we will soon receive them. Do not remove
+         * the queue file and do not kill workers. */
+        if (sd_event_source_get_pending(sd_device_monitor_get_event_source(manager->monitor)) != 0)
+                return 0;
+
+        /* We are currently synthesizing change uevents, hence new uevents may come soon. */
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0;
+
         (void) manager_unlink_queue_file(manager);
         (void) manager_reset_kill_workers_timer(manager);
 
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
 
-        if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
+        if (manager->workers_cgroup)
                 /* cleanup possible left-over processes in the workers cgroup */
                 if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
                         (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
@@ -1365,9 +1390,20 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret= */ NULL, on_post, manager);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_post(e, &s, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
+
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_POST);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to post event source: %m");
+
+        (void) sd_event_source_set_description(s, "post-event-source");
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set floating to post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
         r = sd_event_add_memory_pressure(e, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);

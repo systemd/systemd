@@ -2,6 +2,9 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "devnum-util.h"
@@ -9,18 +12,16 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -28,64 +29,45 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
+COMMAND(
+        "systemd-bless-boot\0",
+        "Mark the boot process as good or bad.",
+        .man_pages = "systemd-bless-boot.service(8)\0",
+);
+
 typedef enum Status {
         STATUS_GOOD,
         STATUS_BAD,
         STATUS_INDETERMINATE,
 } Status;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
-        r = terminal_urlify_man("systemd-bless-boot.service", "8", &link);
-        if (r < 0)
-                return log_oom();
+static int check_support(void) {
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is not supported in containers.");
 
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is only supported on EFI systems.");
 
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sMark the boot process as good or bad.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
         return 0;
 }
-
-VERB_COMMON_HELP_HIDDEN(help);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
         OptionParser opts = { argc, argv };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -95,6 +77,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return log_oom();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
@@ -346,6 +331,10 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         uint64_t left, done;
         int r;
 
+        r = check_support();
+        if (r < 0)
+                return r;
+
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot,
                               * since "good", "bad", or "indeterminate" don't apply. */
@@ -456,12 +445,47 @@ VERB_FULL(verb_set, "indeterminate", NULL, VERB_ANY, 1, 0, STATUS_INDETERMINATE,
           "Undo any marking as good or bad");
 static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        sd_json_variant *reply = NULL;
         const char *target = NULL, *source1 = NULL, *source2 = NULL;  /* avoid false maybe-uninitialized warning */
         uint64_t left, done;
         Status status = data;
         int r;
 
         assert(IN_SET(status, STATUS_GOOD, STATUS_BAD, STATUS_INDETERMINATE));
+
+        r = check_support();
+        if (r < 0)
+                return r;
+
+        /* kexec doesn't go through the EFI loaders, so we shouldn't try to mark an image as good/bad.
+         * E.g.: booting the kernel+initrd might work, but the EFI stub might not, and we wouldn't notice */
+        r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.Manager");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service manager: %m");
+
+        r = varlink_call_and_log(link, "io.systemd.Manager.Describe", /* parameters= */ NULL, &reply);
+        if (r < 0)
+                return r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "KExecCount", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, 0, 0 },
+                {},
+        };
+        uint64_t kexec_count = 0;
+
+        r = sd_json_dispatch(
+                        sd_json_variant_by_key(reply, "runtime"),
+                        dispatch_table,
+                        SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS,
+                        &kexec_count);
+        if (r < 0)
+                return r;
+
+        if (kexec_count > 0) {
+                log_info("System was booted via kexec, skipping boot entry marking.");
+                return 0;
+        }
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
@@ -574,14 +598,6 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
-
-        if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is not supported in containers.");
-
-        if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is only supported on EFI systems.");
 
         return dispatch_verb(args, NULL);
 }

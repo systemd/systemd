@@ -9,7 +9,7 @@ set -o pipefail
 
 if ! can_do_rootless_nspawn; then
     echo "Skipping unpriv nspawn test"
-    exit 0
+    exit 77
 fi
 
 # We need FSCONFIG_SET_FD support in overlayfs for .mstack to work. Let's skip
@@ -18,7 +18,7 @@ fi
 # support for this from shell, hence let's do a version check instead.
 if systemd-analyze condition 'ConditionVersion= < 6.13' ; then
     echo "Kernel too old for FSCONFIG_SET_FD support on overlayfs, skipping pull-oci test".
-    exit 0
+    exit 77
 fi
 
 export SYSTEMD_LOG_LEVEL=debug

@@ -6,18 +6,14 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "hashmap.h"
-#include "log.h"
-#include "resolved-dns-scope.h"
 #include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
-#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "strv.h"
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         DnssdRegisteredService *s = ASSERT_PTR(userdata);
         Manager *m;
-        Link *l;
         int r;
 
         assert(message);
@@ -38,35 +34,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        HASHMAP_FOREACH(l, m->links) {
-                if (l->mdns_ipv4_scope) {
-                        r = dns_scope_announce(l->mdns_ipv4_scope, true);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to send goodbye messages in IPv4 scope: %m");
-
-                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->ptr_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->sub_ptr_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->srv_rr);
-                        LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
-                }
-
-                if (l->mdns_ipv6_scope) {
-                        r = dns_scope_announce(l->mdns_ipv6_scope, true);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to send goodbye messages in IPv6 scope: %m");
-
-                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->ptr_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->sub_ptr_rr);
-                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->srv_rr);
-                        LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);
-                }
-        }
-
-        dnssd_registered_service_free(s);
-
-        manager_refresh_rrs(m);
+        dnssd_registered_service_unregister(s);
 
         return sd_bus_reply_method_return(message, NULL);
 }

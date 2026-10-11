@@ -281,8 +281,10 @@ static void session_save_devices(Session *s, FILE *f) {
         }
 }
 
-static int trigger_xaccess(char * const *extra_devices) {
+static int trigger_xaccess(Manager *m, char * const *extra_devices) {
         int r;
+
+        assert(m);
 
         if (strv_isempty(extra_devices))
                 return 0;
@@ -322,7 +324,7 @@ static int trigger_xaccess(char * const *extra_devices) {
                         return r;
 
                 sd_id128_t uuid;
-                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, m->device_trigger_args, &uuid);
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
                         continue;
@@ -885,6 +887,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
         assert(s);
+        assert(s->manager);
 
         if (!s->user)
                 return -ESTALE;
@@ -939,7 +942,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
-        (void) trigger_xaccess(s->extra_device_access);
+        (void) trigger_xaccess(s->manager, s->extra_device_access);
 
         /* Send signals */
         (void) session_send_signal(s, true);
@@ -1003,6 +1006,7 @@ int session_stop(Session *s, bool force) {
         int r;
 
         assert(s);
+        assert(s->manager);
 
         /* This is called whenever we begin with tearing down a session record. It's called in four cases: explicit API
          * request via the bus (either directly for the session object or for the seat or user object this session
@@ -1031,7 +1035,7 @@ int session_stop(Session *s, bool force) {
         (void) session_save(s);
         (void) user_save(s->user);
 
-        (void) trigger_xaccess(s->extra_device_access);
+        (void) trigger_xaccess(s->manager, s->extra_device_access);
 
         return r;
 }

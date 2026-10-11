@@ -11,6 +11,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -377,6 +378,14 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         return log_device_debug_errno(device, r, "sd-device: Failed to parse udev database version '%s': %m", value);
         } else {
                 r = device_add_property_internal(device, key, value);
+                if (r == -EINVAL) {
+                        _cleanup_free_ char *escaped_key = cescape(key), *escaped_value = cescape(value);
+
+                        log_device_debug_errno(device, r,
+                                               "sd-device: Failed to add property '%s=%s', ignoring: %m",
+                                               strnull(escaped_key), strnull(escaped_value));
+                        return 0;
+                }
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to add property '%s=%s': %m", key, value);
         }

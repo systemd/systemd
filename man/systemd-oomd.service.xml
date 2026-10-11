@@ -114,10 +114,12 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>-n</option></term>
         <term><option>--dry-run</option></term>
 
         <listitem><para>Do a dry run of <command>systemd-oomd</command>: when a kill is triggered, print it
-        to the log instead of killing the cgroup.</para>
+        to the log instead of killing the cgroup. The short option <option>-n</option> was added in
+        version 262.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>

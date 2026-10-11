@@ -129,7 +129,7 @@ for a in crc32c crc32 xxhash64 sha1 sha256; do
     modprobe -q "crypto-$a" || :
 
     # Some algorithms are not supported on certain platforms (e.g. crc32 is
-    # missing on Alpine/postmarketOS). Skip them at runtime to avoid spurious
+    # missing on Alpine/Nura). Skip them at runtime to avoid spurious
     # failures.
     if ! grep -q -E "^name\s+: $a\$" /proc/crypto; then
         echo "Algorithm '$a' is not supported on this system, skipping."

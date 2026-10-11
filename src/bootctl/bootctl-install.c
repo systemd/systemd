@@ -338,7 +338,8 @@ static int load_kernel_install_layout(InstallContext *c) {
                         /* ret_boot_root= */ NULL,
                         &layout,
                         /* ret_initrd_generator= */ NULL,
-                        /* ret_uki_generator= */ NULL);
+                        /* ret_uki_generator= */ NULL,
+                        /* ret_entry_name_format= */ NULL);
         if (r <= 0)
                 return r;
 

@@ -1035,7 +1035,7 @@ static void link_free_bound_by_list(Link *link) {
                 link_dirty(link);
 }
 
-static int link_append_to_master(Link *link) {
+int link_append_to_master(Link *link) {
         Link *master;
         int r;
 
@@ -1068,12 +1068,16 @@ static void link_drop_from_master(Link *link) {
         link_unref(set_remove(master->slaves, link));
 }
 
-static int link_drop_requests(Link *link) {
+int link_drop_requests(Link *link, NetworkConfigSource source) {
         Request *req;
         int ret = 0;
 
         assert(link);
         assert(link->manager);
+
+        /* If the interface is already removed, then per-source request removal is not necessary. */
+        if (source >= 0 && link->state == LINK_STATE_LINGER)
+                return 0;
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue) {
                 if (req->link != link)
@@ -1082,39 +1086,58 @@ static int link_drop_requests(Link *link) {
                 /* If the request is already called, but its reply is not received, then we need to
                  * drop the configuration (e.g. address) here. Note, if the configuration is known,
                  * it will be handled later by link_drop_unmanaged_addresses() or so. */
-                if (req->waiting_reply && link->state != LINK_STATE_LINGER)
-                        switch (req->type) {
-                        case REQUEST_TYPE_ADDRESS: {
-                                Address *address = ASSERT_PTR(req->userdata);
+                bool remove = req->waiting_reply && link->state != LINK_STATE_LINGER;
 
-                                if (address_get(link, address, NULL) < 0)
+                switch (req->type) {
+                case REQUEST_TYPE_ADDRESS: {
+                        Address *address = ASSERT_PTR(req->userdata);
+
+                        if (source >= 0 && address->source != source)
+                                continue;
+
+                        if (address_get(link, address, /* ret= */ NULL) < 0) {
+                                if (remove)
                                         RET_GATHER(ret, address_remove(address, link));
-                                break;
+                                else
+                                        ipv4acd_detach(link, address);
                         }
-                        case REQUEST_TYPE_NEIGHBOR: {
-                                Neighbor *neighbor = ASSERT_PTR(req->userdata);
+                        break;
+                }
+                case REQUEST_TYPE_NEIGHBOR: {
+                        Neighbor *neighbor = ASSERT_PTR(req->userdata);
 
-                                if (neighbor_get(link, neighbor, NULL) < 0)
-                                        RET_GATHER(ret, neighbor_remove(neighbor, link));
-                                break;
-                        }
-                        case REQUEST_TYPE_NEXTHOP: {
-                                NextHop *nexthop = ASSERT_PTR(req->userdata);
+                        if (source >= 0 && neighbor->source != source)
+                                continue;
 
-                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
-                                        RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
-                                break;
-                        }
-                        case REQUEST_TYPE_ROUTE: {
-                                Route *route = ASSERT_PTR(req->userdata);
+                        if (remove && neighbor_get(link, neighbor, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, neighbor_remove(neighbor, link));
+                        break;
+                }
+                case REQUEST_TYPE_NEXTHOP: {
+                        NextHop *nexthop = ASSERT_PTR(req->userdata);
 
-                                if (route_get(link->manager, route, NULL) < 0)
-                                        RET_GATHER(ret, route_remove(route, link->manager));
-                                break;
-                        }
-                        default:
-                                ;
-                        }
+                        if (source >= 0 && nexthop->source != source)
+                                continue;
+
+                        if (remove && nexthop_get_by_id(link->manager, nexthop->id, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+                        break;
+                }
+                case REQUEST_TYPE_ROUTE: {
+                        Route *route = ASSERT_PTR(req->userdata);
+
+                        if (source >= 0 && route->source != source)
+                                continue;
+
+                        if (remove && route_get(link->manager, route, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, route_remove(route, link->manager));
+                        break;
+                }
+                default:
+                        /* If a source is specified, then ignore all other kinds of requests. */
+                        if (source >= 0)
+                                continue;
+                }
 
                 request_detach(req);
         }
@@ -1135,7 +1158,7 @@ static Link *link_drop(Link *link) {
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
 
-        (void) link_drop_requests(link);
+        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
 
         link_free_bound_to_list(link);
         link_free_bound_by_list(link);
@@ -1427,7 +1450,7 @@ static void link_enter_unmanaged(Link *link) {
                       "Unmanaging interface.");
 
         (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
-        (void) link_drop_requests(link);
+        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
         (void) link_drop_static_config(link);
 
         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
@@ -1515,7 +1538,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                               isempty(joined) ? "" : ")");
 
         /* Dropping configurations based on the old .network file. */
-        r = link_drop_requests(link);
+        r = link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
         if (r < 0)
                 return r;
 
@@ -2227,10 +2250,37 @@ bool link_multicast_enabled(Link *link) {
         return FLAGS_SET(link->flags, IFF_MULTICAST);
 }
 
-#define FLAG_STRING(string, flag, old, new)                      \
-        (((old ^ new) & flag)                                    \
-         ? ((old & flag) ? (" -" string) : (" +" string))        \
-         : "")
+#define _FLAG_STRING(old_flags, new_flags, string, flag)                        \
+        ({                                                                      \
+                unsigned _old_flags = (old_flags), _new_flags = (new_flags);    \
+                                                                                \
+                (((_old_flags ^ _new_flags) & flag)                             \
+                 ? ((_old_flags & flag) ? (" -" string) : (" +" string))        \
+                 : "");                                                         \
+        })
+#define FLAG_STRING(old_flags, new_flags, name)                                 \
+        _FLAG_STRING(old_flags, new_flags, STRINGIFY(name), IFF_##name)
+
+#define KNOWN_IFF_FLAGS                         \
+        (IFF_UP |                               \
+         IFF_BROADCAST |                        \
+         IFF_DEBUG |                            \
+         IFF_LOOPBACK |                         \
+         IFF_POINTOPOINT |                      \
+         IFF_NOTRAILERS |                       \
+         IFF_RUNNING |                          \
+         IFF_NOARP |                            \
+         IFF_PROMISC |                          \
+         IFF_ALLMULTI |                         \
+         IFF_MASTER |                           \
+         IFF_SLAVE |                            \
+         IFF_MULTICAST |                        \
+         IFF_PORTSEL |                          \
+         IFF_AUTOMEDIA |                        \
+         IFF_DYNAMIC |                          \
+         IFF_LOWER_UP |                         \
+         IFF_DORMANT |                          \
+         IFF_ECHO)
 
 static int link_update_flags(Link *link, sd_netlink_message *message) {
         bool link_was_admin_up, had_carrier;
@@ -2256,42 +2306,34 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                 return 0;
 
         if (link->flags != flags) {
-                unsigned unknown_flags, unknown_flags_added, unknown_flags_removed;
-
                 log_link_debug(link, "Flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
-                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
-                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
-                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
-                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
-                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
-                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
-                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
-                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
-                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
-                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
-                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
-                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
-                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
-                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
-                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
-                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
-                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
-                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
+                               FLAG_STRING(link->flags, flags, UP),
+                               FLAG_STRING(link->flags, flags, BROADCAST),
+                               FLAG_STRING(link->flags, flags, DEBUG),
+                               FLAG_STRING(link->flags, flags, LOOPBACK),
+                               FLAG_STRING(link->flags, flags, POINTOPOINT),
+                               FLAG_STRING(link->flags, flags, NOTRAILERS),
+                               FLAG_STRING(link->flags, flags, RUNNING),
+                               FLAG_STRING(link->flags, flags, NOARP),
+                               FLAG_STRING(link->flags, flags, PROMISC),
+                               FLAG_STRING(link->flags, flags, ALLMULTI),
+                               FLAG_STRING(link->flags, flags, MASTER),
+                               FLAG_STRING(link->flags, flags, SLAVE),
+                               FLAG_STRING(link->flags, flags, MULTICAST),
+                               FLAG_STRING(link->flags, flags, PORTSEL),
+                               FLAG_STRING(link->flags, flags, AUTOMEDIA),
+                               FLAG_STRING(link->flags, flags, DYNAMIC),
+                               FLAG_STRING(link->flags, flags, LOWER_UP),
+                               FLAG_STRING(link->flags, flags, DORMANT),
+                               FLAG_STRING(link->flags, flags, ECHO));
 
-                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
-                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
-                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
-                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
-                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
-                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
-                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
-                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
+                unsigned unknown_flags_added = ((link->flags ^ flags) & flags & ~KNOWN_IFF_FLAGS);
+                unsigned unknown_flags_removed = ((link->flags ^ flags) & link->flags & ~KNOWN_IFF_FLAGS);
 
-                if (unknown_flags_added)
+                if (unknown_flags_added != 0)
                         log_link_debug(link, "Unknown link flags gained, ignoring: %#.5x", unknown_flags_added);
 
-                if (unknown_flags_removed)
+                if (unknown_flags_removed != 0)
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
@@ -2490,12 +2532,6 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
-        if (link->ndisc && link->hw_addr.length == ETH_ALEN) {
-                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
-        }
-
         if (link->lldp_rx) {
                 r = sd_lldp_rx_set_filter_address(link->lldp_rx, &link->hw_addr.ether);
                 if (r < 0)
@@ -2507,6 +2543,12 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP Tx: %m");
         }
+
+        /* Do this at the end so that we can fail the link in case we don't manage to restart NDisc. */
+        r = ndisc_update_mac(link);
+        if (r < 0)
+                return log_link_warning_errno(
+                                link, r, "Could not restart IPv6 Router Discovery after MAC change: %m");
 
         return 1; /* needs reconfigure */
 }

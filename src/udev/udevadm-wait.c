@@ -4,13 +4,13 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 
+#include "build.h"
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "event-util.h"
-#include "format-table.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -21,6 +21,7 @@
 #include "time-util.h"
 #include "udev-util.h"
 #include "udevadm.h"
+#include "verbs.h"
 
 typedef enum WaitUntil {
         WAIT_UNTIL_INITIALIZED,
@@ -298,25 +299,6 @@ static int setup_periodic_timer(sd_event *event) {
         return sd_event_source_set_floating(s, true);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-wait", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("wait [OPTIONS] DEVICE [DEVICE…]");
-        help_abstract("Wait for devices or device symlinks being created.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -331,10 +313,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-wait"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("wait");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('t', "timeout", "SEC", "Maximum time to wait for the device"):
                         r = parse_sec(opts.arg, &arg_timeout_usec);
@@ -357,6 +339,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("settle", NULL, "Also wait for all queued events being processed"):
                         arg_settle = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_removed)

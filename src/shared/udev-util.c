@@ -12,12 +12,15 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-util.h"
 #include "utf8.h"
 
@@ -278,21 +281,56 @@ bool device_for_action(sd_device *dev, sd_device_action_t a) {
 }
 
 void log_device_uevent(sd_device *device, const char *str) {
-        sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
-        sd_id128_t event_id = SD_ID128_NULL;
-        uint64_t seqnum = 0;
-
         if (!DEBUG_LOGGING)
                 return;
 
-        (void) sd_device_get_seqnum(device, &seqnum);
-        (void) sd_device_get_action(device, &action);
-        (void) sd_device_get_trigger_uuid(device, &event_id);
-        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s%s%s)",
-                         strempty(str), isempty(str) ? "" : " ",
-                         seqnum, strna(device_action_to_string(action)),
-                         sd_id128_is_null(event_id) ? "" : ", UUID=",
-                         sd_id128_is_null(event_id) ? "" : SD_ID128_TO_UUID_STRING(event_id));
+        _cleanup_free_ char *msg = NULL;
+
+        uint64_t seqnum;
+        if (sd_device_get_seqnum(device, &seqnum) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "SEQNUM=%"PRIu64, seqnum);
+
+        sd_device_action_t action;
+        if (sd_device_get_action(device, &action) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "ACTION=%s", device_action_to_string(action));
+
+        sd_id128_t id;
+        if (sd_device_get_trigger_uuid(device, &id) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "UUID=%s", SD_ID128_TO_UUID_STRING(id));
+
+        const char *s;
+        pid_t pid;
+        if (sd_device_get_property_value(device, "SYNTH_ARG_PID", &s) >= 0 &&
+            parse_pid(s, &pid) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "PID="PID_FMT, pid);
+
+        uint64_t pidfdid;
+        if (sd_device_get_property_value(device, "SYNTH_ARG_PIDFDID", &s) >= 0 &&
+            safe_atou64(s, &pidfdid) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "PIDFDID=%"PRIu64, pidfdid);
+
+        if (sd_device_get_property_value(device, "SYNTH_ARG_Comm", &s) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "Comm=%s", s);
+
+        if (sd_device_get_property_value(device, "SYNTH_ARG_InvocationID", &s) >= 0 &&
+            sd_id128_from_string(s, &id) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "InvocationID=%s", SD_ID128_TO_STRING(id));
+
+        usec_t u;
+        if (sd_device_get_property_value(device, "SYNTH_ARG_TimestampRealtime", &s) >= 0 &&
+            safe_atou64(s, &u) >= 0 &&
+            (s = FORMAT_TIMESTAMP(u)))
+                (void) strextendf_with_separator(&msg, ", ", "TimestampRealtime='%s'", s);
+
+        if (sd_device_get_property_value(device, "SYNTH_ARG_TimestampMonotonic", &s) >= 0 &&
+            safe_atou64(s, &u) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "TimestampMonotonic="USEC_FMT, u);
+
+        if (sd_device_get_property_value(device, "SYNTH_ARG_TimestampBoottime", &s) >= 0 &&
+            safe_atou64(s, &u) >= 0)
+                (void) strextendf_with_separator(&msg, ", ", "TimestampBoottime="USEC_FMT, u);
+
+        log_device_debug(device, "%s%s(%s)", strempty(str), isempty(str) ? "" : " ", strna(msg));
 }
 
 size_t udev_replace_whitespace(const char *str, char *to, size_t len) {

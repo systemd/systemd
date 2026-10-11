@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "HP 103C_5336AN HP EliteBook",
+    "compatible": "hp,elitebook-6-g1q",
+    "hwids": [
+        "351005d4-e3e1-5387-a703-21cc93bd30ea",
+        "180994cf-7159-5b2d-be28-5624845887b1",
+        "3bf4bc3c-a850-5a6a-a95c-8e3eaf14bc96",
+        "aa2c3726-f5ea-53b6-8ed5-90f5a1abaaff",
+        "3c513e7a-56b8-5edf-8d1e-d90fa4a8974d",
+        "66ae13b5-9c0f-5f57-b2dd-dc699ccc409d",
+        "70b42fea-f55e-5d19-8110-d71be6bd5e32",
+        "be685a81-758f-58d4-8c4e-65cf4877588c",
+        "5ae54112-632c-57ee-b615-c2df8ba319cd",
+        "c7e47171-659b-55ad-a977-3df485a15742",
+        "2c1d5a7e-43d1-5fef-89d6-a3b368779536",
+        "ea8400a5-7227-5163-9664-225070358fa0",
+        "2dae3dcd-51ea-5422-9980-5220f02b883a"
+    ]
+}

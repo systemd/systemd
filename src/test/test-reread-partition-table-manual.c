@@ -18,7 +18,7 @@ static int run(int argc, char *argv[]) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
 
-        r = reread_partition_table_fd(fd, REREADPT_BSD_LOCK|REREADPT_FORCE_UEVENT);
+        r = reread_partition_table_fd(fd, REREADPT_BSD_LOCK|REREADPT_FORCE_UEVENT, /* args= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reread partition table: %m");
 

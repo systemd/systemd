@@ -26,12 +26,10 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "main-func.h"
 #include "memstream-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -77,6 +75,14 @@ static uint64_t arg_limit_signals = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
+COMMAND(
+        "busctl\0",
+        "Introspect the D-Bus IPC bus.",
+        .man_pages = "busctl(1)\0",
+        .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_HELP_SEPARATE,  /* the verb table is very wide */
+);
+
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
@@ -84,6 +90,8 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int pin_fd = -EBADF;
         int r;
+
+        assert(ret);
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -539,7 +547,7 @@ static int tree_one(sd_bus *bus, const char *service) {
         return r;
 }
 
-VERB(verb_tree, "tree", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_tree, "tree", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Show object tree of service");
 static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1000,7 +1008,7 @@ static int members_flags_to_string(const Member *m, char **ret) {
         return 0;
 }
 
-VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]", 3, 4, 0,
+VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]\0", 3, 4, 0,
      "Introspect an object");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const XMLIntrospectOps ops = {
@@ -1383,13 +1391,13 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         }
 }
 
-VERB(verb_monitor, "monitor", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_monitor, "monitor", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Show bus traffic");
 static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
-VERB(verb_capture, "capture", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_capture, "capture", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Capture bus traffic as pcap");
 static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *osname = NULL;
@@ -1418,7 +1426,7 @@ static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata)
         return r;
 }
 
-VERB(verb_status, "status", "[SERVICE]", VERB_ANY, 2, 0,
+VERB(verb_status, "status", "[SERVICE]\0", VERB_ANY, 2, 0,
      "Show bus service, process, or bus owner credentials");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1790,7 +1798,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         return 0;
 }
 
-VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT…]]", 5, VERB_ANY, 0,
+VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT…]]\0", 5, VERB_ANY, 0,
      "Call a method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1859,7 +1867,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return bus_message_dump(reply, /* flags= */ 0);
 }
 
-VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT…]]", 4, VERB_ANY, 0,
+VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT…]]\0", 4, VERB_ANY, 0,
      "Emit a signal");
 static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1906,7 +1914,7 @@ static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY…", 5, VERB_ANY, 0,
+VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY…\0", 5, VERB_ANY, 0,
      "Get property value");
 static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1966,7 +1974,7 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL", 4, 5, 0,
+VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL\0", 4, 5, 0,
      "Wait for a signal");
 static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2016,7 +2024,7 @@ static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return sd_event_loop(e);
 }
 
-VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT…", 6, VERB_ANY, 0,
+VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT…\0", 6, VERB_ANY, 0,
      "Set property value");
 static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2073,41 +2081,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        /* Note: column widths are not synced, because the verbs table is very wide. */
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Introspect the D-Bus IPC bus.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("busctl", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -2121,7 +2095,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -2305,6 +2279,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                         arg_limit_signals = arg_limit_messages;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_full < 0)

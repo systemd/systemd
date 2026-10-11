@@ -10,9 +10,8 @@ executables += [
                 'public' : true,
                 'sources' : files('mount-tool.c'),
                 'dependencies' : libmount_cflags,
+                'symlinks' : [
+                        { 'name' : 'systemd-umount' },
+                ],
         },
 ]
-
-install_symlink('systemd-umount',
-                pointing_to : 'systemd-mount',
-                install_dir : bindir)

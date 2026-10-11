@@ -6,12 +6,12 @@ set -o pipefail
 
 if [[ ! -x /usr/lib/systemd/systemd-journal-remote || ! -x /usr/lib/systemd/systemd-journal-upload ]]; then
     echo "Built without systemd-journal-remote/upload support, skipping the test"
-    exit 0
+    exit 77
 fi
 
 if ! command -v openssl >/dev/null; then
     echo "openssl command not available, skipping the tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

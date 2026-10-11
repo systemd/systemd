@@ -110,7 +110,15 @@ static void test_sd_device_one(sd_device *d) {
 
         log_info("%s(%s)", __func__, syspath);
 
-        ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
+        r = sd_device_new_from_syspath(&dev, syspath);
+        if (ERRNO_IS_DEVICE_ABSENT(r)) {
+                /* Devices may be hot-unplugged while we are running, e.g. on Azure the accelerated
+                 * networking PCI VF behind a Hyper-V vmbus PCI bridge may be removed and re-added
+                 * during host servicing. Don't fail the test if a device vanished since enumeration. */
+                log_device_notice_errno(d, r, "Device disappeared while running the test, skipping: %m");
+                return;
+        }
+        ASSERT_OK(r);
         ASSERT_OK(sd_device_get_syspath(dev, &val));
         ASSERT_STREQ(syspath, val);
         ASSERT_NULL(dev = sd_device_unref(dev));
@@ -805,6 +813,62 @@ TEST(sd_device_new_from_nulstr) {
                 log_device_info(from_nulstr, "checking devlink: %s", devlink);
                 ASSERT_TRUE(set_contains(from_nulstr->devlinks, devlink));
         }
+}
+
+TEST(sd_device_new_from_nulstr_invalid_property) {
+        char nulstr[] =
+                "ACTION=add\0"
+                "DEVPATH=/devices/pci0000:00/80860F14:00/mmc_host/mmc0/mmc0:0001\0"
+                "SUBSYSTEM=mmc\0"
+                "MMC_NAME=H8G4a\x92\0"
+                "MODALIAS=mmc:block\0"
+                "SEQNUM=1\0";
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *value;
+
+        ASSERT_OK(device_new_from_nulstr(&device, nulstr, sizeof(nulstr) - 1));
+        ASSERT_ERROR(sd_device_get_property_value(device, "MMC_NAME", &value), ENOENT);
+        ASSERT_OK(sd_device_get_property_value(device, "MODALIAS", &value));
+        ASSERT_STREQ(value, "mmc:block");
+}
+
+TEST(sd_device_new_from_nulstr_invalid_property_key) {
+        char nulstr[] =
+                "ACTION=add\0"
+                "DEVPATH=/devices/pci0000:00/80860F14:00/mmc_host/mmc0/mmc0:0001\0"
+                "SUBSYSTEM=mmc\0"
+                "INVALID-KEY=value\0"
+                "SEQNUM=1\0";
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *value;
+
+        ASSERT_OK(device_new_from_nulstr(&device, nulstr, sizeof(nulstr) - 1));
+        ASSERT_ERROR(sd_device_get_property_value(device, "INVALID-KEY", &value), ENOENT);
+}
+
+TEST(sd_device_new_from_nulstr_invalid_required_property) {
+        char nulstr[] =
+                "ACTION=invalid\0"
+                "DEVPATH=/devices/pci0000:00/80860F14:00/mmc_host/mmc0/mmc0:0001\0"
+                "SUBSYSTEM=mmc\0"
+                "MODALIAS=mmc:block\0"
+                "SEQNUM=1\0";
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+
+        ASSERT_ERROR(device_new_from_nulstr(&device, nulstr, sizeof(nulstr) - 1), EINVAL);
+}
+
+TEST(sd_device_new_from_nulstr_invalid_typed_property) {
+        char nulstr[] =
+                "ACTION=add\0"
+                "DEVPATH=/devices/pci0000:00/80860F14:00/mmc_host/mmc0/mmc0:0001\0"
+                "SUBSYSTEM=mmc\0"
+                "IFINDEX=invalid\0"
+                "MODALIAS=mmc:block\0"
+                "SEQNUM=1\0";
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+
+        ASSERT_ERROR(device_new_from_nulstr(&device, nulstr, sizeof(nulstr) - 1), EINVAL);
 }
 
 TEST(sd_device_new_from_path) {

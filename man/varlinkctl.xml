@@ -105,7 +105,9 @@
     <title>Description</title>
 
     <para><command>varlinkctl</command> may be used to introspect and invoke <ulink
-    url="https://varlink.org/">Varlink</ulink> services.</para>
+    url="https://varlink.org/">Varlink IPC</ulink> services, following the <ulink
+    url="https://uapi-group.org/specifications/specs/varlink/">UAPI.20 Varlink IPC</ulink>
+    specification.</para>
 
     <para>Services are referenced by one of the following:</para>
 

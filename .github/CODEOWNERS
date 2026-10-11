@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Subsystem maintainers, see docs/GOVERNANCE.md.
+# The last matching pattern takes precedence.
+
+# Integration tests
+/test/integration-tests/integration-test-wrapper.py @daandemeyer
+
+# mkosi
+/mkosi/                                 @daandemeyer
+/.github/workflows/mkosi.yml            @daandemeyer
+
+# systemd-repart
+/src/repart/                            @daandemeyer
+
+# systemd-networkd
+/src/network/                           @yuwata
+/src/libsystemd-network/                @yuwata
+/network/                               @yuwata
+/test/networkd-test.py                  @yuwata
+/test/test-network/                     @yuwata
+/test/test-network-generator-conversion.sh @yuwata
+/test/test-network-generator-conversion/  @yuwata
+
+# systemd-udevd
+/src/udev/                              @yuwata
+/src/libudev/                           @yuwata
+/rules.d/                               @yuwata
+
+# systemd-nsresourced
+/src/nsresourced/                       @daandemeyer @poettering
+
+# systemd-portabled
+/src/portable/                          @bluca
+
+# ukify
+/src/ukify/                             @keszybz
+
+# sd-future
+/src/libsystemd/sd-future/              @daandemeyer
+/src/systemd/sd-future.h                @daandemeyer

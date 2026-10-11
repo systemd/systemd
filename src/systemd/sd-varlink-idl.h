@@ -25,7 +25,7 @@
 _SD_BEGIN_DECLARATIONS;
 
 /* This implements the Varlink Interface Definition Language ("Varlink IDL"),
- * i.e. https://varlink.org/Interface-Definition
+ * i.e. https://uapi-group.org/specifications/specs/varlink/#interface-definition
  *
  * Primarily allows encoding static interface definitions in C code, that can be converted to the textual IDL
  * format on-the-fly. Can also parse the textual format back to C structures. Validates the interface

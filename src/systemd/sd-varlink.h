@@ -339,6 +339,9 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink_server, sd_varlink_server_unref);
 /* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define SD_VARLINK_ERROR_SYSTEM "io.systemd.System"
 
+/* The method is implemented, but the requested operation is not supported. */
+#define SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED "io.systemd.OperationNotSupported"
+
 /* This one we invented and is a weaker version of "org.varlink.service.PermissionDenied", and indicates that if user would allow interactive auth, we might allow access */
 #define SD_VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED "io.systemd.InteractiveAuthenticationRequired"
 

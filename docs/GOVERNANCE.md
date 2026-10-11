@@ -19,8 +19,11 @@ The systemd project is governed as a Free Software project, with the following r
 
 5. If there's disagreement whether technical changes should be merged or not,
    and attempts to resolve the situation amicably didn't result in a solution,
-   the subsystem maintainer makes the final decision. If a subsystem has no
-   specific maintainer, then the project leader has the final say.
+   the subsystem maintainer makes the final decision. Subsystem maintainers
+   are listed in
+   [`.github/CODEOWNERS`](https://github.com/systemd/systemd/blob/main/.github/CODEOWNERS).
+   If a subsystem has no specific maintainer, then the project leader has the
+   final say.
 
 6. Changes to the list of maintainers or this governance document require a
    simple majority vote of all maintainers.
@@ -35,10 +38,5 @@ Currently, the project maintainers are as follows (in alphabetical order):
 * Mike Yuan
 * Yu Watanabe
 * Zbigniew Jędrzejewski-Szmek
-
-Currently, subsystem maintainers are as follows:
-
-* systemd-networkd, systemd-udevd: Yu Watanabe
-* systemd-repart, mkosi, integration tests: Daan De Meyer
 
 Currently, the project leader is: Lennart Poettering

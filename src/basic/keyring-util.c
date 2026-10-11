@@ -37,7 +37,7 @@ int keyring_read(key_serial_t serial, void **ret, size_t *ret_size) {
 int keyring_describe(key_serial_t serial, char **ret) {
         _cleanup_free_ char *tuple = NULL;
         size_t sz = 64;
-        int c = -1; /* Workaround for maybe-uninitialized false positive due to missing_syscall indirection */
+        int c;
 
         assert(ret);
 
@@ -46,7 +46,7 @@ int keyring_describe(key_serial_t serial, char **ret) {
                 if (!tuple)
                         return log_oom_debug();
 
-                c = keyctl(KEYCTL_DESCRIBE, serial, (unsigned long) tuple, c, 0);
+                c = keyctl(KEYCTL_DESCRIBE, serial, (unsigned long) tuple, sz, 0);
                 if (c < 0)
                         return log_debug_errno(errno, "Failed to describe key id %d: %m", serial);
 

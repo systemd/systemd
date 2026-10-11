@@ -28,7 +28,7 @@ udevadm wait --settle --timeout=30 /sys/class/net/test1
 output=$(ip link show dev test1)
 if ! [[ "$output" =~ altname ]]; then
     echo "alternative name for network interface not supported, skipping test."
-    exit 0
+    exit 77
 fi
 assert_not_in "altname test1" "$output"
 assert_in "altname test2" "$output"

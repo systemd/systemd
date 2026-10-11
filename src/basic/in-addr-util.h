@@ -73,8 +73,6 @@ int in_addr_prefix_intersect(
                 unsigned aprefixlen,
                 const union in_addr_union *b,
                 unsigned bprefixlen) _pure_;
-int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
-int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth);
 int in_addr_random_prefix(int family, union in_addr_union *u, unsigned prefixlen_fixed_part, unsigned prefixlen);
 int in_addr_prefix_range(
                 int family,

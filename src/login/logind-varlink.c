@@ -13,6 +13,7 @@
 #include "json-util.h"
 #include "login-util.h"
 #include "logind.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "logind-seat.h"
@@ -368,6 +369,8 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
         r = session_start(session, /* properties= */ NULL, /* error= */ NULL);
         if (r < 0)
                 goto fail;
+
+        session_count_started(session);
 
         session->create_link = sd_varlink_ref(link);
 
@@ -820,15 +823,6 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
         if (m->delayed_action)
                 return sd_varlink_error(link, "io.systemd.Shutdown.AlreadyInProgress", /* parameters= */ NULL);
 
-        /* Reset in case we're short-circuiting a scheduled shutdown */
-        m->unlink_nologin = false;
-        manager_reset_scheduled_shutdown(m);
-
-        m->scheduled_shutdown_timeout = 0;
-        m->scheduled_shutdown_action = action;
-
-        (void) setup_wall_message_timer(m, link);
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
         if (r < 0) {
@@ -837,6 +831,15 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
                                   bus_error_message(&error, r));
                 return sd_varlink_error_errno(link, r);
         }
+
+        /* Reset in case we're short-circuiting a scheduled shutdown. */
+        m->unlink_nologin = false;
+        manager_reset_scheduled_shutdown(m);
+
+        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_action = action;
+
+        (void) setup_wall_message_timer(m, link);
 
         return sd_varlink_reply(link, NULL);
 }
@@ -903,6 +906,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");

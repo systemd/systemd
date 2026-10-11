@@ -157,28 +157,19 @@ static int reply_query_state(DnsQuery *q) {
 }
 
 static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
-        DnsQuery *q;
-        Manager *m;
-
         assert(s);
         assert(link);
 
-        m = sd_varlink_server_get_userdata(s);
-        if (!m)
-                return;
+        DnsQuery *q = sd_varlink_get_userdata(link);
+        if (q && DNS_TRANSACTION_IS_LIVE(q->state)) {
+                log_debug("Client of active query vanished, aborting query.");
+                dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        }
 
-        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
-        dns_service_browser_unref(sb);
-
-        q = sd_varlink_get_userdata(link);
-        if (!q)
-                return;
-
-        if (!DNS_TRANSACTION_IS_LIVE(q->state))
-                return;
-
-        log_debug("Client of active query vanished, aborting query.");
-        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(s));
+        DnsServiceBrowser *sb = hashmap_get(m->dns_service_browsers, link);
+        if (sb)
+                dns_service_browser_detach(sb);
 }
 
 static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
@@ -363,6 +354,9 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
 
         assert(link);
 
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
 
@@ -489,6 +483,9 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         int r;
 
         assert(link);
+
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
 
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
@@ -973,6 +970,9 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
 
         assert(link);
 
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
 
@@ -1123,6 +1123,9 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
+
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1369,6 +1372,33 @@ static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
+static int vl_method_flush_caches(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
+
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.flush-caches");
+        if (r <= 0)
+                return r;
+
+        manager_flush_caches(m, LOG_INFO);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_reset_server_features(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
+
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.reset-server-features");
+        if (r <= 0)
+                return r;
+
+        (void) dns_stream_disconnect_all(m);
+        manager_reset_server_features(m);
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
@@ -1452,7 +1482,9 @@ static int varlink_monitor_server_init(Manager *m) {
                         "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
                         "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
                         "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics,
-                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration);
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration,
+                        "io.systemd.Resolve.Monitor.FlushCaches", vl_method_flush_caches,
+                        "io.systemd.Resolve.Monitor.ResetServerFeatures", vl_method_reset_server_features);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -1506,6 +1538,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
                         "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
                         "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);

@@ -65,6 +65,10 @@
     <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
     behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
     <command>systemd-run</command>.</para>
+
+    <para>Note that TTY isolation as provided by the default value of the <option>--pty</option> option is a
+    core feature of <command>run0</command>. Redirecting terminals must therefore be done with care,
+    avoiding giving such control to untrusted programs.</para>
   </refsect1>
 
   <refsect1>
@@ -267,6 +271,9 @@
         <option>--no-ask-password</option> is specified in which case <option>--pty</option> is selected),
         otherwise the relevant file descriptors are passed through directly.</para>
 
+        <para>As mentioned above, TTY isolation as implemented by the default value of this option is
+        crucial for security, so care must be taken when overriding it.</para>
+
         <para id="v257"><option>--pty</option> and <option>--pipe</option> were added in v257.</para>
         <para id="v258"><option>--pty-late</option> was added in v258.</para>
         </listitem>
@@ -372,7 +379,17 @@
 
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="version-V" />
+
+      <varlistentry id='no-pager'>
+        <term><option>--no-pager</option></term>
+
+        <listitem><para>Do not pipe output into a pager. This currently only applies to
+        <option>--help</option>. (The pager is not started during normal operation.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>All command line arguments after the first non-option argument become part of the command line of

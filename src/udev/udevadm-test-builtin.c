@@ -1,38 +1,20 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sd-json.h"
+
+#include "build.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "options.h"
 #include "udev-builtin.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 
 static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static const char *arg_command = NULL;
 static const char *arg_syspath = NULL;
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-test-builtin", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("test-builtin [OPTIONS] COMMAND DEVPATH");
-        help_abstract("Test a built-in command.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_section("Commands");
-        udev_builtin_list();
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -48,16 +30,25 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-test-builtin"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        r = command_print_verb_help("test-builtin");
+                        if (r < 0)
+                                return r;
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                        help_section("Commands");
+                        udev_builtin_list();
+                        return 0;
+
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('a', "action", "ACTION|help", "Set action string"):
                         r = parse_device_action(opts.arg, &arg_action);
                         if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) != 2)

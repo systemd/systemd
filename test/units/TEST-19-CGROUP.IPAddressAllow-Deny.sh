@@ -8,12 +8,12 @@ set -o pipefail
 
 if [[ "$(get_cgroup_hierarchy)" != unified ]]; then
     echo "Skipping $0 as we're not running with the unified cgroup hierarchy."
-    exit 0
+    exit 77
 fi
 
 if systemd-detect-virt --container --quiet; then
     echo "Skipping $0 as we're running on container."
-    exit 0
+    exit 77
 fi
 
 ip netns add test-ns

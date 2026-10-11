@@ -297,6 +297,8 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         return NULL;
 }
 
+DEFINE_POINTER_ARRAY_FREE_FUNC(DnsPacket*, dns_packet_unref);
+
 int dns_packet_validate(DnsPacket *p) {
         assert(p);
 
@@ -632,31 +634,36 @@ int dns_packet_append_name(
         while (!dns_name_is_root(name)) {
                 const char *z = name;
                 char label[DNS_LABEL_MAX+1];
-                size_t n = 0;
+                size_t n = 0, offset;
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
-                if (n > 0) {
-                        assert(n < p->size);
+                /* Only pointer-expressible offsets of already-appended labels enter the map below,
+                 * so both bounds should hold. Control flow and not assert(), which is no check at
+                 * all under -Db_ndebug=true, for bounds that decide what goes on the wire.
+                 * saved_size, not p->size: RFC 1035 § 4.1.4 allows a pointer only to a prior
+                 * occurrence, which is what dns_packet_read_name() enforces on the way in. */
+                if (n > 0 && n <= DNS_COMPRESSION_OFFSET_MAX && n < saved_size) {
+                        r = dns_packet_append_uint16(p, DNS_COMPRESSION_POINTER_FLAG | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
-
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_label(p, label, r, canonical_candidate, &n);
+                r = dns_packet_append_label(p, label, r, canonical_candidate, &offset);
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression -- but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name, needlessly failing the whole append with -EEXIST. */
+                if (allow_compression && offset <= DNS_COMPRESSION_OFFSET_MAX) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
@@ -670,7 +677,7 @@ int dns_packet_append_name(
                                 goto fail;
                         }
 
-                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(n));
+                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(offset));
                         if (r < 0)
                                 goto fail;
 
@@ -681,7 +688,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
@@ -718,7 +725,13 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
         if (r < 0)
                 goto fail;
 
-        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
+        /* Bit 15 of the CLASS field of an RR is the cache-flush bit in mDNS only, and the rules for setting
+         * it apply to responses and announcements only, see RFC 6762, section 10.2. In unicast DNS it is
+         * part of the class value itself. Hence set it neither in unicast DNS packets (the RR might come
+         * from our mDNS zone, but be sent out via the DNS stub), nor in mDNS queries (the Authority Section
+         * of probes is filled from our mDNS zone too, see section 8.2). */
+        class = p->protocol == DNS_PROTOCOL_MDNS && DNS_PACKET_QR(p) && FLAGS_SET(flags, DNS_ANSWER_CACHE_FLUSH) ?
+                        k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
         r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
@@ -1578,7 +1591,7 @@ int dns_packet_read_name(
         assert(p);
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
-        size_t after_rindex = 0, jump_barrier = p->rindex;
+        size_t after_rindex = 0, jump_barrier = p->rindex, jumps = 0;
         _cleanup_free_ char *name = NULL;
         bool first = true;
         size_t n = 0, m = 0;
@@ -1626,7 +1639,7 @@ int dns_packet_read_name(
                                 return -EBADMSG;
 
                         continue;
-                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
+                } else if (allow_compression && FLAGS_SET(c, DNS_COMPRESSION_POINTER_FLAG >> 8)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -1634,8 +1647,11 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        ptr = (uint16_t) (c & ~0xc0) << 8 | (uint16_t) d;
+                        ptr = (uint16_t) (c & ~(DNS_COMPRESSION_POINTER_FLAG >> 8)) << 8 | (uint16_t) d;
                         if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier)
+                                return -EBADMSG;
+
+                        if (jumps++ >= DNS_COMPRESSION_JUMPS_MAX)
                                 return -EBADMSG;
 
                         if (after_rindex == 0)

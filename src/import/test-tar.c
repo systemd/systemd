@@ -26,7 +26,7 @@ static int run(int argc, char **argv) {
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown operation '%s'.", argv[1]);
 
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = dlopen_libarchive(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -46,7 +46,7 @@ static int run(int argc, char **argv) {
                 return log_error_errno(fd2, "Cannot open %s: %m", argv[3]);
 
         if (create)
-                r = tar_c(fd2, fd1, argv[2], /* flags= */ TAR_SELINUX);
+                r = tar_c(fd2, fd1, argv[2], /* hardlink_db_fd= */ -EBADF, /* flags= */ TAR_SELINUX);
         else
                 r = tar_x(fd1, fd2, /* flags= */ TAR_SELINUX);
         if (r < 0)

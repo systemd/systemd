@@ -21,12 +21,19 @@ test ! -e /tmp/fifo
 test ! -e /tmp/test
 
 # Test invalid config
+ret=0
 systemd-tmpfiles --inline --remove 'garbage' || ret=$?
 test "$ret" -eq 65   # EX_DATAERR
 
+ret=0
+systemd-tmpfiles --inline --create 'd /tmp/test - - - - unexpected' || ret=$?
+test "$ret" -eq 65   # EX_DATAERR
+
 echo 'garbage' >/tmp/config.conf
+ret=0
 systemd-tmpfiles --remove /tmp/config.conf || ret=$?
 test "$ret" -eq 65   # EX_DATAERR
 
+ret=0
 systemd-tmpfiles --remove /tmp/config-missing.conf || ret=$?
 test "$ret" -eq 1

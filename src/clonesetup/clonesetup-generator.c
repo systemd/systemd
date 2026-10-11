@@ -112,6 +112,7 @@ static int generate_clone_units(
                 "Description=Create dm-clone device %1$s\n"
                 "Documentation=man:clonetab(5) man:systemd-clonesetup(8) man:systemd-clonesetup-generator(8)\n"
                 "DefaultDependencies=no\n"
+                "IgnoreOnIsolate=yes\n"
                 "BindsTo=%2$s %3$s %4$s\n"
                 "After=%2$s %3$s %4$s systemd-udevd-kernel.socket\n"
                 "Before=blockdev@%5$s.target clonesetup.target shutdown.target\n"

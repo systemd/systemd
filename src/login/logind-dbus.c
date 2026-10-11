@@ -40,6 +40,7 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-action.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat.h"
@@ -1247,6 +1248,9 @@ static int manager_create_session_by_bus(
         r = session_start(session, message, error);
         if (r < 0)
                 goto fail;
+
+        session_count_started(session);
+
         r = sd_bus_message_exit_container(message);
         if (r < 0)
                 goto fail;
@@ -1719,7 +1723,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         }
 
         FOREACH_DEVICE(e, d) {
-                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, m->device_trigger_args, /* ret_uuid= */ NULL);
                 if (r < 0)
                         log_device_debug_errno(d, r, "Failed to trigger device, ignoring: %m");
         }
@@ -2327,7 +2331,11 @@ static int method_do_shutdown_or_sleep(
                                          handle_action_to_string(m->delayed_action->handle),
                                          handle_action_to_string(a->handle));
 
-        /* reset case we're shorting a scheduled shutdown */
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
+        if (r < 0)
+                return r;
+
+        /* Reset in case we're short-circuiting a scheduled shutdown. */
         m->unlink_nologin = false;
         manager_reset_scheduled_shutdown(m);
 
@@ -2335,10 +2343,6 @@ static int method_do_shutdown_or_sleep(
         m->scheduled_shutdown_action = action;
 
         (void) setup_wall_message_timer(m, message);
-
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
-        if (r < 0)
-                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }

@@ -34,6 +34,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         sd_event *e = ASSERT_PTR(userdata);
@@ -217,11 +218,12 @@ bool bus_error_is_connection(const sd_bus_error *error) {
                                       SD_BUS_ERROR_TIMED_OUT);
 }
 
-int bus_check_peercred(sd_bus *bus) {
+static int bus_get_peer_uid(sd_bus *bus, uid_t *ret) {
         struct ucred ucred;
         int fd, r;
 
         assert(bus);
+        assert(ret);
 
         fd = sd_bus_get_fd(bus);
         if (fd < 0)
@@ -231,7 +233,19 @@ int bus_check_peercred(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        if (ucred.uid != 0 && ucred.uid != geteuid())
+        *ret = ucred.uid;
+        return 0;
+}
+
+int bus_check_peercred(sd_bus *bus) {
+        uid_t uid;
+        int r;
+
+        r = bus_get_peer_uid(bus, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && uid != geteuid())
                 return -EPERM;
 
         return 1;
@@ -299,40 +313,28 @@ int bus_connect_user_systemd(sd_bus **ret) {
         return 0;
 }
 
-static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *ret_uid, gid_t *ret_gid) {
+static int pin_socket(const char *path, struct stat *ret_st) {
         _cleanup_close_ int inode_fd = -EBADF;
-        _cleanup_free_ char *p = NULL;
-        struct stat st;
         int r;
 
-        assert(capsule);
-        assert(suffix);
-        assert(ret_uid);
-        assert(ret_gid);
-
-        p = path_join("/run/capsules", capsule, suffix);
-        if (!p)
-                return -ENOMEM;
+        assert(path);
+        assert(ret_st);
 
         /* We enter territory owned by the user, hence let's be paranoid about symlinks */
-        r = chase(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &inode_fd);
+        r = chase(path, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &inode_fd);
         if (r < 0)
                 return r;
 
-        if (fstat(inode_fd, &st) < 0)
+        if (fstat(inode_fd, ret_st) < 0)
                 return negative_errno();
-
-        *ret_uid = st.st_uid;
-        *ret_gid = st.st_gid;
 
         return TAKE_FD(inode_fd);
 }
 
 static int bus_set_address_capsule(sd_bus *bus, const char *capsule, const char *suffix, int *ret_pin_fd) {
         _cleanup_close_ int inode_fd = -EBADF;
-        _cleanup_free_ char *pp = NULL;
-        uid_t uid;
-        gid_t gid;
+        _cleanup_free_ char *p = NULL, *pp = NULL;
+        struct stat st;
         int r;
 
         assert(bus);
@@ -349,7 +351,11 @@ static int bus_set_address_capsule(sd_bus *bus, const char *capsule, const char 
         if (r == 0)
                 return -EINVAL;
 
-        inode_fd = pin_capsule_socket(capsule, suffix, &uid, &gid);
+        p = path_join("/run/capsules", capsule, suffix);
+        if (!p)
+                return -ENOMEM;
+
+        inode_fd = pin_socket(p, &st);
         if (inode_fd < 0)
                 return inode_fd;
 
@@ -357,7 +363,7 @@ static int bus_set_address_capsule(sd_bus *bus, const char *capsule, const char 
         if (!pp)
                 return -ENOMEM;
 
-        if (asprintf(&bus->address, "unix:path=%s,uid=" UID_FMT ",gid=" GID_FMT, pp, uid, gid) < 0)
+        if (asprintf(&bus->address, "unix:path=%s,uid=" UID_FMT ",gid=" GID_FMT, pp, st.st_uid, st.st_gid) < 0)
                 return -ENOMEM;
 
         *ret_pin_fd = TAKE_FD(inode_fd); /* This fd must be kept pinned until the connection has been established */
@@ -387,6 +393,77 @@ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
         r = sd_bus_start(bus);
         if (r < 0)
                 return r;
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
+int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus **ret) {
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *pp = NULL;
+        struct stat st;
+        uid_t peer_uid;
+        int r;
+
+        assert(uid_is_valid(uid));
+        assert(ret);
+
+        if (asprintf(&p, "/run/user/" UID_FMT "/systemd/private", uid) < 0)
+                return -ENOMEM;
+
+        /* The user owns /run/user/UID. Without fs.protected_hardlinks, the user can replace the socket with
+         * a hardlink to a socket of another user. pin_socket() refuses symlinks but not hardlinks. Our
+         * connection as root to such a socket can start a socket-activated service that the user cannot
+         * start. */
+        inode_fd = pin_socket(p, &st);
+        if (inode_fd < 0)
+                return inode_fd;
+
+        if (!S_ISSOCK(st.st_mode))
+                return -ENOTSOCK;
+        if (st.st_uid != uid)
+                return -EPERM;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        if (description) {
+                r = sd_bus_set_description(bus, description);
+                if (r < 0)
+                        return r;
+        }
+
+        /* The peer check below passes for any process of the user that listens on the socket. That process
+         * can send file descriptors until the file descriptor table of the caller is full. The caller then
+         * fails to open files with EMFILE. */
+        r = sd_bus_negotiate_fds(bus, false);
+        if (r < 0)
+                return r;
+
+        pp = bus_address_escape(FORMAT_PROC_FD_PATH(inode_fd));
+        if (!pp)
+                return -ENOMEM;
+
+        bus->address = strjoin("unix:path=", pp);
+        if (!bus->address)
+                return -ENOMEM;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        /* The owner of a socket inode is not always the process that listens on it. PID 1 listens as root
+         * on the socket of a socket unit with SocketUser= set to the user. The user can hardlink that
+         * socket to the path of the private socket. Without the check below, our method calls then go to
+         * the service of that socket unit. */
+        r = bus_get_peer_uid(bus, &peer_uid);
+        if (r < 0)
+                return r;
+
+        if (peer_uid != uid)
+                return -EPERM;
 
         *ret = TAKE_PTR(bus);
         return 0;

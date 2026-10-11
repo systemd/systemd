@@ -10,7 +10,6 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "ansi-color.h"
 #include "argv-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -38,7 +37,6 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -49,7 +47,6 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -133,14 +130,27 @@ static ImageClass arg_image_class = IMAGE_SYSEXT;
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+COMMAND(
+        "systemd-sysext\0",
+        "Merge system extension images into /usr/ and /opt/.",
+        .man_pages = "systemd-sysext(8)\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+COMMAND(
+        "systemd-confext\0",
+        "Merge configuration extension images into /etc/.",
+        .man_pages = "systemd-confext(8)\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+
 /* Helper struct for naming simplicity and reusability */
 static const struct {
-        const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
         const char *polkit_rw_action_id;
         const char *polkit_ro_action_id;
-        const char *blurb;
         const char *dot_directory_name;
         const char *directory_name;
         const char *level_env;
@@ -152,12 +162,10 @@ static const struct {
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
-                .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
                 .polkit_rw_action_id = "io.systemd.sysext.manage",
                 .polkit_ro_action_id = "io.systemd.sysext.read",
-                .blurb = "Merge system extension images into /usr/ and /opt/.",
                 .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
@@ -168,12 +176,10 @@ static const struct {
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
         [IMAGE_CONFEXT] = {
-                .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
                 .polkit_rw_action_id = "io.systemd.confext.manage",
                 .polkit_ro_action_id = "io.systemd.confext.read",
-                .blurb = "Merge configuration extension images into /etc/.",
                 .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
@@ -645,7 +651,7 @@ static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, cons
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
+                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR);
                 if (r < 0)
                         log_warning_errno(r, "Failed to wait for %s job of unit '%s', ignoring: %m", m, unit);
         }
@@ -998,7 +1004,7 @@ static int resolve_mutable_directory(
                 if (fchmod(chmod_fd, hierarchy_mode) < 0)
                         return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
         }
@@ -1376,7 +1382,7 @@ static int mount_overlayfs_with_op(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
@@ -1389,7 +1395,7 @@ static int mount_overlayfs_with_op(
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
-                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
@@ -1601,7 +1607,7 @@ static int store_info_in_meta(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", f);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
 
@@ -2585,8 +2591,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         r = table_add_many(
                                         t,
                                         TABLE_PATH, *p,
-                                        TABLE_STRING, "none",
-                                        TABLE_SET_COLOR, ansi_grey(),
+                                        TABLE_STRV, STRV_EMPTY,
                                         TABLE_EMPTY);
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -3025,12 +3030,13 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
         /* Triggered by systemd-sysupdate after an update completed. We deliberately ignore all parameters
          * (we don't even dispatch them). This method is reached through the sysext socket, but a single
          * notification refreshes both image classes, so freshly downloaded sysexts and confexts are both
-         * picked up, equivalent to "systemd-sysext refresh" plus "systemd-confext refresh". We attempt both
-         * classes and only fail afterwards, so a problem with one does not prevent refreshing the other. */
+         * picked up, equivalent to "systemd-confext refresh" plus "systemd-sysext refresh", in the same order
+         * as at boot. We attempt both classes and only fail afterwards, so a problem with one does not
+         * prevent refreshing the other. */
 
         r = 0;
-        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
         RET_GATHER(r, refresh_class(IMAGE_CONFEXT));
+        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
         if (r < 0)
                 return r;
 
@@ -3129,45 +3135,11 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *commands = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&commands);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, commands, options);
-
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract(image_class_info[arg_image_class].blurb);
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference(image_class_info[arg_image_class].full_identifier, "8");
-        return 0;
+VERB_FULL(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ 0u, /* help= */ NULL);
+static int verb_help(int argc, char **argv, uintptr_t data, void *userdata) {
+        return command_print_help_name(
+                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext");
 }
-
-VERB_COMMON_HELP_HIDDEN(help);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -3182,12 +3154,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return verb_help(argc, argv, /* data= */ 0u, /* userdata= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
-
-                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("root", "PATH", "Operate relative to root PATH"):
                         r = parse_path_argument(opts.arg, false, &arg_root);
@@ -3255,6 +3225,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);

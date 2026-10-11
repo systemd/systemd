@@ -37,7 +37,7 @@ typedef struct SyncReq {
         unsigned boottime_prioq_idx;
 } SyncReq;
 
-StreamSyncReq *stream_sync_req_free(StreamSyncReq *ssr);
+StreamSyncReq* stream_sync_req_free(StreamSyncReq *ssr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(StreamSyncReq*, stream_sync_req_free);
 void stream_sync_req_advance_revalidate(StreamSyncReq *ssr, size_t p);
 

@@ -42,6 +42,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
                 SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A recovery key to enroll, when mechanism is 'recovery'. The key must be in the normalized form and have high entropy. Use MakeRecoveryKey() to generate the recovery key. Contains key material."),
+                SD_VARLINK_DEFINE_INPUT(recoveryKey, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device."),
                 SD_VARLINK_DEFINE_INPUT(fido2Device, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -65,7 +67,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(slot, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The keyslots wiped as part of this call, if any."),
                 SD_VARLINK_DEFINE_OUTPUT(wipedSlots, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The generated recovery key, when mechanism is 'recoveryKey'. Contains key material."),
+                SD_VARLINK_FIELD_COMMENT("The generated recovery key or the provided recovery key, when mechanism is 'recovery'. Contains key material."),
                 SD_VARLINK_DEFINE_OUTPUT(recoveryKey, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Progress indicator, only sent on intermediate replies when 'more' was set. Currently the only value is 'touch', signalling that the FIDO2 token is waiting for a touch. Unset on the terminating reply."),
                 SD_VARLINK_DEFINE_OUTPUT(state, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
@@ -79,6 +81,11 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(slot, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The type of the keyslot."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(type, EnrollMechanism, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                MakeRecoveryKey,
+                SD_VARLINK_FIELD_COMMENT("The generated recovery key."),
+                SD_VARLINK_DEFINE_OUTPUT(recoveryKey, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_ERROR(VolumeUnderForeignManagement);
 static SD_VARLINK_DEFINE_ERROR(PasswordRequired);
@@ -96,6 +103,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Enroll,
                 SD_VARLINK_SYMBOL_COMMENT("Enumerate the keyslots currently enrolled in a LUKS2 volume, one per reply. Must be called with the 'more' flag."),
                 &vl_method_ListSlots,
+                SD_VARLINK_SYMBOL_COMMENT("Generate a recovery key that can be enrolled using the 'recovery' mechanism in Enroll()."),
+                &vl_method_MakeRecoveryKey,
                 SD_VARLINK_SYMBOL_COMMENT("The volume is managed by another subsystem (e.g. systemd-homed) and may not be enrolled into directly."),
                 &vl_error_VolumeUnderForeignManagement,
                 SD_VARLINK_SYMBOL_COMMENT("A password is required to unlock the volume, but none was provided."),

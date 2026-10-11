@@ -68,11 +68,12 @@ static int http_upload_report(Context *context, sd_json_variant *report) {
         if (r < 0)
                 return r;
 
-        /* Upload a JSON report in text form as a single JSON object, instead of a JSON-SEQ list. */
+        /* Upload the report in text form: a single JSON object when unsigned, or a JSON-SEQ stream (the
+         * report followed by zero or more signature objects) when signing is enabled. */
 
         _cleanup_free_ char *text = NULL;
-        if (arg_sign) {
-                r = context_sign_report_as_string(context, report, /* format_flags= */ 0, &text);
+        if (arg_sign_mode != REPORT_SIGN_NO) {
+                r = context_sign_report_as_string(context, report, arg_sign_mode, /* format_flags= */ 0, &text);
                 if (r < 0)
                         return r;
         } else {
@@ -232,10 +233,10 @@ static int varlink_upload_report(Context *context, sd_json_variant *report) {
         assert(report);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
-        if (arg_sign) {
+        if (arg_sign_mode != REPORT_SIGN_NO) {
                 _cleanup_free_ char *buf = NULL;
 
-                r = context_sign_report_as_string(context, report, /* format_flags= */ 0, &buf);
+                r = context_sign_report_as_string(context, report, arg_sign_mode, /* format_flags= */ 0, &buf);
                 if (r < 0)
                         return r;
 

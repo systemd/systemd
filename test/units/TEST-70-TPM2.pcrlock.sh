@@ -14,7 +14,7 @@ SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
 if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] ; then
     echo "$SD_PCREXTEND or $SD_PCRLOCK or $SD_MEASURE not found, skipping pcrlock tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {
@@ -117,10 +117,12 @@ if [[ -n "$SD_STUB" ]]; then
     [[ "$uki_stdin" == "$uki_pipe" ]]
 fi
 
-PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
-# Repeat immediately (this call will have to reuse the nvindex, rather than create it)
-"$SD_PCRLOCK" make-policy --pcr="$PCRS"
-"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+if "$SD_PCRLOCK" is-supported; then
+    PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
+    # Repeat immediately (this call will have to reuse the nvindex, rather than create it)
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS"
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+fi
 
 img="/tmp/pcrlock.img"
 truncate -s 20M "$img"

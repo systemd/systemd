@@ -848,14 +848,16 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static int journal_file_move_to(
+static int journal_file_move_to_full(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
                 uint64_t offset,
                 uint64_t size,
-                void **ret) {
+                void **ret,
+                uint64_t *ret_size) {
 
+        size_t window_size;
         int r;
 
         assert(f);
@@ -884,7 +886,27 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret);
+        r = mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret, &window_size);
+        if (r < 0)
+                return r;
+
+        /* The window is rounded up to whole pages, and may extend beyond the end of the file, which must not
+         * be accessed */
+        if (ret_size)
+                *ret_size = MIN((uint64_t) window_size, (uint64_t) f->last_stat.st_size - offset);
+
+        return 0;
+}
+
+static int journal_file_move_to(
+                JournalFile *f,
+                ObjectType type,
+                bool keep_always,
+                uint64_t offset,
+                uint64_t size,
+                void **ret) {
+
+        return journal_file_move_to_full(f, type, keep_always, offset, size, ret, /* ret_size= */ NULL);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -1106,8 +1128,9 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
-        int r;
+        uint64_t size, available;
         Object *o;
+        int r;
 
         assert(f);
 
@@ -1129,7 +1152,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o);
+        r = journal_file_move_to_full(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
         if (r < 0)
                 return r;
 
@@ -1137,13 +1160,17 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
-        if (r < 0)
-                return r;
+        /* Usually the window of the header contains the whole object, which then needs no second lookup */
+        size = le64toh(READ_NOW(o->object.size));
+        if (size > available) {
+                r = journal_file_move_to(f, type, false, offset, size, (void**) &o);
+                if (r < 0)
+                        return r;
 
-        r = check_object_header(f, o, type, offset);
-        if (r < 0)
-                return r;
+                r = check_object_header(f, o, type, offset);
+                if (r < 0)
+                        return r;
+        }
 
         r = check_object(f, o, offset);
         if (r < 0)
@@ -1298,7 +1325,6 @@ int journal_file_append_object(
 
 static int journal_file_setup_data_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1314,14 +1340,20 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
+        /* We deliberately don't zero the hash table items: the table is placed in a newly created file, in
+         * space that was just allocated via posix_fallocate() and hence reads as zeroes anyway. Writing the
+         * zeroes through the memory map would not only write out the whole table once for no reason: the
+         * sequential write faults would also make the kernel's mmap readahead instantiate most of the table
+         * in large folios, on file systems that support them. And since write faults on shared file mappings
+         * dirty the whole folio, each later update of a single hash bucket would then cause the whole folio
+         * to be written back. See #40262. */
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1331,7 +1363,6 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
 static int journal_file_setup_field_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1343,14 +1374,13 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
+        /* No need to zero the items, see journal_file_setup_data_hash_table(). */
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1685,7 +1715,7 @@ int journal_file_find_data_object_with_hash(
 
         while (p > 0) {
                 Object *o;
-                void *d;
+                const void *d;
                 size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -1960,13 +1990,13 @@ static int journal_file_append_data(
 
 static int maybe_decompress_payload(
                 JournalFile *f,
-                uint8_t *payload,
+                const uint8_t *payload,
                 uint64_t size,
                 Compression compression,
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
+                const void **ret_data,
                 size_t *ret_size) {
 
         assert(f);
@@ -2039,7 +2069,7 @@ int journal_file_data_payload(
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
+                const void **ret_data,
                 size_t *ret_size) {
 
         uint64_t size;
@@ -4246,7 +4276,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, /* ret_size= */ NULL);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
@@ -4501,7 +4531,7 @@ int journal_file_copy_entry(
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t h, q;
-                void *data;
+                const void *data;
                 size_t l;
                 Object *u;
 

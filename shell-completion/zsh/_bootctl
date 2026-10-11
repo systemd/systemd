@@ -104,7 +104,7 @@ _arguments \
     '--make-machine-id-directory=[Control creation and deletion of the top-level machine ID directory.]:options:(yes no auto)' \
     '--no-pager[Do not pipe output into a pager]' \
     '--graceful[Do not fail when locating ESP or writing fails]' \
-    '--dry-run[Dry run (unlink and cleanup)]' \
+    '(-n --dry-run)'{-n,--dry-run}'[Dry run (unlink and cleanup)]' \
     '--oldest=[Delete oldest boot menu entry]:options:(yes no)' \
     '--root=[Operate under the specified directory]:PATH' \
     '--image=[Operate on the specified image]:PATH' \

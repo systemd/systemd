@@ -21,5 +21,6 @@ integration_tests += [
                         'systemd.tpm2_software_fallback=yes',
                         'systemd.default_device_timeout_sec=300',
                 ],
+                'priority' : 10,
         },
 ]

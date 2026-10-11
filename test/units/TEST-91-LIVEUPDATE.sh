@@ -78,7 +78,14 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
     # Verify that the fd store of the main test service survived the kexec.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo check
 
-    assert_eq "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager KExecsCount | jq -r '.data')" "1"
+    assert_eq "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager KExecCount | jq -r '.data')" "1"
+
+    # Check that bless-boot does not fail after a kexec
+    if [[ -d /sys/firmware/efi ]]; then
+        for verb in good bad indeterminate; do
+            /usr/lib/systemd/systemd-bless-boot --path=/nonexistent "$verb"
+        done
+    fi
 
     # The previous boot's shutdown timestamps were preserved across the kexec via LUO and are now exposed
     # as the PreviousShutdown* properties (the live Shutdown* ones describe this boot, which is not shutting

@@ -29,8 +29,8 @@
         <funcdef>int <function>sd_bus_message_read_array</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>const void **<parameter>ptr</parameter></paramdef>
-        <paramdef>size_t *<parameter>size</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_ptr</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -38,16 +38,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_read_array()</function> provides access to an array elements in the
-    bus message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of type
-    <parameter>type</parameter>. As a special case, <parameter>type</parameter> may be
-    <constant>NUL</constant>, in which case any trivial type is acceptable. A pointer to the array data is returned
-    in the parameter <parameter>ptr</parameter> and the size of array data (in bytes) is returned in the
-    parameter <parameter>size</parameter>. If the returned <parameter>size</parameter> parameter is 0, a
-    valid non-null pointer will be returned as <parameter>ptr</parameter>, but it may not be
-    dereferenced. The data is aligned as appropriate for the data type. The data is part of the message — it
-    may not be modified and is valid only as long as the message is referenced. After this function returns,
-    the "read pointer" points at the next element after the array.</para>
+    <para><function>sd_bus_message_read_array()</function> provides access to an array of elements in the
+    bus message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of
+    type <parameter>type</parameter>. A pointer to the array data is returned in the parameter
+    <parameter>ret_ptr</parameter> and the size of the array data (in bytes) is returned in the parameter
+    <parameter>ret_size</parameter>. If this returns a positive value and the returned
+    <parameter>ret_size</parameter> is 0, a valid non-<constant>NULL</constant> pointer will be returned as
+    <parameter>ret_ptr</parameter>, but it may not be dereferenced. The data is aligned as appropriate for
+    the data type. The data is part of the message — it may not be modified and is valid only as long as the
+    message is referenced. If this returns a positive value, the "read pointer" points at the next element
+    after the array.</para>
 
     <para>Note that this function only supports arrays of trivial types, i.e. arrays of booleans, the various
     integer types, as well as floating point numbers. In particular it may not be used for arrays of strings,

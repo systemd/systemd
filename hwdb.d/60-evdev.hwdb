@@ -181,6 +181,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnASUSTeKComputerInc.:pnF3Sg:*
  EVDEV_ABS_00=0:6143:136
  EVDEV_ABS_01=1103:5856:61
 
+# Asus ROG Strix Scar 16 G635LW
+evdev:name:ASCF1400:00 2808:0242 Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.*:pnROGStrixSCAR16G635LW_G635LW*:
+ EVDEV_ABS_00=:::13
+ EVDEV_ABS_01=:::13
+ EVDEV_ABS_35=:::13
+ EVDEV_ABS_36=:::13
+
 # Asus VivoBook E402SA
 evdev:name:Elan Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:pnE402SA:*
  EVDEV_ABS_00=::29
@@ -364,6 +371,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnPrecision5
  EVDEV_ABS_35=::42
  EVDEV_ABS_36=::43
 
+#Dell Precision 7510
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*:svnDellInc.*:pnPrecision7510*:
+ EVDEV_ABS_00=:::28
+ EVDEV_ABS_01=:::28
+ EVDEV_ABS_35=:::28
+ EVDEV_ABS_36=:::28
+
 # Dell Precision M4700
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnDellInc.:pnPrecisionM4700:*
  EVDEV_ABS_00=0:1960:24
@@ -431,6 +445,19 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
 # Override ABS_PRESSURE (axis 0x18=24) to a valid range.
 evdev:input:b0018v27C6p01E9*
  EVDEV_ABS_18=0:255:0:0
+
+# Goodix Capacitive TouchScreen (AYANEO Flip KB / Flip DS, main display)
+# The touch controller reports an invalid/garbage calibration range at boot
+# (observed ABS_X max as high as 65343, ABS_Y max as low as 256) due to
+# unreliable I2C communication during early boot. Override with the correct
+# panel resolution. The Flip DS is mostly identical to the Flip KB apart
+# from a second screen replacing the keyboard.
+evdev:name:Goodix Capacitive TouchScreen:dmi:*svnAYANEO:*pnFLIPKB**
+evdev:name:Goodix Capacitive TouchScreen:dmi:*svnAYANEO:*pnFLIPDS**
+ EVDEV_ABS_00=0:1199:0:0:0
+ EVDEV_ABS_01=0:1919:0:0:0
+ EVDEV_ABS_35=0:1199:0:0:0
+ EVDEV_ABS_36=0:1919:0:0:0
 
 #########################################
 # Granite Devices Simucube wheel bases
@@ -565,6 +592,16 @@ evdev:name:SYNA3602:00 093A:35ED Touchpad:dmi:*svnInfinix:*pnY3Max**
 #########################################
 # Lenovo
 #########################################
+
+# Lenovo B570e
+# Fixes wrong touchpad edge-scroll area: without this override the
+# kernel reports wider ABS ranges, making edge scrolling trigger across the
+# right half of the touchpad.
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO*:pvrLenovoB570e:*
+ EVDEV_ABS_00=0:2934:29
+ EVDEV_ABS_01=-652:652:26
+ EVDEV_ABS_35=0:2934:29
+ EVDEV_ABS_36=-652:652:26
 
 # Lenovo B590
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrLenovoB590:*
@@ -985,6 +1022,15 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830:*
 evdev:input:b0003v2179p0004*
  EVDEV_ABS_00=::234
  EVDEV_ABS_01=::328
+
+#########################################
+# VEIKK
+#########################################
+
+# VEIKK A15 Pro
+evdev:input:b0003v2FEBp0006*
+ EVDEV_ABS_00=::129
+ EVDEV_ABS_01=::215
 
 #########################################
 # Waltop

@@ -24,7 +24,6 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
-#include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sparse-endian.h"
 #include "string-table.h"
@@ -180,6 +179,13 @@ static int print_status_info(const StatusInfo *i) {
         return 0;
 }
 
+COMMAND(
+        "timedatectl\0",
+        "Query or change system time and date settings.",
+        .man_pages = "timedatectl(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
+
 VERB_DEFAULT_NOARG(verb_status, "status", "Show current time settings");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         StatusInfo info = {};
@@ -231,7 +237,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_set_time, "set-time", "TIME", 2, 2, 0, "Set system time");
+VERB(verb_set_time, "set-time", "TIME\0", 2, 2, 0, "Set system time");
 static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -257,7 +263,7 @@ static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
-VERB(verb_set_timezone, "set-timezone", "ZONE", 2, 2, 0, "Set system time zone");
+VERB(verb_set_timezone, "set-timezone", "ZONE\0", 2, 2, 0, "Set system time zone");
 static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -295,7 +301,7 @@ static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB(verb_set_local_rtc, "set-local-rtc", "BOOL", 2, 2, 0, "Control whether RTC is in local time");
+VERB(verb_set_local_rtc, "set-local-rtc", "BOOL\0", 2, 2, 0, "Control whether RTC is in local time");
 static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -327,7 +333,7 @@ static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_set_ntp, "set-ntp", "BOOL", 2, 2, 0, "Enable or disable network time synchronization");
+VERB(verb_set_ntp, "set-ntp", "BOOL\0", 2, 2, 0, "Enable or disable network time synchronization");
 static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -723,17 +729,18 @@ static int verb_timesync_status(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
-static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char type;
-        const char *contents;
+static int print_timesync_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
-
-        r = sd_bus_message_peek_type(m, &type, &contents);
-        if (r < 0)
-                return r;
 
         switch (type) {
 
@@ -840,7 +847,7 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
         return i;
 }
 
-VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…", 3, VERB_ANY, 0,
+VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…\0", 3, VERB_ANY, 0,
      "Set the interface specific NTP servers");
 static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -873,7 +880,7 @@ static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_revert, "revert", "INTERFACE", 2, 2, 0, "Revert the interface specific NTP servers");
+VERB(verb_revert, "revert", "INTERFACE\0", 2, 2, 0, "Revert the interface specific NTP servers");
 static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -892,54 +899,7 @@ static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("timedatectl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table_group("systemd-timesyncd Commands", &verbs2);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, verbs2, options);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sQuery or change system time and date settings.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nsystemd-timesyncd Commands:\n");
-        r = table_print_or_warn(verbs2);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -952,7 +912,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1004,6 +964,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('a', "all", NULL, "Show all properties, including empty ones"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);

@@ -22,3 +22,6 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies, const char *hierarc
 /* Insist that extension images do not overwrite the underlying OS release file (it's fine if they place one
  * in /etc/os-release, i.e. where things don't matter, as they aren't merged.) */
 int extension_has_forbidden_content(const char *root);
+
+/* Find the backing device. Returns >0 on success, 0 if the volume is not an extension, and <0 on error. */
+int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret);

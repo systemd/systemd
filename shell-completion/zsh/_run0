@@ -1,4 +1,5 @@
 #compdef run0
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_run0_unit_properties] )) ||
 _run0_unit_properties() {

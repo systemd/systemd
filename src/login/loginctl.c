@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -20,11 +21,9 @@
 #include "dlopen-note.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -55,6 +54,13 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+
+COMMAND(
+        "loginctl\0",
+        "Send control commands to or query the login manager.",
+        .man_pages = "loginctl(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 typedef struct SessionStatusInfo {
         const char *id;
@@ -793,17 +799,18 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char type;
-        const char *contents;
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
-
-        r = sd_bus_message_peek_type(m, &type, &contents);
-        if (r < 0)
-                return r;
 
         switch (type) {
 
@@ -923,9 +930,9 @@ static int get_bus_path_by_id(
         return strdup_to(ret, path);
 }
 
-VERB(verb_show_session, "session-status", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_session, "session-status", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Show session status");
-VERB(verb_show_session, "show-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_session, "show-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of sessions or the manager");
 static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -973,11 +980,11 @@ static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_activate, "activate", "[ID]", VERB_ANY, 2, 0,
+VERB(verb_activate, "activate", "[ID]\0", VERB_ANY, 2, 0,
      "Activate a session");
-VERB(verb_activate, "lock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_activate, "lock-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Screen lock one or more sessions");
-VERB(verb_activate, "unlock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_activate, "unlock-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Screen unlock one or more sessions");
 static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1046,10 +1053,10 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 /* The implementation is above, but we put this here to preserve the logical order in --help. */
-VERB(verb_activate, "terminate-session", "ID…", 2, VERB_ANY, 0,
+VERB(verb_activate, "terminate-session", "ID…\0", 2, VERB_ANY, 0,
      "Terminate one or more sessions");
 
-VERB(verb_kill_session, "kill-session", "ID…", 2, VERB_ANY, 0,
+VERB(verb_kill_session, "kill-session", "ID…\0", 2, VERB_ANY, 0,
      "Send signal to processes of a session");
 static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1156,9 +1163,9 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
         return list_table_print(table, "users");
 }
 
-VERB(verb_show_user, "user-status", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_user, "user-status", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Show user status");
-VERB(verb_show_user, "show-user", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_user, "show-user", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of users or the manager");
 static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1211,9 +1218,9 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
-VERB(verb_enable_linger, "enable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_enable_linger, "enable-linger", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Enable linger state of one or more users");
-VERB(verb_enable_linger, "disable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_enable_linger, "disable-linger", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Disable linger state of one or more users");
 static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1263,7 +1270,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_terminate_user, "terminate-user", "USER…", 2, VERB_ANY, 0,
+VERB(verb_terminate_user, "terminate-user", "USER…\0", 2, VERB_ANY, 0,
      "Terminate all sessions of one or more users");
 static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1293,7 +1300,7 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB(verb_kill_user, "kill-user", "USER…", 2, VERB_ANY, 0,
+VERB(verb_kill_user, "kill-user", "USER…\0", 2, VERB_ANY, 0,
      "Send signal to processes of a user");
 static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1378,9 +1385,9 @@ static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userda
         return list_table_print(table, "seats");
 }
 
-VERB(verb_show_seat, "seat-status", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_seat, "seat-status", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show seat status");
-VERB(verb_show_seat, "show-seat", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_seat, "show-seat", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of seats or the manager");
 static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1428,7 +1435,7 @@ static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
-VERB(verb_attach, "attach", "NAME DEVICE…", 3, VERB_ANY, 0,
+VERB(verb_attach, "attach", "NAME DEVICE…\0", 3, VERB_ANY, 0,
      "Attach one or more devices to a seat");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1471,7 +1478,7 @@ static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_terminate_seat, "terminate-seat", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_terminate_seat, "terminate-seat", "NAME…\0", 2, VERB_ANY, 0,
      "Terminate all sessions on one or more seats");
 static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1492,53 +1499,7 @@ static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-static int help(void) {
-        static const char *const groups[] = {
-                "Session Commands",
-                "User Commands",
-                "Seat Commands",
-        };
-
-        Table *vtables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = verbs_get_help_table_group(groups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 3);
-        (void) table_sync_column_widths(0, vtables[0], vtables[1], vtables[2], options);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Send control commands to or query the login manager.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("loginctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -1553,7 +1514,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1651,6 +1612,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *remaining_args = option_parser_get_args(&opts);

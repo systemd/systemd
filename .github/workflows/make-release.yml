@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 name: Make a Github release
 
 on:
@@ -18,7 +20,7 @@ jobs:
 
     steps:
       - name: Release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         with:
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           draft: ${{ github.repository == 'systemd/systemd' }}

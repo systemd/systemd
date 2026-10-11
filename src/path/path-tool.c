@@ -2,23 +2,31 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "errno-util.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
-#include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 static const char *arg_suffix = NULL;
 static PagerFlags arg_pager_flags = 0;
+
+COMMAND(
+        "systemd-path\0",
+        "Show system and user paths.",
+        .argspec = "[NAME…]\0",
+        .man_pages = "systemd-path(1)\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
@@ -173,36 +181,10 @@ static int print_path(const char *n) {
                                "Path %s not known.", n);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-path", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [NAME...]\n\n"
-               "%sShow system and user paths.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
         OptionParser opts = { argc, argv };
 
@@ -210,7 +192,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -222,6 +204,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);

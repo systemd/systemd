@@ -4,18 +4,23 @@
 #include "sd-varlink.h"
 
 #include "build.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "sha256.h"
 #include "string-util.h"
 #include "tsm-report.h"
 #include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-sign-tsm\0",
+        "Get an attestation report via configfs Trusted Security Module (TSM) "
+        "that includes the hash of the system report.",
+        .man_pages = "systemd-report-sign-tsm@.service(8)\0",
+);
 
 typedef struct SignParameters {
         struct iovec digest;
@@ -101,27 +106,6 @@ static int vl_server(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Get an attestation report via configfs Trusted Security Module (TSM) "
-                      "that includes the hash of the system report.");
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-report-sign-tsm@.service", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -133,9 +117,13 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
+
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

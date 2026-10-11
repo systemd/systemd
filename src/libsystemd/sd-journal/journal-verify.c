@@ -404,7 +404,7 @@ static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 

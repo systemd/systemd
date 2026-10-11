@@ -2487,6 +2487,12 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR_UNSIGNED("matchingType", rr->tlsa.matching_type),
                                 SD_JSON_BUILD_PAIR_HEX("data", rr->tlsa.data, rr->tlsa.data_size));
 
+        case DNS_TYPE_OPENPGPKEY:
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_BASE64("data", rr->generic.data, rr->generic.data_size));
+
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS: {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *p = NULL;
@@ -2637,6 +2643,7 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
         [DNSSEC_ALGORITHM_ED25519]            = "ED25519",
         [DNSSEC_ALGORITHM_ED448]              = "ED448",
+        [DNSSEC_ALGORITHM_MLDSA44]            = "MLDSA44",
         [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",

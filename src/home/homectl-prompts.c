@@ -73,8 +73,10 @@ static int acquire_group_list(char ***ret) {
 }
 
 static int group_completion_callback(const char *key, GetCompletionsFlags flags, char ***ret_list, void *userdata) {
-        char ***available = userdata;
+        char ***available = ASSERT_PTR(userdata);
         int r;
+
+        assert(ret_list);
 
         if (!*available) {
                 r = acquire_group_list(available);

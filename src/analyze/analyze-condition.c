@@ -125,11 +125,11 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
         }
 
         condition_test_logger_t logger = arg_quiet ? NULL : log_helper;
-        r = condition_test_list(u->asserts, environ, assert_type_to_string, logger, u);
+        r = condition_test_list(u->asserts, environ, assert_type_to_string, logger, u) > 0;
         if (u->asserts)
                 log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE, "Asserts %s.", r > 0 ? "succeeded" : "failed");
 
-        q = condition_test_list(u->conditions, environ, condition_type_to_string, logger, u);
+        q = condition_test_list(u->conditions, environ, condition_type_to_string, logger, u) > 0;
         if (u->conditions)
                 log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE, "Conditions %s.", q > 0 ? "succeeded" : "failed");
 

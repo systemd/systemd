@@ -39,7 +39,7 @@ systemd_homework_sources = files(
 homed_gperf_c = custom_target(
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [homed_gperf_c]
 systemd_homed_sources += [homed_gperf_c]
@@ -93,6 +93,9 @@ executables += [
                         libopenssl_cflags,
                         libp11kit_cflags,
                 ],
+                'symlinks' : [
+                        { 'name' : 'systemd-home-fallback-shell' },
+                ],
         },
         test_template + {
                 'sources' : files('test-homectl-prompts.c'),
@@ -125,7 +128,3 @@ if install_sysconfdir_samples
         install_data('homed.conf',
                      install_dir : pkgconfigfiledir)
 endif
-
-install_symlink('systemd-home-fallback-shell',
-                pointing_to : 'homectl',
-                install_dir : bindir)

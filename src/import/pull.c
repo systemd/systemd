@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <locale.h>
-#include <stdio.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
-#include "format-table.h"
 #include "hexdecoct.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -20,7 +18,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "oci-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -43,6 +40,11 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
+
+COMMAND(
+        "systemd-pull\0",
+        "Download disk images.",
+);
 
 static int normalize_local(const char *local, const char *url, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -121,7 +123,7 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_tar, "tar", "URL [NAME]", 2, 3, 0, "Download a TAR image");
+VERB(verb_tar, "tar", "URL [NAME]\0", 2, 3, 0, "Download a TAR image");
 static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -192,7 +194,7 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_raw, "raw", "URL [NAME]", 2, 3, 0, "Download a RAW image");
+VERB(verb_raw, "raw", "URL [NAME]\0", 2, 3, 0, "Download a RAW image");
 static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -262,7 +264,7 @@ static void on_oci_finished(OciPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_oci, "oci", "REF [NAME]", 2, 3, 0, "Download an OCI image");
+VERB(verb_oci, "oci", "REF [NAME]\0", 2, 3, 0, "Download an OCI image");
 static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -318,45 +320,7 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return -r;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "%sDownload disk images.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -371,7 +335,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -545,6 +509,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         /* Make sure offset+size is still in the valid range if both set */

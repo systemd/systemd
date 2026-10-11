@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -26,10 +27,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "firstboot-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
@@ -43,7 +42,6 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "password-quality-util.h"
@@ -60,6 +58,7 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "vconsole-util.h"
+#include "verbs.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -94,6 +93,7 @@ static bool arg_reset = false;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_chrome = true;
 static bool arg_mute_console = false;
+static LabelContext *arg_label_context = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -107,6 +107,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
+
+COMMAND(
+        "systemd-firstboot\0",
+        "Configure basic settings of the system.",
+        .man_pages = "systemd-firstboot(1)\0",
+);
 
 static bool welcome_done = false;
 
@@ -408,12 +415,13 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
 
         locales[i] = NULL;
 
-        r = write_env_file(
+        r = write_env_file_label(
                         pfd,
                         f,
                         /* headers= */ NULL,
                         locales,
-                        WRITE_ENV_FILE_LABEL);
+                        WRITE_ENV_FILE_LABEL,
+                        arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
@@ -653,7 +661,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
 
-                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL);
+                        r = symlinkat_atomic_full_label(s, pfd, f, SYMLINK_LABEL, arg_label_context);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -674,7 +682,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return r;
 
-        r = symlinkat_atomic_full(relpath, pfd, f, SYMLINK_LABEL);
+        r = symlinkat_atomic_full_label(relpath, pfd, f, SYMLINK_LABEL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -769,18 +777,46 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
          * and let it be resolved on each first boot. */
         const char *hostname = arg_hostname;
         _cleanup_free_ char *resolved = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         if (!arg_root) {
                 r = hostname_substitute_wildcards(arg_hostname, &resolved);
                 if (r < 0)
                         log_warning_errno(r, "Failed to resolve wildcards in hostname '%s', writing it verbatim: %m", arg_hostname);
                 else if (!hostname_is_valid(resolved, VALID_HOSTNAME_TRAILING_DOT))
                         log_warning("Resolved hostname '%s' is invalid, writing template '%s' verbatim instead.", resolved, arg_hostname);
-                else
+                else {
                         hostname = resolved;
+
+                        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to connect to systemd-hostnamed, writing /etc/hostname directly: %m");
+                }
         }
 
-        r = write_string_file_at(pfd, f, hostname,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        if (vl) {
+                sd_json_variant *reply = NULL;
+                const char *error_id = NULL;
+                r = sd_varlink_callbo(
+                                vl,
+                                "io.systemd.Hostname.SetStaticHostname",
+                                &reply,
+                                &error_id,
+                                SD_JSON_BUILD_PAIR_STRING("newValue", hostname));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to call io.systemd.Hostname.SetStaticHostname, writing /etc/hostname directly: %m");
+                else if (error_id)
+                        log_warning_errno(sd_varlink_error_to_errno(error_id, reply),
+                                          "Failed to set static hostname, writing /etc/hostname directly: %s", error_id);
+                else {
+                        log_info("Static hostname configured via systemd-hostnamed.");
+                        return 0;
+                }
+        }
+
+        r = write_string_file_full_label(
+                        pfd, f, hostname,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                        /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
@@ -812,8 +848,9 @@ static int process_machine_id(int rfd) {
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file_full_label(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-id: %m");
 
@@ -874,11 +911,12 @@ static int process_machine_tags(int rfd) {
         if (!c)
                 return log_oom();
 
-        r = write_string_file_at(
+        r = write_string_file_full_label(
                         pfd,
                         "machine-info",
                         c,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                        /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-info: %m");
 
@@ -1038,7 +1076,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp, arg_label_context);
         if (r < 0)
                 return r;
 
@@ -1109,7 +1147,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp, arg_label_context);
         if (r < 0)
                 return r;
 
@@ -1319,8 +1357,9 @@ static int process_kernel_cmdline(int rfd) {
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "cmdline", arg_kernel_cmdline,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file_full_label(pfd, "cmdline", arg_kernel_cmdline,
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/kernel/cmdline: %m");
 
@@ -1371,26 +1410,6 @@ static int process_reset(int rfd) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Configures basic settings of the system.");
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-firstboot", "1");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -1402,7 +1421,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1621,6 +1640,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("reset", NULL, "Remove existing files"):
                         arg_reset = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
@@ -1685,7 +1707,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
         return 0;
@@ -1776,6 +1798,10 @@ static int run(int argc, char *argv[]) {
                 if (rfd < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
         }
+
+        r = mac_label_context_new(arg_root, &arg_label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
         DEFER_VOID_CALL(end_marker);

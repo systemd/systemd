@@ -1894,8 +1894,8 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
 
         assert(t);
 
-        log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_registered_service_free(s);
+        log_debug("Client of DNS-SD service '%s' vanished, unregistering.", s->id);
+        dnssd_registered_service_unregister(s);
 
         return 0;
 }
@@ -2055,6 +2055,15 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        /* First, attach the service to the manager. */
+        r = hashmap_ensure_put(&m->dnssd_registered_services, &dnssd_registered_service_hash_ops, service->id, service);
+        if (r < 0)
+                return r;
+
+        service->manager = m;
+
+        /* Then, attach the bus track to the service. As dnssd_registered_service_on_bus_track() requires
+         * service->manager is set, this must be done after attaching to the manager in the above. */
         r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_registered_service_on_bus_track, service);
         if (r < 0)
                 return r;
@@ -2063,13 +2072,11 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        service->manager = m;
+        /* The service is unregistered automatically when the client that registered it disconnects from the
+         * bus, hence keep the bus track object pinned for the lifetime of the service. */
+        service->bus_track = TAKE_PTR(bus_track);
 
-        r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
-        if (r < 0)
-                return r;
-
-        service = NULL;
+        TAKE_PTR(service);
 
         manager_refresh_rrs(m);
 

@@ -135,8 +135,10 @@
 
         <listitem><para>Controls whether the CPU usage is shown as
         percentage or time. By default, the CPU usage is shown as
-        percentage. This setting may also be toggled at runtime by
-        pressing the <keycap>%</keycap> key.</para>
+        percentage. When the option is used without an argument, it is
+        equivalent to <option>--cpu=time</option>. This setting may also
+        be toggled at runtime by pressing the <keycap>%</keycap>
+        key.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
@@ -186,8 +188,9 @@
         pressing the <keycap>r</keycap> key. Note that this setting
         only applies to process counting, i.e. when the
         <option>-P</option> or <option>-k</option> options are
-        used. It has no effect if all tasks are counted, in which
-        case the counting is always recursive.</para>
+        used. When all tasks are counted, setting this option to
+        <literal>no</literal> is rejected with an error, as task counting
+        is always recursive.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
@@ -232,6 +235,25 @@
         only the root group is monitored. For 1, only the first level
         of control groups is monitored, and so on. Defaults to
         3.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root-memory=</option></term>
+
+        <listitem><para>Selects how the root control group row (<literal>/</literal>)
+        reports memory usage. Takes one of <literal>cgroup</literal> or
+        <literal>system</literal>. When <literal>cgroup</literal> (the default)
+        is used, the root row shows the sum of <filename>memory.current</filename>
+        across its direct children, which matches the accounting semantics of
+        every other row in the table. When <literal>system</literal> is used,
+        the root row shows whole-system RAM usage
+        (<literal>MemTotal - MemAvailable</literal> from
+        <filename>/proc/meminfo</filename>), which additionally accounts for
+        kernel slab, vmalloc, page tables, and other memory not attributable to
+        any cgroup. This setting may also be toggled at runtime by pressing the
+        <keycap>/</keycap> key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -301,6 +323,18 @@
         <option>--cpu=</option> command line switch.</para>
 
         <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>/</keycap></term>
+
+        <listitem><para>Toggle the root control group row between
+        cgroup-sum accounting (default) and whole-system accounting from
+        <filename>/proc/meminfo</filename>. This setting may also be
+        controlled using the <option>--root-memory=</option> command line
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck shell=sh
 
 #  This file is part of systemd.

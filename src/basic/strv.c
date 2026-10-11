@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "gunicode.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -529,7 +530,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
         return (int) n;
 }
 
-char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separator) {
+char* strv_join_full(char * const *l, const char *separator, const char *prefix) {
         char *r, *e;
         size_t n, k, m;
 
@@ -539,17 +540,12 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
         k = strlen(separator);
         m = strlen_ptr(prefix);
 
-        if (escape_separator) /* If the separator was multi-char, we wouldn't know how to escape it. */
-                assert(k == 1);
-
         n = 0;
         STRV_FOREACH(s, l) {
                 if (s != l)
                         n += k;
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                n += m + strlen(*s) * (1 + needs_escaping);
+                n += m + strlen(*s);
         }
 
         r = new(char, n+1);
@@ -564,16 +560,7 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
                 if (prefix)
                         e = stpcpy(e, prefix);
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                if (needs_escaping)
-                        for (size_t i = 0; (*s)[i]; i++) {
-                                if ((*s)[i] == *separator)
-                                        *(e++) = '\\';
-                                *(e++) = (*s)[i];
-                        }
-                else
-                        e = stpcpy(e, *s);
+                e = stpcpy(e, *s);
         }
 
         *e = 0;
@@ -866,19 +853,30 @@ char** strv_sort(char **l) {
         return l;
 }
 
-char** strv_sort_uniq(char **l) {
+char** strv_sort_uniq_full(char **l, int (*compare)(char * const *a, char * const *b)) {
+        assert(compare);
+
         if (strv_isempty(l))
                 return l;
 
-        char **tail = strv_sort(l), *prev = NULL;
-        STRV_FOREACH(i, l)
-                if (streq_ptr(*i, prev))
+        /* Sorts with the given comparison function, then drops entries that compare equal to the previous
+         * one. The comparison function hence must only return 0 for entries that are to be merged. */
+
+        typesafe_qsort(l, strv_length(l), compare);
+
+        char **tail = l + 1;
+        STRV_FOREACH(i, l + 1)
+                if (compare(i, tail - 1) == 0)
                         free(*i);
                 else
-                        *(tail++) = prev = *i;
+                        *(tail++) = *i;
 
         *tail = NULL;
         return l;
+}
+
+char** strv_sort_uniq(char **l) {
+        return strv_sort_uniq_full(l, str_compare);
 }
 
 int strv_compare(char * const *a, char * const *b) {
@@ -1214,6 +1212,31 @@ int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const c
         return string_strv_hashmap_put_internal(PLAIN_HASHMAP(*h), key, value);
 }
 
+static int rebreak_flush_line(
+                char ***broken,
+                const char *start,
+                const char *end,
+                bool in_prefix,
+                const char *whitespace_begin,
+                const char *whitespace_end) {
+
+        assert(broken);
+        assert(start);
+        assert(end >= start);
+
+        if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
+                return strv_extend(broken, "");
+
+        if (whitespace_begin && !whitespace_end) /* Ends in whitespace? Chop it off! */
+                end = whitespace_begin;
+
+        _cleanup_free_ char *truncated = strndup(start, end - start);
+        if (!truncated)
+                return -ENOMEM;
+
+        return strv_consume(broken, TAKE_PTR(truncated));
+}
+
 int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         _cleanup_strv_free_ char **broken = NULL;
         int r;
@@ -1224,7 +1247,8 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
          *
          * Goes through all entries in *l, and line-breaks each line that is longer than the specified
          * character width. Breaks at the end of words/beginning of whitespace. Lines that do not contain whitespace are not
-         * broken. Retains whitespace at beginning of lines, removes it at end of lines. */
+         * broken. Retains whitespace at beginning of lines, removes it at end of lines. Newlines embedded
+         * in an entry are hard line breaks, i.e. result in a separate output entry each. */
 
         if (width == SIZE_MAX) { /* NOP? */
                 broken = strv_copy(l);
@@ -1238,13 +1262,25 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         STRV_FOREACH(i, l) {
                 const char *start = *i, *whitespace_begin = NULL, *whitespace_end = NULL;
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
+                bool after_newline = false; /* did we just break at a newline embedded in the input? */
                 size_t w = 0;
 
                 for (const char *p = start; *p != 0; ) {
                         if (strchr(NEWLINE, *p)) {
+                                /* A newline embedded in the input is a hard line break: flush out what we
+                                 * collected so far as its own line, and continue with a new one right after
+                                 * it. */
+                                r = rebreak_flush_line(&broken, start, p, in_prefix, whitespace_begin, whitespace_end);
+                                if (r < 0)
+                                        return r;
+
+                                p += p[0] == '\r' && p[1] == '\n' ? 2 : 1; /* Treat CRLF as a single break */
+                                start = p;
                                 in_prefix = true;
+                                after_newline = true;
                                 whitespace_begin = whitespace_end = NULL;
                                 w = 0;
+                                continue;
                         } else if (strchr(WHITESPACE, *p)) {
                                 if (!in_prefix && (!whitespace_begin || whitespace_end)) {
                                         whitespace_begin = p;
@@ -1257,13 +1293,14 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 in_prefix = false;
                         }
 
-                        char32_t c;
-                        int n = utf8_encoded_to_unichar(p, &c);
-                        if (n < 0)
-                                return log_debug_errno(n, "Line to break contains invalid UTF-8, refusing: %m");
-
-                        int cw = unichar_console_width(c);
-                        assert(cw >= 0);
+                        /* Measure with the same helper utf8_console_width() uses. Our callers mix the
+                         * two: sd-varlink-idl.c and verbs.c size their indent with utf8_console_width()
+                         * and then break the body here, so if we accepted and measured what that one
+                         * refuses we'd be computing a single width from two ideas of what valid UTF-8
+                         * is. */
+                        int cw = utf8_char_console_width(p);
+                        if (cw < 0)
+                                return log_debug_errno(cw, "Line to break contains invalid UTF-8, refusing: %m");
 
                         w += cw;
 
@@ -1282,26 +1319,23 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                  * whitespace we broke at. Note, that character has not been measured for
                                  * the new line yet, hence reset the width and reprocess it. */
                                 p = start = whitespace_end;
+                                after_newline = false;
                                 whitespace_begin = whitespace_end = NULL;
                                 w = 0;
                                 continue;
                         }
 
-                        p += n;
+                        p = utf8_next_char(p);
                 }
 
-                /* Process rest of the line */
+                /* Process rest of the line, except if all that's left after the last newline we already
+                 * flushed out above is whitespace (possibly nothing): a trailing newline terminates the
+                 * last line, it doesn't add a new, empty one. */
                 assert(start);
-                if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
-                        r = strv_extend(&broken, "");
-                else if (whitespace_begin && !whitespace_end) { /* Ends in whitespace? Chop it off! */
-                        _cleanup_free_ char *truncated = strndup(start, whitespace_begin - start);
-                        if (!truncated)
-                                return -ENOMEM;
+                if (after_newline && in_prefix)
+                        continue;
 
-                        r = strv_consume(&broken, TAKE_PTR(truncated));
-                } else /* Otherwise use line as is */
-                        r = strv_extend(&broken, start);
+                r = rebreak_flush_line(&broken, start, start + strlen(start), in_prefix, whitespace_begin, whitespace_end);
                 if (r < 0)
                         return r;
         }

@@ -23,7 +23,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-validatefs@.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-validatefs</filename> <optional><replaceable>DEVICE</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-validatefs</filename> <replaceable>MOUNTPOINT</replaceable></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -222,6 +222,7 @@ int link_get_master(Link *link, Link **ret);
 int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
 int link_handle_bound_to_list(Link *link);
+int link_append_to_master(Link *link);
 
 void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
@@ -238,6 +239,7 @@ int link_ipv6ll_gained(Link *link);
 int link_ipv6ll_lost(Link *link, const struct in6_addr *dropped_ipv6ll, bool has_replacement);
 bool link_has_ipv6_connectivity(Link *link);
 
+int link_drop_requests(Link *link, NetworkConfigSource source);
 int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);

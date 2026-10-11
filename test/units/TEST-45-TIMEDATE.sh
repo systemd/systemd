@@ -248,6 +248,19 @@ assert_timesyncd_state() {
     return 1
 }
 
+assert_timesyncd_log() {
+    local cursor="${1:?}"
+    local match="${2:?}"
+
+    for _ in {0..29}; do
+        journalctl --sync
+        journalctl -q -u systemd-timesyncd.service --after-cursor="$(<"$cursor")" --grep "$match" >/dev/null && return 0
+        sleep .5
+    done
+
+    return 1
+}
+
 testcase_ntp() {
     # timesyncd has ConditionVirtualization=!container by default; drop/mock that for testing
     if systemd-detect-virt --container --quiet; then
@@ -409,10 +422,69 @@ EOF
     rm -f /run/systemd/network/ntp99.*
 }
 
+teardown_timesyncd_resolve() {
+    set +eu
+
+    systemctl start systemd-resolved-varlink.socket
+    systemctl start systemd-resolved.service
+
+    rm -rf /run/systemd/system/systemd-timesyncd.service.d
+    systemctl daemon-reload
+    systemctl stop systemd-timesyncd
+}
+
+testcase_timesyncd_resolve() {
+    local cursor
+
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if ! command -v resolvectl >/dev/null; then
+        echo "This test requires systemd-resolved, skipping..."
+        return 0
+    fi
+
+    trap teardown_timesyncd_resolve RETURN
+
+    mkdir -p /run/systemd/system/systemd-timesyncd.service.d
+    cat >/run/systemd/system/systemd-timesyncd.service.d/10-debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
+    systemctl daemon-reload
+
+    systemctl unmask systemd-resolved
+    systemctl unmask systemd-timesyncd
+    systemctl start systemd-resolved-varlink.socket
+    systemctl start systemd-resolved.service
+    systemctl restart systemd-timesyncd
+
+    cursor="$(mktemp)"
+
+    # Should use resolved for resolving names
+    journalctl -n0 -q --cursor-file="$cursor"
+    busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 foo.localhost
+    # Only the varlink path logs this, so it tells us which resolver ran
+    assert_timesyncd_log "$cursor" "io.systemd.Resolve.ResolveHostname"
+
+    # Without resolved, it should fall back to getaddrinfo
+    systemctl stop systemd-resolved-varlink.socket systemd-resolved-monitor.socket
+    systemctl stop systemd-resolved.service
+
+    journalctl -n0 -q --cursor-file="$cursor"
+    busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 foo.localhost
+    assert_timesyncd_log "$cursor" "Failed to connect to systemd-resolved, using getaddrinfo"
+}
+
 teardown_timedated_alternate_paths() {
     set +eu
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
+    rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
 }
@@ -436,11 +508,25 @@ EOF
     assert_eq "$(readlink /run/alternate-path/mylocaltime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
     assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
+    rm -f /run/alternate-path/mylocaltime
+    mkdir /run/alternate-path/mylocaltime
+    assert_rc 1 timedatectl --no-pager set-timezone UTC
+    assert_eq "$(timedatectl show -p Timezone --value)" "Europe/Kyiv"
+    assert_rc 1 timedatectl --no-pager set-timezone UTC
+    rmdir /run/alternate-path/mylocaltime
+    assert_rc 0 timedatectl --no-pager set-timezone UTC
+    assert_rc 0 timedatectl --no-pager set-timezone Europe/Kyiv
+
     # Restart to force using get_timezine
     systemctl restart systemd-timedated
     assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    mkdir /run/alternate-path/myadjtime
+    assert_rc 1 timedatectl set-local-rtc 1
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    assert_rc 1 timedatectl set-local-rtc 1
+    rmdir /run/alternate-path/myadjtime
     assert_rc 0 timedatectl set-local-rtc 1
     assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
     assert_eq "$(cat /run/alternate-path/myadjtime)" "0.0 0 0

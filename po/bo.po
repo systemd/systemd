@@ -5,8 +5,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:59+0000\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"PO-Revision-Date: 2026-08-02 00:07+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Tibetan <https://translate.fedoraproject.org/projects/systemd/"
 "main/bo/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -143,7 +143,7 @@ msgstr "ཁྱིམ་དཀར་ཆག་མིང་རྟགས་ལྡེ
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "ཁྱིམ་དཀར་ཆག་མིང་རྟགས་ལྡེ་མིག་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:328
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -152,75 +152,75 @@ msgstr ""
 "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་མེད། དགོས་ངེས་ཀྱི་གསོག་ཉར་སྒྲིག་ཆས་སམ་རྒྱབ་རྟེན་ཡིག་ཚགས་མ་ལག་སྦྲེལ་"
 "རོགས།"
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "སྤྱོད་མཁན %s ཡི་ནང་འཛུལ་ཚོད་ལྟ་མང་དྲགས་པས་རྗེས་སུ་ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།"
 
-#: src/home/pam_systemd_home.c:344
+#: src/home/pam_systemd_home.c:345
 msgid "Password: "
 msgstr "གསང་ཚིག: "
 
-#: src/home/pam_systemd_home.c:346
+#: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
 msgstr "དགོངས་དག ཡང་བསྐྱར་ཚོད་ལྟ: "
 
-#: src/home/pam_systemd_home.c:369
+#: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
 msgstr "སླར་གསོ་ལྡེ་མིག: "
 
-#: src/home/pam_systemd_home.c:371
+#: src/home/pam_systemd_home.c:372
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "སྤྱོད་མཁན %s ཡི་གསང་ཚིག/སླར་གསོ་ལྡེ་མིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
 msgstr "དགོངས་དག སླར་གསོ་ལྡེ་མིག་ཡང་བསྐྱར་ནང་འཇུག: "
 
-#: src/home/pam_systemd_home.c:392
+#: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་མ་བཙུགས་པ།"
 
-#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
 msgstr "གསང་ཚིག་སྤྱད་ནས་ཡང་བསྐྱར་ཚོད་ལྟ: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་མི་འདང་། སྤྱོད་མཁན %s ཡི་སྒྲིག་བཀོད་བདེ་འཇགས་རྟགས་ཀྱང་མ་བཙུགས།"
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
 msgstr "བདེ་འཇགས་རྟགས PIN: "
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ལུས་ངོས་ར་སྤྲོད་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:443
+#: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ཡོད་པ་ངེས་གཏན་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་སྤྱོད་མཁན་ཞིབ་བཤེར་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -228,75 +228,75 @@ msgstr ""
 "བདེ་འཇགས་རྟགས PIN སྒོ་ལྕགས་བཀག་ཟིན། སྔོན་ལ་སྒྲོལ་རོགས། (ཁ་སྣོན: ཕྱིར་བཏོན་ནས་ཡང་བསྐྱར་བཙུགས་ན་"
 "འགྲིག་སྲིད།)"
 
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ།"
 
-#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
 msgstr "དགོངས་དག བདེ་འཇགས་རྟགས PIN ཡང་བསྐྱར་ཚོད་ལྟ: "
 
-#: src/home/pam_systemd_home.c:490
+#: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་ཆེས་ཉུང་ཙམ་ལས་མེད!)"
 
-#: src/home/pam_systemd_home.c:509
+#: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་གཅིག་ལས་མེད!)"
 
-#: src/home/pam_systemd_home.c:676
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྐུལ་སློང་མེད། སྔོན་ལ་ས་གནས་ནས་ནང་འཛུལ་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:678
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྒོ་ལྕགས་བཀག་ཡོད། སྔོན་ལ་ས་གནས་ནས་སྒྲོལ་རོགས།"
 
-#: src/home/pam_systemd_home.c:712
+#: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "སྤྱོད་མཁན %s ཡི་ནང་འཛུལ་མ་ལེགས་པའི་ཚོད་ལྟ་མང་དྲགས་པས་ངོས་ལེན་མི་བྱེད།"
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་བཀག་ཟིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ད་དུང་ནུས་ལྡན་མིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ད་ནས་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1044
+#: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ནང་འཛུལ་མང་དྲགས་པས %s རྗེས་སུ་ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།"
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
 msgstr "གསང་ཚིག་བསྒྱུར་དགོས།"
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
 msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་པས་བསྒྱུར་དགོས།"
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
 msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་ཡང་བསྒྱུར་མི་ཐུབ་པས་ནང་འཛུལ་ཁས་མི་ལེན།"
 
-#: src/home/pam_systemd_home.c:1069
+#: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
 msgstr "གསང་ཚིག་མི་རིང་བར་དུས་ཡོལ་འགྲོ་གི་ཡོད་པས་བསྒྱུར་རོགས།"
 
@@ -1242,52 +1242,52 @@ msgstr "'$(unit)' བསྐྱར་འཇུག་བྱེད་པར་ར�
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' བསྐྱར་འགོ་བྱེད་པར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:568
+#: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr "UNIX འཕྲིན་རྟགས་དེ '$(unit)' གི་བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr "UNIX འཕྲིན་རྟགས་དེ '$(unit)' གི subgroup བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:649
+#: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)' གི \"failed\" གནས་ཚུལ་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:679
+#: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' སྟེང་གི་གཏོགས་གཤིས་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr "'$(unit)' དང་འབྲེལ་བའི་ཡིག་ཆ་དང་དཀར་ཆག་བསུབ་པར་ར་སྤྲོད་དགོས།"
 
-#: src/core/dbus-unit.c:813
+#: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)' unit གི་བརྒྱུད་རིམ་འཁྱགས་བཅུག་གམ་གྲོལ་བར་ར་སྤྲོད་དགོས།"
 
-#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:516
+#: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:936
+#: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
 
-#: src/shared/libfido2-util.c:948
+#: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
 msgstr ""
 
