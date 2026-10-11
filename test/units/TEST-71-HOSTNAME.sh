@@ -321,9 +321,10 @@ testcase_wildcard_words() {
 }
 
 teardown_hostnamed_alternate_paths() {
-    set +eu
+    set +e
 
     rm -rf /run/systemd/system/systemd-hostnamed.service.d
+    rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-hostnamed
     if [[ -f /etc/hostname ]]; then
@@ -332,6 +333,8 @@ teardown_hostnamed_alternate_paths() {
             hostnamectl hostname "${orig}"
         fi
     fi
+
+    set -e
 }
 
 testcase_hostnamed_alternate_paths() {
