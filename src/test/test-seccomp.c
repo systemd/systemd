@@ -324,6 +324,12 @@ TEST(restrict_namespace) {
                 assert_se(setns(0, 0) == -1);
                 assert_se(errno == EPERM);
 
+                /* The kernel truncates nstype to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        assert_se(syscall(__NR_setns, 0, (unsigned long) (UINT64_C(1) << 32)) == -1);
+                        assert_se(errno == EPERM);
+                }
+
                 pid_t pid = raw_clone(CLONE_NEWNS);
                 assert_se(pid >= 0);
                 if (pid == 0)

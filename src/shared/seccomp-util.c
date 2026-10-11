@@ -1454,13 +1454,14 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                         0);
                 else
                         /* Otherwise, block only the invocations with the appropriate flags in the loop
-                         * below, but also the special invocation with a zero flags argument, right here. */
+                         * below, but also the special invocation with a zero flags argument, right here. The
+                         * kernel takes nstype as an int and truncates it to 32 bits, hence only compare those. */
                         r = sym_seccomp_rule_add_exact(
                                         seccomp,
                                         SCMP_ACT_ERRNO(EPERM),
                                         SCMP_SYS(setns),
                                         1,
-                                        SCMP_A1(SCMP_CMP_EQ, 0));
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, UINT32_MAX, 0));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add setns() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
