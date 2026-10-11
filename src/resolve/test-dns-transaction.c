@@ -51,12 +51,35 @@ static void transaction_env_setup(TransactionEnv *env, DnssecMode dnssec_mode) {
         ASSERT_NOT_NULL(env->server);
 }
 
+/* Builds a client query for the specified key as the stub would hand it to a bypass transaction, i.e.
+ * already extracted, with an OPT RR that carries the specified DO bit. */
+static void make_bypass_packet(DnsResourceKey *key, bool edns0_do, DnsPacket **ret) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        assert(key);
+        assert(ret);
+
+        ASSERT_OK(dns_packet_new_query(&p, DNS_PROTOCOL_DNS, 0, /* dnssec_checking_disabled= */ false));
+        ASSERT_OK(dns_packet_append_key(p, key, 0, NULL));
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
+        ASSERT_OK(dns_packet_append_opt(p, DNS_PACKET_UNICAST_SIZE_MAX, edns0_do,
+                                        /* include_rfc6975= */ false, /* nsid= */ NULL,
+                                        DNS_RCODE_SUCCESS, NULL));
+        ASSERT_OK(dns_packet_extract(p));
+        ASSERT_EQ(dns_packet_do(p), edns0_do);
+
+        *ret = TAKE_PTR(p);
+}
+
 /* Sets up a transaction as if its query had been sent at the specified feature level, and builds a matching
  * reply with a single unsigned A RR, plus an OPT RR (with DO, if applicable) as a server at that level would
- * send it. */
+ * send it. If bypass_do is non-negative, this is a bypass transaction for a client query with that DO bit:
+ * such a query goes out as the client built it, so the DO bit of query and reply is the client's then, and
+ * the feature level only says what the server is at. */
 static void transaction_setup_sent(
                 TransactionEnv *env,
                 DnsServerFeatureLevel level,
+                int bypass_do,
                 DnsTransaction **ret_transaction,
                 DnsPacket **ret_reply) {
 
@@ -64,18 +87,27 @@ static void transaction_setup_sent(
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL, *bypass = NULL;
         DnsTransaction *t = NULL;
+        bool sent_do;
 
         assert(env);
         assert(ret_transaction);
         assert(ret_reply);
 
+        sent_do = bypass_do >= 0 ? bypass_do > 0 : DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(level);
+
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
 
         /* NO_NETWORK, so that auxiliary DNSSEC transactions fail at once instead of using the network */
-        ASSERT_OK(dns_transaction_new(&t, env->scope, key, /* bypass= */ NULL, SD_RESOLVED_NO_NETWORK));
+        if (bypass_do >= 0) {
+                make_bypass_packet(key, sent_do, &bypass);
+                ASSERT_OK(dns_transaction_new(&t, env->scope, /* key= */ NULL, bypass,
+                                              SD_RESOLVED_NO_NETWORK));
+        } else
+                ASSERT_OK(dns_transaction_new(&t, env->scope, key, /* bypass= */ NULL,
+                                              SD_RESOLVED_NO_NETWORK));
         ASSERT_NOT_NULL(t);
 
         /* Keep the transaction around for inspection once it completed */
@@ -88,9 +120,15 @@ static void transaction_setup_sent(
         t->state = DNS_TRANSACTION_PENDING;
         t->n_attempts = 1;
 
-        ASSERT_OK(dns_packet_new_query(&t->sent, DNS_PROTOCOL_DNS, 0, /* dnssec_checking_disabled= */ true));
-        ASSERT_OK(dns_packet_append_key(t->sent, key, 0, NULL));
-        DNS_PACKET_HEADER(t->sent)->qdcount = htobe16(1);
+        if (bypass_do >= 0)
+                /* What dns_transaction_make_packet() does for a bypass transaction */
+                ASSERT_OK(dns_packet_dup(&t->sent, t->bypass));
+        else {
+                ASSERT_OK(dns_packet_new_query(&t->sent, DNS_PROTOCOL_DNS, 0,
+                                               /* dnssec_checking_disabled= */ true));
+                ASSERT_OK(dns_packet_append_key(t->sent, key, 0, NULL));
+                DNS_PACKET_HEADER(t->sent)->qdcount = htobe16(1);
+        }
         DNS_PACKET_HEADER(t->sent)->id = t->id;
 
         rr = dns_resource_record_new(key);
@@ -108,9 +146,8 @@ static void transaction_setup_sent(
 
         ASSERT_OK(dns_scope_make_reply_packet(env->scope, t->id, DNS_RCODE_SUCCESS, question, answer,
                                               /* soa= */ NULL, /* tentative= */ false, &reply));
-        if (DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
-                ASSERT_OK(dns_packet_append_opt(reply, DNS_PACKET_UNICAST_SIZE_MAX,
-                                                DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(level),
+        if (bypass_do >= 0 || DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
+                ASSERT_OK(dns_packet_append_opt(reply, DNS_PACKET_UNICAST_SIZE_MAX, sent_do,
                                                 /* include_rfc6975= */ false, /* nsid= */ NULL,
                                                 DNS_RCODE_SUCCESS, NULL));
         reply->ipproto = IPPROTO_UDP;
@@ -127,11 +164,12 @@ static void transaction_setup_sent(
 
 /* Feeds an unsigned reply to a transaction sent at the specified feature level, to a server that is at that
  * level. Unless server_incapable is set, nothing marks the server as DNSSEC-incapable, which below DO is the
- * state packet loss leaves behind. */
+ * state packet loss leaves behind. See transaction_setup_sent() for bypass_do. */
 static DnsTransaction* process_unsigned_reply(
                 TransactionEnv *env,
                 DnssecMode dnssec_mode,
                 DnsServerFeatureLevel level,
+                int bypass_do,
                 bool server_incapable) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
@@ -146,7 +184,7 @@ static DnsTransaction* process_unsigned_reply(
         env->server->packet_rrsig_missing = server_incapable;
         ASSERT_EQ(dns_server_dnssec_supported(env->server), !server_incapable);
 
-        transaction_setup_sent(env, level, &t, &reply);
+        transaction_setup_sent(env, level, bypass_do, &t, &reply);
 
         dns_transaction_process_reply(t, reply, /* encrypted= */ false);
 
@@ -158,7 +196,7 @@ TEST(dns_transaction_process_reply_no_do_allow_downgrade) {
         DnsTransaction *t;
 
         t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_TCP,
-                                   /* server_incapable= */ false);
+                                   /* bypass_do= */ -1, /* server_incapable= */ false);
 
         /* Accepted as unsigned, without auxiliary lookups, and without blaming the server */
         ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
@@ -177,7 +215,7 @@ TEST(dns_transaction_process_reply_no_do_strict) {
         DnsTransaction *t;
 
         t = process_unsigned_reply(&env, DNSSEC_YES, DNS_SERVER_FEATURE_LEVEL_TCP,
-                                   /* server_incapable= */ false);
+                                   /* bypass_do= */ -1, /* server_incapable= */ false);
 
         /* Still validated, so it fails on the DS lookup this needs, not on the server */
         ASSERT_EQ(t->state, DNS_TRANSACTION_DNSSEC_FAILED);
@@ -193,7 +231,7 @@ TEST(dns_transaction_process_reply_do_allow_downgrade) {
         DnsTransaction *t;
 
         t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_DO,
-                                   /* server_incapable= */ false);
+                                   /* bypass_do= */ -1, /* server_incapable= */ false);
 
         /* Sent with DO, so the reply is validated as usual: the DS lookup is requested, and fails here */
         ASSERT_EQ(t->state, DNS_TRANSACTION_DNSSEC_FAILED);
@@ -210,12 +248,52 @@ TEST(dns_transaction_process_reply_no_do_incapable_server) {
         DnsTransaction *t;
 
         t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_TCP,
-                                   /* server_incapable= */ true);
+                                   /* bypass_do= */ -1, /* server_incapable= */ true);
 
         /* Same outcome, but this time the server is to blame, and the downgrade notice is due */
         ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
         ASSERT_EQ(t->answer_dnssec_result, DNSSEC_INCOMPATIBLE_SERVER);
         ASSERT_TRUE(env.server->warned_downgrade);
+
+        t->block_gc--;
+        ASSERT_NULL(dns_transaction_gc(t));
+}
+
+TEST(dns_transaction_process_reply_bypass_do_degraded_server) {
+        _cleanup_(transaction_env_teardown) TransactionEnv env = {};
+        DnsTransaction *t;
+
+        /* A client query with DO, passed on as is to a server that packet loss degraded below DO */
+        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_EDNS0,
+                                   /* bypass_do= */ true, /* server_incapable= */ false);
+
+        /* The query went out with DO whatever the server is at, so the reply is validated as usual: the DS
+         * lookup is requested, and fails here */
+        ASSERT_EQ(t->state, DNS_TRANSACTION_DNSSEC_FAILED);
+        ASSERT_EQ(t->answer_dnssec_result, DNSSEC_FAILED_AUXILIARY);
+        ASSERT_FALSE(set_isempty(t->dnssec_transactions));
+        ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+
+        t->block_gc--;
+        ASSERT_NULL(dns_transaction_gc(t));
+}
+
+TEST(dns_transaction_process_reply_bypass_no_do) {
+        _cleanup_(transaction_env_teardown) TransactionEnv env = {};
+        DnsTransaction *t;
+
+        /* A client query without DO, passed on as is to a server that is at DO */
+        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_DO,
+                                   /* bypass_do= */ false, /* server_incapable= */ false);
+
+        /* The query went out without DO whatever the server is at, so the reply is accepted as unsigned,
+         * without auxiliary lookups, and without blaming the server */
+        ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
+        ASSERT_EQ(t->answer_dnssec_result, DNSSEC_INCOMPATIBLE_SERVER);
+        ASSERT_FALSE(FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
+        ASSERT_TRUE(set_isempty(t->dnssec_transactions));
+        ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+        ASSERT_FALSE(env.server->warned_downgrade);
 
         t->block_gc--;
         ASSERT_NULL(dns_transaction_gc(t));
@@ -243,7 +321,7 @@ TEST(dns_transaction_process_reply_do_cached_auxiliary) {
         aux->answer_rcode = DNS_RCODE_SUCCESS;
         aux->state = DNS_TRANSACTION_SUCCESS;
 
-        transaction_setup_sent(&env, DNS_SERVER_FEATURE_LEVEL_DO, &t, &reply);
+        transaction_setup_sent(&env, DNS_SERVER_FEATURE_LEVEL_DO, /* bypass_do= */ -1, &t, &reply);
         dns_transaction_process_reply(t, reply, /* encrypted= */ false);
 
         /* The stale feature level of the auxiliary transaction must not turn off validation */

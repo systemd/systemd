@@ -2457,9 +2457,14 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
          * packet loss degraded the server or a SERVFAIL clamped this transaction. Validating it can only
          * fail, so treat it like a reply from a server without DNSSEC. Except in strict mode, where
          * unsigned data is only an error if it needed signing (negative trust anchors, insecure
-         * delegations), so leave that to validation, as dns_server_dnssec_supported() does. */
+         * delegations), so leave that to validation, as dns_server_dnssec_supported() does.
+         *
+         * A bypass query goes out as the client built it, hence it's the client's DO bit that counts there,
+         * not the feature level. Note that we cannot look at t->sent for this: dns_packet_do() only works on
+         * extracted packets, and we never extract the packets we send. */
         if (t->scope->dnssec_mode != DNSSEC_YES &&
-            !DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(t->current_feature_level))
+            !(t->bypass ? dns_packet_do(t->bypass) :
+                          DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(t->current_feature_level)))
                 return false;
 
         return dns_server_dnssec_supported(t->server);
