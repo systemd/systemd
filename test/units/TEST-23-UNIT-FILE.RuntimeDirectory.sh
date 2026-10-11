@@ -8,6 +8,7 @@ set -o pipefail
 at_exit() {
     set +e
 
+    systemctl stop tmp-aaa.mount
     rm -fr /run/hoge /tmp/aaa
 }
 
