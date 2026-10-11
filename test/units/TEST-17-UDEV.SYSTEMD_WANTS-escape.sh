@@ -11,6 +11,7 @@ set -o pipefail
 
 IFNAME=test-netif-foo
 
+# shellcheck disable=SC2329
 at_exit() {
     set +e
 
