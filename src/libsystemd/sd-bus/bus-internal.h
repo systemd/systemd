@@ -199,12 +199,12 @@ typedef struct sd_bus {
         bool attach_timestamp;
         bool connected_signal;
         bool close_on_exit;
-        bool is_machine;
 
         RuntimeScope runtime_scope;
 
         int use_memfd;
         int busexec_error;
+        int busexec_notify_fd;
 
         void *rbuffer;
         size_t rbuffer_size;
