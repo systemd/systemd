@@ -444,6 +444,13 @@ TEST(restrict_address_families) {
 #else
                 assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+
+                /* The kernel truncates the domain to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
+                        assert_se(fd < 0);
+                        assert_se(errno == EAFNOSUPPORT);
+                }
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
@@ -467,6 +474,13 @@ TEST(restrict_address_families) {
 #else
                 assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+
+                /* Same as above, the allow list must not be bypassed by setting upper bits either */
+                if (sizeof(long) == 8) {
+                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
+                        assert_se(fd < 0);
+                        assert_se(errno == EAFNOSUPPORT);
+                }
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
