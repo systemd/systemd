@@ -327,6 +327,12 @@ TEST(restrict_namespace) {
                 assert_se(setns(0, 0) == -1);
                 assert_se(errno == EPERM);
 
+                /* The kernel truncates nstype to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        assert_se(syscall(__NR_setns, 0, 1UL << 32) == -1);
+                        assert_se(errno == EPERM);
+                }
+
                 pid_t pid = raw_clone(CLONE_NEWNS);
                 assert_se(pid >= 0);
                 if (pid == 0)
@@ -447,6 +453,13 @@ TEST(restrict_address_families) {
 #else
                 assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+
+                /* The kernel truncates the domain to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        fd = syscall(__NR_socket, (unsigned long) AF_UNIX | (1UL << 32), SOCK_DGRAM, 0);
+                        assert_se(fd < 0);
+                        assert_se(errno == EAFNOSUPPORT);
+                }
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
