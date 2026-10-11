@@ -36,6 +36,7 @@ basic_sources = files(
         'escape.c',
         'ether-addr-util.c',
         'extract-word.c',
+        'fanotify-util.c',
         'fd-util.c',
         'fiber-ops.c',
         'fileio.c',
