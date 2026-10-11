@@ -16,7 +16,7 @@ test_property() {
     assert_eq "$(udevadm info --query property --property "$2" --value "$1")" "$3"
 }
 
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 cleanup() {
     set +e
 
