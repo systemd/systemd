@@ -1602,7 +1602,7 @@ static int connect_bus(sd_bus **ret) {
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
@@ -2495,8 +2495,12 @@ static int start_transient_service(sd_bus *bus) {
                  * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
                 if (streq_ptr(c.result, "success"))
                         return EXIT_SUCCESS;
-                if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
+                if (streq_ptr(c.result, "exit-code") && c.exit_status > 0) {
+                        /* Preserve the command's exit status, but report a failed user lookup to our caller. */
+                        if (c.exit_status == EXIT_USER)
+                                (void) sd_notifyf(/* unset_environment= */ false, "ERRNO=%i", ESRCH);
                         return c.exit_status;
+                }
                 if (streq_ptr(c.result, "signal"))
                         return EXIT_EXCEPTION;
                 return EXIT_FAILURE;

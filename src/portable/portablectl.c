@@ -251,7 +251,7 @@ static int acquire_bus(sd_bus **bus) {
 
         r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(*bus, arg_ask_password);
 
