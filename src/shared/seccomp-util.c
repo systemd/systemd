@@ -1753,7 +1753,9 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         void *af;
 
                         /* If this is a deny list, then generate one rule for each address family that are
-                         * then combined in OR checks. */
+                         * then combined in OR checks. The kernel takes the domain as an int, i.e. it
+                         * truncates the 64-bit register to its low 32 bits, hence only compare those. A plain
+                         * equality check could be bypassed by setting any of the upper bits. */
 
                         SET_FOREACH(af, address_families) {
                                 r = sym_seccomp_rule_add_exact(
@@ -1761,7 +1763,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                                 SCMP_SYS(socket),
                                                 1,
-                                                SCMP_A0(SCMP_CMP_EQ, PTR_TO_INT(af)));
+                                                SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_MAX, (uint32_t) PTR_TO_INT(af)));
                                 if (r < 0)
                                         break;
                         }
