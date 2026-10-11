@@ -2041,6 +2041,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 cd,
                                                 arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
                                                 token, /* search for the token with this index, or any later index than this */
+                                                LOG_ERR,
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
                                                 &pubkey,
