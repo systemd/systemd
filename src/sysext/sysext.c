@@ -2068,7 +2068,8 @@ static int merge_subprocess(
                                 DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                                DISSECT_IMAGE_TPM2_UNLOCK;
 
                         r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
                         if (r < 0)
@@ -2651,7 +2652,7 @@ static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_imag
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
+                r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM, DISSECT_IMAGE_TPM2_UNLOCK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
