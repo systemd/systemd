@@ -1174,6 +1174,9 @@ int bus_socket_connect(sd_bus *b) {
 }
 
 int bus_socket_exec(sd_bus *b) {
+        _cleanup_close_ int notify_fd = -EBADF;
+        struct sockaddr_un notify_address = { .sun_family = AF_UNIX };
+        socklen_t notify_size = sizeof(notify_address);
         int s[2], r;
 
         assert(b);
@@ -1194,6 +1197,18 @@ int bus_socket_exec(sd_bus *b) {
                           b->exec_argv && !line ? "…" : "");
         }
 
+        /* Let the kernel allocate a unique abstract address, with no filesystem cleanup required. */
+        notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (notify_fd < 0)
+                return -errno;
+        if (setsockopt(notify_fd, SOL_SOCKET, SO_PASSCRED, &(int) { 1 }, sizeof(int)) < 0)
+                return -errno;
+        if (bind(notify_fd, (struct sockaddr*) &notify_address, offsetof(struct sockaddr_un, sun_path)) < 0)
+                return -errno;
+        if (getsockname(notify_fd, (struct sockaddr*) &notify_address, &notify_size) < 0)
+                return -errno;
+        notify_address.sun_path[0] = '@';
+
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
                 return -errno;
@@ -1211,14 +1226,19 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
+                if (setenv("NOTIFY_SOCKET", notify_address.sun_path, 1) < 0)
+                        _exit(EXIT_FAILURE);
+
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
                 else
                         execvp(b->exec_path, STRV_MAKE(b->exec_path));
 
+                (void) sd_notifyf(/* unset_environment= */ false, "ERRNO=%i", errno);
                 _exit(EXIT_FAILURE);
         }
 
+        b->busexec_notify_fd = TAKE_FD(notify_fd);
         safe_close(s[1]);
         b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 

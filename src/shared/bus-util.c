@@ -594,6 +594,7 @@ int bus_connect_transport(
         if (transport == BUS_TRANSPORT_MACHINE) {
                 const char *unique;
 
+                /* Complete Hello so transport errors are reported here, with the connection context. */
                 r = sd_bus_get_unique_name(bus, &unique);
                 if (r < 0)
                         return r;
@@ -668,6 +669,7 @@ int bus_connect_transport_systemd(
                 if (r < 0)
                         return r;
 
+                /* Complete Hello so transport errors are reported here, with the connection context. */
                 r = sd_bus_get_unique_name(bus, &unique);
                 if (r < 0)
                         return r;
