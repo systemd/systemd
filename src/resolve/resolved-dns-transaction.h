@@ -146,6 +146,14 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t);
 DnsTransaction* dns_transaction_gc(DnsTransaction *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
+int dns_transaction_stream_new(
+                DnsTransaction *t,
+                DnsStreamType type,
+                int fd,
+                const union sockaddr_union *tfo_address,
+                usec_t connect_timeout_usec,
+                DnsStream **ret);
+
 int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
