@@ -895,11 +895,32 @@ static int device_setup_devlink_unit_one(Manager *m, sd_device *dev, DeviceBusyF
                 /* The devlink points to a device other than the one we are currently processing. */
                 dev = dev_by_devlink;
 
-                if (device_get_busy_flags(dev) != DEVICE_BUSY_NONE)
-                        /* The devlink may be tentatively not-ready (e.g. due to ID_PROCESSING=1). Let's keep
-                         * the state of the unit for now. If it is really gone, we will hopefully receive a
-                         * uevent about that later. */
+                busy_flags = device_get_busy_flags(dev);
+                assert(!FLAGS_SET(busy_flags, DEVICE_BUSY_REMOVING));
+
+                if (busy_flags & (DEVICE_BUSY_RENAMING | DEVICE_BUSY_PROCESSING)) {
+                        /* The devlink is tentatively not-ready and hopefully we will receive a uevent for
+                         * the device. Let's update sysfs path to make the device unit updated by the next
+                         * uevent. But, keep the unit state unchanged for now to avoid unnecessary state
+                         * transition (e.g., plugged -> dead -> plugged). */
+
+                        Unit *u;
+                        if (device_by_path(m, devlink, &u) < 0)
+                                return 0;
+
+                        r = device_set_sysfs(DEVICE(u), dev);
+                        if (r < 0)
+                                return log_unit_debug_errno(u, r, "Failed to update sysfs path: %m");
+
                         return 0;
+                }
+
+                if (busy_flags != DEVICE_BUSY_NONE) {
+                        /* The devlink itself exists, but the device is not ready, and the busy reason is not
+                         * tentative. Drop the _READY flag. */
+                        device_update_found_by_name(m, devlink, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV_READY);
+                        return 0;
+                }
         }
 
         /* The devlink is ready. Setup/update the device unit. */
