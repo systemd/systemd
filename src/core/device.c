@@ -80,11 +80,16 @@ static void device_unset_sysfs(Device *d) {
         d->sysfs = mfree(d->sysfs);
 }
 
-static int device_set_sysfs(Device *d, const char *sysfs) {
+static int device_set_sysfs(Device *d, sd_device *dev) {
         Unit *u = UNIT(ASSERT_PTR(d));
         int r;
 
-        assert(sysfs);
+        assert(dev);
+
+        const char *sysfs;
+        r = sd_device_get_syspath(dev, &sysfs);
+        if (r < 0)
+                return r;
 
         if (path_equal(d->sysfs, sysfs))
                 return 0; /* unchanged */
@@ -442,21 +447,12 @@ static int device_deserialize_sysfs(Device *d, const char *value) {
                                 "Failed to validate deserialized sysfs path '%s': %m",
                                 value);
 
-        /* For safety, normalize the syspath. */
-        const char *syspath;
-        r = sd_device_get_syspath(dev, &syspath);
-        if (r < 0)
-                return log_unit_debug_errno(
-                                UNIT(d), r,
-                                "Failed to get syspath from sd_device generated from deserialized sysfs path '%s': %m",
-                                value);
-
-        r = device_set_sysfs(d, syspath);
+        r = device_set_sysfs(d, dev);
         if (r < 0)
                 return log_unit_debug_errno(
                                 UNIT(d), r,
                                 "Failed to set deserialized sysfs path '%s': %m",
-                                syspath);
+                                value);
 
         return 0;
 }
@@ -701,13 +697,6 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Devic
         assert(dev || found != DEVICE_FOUND_UDEV);
         assert(IN_SET(found, DEVICE_FOUND_UDEV, DEVICE_FOUND_MOUNT, DEVICE_FOUND_SWAP));
 
-        const char *sysfs = NULL;
-        if (dev) {
-                r = sd_device_get_syspath(dev, &sysfs);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device: %m");
-        }
-
         _cleanup_free_ char *e = NULL;
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
@@ -755,14 +744,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Devic
         /* If this was created via some dependency and has not actually been seen yet, ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
         bool sysfs_updated = false;
-        if (sysfs) {
-                r = device_set_sysfs(d, sysfs);
+        if (dev) {
+                r = device_set_sysfs(d, dev);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
+                        return log_unit_error_errno(u, r, "Failed to set sysfs path: %m");
                 sysfs_updated = r > 0;
 
                 /* The additional systemd udev properties we only interpret for the main object */
-                if (path_equal(sysfs, path))
+                if (path_equal(d->sysfs, path))
                         (void) device_add_udev_wants(u, dev);
         }
 
@@ -906,11 +895,32 @@ static int device_setup_devlink_unit_one(Manager *m, sd_device *dev, DeviceBusyF
                 /* The devlink points to a device other than the one we are currently processing. */
                 dev = dev_by_devlink;
 
-                if (device_get_busy_flags(dev) != DEVICE_BUSY_NONE)
-                        /* The devlink may be tentatively not-ready (e.g. due to ID_PROCESSING=1). Let's keep
-                         * the state of the unit for now. If it is really gone, we will hopefully receive a
-                         * uevent about that later. */
+                busy_flags = device_get_busy_flags(dev);
+                assert(!FLAGS_SET(busy_flags, DEVICE_BUSY_REMOVING));
+
+                if (busy_flags & (DEVICE_BUSY_RENAMING | DEVICE_BUSY_PROCESSING)) {
+                        /* The devlink is tentatively not-ready and hopefully we will receive a uevent for
+                         * the device. Let's update sysfs path to make the device unit updated by the next
+                         * uevent. But, keep the unit state unchanged for now to avoid unnecessary state
+                         * transition (e.g., plugged -> dead -> plugged). */
+
+                        Unit *u;
+                        if (device_by_path(m, devlink, &u) < 0)
+                                return 0;
+
+                        r = device_set_sysfs(DEVICE(u), dev);
+                        if (r < 0)
+                                return log_unit_debug_errno(u, r, "Failed to update sysfs path: %m");
+
                         return 0;
+                }
+
+                if (busy_flags != DEVICE_BUSY_NONE) {
+                        /* The devlink itself exists, but the device is not ready, and the busy reason is not
+                         * tentative. Drop the _READY flag. */
+                        device_update_found_by_name(m, devlink, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV_READY);
+                        return 0;
+                }
         }
 
         /* The devlink is ready. Setup/update the device unit. */
