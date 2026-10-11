@@ -158,7 +158,7 @@ int verb_dot(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         r = expand_patterns(bus, strv_skip(argv, 1), &expanded_patterns);
         if (r < 0)
