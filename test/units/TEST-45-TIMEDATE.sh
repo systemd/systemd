@@ -410,12 +410,14 @@ EOF
 }
 
 teardown_timedated_alternate_paths() {
-    set +eu
+    set +e
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
     rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
+
+    set -e
 }
 
 testcase_timedated_alternate_paths() {

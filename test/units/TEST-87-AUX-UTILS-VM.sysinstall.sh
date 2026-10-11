@@ -51,7 +51,12 @@ cleanup() {
         systemd-dissect --detach "$LOOPDEV"
         LOOPDEV=""
     fi
-    rm -rf "$WORKDIR"
+    if [[ -n "${WORKDIR:-}" ]]; then
+        rm -rf "$WORKDIR"
+        WORKDIR=""
+    fi
+
+    set -e
 }
 trap cleanup EXIT
 
