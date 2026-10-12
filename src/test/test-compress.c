@@ -703,6 +703,122 @@ TEST(compressor_decompressor_push_api) {
         ASSERT_NULL(d);
 }
 
+TEST(decompressor_zstd_window_limit) {
+        if (!compression_supported(COMPRESSION_ZSTD))
+                return (void) log_tests_skipped("zstd is not supported");
+
+        /* Empty Zstandard frame declaring a 64 MiB window. */
+        static const uint8_t frame[] = { 0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x80, 0x01, 0x00, 0x00 };
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+        struct decompressor_test_data result = {};
+
+        ASSERT_OK(dlopen_compress(COMPRESSION_ZSTD, LOG_DEBUG));
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_ZSTD, 32U * 1024U * 1024U, &d));
+        ASSERT_ERROR(decompressor_push(d, frame, sizeof(frame), test_decompressor_callback, &result), EBADMSG);
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        /* The same frame decodes successfully when the limit covers the window. */
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_ZSTD, 64U * 1024U * 1024U, &d));
+        ASSERT_OK(decompressor_push(d, frame, sizeof(frame), test_decompressor_callback, &result));
+        ASSERT_OK(decompressor_push(d, /* data= */ NULL, 0, test_decompressor_callback, &result));
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        ASSERT_ERROR(decompressor_new_limited(COMPRESSION_ZSTD, 1, &d), EINVAL);
+        ASSERT_NULL(d);
+        ASSERT_ERROR(decompressor_new_limited(COMPRESSION_ZSTD, UINT64_MAX - 1, &d), EINVAL);
+        ASSERT_NULL(d);
+        free(result.buf);
+}
+
+TEST(decompressor_xz_memory_limit) {
+        if (!compression_supported(COMPRESSION_XZ))
+                return (void) log_tests_skipped("xz is not supported");
+
+        uint8_t compressed[sizeof(text) * 2];
+        size_t compressed_size;
+        struct decompressor_test_data result = {};
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+
+        ASSERT_OK(dlopen_compress(COMPRESSION_XZ, LOG_DEBUG));
+        ASSERT_OK(compress_blob(COMPRESSION_XZ, text, sizeof(text), compressed, sizeof(compressed), &compressed_size, 6));
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_XZ, 1024U * 1024U, &d));
+        ASSERT_ERROR(decompressor_push(d, compressed, compressed_size, test_decompressor_callback, &result), EBADMSG);
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_XZ, 96U * 1024U * 1024U, &d));
+        ASSERT_OK(decompressor_push(d, compressed, compressed_size, test_decompressor_callback, &result));
+        ASSERT_OK(decompressor_push(d, /* data= */ NULL, 0, test_decompressor_callback, &result));
+        ASSERT_EQ(result.size, sizeof(text));
+        ASSERT_EQ(memcmp(result.buf, text, sizeof(text)), 0);
+        free(result.buf);
+}
+
+TEST(lz4_blob_scan) {
+        /* Blobs followed by one byte of the next blob, which the scan must not include. */
+        static const struct {
+                uint8_t data[24];
+                size_t size;
+                int result;
+                size_t blob_size;
+        } cases[] = {
+                /* 5 literals. */
+                { { 5, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l', 'o', 0xAA }, 15, 1, 14 },
+                /* The same, cut short. */
+                { { 5, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l' }, 13, 0 },
+                /* 4 literals and a match of 4 at offset 4, then 5 literals. */
+                { { 13, 0, 0, 0, 0, 0, 0, 0, 0x40, 'a', 'b', 'c', 'd', 4, 0, 0x50, 'e', 'f', 'g', 'h', 'i', 0xAA },
+                  22, 1, 21 },
+                /* 1 literal and a match of 15 + 255 + 1 + 4 at offset 1, then 1 literal. */
+                { { 0x15, 1, 0, 0, 0, 0, 0, 0, 0x1F, 'a', 1, 0, 0xFF, 1, 0x10, 'b', 0xAA }, 17, 1, 16 },
+                /* 5 literals, with a decoded size of 3 in the header. */
+                { { 3, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l', 'o' }, 14, -EBADMSG },
+                /* 15 + 10 literals, with a decoded size of 20 in the header. */
+                { { 20, 0, 0, 0, 0, 0, 0, 0, 0xF0, 10 }, 10, -EBADMSG },
+                /* 4 literals and a match of 5, with a decoded size of 8 in the header. */
+                { { 8, 0, 0, 0, 0, 0, 0, 0, 0x41, 'a', 'b', 'c', 'd', 4, 0 }, 15, -EBADMSG },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                LZ4BlobScan whole = {}, bytewise = {};
+                int r = 0;
+
+                ASSERT_EQ(lz4_blob_scan(c->data, c->size, &whole), c->result);
+                if (c->result > 0)
+                        ASSERT_EQ(whole.offset, c->blob_size);
+
+                /* The result is the same when the scan resumes after each byte. */
+                for (size_t n = 0; n <= c->size && r == 0; n++)
+                        r = lz4_blob_scan(c->data, n, &bytewise);
+                ASSERT_EQ(r, c->result);
+                if (c->result > 0)
+                        ASSERT_EQ(bytewise.offset, c->blob_size);
+        }
+}
+
+TEST(lz4_blob_scan_compressed) {
+        if (!compression_supported(COMPRESSION_LZ4))
+                return (void) log_tests_skipped("LZ4 is not supported");
+
+        /* Two blobs back to back, whose literal and match lengths need continuation bytes. */
+        const size_t stream_size = 2 * HUGE_SIZE;
+        _cleanup_free_ uint8_t *stream = ASSERT_NOT_NULL(malloc(stream_size));
+        size_t first, second;
+        LZ4BlobScan scan = {};
+
+        ASSERT_OK(compress_blob(COMPRESSION_LZ4, data, sizeof(data), stream, stream_size, &first, -1));
+        ASSERT_OK(compress_blob(COMPRESSION_LZ4, huge, HUGE_SIZE, stream + first, stream_size - first, &second, -1));
+
+        ASSERT_OK_POSITIVE(lz4_blob_scan(stream, first + second, &scan));
+        ASSERT_EQ(scan.offset, first);
+
+        scan = (LZ4BlobScan) {};
+        ASSERT_OK_POSITIVE(lz4_blob_scan(stream + first, second, &scan));
+        ASSERT_EQ(scan.offset, second);
+}
+
 static int intro(void) {
         srcfile = saved_argc > 1 ? saved_argv[1] : saved_argv[0];
 
