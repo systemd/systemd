@@ -824,7 +824,7 @@ int dhcp6_update_hostname(Link *link) {
                 return 0;
 
         /* An explicitly configured hostname does not follow the system hostname. */
-        if (link->network->dhcp6_hostname)
+        if (!link->network->dhcp6_send_hostname_updates || link->network->dhcp6_hostname)
                 return 0;
 
         /* The new hostname will be sent on the next renewal. */
