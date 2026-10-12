@@ -364,10 +364,12 @@
         for the new size. The values should be specified as multiples of 4096 bytes, and are rounded upwards
         (in case of <varname>SizeMinBytes=</varname>) or downwards (in case of
         <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
-        fulfill the constraints placing the partition will fail. For partitions that shall be created,
-        depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
-        and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
-        constraint is set.</para>
+        fulfill the constraints placing the partition will fail. If both settings are set to the same value
+        to fix the size, that value must be a multiple of 4096 bytes; otherwise the rounded minimum will be
+        larger than the rounded maximum and the definition will be rejected. For partitions that shall be
+        created, depending on the setting of <varname>Priority=</varname> (see above) the partition might be
+        dropped and the placing algorithm restarted. By default, a minimum size constraint of 10M and no
+        maximum size constraint is set.</para>
 
         <para>If <varname>Format=</varname> is set, the minimum size is automatically raised to the minimum
         file system size for the selected file system type, if known. Moreover, for the ESP/XBOOTLDR
