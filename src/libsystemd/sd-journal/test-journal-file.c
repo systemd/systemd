@@ -5,9 +5,12 @@
 
 #include "journal-file-util.h"
 #include "journal-test-util.h"
+#include "journal-verify.h"
 #include "mmap-cache.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static void test_journal_file_parse_uid_from_filename_simple(
                 const char *path,
@@ -108,6 +111,144 @@ TEST(seek_before_first_entry) {
         ASSERT_OK_POSITIVE(journal_file_seek_for_match(f, match, strlen(match), JOURNAL_SEEK_OFFSET, /* boot_id= */ SD_ID128_NULL,
                                                        le64toh(f->header->header_size) - 1, DIRECTION_DOWN, &o, NULL));
         f = journal_file_offline_close(f);
+}
+
+TEST(sync_and_archive) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ char *path = NULL;
+        JournalFile *f, *g, *follower;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 3 * U64_MB);
+        follower = journal_test_open(m, "test.journal", O_RDONLY, 0);
+
+        for (uint64_t i = 0; i < 3000; i++) {
+                model_append_generated(f, &model, i);
+
+                if (i % 500 == 0) {
+                        model_assert_file(f, &model);
+                        model_assert_file(follower, &model);
+                }
+        }
+
+        model_assert_file(f, &model);
+        model_assert_file(follower, &model);
+
+        /* Before and after a sync */
+        g = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        g = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        /* Same, in the background */
+        for (uint64_t i = 3000; i < 5000; i++)
+                model_append_generated(f, &model, i);
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ false));
+        for (uint64_t i = 5000; i < 5100; i++)
+                model_append_generated(f, &model, i);
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        model_assert_file(f, &model);
+
+        /* Continue the file */
+        f = journal_file_offline_close(f);
+        f = journal_test_open(m, "test.journal", O_RDWR, 3 * U64_MB);
+        model_assert_file(f, &model);
+
+        for (uint64_t i = 5100; i < 6000; i++)
+                model_append_generated(f, &model, i);
+        model_assert_file(f, &model);
+
+        /* Archive it */
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_EQ(f->header->state, STATE_ARCHIVED);
+        ASSERT_NOT_NULL(path = strdup(f->path));
+        f = journal_file_offline_close(f);
+
+        g = journal_test_open(m, path, O_RDONLY, 0);
+        ASSERT_EQ(g->header->state, STATE_ARCHIVED);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        /* The follower kept the file open throughout */
+        ASSERT_EQ(follower->header->state, STATE_ARCHIVED);
+        model_assert_file(follower, &model);
+        follower = journal_file_close(follower);
+
+        ASSERT_ERROR(journal_file_open(
+                                     /* fd= */ -EBADF,
+                                     path,
+                                     O_RDWR,
+                                     /* file_flags= */ 0,
+                                     0644,
+                                     /* compress_threshold_bytes= */ UINT64_MAX,
+                                     /* metrics= */ NULL,
+                                     m,
+                                     /* template= */ NULL,
+                                     &g),
+                     ESHUTDOWN);
+}
+
+static void test_sync_then_archive_one(bool sync_done) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ char *path = NULL;
+        JournalFile *f, *g;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+
+        for (uint64_t i = 0; i < 3000; i++)
+                model_append_generated(f, &model, i);
+
+        /* A sync in the background that nobody joins, followed by a rotation, the way journald does it.
+         * Without waiting, the sync thread may still run when the file is archived. */
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ false));
+        if (sync_done) {
+                for (unsigned i = 0; i < 1000 && journal_file_is_offlining(f); i++)
+                        usleep_safe(10 * USEC_PER_MSEC);
+                ASSERT_FALSE(journal_file_is_offlining(f));
+        }
+
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ false));
+        ASSERT_EQ(memcmp(f->header->signature, HEADER_SIGNATURE, sizeof(f->header->signature)), 0);
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_EQ(f->header->state, STATE_ARCHIVED);
+        model_assert_file(f, &model);
+
+        ASSERT_NOT_NULL(path = strdup(f->path));
+        f = journal_file_offline_close(f);
+
+        g = journal_test_open(m, path, O_RDONLY, 0);
+        ASSERT_EQ(g->header->state, STATE_ARCHIVED);
+        model_assert_file(g, &model);
+        ASSERT_OK(journal_file_verify(
+                                  g,
+                                  /* key= */ NULL,
+                                  /* ret_first_contained= */ NULL,
+                                  /* ret_last_validated= */ NULL,
+                                  /* ret_last_contained= */ NULL,
+                                  /* show_progress= */ false));
+        g = journal_file_close(g);
+}
+
+TEST(sync_then_archive) {
+        test_sync_then_archive_one(/* sync_done= */ true);
+        test_sync_then_archive_one(/* sync_done= */ false);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
