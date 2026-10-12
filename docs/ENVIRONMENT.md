@@ -591,6 +591,18 @@ disk images with `--image=` or similar:
   system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
   for ESP and XBOOTLDR where the file system type is set to VFAT.
 
+* `$SYSTEMD_DISSECT_VALIDATEFS=` — takes a boolean, which controls whether to
+  validate the constraints a file system declares about itself via the
+  `user.validatefs.*` extended attributes on its root inode (as set by
+  `systemd-repart`'s `AddValidateFS=` setting, see
+  `systemd-validatefs@.service(8)`), when mounting partitions of a disk image.
+  Defaults to on, in which case a partition whose file system constraints are
+  not fulfilled (for example because it is mounted to a different place than
+  it declares, or because it declares GPT partition metadata constraints but
+  is not placed on a GPT partition) is refused. Set this to "0" to disable
+  validation. Note that when the image is mounted via `systemd-mountfsd`, the
+  environment of the daemon matters, not the one of the client.
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
