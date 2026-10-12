@@ -57,7 +57,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
                 .ifindex = ifindex,
                 .default_route = -1,
                 .llmnr_support = RESOLVE_SUPPORT_YES,
-                .mdns_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_NO,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
                 .operstate = IF_OPER_UNKNOWN,
@@ -84,7 +84,7 @@ void link_flush_settings(Link *l) {
 
         l->default_route = -1;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
-        l->mdns_support = RESOLVE_SUPPORT_YES;
+        l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
         l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
@@ -379,7 +379,7 @@ static int link_update_mdns_support(Link *l) {
 
         assert(l);
 
-        l->mdns_support = RESOLVE_SUPPORT_YES;
+        l->mdns_support = RESOLVE_SUPPORT_NO;
 
         r = sd_network_link_get_mdns(l->ifindex, &b);
         if (r == -ENODATA)
@@ -1236,7 +1236,7 @@ static bool link_needs_save(Link *l) {
                 return false;
 
         if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
-            l->mdns_support != RESOLVE_SUPPORT_YES ||
+            l->mdns_support != RESOLVE_SUPPORT_NO ||
             l->dnssec_mode != _DNSSEC_MODE_INVALID ||
             l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
