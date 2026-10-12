@@ -187,6 +187,17 @@
         replaces any value previously assigned to the same key. Prefixed and unprefixed arguments may not be
         combined in a single invocation.</para>
 
+        <para>A tag listed in an argument prefixed with <literal>-</literal> may be suffixed with
+        <literal>*</literal>, in which case all configured tags starting with the specified string are
+        removed. Tags removed this way are removed <emphasis>before</emphasis> the tags to add are added, so
+        that all tags with a common prefix may be replaced atomically. For example,
+        <command>hostnamectl tags -- '-acp.*' +acp.foo:acp.bar=waldo</command> ensures that exactly the two
+        tags <literal>acp.foo</literal> and <literal>acp.bar=waldo</literal> starting with
+        <literal>acp.</literal> are set afterwards, regardless which ones were set before, while leaving all
+        other tags in place. Similarly, <command>hostnamectl tags -- '-foo=*'</command> removes any value
+        assigned to the key <literal>foo</literal>. Note that such arguments should be quoted to protect them
+        from shell globbing.</para>
+
         <para>Machine tags are short labels that may be used to classify and group machines for management
         purposes, for example to identify the role a machine plays in a deployment, the fleet or
         organizational unit it belongs to, or any other administrator-defined attribute. Each individual tag
