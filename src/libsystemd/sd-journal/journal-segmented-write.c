@@ -52,6 +52,8 @@ typedef struct SegmentField {
         bool in_line;    /* values smaller than INLINE_SIZE_MAX are stored in the entry */
         uint32_t flags;  /* INDEX_FIELD_xyz */
         uint32_t next; /* see table_put() */
+        uint32_t last_data; /* position plus one of the data object of the field that was used last */
+        uint32_t successor; /* position plus one of the field that followed this one in the last entry */
         bool referenced; /* by an entry of the segment */
 } SegmentField;
 
@@ -114,10 +116,12 @@ struct SegmentedWriter {
         SegmentField *fields;
         size_t n_fields;
         Hashmap *fields_by_name;
+        uint32_t first_field; /* position plus one of the first field of the last entry */
 
         SegmentContext *contexts;
         size_t n_contexts;
         Hashmap *contexts_by_hash;
+        uint32_t last_context; /* position plus one of the context that was found or added last */
 
         /* The objects that are not written yet. They follow each other in the file from 'flushed' on. */
         uint64_t flushed;
@@ -171,6 +175,7 @@ static void segment_contexts_clear(SegmentedWriter *w) {
 
         w->n_contexts = 0;
         w->contexts_by_hash = hashmap_free(w->contexts_by_hash);
+        w->last_context = 0;
 }
 
 static int segment_data_reference(SegmentedWriter *w, size_t position, uint64_t ordinal) {
@@ -247,6 +252,7 @@ static void segment_fields_clear(SegmentedWriter *w) {
 
         w->n_fields = 0;
         w->fields_by_name = hashmap_free(w->fields_by_name);
+        w->first_field = 0;
 }
 
 static void segment_clear(SegmentedWriter *w) {
@@ -756,11 +762,28 @@ static int segment_data_acquire(
 
         assert(ret);
 
+        /* A field tends to have the same value in consecutive entries. Compare the value that the field had
+         * last before looking the hash up in data_by_hash. */
+        uint32_t last = w->fields[field].last_data;
+        if (last > 0 && w->data[last - 1].hash == hash) {
+                r = segment_data_equal(f, w->data + last - 1, data, size);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *ret = last - 1;
+                        return 0;
+                }
+        }
+
         for (uint32_t v = table_get(w->data_by_hash, hash); v > 0; v = w->data[v - 1].next) {
+                if (v == last)
+                        continue;
+
                 r = segment_data_equal(f, w->data + v - 1, data, size);
                 if (r < 0)
                         return r;
                 if (r > 0) {
+                        w->fields[field].last_data = v;
                         *ret = v - 1;
                         return 0;
                 }
@@ -803,6 +826,7 @@ static int batch_commit(JournalFile *f) {
 
                 object_done(f, OBJECT_DATA, w->data[w->n_data].offset, p->end);
                 w->n_data++;
+                w->fields[w->data[w->n_data - 1].field].last_data = w->n_data;
         }
 
         return 0;
@@ -817,22 +841,28 @@ static int data_reference_compare(const DataReference *a, const DataReference *b
         return CMP(a->offset, b->offset);
 }
 
+static bool context_equal(const SegmentContext *c, const DataReference *references, size_t n) {
+        if (c->n_items != n)
+                return false;
+
+        for (size_t i = 0; i < n; i++)
+                if (c->items[i] != references[i].position)
+                        return false;
+
+        return true;
+}
+
 static SegmentContext* context_find(
                 SegmentedWriter *w,
                 const DataReference *references,
                 size_t n,
                 uint64_t hash) {
 
-        for (uint32_t v = table_get(w->contexts_by_hash, hash); v > 0; v = w->contexts[v - 1].next) {
-                SegmentContext *c = w->contexts + v - 1;
-                bool equal = c->n_items == n;
-
-                for (size_t i = 0; equal && i < n; i++)
-                        equal = c->items[i] == references[i].position;
-
-                if (equal)
-                        return c;
-        }
+        for (uint32_t v = table_get(w->contexts_by_hash, hash); v > 0; v = w->contexts[v - 1].next)
+                if (context_equal(w->contexts + v - 1, references, n)) {
+                        w->last_context = v;
+                        return w->contexts + v - 1;
+                }
 
         return NULL;
 }
@@ -868,6 +898,7 @@ static int context_add(
         }
 
         w->contexts[w->n_contexts++] = c;
+        w->last_context = w->n_contexts;
         return 0;
 }
 
@@ -887,7 +918,7 @@ int segmented_append_entry(
         _cleanup_free_ Object *entry_copy = NULL;
         _cleanup_free_ DataReference *direct = NULL, *shared = NULL;
         _cleanup_free_ size_t *in_line = NULL;
-        _cleanup_free_ uint32_t *items = NULL;
+        _cleanup_free_ uint32_t *items = NULL, *inline_fields = NULL;
         _cleanup_(batch_restore) BatchState saved = {};
         size_t n_direct = 0, n_shared = 0, n_inline = 0, n_items, inline_size = 0, entry;
         uint64_t p, xor_hash = 0, context_hash = 0, context_offset = 0, entry_offset, entry_size, next_seqnum;
@@ -934,10 +965,15 @@ int segmented_append_entry(
         direct = new(DataReference, n_iovec);
         shared = new(DataReference, n_iovec);
         in_line = new(size_t, n_iovec);
-        if (!direct || !shared || !in_line)
+        inline_fields = new(uint32_t, n_iovec);
+        if (!direct || !shared || !in_line || !inline_fields)
                 return -ENOMEM;
 
         p = a->scan_offset;
+
+        /* Senders tend to pass the same fields in the same order. Compare the field that followed the
+         * previous field in the last entry before looking the name up in fields_by_name. */
+        uint32_t previous = 0;
 
         for (size_t i = 0; i < n_iovec; i++) {
                 const char *data = iovec[i].iov_base, *eq;
@@ -954,11 +990,22 @@ int segmented_append_entry(
                 if (!eq)
                         return -EUCLEAN;
 
-                r = segment_field_acquire(f, data, eq - data, &k);
-                if (r < 0)
-                        return r;
+                k = previous > 0 ? w->fields[previous - 1].successor : w->first_field;
+                if (k > 0 && memcmp_nn(w->fields[k - 1].name, w->fields[k - 1].name_size, data, eq - data) == 0)
+                        k--;
+                else {
+                        r = segment_field_acquire(f, data, eq - data, &k);
+                        if (r < 0)
+                                return r;
+
+                        if (previous > 0)
+                                w->fields[previous - 1].successor = k + 1;
+                        else
+                                w->first_field = k + 1;
+                }
 
                 field = w->fields + k;
+                previous = k + 1;
 
                 if (field->in_line && size < INLINE_SIZE_MAX) {
                         bool duplicate = false;
@@ -972,6 +1019,7 @@ int segmented_append_entry(
                                 continue;
 
                         inline_size += ALIGN64(sizeof(InlineData) + size);
+                        inline_fields[n_inline] = k;
                         in_line[n_inline++] = i;
                         continue;
                 }
@@ -997,9 +1045,13 @@ int segmented_append_entry(
         if (n_shared >= CONTEXT_ITEMS_MIN) {
                 typesafe_qsort(shared, n_shared, data_reference_compare);
 
-                context_hash = segmented_process_hash(shared, n_shared * sizeof(DataReference));
-
-                context = context_find(w, shared, n_shared, context_hash);
+                /* Consecutive entries tend to come from the same process and share their context */
+                if (w->last_context > 0 && context_equal(w->contexts + w->last_context - 1, shared, n_shared))
+                        context = w->contexts + w->last_context - 1;
+                else {
+                        context_hash = segmented_process_hash(shared, n_shared * sizeof(DataReference));
+                        context = context_find(w, shared, n_shared, context_hash);
+                }
                 if (!context)
                         new_context = true;
                 else if (context->offset == 0 && n_shared <= ENTRY_FIELD_COUNT_MAX) {
@@ -1165,10 +1217,9 @@ int segmented_append_entry(
                         goto committed;
         }
 
-        FOREACH_ARRAY(i, in_line, n_inline) {
-                r = segment_inline_reference(f, iovec[*i].iov_base, iovec[*i].iov_len);
-                if (r < 0)
-                        return r;
+        FOREACH_ARRAY(k, inline_fields, n_inline) {
+                w->fields[*k].referenced = true;
+                w->fields[*k].flags |= INDEX_FIELD_INLINE;
         }
 
         w->failed = false;
