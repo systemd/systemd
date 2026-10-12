@@ -443,6 +443,7 @@ int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_va
 
 int tpm2_quote(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, const TPML_PCR_SELECTION *pcr_select, TPMS_ATTEST **ret_quoted, TPMT_SIGNATURE **ret_signature);
 int tpm2_nv_certify(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *auth_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPMS_NV_PUBLIC *nv_public, const Tpm2Handle *nv_handle, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
+int tpm2_certify(Tpm2Context *c, const Tpm2Handle *object_session, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *object, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
 int tpm2_get_session_audit_digest(Tpm2Context *c, const Tpm2Handle *eh_session, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_audit_info, TPMT_SIGNATURE **ret_signature);
 
 /* The tpm2-tss library has many structs that are simply a combination of an array (or object) and
