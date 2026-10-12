@@ -218,6 +218,7 @@ simple_tests += files(
         'test-strip-tab-ansi.c',
         'test-strv.c',
         'test-strxcpyx.c',
+        'test-switch-root.c',
         'test-sysctl-util.c',
         'test-terminal-util.c',
         'test-tests.c',

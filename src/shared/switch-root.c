@@ -343,22 +343,22 @@ int switch_root(const char *new_root,
                 if (chdir(".") < 0)
                         return log_error_errno(errno, "Failed to change directory: %m");
 
-                /* Now empty the old root superblock */
-                if (istmp > 0) {
-                        struct stat rb;
-
-                        if (fstat(old_root_fd, &rb) < 0)
-                                return log_error_errno(errno, "Failed to stat old root directory: %m");
-
-                        /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
-                         * it will stop at mount boundaries */
-                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
-                }
         } else
-                /* NB: we don't bother with emptying the old root superblock here, under the assumption the
-                 * pivot_root() + umount() sufficiently detached from the superblock to the point we don't
-                 * need to empty it anymore */
                 log_debug("Pivoting root worked.");
+
+        /* Empty the old root superblock if requested, even if pivot_root() succeeded. Since Linux 7.0,
+         * pivot_root() can succeed on the initramfs, but detaching it doesn't necessarily free the memory
+         * used by its contents. */
+        if (istmp > 0 && !resolved_old_root_after) {
+                struct stat rb;
+
+                if (fstat(old_root_fd, &rb) < 0)
+                        return log_error_errno(errno, "Failed to stat old root directory: %m");
+
+                /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
+                 * it will stop at mount boundaries */
+                (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
+        }
 
         return 0;
 }
