@@ -185,7 +185,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para><varname>f</varname> will create a file if it does not exist yet. If the argument
           parameter is given and the file did not exist yet, it will be written to the file.
           <varname>f+</varname> will create or truncate the file. If the argument parameter is given, it will
-          be written to the file. Does not follow symlinks.</para></listitem>
+          be written to the file. For both <varname>f</varname> and <varname>f+</varname>, the specified mode
+          and ownership are applied even if the file already exists, unless the corresponding fields are
+          prefixed with <literal>:</literal>. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
