@@ -22,6 +22,7 @@
         "force-reload:Reload one or more units if possible, otherwise restart if active"
         "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
         "isolate:Start one unit and stop all others"
+        "wait:Wait for a unit to terminate"
         "kill:Send signal to processes of a unit"
         "is-active:Check whether units are active"
         "is-failed:Check whether units are failed"
@@ -338,6 +339,15 @@ for fun in stop condstop kill try-restart condrestart freeze thaw; do
     }
 done
 
+# Completion function for WAITABLE_UNITS. "wait" takes any unit, but only ones the service manager currently
+# has loaded are useful candidates, so complete from those, without any CanStop= filtering.
+(( $+functions[_systemctl_wait] )) || _systemctl_wait()
+{
+    _systemctl_all_units
+    _wanted systemd-units expl 'unit' \
+            compadd "$@" -a - _sys_all_units || _message "no units found"
+}
+
 (( $+functions[_systemctl_service-log-level] )) ||
     _systemctl_service-log-level() {
         local -a log_levels=( emerg alert crit err warning notice info debug )
@@ -536,6 +546,7 @@ _sys_arguments=(
     '--show-types[When showing sockets, show socket type]'
     '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors'
     '(-q --quiet)'{-q,--quiet}'[Suppress output]'
+    '(-v --verbose)'{-v,--verbose}'[Show unit logs while executing operation]'
     '--no-warn[Suppress several warnings shown by default]'
     '--no-block[Do not wait until operation finished]'
     '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]'
