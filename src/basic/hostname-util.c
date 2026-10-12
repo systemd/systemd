@@ -256,7 +256,7 @@ int machine_spec_valid(const char *s) {
         return true;
 }
 
-bool machine_tag_is_valid(const char *s) {
+bool machine_tag_prefix_is_valid(const char *s) {
         size_t n = strlen_ptr(s);
         if (n <= 0 || n >= 256)
                 return false;
@@ -264,6 +264,15 @@ bool machine_tag_is_valid(const char *s) {
         /* Don't allow "-" and "." as first char. (This is load-bearing, we want that "+"/"-" can be used as
          * prefix for adding/removing tags from the list). */
         if (strchr("-.=", s[0]))
+                return false;
+
+        return in_charset(s, ALPHANUMERICAL "-.=");
+}
+
+bool machine_tag_is_valid(const char *s) {
+        /* A valid tag must be a valid tag prefix, with additional restrictions on the last character (of the
+         * key), which are not enforced for prefixes, so that "foo." or "foo=" are valid prefixes. */
+        if (!machine_tag_prefix_is_valid(s))
                 return false;
 
         /* We allow parameterization of tags, with a "=" as separator */
@@ -276,11 +285,11 @@ bool machine_tag_is_valid(const char *s) {
                         return false;
         } else {
                 /* If there's no '=', then make the restriction on the very last character */
-                if (strchr("-.", s[n-1]))
+                if (strchr("-.", s[strlen(s)-1]))
                         return false;
         }
 
-        return in_charset(s, ALPHANUMERICAL "-.=");
+        return true;
 }
 
 bool machine_tag_list_is_valid(char **l) {
@@ -310,6 +319,35 @@ bool machine_tag_list_is_valid(char **l) {
                                 return false;
                 }
         }
+
+        return true;
+}
+
+static bool machine_tag_key_in_strv(char * const *l, const char *tag) {
+        assert(tag);
+
+        /* Returns true if 'l' contains an assignment for the same key as the "key=value" tag 'tag'. Bare
+         * tags (without '=') never match. */
+
+        const char *eq = strchr(tag, '=');
+        if (!eq)
+                return false;
+
+        size_t np = eq - tag + 1;
+        STRV_FOREACH(i, l)
+                if (strneq(*i, tag, np))
+                        return true;
+
+        return false;
+}
+
+bool machine_tag_prefix_list_is_valid(char **l) {
+        if (strv_length(l) > MACHINE_TAGS_MAX)
+                return false;
+
+        STRV_FOREACH(i, l)
+                if (!machine_tag_prefix_is_valid(*i))
+                        return false;
 
         return true;
 }
@@ -352,20 +390,9 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
                 if (n > MACHINE_TAGS_MAX)
                         return -E2BIG;
 
-                const char *eq = strchr(*i, '=');
-                if (eq) {
-                        /* Suppress duplicate assignments */
-                        bool skip = false;
-                        size_t np = eq - *i + 1;
-                        STRV_FOREACH(j, cleaned)
-                                if (strneq(*i, *j, np)) {
-                                        skip = true;
-                                        break;
-                                }
-
-                        if (skip)
-                                continue;
-                }
+                /* Suppress duplicate assignments */
+                if (machine_tag_key_in_strv(cleaned, *i))
+                        continue;
 
                 r = strv_extend(&cleaned, *i);
                 if (r < 0)
@@ -373,5 +400,52 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
         }
 
         *ret = TAKE_PTR(cleaned);
+        return 0;
+}
+
+int machine_tags_edit(
+                char * const *base,
+                char * const *remove_prefix,
+                char * const *add,
+                char * const *remove,
+                char ***ret) {
+
+        int r;
+
+        assert(ret);
+
+        /* Computes the resulting machine tag list when dropping all tags starting with any of the prefixes in
+         * 'remove_prefix' from the 'base' list, then adding 'add' and finally removing 'remove', i.e.
+         * ((base \ remove_prefix*) ∪ add) \ remove, sorted and deduplicated. Note that the prefix removal is
+         * applied before the additions, so that a caller may atomically replace all tags with a specific
+         * prefix by a new set of such tags. A "key=value" tag in 'add' replaces any assignment of the same
+         * key in 'base', so that a key never ends up with more than one value. Both 'base' and 'add' must be
+         * valid tag lists (see machine_tag_list_is_valid()). */
+
+        _cleanup_strv_free_ char **tags = NULL;
+        STRV_FOREACH(i, base) {
+                if (startswith_strv(*i, remove_prefix))
+                        continue;
+
+                if (machine_tag_key_in_strv(add, *i))
+                        continue;
+
+                r = strv_extend(&tags, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        r = strv_extend_strv(&tags, add, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        strv_remove_strv(tags, remove);
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return -E2BIG;
+
+        *ret = TAKE_PTR(tags);
         return 0;
 }
