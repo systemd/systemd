@@ -17,6 +17,16 @@ CHANGES WITH 263 in spe:
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
 
+        * systemd-networkd now updates the hostname sent by the DHCPv4 and
+          DHCPv6 clients when the system hostname is changed. Previously, the
+          hostname known when the interface was configured was sent until the
+          interface was reconfigured. The DHCPv4 lease is renewed immediately
+          to send the new hostname, while for DHCPv6 the new hostname is sent
+          on the next renewal. Since some DHCP servers provide different
+          settings depending on the hostname sent by the client, the previous
+          behaviour may be restored with the new SendHostnameUpdates=no
+          setting in the [DHCPv4] and [DHCPv6] sections.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
@@ -33,6 +43,11 @@ CHANGES WITH 263 in spe:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
+
+        * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
+          clients now follows the system hostname. The new
+          SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
+          may be used to disable this.
 
 CHANGES WITH 262:
 
