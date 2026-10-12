@@ -492,6 +492,23 @@ testcase_tags() {
             AddAndRemoveTags asas 1 three 1 one
     assert_eq "$(hostnamectl tags)" "three:two"
 
+    # The EditTags() D-Bus method: prefix removal is applied before additions, removal after them.
+    hostnamectl tags company.x:company.bar=old:companyfoo:other
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            EditTags asasast 1 company. 2 company.foo company.bar=waldo 0 0
+    assert_eq "$(hostnamectl tags)" "company.bar=waldo:company.foo:companyfoo:other"
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            EditTags asasast 2 company. other 2 company.new company.gone 1 company.gone 0
+    assert_eq "$(hostnamectl tags)" "company.new:companyfoo"
+    # Invalid prefixes and non-zero flags are refused.
+    (! busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            EditTags asasast 1 "" 0 0 0)
+    (! busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            EditTags asasast 1 "x*" 0 0 0)
+    (! busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            EditTags asasast 0 1 foo 0 1)
+    assert_eq "$(hostnamectl tags)" "company.new:companyfoo"
+
     # The SetTags() Varlink method: 'set' resets the list, then 'add'/'remove' are applied on top.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
             '{"set":["x","y"],"add":["z"],"remove":["x"]}'
