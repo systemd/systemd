@@ -14,6 +14,7 @@ typedef enum DHCP6ClientStartMode {
 bool link_dhcp6_with_address_enabled(Link *link);
 int dhcp6_check_ready(Link *link);
 int dhcp6_update_mac(Link *link);
+int dhcp6_update_hostname(Link *link);
 int dhcp6_start(Link *link);
 int dhcp6_start_on_ra(Link *link, bool information_request);
 

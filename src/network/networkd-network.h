@@ -144,6 +144,7 @@ typedef struct Network {
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_send_hostname_set;
+        bool dhcp_send_hostname_updates;
         int dhcp_broadcast;
         int dhcp_ipv6_only_mode;
         int dhcp_use_rapid_commit;
@@ -180,6 +181,7 @@ typedef struct Network {
         bool dhcp6_use_pd_prefix;
         bool dhcp6_send_hostname;
         bool dhcp6_send_hostname_set;
+        bool dhcp6_send_hostname_updates;
         int dhcp6_use_dns;
         int dhcp6_use_dnr;
         bool dhcp6_use_hostname;
