@@ -353,7 +353,10 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 
         hash = siphash24_finalize(&state);
 
-        return (unsigned) (hash % n_buckets(h));
+        /* n_buckets is not a power of two, so a modulo needs a division. Multiplying the upper 32 bits of
+         * the hash with n_buckets and keeping the upper 32 bits of the product maps the hash to
+         * [0, n_buckets) almost as evenly, without a division. */
+        return (unsigned) (((hash >> 32) * n_buckets(h)) >> 32);
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 
@@ -515,11 +518,11 @@ static void bucket_move_entry(HashmapBase *h, struct swap_entries *swap,
 }
 
 static unsigned next_idx(HashmapBase *h, unsigned idx) {
-        return (idx + 1U) % n_buckets(h);
+        return idx + 1U < n_buckets(h) ? idx + 1U : 0U;
 }
 
 static unsigned prev_idx(HashmapBase *h, unsigned idx) {
-        return (n_buckets(h) + idx - 1U) % n_buckets(h);
+        return idx > 0U ? idx - 1U : n_buckets(h) - 1U;
 }
 
 static void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
@@ -1140,13 +1143,13 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
         if (_unlikely_(new_n_buckets < new_n_entries))
                 return -ENOMEM;
 
-        if (_unlikely_(new_n_buckets > UINT_MAX / (hi->entry_size + sizeof(dib_raw_t))))
-                return -ENOMEM;
-
         old_n_buckets = n_buckets(h);
 
         if (_likely_(new_n_buckets <= old_n_buckets))
                 return 0;
+
+        if (_unlikely_(new_n_buckets > UINT_MAX / (hi->entry_size + sizeof(dib_raw_t))))
+                return -ENOMEM;
 
         new_shift = log2u_round_up(MAX(
                         new_n_buckets * (hi->entry_size + sizeof(dib_raw_t)),
