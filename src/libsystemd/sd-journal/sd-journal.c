@@ -3491,10 +3491,7 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         if (r < 0)
                 return r;
 
-        j->unique_file = NULL;
-        j->unique_offset = 0;
-        j->unique_file_lost = false;
-
+        sd_journal_restart_unique(j);
         return 0;
 }
 
