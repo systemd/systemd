@@ -681,7 +681,8 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
 
         r = qmp_client_invoke(qmp, /* ret_slot= */ NULL, "blockdev-create", QMP_CLIENT_ARGS(cmd_args), on_qmp_complete, (void*) "blockdev-create");
         if (r < 0) {
-                _unused_ _cleanup_(pending_job_freep) PendingJob *dead = hashmap_remove(bridge->pending_jobs, job_id);
+                _cleanup_free_ char *key = NULL;
+                _unused_ _cleanup_(pending_job_freep) PendingJob *dead = hashmap_remove2(bridge->pending_jobs, job_id, (void**) &key);
                 return log_error_errno(r, "Failed to send blockdev-create for '%s': %m", drive->path);
         }
 
