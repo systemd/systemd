@@ -59,6 +59,13 @@ typedef struct SegmentedResult {
         size_t value_size;
 } SegmentedResult;
 
+typedef struct SegmentedDataHash {
+        uint64_t offset;
+        uint64_t hash;
+} SegmentedDataHash;
+
+#define SEGMENTED_DATA_HASHES_MAX 1024U
+
 /* The two kinds of keys for match results: expressions of sd_journal objects are identified by a counter,
  * single values by their hash. */
 #define SEGMENTED_KEY_EXPRESSION UINT64_C(1)
@@ -91,6 +98,7 @@ typedef struct Segmented {
         size_t n_fields;
 
         uint8_t *inline_buffer;
+        SegmentedDataHash *data_hashes;
 
         /* The distinct field names in the tail from tail_fields_base to tail_fields_end, in the order in
          * which they first appear. tail_fields owns the strings. */
