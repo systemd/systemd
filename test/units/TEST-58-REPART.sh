@@ -553,6 +553,39 @@ $imgs/zzz8 : start=     6422488, size=      131072, type=4D21B016-B534-45C2-A9FB
     losetup -d "$loop"
 }
 
+testcase_unaligned_fixed_size() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=2.6G
+SizeMaxBytes=2.6G
+EOF
+
+    truncate -s 100M "$imgs/zzz"
+    if output=$(systemd-repart --offline="$OFFLINE" \
+                               --definitions="$defs" \
+                               --empty=allow \
+                               --size=auto \
+                               --dry-run=yes \
+                               --seed="$seed" \
+                               "$imgs/zzz" 2>&1); then
+        echo "systemd-repart unexpectedly accepted an unaligned fixed partition size" >&2
+        exit 1
+    fi
+
+    assert_in \
+        "SizeMinBytes= larger than SizeMaxBytes= after rounding to a multiple of 4096 bytes, refusing." \
+        "$output"
+}
+
 testcase_copy_from_grain_padding() {
     local defs imgs output
 
