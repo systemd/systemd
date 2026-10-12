@@ -9,7 +9,6 @@ subdir('cryptsetup-tokens')
 systemd_cryptsetup_sources = files(
         'cryptsetup.c',
         'cryptsetup-keyfile.c',
-        'cryptsetup-pkcs11.c',
 )
 
 executables += [

@@ -54,6 +54,7 @@ shared_sources = files(
         'creds-util.c',
         'crypto-util.c',
         'cryptsetup-fido2.c',
+        'cryptsetup-pkcs11.c',
         'cryptsetup-tpm2.c',
         'cryptsetup-util.c',
         'curl-util.c',
