@@ -749,6 +749,66 @@ rm -rf /run/sysupdate.some-component.d
 rm -f /run/sysupdate.some-component.component
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
+# Test --loop=: the first transfer installs a second transfer file into the definitions directory, which in
+# turn installs the payload. Hence it takes two update iterations to install everything, and a third one to
+# notice that nothing is left to do.
+LOOPDIR="$WORKDIR/loop"
+loop_reset() {
+    rm -rf "$LOOPDIR"
+    mkdir -p "$LOOPDIR/definitions" "$LOOPDIR/source" "$LOOPDIR/target"
+    cat >"$LOOPDIR/source/payload-1.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$LOOPDIR/source
+MatchPattern=payload-@v.bin
+
+[Target]
+Type=regular-file
+Path=$LOOPDIR/target
+MatchPattern=payload-@v.bin
+EOF
+    echo "payload" >"$LOOPDIR/source/payload-1.bin"
+    cat >"$LOOPDIR/definitions/01-definitions.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$LOOPDIR/source
+MatchPattern=payload-@v.transfer
+
+[Target]
+Type=regular-file
+Path=$LOOPDIR/definitions
+MatchPattern=02-payload-@v.transfer
+EOF
+}
+
+loop_reset
+(! "$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=0 update) |& grep -F 'must be greater than zero' >/dev/null
+(! "$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=2 acquire) |& grep -F 'not supported' >/dev/null
+
+# Without --loop= only a single iteration is done, which only installs the second transfer file
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no update
+cmp "$LOOPDIR/source/payload-1.transfer" "$LOOPDIR/definitions/02-payload-1.transfer"
+test ! -e "$LOOPDIR/target/payload-1.bin"
+# … and the next invocation picks up the new transfer file
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no update
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+
+# With --loop= everything is installed in one go, and we stop once nothing is left to do
+loop_reset
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=16 update |& tee "$LOOPDIR/log"
+cmp "$LOOPDIR/source/payload-1.transfer" "$LOOPDIR/definitions/02-payload-1.transfer"
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+grep -F 'stable state reached after 3 iterations' "$LOOPDIR/log" >/dev/null
+(! grep -F 'Starting update iteration 4 ' "$LOOPDIR/log" >/dev/null)
+
+# If the iteration limit is hit while updates are still being installed, this is not a failure
+loop_reset
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=2 update |& tee "$LOOPDIR/log"
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+grep -F 'Maximum number of update iterations (2) reached' "$LOOPDIR/log" >/dev/null
+
+rm -rf "$LOOPDIR"
+
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
 # COMPRESSION_MAGIC_BYTES_MAX correctly.
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs"

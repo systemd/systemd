@@ -49,6 +49,15 @@ CHANGES WITH 263 in spe:
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
 
+        Changes in systemd-sysupdate:
+
+        * systemd-sysupdate's "update" command acquired a new --loop= switch.
+          If specified, the update logic is run repeatedly until no further
+          updates are installed, or the specified number of iterations is
+          reached. This is useful for updates that make further updates
+          available, for example because they ship new or changed transfer
+          files.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
