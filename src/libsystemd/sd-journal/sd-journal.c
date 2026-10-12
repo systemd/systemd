@@ -27,6 +27,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "journal-segmented-internal.h"
 #include "list.h"
 #include "log.h"
 #include "lookup3.h"
@@ -54,6 +55,7 @@
 #define REPLACE_VAR_MAX PATH_MAX
 
 #define DEFAULT_DATA_THRESHOLD (64*1024)
+#define UNIQUE_BATCH_VALUES_MAX 512U
 
 DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_journal, journal);
 
@@ -1076,6 +1078,8 @@ static int file_refresh(sd_journal *j, JournalFile *f, usec_t ts) {
                 return 0;
 
         r = journal_file_refresh(f, ts);
+        if (r != 0)
+                j->unique_batch = false;
         if (r == -ESTALE) {
                 /* The file shrank and was read anew, so positions in it are no longer valid. */
                 journal_file_reset_location(f);
@@ -2759,6 +2763,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
+        free(j->unique_buffer);
         set_free(j->unique_seen);
         set_free(j->fields_seen);
         free(j);
@@ -3615,42 +3620,40 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes) {
         return 0;
 }
 
-static bool journal_has_segmented(sd_journal *j) {
-        JournalFile *f;
+static uint64_t enumeration_segment(JournalFile *f, const SegmentedCursor *c) {
+        if (c->stage == 0 && c->index < f->segmented->n_indexes)
+                return f->segmented->indexes[c->index].head_offset;
 
-        assert(j);
-
-        ORDERED_HASHMAP_FOREACH(f, j->files)
-                if (f->segmented)
-                        return true;
-
-        return false;
+        return c->last_index_offset ?: le64toh(f->header->header_size);
 }
 
-static int journal_seen(sd_journal *j, Set **seen, const void *data, size_t size) {
-        _cleanup_free_ sd_id128_t *k = NULL;
-        int r;
-
+static sd_id128_t journal_seen_key(sd_journal *j, const void *data, size_t size) {
         assert(j);
-        assert(seen);
-
-        /* Returns > 0 if this was returned before. */
 
         if (!j->seen_key_set) {
                 random_bytes(j->seen_key, sizeof(j->seen_key));
                 j->seen_key_set = true;
         }
 
-        k = new(sd_id128_t, 1);
-        if (!k)
-                return -ENOMEM;
-
-        *k = (sd_id128_t) {
+        return (sd_id128_t) {
                 .qwords = {
                         siphash24(data, size, j->seen_key),
                         siphash24(data, size, j->seen_key + 16),
                 },
         };
+}
+
+static int journal_seen(sd_journal *j, Set **seen, const void *data, size_t size) {
+        _cleanup_free_ sd_id128_t *k = NULL;
+        int r;
+
+        assert(seen);
+
+        k = new(sd_id128_t, 1);
+        if (!k)
+                return -ENOMEM;
+
+        *k = journal_seen_key(j, data, size);
 
         r = set_ensure_consume(seen, &id128_hash_ops_free, TAKE_PTR(k));
         if (r < 0)
@@ -3663,6 +3666,8 @@ static int journal_seen_before(
                 sd_journal *j,
                 JournalFile *current,
                 Set **seen,
+                const SegmentedCursor *cursor,
+                bool previous_scanned,
                 const void *data,
                 size_t size,
                 int (*find)(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset)) {
@@ -3672,11 +3677,14 @@ static int journal_seen_before(
 
         assert(seen);
 
-        /* Returns > 0 if the value was returned before. Segmented files may return a value more than once
-         * and cannot look one up cheaply, hence the set of what was returned covers them. */
+        if (current->segmented || previous_scanned) {
+                if (current->segmented && !previous_scanned) {
+                        r = segmented_has_value(current, data, size,
+                                                cursor->stage == 0 ? cursor->index : SIZE_MAX, /* include_tail= */ false);
+                        if (r != 0)
+                                return r;
+                }
 
-        /* Also once the last segmented file is gone, the set covers what was returned from it */
-        if (*seen || journal_has_segmented(j)) {
                 r = journal_seen(j, seen, data, size);
                 if (r != 0)
                         return r;
@@ -3686,8 +3694,15 @@ static int journal_seen_before(
                 if (of == current)
                         break;
 
-                if (of->segmented)
+                if (of->segmented) {
+                        if (previous_scanned)
+                                continue;
+
+                        r = segmented_has_value(of, data, size, SIZE_MAX, /* include_tail= */ true);
+                        if (r != 0)
+                                return r;
                         continue;
+                }
 
                 /* Skip this file it didn't have any fields indexed */
                 if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
@@ -3718,52 +3733,167 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         return 0;
 }
 
-static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, size_t *ret_size) {
-        JournalFile *f = ASSERT_PTR(ASSERT_PTR(j)->unique_file);
+static int unique_next(
+                JournalFile *f,
+                const char *field,
+                size_t k,
+                uint64_t *offset,
+                SegmentedCursor *cursor,
+                const void **ret_data,
+                size_t *ret_size) {
+
         Object *o;
         int r;
 
-        assert(ret_data);
-        assert(ret_size);
-
         if (f->segmented)
-                return segmented_enumerate_unique(f, j->unique_field, k, &j->unique_cursor, ret_data, ret_size);
+                return segmented_enumerate_unique(f, field, k, cursor, ret_data, ret_size);
 
-        /* Proceed to next data object in the field's linked list */
-        if (j->unique_offset == 0) {
-                r = journal_file_find_field_object(f, j->unique_field, k, &o, /* ret_offset= */ NULL);
+        if (*offset == 0) {
+                r = journal_file_find_field_object(f, field, k, &o, /* ret_offset= */ NULL);
                 if (r < 0)
                         return r;
 
-                j->unique_offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
+                *offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
         } else {
-                r = journal_file_move_to_object(f, OBJECT_DATA, j->unique_offset, &o);
+                r = journal_file_move_to_object(f, OBJECT_DATA, *offset, &o);
                 if (r < 0)
                         return r;
 
-                j->unique_offset = le64toh(o->data.next_field_offset);
+                *offset = le64toh(o->data.next_field_offset);
         }
 
-        if (j->unique_offset == 0)
+        if (*offset == 0)
                 return 0;
 
-        r = journal_file_data_payload_pinned(f, j->unique_offset, /* field= */ NULL, /* field_length= */ 0,
+        r = journal_file_data_payload_pinned(f, *offset, /* field= */ NULL, /* field_length= */ 0,
                                              ret_data, ret_size);
         if (r < 0)
                 return r;
 
-        /* Check if we have at least the field name and "=". */
         if (*ret_size <= k)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                       f->path, j->unique_offset, *ret_size, k + 1);
+                                       f->path, *offset, *ret_size, k + 1);
 
-        if (memcmp(*ret_data, j->unique_field, k) != 0 || ((const char*) *ret_data)[k] != '=')
+        if (memcmp(*ret_data, field, k) != 0 || ((const char*) *ret_data)[k] != '=')
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                       f->path, j->unique_offset, j->unique_field);
+                                       f->path, *offset, field);
 
         return 1;
+}
+
+static int unique_prepare_seen(sd_journal *j, size_t field_length, size_t value_size) {
+        _cleanup_set_free_ Set *candidates = NULL, *seen = NULL;
+        JournalFile *current = j->unique_file, *f;
+        uint64_t segment = current->segmented ? enumeration_segment(current, &j->unique_cursor) : 0, offset = 0;
+        bool scan = current->segmented && j->unique_cursor.stage != 0;
+        int r;
+
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
+                if (f->segmented) {
+                        Segmented *a = f->segmented;
+                        size_t n = f == current && j->unique_cursor.stage == 0 ? j->unique_cursor.index + 1 : a->n_indexes;
+
+                        if (f != current && a->n_tail_entries > 0)
+                                scan = true;
+
+                        for (size_t k = 0; !scan && k < n; k++) {
+                                IndexFieldItem item;
+
+                                r = segmented_index_find_field(f, a->indexes + k, j->unique_field, field_length, &item);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && FLAGS_SET(le32toh(item.flags), INDEX_FIELD_INLINE))
+                                        scan = true;
+                        }
+                }
+                if (f == current)
+                        break;
+        }
+        if (!scan) {
+                j->unique_seen = set_new(&id128_hash_ops_free);
+                j->unique_batch_left = SIZE_MAX;
+                return j->unique_seen ? 0 : -ENOMEM;
+        }
+
+        /* Inline values have no lookup table. Checking candidates in batches avoids scanning every
+         * earlier segment again for each value. Classic files use fixed-size batches to keep memory bounded. */
+        SegmentedCursor cursor = j->unique_cursor;
+        cursor.position = current->segmented && cursor.stage != 0 ? current->segmented->tail_offset : 0;
+        cursor.item = 0;
+        size_t n = 0;
+        if (!current->segmented) {
+                r = journal_seen(j, &candidates, j->unique_buffer, value_size);
+                if (r < 0)
+                        return r;
+                offset = j->unique_offset;
+                n = 1;
+        }
+
+        while (current->segmented || n < UNIQUE_BATCH_VALUES_MAX) {
+                const void *data;
+                size_t size;
+
+                r = unique_next(current, j->unique_field, field_length, &offset, &cursor, &data, &size);
+                if (JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                        continue;
+                if (r < 0)
+                        return r;
+                if (r == 0 || (current->segmented && enumeration_segment(current, &cursor) != segment))
+                        break;
+
+                r = journal_seen(j, &candidates, data, size);
+                if (r < 0)
+                        return r;
+                n++;
+        }
+
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
+                if (f->segmented) {
+                        cursor = (SegmentedCursor) {};
+                        for (;;) {
+                                const void *data;
+                                size_t size;
+
+                                r = segmented_enumerate_unique(f, j->unique_field, field_length, &cursor, &data, &size);
+                                if (JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                                if (r == 0 || (f == current && enumeration_segment(f, &cursor) >= segment))
+                                        break;
+
+                                sd_id128_t key = journal_seen_key(j, data, size);
+                                if (!set_contains(candidates, &key))
+                                        continue;
+
+                                r = journal_seen(j, &seen, data, size);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+                if (f == current)
+                        break;
+        }
+
+        j->unique_seen = TAKE_PTR(seen);
+        j->unique_batch_left = n;
+        return 1;
+}
+
+static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, size_t *ret_size) {
+        JournalFile *f = j->unique_file;
+        uint64_t previous = f->segmented ? enumeration_segment(f, &j->unique_cursor) : 0;
+        int r;
+
+        r = unique_next(f, j->unique_field, k, &j->unique_offset, &j->unique_cursor, ret_data, ret_size);
+        if ((f->segmented && previous != enumeration_segment(f, &j->unique_cursor)) ||
+            (!f->segmented && j->unique_batch_left == 0)) {
+                j->unique_seen = set_free(j->unique_seen);
+                j->unique_batch = false;
+        }
+        return r;
 }
 
 _public_ int sd_journal_enumerate_unique(
@@ -3807,13 +3937,32 @@ _public_ int sd_journal_enumerate_unique(
                         j->unique_file = enumeration_file(j, ordered_hashmap_next(j->files, j->unique_file->path));
                         j->unique_offset = 0;
                         j->unique_cursor = (SegmentedCursor) {};
+                        j->unique_seen = set_free(j->unique_seen);
                         if (!j->unique_file)
                                 return 0;
 
                         continue;
                 }
 
-                r = journal_seen_before(j, j->unique_file, &j->unique_seen, odata, ol, journal_file_find_data_object);
+                if (!GREEDY_REALLOC(j->unique_buffer, ol))
+                        return -ENOMEM;
+                memcpy(j->unique_buffer, odata, ol);
+                odata = j->unique_buffer;
+
+                if (!j->unique_seen) {
+                        r = unique_prepare_seen(j, k, ol);
+                        if (r < 0)
+                                return r;
+                        j->unique_batch = r > 0;
+                }
+                if (!j->unique_file->segmented && j->unique_batch_left != SIZE_MAX) {
+                        assert(j->unique_batch_left > 0);
+                        j->unique_batch_left--;
+                }
+
+                r = journal_seen_before(j, j->unique_file, &j->unique_seen, &j->unique_cursor,
+                                        j->unique_batch,
+                                        odata, ol, journal_file_find_data_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3858,8 +4007,13 @@ static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret
         assert(ret_name);
         assert(ret_size);
 
-        if (f->segmented)
-                return segmented_enumerate_fields(f, &j->fields_cursor, ret_name, ret_size);
+        if (f->segmented) {
+                uint64_t previous = enumeration_segment(f, &j->fields_cursor);
+                r = segmented_enumerate_fields(f, &j->fields_cursor, ret_name, ret_size);
+                if (previous != enumeration_segment(f, &j->fields_cursor))
+                        j->fields_seen = set_free(j->fields_seen);
+                return r;
+        }
 
         for (;;) {
                 if (j->fields_offset == 0) {
@@ -3959,8 +4113,14 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                         continue;
                 }
 
+                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
+                        return -ENOMEM;
+                memcpy(j->fields_buffer, name, sz);
+                name = j->fields_buffer;
+
                 /* Let's see if we already returned this field name before. */
-                r = journal_seen_before(j, j->fields_file, &j->fields_seen, name, sz, journal_file_find_field_object);
+                r = journal_seen_before(j, j->fields_file, &j->fields_seen, &j->fields_cursor,
+                                        /* previous_scanned= */ false, name, sz, journal_file_find_field_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3973,10 +4133,6 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 if (j->data_threshold > 0 && sz > j->data_threshold)
                         sz = j->data_threshold;
 
-                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
-                        return -ENOMEM;
-
-                memcpy(j->fields_buffer, name, sz);
                 j->fields_buffer[sz] = 0;
 
                 if (!field_is_valid(j->fields_buffer))
