@@ -469,24 +469,22 @@ static int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
                 return r;
 
         Object *o;
-        uint64_t p;
+        uint64_t p, epoch, seqnum = le64toh(f->header->n_tags) + 1;
+
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
         if (r < 0)
                 return r;
 
-        uint64_t seqnum = le64toh(f->header->n_tags) + 1;
         f->header->n_tags = htole64(seqnum);
 
-        o->tag.seqnum = htole64(seqnum);
-
-        uint64_t epoch;
         r = fsprg_get_epoch(&c->fsprg_state, &epoch);
         if (r < 0)
                 return r;
+
+        o->tag.seqnum = htole64(seqnum);
         o->tag.epoch = htole64(epoch);
 
-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
-                  le64toh(o->tag.seqnum), epoch);
+        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"", seqnum, epoch);
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
