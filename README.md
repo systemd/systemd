@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> Remove this line to confirm you have reviewed this PR before submitting.
+
 ![Systemd](http://brand.systemd.io/assets/page-logo.png)
 
 System and Service Manager

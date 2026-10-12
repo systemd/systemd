@@ -19,6 +19,7 @@ Requires=systemd-journald.socket
 Upholds=systemd-coredump-register.service
 
 ConditionVirtualization=!container
+ConditionKernelVersion=">=6.19"
 
 [Service]
 Type=notify-reload

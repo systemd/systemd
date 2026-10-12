@@ -18,6 +18,7 @@ Before=sysinit.target shutdown.target
 Conflicts=shutdown.target
 
 ConditionVirtualization=!container
+ConditionKernelVersion=">=6.19"
 RefuseManualStart=yes
 RefuseManualStop=yes
 
