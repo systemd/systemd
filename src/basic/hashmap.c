@@ -347,11 +347,20 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 
         assert(h);
 
-        siphash24_init(&state, hash_key(h));
-
-        h->hash_ops->hash(p, &state);
-
-        hash = siphash24_finalize(&state);
+        /* The keys of trivial_hash_ops and uint64_hash_ops fit in 64 bits. siphash24_uint64() hashes such
+         * a key without the indirect call through hash_ops and keeps the SipHash state in registers. On
+         * 32-bit and big-endian architectures, the result differs from the result of trivial_hash_func(),
+         * which hashes the key in native byte order. Only this function maps keys to buckets, so the
+         * difference does not matter. */
+        if (h->hash_ops->hash == trivial_hash_func)
+                hash = siphash24_uint64((uintptr_t) p, hash_key(h));
+        else if (h->hash_ops->hash == (hash_func_t) uint64_hash_func)
+                hash = siphash24_uint64(*(const uint64_t*) p, hash_key(h));
+        else {
+                siphash24_init(&state, hash_key(h));
+                h->hash_ops->hash(p, &state);
+                hash = siphash24_finalize(&state);
+        }
 
         /* n_buckets is not a power of two, so a modulo needs a division. Multiplying the upper 32 bits of
          * the hash with n_buckets and keeping the upper 32 bits of the product maps the hash to
