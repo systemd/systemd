@@ -279,7 +279,7 @@ int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t av
                 if (r < 0)
                         return r;
 
-                if (!whole)
+                if (!whole || offset == f->segmented->checked_entry_offset)
                         break;
 
                 for (uint64_t i = 0; i < n; i++) {
@@ -318,6 +318,7 @@ int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t av
                         previous = item;
                 }
 
+                f->segmented->checked_entry_offset = offset;
                 break;
         }
 
@@ -604,6 +605,10 @@ static int scan_object(JournalFile *f, uint64_t file_size) {
         if (r < 0)
                 return r;
 
+        /* A partial write might have been cut off and replaced, hence check the object even if an entry at
+         * this offset was checked before. */
+        a->checked_entry_offset = 0;
+
         bool valid =
                 le64toh(o->object.size) == size &&
                 segmented_checksum(f, p - a->scan_base, o, checked) == le32toh(o->object.checksum) &&
@@ -682,6 +687,7 @@ static void state_reset(JournalFile *f) {
 
         a->current_offset = a->current_ordinal = 0;
         a->fields_offset = 0;
+        a->checked_entry_offset = 0;
         a->tail_fields = set_free(a->tail_fields);
         a->tail_field_names = mfree(a->tail_field_names);
         a->n_tail_field_names = 0;
