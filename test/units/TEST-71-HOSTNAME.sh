@@ -509,6 +509,26 @@ testcase_tags() {
             '{"set":["k=1","bbb"],"add":["k=2"]}'
     assert_eq "$(hostnamectl tags)" "bbb:k=2"
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["bbb"]}'
+    # 'removePrefix' drops all tags with a matching prefix before 'add' is applied, so that all tags with
+    # a common prefix can be replaced atomically, while 'remove' is applied after 'add'.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"set":["company.x","company.bar=old","companyfoo","other"]}'
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"removePrefix":["company."],"add":["company.foo","company.bar=waldo"]}'
+    assert_eq "$(hostnamectl tags)" "company.bar=waldo:company.foo:companyfoo:other"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"removePrefix":["company.","other"],"add":["company.new","company.gone"],"remove":["company.gone"]}'
+    assert_eq "$(hostnamectl tags)" "company.new:companyfoo"
+    # ... and also applies to the list specified in 'set'.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"set":["k=1","k2","x"],"removePrefix":["k"]}'
+    assert_eq "$(hostnamectl tags)" "x"
+    # Invalid prefixes are refused.
+    (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"removePrefix":[""]}')
+    (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"removePrefix":[".x"]}')
+    (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"removePrefix":["x*"]}')
+    assert_eq "$(hostnamectl tags)" "x"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["bbb"]}'
     # Invalid tags are refused.
     (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
 
