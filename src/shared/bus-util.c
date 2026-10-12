@@ -412,18 +412,17 @@ int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus *
         if (asprintf(&p, "/run/user/" UID_FMT "/systemd/private", uid) < 0)
                 return -ENOMEM;
 
-        /* The user owns /run/user/UID. Without fs.protected_hardlinks, the user can replace the socket with
-         * a hardlink to a socket of another user. pin_socket() refuses symlinks but not hardlinks. Our
-         * connection as root to such a socket can start a socket-activated service that the user cannot
-         * start. */
+        /* The user owns /run/user/UID and can replace the socket with a symlink, or with a hardlink to a
+         * socket of another user if fs.protected_hardlinks is off. A connection as root to the socket of
+         * another user can start a socket-activated service that the user cannot start. pin_socket()
+         * refuses symlinks. pin_socket() also refuses a socket that another user owns, because CHASE_SAFE
+         * refuses the step from a directory that the user owns to a file that another user owns. */
         inode_fd = pin_socket(p, &st);
         if (inode_fd < 0)
                 return inode_fd;
 
         if (!S_ISSOCK(st.st_mode))
                 return -ENOTSOCK;
-        if (st.st_uid != uid)
-                return -EPERM;
 
         r = sd_bus_new(&bus);
         if (r < 0)
