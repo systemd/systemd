@@ -315,6 +315,8 @@ udevadm wait -h
 udevadm lock --help
 udevadm lock --version
 for i in /dev/block/*; do
+    # 'remove' uevents for loopback block devices may lack MAJOR=/MINOR=, leaving stale devlinks. Skip them.
+    [[ -e "$i" ]] || continue
     udevadm lock --device "$i" --print
     udevadm lock --device "$i" true
     (! udevadm lock --device "$i" false)
