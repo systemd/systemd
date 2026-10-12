@@ -237,6 +237,36 @@ uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]) {
         return siphash24_finalize_inline(&state);
 }
 
+uint64_t siphash24_uint64(uint64_t in, const uint8_t k[static 16]) {
+        uint64_t b = UINT64_C(8) << 56;
+        struct siphash state;
+
+        assert(k);
+
+        /* This returns the same value as siphash24() over the 8 byte little-endian encoding of in. It
+         * does not buffer partial input like siphash24_compress(), so gcc keeps the state in registers. */
+
+        siphash24_init_inline(&state, k);
+
+        state.v3 ^= in;
+        sipround(&state);
+        sipround(&state);
+        state.v0 ^= in;
+
+        state.v3 ^= b;
+        sipround(&state);
+        sipround(&state);
+        state.v0 ^= b;
+
+        state.v2 ^= 0xff;
+        sipround(&state);
+        sipround(&state);
+        sipround(&state);
+        sipround(&state);
+
+        return state.v0 ^ state.v1 ^ state.v2 ^ state.v3;
+}
+
 uint64_t siphash24_string(const char *s, const uint8_t k[static 16]) {
         return siphash24(s, strlen(s) + 1, k);
 }
