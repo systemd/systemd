@@ -34,6 +34,13 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        Changes in systemd-coredump and coredumpctl:
+
+        * systemd-coredumpd.service and systemd-coredump-register.service are
+          skipped on kernels older than Linux 6.19, where the kernel coredump
+          socket protocol is not fully supported. Coredumps continue to use
+          the per-coredump systemd-coredump@.service path on these kernels.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
