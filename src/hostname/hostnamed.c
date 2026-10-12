@@ -1713,19 +1713,23 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = ASSERT_PTR(userdata);
+static int bus_edit_tags(
+                sd_bus_message *m,
+                Context *c,
+                char **remove_prefix,
+                char **add,
+                char **remove,
+                sd_bus_error *error) {
+
         int r;
 
         assert(m);
+        assert(c);
 
-        _cleanup_strv_free_ char **add = NULL, **remove = NULL;
-        r = sd_bus_message_read_strv(m, &add);
-        if (r < 0)
-                return r;
-        r = sd_bus_message_read_strv(m, &remove);
-        if (r < 0)
-                return r;
+        if (!machine_tag_prefix_list_is_valid(remove_prefix)) {
+                _cleanup_free_ char *j = strv_join(remove_prefix, ":");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag prefixes to remove '%s'", strna(j));
+        }
 
         r = machine_tag_list_is_valid(add);
         if (r < 0)
@@ -1745,14 +1749,15 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
 
         context_read_machine_info(c);
 
-        /* Start from the current tags, add the requested ones, then drop the ones to be removed. */
+        /* Start from the current tags, drop the ones matching the prefixes, add the requested ones, then
+         * drop the ones to be removed. */
         _cleanup_strv_free_ char **current = NULL;
         r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse current machine tags: %m");
 
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(current, /* remove_prefix= */ NULL, add, remove, &tags);
+        r = machine_tags_edit(current, remove_prefix, add, remove, &tags);
         if (r == -E2BIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
         if (r < 0)
@@ -1780,6 +1785,50 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return bus_error_from_tags_write(error, r);
 
         return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **add = NULL, **remove = NULL;
+        r = sd_bus_message_read_strv(m, &add);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read_strv(m, &remove);
+        if (r < 0)
+                return r;
+
+        return bus_edit_tags(m, c, /* remove_prefix= */ NULL, add, remove, error);
+}
+
+static int method_edit_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        uint64_t flags;
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **remove_prefix = NULL, **add = NULL, **remove = NULL;
+        r = sd_bus_message_read_strv(m, &remove_prefix);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read_strv(m, &add);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read_strv(m, &remove);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read(m, "t", &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+
+        return bus_edit_tags(m, c, remove_prefix, add, remove, error);
 }
 
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -2150,6 +2199,11 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_ARGS("as", add, "as", remove),
                                 SD_BUS_NO_RESULT,
                                 method_add_and_remove_tags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("EditTags",
+                                SD_BUS_ARGS("as", remove_prefix, "as", add, "as", remove, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_edit_tags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetProductUUID",
                                 SD_BUS_ARGS("b", interactive),
