@@ -303,6 +303,10 @@ The field table marks a field that has inline values with a flag.
 The list of fields is writer policy. Readers only go by what is in the file.
 The index has no posting lists for inline values, so a match on a field with inline values reads the entries of the segment and checks them.
 
+Listing unique inline values checks one segment at a time. Earlier segments are scanned once for the values of that segment.
+Duplicate tracking uses memory proportional to the values in the segment being listed.
+A classic file listed after segmented files uses batches of at most 512 values.
+
 ## Sealing and Verification
 
 Forward secure sealing works as before. The HMAC covers the data, context, entry, and tag objects.

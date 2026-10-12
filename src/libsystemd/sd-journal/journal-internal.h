@@ -101,10 +101,13 @@ typedef struct sd_journal {
 
         /* Iterating through unique fields and their data values */
         char *unique_field;
+        uint8_t *unique_buffer;
         JournalFile *unique_file;
         uint64_t unique_offset;
         SegmentedCursor unique_cursor;
         Set *unique_seen;
+        bool unique_batch;
+        size_t unique_batch_left;
 
         /* Iterating through known fields */
         JournalFile *fields_file;

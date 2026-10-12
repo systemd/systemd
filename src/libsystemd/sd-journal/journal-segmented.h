@@ -92,6 +92,14 @@ typedef struct Segmented {
 
         uint8_t *inline_buffer;
 
+        /* The distinct field names in the tail from tail_fields_base to tail_fields_end, in the order in
+         * which they first appear. tail_fields owns the strings. */
+        Set *tail_fields;
+        const char **tail_field_names;
+        size_t n_tail_field_names;
+        uint64_t tail_fields_base;
+        uint64_t tail_fields_end;
+
         SegmentedResult results[SEGMENTED_RESULTS_MAX];
         uint64_t result_counter;
 
@@ -168,6 +176,10 @@ int segmented_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec
 /* SegmentedCursor must start out zeroed. */
 typedef struct SegmentedCursor {
         unsigned generation;
+        size_t n_indexes;
+        uint64_t last_index_offset;
+        uint64_t stage;
+        uint64_t index;
         uint64_t position;
         uint64_t item;
 } SegmentedCursor;
@@ -180,6 +192,9 @@ int segmented_enumerate_unique(
                 SegmentedCursor *c,
                 const void **ret_data,
                 size_t *ret_size);
+
+int segmented_has_value(JournalFile *f, const void *data, size_t size, size_t n_indexes, bool include_tail);
+
 
 int segmented_append_entry(
                 JournalFile *f,
@@ -200,5 +215,3 @@ int segmented_flush(JournalFile *f);
 void segmented_offline_prepare(JournalFile *f);
 bool segmented_offline(JournalFile *f);
 int segmented_offline_finish(JournalFile *f);
-
-int segmented_has_value(JournalFile *f, const void *data, size_t size, size_t n_indexes, bool include_tail);
