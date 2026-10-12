@@ -455,6 +455,21 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RetryPrimaryDNSServerSec=</varname><replaceable>SECONDS</replaceable></term>
+        <listitem><para>Takes a duration value. When <command>systemd-resolved</command> has switched away
+        from the first configured DNS server (for example because it failed to respond), it will switch back
+        to it once the specified time has passed since the last server switch. This applies to the global DNS
+        servers, to per-link DNS servers and to DNS delegates. Fallback DNS servers configured with
+        <varname>FallbackDNS=</varname> are not affected. By default, this value is set to zero, meaning that
+        <command>systemd-resolved</command> keeps using the currently selected DNS server until it fails, and
+        never retries the primary one on its own.</para>
+
+        <para>This is useful when the primary DNS server was only briefly unreachable, so that queries return
+        to it once it has recovered instead of stayong on a secondary server indefinitely.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

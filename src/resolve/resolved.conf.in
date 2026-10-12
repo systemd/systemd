@@ -45,4 +45,5 @@
 #ReadStaticRecords=yes
 #ResolveUnicastSingleLabel=no
 #StaleRetentionSec=0
+#RetryPrimaryDNSServerSec=0
 #RefuseRecordTypes=
