@@ -31,8 +31,11 @@ TEST(memfd_get_sealed) {
         ASSERT_EQ(size, new_size / 2);
 
         ASSERT_OK_ZERO(memfd_get_sealed(fd));
-        ASSERT_OK(memfd_set_sealed(fd));
+        ASSERT_OK(memfd_set_sealed_gracefully(fd));
         ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
+        ASSERT_OK(memfd_set_sealed_gracefully(fd));
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
+        ASSERT_ERROR(memfd_set_sealed(fd), EPERM);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
