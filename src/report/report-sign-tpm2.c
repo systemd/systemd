@@ -757,7 +757,10 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cv = NULL;
         FOREACH_ARRAY(c, report->components, report->n_components) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *pcr_values = NULL, *nv_public = NULL, *tpm_prop = NULL,
-                        *auth_policy = NULL;
+                        *auth_policy = NULL, *key_public = NULL;
+                _cleanup_free_ char *key_public_pem = NULL;
+                _cleanup_free_ void *key_public_tpm2b = NULL;
+                size_t key_public_tpm2b_size = 0;
                 const char *session_audit_hash_alg = NULL;
 
                 switch (c->type) {
@@ -787,6 +790,29 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                         if (r < 0)
                                 return log_error_errno(r, "Cannot convert NvPCR public area to JSON: %m");
                         break;
+
+                case TPM2_REPORT_TYPE_KEY_CERTIFICATION: {
+                        /* The public area of a certified key is provided in three encodings: as TSS2 JSON
+                         * (like the signing key), as PEM (for verifying the certification with generic
+                         * tools), and as marshalled TPM2B_PUBLIC (which is what systemd-cryptenroll and
+                         * systemd-repart consume via --tpm2-device-key= when sealing secrets to the key). */
+                        r = tpm2_tpmt_public_to_json(c->key_public, &key_public);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert certified key public area to JSON: %m");
+
+                        r = tpm2_tpmt_public_to_pem(c->key_public, &key_public_pem);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert certified key public area to PEM: %m");
+
+                        TPM2B_PUBLIC public2b = {
+                                .size = sizeof(TPMT_PUBLIC),
+                                .publicArea = *c->key_public,
+                        };
+                        r = tpm2_marshal_public(&public2b, &key_public_tpm2b, &key_public_tpm2b_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot marshal certified key public area: %m");
+                        break;
+                }
 
                 case TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY:
                         r = tpm2_tpms_tagged_property_to_json(c->property, &tpm_prop);
@@ -838,6 +864,9 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("nvpcrName", c->nv_pcr_name),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("nvPublic", nv_public),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("authenticatedData", c->authenticated_data),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("keyPublic", key_public),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("keyPublicPEM", key_public_pem),
+                                JSON_BUILD_PAIR_BASE64_NON_EMPTY("keyPublicTPM2B", key_public_tpm2b, key_public_tpm2b_size),
                                 JSON_BUILD_PAIR_CONDITION_BOOLEAN(
                                                 IN_SET(c->type, TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY, TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY),
                                                 "capabilityMoreData", c->more_caps),
@@ -930,6 +959,28 @@ static int vl_method_sign(
         if (r < 0)
                 return log_error_errno(r, "Failed to load any signing keys: %m");
 
+        /* Also certify the SRK with each signing key, and include its public area in the report. Secrets
+         * sealed to a certified SRK (e.g. via the --tpm2-device-key= switch of systemd-cryptenroll or
+         * systemd-repart) can only be unsealed by this TPM, hence a verifier of the report can use it to
+         * encrypt data for this system specifically. As TPM2_Clear replaces the SRK, the certification is
+         * also evidence that the TPM has not been cleared since the report was generated, as long as the
+         * SRK stays the same. If there is no SRK yet we create one, like systemd-cryptenroll does, which
+         * requires the owner hierarchy authorization to be empty. The report remains useful without the
+         * certification, hence failure to acquire the SRK is not fatal, and as we serve a single request
+         * per process it is not worth more than a notice either. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
+        r = tpm2_get_or_create_srk(
+                        c,
+                        /* session= */ NULL,
+                        /* ret_public= */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_qname= */ NULL,
+                        &srk_handle);
+        if (r < 0)
+                log_notice_errno(r, "Failed to acquire SRK, not certifying it in the report: %m");
+        else if (r > 0)
+                log_debug("Created and persisted a new SRK.");
+
         /* Generate a signed TPM report for each signing key. */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dv = NULL;
         FOREACH_ARRAY(key, keys, n_keys) {
@@ -939,7 +990,7 @@ static int vl_method_sign(
                         return log_error_errno(r, "Failed to acquire a signing key handle for key '%s': %m", key->name);
 
                 _cleanup_(tpm2_report_freep) Tpm2Report *report = NULL;
-                r = tpm2_generate_report(c, &opts, key_handle, /* certify_key= */ NULL, &external_data, &report);
+                r = tpm2_generate_report(c, &opts, key_handle, srk_handle, &external_data, &report);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate TPM report with key '%s': %m", key->name);
 
