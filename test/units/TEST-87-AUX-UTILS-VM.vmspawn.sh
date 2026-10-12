@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Test vmspawn QMP-varlink bridge and machinectl VM control verbs.
+# Test vmspawn: QMP-varlink bridge, machinectl VM control verbs, and error reporting.
 set -eux
 set -o pipefail
 
@@ -291,5 +291,28 @@ echo "Parallel terminate succeeded, both VMs gone"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
 echo "Both vmspawn processes exited"
+
+# --- Regression test: early qemu failure ---
+# qemu dies before the QMP handshake; vmspawn must log qemu's stderr (in the PTY modes it
+# previously vanished into the never-forwarded PTY) and report a failure rather than success.
+for console in headless read-only; do
+    OUT="$WORKDIR/early-fail-$console.log"
+    rc=0
+    SYSTEMD_VMSPAWN_QEMU_EXTRA=-bogus timeout 60 systemd-vmspawn \
+        --machine="${MACHINE}-fail" \
+        --register=no \
+        --console="$console" \
+        --directory="$WORKDIR/root" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        &>"$OUT" || rc=$?
+    cat "$OUT"
+
+    # Whichever of qemu and the helper processes we notice dying first determines the exit status,
+    # so only assert that a failure is reported at all, not which status it is.
+    [[ $rc -ne 0 ]]
+    grep -E '(invalid|unknown) option' "$OUT" >/dev/null
+done
+echo "Regression test: early qemu failure passed"
 
 echo "All vmspawn QMP-varlink bridge tests passed"
