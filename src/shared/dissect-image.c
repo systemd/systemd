@@ -1099,8 +1099,8 @@ static int dissect_image(
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *generic_node = NULL;
-        sd_id128_t generic_uuid = SD_ID128_NULL;
+        _cleanup_free_ char *generic_node = NULL, *generic_label = NULL;
+        sd_id128_t generic_uuid = SD_ID128_NULL, generic_type_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
@@ -1558,7 +1558,12 @@ static int dissect_image(
                                         generic_rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                         generic_growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
                                         generic_uuid = id;
+                                        generic_type_uuid = type.uuid;
                                         generic_node = TAKE_PTR(node);
+
+                                        r = free_and_strdup(&generic_label, label);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                         } else if (type.designator == PARTITION_VAR) {
@@ -1674,6 +1679,7 @@ static int dissect_image(
                                         .fstype = TAKE_PTR(t),
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
+                                        .type_uuid = type.uuid,
                                         .mount_options = TAKE_PTR(o),
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
@@ -1855,7 +1861,9 @@ static int dissect_image(
                                         .partno = generic_nr,
                                         .architecture = _ARCHITECTURE_INVALID,
                                         .node = TAKE_PTR(n),
+                                        .label = TAKE_PTR(generic_label),
                                         .uuid = generic_uuid,
+                                        .type_uuid = generic_type_uuid,
                                         .mount_options = TAKE_PTR(o),
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = UINT64_MAX,

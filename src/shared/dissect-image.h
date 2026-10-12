@@ -18,6 +18,7 @@ typedef struct DissectedPartition {
         int partno;                 /* -1 if there was no partition and the images contains a file system directly */
         Architecture architecture;  /* Intended architecture: either native, secondary or unset ARCHITECTURE_INVALID. */
         sd_id128_t uuid;            /* Partition entry UUID as reported by the GPT */
+        sd_id128_t type_uuid;       /* Partition type UUID as reported by the GPT */
         char *fstype;
         char *node;
         char *label;
