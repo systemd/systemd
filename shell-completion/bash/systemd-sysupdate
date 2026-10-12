@@ -54,6 +54,7 @@ _systemd-sysupdate() {
                --sync
                --verify
                --cleanup
+               --loop
                --json'
     )
 
@@ -92,7 +93,7 @@ _systemd-sysupdate() {
             --image-policy)
                 comps=''
                 ;;
-            --instances-max|-m)
+            --instances-max|-m|--loop)
                 comps=''
                 ;;
             --sync|--verify|--cleanup)
