@@ -1752,7 +1752,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return log_error_errno(r, "Failed to parse current machine tags: %m");
 
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(current, add, remove, &tags);
+        r = machine_tags_edit(current, /* remove_prefix= */ NULL, add, remove, &tags);
         if (r == -E2BIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
         if (r < 0)
@@ -2562,7 +2562,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         /* Use either the explicitly specified tag list or the current one as the basis, then apply the
          * additions and removals on top. */
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(reset ? p.set : current, p.add, p.remove, &tags);
+        r = machine_tags_edit(reset ? p.set : current, /* remove_prefix= */ NULL, p.add, p.remove, &tags);
         if (r == -E2BIG)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
         if (r < 0)
