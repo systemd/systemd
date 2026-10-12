@@ -1248,7 +1248,15 @@
         scenarios, which puts together the mount hierarchy from untrusted data from the GPT partition
         table. As these extended attributes are stored inside the file system, they are typically
         authenticated as part of the file system (assuming it is contained in protected volume; i.e. LUKS or
-        dm-verity), and hence may be used to securely validate the matching partition table fields.</para>
+        dm-verity), and hence may be used to securely validate the matching partition table fields. The
+        same constraints are also enforced when the partitions are mounted as part of a disk image, for
+        example via
+        <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Note that this means that a file system generated with this option enabled cannot be used as bare
+        file system image without partition table anymore, since its GPT constraints cannot be fulfilled
+        then.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
