@@ -52,6 +52,9 @@ int compressor_new(Compressor **ret, Compression type);
 int compressor_start(Compressor *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 
+/* Limit xz decoder memory and the zstd window size (rounded down to a power of two). Other codecs
+ * ignore max_memory. UINT64_MAX uses each codec's default. */
+int decompressor_new_limited(Compression type, uint64_t max_memory, Decompressor **ret);
 int decompressor_detect(Decompressor **decompressor, const void *data, size_t size);
 int decompressor_force_off(Decompressor **decompressor);
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata);
@@ -74,6 +77,17 @@ int decompress_blob_journal(
 int decompress_blob(Compression compression,
                     const void *src, uint64_t src_size,
                     void **dst, size_t *dst_size, size_t dst_max);
+
+/* Finds the end of an LZ4 blob from compress_blob(): a little-endian 64-bit decoded size, then one raw
+ * LZ4 block whose length is not stored. Returns 1 with the blob's size in scan->offset, 0 if more data is
+ * needed, or -EBADMSG. Only the framing is checked. To continue after 0, pass the same scan and the same
+ * data with more appended. Zero-initialize scan for each blob. */
+typedef struct LZ4BlobScan {
+        size_t offset;
+        uint64_t decoded;
+} LZ4BlobScan;
+
+int lz4_blob_scan(const void *data, size_t size, LZ4BlobScan *scan);
 
 int decompress_zlib_raw(const void *src, uint64_t src_size,
                         void *dst, size_t dst_size, int wbits);
