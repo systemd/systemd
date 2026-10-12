@@ -244,4 +244,47 @@ TEST(machine_tags_from_string) {
         assert_se(!l);
 }
 
+static void test_machine_tags_edit_one(char **base, char **add, char **remove, char **expected) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        ASSERT_OK(machine_tags_edit(base, add, remove, &l));
+        assert_se(strv_equal(strv_isempty(l) ? NULL : l, expected));
+}
+
+TEST(machine_tags_edit) {
+        test_machine_tags_edit_one(NULL, NULL, NULL, NULL);
+        test_machine_tags_edit_one(STRV_MAKE("foo", "bar"), NULL, NULL, STRV_MAKE("bar", "foo"));
+        test_machine_tags_edit_one(STRV_MAKE("foo"), STRV_MAKE("bar", "foo"), NULL, STRV_MAKE("bar", "foo"));
+        test_machine_tags_edit_one(STRV_MAKE("foo", "bar"), NULL, STRV_MAKE("foo", "nonexistent"), STRV_MAKE("bar"));
+        test_machine_tags_edit_one(STRV_MAKE("foo", "bar"), NULL, STRV_MAKE("foo", "bar"), NULL);
+
+        /* Removal wins over addition */
+        test_machine_tags_edit_one(NULL, STRV_MAKE("foo", "bar"), STRV_MAKE("foo"), STRV_MAKE("bar"));
+
+        /* An added assignment replaces an existing assignment of the same key, but leaves a bare tag of the
+         * same name and assignments of other keys alone */
+        test_machine_tags_edit_one(STRV_MAKE("foo=a", "foo", "foobar=x", "bar=b"), STRV_MAKE("foo=b"), NULL,
+                                   STRV_MAKE("bar=b", "foo", "foo=b", "foobar=x"));
+        test_machine_tags_edit_one(STRV_MAKE("foo=a"), STRV_MAKE("foo=a"), NULL, STRV_MAKE("foo=a"));
+        test_machine_tags_edit_one(STRV_MAKE("foo=a"), STRV_MAKE("foo="), NULL, STRV_MAKE("foo="));
+
+        /* Adding a bare tag does not drop an assignment of the same name */
+        test_machine_tags_edit_one(STRV_MAKE("foo=a"), STRV_MAKE("foo"), NULL, STRV_MAKE("foo", "foo=a"));
+
+        /* Removal needs an exact match, a bare tag does not remove an assignment */
+        test_machine_tags_edit_one(STRV_MAKE("foo=a"), NULL, STRV_MAKE("foo", "foo=b"), STRV_MAKE("foo=a"));
+        test_machine_tags_edit_one(STRV_MAKE("foo=a"), STRV_MAKE("foo=b"), STRV_MAKE("foo=b"), NULL);
+
+        /* Too many tags */
+        _cleanup_strv_free_ char **many = NULL;
+        for (unsigned i = 0; i <= MACHINE_TAGS_MAX; i++)
+                ASSERT_OK(strv_extendf(&many, "tag%u", i));
+
+        _cleanup_strv_free_ char **l = NULL;
+        ASSERT_ERROR(machine_tags_edit(NULL, many, NULL, &l), E2BIG);
+        assert_se(!l);
+        ASSERT_OK(machine_tags_edit(NULL, many, STRV_MAKE("tag0"), &l));
+        assert_se(strv_length(l) == MACHINE_TAGS_MAX);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
