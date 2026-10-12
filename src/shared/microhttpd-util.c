@@ -8,6 +8,7 @@
 #include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 #if HAVE_MICROHTTPD
 DLSYM_PROTOTYPE(MHD_add_response_header) = NULL;
@@ -366,3 +367,10 @@ int setup_gnutls_logger(char **categories) {
 #endif
 
 #endif
+
+usec_t mhd_timeout_to_deadline(usec_t now_usec, uint64_t timeout_msec) {
+        if (timeout_msec > (USEC_INFINITY - now_usec) / USEC_PER_MSEC)
+                return USEC_INFINITY;
+
+        return now_usec + timeout_msec * USEC_PER_MSEC;
+}
