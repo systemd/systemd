@@ -106,6 +106,22 @@ int memfd_get_sealed(int fd) {
         return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
+int memfd_set_sealed_gracefully(int fd) {
+        int r;
+
+        r = memfd_set_sealed(fd);
+        if (r != -EPERM)
+                return r;
+
+        /* Already sealed? Check if required seals are set. */
+        r = memfd_get_sealed(fd);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM; /* Propagate the original error. */
+        return 0;
+}
+
 int memfd_get_size(int fd, uint64_t *ret) {
         struct stat stat;
 
