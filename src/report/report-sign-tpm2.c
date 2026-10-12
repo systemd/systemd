@@ -939,7 +939,7 @@ static int vl_method_sign(
                         return log_error_errno(r, "Failed to acquire a signing key handle for key '%s': %m", key->name);
 
                 _cleanup_(tpm2_report_freep) Tpm2Report *report = NULL;
-                r = tpm2_generate_report(c, &opts, key_handle, &external_data, &report);
+                r = tpm2_generate_report(c, &opts, key_handle, /* certify_key= */ NULL, /* certify_key_public= */ NULL, &external_data, &report);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate TPM report with key '%s': %m", key->name);
 
