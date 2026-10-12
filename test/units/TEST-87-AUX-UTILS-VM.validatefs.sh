@@ -19,10 +19,13 @@ export PAGER=cat
 at_exit() {
     set +e
     rm -rf /tmp/validatefs-test/
-    rm -f /var/tmp/validatefs-test.raw
-    systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
+    umount -R /tmp/validatefs-test.mount
+    rmdir /tmp/validatefs-test.mount
     umount /tmp/validatefs-test.fake
     rmdir /tmp/validatefs-test.fake
+    umount /tmp/validatefs-test.tamper
+    rmdir /tmp/validatefs-test.tamper
+    rm -f /var/tmp/validatefs-test.raw /var/tmp/validatefs-test.pristine.raw /var/tmp/validatefs-test.bare.raw /tmp/validatefs-test.err
 }
 
 trap at_exit EXIT
@@ -125,3 +128,119 @@ if setfattr -n "user.validatefs.mount_point" -v "/foo\000/bar\000/tmp/validatefs
     setfattr -n "user.validatefs.mount_point" -v "/knurz/schnurz\000/foo/bar/mor\000/end" /tmp/validatefs-test.fake
     (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.fake )
 fi
+
+umount /tmp/validatefs-test.fake
+rmdir /tmp/validatefs-test.fake
+
+# Now check that the image dissection logic enforces the very same constraints when mounting the image
+umount /tmp/validatefs-test.mount/somewhere/else
+systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
+
+cp --sparse=always /var/tmp/validatefs-test.raw /var/tmp/validatefs-test.pristine.raw
+
+# Modifies an xattr on the root inode of the file system in the partition with the specified label
+tamper() {
+    local label="${1:?}" name="${2:?}" value="${3:?}" loop node
+
+    cp --sparse=always /var/tmp/validatefs-test.pristine.raw /var/tmp/validatefs-test.raw
+
+    loop="$(systemd-dissect --attach /var/tmp/validatefs-test.raw)"
+    node="$(sfdisk --json "$loop" | jq -r --arg l "$label" '.partitiontable.partitions[] | select(.name == $l) | .node')"
+    udevadm wait --settle --timeout=30 "$node"
+
+    mkdir -p /tmp/validatefs-test.tamper
+    mount "$node" /tmp/validatefs-test.tamper
+    setfattr -n "$name" -v "$value" /tmp/validatefs-test.tamper
+    getfattr --dump /tmp/validatefs-test.tamper
+    umount /tmp/validatefs-test.tamper
+    rmdir /tmp/validatefs-test.tamper
+
+    systemd-dissect --detach "$loop"
+}
+
+# Changes the GPT partition label of the partition with the specified label
+relabel() {
+    local label="${1:?}" new="${2:?}" nr
+
+    cp --sparse=always /var/tmp/validatefs-test.pristine.raw /var/tmp/validatefs-test.raw
+
+    nr="$(sfdisk --json /var/tmp/validatefs-test.raw | jq -r --arg l "$label" '.partitiontable.partitions | map(.name) | index($l) + 1')"
+    sfdisk --part-label /var/tmp/validatefs-test.raw "$nr" "$new"
+}
+
+# Checks that mounting the image fails due to validation (and that the refused file system is not left
+# mounted at the specified path within the image), and then that it works with validation turned off
+check_refused() {
+    local image="${1:?}" path="${2:?}"
+
+    (! systemd-dissect --mount --mkdir "$image" /tmp/validatefs-test.mount 2>/tmp/validatefs-test.err)
+    cat /tmp/validatefs-test.err
+    grep "File system validation constraints not met" /tmp/validatefs-test.err >/dev/null
+    (! mountpoint -q "/tmp/validatefs-test.mount$path")
+    # If a non-root partition is supposed to be refused, make sure the root partition got mounted, so that
+    # we know it was really the partition in question that got refused
+    [[ "$path" == / ]] || mountpoint -q /tmp/validatefs-test.mount
+    # The dissection logic leaves partial mounts around on failure, clean them up
+    umount -R /tmp/validatefs-test.mount || :
+
+    SYSTEMD_DISSECT_VALIDATEFS=0 systemd-dissect --mount --mkdir "$image" /tmp/validatefs-test.mount
+    systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
+}
+
+# The untampered image must mount fine (this is where the constraints are validated in the positive case)
+systemd-dissect --mount --mkdir /var/tmp/validatefs-test.raw /tmp/validatefs-test.mount
+systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
+
+# Root file system claims to belong to /home
+tamper kromm user.validatefs.mount_point "/home"
+check_refused /var/tmp/validatefs-test.raw /
+
+# /home file system claims to be in a partition with a different label
+tamper rupft user.validatefs.gpt_label "wrong"
+check_refused /var/tmp/validatefs-test.raw /home
+
+# /home file system has an invalid type UUID constraint
+tamper rupft user.validatefs.gpt_type_uuid "nouuid"
+check_refused /var/tmp/validatefs-test.raw /home
+
+# /home file system claims to be in a partition of type srv
+tamper rupft user.validatefs.gpt_type_uuid "3b8f8425-20e0-4f3b-907f-1a25a76f98e8"
+check_refused /var/tmp/validatefs-test.raw /home
+
+# The (unprotected) GPT label of the /home partition is changed
+relabel rupft wrong
+check_refused /var/tmp/validatefs-test.raw /home
+
+# The (unprotected) GPT label of the Verity hash partition of /usr is changed. Note that /usr is
+# Verity protected, hence we cannot modify its xattrs, but the GPT partition label is not protected.
+relabel plisch-verity plisch-wrong
+check_refused /var/tmp/validatefs-test.raw /usr
+
+# Restore the pristine image, which must mount fine again
+cp --sparse=always /var/tmp/validatefs-test.pristine.raw /var/tmp/validatefs-test.raw
+systemd-dissect --mount --mkdir /var/tmp/validatefs-test.raw /tmp/validatefs-test.mount
+systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
+
+# Now extract the /home file system into a bare file system image, without partition table. This must be
+# refused, since it would be mounted as root, not as /home.
+read -r start size < <(sfdisk --json /var/tmp/validatefs-test.pristine.raw | jq -r '.partitiontable.partitions[] | select(.name == "rupft") | "\(.start) \(.size)"')
+dd if=/var/tmp/validatefs-test.pristine.raw of=/var/tmp/validatefs-test.bare.raw bs=512 skip="$start" count="$size" conv=sparse
+check_refused /var/tmp/validatefs-test.bare.raw /
+
+# Even if declared to be a root file system it must be refused, since it carries GPT constraints, but
+# there is no GPT partition table
+mkdir /tmp/validatefs-test.tamper
+mount /var/tmp/validatefs-test.bare.raw /tmp/validatefs-test.tamper
+setfattr -n user.validatefs.mount_point -v "/" /tmp/validatefs-test.tamper
+umount /tmp/validatefs-test.tamper
+check_refused /var/tmp/validatefs-test.bare.raw /
+grep "is supposed to be placed on a GPT partition, but partition table type is 'bare'" /tmp/validatefs-test.err >/dev/null
+
+# Once the GPT constraints are dropped it may be mounted
+mount /var/tmp/validatefs-test.bare.raw /tmp/validatefs-test.tamper
+setfattr -x user.validatefs.gpt_label /tmp/validatefs-test.tamper
+setfattr -x user.validatefs.gpt_type_uuid /tmp/validatefs-test.tamper
+umount /tmp/validatefs-test.tamper
+rmdir /tmp/validatefs-test.tamper
+systemd-dissect --mount --mkdir /var/tmp/validatefs-test.bare.raw /tmp/validatefs-test.mount
+systemd-dissect --umount --rmdir /tmp/validatefs-test.mount
