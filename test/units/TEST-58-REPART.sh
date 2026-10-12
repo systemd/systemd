@@ -715,6 +715,46 @@ EOF
     assert_in "$imgs/auto3 : start=       45056, size=       20480, type=${root_guid}," "$output"
 }
 
+testcase_size_auto_foreign_partitions() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** Adding a partition with --size=auto to an image with foreign partitions ***"
+
+    # --size=auto reloads the partition table, which must not lose the UUID and label of the existing
+    # partitions that have no definition.
+    truncate -s 12M "$imgs/foreign.img"
+    sfdisk "$imgs/foreign.img" <<EOF
+label: gpt
+size=10M, type=${esp_guid}, uuid=${root_uuid2}, name="foreign",
+EOF
+
+    tee "$defs/usr.conf" <<EOF
+[Partition]
+Type=usr
+Label=new
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --size=auto \
+                   --dry-run=no \
+                   "$imgs/foreign.img"
+
+    output=$(sfdisk --dump "$imgs/foreign.img")
+
+    assert_in "$imgs/foreign.img1 : start=        2048, size=       20480, type=${esp_guid}, uuid=${root_uuid2}, name=\"foreign\"" "$output"
+    assert_in "$imgs/foreign.img2 : start=       22528, size=       20480, type=${usr_guid}, uuid=${usr_uuid}, name=\"new\"" "$output"
+}
+
 testcase_dropin() {
     local defs imgs output
 
