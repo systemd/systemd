@@ -127,6 +127,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- teach hostnamed to unset tags by wildcard
+
+- define portabled auto-attach dir where DDIs can be dropped that are
+  automatically attached after an explicit call to work on it
+
+- portabled attempt counters and automatic fallback with reattachment of
+  portable service
+
+- make vpick assessment counting work
+
 - sysext: condition confext/sysext on machine tags, too
 
 - sysupdate: add health check logic, revert updates if fail
