@@ -52,6 +52,7 @@ typedef struct SegmentedResult {
 
         /* For each value of the match expression, in the order they appear in it */
         uint64_t *hashes;
+        uint64_t *confirmed; /* offset of a data object known to have this value, or 0 */
         size_t n_values;
 
         /* For a single value, so that the result can be rebuilt without the match */
@@ -94,6 +95,9 @@ typedef struct Segmented {
         uint64_t current_ordinal;
 
         uint64_t fields_offset;
+
+        /* The entry whose items were checked last. sd-journal loads an entry again for each field. */
+        uint64_t checked_entry_offset;
         SegmentedField *fields;
         size_t n_fields;
 

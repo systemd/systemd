@@ -313,6 +313,7 @@ void segmented_result_done(SegmentedResult *result) {
         posting_bitmap_done(&result->candidates);
         posting_bitmap_done(&result->verified);
         free(result->hashes);
+        free(result->confirmed);
         free(result->value);
 
         *result = (SegmentedResult) {};
@@ -334,10 +335,12 @@ static int result_add_values(JournalFile *f, SegmentedResult *result, Match *m) 
                 return 0;
         }
 
-        if (!GREEDY_REALLOC(result->hashes, result->n_values + 1))
+        if (!GREEDY_REALLOC(result->hashes, result->n_values + 1) ||
+            !GREEDY_REALLOC(result->confirmed, result->n_values + 1))
                 return -ENOMEM;
 
         result->hashes[result->n_values] = journal_file_hash_data(f, m->data, m->size);
+        result->confirmed[result->n_values] = 0;
         result->n_values++;
         return 0;
 }
@@ -470,11 +473,18 @@ static int evaluate_entry(
                         if (e->hashes[i] != result->hashes[v])
                                 continue;
 
+                        if (result->confirmed[v] == e->fields[i].offset)
+                                return 1;
+
                         r = segmented_data_payload_equal(f, e->fields[i].offset, m->data, m->size);
                         if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                                 continue;
-                        if (r != 0)
+                        if (r < 0)
                                 return r;
+                        if (r > 0) {
+                                result->confirmed[v] = e->fields[i].offset;
+                                return 1;
+                        }
                 }
 
                 return 0;
