@@ -196,7 +196,6 @@ simple_tests += files(
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-catalog.c',
-        'sd-journal/test-journal-file.c',
         'sd-journal/test-journal-flush.c',
         'sd-journal/test-journal-init.c',
         'sd-journal/test-journal-interleaving.c',
@@ -267,6 +266,10 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
                 'timeout' : 360,
+        },
+        {
+                'sources' : files('sd-journal/test-journal-file.c'),
+                'export' : files('sd-journal/journal-test-util.c'),
         },
         {
                 'sources' : files('sd-journal/test-journal-append.c'),
