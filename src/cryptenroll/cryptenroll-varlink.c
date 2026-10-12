@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "libfido2-util.h"
 #include "path-util.h"
+#include "pkcs11-util.h"
 #include "recovery-key.h"
 #include "string-util.h"
 #include "varlink-io.systemd.CryptEnroll.h"
@@ -47,6 +48,7 @@ typedef struct MethodEnrollParameters {
         int64_t unlock_keyfile_fd_idx;
         char *unlock_fido2_device;
         char *unlock_tpm2_device;
+        char *unlock_pkcs11_token_uri;
         char *password;
         char *recovery_key;
         char *fido2_device;
@@ -66,6 +68,7 @@ static void method_enroll_parameters_done(MethodEnrollParameters *p) {
         free(p->unlock_keyfile);
         free(p->unlock_fido2_device);
         free(p->unlock_tpm2_device);
+        free(p->unlock_pkcs11_token_uri);
         erase_and_free(p->password);
         erase_and_free(p->recovery_key);
         free(p->fido2_device);
@@ -165,6 +168,7 @@ static int vl_method_enroll(
                 { "unlockKeyFileDescriptor",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,    offsetof(MethodEnrollParameters, unlock_keyfile_fd_idx),         SD_JSON_NULLABLE },
                 { "unlockFido2Device",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_fido2_device),           SD_JSON_NULLABLE },
                 { "unlockTpm2Device",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_tpm2_device),            SD_JSON_NULLABLE },
+                { "unlockPkcs11TokenUri",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_pkcs11_token_uri),       SD_JSON_NULLABLE },
                 { "password",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, password),                      SD_JSON_NULLABLE },
                 { "recoveryKey",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, recovery_key),                  SD_JSON_NULLABLE },
                 { "fido2Device",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, fido2_device),                  SD_JSON_NULLABLE },
@@ -274,6 +278,21 @@ static int vl_method_enroll(
                 }
 
                 c.unlock_type = UNLOCK_TPM2;
+        }
+
+        if (p.unlock_pkcs11_token_uri) {
+                if (c.unlock_type >= 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "unlockPkcs11TokenUri");
+
+                if (!streq(p.unlock_pkcs11_token_uri, "auto")) {
+                        if (!pkcs11_uri_valid(p.unlock_pkcs11_token_uri))
+                                return sd_varlink_error_invalid_parameter_name(link, "unlockPkcs11TokenUri");
+
+                        if (strdup_to(&c.unlock_pkcs11_token_uri, p.unlock_pkcs11_token_uri) < 0)
+                                return -ENOMEM;
+                }
+
+                c.unlock_type = UNLOCK_PKCS11;
         }
 
         /* If no unlock method is specified, return a recognizable error. We generate invalid parameter name
