@@ -476,6 +476,24 @@ testcase_tags() {
     grep -x "TAGS=foo:foo=b" /etc/machine-info >/dev/null
     hostnamectl tags alpha:beta:quux
 
+    # A '*' suffix on a tag to remove removes all tags with that prefix, before tags are added.
+    hostnamectl tags acp.x:acp.bar=old:acpfoo:other
+    hostnamectl tags -- '-acp.*' +acp.foo:acp.bar=waldo
+    assert_eq "$(hostnamectl tags)" "acp.bar=waldo:acp.foo:acpfoo:other"
+    hostnamectl tags -- '-acp.*:other' -acpfoo +new
+    assert_eq "$(hostnamectl tags)" "new"
+    hostnamectl tags new:k=1:kx=2:kk:k
+    hostnamectl tags -- '-k=*'
+    assert_eq "$(hostnamectl tags)" "k:kk:kx=2:new"
+    # The '*' suffix is only allowed for removal, and only at the end, and the prefix may not be empty.
+    (! hostnamectl tags -- '+foo*')
+    (! hostnamectl tags -- 'foo*')
+    (! hostnamectl tags -- '-*')
+    (! hostnamectl tags -- '-a*b')
+    (! hostnamectl tags -- '-.a*')
+    assert_eq "$(hostnamectl tags)" "k:kk:kx=2:new"
+    hostnamectl tags alpha:beta:quux
+
     # Plain and prefixed arguments may not be mixed.
     (! hostnamectl tags foo +bar)
     (! hostnamectl tags +bar foo)
