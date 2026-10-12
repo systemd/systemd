@@ -78,7 +78,8 @@ REQUIREMENTS:
                      ≥ 6.9 for pidfs, PIDFD_THREAD flag for pidfd_open(), and
                                MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
-                                and block device 'partscan' sysfs attribute
+                                block device 'partscan' sysfs attribute, and
+                                F_SEAL_EXEC for fcntl(F_ADD_SEALS/F_GET_SEALS)
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
                      ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers

@@ -96,8 +96,20 @@ int memfd_get_sealed(int fd) {
         if (r < 0)
                 return r;
 
-        /* We ignore F_SEAL_EXEC here to support older kernels. */
+        /* We ignore F_SEAL_EXEC here to support older kernels (< 6.10). */
         return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
+}
+
+int memfd_set_sealed_gracefully(int fd) {
+        int r;
+
+        r = memfd_get_sealed(fd);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        return memfd_set_sealed(fd);
 }
 
 int memfd_get_size(int fd, uint64_t *ret) {
