@@ -2494,6 +2494,7 @@ static int vl_method_set_location(sd_varlink *link, sd_json_variant *parameters,
 
 typedef struct SetTagsParameters {
         char **set;
+        char **remove_prefix;
         char **add;
         char **remove;
 } SetTagsParameters;
@@ -2502,15 +2503,17 @@ static void set_tags_parameters_done(SetTagsParameters *p) {
         assert(p);
 
         strv_free(p->set);
+        strv_free(p->remove_prefix);
         strv_free(p->add);
         strv_free(p->remove);
 }
 
 static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "set",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, set),    SD_JSON_NULLABLE },
-                { "add",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, add),    SD_JSON_NULLABLE },
-                { "remove", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, remove), SD_JSON_NULLABLE },
+                { "set",          SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, set),           SD_JSON_NULLABLE },
+                { "removePrefix", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, remove_prefix), SD_JSON_NULLABLE },
+                { "add",          SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, add),           SD_JSON_NULLABLE },
+                { "remove",       SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, remove),        SD_JSON_NULLABLE },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -2533,6 +2536,8 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
 
         if (reset && !machine_tag_list_is_valid(p.set))
                 return sd_varlink_error_invalid_parameter_name(link, "set");
+        if (!machine_tag_prefix_list_is_valid(p.remove_prefix))
+                return sd_varlink_error_invalid_parameter_name(link, "removePrefix");
         if (!machine_tag_list_is_valid(p.add))
                 return sd_varlink_error_invalid_parameter_name(link, "add");
         if (!machine_tag_list_is_valid(p.remove))
@@ -2546,9 +2551,9 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         /* Use either the explicitly specified tag list or the current one as the basis, then apply the
-         * additions and removals on top. */
+         * prefix removals, additions and removals on top, in this order. */
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(reset ? p.set : current, /* remove_prefix= */ NULL, p.add, p.remove, &tags);
+        r = machine_tags_edit(reset ? p.set : current, p.remove_prefix, p.add, p.remove, &tags);
         if (r == -E2BIG)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
         if (r < 0)
