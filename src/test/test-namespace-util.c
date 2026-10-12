@@ -54,6 +54,32 @@ TEST(namespace_enter) {
         }
 }
 
+TEST(namespace_enter_nothing) {
+        int r;
+
+        /* With nothing to join, or only namespaces we're already in, entering must succeed without
+         * CAP_SYS_ADMIN, since no setns() call is necessary. */
+        r = ASSERT_OK(pidref_safe_fork(
+                        "test-ns-enter-nothing",
+                        FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
+                        NULL));
+        if (r == 0) {
+                ASSERT_OK(drop_capability(CAP_SYS_ADMIN));
+
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, -EBADF, -EBADF));
+
+                _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+
+                _cleanup_close_ int mntns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/mnt", O_RDONLY|O_CLOEXEC));
+                _cleanup_close_ int pidns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/pid", O_RDONLY|O_CLOEXEC));
+                _cleanup_close_ int netns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC));
+                ASSERT_OK(namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, -EBADF));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 TEST(namespace_enter_mapped) {
         static const struct {
                 uid_t uid;
