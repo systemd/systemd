@@ -59,6 +59,10 @@ node /org/freedesktop/hostname1 {
       SetTags(in  as tags);
       AddAndRemoveTags(in  as add,
                        in  as remove);
+      EditTags(in  as remove_prefix,
+               in  as add,
+               in  as remove,
+               in  t flags);
       GetProductUUID(in  b interactive,
                      out ay uuid);
       GetHardwareSerial(out s serial);
@@ -149,6 +153,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetTags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AddAndRemoveTags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="EditTags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
 
@@ -398,6 +404,21 @@ node /org/freedesktop/hostname1 {
       when several independent agents each manage a subset of the tags without racing on a read-modify-write
       of the full list. Each tag must be a valid machine tag, as for <function>SetTags()</function>.</para>
 
+      <para><function>EditTags()</function> is similar to <function>AddAndRemoveTags()</function>, but
+      additionally takes a list of tag prefixes in <varname>remove_prefix</varname>: all tags in the current
+      list starting with any of these prefixes are dropped, <emphasis>before</emphasis> the tags in
+      <varname>add</varname> are added, while the tags in <varname>remove</varname> are dropped
+      <emphasis>after</emphasis> that, i.e. the resulting list is <varname>((current \ remove_prefix*) ∪ add)
+      \ remove</varname>. This allows a caller to atomically replace all tags with a common prefix: for
+      example, passing <literal>acp.</literal> in <varname>remove_prefix</varname> and
+      <literal>acp.foo</literal> and <literal>acp.bar=waldo</literal> in <varname>add</varname> ensures that
+      afterwards exactly these two tags starting with <literal>acp.</literal> are set, regardless which ones
+      were set before. A prefix must be 1…255 characters long and consist of the same characters as machine
+      tags, and may not start with <literal>-</literal>, <literal>.</literal> or <literal>=</literal>. Note
+      that the prefix is matched against the whole tag string, i.e. the prefix <literal>foo=</literal>
+      matches all assignments of the key <literal>foo</literal>. The <varname>flags</varname> argument is
+      reserved for future extensions and must be zero.</para>
+
       <para><varname>PrettyHostname</varname>, <varname>IconName</varname>, <varname>Chassis</varname>,
       <varname>Deployment</varname>, <varname>Location</varname>, and <varname>Tags</varname> are stored in
       <filename>/etc/machine-info</filename>. See
@@ -434,8 +455,8 @@ node /org/freedesktop/hostname1 {
       <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
       <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For
       <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>,
-      <function>SetLocation()</function>, <function>SetTags()</function> and
-      <function>AddAndRemoveTags()</function> it is
+      <function>SetLocation()</function>, <function>SetTags()</function>,
+      <function>AddAndRemoveTags()</function> and <function>EditTags()</function> it is
       <interfacename>org.freedesktop.hostname1.set-machine-info</interfacename>.</para>
     </refsect2>
   </refsect1>
@@ -542,6 +563,7 @@ node /org/freedesktop/hostname1 {
       <para><function>GetMachineInfo()</function>, <varname>Tags</varname> and
       <function>SetTags()</function> were added in version 261.</para>
       <para><function>AddAndRemoveTags()</function> was added in version 262.</para>
+      <para><function>EditTags()</function> was added in version 263.</para>
     </refsect2>
   </refsect1>
 
