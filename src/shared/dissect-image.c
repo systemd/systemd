@@ -64,6 +64,7 @@
 #include "siphash24.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -74,6 +75,14 @@
 
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
+
+static const char* const partition_table_type_table[_PARTITION_TABLE_TYPE_MAX] = {
+        [PARTITION_GPT]  = "gpt",
+        [PARTITION_MBR]  = "mbr",
+        [PARTITION_BARE] = "bare",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(partition_table_type, PartitionTableType);
 
 static int allowed_fstypes(char ***ret_strv) {
         _cleanup_strv_free_ char **l = NULL;
@@ -724,6 +733,7 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
                 return -ENOMEM;
 
         *m = (DissectedImage) {
+                .partition_table_type = _PARTITION_TABLE_TYPE_INVALID,
                 .has_init_system = -1,
                 .image_name = TAKE_PTR(name),
         };
@@ -1038,7 +1048,7 @@ static int dissect_image_from_unpartitioned(
         if (r < 0)
                 return r;
 
-        m->single_file_system = true;
+        m->partition_table_type = PARTITION_BARE;
         m->encrypted = encrypted;
 
         m->has_verity = verity && verity->data_path;
@@ -1085,7 +1095,7 @@ static int dissect_image(
 
         sd_id128_t root_uuid = SD_ID128_NULL, root_verity_uuid = SD_ID128_NULL;
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
-        bool is_gpt, is_mbr, multiple_generic = false,
+        bool multiple_generic = false,
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
@@ -1269,10 +1279,11 @@ static int dissect_image(
         if (!pttype)
                 return -ENOPKG;
 
-        is_gpt = streq_ptr(pttype, "gpt");
-        is_mbr = streq_ptr(pttype, "dos");
-
-        if (!is_gpt && ((flags & DISSECT_IMAGE_GPT_ONLY) || !is_mbr))
+        if (streq(pttype, "gpt"))
+                m->partition_table_type = PARTITION_GPT;
+        else if (streq(pttype, "dos") && !FLAGS_SET(flags, DISSECT_IMAGE_GPT_ONLY))
+                m->partition_table_type = PARTITION_MBR;
+        else
                 return -ENOPKG;
 
         /* We support external verity data partitions only if the image has no partition table */
@@ -1370,7 +1381,7 @@ static int dissect_image(
                                 log_debug("We were quicker than kernel in adding partition %i.", nr);
                 }
 
-                if (is_gpt) {
+                if (m->partition_table_type == PARTITION_GPT) {
                         const char *label;
                         sd_id128_t type_id, id;
                         GptPartitionType type;
@@ -1672,7 +1683,7 @@ static int dissect_image(
                                 };
                         }
 
-                } else if (is_mbr) {
+                } else if (m->partition_table_type == PARTITION_MBR) {
 
                         switch (sym_blkid_partition_get_type(pp)) {
 
@@ -4669,7 +4680,7 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
          * This call is used to decide whether to suppress or show a verity column in tabular output of the
          * image. */
 
-        if (image->single_file_system)
+        if (image->partition_table_type == PARTITION_BARE)
                 return partition_designator == PARTITION_ROOT && image->has_verity;
 
         return partition_verity_hash_of(partition_designator) >= 0;
@@ -4686,7 +4697,7 @@ bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignat
         if (!image->verity_ready)
                 return false;
 
-        if (image->single_file_system)
+        if (image->partition_table_type == PARTITION_BARE)
                 return partition_designator == PARTITION_ROOT;
 
         k = partition_verity_hash_of(partition_designator);
@@ -4703,7 +4714,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
         if (!image->verity_sig_ready)
                 return false;
 
-        if (image->single_file_system)
+        if (image->partition_table_type == PARTITION_BARE)
                 return partition_designator == PARTITION_ROOT;
 
         k = partition_verity_sig_of(partition_designator);
@@ -5410,7 +5421,7 @@ int mountfsd_mount_image_fd(
         if (!di)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Partition list is empty.");
 
-        di->single_file_system = p.single_file_system;
+        di->partition_table_type = p.single_file_system ? PARTITION_BARE : _PARTITION_TABLE_TYPE_INVALID;
         di->image_size = p.image_size;
         di->sector_size = p.sector_size;
         di->image_uuid = p.image_uuid;

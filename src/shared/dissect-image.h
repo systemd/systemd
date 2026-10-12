@@ -83,13 +83,22 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
 } DissectImageFlags;
 
+typedef enum PartitionTableType {
+        PARTITION_GPT,
+        PARTITION_MBR,
+        PARTITION_BARE,            /* No partition table, the image contains a file system directly */
+        _PARTITION_TABLE_TYPE_MAX,
+        _PARTITION_TABLE_TYPE_INVALID = -EINVAL,
+} PartitionTableType;
+
 typedef struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
         bool verity_ready:1;       /* verity available, fully specified and usable */
         bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
-        bool single_file_system:1; /* MBR/GPT or single file system */
+
+        PartitionTableType partition_table_type;
 
         LoopDevice *loop;
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
@@ -154,6 +163,8 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
 int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d, char *s);
 int mount_options_dup(const MountOptions *source, MountOptions **ret);
 int mount_options_to_string(const MountOptions *mount_options, char **ret);
+
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(partition_table_type, PartitionTableType);
 
 int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, bool restrict_fstypes, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {

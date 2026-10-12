@@ -315,7 +315,7 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
                                         f |= PARTITION_POLICY_VERITY;
                         }
 
-                        if (!image->single_file_system) {
+                        if (image->partition_table_type != PARTITION_BARE) {
                                 if (image->partitions[pd].growfs)
                                         f |= PARTITION_POLICY_GROWFS_ON;
                                 else
