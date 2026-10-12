@@ -164,7 +164,9 @@ systemctl daemon-reload
 : "A socket that the user does not own in place of the private socket of a user manager is refused"
 systemctl start update-helper-bridge.socket
 [[ "$(stat -c %U "$PRIVATE")" == root ]]
-"$HELPER" remove-user-units update-helper-victim.service
+# chase() with CHASE_SAFE fails with ENOLINK on the step from the directory of testuser to a socket of root.
+# The helper therefore never connects, and NAccepted stays 0.
+"$HELPER" remove-user-units update-helper-victim.service 2>&1 | grep "Link has been severed" >/dev/null
 systemctl is-active update-helper-victim.service
 [[ "$(systemctl show -P NAccepted update-helper-bridge.socket)" -eq 0 ]]
 systemctl stop update-helper-bridge.socket

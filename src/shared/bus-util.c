@@ -412,10 +412,13 @@ int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus *
         if (asprintf(&p, "/run/user/" UID_FMT "/systemd/private", uid) < 0)
                 return -ENOMEM;
 
-        /* The user owns /run/user/UID. Without fs.protected_hardlinks, the user can replace the socket with
-         * a hardlink to a socket of another user. pin_socket() refuses symlinks but not hardlinks. Our
-         * connection as root to such a socket can start a socket-activated service that the user cannot
-         * start. */
+        /* The user owns /run/user/UID and can replace the socket with a symlink, or with a hardlink to a
+         * socket of another user if fs.protected_hardlinks is off. A connection as root to the socket of
+         * another user can start a socket-activated service that the user cannot start. pin_socket()
+         * refuses symlinks. CHASE_SAFE makes pin_socket() fail with ENOLINK on the step from a directory
+         * that the user owns to a socket that another user owns. CHASE_SAFE accepts any file in a
+         * directory that root owns, such as /run/user/0. The owner check below refuses a socket of
+         * another user in that case. */
         inode_fd = pin_socket(p, &st);
         if (inode_fd < 0)
                 return inode_fd;
