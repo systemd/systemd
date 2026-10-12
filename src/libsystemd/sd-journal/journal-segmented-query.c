@@ -275,16 +275,35 @@ int segmented_walk(JournalFile *f, uint64_t *p, uint64_t end, ObjectHeader *ret,
 }
 
 static int data_hash(JournalFile *f, uint64_t offset, uint64_t *ret) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        SegmentedDataHash *c;
         Object *o;
         int r;
 
         assert(ret);
 
+        if (!a->data_hashes) {
+                a->data_hashes = new0(SegmentedDataHash, SEGMENTED_DATA_HASHES_MAX);
+                if (!a->data_hashes)
+                        return -ENOMEM;
+        }
+
+        c = a->data_hashes + (offset / 8) % SEGMENTED_DATA_HASHES_MAX;
+        if (c->offset == offset) {
+                *ret = c->hash;
+                return 0;
+        }
+
         r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
         if (r < 0)
                 return r;
 
-        *ret = le64toh(o->segmented_data.hash);
+        *c = (SegmentedDataHash) {
+                .offset = offset,
+                .hash = le64toh(o->segmented_data.hash),
+        };
+
+        *ret = c->hash;
         return 0;
 }
 

@@ -690,6 +690,9 @@ static void state_reset(JournalFile *f) {
         FOREACH_ELEMENT(result, a->results)
                 segmented_result_done(result);
 
+        /* Cached DATA hashes become invalid if the file is replaced. */
+        a->data_hashes = mfree(a->data_hashes);
+
         header_reset(f);
 }
 
@@ -854,6 +857,7 @@ void segmented_close(JournalFile *f) {
         FOREACH_ELEMENT(result, a->results)
                 segmented_result_done(result);
 
+        free(a->data_hashes);
         free(a->indexes);
         free(a->tail_entries);
         free(a->fields);
