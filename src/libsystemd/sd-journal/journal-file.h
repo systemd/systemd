@@ -201,6 +201,12 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+/* Reading an object fails with EBADMSG if the object is corrupted, and with EADDRNOTAVAIL if it lies outside
+ * of the file. Readers skip objects that fail with either error. */
+static inline bool ERRNO_IS_NEG_JOURNAL_CORRUPTION(intmax_t r) {
+        return IN_SET(r, -EBADMSG, -EADDRNOTAVAIL);
+}
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);

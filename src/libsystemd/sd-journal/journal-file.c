@@ -1627,7 +1627,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         assert(f);
 
         /* Only accept truncation when reading. On writing it's not possible to know how to safely proceed. */
-        if (journal_file_writable(f) || !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+        if (journal_file_writable(f) || !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                 return false;
 
         log_debug_errno(r, "Failed to read %s at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
@@ -3008,7 +3008,7 @@ static int generic_array_get(
 
         while (a > 0) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         /* If there's corruption and we're going downwards, let's pretend we reached the
                          * final entry in the entry array chain. */
 
@@ -3081,7 +3081,7 @@ static int generic_array_get(
 
                                 return 1;
                         }
-                        if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                        if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                                 return r;
 
                         /* OK, so this entry is borked. Most likely some entry didn't get synced to
@@ -3141,7 +3141,7 @@ static int generic_array_bisect_step(
                 r = -EBADMSG;
         else
                 r = test_object(f, p, needle);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
                 if (i == *left) {
@@ -3247,7 +3247,7 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
                 else if (r < 0)
                         return r;
@@ -3845,7 +3845,7 @@ int journal_file_move_to_entry_for_data(
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r >= 0)
                         goto use_extra;
-                if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r;
         }
 
@@ -3857,7 +3857,7 @@ int journal_file_move_to_entry_for_data(
                                       direction == DIRECTION_DOWN ? 0 : n - 1,
                                       direction,
                                       ret_object, ret_offset);
-                if (!IN_SET(r, 0, -EADDRNOTAVAIL, -EBADMSG))
+                if (r != 0 && !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r; /* found or critical error. */
         }
 
@@ -4719,7 +4719,7 @@ int journal_file_copy_entry(
                                 /* field= */ NULL, /* field_length= */ 0,
                                 /* data_threshold= */ 0,
                                 &data, &l);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }
