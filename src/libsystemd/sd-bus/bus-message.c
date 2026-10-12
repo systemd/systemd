@@ -2204,7 +2204,7 @@ _public_ int sd_bus_message_append_array_memfd(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = memfd_set_sealed(memfd);
+        r = memfd_set_sealed_gracefully(memfd);
         if (r < 0)
                 return r;
 
@@ -2284,7 +2284,7 @@ _public_ int sd_bus_message_append_string_memfd(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = memfd_set_sealed(memfd);
+        r = memfd_set_sealed_gracefully(memfd);
         if (r < 0)
                 return r;
 
