@@ -55,8 +55,32 @@ int verb_is_system_running(int argc, char *argv[], uintptr_t _data, void *userda
                                         "StartupFinished",
                                         match_startup_finished, NULL, &state);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to request match for StartupFinished: %m");
+                        log_warning_errno(
+                                        r,
+                                        "Failed to acquire match for StartupFinished, "
+                                        "will not wait for startup completion: %m");
                         arg_wait = false;
+                } else {
+                        /* On the API bus PID 1 only emits manager signals while at least one client is
+                         * subscribed, so subscribe explicitly. This is a NOP on direct connections, which
+                         * receive signals unconditionally. Do this before querying the state below so that
+                         * we cannot miss StartupFinished in between. */
+                        r = bus_call_method(
+                                        bus,
+                                        bus_systemd_mgr,
+                                        "Subscribe",
+                                        &error,
+                                        /* ret_reply= */ NULL,
+                                        /* types= */ NULL);
+                        if (r < 0) {
+                                log_warning_errno(
+                                                r,
+                                                "Failed to enable service manager subscription, "
+                                                "will not wait for startup completion: %s",
+                                                bus_error_message(&error, r));
+                                sd_bus_error_free(&error);
+                                arg_wait = false;
+                        }
                 }
         }
 
