@@ -121,11 +121,13 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetTags,
-                SD_VARLINK_FIELD_COMMENT("If specified, the machine tag list is first reset to exactly these tags, before the 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead."),
+                SD_VARLINK_FIELD_COMMENT("If specified, the machine tag list is first reset to exactly these tags, before the 'removePrefix', 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead."),
                 SD_VARLINK_DEFINE_INPUT(set, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Prefixes of machine tags to remove from the list. All tags starting with any of these strings are removed, before the 'add' field is applied, so that tags with a common prefix can be replaced atomically."),
+                SD_VARLINK_DEFINE_INPUT(removePrefix, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Machine tags to add to the list. A key=value tag replaces any assignment of the same key already in the list."),
                 SD_VARLINK_DEFINE_INPUT(add, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Machine tags to remove from the list."),
+                SD_VARLINK_FIELD_COMMENT("Machine tags to remove from the list. Applied after the 'add' field."),
                 SD_VARLINK_DEFINE_INPUT(remove, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
@@ -149,5 +151,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetDeployment,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the physical location of this system."),
                 &vl_method_SetLocation,
-                SD_VARLINK_SYMBOL_COMMENT("Edits the machine tag list: optionally resets it to 'set', then adds 'add' and removes 'remove'."),
+                SD_VARLINK_SYMBOL_COMMENT("Edits the machine tag list: optionally resets it to 'set', then removes all tags matching a prefix in 'removePrefix', adds 'add' and finally removes 'remove'."),
                 &vl_method_SetTags);
