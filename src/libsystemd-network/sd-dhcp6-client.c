@@ -350,7 +350,9 @@ int sd_dhcp6_client_set_fqdn(
                 const char *fqdn) {
 
         assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        /* The FQDN is only used when building messages, hence it can be changed while the client is
+         * running. The new FQDN will be sent in the next message, e.g. on renewal. */
 
         /* Make sure FQDN qualifies as DNS and as Linux hostname */
         if (fqdn &&

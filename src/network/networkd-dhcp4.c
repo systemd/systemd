@@ -1310,10 +1310,12 @@ static int dhcp4_set_hostname(Link *link) {
         }
 
         r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);
-        if (r == -EINVAL && hostname)
-                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet. */
+        if (r == -EINVAL && hostname) {
+                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet, but
+                 * do not keep sending the previous hostname. */
                 log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
-        else if (r < 0)
+                (void) sd_dhcp_client_set_hostname(link->dhcp_client, NULL);
+        } else if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set hostname: %m");
 
         return 0;
@@ -1727,6 +1729,39 @@ int dhcp4_update_mac(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+int dhcp4_update_hostname(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp_client || !link->network)
+                return 0;
+
+        /* No hostname is sent when anonymized, and an explicitly configured one does not follow the
+         * system hostname. */
+        if (!link->network->dhcp_send_hostname_updates ||
+            link->network->dhcp_anonymize ||
+            link->network->dhcp_hostname)
+                return 0;
+
+        r = dhcp4_set_hostname(link);
+        if (r < 0)
+                return r;
+
+        /* If the hostname was set by us from a DHCP lease, the server already knows it. The new hostname
+         * will be sent on the next renewal. */
+        if (streq_ptr(link->manager->kernel_hostname, link->manager->dynamic_hostname))
+                return 0;
+
+        /* Send the new hostname to the server now, rather than on the next renewal. If the client is not
+         * bound yet, this does nothing, and the new hostname will be sent in the next message anyway. */
+        r = sd_dhcp_client_send_renew(link->dhcp_client);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to renew lease after hostname change: %m");
 
         return 0;
 }
