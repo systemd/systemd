@@ -314,6 +314,24 @@ bool machine_tag_list_is_valid(char **l) {
         return true;
 }
 
+static bool machine_tag_key_in_strv(char * const *l, const char *tag) {
+        assert(tag);
+
+        /* Returns true if 'l' contains an assignment for the same key as the "key=value" tag 'tag'. Bare
+         * tags (without '=') never match. */
+
+        const char *eq = strchr(tag, '=');
+        if (!eq)
+                return false;
+
+        size_t np = eq - tag + 1;
+        STRV_FOREACH(i, l)
+                if (strneq(*i, tag, np))
+                        return true;
+
+        return false;
+}
+
 int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
         int r;
 
@@ -352,20 +370,9 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
                 if (n > MACHINE_TAGS_MAX)
                         return -E2BIG;
 
-                const char *eq = strchr(*i, '=');
-                if (eq) {
-                        /* Suppress duplicate assignments */
-                        bool skip = false;
-                        size_t np = eq - *i + 1;
-                        STRV_FOREACH(j, cleaned)
-                                if (strneq(*i, *j, np)) {
-                                        skip = true;
-                                        break;
-                                }
-
-                        if (skip)
-                                continue;
-                }
+                /* Suppress duplicate assignments */
+                if (machine_tag_key_in_strv(cleaned, *i))
+                        continue;
 
                 r = strv_extend(&cleaned, *i);
                 if (r < 0)
@@ -373,5 +380,40 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
         }
 
         *ret = TAKE_PTR(cleaned);
+        return 0;
+}
+
+int machine_tags_edit(char * const *base, char * const *add, char * const *remove, char ***ret) {
+        int r;
+
+        assert(ret);
+
+        /* Computes the resulting machine tag list when adding 'add' to and removing 'remove' from the 'base'
+         * list, i.e. (base ∪ add) \ remove, sorted and deduplicated. A "key=value" tag in 'add' replaces any
+         * assignment of the same key in 'base', so that a key never ends up with more than one value. Both
+         * 'base' and 'add' must be valid tag lists (see machine_tag_list_is_valid()). */
+
+        _cleanup_strv_free_ char **tags = NULL;
+        STRV_FOREACH(i, base) {
+                if (machine_tag_key_in_strv(add, *i))
+                        continue;
+
+                r = strv_extend(&tags, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        r = strv_extend_strv(&tags, add, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        strv_remove_strv(tags, remove);
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return -E2BIG;
+
+        *ret = TAKE_PTR(tags);
         return 0;
 }
