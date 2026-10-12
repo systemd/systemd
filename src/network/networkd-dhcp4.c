@@ -1741,7 +1741,9 @@ int dhcp4_update_hostname(Link *link) {
 
         /* No hostname is sent when anonymized, and an explicitly configured one does not follow the
          * system hostname. */
-        if (link->network->dhcp_anonymize || link->network->dhcp_hostname)
+        if (!link->network->dhcp_send_hostname_updates ||
+            link->network->dhcp_anonymize ||
+            link->network->dhcp_hostname)
                 return 0;
 
         /* The new hostname will be sent on the next renewal. */
