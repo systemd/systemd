@@ -460,8 +460,6 @@ static int device_verify(sd_device *device) {
                                                       "sd-device: Failed to set driver subsystem: %m");
         }
 
-        device->sealed = true;
-
         return 0;
 }
 
@@ -476,6 +474,8 @@ int device_new_from_strv(sd_device **ret, char **strv) {
         r = device_new_aux(&device);
         if (r < 0)
                 return r;
+
+        device_seal(device);
 
         STRV_FOREACH(key, strv) {
                 r = device_append(device, *key, &major, &minor);
@@ -510,6 +510,8 @@ int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len) {
         r = device_new_aux(&device);
         if (r < 0)
                 return r;
+
+        device_seal(device);
 
         for (size_t i = 0; i < len; ) {
                 char *key;
@@ -660,7 +662,7 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
                 return r;
 
         /* Seal device to prevent reading the uevent file, as the device may have been already removed. */
-        dest->sealed = true;
+        device_seal(dest);
 
         /* Copy syspath, then also devname, sysname or sysnum can be obtained. */
         r = device_set_syspath(dest, device->syspath, false);
