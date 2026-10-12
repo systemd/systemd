@@ -100,7 +100,8 @@ int memfd_get_sealed(int fd) {
         if (r < 0)
                 return r;
 
-        /* We ignore F_SEAL_EXEC here to support older kernels. */
+        /* We ignore F_SEAL_EXEC here to support older kernels.
+         * It is supported since kernel v6.3 (6fd7353829cafc4067aad9eea0dc95da67e7df16). */
         return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
