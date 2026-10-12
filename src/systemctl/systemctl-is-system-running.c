@@ -54,8 +54,14 @@ int verb_is_system_running(int argc, char *argv[], uintptr_t _data, void *userda
                                         bus_systemd_mgr,
                                         "StartupFinished",
                                         match_startup_finished, NULL, &state);
+                if (r >= 0)
+                        /* On the API bus PID 1 only emits manager signals while at least one client is
+                         * subscribed, so subscribe explicitly. This is a NOP on direct connections, which
+                         * receive signals unconditionally. Do this before querying the state below so that
+                         * we cannot miss StartupFinished in between. */
+                        r = bus_call_method(bus, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to request match for StartupFinished: %m");
+                        log_warning_errno(r, "Failed to subscribe to StartupFinished signal: %m");
                         arg_wait = false;
                 }
         }
