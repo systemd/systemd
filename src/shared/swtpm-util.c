@@ -43,7 +43,7 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
                 log_debug("About to spawn: %s", strnull(cmdline));
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(swtpm-lprof)",
                         (int[]) { -EBADF, mfd, STDERR_FILENO },
@@ -61,6 +61,11 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         }
 
         r = pidref_wait_for_terminate_and_check("(swtpm-lprof)", &pidref, WAIT_LOG_ABNORMAL);
+        /* An exit status, -EPROTO for a child killed by a signal, and -ECHILD mean that the child is gone.
+         * The cleanup must not send SIGKILL then, because without a pidfd the PID might belong to another
+         * process by now. After any other failure the child is not reaped yet, and the cleanup kills it. */
+        if (r >= 0 || IN_SET(r, -EPROTO, -ECHILD))
+                pidref_done(&pidref);
         if (r < 0)
                 return r;
 
