@@ -10,6 +10,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "compress.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -574,28 +575,117 @@ TEST(unique_inline_segments) {
 
         journal_test_setup(&directory);
         ASSERT_NOT_NULL(m = mmap_cache_new());
-        FOREACH_STRING(path, "first.journal", "second.journal") {
-                f = open_file(m, path, O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
-                for (unsigned segment = 0; segment < 3; segment++) {
+        FOREACH_STRING(path, "first.journal", "second.journal", "third.journal") {
+                f = open_file(m, path, O_RDWR|O_CREAT, !streq(path, "third.journal"), 128 * U64_MB);
+                for (unsigned segment = 0; segment < (f->segmented ? 3U : 7U); segment++) {
                         for (unsigned i = segment * 100; i < (segment + 2) * 100; i++) {
                                 char value[64];
+                                unsigned value_number = i + (streq(path, "third.journal") ? 200 : 0);
 
-                                xsprintf(value, "_SOURCE_REALTIME_TIMESTAMP=%u", i);
+                                xsprintf(value, "_SOURCE_REALTIME_TIMESTAMP=%u", value_number);
                                 model_append(f, /* model= */ NULL, 1000000 + i, 1000 + i, MODEL_BOOT_A, STRV_MAKE(value));
                         }
-                        ASSERT_OK(segmented_checkpoint(f));
+                        if (f->segmented)
+                                ASSERT_OK(segmented_checkpoint(f));
                 }
                 f = journal_file_offline_close(f);
         }
 
-        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "first.journal", "second.journal", NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        f = open_file(m, "third.journal", O_RDWR, /* segmented= */ false, 128 * U64_MB);
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "first.journal", "second.journal", "third.journal", NULL }, /* flags= */ 0));
         for (unsigned pass = 0; pass < 2; pass++) {
                 size_t n = 0;
 
                 ASSERT_OK(sd_journal_query_unique(j, "_SOURCE_REALTIME_TIMESTAMP"));
-                SD_JOURNAL_FOREACH_UNIQUE(j, data, size)
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
                         n++;
-                ASSERT_EQ(n, 400U);
+                        if (pass == 0 && n == 401)
+                                model_append(f, /* model= */ NULL, 2000000, 2000, MODEL_BOOT_A,
+                                             STRV_MAKE("_SOURCE_REALTIME_TIMESTAMP=10"));
+                }
+                ASSERT_EQ(n, 1000U);
+        }
+}
+
+TEST(unique_unavailable_batch) {
+        bool with_prefix;
+
+        if (!compression_supported_journal(COMPRESSION_LZ4)) {
+                (void) log_tests_skipped("LZ4 support is unavailable");
+                return;
+        }
+
+        FOREACH_ARGUMENT(with_prefix, false, true) {
+                _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+                _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+                _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+                _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+                _cleanup_free_ char *large = NULL;
+                const char *paths[4] = {};
+                const void *data;
+                size_t size, n_paths = 0;
+                uint64_t unavailable = 0;
+
+                journal_test_setup(&directory);
+                ASSERT_NOT_NULL(m = mmap_cache_new());
+                if (with_prefix) {
+                        f = open_file(m, "prefix.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+                        model_append(f, /* model= */ NULL, 1000000, 1000, MODEL_BOOT_A, STRV_MAKE("UNIT=prefix"));
+                        f = journal_file_offline_close(f);
+                        paths[n_paths++] = "prefix.journal";
+                }
+
+                f = open_file(m, "data.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+                uint32_t flags = le32toh(f->header->incompatible_flags);
+                flags &= ~(HEADER_INCOMPATIBLE_COMPRESSED_XZ | HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
+                           HEADER_INCOMPATIBLE_COMPRESSED_ZSTD);
+                f->header->incompatible_flags = htole32(flags | HEADER_INCOMPATIBLE_COMPRESSED_LZ4);
+                ASSERT_EQ(pwrite(f->fd, &f->header->incompatible_flags, sizeof(le32_t), offsetof(Header, incompatible_flags)),
+                          (ssize_t) sizeof(le32_t));
+                ASSERT_NOT_NULL(large = strrep("x", 2048));
+                memcpy(large, "UNIT=", STRLEN("UNIT="));
+                for (unsigned i = 0; i < 2000; i++) {
+                        char value[64];
+
+                        xsprintf(value, "UNIT=value%u", i);
+                        if (i == 500)
+                                unavailable = f->segmented->scan_offset;
+                        model_append(f, /* model= */ NULL, 1000000 + i, 1000 + i, MODEL_BOOT_A,
+                                     STRV_MAKE(i == 500 ? large : value));
+                        if (i == 999)
+                                ASSERT_OK(segmented_checkpoint(f));
+                }
+                ASSERT_OK(segmented_flush(f));
+                Object *o;
+                ASSERT_OK(journal_file_move_to_object(f, OBJECT_DATA, unavailable, &o));
+                ASSERT_EQ(o->object.flags, OBJECT_COMPRESSED_LZ4);
+                le64_t decoded_size = htole64((uint64_t) DATA_SIZE_MAX + 1);
+                ASSERT_EQ(pwrite(f->fd, &decoded_size, sizeof(decoded_size), unavailable + offsetof(SegmentedDataObject, payload)),
+                          (ssize_t) sizeof(decoded_size));
+                ASSERT_ERROR(journal_file_data_payload(f, NULL, unavailable, /* field= */ NULL, /* field_length= */ 0, &data, &size), ENOBUFS);
+                f = journal_file_offline_close(f);
+                paths[n_paths++] = "data.journal";
+
+                f = open_file(m, "classic.journal", O_RDWR|O_CREAT, /* segmented= */ false, 128 * U64_MB);
+                for (unsigned i = 0; i < 5; i++) {
+                        char value[64];
+
+                        xsprintf(value, "UNIT=classic%u", i);
+                        model_append(f, /* model= */ NULL, 2000000 + i, 2000 + i, MODEL_BOOT_A, STRV_MAKE(value));
+                }
+                f = journal_file_offline_close(f);
+                paths[n_paths++] = "classic.journal";
+                ASSERT_OK(sd_journal_open_files(&j, paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+                for (unsigned pass = 0; pass < 2; pass++) {
+                        size_t n = 0;
+                        int r;
+
+                        ASSERT_OK(sd_journal_query_unique(j, "UNIT"));
+                        while ((r = sd_journal_enumerate_available_unique(j, &data, &size)) > 0)
+                                n++;
+                        ASSERT_OK(r);
+                        ASSERT_EQ(n, with_prefix ? 2005U : 2004U);
+                }
         }
 }
 
@@ -1547,6 +1637,37 @@ TEST(committed_flush_error) {
         ASSERT_ERROR(segmented_flush(f), EIO);
         ASSERT_OK_ERRNO(fstat(f->fd, &after));
         ASSERT_EQ(before.st_size, after.st_size);
+}
+
+TEST(enumerate_fields_across_checkpoint) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        const char *name;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append(f, /* model= */ NULL, 1000000, 1000, MODEL_BOOT_A, STRV_MAKE("ALPHA=a", "BETA=b"));
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { f->path, NULL }, /* flags= */ 0));
+        ASSERT_OK(sd_journal_get_fd(j));
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_fields(j, &name));
+        ASSERT_OK(strv_extend(&names, name));
+        ASSERT_OK(segmented_checkpoint(f));
+        model_append(f, /* model= */ NULL, 1000001, 1001, MODEL_BOOT_A, STRV_MAKE("GAMMA=c"));
+        ASSERT_OK(usleep_safe(2 * SEGMENTED_REFRESH_USEC));
+        ASSERT_OK(sd_journal_process(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        while (ASSERT_OK(sd_journal_enumerate_fields(j, &name)) > 0) {
+                ASSERT_FALSE(strv_contains(names, name));
+                ASSERT_OK(strv_extend(&names, name));
+        }
+        ASSERT_EQ(strv_length(names), 3U);
+        ASSERT_TRUE(strv_contains(names, "ALPHA"));
+        ASSERT_TRUE(strv_contains(names, "BETA"));
+        ASSERT_TRUE(strv_contains(names, "GAMMA"));
 }
 
 TEST(sealed) {

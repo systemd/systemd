@@ -8,6 +8,7 @@
 #include "journal-segmented-internal.h"
 #include "log.h"
 #include "memory-util.h"
+#include "set.h"
 
 #ifdef __clang__
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
@@ -1080,6 +1081,12 @@ int segmented_move_to_entry_for_match(
                                 where, boot_id, needle, direction, ret_object, ret_offset);
 }
 
+enum {
+        STAGE_INDEXES,
+        STAGE_TAIL,
+        STAGE_DONE,
+};
+
 static int enumerate_inline(
                 JournalFile *f,
                 uint64_t offset,
@@ -1164,25 +1171,109 @@ static int enumerate_objects(
         }
 }
 
-static void cursor_check(JournalFile *f, SegmentedCursor *c) {
-        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
-
+static void cursor_check(Segmented *a, SegmentedCursor *c) {
+        assert(a);
         assert(c);
 
-        /* Start over if the file was read anew, since positions may then refer to a different log. The
-         * caller removes values that are returned twice. */
-        if (c->generation != a->indexes_generation || c->position == 0)
-                *c = (SegmentedCursor) {
-                        .generation = a->indexes_generation,
-                        .position = le64toh(f->header->header_size),
-                };
+        if (c->generation != a->indexes_generation) {
+                bool appended = c->n_indexes < a->n_indexes &&
+                        (c->n_indexes == 0 || a->indexes[c->n_indexes - 1].offset == c->last_index_offset);
+
+                if (appended && c->stage == STAGE_TAIL) {
+                        c->stage = STAGE_INDEXES;
+                        c->index = c->n_indexes;
+                        c->position = c->item = 0;
+                } else if (!appended)
+                        *c = (SegmentedCursor) {};
+
+                c->generation = a->indexes_generation;
+        }
+
+        c->n_indexes = a->n_indexes;
+        c->last_index_offset = a->n_indexes > 0 ? a->indexes[a->n_indexes - 1].offset : 0;
+}
+
+static void cursor_next_stage(SegmentedCursor *c) {
+        assert(c);
+
+        c->index = 0;
+        c->position = 0;
+        c->item = 0;
+        c->stage++;
+}
+
+static int tail_fields_update(JournalFile *f) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        SegmentedCursor c;
+        int r;
+
+        /* The tail contains one data object per value, and many values have the same field. The list
+         * contains each name once, so that the enumeration doesn't return a name thousands of times. */
+
+        if (a->tail_fields_base != a->tail_offset || a->tail_fields_end < a->tail_offset) {
+                a->tail_fields = set_free(a->tail_fields);
+                a->tail_field_names = mfree(a->tail_field_names);
+                a->n_tail_field_names = 0;
+                a->tail_fields_base = a->tail_fields_end = a->tail_offset;
+        }
+
+        c = (SegmentedCursor) { .position = a->tail_fields_end };
+
+        /* The tail has thousands of data objects but only tens of fields. A lookup in this cache, by the
+         * length and the first and last character of a name, is cheaper than hashing the name for the
+         * set. */
+        const char *cache[64] = {};
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+                const void *d;
+                const char *e;
+                size_t l;
+
+                r = enumerate_objects(f, &c, a->scan_offset, /* field= */ NULL, /* field_length= */ 0, &d, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                /* The payload may be damaged, readers do not check its hash */
+                e = memchr(d, '=', l);
+                if (!e || !journal_field_valid(d, e - (const char*) d, /* allow_protected= */ true))
+                        continue;
+
+                size_t n = e - (const char*) d;
+                const char **slot = cache + ((n * 31 + ((const uint8_t*) d)[0] * 7 + ((const uint8_t*) d)[n - 1]) % ELEMENTSOF(cache));
+                if (*slot && strlen(*slot) == n && memcmp(*slot, d, n) == 0)
+                        continue;
+
+                char k[n + 1];
+
+                memcpy(k, d, n);
+                k[n] = 0;
+                *slot = set_get(a->tail_fields, k);
+                if (*slot)
+                        continue;
+
+                name = strdup(k);
+                if (!name)
+                        return -ENOMEM;
+
+                if (!GREEDY_REALLOC(a->tail_field_names, a->n_tail_field_names + 1))
+                        return -ENOMEM;
+
+                r = set_ensure_put(&a->tail_fields, &string_hash_ops_free, name);
+                if (r < 0)
+                        return r;
+
+                *slot = a->tail_field_names[a->n_tail_field_names++] = TAKE_PTR(name);
+        }
+
+        a->tail_fields_end = c.position;
+        return 0;
 }
 
 int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size) {
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
-        const void *d;
-        const char *e;
-        size_t l;
         int r;
 
         assert(c);
@@ -1191,22 +1282,47 @@ int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **
 
         /* A field might be returned more than once. */
 
-        cursor_check(f, c);
+        cursor_check(a, c);
 
-        for (;;) {
-                r = enumerate_objects(f, c, a->scan_offset, /* field= */ NULL, 0, &d, &l);
-                if (r <= 0)
+        if (c->stage == STAGE_INDEXES) {
+                for (; c->index < a->n_indexes; c->index++, c->position = 0) {
+                        const SegmentedIndex *i = a->indexes + c->index;
+                        IndexFieldItem item;
+
+                        if (c->position >= i->n_fields)
+                                continue;
+
+                        r = segmented_index_field(f, i, c->position++, &item);
+                        if (r >= 0)
+                                r = segmented_index_field_name(f, i, &item, ret_name);
+                        if (r < 0)
+                                return r;
+
+                        *ret_size = le32toh(item.name_size);
+                        return 1;
+                }
+
+                cursor_next_stage(c);
+        }
+
+        if (c->stage == STAGE_TAIL) {
+                /* In the tail stage, c->position is the number of tail field names that were returned */
+                r = tail_fields_update(f);
+                if (r < 0)
                         return r;
 
-                /* The payload may be damaged, readers do not check its hash */
-                e = memchr(d, '=', l);
-                if (!e || !journal_field_valid(d, e - (const char*) d, /* allow_protected= */ true))
-                        continue;
+                if (c->position < a->n_tail_field_names) {
+                        const char *name = a->tail_field_names[c->position++];
 
-                *ret_name = d;
-                *ret_size = e - (const char*) d;
-                return 1;
+                        *ret_name = name;
+                        *ret_size = strlen(name);
+                        return 1;
+                }
+
+                cursor_next_stage(c);
         }
+
+        return 0;
 }
 
 int segmented_enumerate_unique(
@@ -1218,6 +1334,7 @@ int segmented_enumerate_unique(
                 size_t *ret_size) {
 
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        int r;
 
         assert(field);
         assert(c);
@@ -1226,7 +1343,128 @@ int segmented_enumerate_unique(
 
         /* A value might be returned more than once. */
 
-        cursor_check(f, c);
+        cursor_check(a, c);
 
-        return enumerate_objects(f, c, a->scan_offset, field, field_length, ret_data, ret_size);
+        if (c->stage == STAGE_INDEXES) {
+                for (; c->index < a->n_indexes; c->index++, c->position = 0, c->item = 0) {
+                        const SegmentedIndex *i = a->indexes + c->index;
+                        IndexFieldItem item;
+
+                        r = segmented_index_find_field(f, i, field, field_length, &item);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        if (FLAGS_SET(le32toh(item.flags), INDEX_FIELD_INLINE)) {
+                                /* Inline values are not in the data table, hence the objects of the
+                                 * segment are read */
+
+                                if (c->position == 0)
+                                        c->position = i->head_offset;
+
+                                r = enumerate_objects(f, c, i->offset, field, field_length, ret_data, ret_size);
+                                if (r != 0)
+                                        return r;
+
+                                continue;
+                        }
+
+                        while (c->position < le32toh(item.n_data)) {
+                                IndexDataItem data;
+
+                                r = segmented_index_data(f, i, le32toh(item.first_data) + c->position, &data);
+                                if (r < 0)
+                                        return r;
+
+                                c->position++;
+
+                                r = journal_file_data_payload_pinned(
+                                                f,
+                                                segmented_index_data_offset(i, &data),
+                                                field, field_length,
+                                                ret_data, ret_size);
+                                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
+                                        continue;
+                                if (r != 0)
+                                        return r;
+                        }
+                }
+
+                cursor_next_stage(c);
+                c->position = a->tail_offset;
+        }
+
+        if (c->stage == STAGE_TAIL) {
+                r = enumerate_objects(f, c, a->scan_offset, field, field_length, ret_data, ret_size);
+                if (r != 0)
+                        return r;
+
+                cursor_next_stage(c);
+        }
+
+        return 0;
+}
+
+int segmented_has_value(
+                JournalFile *f,
+                const void *data,
+                size_t size,
+                size_t n_indexes,
+                bool include_tail) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        const char *eq = memchr(data, '=', size);
+        size_t field_length = eq ? (size_t) (eq - (const char*) data) : size;
+        uint64_t hash = journal_file_hash_data(f, data, size);
+        int r;
+
+        for (size_t k = 0; k < MIN(n_indexes, a->n_indexes); k++) {
+                const SegmentedIndex *i = a->indexes + k;
+                IndexFieldItem field;
+
+                r = segmented_index_find_field(f, i, data, field_length, &field);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+                if (!eq)
+                        return 1;
+
+                r = segmented_index_find_data(f, i, &field, data, size, hash, /* ret= */ NULL);
+                if (r != 0)
+                        return r;
+                if (!FLAGS_SET(le32toh(field.flags), INDEX_FIELD_INLINE))
+                        continue;
+
+                SegmentedCursor c = { .position = i->head_offset };
+                for (;;) {
+                        const void *p;
+                        size_t l;
+
+                        r = enumerate_objects(f, &c, i->offset, data, field_length, &p, &l);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+                        if (memcmp_nn(p, l, data, size) == 0)
+                                return 1;
+                }
+        }
+
+        if (include_tail) {
+                SegmentedCursor c = { .position = a->tail_offset };
+                for (;;) {
+                        const void *p;
+                        size_t l;
+
+                        r = enumerate_objects(f, &c, a->scan_offset, data, field_length, &p, &l);
+                        if (r <= 0)
+                                return r;
+                        if (eq ? memcmp_nn(p, l, data, size) == 0 :
+                            l > size && ((const char*) p)[size] == '=' && memcmp(p, data, size) == 0)
+                                return 1;
+                }
+        }
+
+        return 0;
 }

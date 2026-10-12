@@ -12,6 +12,7 @@
 #include "journal-segmented-internal.h"
 #include "log.h"
 #include "random-util.h"
+#include "set.h"
 #include "siphash24.h"
 #include "sort-util.h"
 #include "time-util.h"
@@ -681,6 +682,10 @@ static void state_reset(JournalFile *f) {
 
         a->current_offset = a->current_ordinal = 0;
         a->fields_offset = 0;
+        a->tail_fields = set_free(a->tail_fields);
+        a->tail_field_names = mfree(a->tail_field_names);
+        a->n_tail_field_names = 0;
+        a->tail_fields_base = a->tail_fields_end = 0;
 
         FOREACH_ELEMENT(result, a->results)
                 segmented_result_done(result);
@@ -853,6 +858,8 @@ void segmented_close(JournalFile *f) {
         free(a->tail_entries);
         free(a->fields);
         free(a->inline_buffer);
+        set_free(a->tail_fields);
+        free(a->tail_field_names);
 
         free(f->header);
         f->header = a->disk_header;
