@@ -183,7 +183,9 @@
         <literal>-</literal> removes them. For example, <command>hostnamectl tags +foo:bar -quux:ooo</command>
         adds the tags <literal>foo</literal> and <literal>bar</literal> and removes <literal>quux</literal>
         and <literal>ooo</literal>. The prefix applies to the whole argument, i.e. to every tag listed within
-        it. Prefixed and unprefixed arguments may not be combined in a single invocation.</para>
+        it. Adding a <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal> tag
+        replaces any value previously assigned to the same key. Prefixed and unprefixed arguments may not be
+        combined in a single invocation.</para>
 
         <para>Machine tags are short labels that may be used to classify and group machines for management
         purposes, for example to identify the role a machine plays in a deployment, the fleet or
