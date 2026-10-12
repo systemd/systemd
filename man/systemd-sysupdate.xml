@@ -483,6 +483,8 @@
         <option>--reboot</option>, the reboot is requested only once, after the last iteration. May not be
         used with <command>acquire</command>.</para>
 
+        <para><filename>systemd-sysupdate-update.service</filename> runs with <option>--loop=16</option>.</para>
+
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
