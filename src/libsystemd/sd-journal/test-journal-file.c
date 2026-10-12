@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-journal.h"
+
 #include "journal-file-util.h"
 #include "journal-test-util.h"
 #include "journal-verify.h"
@@ -249,6 +251,89 @@ static void test_sync_then_archive_one(bool sync_done) {
 TEST(sync_then_archive) {
         test_sync_then_archive_one(/* sync_done= */ true);
         test_sync_then_archive_one(/* sync_done= */ false);
+}
+
+TEST(read_deleted) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f, *follower;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+        follower = journal_test_open(m, "test.journal", O_RDONLY, 0);
+
+        /* A reader can still read a file that was deleted, including entries appended since */
+        model_append_generated(f, &model, 1);
+        ASSERT_OK_ERRNO(unlink("test.journal"));
+        model_assert_file(follower, &model);
+
+        follower = journal_file_close(follower);
+        f = journal_file_offline_close(f);
+}
+
+TEST(enumerate_live) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_(model_done) Model model = {};
+        bool found = false;
+        const char *name;
+        JournalFile *f;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, 0));
+        SD_JOURNAL_FOREACH_FIELD(j, name)
+                ASSERT_FALSE(streq(name, "NEWFIELD"));
+
+        /* Enumeration finds fields that were appended since */
+        model_append(f, NULL, MODEL_REALTIME_BASE + 10, 5010, MODEL_BOOT_A, STRV_MAKE("NEWFIELD=1"));
+
+        SD_JOURNAL_FOREACH_FIELD(j, name)
+                found = found || streq(name, "NEWFIELD");
+        ASSERT_TRUE(found);
+
+        f = journal_file_offline_close(f);
+}
+
+TEST(seek_tail_live) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_(model_done) Model model = {};
+        uint64_t realtime;
+        JournalFile *f;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, 0));
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+
+        /* Seeking finds entries that were appended since, even without sd_journal_process() */
+        model_append_generated(f, &model, 1);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &realtime));
+        ASSERT_EQ(realtime, model.realtime[1]);
+
+        f = journal_file_offline_close(f);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
