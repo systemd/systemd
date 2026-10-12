@@ -2444,6 +2444,22 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SendHostnameUpdates=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true (the default) and the machine's hostname is sent to the DHCP
+          server, the hostname sent by the running DHCP client is updated when the machine's hostname
+          is changed, and the lease is renewed immediately to send the new hostname. When false, the
+          hostname known when the interface was configured is sent until the interface is
+          reconfigured. Disabling this may be useful when the DHCP server provides
+          different settings depending on the hostname sent by the client. This setting has no effect
+          when <varname>SendHostname=no</varname>, <varname>Hostname=</varname>, or
+          <varname>Anonymize=yes</varname> is specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MUDURL=</varname></term>
         <listitem>
           <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent
@@ -3266,6 +3282,18 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           characters and no spaces or dots, and be formatted as a valid DNS domain name.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SendHostnameUpdates=</varname></term>
+        <listitem>
+          <para>As in the [DHCPv4] section, but for the DHCPv6 client. Note that the lease is not renewed
+          immediately, the new hostname is sent to the DHCPv6 server on the next renewal. This setting has
+          no effect when <varname>SendHostname=no</varname> or <varname>Hostname=</varname> is
+          specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 

@@ -557,10 +557,12 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
         }
 
         r = sd_dhcp6_client_set_fqdn(client, hn);
-        if (r == -EINVAL && hostname)
-                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet. */
+        if (r == -EINVAL && hostname) {
+                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet, but
+                 * do not keep sending the previous hostname. */
                 log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
-        else if (r < 0)
+                (void) sd_dhcp6_client_set_fqdn(client, NULL);
+        } else if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set hostname: %m");
 
         return 0;
@@ -813,6 +815,20 @@ int dhcp6_update_mac(Link *link) {
         }
 
         return 0;
+}
+
+int dhcp6_update_hostname(Link *link) {
+        assert(link);
+
+        if (!link->dhcp6_client || !link->network)
+                return 0;
+
+        /* An explicitly configured hostname does not follow the system hostname. */
+        if (!link->network->dhcp6_send_hostname_updates || link->network->dhcp6_hostname)
+                return 0;
+
+        /* The new hostname will be sent on the next renewal. */
+        return dhcp6_set_hostname(link->dhcp6_client, link);
 }
 
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
