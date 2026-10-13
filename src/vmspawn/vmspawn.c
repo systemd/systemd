@@ -2183,6 +2183,72 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
         return 0;
 }
 
+/* Instantiate the EFI variable store from the template: either persistently at the --efi-nvram-state=
+ * path (which defaults to the image path plus sidecar_suffix), or as an unlinked temporary copy. Returns
+ * an fd to the store, opened for reading and writing. */
+static int prepare_efi_variable_store(const char *template, const char *sidecar_suffix, int *ret_fd) {
+        int r;
+
+        assert(template);
+        assert(sidecar_suffix);
+        assert(ret_fd);
+
+        if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
+                assert(!arg_efi_nvram_state_path);
+
+                r = make_sidecar_path(sidecar_suffix, &arg_efi_nvram_state_path);
+                if (r < 0)
+                        return r;
+
+                log_debug("Storing EFI variables persistently under '%s'.", arg_efi_nvram_state_path);
+        }
+
+        _cleanup_close_ int target_fd = -EBADF;
+        _cleanup_(unlink_and_freep) char *destroy_path = NULL;
+        bool newly_created;
+        if (arg_efi_nvram_state_path) {
+                _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
+                if (!d)
+                        return log_oom();
+
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                if (target_fd < 0)
+                        return log_error_errno(target_fd, "Failed to open EFI variable store at %s: %m", arg_efi_nvram_state_path);
+
+                if (newly_created)
+                        destroy_path = TAKE_PTR(d);
+                else {
+                        r = fd_verify_regular(target_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "EFI variable store at %s is not a regular file: %m", arg_efi_nvram_state_path);
+                }
+        } else {
+                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
+                if (target_fd < 0)
+                        return log_error_errno(target_fd, "Failed to create temporary EFI variable store: %m");
+
+                newly_created = true;
+        }
+
+        if (newly_created) {
+                _cleanup_close_ int source_fd = open(template, O_RDONLY|O_CLOEXEC);
+                if (source_fd < 0)
+                        return log_error_errno(errno, "Failed to open EFI variable store template %s: %m", template);
+
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy EFI variable store template %s: %m", template);
+
+                /* This isn't always available so don't raise an error if it fails */
+                (void) copy_times(source_fd, target_fd, 0);
+        }
+
+        destroy_path = mfree(destroy_path); /* disarm auto-destroy */
+
+        *ret_fd = TAKE_FD(target_fd);
+        return 0;
+}
+
 /* Passes an fd to QEMU in the given fdset on its command line. The caller keeps owning the fd. */
 static int cmdline_add_fdset(char ***cmdline, int **pass_fds, size_t *n_pass_fds, QemuFdset fdset, int fd, const char *opaque) {
         int r;
@@ -2238,63 +2304,15 @@ static int cmdline_add_ovmf(
                 return 0;
         }
 
-        if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
-                assert(!arg_efi_nvram_state_path);
-
-                r = make_sidecar_path(".efinvramstate", &arg_efi_nvram_state_path);
-                if (r < 0)
-                        return r;
-
-                log_debug("Storing EFI NVRAM state persistently under '%s'.", arg_efi_nvram_state_path);
-        }
-
-        const char *vars_source = arg_efi_nvram_template ?: ovmf_config->vars;
         _cleanup_close_pair_ int vars_fds[2] = EBADF_PAIR;
-        _cleanup_(unlink_and_freep) char *destroy_path = NULL;
-        bool newly_created;
-        if (arg_efi_nvram_state_path) {
-                _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
-                if (!d)
-                        return log_oom();
-
-                vars_fds[0] = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
-                if (vars_fds[0] < 0)
-                        return log_error_errno(vars_fds[0], "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
-
-                if (newly_created)
-                        destroy_path = TAKE_PTR(d);
-                else {
-                        r = fd_verify_regular(vars_fds[0]);
-                        if (r < 0)
-                                return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
-                }
-        } else {
-                vars_fds[0] = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
-                if (vars_fds[0] < 0)
-                        return log_error_errno(vars_fds[0], "Failed to create temporary file for OVMF vars: %m");
-
-                newly_created = true;
-        }
-
-        if (newly_created) {
-                _cleanup_close_ int source_fd = open(vars_source, O_RDONLY|O_CLOEXEC);
-                if (source_fd < 0)
-                        return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
-
-                r = copy_bytes(source_fd, vars_fds[0], UINT64_MAX, /* copy_flags= */ 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy OVMF vars file %s: %m", vars_source);
-
-                /* This isn't always available so don't raise an error if it fails */
-                (void) copy_times(source_fd, vars_fds[0], 0);
-        }
-
-        destroy_path = mfree(destroy_path); /* disarm auto-destroy */
+        r = prepare_efi_variable_store(arg_efi_nvram_template ?: ovmf_config->vars, ".efinvramstate", &vars_fds[0]);
+        if (r < 0)
+                return r;
 
         /* QEMU's block layer opens the drive read-only first, so it needs a matching fd in the fdset. */
         vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY|O_CLOEXEC);
         if (vars_fds[1] < 0)
-                return log_error_errno(vars_fds[1], "Failed to reopen OVMF vars file read-only: %m");
+                return log_error_errno(vars_fds[1], "Failed to reopen EFI variable store read-only: %m");
 
         FOREACH_ELEMENT(fd, vars_fds) {
                 r = cmdline_add_fdset(cmdline, pass_fds, n_pass_fds, QEMU_FDSET_EFI_VARS, *fd, "efi-vars");
