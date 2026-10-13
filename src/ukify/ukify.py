@@ -1959,6 +1959,8 @@ class ConfigItem:
     # metadata for config file parsing
     config_key: Optional[str] = None
     config_push: Callable[[argparse.Namespace, Optional[str], str, Any], None] = config_set_if_unset
+    config_group_optional: bool = False
+    config_group_fill: Optional[Callable[[], Any]] = None
 
     def _names(self) -> tuple[str, ...]:
         return self.name if isinstance(self.name, tuple) else (self.name,)
@@ -1973,7 +1975,17 @@ class ConfigItem:
         kwargs = {
             key: val
             for key in dataclasses.asdict(self)
-            if (key not in ('name', 'config_key', 'config_push') and (val := getattr(self, key)) is not None)
+            if (
+                key
+                not in (
+                    'name',
+                    'config_key',
+                    'config_push',
+                    'config_group_optional',
+                    'config_group_fill',
+                )
+                and (val := getattr(self, key)) is not None
+            )
         }
         args = self._names()
         parser.add_argument(*args, **kwargs)
@@ -2304,6 +2316,7 @@ CONFIG_ITEMS = [
         help='public part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
         config_push=ConfigItem.config_set_group,
+        config_group_optional=True,
     ),
     ConfigItem(
         '--pcr-certificate',
@@ -2313,6 +2326,7 @@ CONFIG_ITEMS = [
         help='certificate part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRCertificate',
         config_push=ConfigItem.config_set_group,
+        config_group_optional=True,
     ),
     ConfigItem(
         '--phases',
@@ -2323,6 +2337,8 @@ CONFIG_ITEMS = [
         help='phase-paths to create signatures for',
         config_key='PCRSignature:/Phases',
         config_push=ConfigItem.config_set_group,
+        config_group_optional=True,
+        config_group_fill=list,
     ),
     ConfigItem(
         '--policyref',
@@ -2332,6 +2348,7 @@ CONFIG_ITEMS = [
         help='policy references to bind signatures to',
         config_key='PCRSignature:/PolicyRef',
         config_push=ConfigItem.config_set_group,
+        config_group_optional=True,
     ),
     ConfigItem(
         '--tools',
@@ -2405,6 +2422,11 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
     assert '_groups' not in namespace
     n_pcr_priv = len(namespace.pcr_private_keys or ())
     namespace._groups = list(range(n_pcr_priv))  # pylint: disable=protected-access
+    command_line_group_values = {
+        item.argparse_dest(): getattr(namespace, item.argparse_dest())
+        for item in CONFIG_ITEMS
+        if item.config_group_optional
+    }
 
     cp = configparser.ConfigParser(
         comment_prefixes='#',
@@ -2437,6 +2459,44 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
                 item.apply_config(namespace, section_name, group, key, value)
             else:
                 print(f'Unknown config setting [{section_name}] {key}=', file=sys.stderr)
+
+    groups = namespace._groups  # pylint: disable=protected-access
+    if len(groups) == n_pcr_priv:
+        return
+
+    if n_pcr_priv > 0:
+        for item in CONFIG_ITEMS:
+            if not item.config_group_optional:
+                continue
+
+            values = command_line_group_values[item.argparse_dest()]
+            if values is not None and len(values) != n_pcr_priv:
+                raise ValueError(
+                    f'{item._names()[0]}= specifications must match --pcr-private-key='
+                )
+
+    # Fill in missing values for optional grouped options. The private keys
+    # define the number of actual signing groups.
+    n_groups = len(groups)
+    for item in CONFIG_ITEMS:
+        if not item.config_group_optional:
+            continue
+
+        dest = item.argparse_dest()
+        values = getattr(namespace, dest, None)
+        if values is None:
+            continue
+
+        fill = item.config_group_fill
+        if fill:
+            values = [value if value is not None else fill() for value in values]
+
+        n_missing = n_groups - len(values)
+        setattr(
+            namespace,
+            dest,
+            values + [(fill() if fill else None) for _ in range(max(n_missing, 0))],
+        )
 
 
 def config_example() -> Iterator[str]:
@@ -2536,6 +2596,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
     n_policyrefs = None if opts.policyrefs is None else len(opts.policyrefs)
+    if opts.pcr_private_keys and None in opts.pcr_private_keys:
+        raise ValueError('--pcr-private-key= must be specified for every PCR signature group')
     if opts.policy_digest and n_pcr_priv is not None:
         raise ValueError('--pcr-private-key= cannot be specified with --policy-digest')
     if (
@@ -2550,6 +2612,18 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--pcr-certificate= specifications must match --pcr-private-key=')
     if n_pcr_pub is not None and n_pcr_cert is not None:
         raise ValueError('--pcr-public-key= and --pcr-certificate= cannot be used at the same time')
+    if opts.pcr_private_keys and (opts.signing_engine or opts.signing_provider):
+        public_keys = opts.pcr_public_keys or []
+        certificates = opts.pcr_certificates or []
+        if any(
+            not (public_keys[i] if i < len(public_keys) else None)
+            and not (certificates[i] if i < len(certificates) else None)
+            for i in range(len(opts.pcr_private_keys))
+        ):
+            raise ValueError(
+                '--signing-engine=/--signing-provider= requires '
+                '--pcr-public-key= or --pcr-certificate= for each --pcr-private-key='
+            )
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
     if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
