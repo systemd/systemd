@@ -15,6 +15,7 @@
 #include "gunicode.h"
 #include "in-addr-util.h"
 #include "json-util.h"
+#include "locale-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"
@@ -1873,8 +1874,22 @@ static const char* table_data_format(
         case TABLE_UINT64_HEX_0x:
                 return (d->formatted = asprintf_safe("0x%" PRIx64, d->uint64));
 
-        case TABLE_DOUBLE:
-                return (d->formatted = asprintf_safe("%.*f", (int) MIN(d->decimals, (unsigned) INT_MAX), d->double_val));
+        case TABLE_DOUBLE: {
+                _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
+                locale_t old_loc;
+
+                /* Always use "." as decimal separator, regardless of LC_NUMERIC, to match the JSON output
+                 * and keep the output parsable. */
+                loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t) 0);
+                if (loc == (locale_t) 0)
+                        return NULL;
+
+                old_loc = uselocale(loc);
+                d->formatted = asprintf_safe("%.*f", (int) MIN(d->decimals, (unsigned) INT_MAX), d->double_val);
+                (void) uselocale(old_loc);
+
+                return d->formatted;
+        }
 
         case TABLE_PERCENT:
                 return (d->formatted = asprintf_safe("%i%%" , d->percent));

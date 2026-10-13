@@ -8,6 +8,7 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "json-util.h"
+#include "locale-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -976,6 +977,34 @@ TEST(doubles) {
                      "a    0.50\n"
                      "b    918.0\n"
                      "d    20534\n");
+}
+
+TEST(doubles_locale) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        locale_t old_loc;
+
+        /* The decimal separator must not depend on LC_NUMERIC */
+        loc = newlocale(LC_NUMERIC_MASK, "de_DE.UTF-8", (locale_t) 0);
+        if (loc == (locale_t) 0)
+                return (void) log_tests_skipped("de_DE.UTF-8 locale not available");
+
+        ASSERT_NOT_NULL((t = table_new("name", "value")));
+        table_set_width(t, 0);
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "a",
+                                 TABLE_DOUBLE, 0.5));
+
+        old_loc = uselocale(loc);
+        ASSERT_OK(table_format(t, &formatted));
+        (void) uselocale(old_loc);
+        printf("%s\n", formatted);
+
+        ASSERT_STREQ(formatted,
+                     "NAME VALUE\n"
+                     "a    0.50\n");
 }
 
 TEST(vertical) {
