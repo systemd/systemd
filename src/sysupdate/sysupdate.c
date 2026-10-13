@@ -73,6 +73,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 static char *arg_transfer_source = NULL;
 static bool arg_varlink = false;
+static unsigned arg_loop = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -180,12 +181,12 @@ static int context_from_cmdline(Context *ret) {
         return 0;
 }
 
-static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+static int context_from_base(const Context *base, Context *ret) {
         assert(base);
-        assert(component);
         assert(ret);
 
-        /* Copies the specified context, but changes the component to the specified one */
+        /* Copies the parameters of the specified context, but none of the loaded state. This is useful to
+         * start over, for example because an update installed new definition files. */
 
         _cleanup_(context_done) Context context = CONTEXT_NULL;
 
@@ -195,12 +196,19 @@ static int context_from_base_with_component(const Context *base, const char *com
         context.verify = base->verify;
         context.offline = base->offline;
         context.cleanup = base->cleanup;
+        context.component_select = base->component_select;
         context.feature_select = base->feature_select;
+
+        if (strdup_to(&context.definitions, base->definitions) < 0)
+                return log_oom();
 
         if (strdup_to(&context.root, base->root) < 0)
                 return log_oom();
 
         if (strdup_to(&context.image, base->image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.component, base->component) < 0)
                 return log_oom();
 
         if (strdup_to(&context.transfer_source, base->transfer_source) < 0)
@@ -212,14 +220,36 @@ static int context_from_base_with_component(const Context *base, const char *com
                         return log_oom();
         }
 
-        if (strdup_to(&context.component, component) < 0)
-                return log_oom();
+        /* If the base context has an image mounted, keep a reference to its loopback device, since the
+         * device node is needed to resolve partition targets. We do not take over .mounted_dir however,
+         * since the base context is responsible for unmounting it, and is expected to outlive us. */
+        context.loop_device = loop_device_ref(base->loop_device);
 
-        /* NB: we do not copy .loop_device/.mounted_dir here, since that's for lifetime tracking only, and
-         * not needed for access (we only need to copy .root/.image) for that. Under the assumption that the
-         * contexts initialized via context_from_base_with_component() have a shorter lifetime than the
-         * contexts they are copied from we don't bother with lifetime tracking of the loopback device/mount
-         * point here. */
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
+}
+
+static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+        int r;
+
+        assert(base);
+        assert(component);
+        assert(ret);
+
+        /* Copies the specified context, but changes the component to the specified one */
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_base(base, &context);
+        if (r < 0)
+                return r;
+
+        /* The new context is about the specified component only, hence neither inherit the definitions
+         * directory override nor the component selection mode */
+        context.definitions = mfree(context.definitions);
+        context.component_select = SELECT_EXPLICIT;
+
+        if (free_and_strdup(&context.component, component) < 0)
+                return log_oom();
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -2623,13 +2653,19 @@ static int context_update(
                 Context *c,
                 const char *version,
                 const char *booted_version,
-                UpdateActionFlags action_flags) {
+                UpdateActionFlags action_flags,
+                bool *reboot_needed) {
 
         UpdateSet *applied = NULL;
         bool installed = false;
         int r, ret = 0;
 
         assert(c);
+        assert(reboot_needed);
+
+        /* Returns > 0 if an update was installed, 0 if not. Doesn't reboot on its own, but sets
+         * *reboot_needed to true if --reboot is requested and the installed version warrants a reboot. It
+         * never resets *reboot_needed to false, so that it can be accumulated over multiple calls. */
 
         r = context_load_online(
                         c,
@@ -2674,26 +2710,92 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (installed) {
+        if (installed && c->reboot) {
                 /* We installed something, yay */
 
-                if (c->reboot) {
-                        assert(applied);
-                        assert(booted_version);
+                assert(applied);
+                assert(booted_version);
 
-                        if (strverscmp_improved(applied->version, booted_version) > 0) {
-                                log_notice("Newly installed version is newer than booted version, rebooting.");
-                                RET_GATHER(ret, reboot_now());
-                        } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
-                                   FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
-                                log_notice("Currently booted version was incomplete and has been repaired, rebooting.");
-                                RET_GATHER(ret, reboot_now());
-                        } else
-                                log_info("Booted version is newer or identical to newly installed version, not rebooting.");
-                }
+                if (strverscmp_improved(applied->version, booted_version) > 0) {
+                        log_notice("Newly installed version is newer than booted version, reboot needed.");
+                        *reboot_needed = true;
+                } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
+                           FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
+                        log_notice("Currently booted version was incomplete and has been repaired, reboot needed.");
+                        *reboot_needed = true;
+                } else
+                        log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
 
-        return ret;
+        if (ret < 0)
+                return ret;
+
+        return installed;
+}
+
+static int context_update_iteration(
+                Context *context,
+                const char *version,
+                const char *booted_version,
+                UpdateActionFlags action_flags,
+                bool *reboot_needed) {
+
+        bool installed = false;
+        int r, ret = 0;
+
+        assert(context);
+        assert(reboot_needed);
+
+        /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
+         * installed, 0 if not. */
+
+        switch (context->component_select) {
+
+        case SELECT_EXPLICIT:
+                return context_update(context, version, booted_version, action_flags, reboot_needed);
+
+        case SELECT_ALL: {
+                /* Update the default, component-less installation first (if any). Running it before the
+                 * enumeration below also ensures the image (if any) is mounted and context->root is set, so
+                 * that we enumerate the components inside the image rather than on the host. A missing
+                 * default installation (ENOENT) is not an error in this mode. */
+                r = context_update(context, version, booted_version, action_flags, reboot_needed);
+                if (r > 0)
+                        installed = true;
+                else if (r != -ENOENT)
+                        RET_GATHER(ret, r);
+
+                _cleanup_strv_free_ char **component_names = NULL;
+                r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
+                if (r < 0)
+                        return RET_GATHER(ret, r);
+
+                STRV_FOREACH(name, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(context, *name, &cc);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        r = context_update(&cc, version, booted_version, action_flags, reboot_needed);
+                        if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
+                                continue;
+                        if (r > 0)
+                                installed = true;
+                        RET_GATHER(ret, r);
+                }
+
+                if (ret < 0)
+                        return ret;
+
+                return installed;
+        }
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
@@ -2717,6 +2819,11 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max= argument must be >= 2 while updating");
 
+        /* Only installing updates can make new updates available (e.g. because new definitions have been
+         * installed), hence looping makes no sense if we only acquire. */
+        if (arg_loop > 1 && !FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --loop= switch is not supported for '%s'.", argv[0]);
+
         _cleanup_free_ char *booted_version = NULL;
         if (context.reboot) {
                 /* We already checked in parse_argv() that --component=/--component-all/--component-suggested
@@ -2733,50 +2840,55 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        switch (context.component_select) {
+        bool reboot_needed = false;
+        int ret = 0;
 
-        case SELECT_EXPLICIT:
-                return context_update(&context, version, booted_version, action_flags);
+        for (unsigned iteration = 1;; iteration++) {
+                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+                Context *c;
 
-        case SELECT_ALL: {
-                int ret = 0;
-
-                /* Update the default, component-less installation first (if any). Running it before the
-                 * enumeration below also ensures the image (if any) is mounted and context.root is set, so
-                 * that we enumerate the components inside the image rather than on the host. A missing
-                 * default installation (ENOENT) is not an error in this mode. */
-                r = context_update(&context, version, booted_version, action_flags);
-                if (r != -ENOENT)
-                        RET_GATHER(ret, r);
-
-                _cleanup_strv_free_ char **component_names = NULL;
-                r = context_list_components(&context, &component_names, /* ret_has_default_component= */ NULL);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        return ret;
-                }
-
-                STRV_FOREACH(name, component_names) {
-                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
-
-                        r = context_from_base_with_component(&context, *name, &cc);
+                if (iteration == 1)
+                        /* The first iteration operates on the original context, so that the image (if any)
+                         * is mounted there, and remains mounted for all later iterations. */
+                        c = &context;
+                else {
+                        /* Start from scratch in later iterations, so that we pick up any new or changed
+                         * definitions (and components) the previous iteration installed. */
+                        r = context_from_base(&context, &copy);
                         if (r < 0) {
                                 RET_GATHER(ret, r);
-                                continue;
+                                break;
                         }
 
-                        r = context_update(&cc, version, booted_version, action_flags);
-                        if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
-                                continue;
-                        RET_GATHER(ret, r);
+                        c = &copy;
                 }
 
-                return ret;
+                if (arg_loop > 1)
+                        log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
+
+                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        break;
+                }
+                if (r == 0) {
+                        if (iteration > 1)
+                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
+                        break;
+                }
+                if (iteration >= arg_loop) {
+                        if (arg_loop > 1)
+                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", arg_loop);
+                        break;
+                }
         }
 
-        default:
-                assert_not_reached();
+        if (reboot_needed) {
+                log_notice("Rebooting.");
+                RET_GATHER(ret, reboot_now());
         }
+
+        return ret;
 }
 
 VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
@@ -3450,6 +3562,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("offline", NULL,
                             "Do not fetch metadata from the network"):
                         arg_offline = true;
+                        break;
+
+                OPTION_LONG("loop", "N",
+                            "Repeat update until no further updates are installed, at most N times"):
+                        r = safe_atou(opts.arg, &arg_loop);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --loop= parameter: %s", opts.arg);
+                        if (arg_loop == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --loop= parameter must be greater than zero.");
+
                         break;
 
                 OPTION_LONG("cleanup", "BOOL", "Clean up orphaned files after completing update"): {
