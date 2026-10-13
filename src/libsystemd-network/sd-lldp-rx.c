@@ -500,6 +500,12 @@ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
         return k;
 }
 
+int sd_lldp_rx_get_n_neighbors(sd_lldp_rx *lldp_rx) {
+        assert_return(lldp_rx, -EINVAL);
+
+        return (int) hashmap_size(lldp_rx->neighbor_by_id);
+}
+
 int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ sd_lldp_neighbor **neighbors = NULL;

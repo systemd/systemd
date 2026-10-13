@@ -62,6 +62,7 @@ int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask);
 int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *address);
 
 int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret);
+int sd_lldp_rx_get_n_neighbors(sd_lldp_rx *lldp_rx);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_lldp_neighbor);
 
