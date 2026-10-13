@@ -286,16 +286,36 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         /* Try to acquire the current cgroup path */
         r = cg_pid_get_path_shifted(c->pid, m->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
-                /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
-                 * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
-                 * on cgroup v1 and we want to be able to map log messages from them too. */
-                if (unit_id && !c->unit) {
-                        c->unit = strdup(unit_id);
-                        if (c->unit)
-                                return 0;
+                /* We use the unit ID passed in as fallback if cg_pid_get_path_shifted() failed (e.g. because
+                 * the process already exited by the time we process the stdout stream it connected to us) or
+                 * the process is running in a root cgroup. Zombie processes are automatically migrated to root
+                 * cgroup on cgroup v1 and we want to be able to map log messages from them too. */
+                if (!unit_id || streq_ptr(unit_id, c->unit) || streq_ptr(unit_id, c->user_unit))
+                        return r;
+
+                _cleanup_free_ char *u = strdup(unit_id);
+                if (!u)
+                        return -ENOMEM;
+
+                /* If we have cached data for a different unit, it's stale: on kernels lacking
+                 * CLONE_INTO_CGROUP sd-executor logs a few messages while still in the service manager's
+                 * cgroup, and only then attaches itself to the unit's cgroup and connects stdout/stderr to us.
+                 * If the process exits before we get to process its output we'd otherwise attribute it to the
+                 * service manager's cgroup. Hence flush out what we know is outdated. */
+                if (c->user_unit) {
+                        /* The cached data refers to a per-user service manager, hence this is a user unit */
+                        free_and_replace(c->user_unit, u);
+                        c->user_slice = mfree(c->user_slice);
+                } else {
+                        free_and_replace(c->unit, u);
+                        c->slice = mfree(c->slice);
+                        c->session = mfree(c->session);
+                        c->owner_uid = UID_INVALID;
                 }
 
-                return r;
+                c->cgroup = mfree(c->cgroup);
+                c->invocation_id = SD_ID128_NULL;
+                return 0;
         }
 
         (void) client_context_read_log_filter_patterns(c, t);
