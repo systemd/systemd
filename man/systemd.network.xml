@@ -3288,10 +3288,8 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       <varlistentry>
         <term><varname>SendHostnameUpdates=</varname></term>
         <listitem>
-          <para>As in the [DHCPv4] section, but for the DHCPv6 client. Note that the lease is not renewed
-          immediately, the new hostname is sent to the DHCPv6 server on the next renewal. This setting has
-          no effect when <varname>SendHostname=no</varname> or <varname>Hostname=</varname> is
-          specified.</para>
+          <para>As in the [DHCPv4] section, but for the DHCPv6 client. This setting has no effect when
+          <varname>SendHostname=no</varname> or <varname>Hostname=</varname> is specified.</para>
 
           <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
