@@ -8,6 +8,8 @@
 #include "networkctl-link-info.h"
 #include "networkctl-link-info-json.h"
 #include "networkctl-util.h"
+#include "networkd-link.h"
+#include "strv.h"
 #include "time-util.h"
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_dhcp_state, DHCPState, dhcp_state_from_string);
@@ -154,6 +156,35 @@ static int acquire_link_dhcp_message(LinkInfo *link) {
         return dhcp_message_parse_json(v, &link->dhcp_message);
 }
 
+static int acquire_link_configuring_reasons(LinkInfo *link) {
+        _cleanup_strv_free_ char **ids = NULL, **reasons = NULL;
+        int r;
+
+        assert(link);
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "ConfiguringReasons"), &v);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = sd_json_dispatch_strv("ConfiguringReasons", v, /* flags= */ 0, &ids);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(id, ids) {
+                LinkConfiguringReason reason = link_configuring_reason_from_string(*id);
+
+                /* Show the ID as is, if the reason is unknown to this version. */
+                r = strv_extend(&reasons, reason >= 0 ? link_configuring_reason_message_to_string(reason) : *id);
+                if (r < 0)
+                        return r;
+        }
+
+        return strv_free_and_replace(link->configuring_reasons, reasons);
+}
+
 int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         int r;
 
@@ -176,6 +207,7 @@ int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         (void) acquire_link_dhcp4_client_info(link);
         (void) acquire_link_dhcp_message(link);
         (void) acquire_link_dhcp6_client_info(link);
+        (void) acquire_link_configuring_reasons(link);
 
         return 0;
 }
