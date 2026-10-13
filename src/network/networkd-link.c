@@ -518,7 +518,7 @@ void link_check_ready(Link *link) {
                 return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
 
         if (!link->static_bridge_fdb_configured)
-                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+                return (void) log_link_debug(link, "%s(): static bridge FDB entries are not configured.", __func__);
 
         if (!link->static_bridge_mdb_configured)
                 return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
