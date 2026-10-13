@@ -809,6 +809,65 @@ grep -F 'Maximum number of update iterations (2) reached' "$LOOPDIR/log" >/dev/n
 
 rm -rf "$LOOPDIR"
 
+# Test SuccessAction= in *.component files: two components, the first one is configured to restart the
+# update iteration once it has been updated successfully.
+ACTIONDIR="$WORKDIR/component-actions"
+action_reset() {
+    rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+        /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+        /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+    mkdir -p "$ACTIONDIR/source" /run/sysupdate.act-a.d /run/sysupdate.act-b.d
+
+    for c in a b; do
+        mkdir -p "$ACTIONDIR/target-$c"
+        echo "$c" >"$ACTIONDIR/source/act-$c-1.bin"
+        cat >"/run/sysupdate.act-$c.d/01-act-$c.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$ACTIONDIR/source
+MatchPattern=act-$c-@v.bin
+
+[Target]
+Type=regular-file
+Path=$ACTIONDIR/target-$c
+MatchPattern=act-$c-@v.bin
+EOF
+    done
+}
+
+# Move the default component's definitions out of the way, we only want to update our two components
+mv "$CONFIGDIR" "$CONFIGDIR.backup"
+
+# By default we continue with the next component, hence a single iteration updates both
+action_reset
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With SuccessAction=restart the iteration is finished after the first component got updated
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Component 'act-a' updated successfully, finishing update iteration early." "$ACTIONDIR/log" >/dev/null
+# … and the next invocation picks up the second component
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With --loop= the restart happens within a single invocation
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no --loop=16 update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F 'stable state reached after 3 iterations' "$ACTIONDIR/log" >/dev/null
+
+rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+    /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+    /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+mv "$CONFIGDIR.backup" "$CONFIGDIR"
+
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
 # COMPRESSION_MAGIC_BYTES_MAX correctly.
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs"

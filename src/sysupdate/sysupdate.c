@@ -394,6 +394,7 @@ static int read_component(Context *c) {
                 { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
                 { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
                 { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
+                { "Component", "SuccessAction",              config_parse_component_success_action, 0,                        &c->component_success_action },
                 { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
                 { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
                 { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
@@ -2782,8 +2783,18 @@ static int context_update_iteration(
                         r = context_update(&cc, version, booted_version, action_flags, reboot_needed);
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
-                        if (r > 0)
+                        if (r > 0) {
                                 installed = true;
+
+                                if (cc.component_success_action == COMPONENT_SUCCESS_RESTART) {
+                                        /* The component asked us to start from the beginning after it
+                                         * has been updated successfully, for example because it makes
+                                         * new transfer files available. Hence, finish this iteration
+                                         * early, and skip the remaining components. */
+                                        log_info("Component '%s' updated successfully, finishing update iteration early.", *name);
+                                        break;
+                                }
+                        }
                         RET_GATHER(ret, r);
                 }
 
