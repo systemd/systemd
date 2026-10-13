@@ -91,6 +91,33 @@ static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
+static const char *const link_configuring_reason_table[_LINK_CONFIGURING_REASON_MAX] = {
+        [LINK_CONFIGURING_REASON_TRAFFIC_CONTROL]             = "traffic-control",
+        [LINK_CONFIGURING_REASON_LINK_LAYER]                  = "link-layer",
+        [LINK_CONFIGURING_REASON_ACTIVATION]                  = "activation",
+        [LINK_CONFIGURING_REASON_STACKED_NETDEVS]             = "stacked-netdevs",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESSES]            = "static-addresses",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS]       = "static-address-labels",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB]           = "static-bridge-fdb",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB]           = "static-bridge-mdb",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBORS]            = "static-neighbors",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY]       = "static-neighbor-proxy",
+        [LINK_CONFIGURING_REASON_STATIC_NEXTHOPS]             = "static-nexthops",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTES]               = "static-routes",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES] = "static-routing-policy-rules",
+        [LINK_CONFIGURING_REASON_SR_IOV]                      = "sr-iov",
+        [LINK_CONFIGURING_REASON_BEARER]                      = "bearer",
+        [LINK_CONFIGURING_REASON_IPV6LL]                      = "ipv6ll",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY]    = "static-address-not-ready",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD]                   = "dhcp4-6rd",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX]            = "dhcp4-6rd-prefix",
+        [LINK_CONFIGURING_REASON_DHCP6_PD]                    = "dhcp6-pd",
+        [LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX]             = "dhcp6-pd-prefix",
+        [LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING]          = "dynamic-addressing",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_configuring_reason, LinkConfiguringReason);
+
 static const char *const link_configuring_reason_message_table[_LINK_CONFIGURING_REASON_MAX] = {
         [LINK_CONFIGURING_REASON_TRAFFIC_CONTROL]             = "traffic controls are not configured",
         [LINK_CONFIGURING_REASON_LINK_LAYER]                  = "link layer is configuring",
