@@ -92,7 +92,8 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_GROWFS |
         DISSECT_IMAGE_PIN_PARTITION_DEVICES |
         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
-        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+        DISSECT_IMAGE_TPM2_UNLOCK;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -1970,6 +1971,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
 
