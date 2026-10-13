@@ -127,12 +127,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
-- systemd-sysupdate: add matchpattern that only controls ownership, nothing
-  else
-
-- systemd-sysupdate: add boolean field to components that indicate that if we
-  updated this component we should start from the beginning.
-
 - teach hostnamed to unset tags by wildcard
 
 - define portabled auto-attach dir where DDIs can be dropped that are

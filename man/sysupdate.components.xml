@@ -117,6 +117,40 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SuccessAction=</varname></term>
+
+        <listitem><para>Controls what to do after an update of this component has been installed
+        successfully, when multiple components are updated in one go (i.e. when
+        <command>systemd-sysupdate update</command> is invoked with <option>--component-all</option>). Takes
+        one of <literal>continue</literal> or <literal>restart</literal>. If <literal>continue</literal>,
+        the update logic proceeds with the next component. If <literal>restart</literal>, the remaining
+        components are skipped and the current update iteration is finished early, so that the next
+        iteration starts from the beginning, re-reading all definition files. This is useful for components
+        that make new transfer files (or components) available, which should be processed before any other
+        components are updated. Note that the next iteration is only started if the
+        <option>--loop=</option> switch permits it, see
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details. Defaults to <literal>continue</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FailureAction=</varname></term>
+
+        <listitem><para>Controls what to do if updating this component failed, when multiple components are
+        updated in one go (i.e. when <command>systemd-sysupdate update</command> is invoked with
+        <option>--component-all</option>). Takes one of <literal>continue</literal> or
+        <literal>fail</literal>. If <literal>continue</literal>, the failure is logged, and the update logic
+        proceeds with the next component (and possibly further update iterations, see
+        <option>--loop=</option>), but the tool returns the first error encountered once it is done. If
+        <literal>fail</literal>, the remaining components are skipped and the tool fails immediately.
+        Defaults to <literal>continue</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Suggest=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, this component is suggested for enablement, if
