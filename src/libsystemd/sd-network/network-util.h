@@ -110,6 +110,7 @@ DECLARE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
 
 DECLARE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
+DECLARE_STRING_TABLE_LOOKUP(link_configuring_reason, LinkConfiguringReason);
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(link_configuring_reason_message, LinkConfiguringReason);
 
 typedef struct LinkOperationalStateRange {

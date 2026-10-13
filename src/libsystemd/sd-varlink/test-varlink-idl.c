@@ -517,6 +517,8 @@ TEST(enums_idl) {
         TEST_IDL_ENUM_TO_STRING(LinkAddressState, link_address_state, vl_type_LinkAddressState);
         TEST_IDL_ENUM(LinkOnlineState, link_online_state, vl_type_LinkOnlineState);
         TEST_IDL_ENUM_TO_STRING(LinkOnlineState, link_online_state, vl_type_LinkOnlineState);
+        TEST_IDL_ENUM(LinkConfiguringReason, link_configuring_reason, vl_type_LinkConfiguringReason);
+        TEST_IDL_ENUM_TO_STRING(LinkConfiguringReason, link_configuring_reason, vl_type_LinkConfiguringReason);
         TEST_IDL_ENUM(AddressFamily, link_required_address_family, vl_type_LinkRequiredAddressFamily);
         TEST_IDL_ENUM_TO_STRING(AddressFamily, link_required_address_family, vl_type_LinkRequiredAddressFamily);
 

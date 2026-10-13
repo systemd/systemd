@@ -483,7 +483,7 @@ stop:
 
 /* Returns why the link is still configuring, or _LINK_CONFIGURING_REASON_INVALID when the link is ready. When
  * a static address is not ready yet, the address is also returned in ret_address. */
-static LinkConfiguringReason link_get_configuring_reason(Link *link, Address **ret_address) {
+LinkConfiguringReason link_get_configuring_reason(Link *link, Address **ret_address) {
         Address *a;
 
         assert(link);
