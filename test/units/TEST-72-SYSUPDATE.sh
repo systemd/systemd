@@ -809,8 +809,8 @@ grep -F 'Maximum number of update iterations (2) reached' "$LOOPDIR/log" >/dev/n
 
 rm -rf "$LOOPDIR"
 
-# Test SuccessAction= in *.component files: two components, the first one is configured to restart the
-# update iteration once it has been updated successfully.
+# Test SuccessAction= and FailureAction= in *.component files: two components, the first one is configured
+# to restart the update iteration once it has been updated successfully.
 ACTIONDIR="$WORKDIR/component-actions"
 action_reset() {
     rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
@@ -862,6 +862,23 @@ printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
 cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
 cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
 grep -F 'stable state reached after 3 iterations' "$ACTIONDIR/log" >/dev/null
+
+# Test FailureAction=: let updating the first component fail, by pointing its source to a non-directory.
+# By default we continue with the next component (and further iterations), but fail at the very end.
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', continuing with next component" "$ACTIONDIR/log" >/dev/null
+grep -F 'stable state reached after 2 iterations' "$ACTIONDIR/log" >/dev/null
+
+# With FailureAction=fail we fail immediately, and do not update the second component
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+printf '[Component]\nFailureAction=fail\n' >/run/sysupdate.act-a.component
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', aborting" "$ACTIONDIR/log" >/dev/null
 
 rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
     /run/sysupdate.act-a.component /run/sysupdate.act-b.component \

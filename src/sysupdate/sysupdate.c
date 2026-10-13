@@ -395,6 +395,7 @@ static int read_component(Context *c) {
                 { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
                 { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
                 { "Component", "SuccessAction",              config_parse_component_success_action, 0,                        &c->component_success_action },
+                { "Component", "FailureAction",              config_parse_component_failure_action, 0,                        &c->component_failure_action },
                 { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
                 { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
                 { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
@@ -2739,16 +2740,20 @@ static int context_update_iteration(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
-                bool *reboot_needed) {
+                bool *reboot_needed,
+                int *error) {
 
         bool installed = false;
-        int r, ret = 0;
+        int r;
 
         assert(context);
         assert(reboot_needed);
+        assert(error);
 
         /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
-         * installed, 0 if not. */
+         * installed, 0 if not, < 0 on a failure that shall abort the update logic. Failures of individual
+         * components with FailureAction=continue are not returned, but merged into *error, so that the
+         * caller can return them at the very end. */
 
         switch (context->component_select) {
 
@@ -2763,26 +2768,34 @@ static int context_update_iteration(
                 r = context_update(context, version, booted_version, action_flags, reboot_needed);
                 if (r > 0)
                         installed = true;
-                else if (r != -ENOENT)
-                        RET_GATHER(ret, r);
+                else if (r < 0 && r != -ENOENT)
+                        RET_GATHER(*error, r);
 
                 _cleanup_strv_free_ char **component_names = NULL;
                 r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
                 if (r < 0)
-                        return RET_GATHER(ret, r);
+                        return r;
 
                 STRV_FOREACH(name, component_names) {
                         _cleanup_(context_done) Context cc = CONTEXT_NULL;
 
                         r = context_from_base_with_component(context, *name, &cc);
                         if (r < 0) {
-                                RET_GATHER(ret, r);
+                                RET_GATHER(*error, r);
                                 continue;
                         }
 
                         r = context_update(&cc, version, booted_version, action_flags, reboot_needed);
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
+                        if (r < 0) {
+                                if (cc.component_failure_action == COMPONENT_FAILURE_FAIL)
+                                        return log_error_errno(r, "Failed to update component '%s', aborting: %m", *name);
+
+                                log_warning_errno(r, "Failed to update component '%s', continuing with next component: %m", *name);
+                                RET_GATHER(*error, r);
+                                continue;
+                        }
                         if (r > 0) {
                                 installed = true;
 
@@ -2795,11 +2808,7 @@ static int context_update_iteration(
                                         break;
                                 }
                         }
-                        RET_GATHER(ret, r);
                 }
-
-                if (ret < 0)
-                        return ret;
 
                 return installed;
         }
@@ -2877,7 +2886,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 if (arg_loop > 1)
                         log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
 
-                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed);
+                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
                 if (r < 0) {
                         RET_GATHER(ret, r);
                         break;

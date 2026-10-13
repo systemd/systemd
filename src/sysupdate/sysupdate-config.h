@@ -11,10 +11,19 @@ typedef enum ComponentSuccessAction {
         _COMPONENT_SUCCESS_ACTION_INVALID = -EINVAL,
 } ComponentSuccessAction;
 
+typedef enum ComponentFailureAction {
+        COMPONENT_FAILURE_CONTINUE,  /* Continue with the next component, but fail at the very end */
+        COMPONENT_FAILURE_FAIL,      /* Fail immediately */
+        _COMPONENT_FAILURE_ACTION_MAX,
+        _COMPONENT_FAILURE_ACTION_INVALID = -EINVAL,
+} ComponentFailureAction;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers);
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers_many);
 CONFIG_PARSER_PROTOTYPE(config_parse_condition);
 CONFIG_PARSER_PROTOTYPE(config_parse_component_success_action);
+CONFIG_PARSER_PROTOTYPE(config_parse_component_failure_action);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
 DECLARE_STRING_TABLE_LOOKUP(component_success_action, ComponentSuccessAction);
+DECLARE_STRING_TABLE_LOOKUP(component_failure_action, ComponentFailureAction);
