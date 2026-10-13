@@ -73,6 +73,7 @@ networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
+varlinkctl_bin = shutil.which('varlinkctl', path=which_paths)
 test_ndisc_send = None
 test_modem_manager_mock = None
 build_dir = None
@@ -7458,12 +7459,242 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.assertNotIn('vf 4', output)
 
 
+def read_json_seq(output):
+    """Parses the JSON-SEQ output of varlinkctl --more, ignoring an incompletely written last record."""
+    # varlinkctl may still be writing to the file, hence do not move the file offset shared with it, and
+    # read through a separate open file description instead. The incomplete last record may also end in
+    # the middle of a UTF-8 sequence.
+    with open(f'/proc/self/fd/{output.fileno()}', encoding='utf-8', errors='replace') as f:
+        data = f.read()
+    records = []
+    for record in data.split('\x1e'):
+        if not record.strip():
+            continue
+        try:
+            records.append(json.loads(record))
+        except json.JSONDecodeError:
+            break
+    return records
+
+
+def lldp_neighbors_of(reply, ifname):
+    """Returns the port IDs of the LLDP neighbors on the interface, or None if the interface is not listed."""
+    for interface in reply['Neighbors']:
+        if interface['InterfaceName'] == ifname:
+            return [n.get('PortID') for n in interface['Neighbors']]
+    return None
+
+
 class NetworkdLLDPTests(unittest.TestCase, Utilities):
     def setUp(self):
         setup_common()
 
     def tearDown(self):
         tear_down_common()
+
+    def subscribe_lldp_neighbors(self, parameters):
+        output = tempfile.TemporaryFile(mode='w+', prefix='lldp-subscription')
+        self.addCleanup(output.close)
+        errors = tempfile.TemporaryFile(mode='w+', prefix='lldp-subscription-errors')
+        self.addCleanup(errors.close)
+
+        process = subprocess.Popen(
+            [
+                varlinkctl_bin,
+                'call',
+                '-E',
+                '--json=short',
+                '/run/systemd/netif/io.systemd.Network',
+                'io.systemd.Network.SubscribeLLDPNeighbors',
+                json.dumps(parameters),
+            ],
+            stdout=output,
+            stderr=errors,
+            text=True,
+        )
+
+        def stop():
+            if process.poll() is None:
+                process.terminate()
+                process.wait()
+
+        self.addCleanup(stop)
+        return process, output, errors
+
+    def wait_lldp_subscription(self, output, predicate, since=0, timeout_sec=20):
+        """Waits until any of the replies following the first 'since' ones satisfies the predicate."""
+        for _ in range(timeout_sec * 2):
+            replies = read_json_seq(output)
+            if any(predicate(r) for r in replies[since:]):
+                return replies
+            time.sleep(0.5)
+
+        print(read_json_seq(output))
+        self.fail('Timed out waiting for the expected LLDP neighbors update.')
+
+    def test_lldp_subscribe(self):
+        copy_network_unit('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
+        start_networkd()
+        self.wait_online('veth99:degraded', 'veth-peer:degraded')
+
+        pid = networkd_pid()
+
+        ret = subprocess.run(
+            [
+                varlinkctl_bin,
+                'call',
+                '/run/systemd/netif/io.systemd.Network',
+                'io.systemd.Network.SubscribeLLDPNeighbors',
+                '{}',
+            ],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        print(ret.stdout)
+        self.assertNotEqual(ret.returncode, 0)
+        self.assertIn("called without 'more' flag", ret.stdout)
+
+        sub_all, output_all, _ = self.subscribe_lldp_neighbors({})
+        sub_veth99, output_veth99, errors_veth99 = self.subscribe_lldp_neighbors({'InterfaceName': 'veth99'})
+        _, output_peer, _ = self.subscribe_lldp_neighbors({'InterfaceName': 'veth-peer'})
+
+        # The neighbor may be reported in the initial reply or in a later update.
+        for output in (output_all, output_veth99):
+            self.wait_lldp_subscription(output, lambda r: lldp_neighbors_of(r, 'veth99') == ['veth-peer'])
+
+        # veth-peer does not receive anything, but the filtered interface is listed anyway.
+        self.wait_lldp_subscription(output_peer, lambda r: lldp_neighbors_of(r, 'veth-peer') == [])
+
+        for reply in read_json_seq(output_veth99):
+            self.assertEqual([i['InterfaceName'] for i in reply['Neighbors']], ['veth99'])
+
+        def wait_neighbor_gone(since_all, since_veth99):
+            self.wait_lldp_subscription(
+                output_veth99, lambda r: lldp_neighbors_of(r, 'veth99') == [], since_veth99
+            )
+            self.wait_lldp_subscription(
+                output_all, lambda r: lldp_neighbors_of(r, 'veth99') is None, since_all
+            )
+
+        # Stopping the LLDP receiver drops the neighbor without any event.
+        since_all, since_veth99 = len(read_json_seq(output_all)), len(read_json_seq(output_veth99))
+        networkctl('down', 'veth99')
+        wait_neighbor_gone(since_all, since_veth99)
+
+        since_all, since_veth99 = len(read_json_seq(output_all)), len(read_json_seq(output_veth99))
+        networkctl('up', 'veth99')
+        self.wait_lldp_subscription(
+            output_all, lambda r: lldp_neighbors_of(r, 'veth99') == ['veth-peer'], since_all
+        )
+        self.wait_lldp_subscription(
+            output_veth99, lambda r: lldp_neighbors_of(r, 'veth99') == ['veth-peer'], since_veth99
+        )
+
+        # Reconfiguring the link frees the LLDP receiver, again dropping the neighbor without any event.
+        with open(os.path.join(network_unit_dir, '24-lldp.network'), mode='a', encoding='utf-8') as f:
+            f.write('Description=LLDP receiver\n')
+        since_all, since_veth99 = len(read_json_seq(output_all)), len(read_json_seq(output_veth99))
+        networkctl_reload()
+        wait_neighbor_gone(since_all, since_veth99)
+
+        # Forwarding on the emitting side sets the Router capability of the neighbor.
+        with open(os.path.join(network_unit_dir, '23-emit-lldp.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv4Forwarding=yes\n')
+        since_all, since_veth99 = len(read_json_seq(output_all)), len(read_json_seq(output_veth99))
+        networkctl_reload()
+
+        lldp_capability_router = 1 << 4  # SD_LLDP_SYSTEM_CAPABILITIES_ROUTER
+
+        def has_router_capability(reply):
+            for interface in reply['Neighbors']:
+                if interface['InterfaceName'] == 'veth99':
+                    return any(
+                        n.get('EnabledCapabilities', 0) & lldp_capability_router
+                        for n in interface['Neighbors']
+                    )
+            return False
+
+        self.wait_lldp_subscription(output_all, has_router_capability, since_all)
+        self.wait_lldp_subscription(output_veth99, has_router_capability, since_veth99)
+
+        # An alternative name changes neither the neighbor nor the matching .network file, hence the link
+        # is not reconfigured.
+        def has_altname(reply):
+            for interface in reply['Neighbors']:
+                if interface['InterfaceName'] == 'veth99':
+                    return 'veth99-lldp' in interface.get('InterfaceAlternativeNames', [])
+            return False
+
+        since_all, since_veth99 = len(read_json_seq(output_all)), len(read_json_seq(output_veth99))
+        check_output('ip link property add dev veth99 altname veth99-lldp')
+        self.wait_lldp_subscription(output_all, has_altname, since_all)
+        self.wait_lldp_subscription(output_veth99, has_altname, since_veth99)
+
+        # Without neighbors, the interface is listed only to the subscribers filtering by it, which still
+        # need to learn about its new alternative name.
+        since_peer = len(read_json_seq(output_peer))
+        check_output('ip link property add dev veth-peer altname veth-peer-lldp')
+        self.wait_lldp_subscription(
+            output_peer,
+            lambda r: 'veth-peer-lldp' in r['Neighbors'][0].get('InterfaceAlternativeNames', []),
+            since_peer,
+        )
+
+        since_all = len(read_json_seq(output_all))
+        remove_link('veth99')
+
+        self.assertNotEqual(sub_veth99.wait(timeout=20), 0)
+        errors_veth99.seek(0)
+        error_output = errors_veth99.read()
+        print(error_output)
+        self.assertIn('io.systemd.Network.InterfaceRemoved', error_output)
+
+        self.wait_lldp_subscription(output_all, lambda r: lldp_neighbors_of(r, 'veth99') is None, since_all)
+        self.assertIsNone(sub_all.poll())
+
+        self.assertEqual(networkd_pid(), pid)
+
+    def test_lldp_subscribe_disconnect(self):
+        copy_network_unit('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
+        start_networkd()
+        self.wait_online('veth99:degraded', 'veth-peer:degraded')
+
+        pid = networkd_pid()
+
+        sub_all, output_all, _ = self.subscribe_lldp_neighbors({})
+        sub_veth99, output_veth99, _ = self.subscribe_lldp_neighbors({'InterfaceName': 'veth99'})
+        sub_gone, output_gone, _ = self.subscribe_lldp_neighbors({})
+
+        for output in (output_all, output_veth99, output_gone):
+            self.wait_lldp_subscription(output, lambda r: lldp_neighbors_of(r, 'veth99') == ['veth-peer'])
+
+        # Disconnect while veth99 still has a neighbor.
+        for process in (sub_veth99, sub_gone):
+            process.terminate()
+            process.wait()
+
+        since_all = len(read_json_seq(output_all))
+        networkctl('down', 'veth99')
+        self.wait_lldp_subscription(output_all, lambda r: lldp_neighbors_of(r, 'veth99') is None, since_all)
+
+        since_all = len(read_json_seq(output_all))
+        networkctl('up', 'veth99')
+        self.wait_lldp_subscription(
+            output_all, lambda r: lldp_neighbors_of(r, 'veth99') == ['veth-peer'], since_all
+        )
+
+        since_all = len(read_json_seq(output_all))
+        remove_link('veth99')
+        self.wait_lldp_subscription(output_all, lambda r: lldp_neighbors_of(r, 'veth99') is None, since_all)
+        self.assertIsNone(sub_all.poll())
+
+        # Notifying a disconnected subscriber fails, hence this checks that the disconnected ones were
+        # dropped from the subscriptions.
+        self.assertNotIn('Failed to notify LLDP neighbors subscribers', read_networkd_log())
+
+        self.assertEqual(networkd_pid(), pid)
 
     def test_lldp(self):
         copy_network_unit('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
@@ -11388,6 +11619,7 @@ if __name__ == '__main__':
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
         udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
+        varlinkctl_bin = os.path.join(ns.build_dir, 'varlinkctl')
         build_dir = ns.build_dir
 
     # fmt: off
