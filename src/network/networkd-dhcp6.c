@@ -878,6 +878,28 @@ int dhcp6_update_hostname(Link *link) {
         return 0;
 }
 
+int dhcp6_renew(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        /* Do not (re)start the client on stopping networkd, as dhcp4_start_full() does. Also, events from
+         * the client are ignored on failed or lingering links. */
+        if (link->manager->state != MANAGER_RUNNING ||
+            IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        /* The client may have been stopped, e.g. on failure. Let's restart it in that case. This does
+         * nothing when the client is started by RA, as the client will be started on the next RA. */
+        if (!sd_dhcp6_client_is_running(link->dhcp6_client))
+                return dhcp6_start(link);
+
+        /* This does nothing if no lease is acquired yet. */
+        return sd_dhcp6_client_send_renew(link->dhcp6_client);
+}
+
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
