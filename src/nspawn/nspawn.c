@@ -23,6 +23,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "blkid-util.h"
@@ -6574,6 +6575,7 @@ static int run(int argc, char *argv[]) {
                         r = dissected_image_decrypt_interactively(
                                         dissected_image,
                                         NULL,
+                                        /* ask_password_flags= */ (AskPasswordFlags) 0,
                                         &arg_verity_settings,
                                         arg_image_policy ?: &image_policy_container,
                                         dissect_image_flags);

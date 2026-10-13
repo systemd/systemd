@@ -13,6 +13,7 @@
 #include "ansi-color.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "ask-password-api.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "capability-util.h"
@@ -2122,6 +2123,7 @@ static int run(int argc, char *argv[]) {
                                         r = dissected_image_decrypt_interactively(
                                                         m,
                                                         envpw,
+                                                        /* ask_password_flags= */ (AskPasswordFlags) 0,
                                                         &arg_verity_settings,
                                                         arg_image_policy,
                                                         arg_flags);
