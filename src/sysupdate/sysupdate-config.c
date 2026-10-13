@@ -76,6 +76,15 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_success_action, Compone
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_component_success_action, component_success_action, ComponentSuccessAction);
 
+static const char* const component_failure_action_table[_COMPONENT_FAILURE_ACTION_MAX] = {
+        [COMPONENT_FAILURE_CONTINUE] = "continue",
+        [COMPONENT_FAILURE_FAIL]     = "fail",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_failure_action, ComponentFailureAction);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_component_failure_action, component_failure_action, ComponentFailureAction);
+
 int config_parse_url_specifiers_many(
                 const char *unit,
                 const char *filename,
