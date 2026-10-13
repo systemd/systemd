@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#include "fs-util.h"
 #include "log.h"
 
 #if HAVE_SELINUX
@@ -22,6 +21,7 @@
 #include "chase.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
