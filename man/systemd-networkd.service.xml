@@ -53,15 +53,15 @@
     For those links, it will flush existing network addresses and routes when
     bringing up the device (except when directed not to). Any links not matched
     by one of the <filename>.network</filename> files will be ignored. It is
-    also possible to explicitly tell <filename>systemd-networkd</filename> to
+    also possible to explicitly tell <command>systemd-networkd</command> to
     ignore a link by using the <varname>Unmanaged=yes</varname> option, see
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>When <filename>systemd-networkd</filename> exits, it generally leaves existing network devices and
+    <para>When <command>systemd-networkd</command> exits, it generally leaves existing network devices and
     configuration intact. This makes it possible to transition from the initrd and to restart the service
     without breaking connectivity. This also means that when configuration is updated and
-    <filename>systemd-networkd</filename> is restarted, netdev interfaces for which configuration was removed
+    <command>systemd-networkd</command> is restarted, netdev interfaces for which configuration was removed
     will not be dropped, and may need to be cleaned up manually.</para>
 
     <para><command>systemd-networkd</command> may be introspected and controlled at runtime using

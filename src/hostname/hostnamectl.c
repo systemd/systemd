@@ -846,7 +846,7 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                         return bus_log_create_error(r);
         }
 
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
+        r = sd_bus_call(bus, m, /* timeout_usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not set tags: %s", bus_error_message(&error, r));
 

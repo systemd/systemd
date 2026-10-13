@@ -87,7 +87,7 @@ node /org/freedesktop/sysupdate1 {
       and the job's object path.</para>
 
       <para><function>ListAppStream()</function> returns an array of all the appstream catalog URLs that this
-      service knows about. See Target's <varname>GetAppStream()</varname> method below for more
+      service knows about. See Target's <function>GetAppStream()</function> method below for more
       details.</para>
     </refsect2>
 
@@ -97,8 +97,8 @@ node /org/freedesktop/sysupdate1 {
       <para>The <function>JobRemoved()</function> signal is sent each time a job finishes,
       is canceled or fails. It also carries the job ID and object path, followed by a numeric status
       code. If the status is zero, the job has succeeded. A positive status should be treated as an
-      exit code (i.e. <literal>EXIT_FAILURE</literal>), and a negative status should be treated as a
-      negative errno-style error code (i.e. <literal>-EINVAL</literal>).</para>
+      exit code (i.e. <constant>EXIT_FAILURE</constant>), and a negative status should be treated as a
+      negative errno-style error code (i.e. <constant>-EINVAL</constant>).</para>
     </refsect2>
   </refsect1>
 
@@ -375,7 +375,7 @@ node /org/freedesktop/sysupdate1/target/host {
       call <function>Acquire()</function> and <function>Install()</function>.
       Depending on the exact needs of the client, it can choose to update the system to the latest available
       version, or it can extend the newest existing installation in-place (by passing in the version returned
-      by <varname>GetVersion()</varname>).
+      by <function>GetVersion()</function>).
       For now, this method only works with the <literal>host</literal> target.</para>
 
     </refsect2>

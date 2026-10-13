@@ -154,7 +154,7 @@
           case the lists are merged. If the empty string is assigned to this option, the list of
           hardware addresses defined prior to this is reset. Defaults to unset.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -180,7 +180,7 @@
           the persistent path, as exposed by the udev property
           <varname>ID_PATH</varname>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -192,7 +192,7 @@
           if that is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.
           If the list is prefixed with a "!", the test is inverted.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -206,7 +206,7 @@
           <literal>ARPHRD_</literal> macros in <filename>linux/if_arp.h</filename>, so this is not comprehensive.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -265,7 +265,7 @@
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+        <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -279,7 +279,7 @@
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -293,7 +293,7 @@
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -348,7 +348,7 @@
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -395,7 +395,7 @@
         <listitem>
           <para>A description of the device.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -457,7 +457,7 @@
         <listitem>
           <para>The <varname>ifalias</varname> interface property is set to this value.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -510,7 +510,7 @@
 
           <para>An empty string assignment is equivalent to setting <literal>none</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -520,7 +520,7 @@
           <varname>MACAddressPolicy=</varname> must either be unset, empty, or <literal>none</literal>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -616,7 +616,7 @@
             </varlistentry>
           </variablelist>
 
-            <xi:include href="version-info.xml" xpointer="v211"/>
+            <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -644,7 +644,7 @@
           <literal>.</literal>, <literal>..</literal>, <literal>all</literal> and
           <literal>default</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -711,7 +711,7 @@
           device. The usual suffixes K, M, G are supported and are
           understood to the base of 1024.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -721,7 +721,7 @@
           down to the nearest Mbps. The usual suffixes K, M, G are
           supported and are understood to the base of 1000.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -730,7 +730,7 @@
           <para>The duplex mode to set for the device. The accepted values are <option>half</option> and
           <option>full</option>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -829,7 +829,7 @@
           multiple times. If an empty string is assigned, then the all previous assignments are
           cleared.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
       <varlistentry>

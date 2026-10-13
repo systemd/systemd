@@ -53,145 +53,145 @@
       <funcprototype>
         <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret_uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_session</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>char **<parameter>ret_session</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_user_unit</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_unit</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_machine_name</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>name</parameter></paramdef>
+        <paramdef>char **<parameter>ret_machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_slice</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_user_slice</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_get_cgroup</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
-        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+        <paramdef>char **<parameter>ret_cgroup</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_owner_uid</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret_uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_session</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>char **<parameter>ret_session</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_user_unit</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_unit</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_machine_name</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>name</parameter></paramdef>
+        <paramdef>char **<parameter>ret_machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_slice</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_user_slice</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pidfd_get_cgroup</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
-        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+        <paramdef>char **<parameter>ret_cgroup</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret_uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_session</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
+        <paramdef>char **<parameter>ret_session</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_user_unit</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_unit</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>unit</parameter></paramdef>
+        <paramdef>char **<parameter>ret_unit</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_machine_name</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>name</parameter></paramdef>
+        <paramdef>char **<parameter>ret_machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_slice</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_user_slice</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>slice</parameter></paramdef>
+        <paramdef>char **<parameter>ret_slice</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_cgroup</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
-        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+        <paramdef>char **<parameter>ret_cgroup</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -362,22 +362,22 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_peer_get_cgroup()</function>,
-    <function>sd_peer_get_machine_name()</function>,
+    <para><function>sd_pid_get_owner_uid()</function> and
+    <function>sd_pid_get_session()</function> were added in version 31.</para>
+    <para><function>sd_pid_get_unit()</function> was added in version 38.</para>
+    <para><function>sd_pid_get_machine_name()</function> and
+    <function>sd_pid_get_user_unit()</function> were added in version 202.</para>
+    <para><function>sd_pid_get_slice()</function> was added in version 205.</para>
+    <para><function>sd_peer_get_machine_name()</function>,
     <function>sd_peer_get_owner_uid()</function>,
     <function>sd_peer_get_session()</function>,
     <function>sd_peer_get_slice()</function>,
-    <function>sd_peer_get_unit()</function>,
-    <function>sd_peer_get_user_slice()</function>,
-    <function>sd_peer_get_user_unit()</function>,
-    <function>sd_pid_get_cgroup()</function>,
-    <function>sd_pid_get_machine_name()</function>,
-    <function>sd_pid_get_owner_uid()</function>,
-    <function>sd_pid_get_session()</function>,
-    <function>sd_pid_get_slice()</function>,
-    <function>sd_pid_get_unit()</function>,
-    <function>sd_pid_get_user_slice()</function>, and
-    <function>sd_pid_get_user_unit()</function> were added in version 236.</para>
+    <function>sd_peer_get_unit()</function>, and
+    <function>sd_peer_get_user_unit()</function> were added in version 211.</para>
+    <para><function>sd_peer_get_user_slice()</function> and
+    <function>sd_pid_get_user_slice()</function> were added in version 220.</para>
+    <para><function>sd_peer_get_cgroup()</function> and
+    <function>sd_pid_get_cgroup()</function> were added in version 226.</para>
     <para><function>sd_pidfd_get_owner_uid()</function>,
     <function>sd_pidfd_get_session()</function>,
     <function>sd_pidfd_get_user_unit()</function>,

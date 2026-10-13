@@ -36,7 +36,7 @@
         <funcdef>int <function>sd_bus_set_server</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>server_id</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -47,7 +47,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_bus_id</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_id128_t *<parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -81,7 +81,7 @@
     connections. <parameter>b</parameter> enables/disables the server mode. If zero, the server mode is
     disabled. Otherwise, the server mode is enabled. Configuring a bus object as a server is required to
     allow establishing direct connections between two peers without going via the D-Bus daemon.
-    <parameter>id</parameter> must contain a 128-bit integer id for the server. If clients add a guid field
+    <parameter>server_id</parameter> must contain a 128-bit integer id for the server. If clients add a guid field
     to their D-Bus address string, the server id must match this guid or the D-Bus authentication handshake
     will fail. If no specific id is defined for the server,
     <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -92,7 +92,7 @@
 
     <para><function>sd_bus_get_bus_id()</function> stores the D-Bus server id configured using
     <function>sd_bus_set_server()</function> (for server bus objects) or received during D-Bus authentication
-    (for client bus objects) in <parameter>id</parameter>.</para>
+    (for client bus objects) in <parameter>ret</parameter>.</para>
 
     <para><function>sd_bus_set_bus_client()</function> configures the bus object as a D-Bus daemon client.
     <parameter>b</parameter> enables/disables the client mode. If zero, the client mode is disabled and the
@@ -147,43 +147,33 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus connection has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The bus connection has already been started.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus connection has already been started.</para></listitem>
         </varlistentry>
 
          <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>A required parameter was <constant>NULL</constant> or
-          <parameter>b</parameter> was zero and <parameter>id</parameter> did not equal
-          <constant>SD_ID128_NULL</constant>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <parameter>b</parameter> was zero and <parameter>server_id</parameter> did not equal
+          <constant>SD_ID128_NULL</constant>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
-          <listitem><para>The bus is not connected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus is not connected.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -199,7 +189,7 @@
     <function>sd_bus_set_bus_client()</function>,
     <function>sd_bus_is_bus_client()</function>,
     <function>sd_bus_set_monitor()</function>, and
-    <function>sd_bus_is_monitor()</function> were added in version 246.</para>
+    <function>sd_bus_is_monitor()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

@@ -32,35 +32,35 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_set_expect_reply</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_get_expect_reply</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_set_auto_start</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_get_auto_start</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_set_allow_interactive_authorization</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_get_allow_interactive_authorization</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -116,7 +116,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
           </para></listitem>
         </varlistentry>
 
@@ -124,9 +124,9 @@
           <term><constant>-EPERM</constant></term>
 
           <listitem>
-          <para>The message <parameter>message</parameter> is sealed when trying to set a flag.</para>
+          <para>The message <parameter>m</parameter> is sealed when trying to set a flag.</para>
 
-          <para>The message <parameter>message</parameter> has wrong type.</para>
+          <para>The message <parameter>m</parameter> has wrong type.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -139,10 +139,10 @@
     <title>History</title>
     <para><function>sd_bus_message_set_expect_reply()</function>,
     <function>sd_bus_message_get_expect_reply()</function>,
-    <function>sd_bus_message_set_auto_start()</function>, and
-    <function>sd_bus_message_get_auto_start()</function> were added in version 240.</para>
-    <para><function>sd_bus_message_set_allow_interactive_authorization()</function> and
-    <function>sd_bus_message_get_allow_interactive_authorization()</function> were added in version 246.</para>
+    <function>sd_bus_message_set_auto_start()</function>,
+    <function>sd_bus_message_get_auto_start()</function>,
+    <function>sd_bus_message_set_allow_interactive_authorization()</function>, and
+    <function>sd_bus_message_get_allow_interactive_authorization()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

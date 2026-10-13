@@ -1150,7 +1150,7 @@
         <term><varname>vmm.notify_socket</varname></term>
         <listitem>
           <para>Contains a <constant>AF_VSOCK</constant> or <constant>AF_UNIX</constant> address where to
-          send a <constant>READY=1</constant> notification message when the service manager has completed
+          send a <literal>READY=1</literal> notification message when the service manager has completed
           booting. See
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
           the next section for more information. Note that in case the hypervisor does not support

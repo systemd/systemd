@@ -5636,7 +5636,7 @@ static int run_container(
 
                 r = sd_bus_match_signal_async(
                                 runtime_bus,
-                                /* ret= */ NULL,
+                                /* ret_slot= */ NULL,
                                 "org.freedesktop.systemd1",
                                 /* path= */ NULL,
                                 "org.freedesktop.systemd1.Scope",

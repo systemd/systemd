@@ -225,7 +225,7 @@ static int start_units_one_transaction(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, /* usec= */ 0, error, &reply);
+        r = sd_bus_call(bus, m, /* timeout_usec= */ 0, error, &reply);
         if (r < 0)
                 return r;
 

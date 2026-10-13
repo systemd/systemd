@@ -28,21 +28,21 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-cryptsetup-generator</filename> is a
+    <para><command>systemd-cryptsetup-generator</command> is a
     generator that translates <filename>/etc/crypttab</filename> into
     native systemd units early at boot and when configuration of the
     system manager is reloaded. This will create
     <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
 
-    <para><filename>systemd-cryptsetup-generator</filename> implements
+    <para><command>systemd-cryptsetup-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-cryptsetup-generator</filename>
+    <para><command>systemd-cryptsetup-generator</command>
     understands the following kernel command line parameters:</para>
 
     <variablelist class='kernel-commandline-options'>

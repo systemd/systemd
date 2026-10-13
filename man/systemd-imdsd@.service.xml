@@ -33,7 +33,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-imdsd@.service</command> is a system service that provides local access to IMDS
+    <para><filename>systemd-imdsd@.service</filename> is a system service that provides local access to IMDS
     (Instance Metadata Service; or equivalent) functionality, as provided by many public clouds.</para>
 
     <para>The service provides a Varlink IPC interface via

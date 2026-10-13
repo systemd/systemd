@@ -42,7 +42,7 @@
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, boot
     splash file, and TPM2 PCR PEM public key file that make up the unified kernel image, and determines the
     PCR values expected to be in place after booting the image. Calculation starts with a zero-initialized
-    PCR 11, and is executed in a fashion compatible with what <filename>systemd-stub</filename> does at boot.
+    PCR 11, and is executed in a fashion compatible with what <command>systemd-stub</command> does at boot.
     The result may optionally be signed cryptographically, to allow TPM2 policies that can only be unlocked
     if a certain set of kernels is booted, for which such a PCR signature can be provided.</para>
 

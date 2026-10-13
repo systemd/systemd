@@ -266,7 +266,7 @@
         orderly shutdown). For a list of valid signals, see
         <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>

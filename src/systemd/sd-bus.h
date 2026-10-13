@@ -31,10 +31,10 @@ _SD_BEGIN_DECLARATIONS;
 
 /* Naming */
 
-int sd_bus_interface_name_is_valid(const char *p);
-int sd_bus_service_name_is_valid(const char *p);
-int sd_bus_member_name_is_valid(const char *p);
-int sd_bus_object_path_is_valid(const char *p);
+int sd_bus_interface_name_is_valid(const char *name);
+int sd_bus_service_name_is_valid(const char *name);
+int sd_bus_member_name_is_valid(const char *name);
+int sd_bus_object_path_is_valid(const char *path);
 
 /* Connections */
 
@@ -109,8 +109,8 @@ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret)
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *ret_cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *ret_cookie);
-int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *reterr_error, sd_bus_message **ret_reply);
-int sd_bus_call_async(sd_bus *bus, sd_bus_slot **ret_slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
+int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t timeout_usec, sd_bus_error *reterr_error, sd_bus_message **ret_reply);
+int sd_bus_call_async(sd_bus *bus, sd_bus_slot **ret_slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t timeout_usec);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
@@ -126,7 +126,7 @@ sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
 sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus);
 void* sd_bus_get_current_userdata(sd_bus *bus);
 
-int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
+int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority);
 int sd_bus_detach_event(sd_bus *bus);
 sd_event* sd_bus_get_event(sd_bus *bus);
 
@@ -159,8 +159,8 @@ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
 int sd_bus_slot_get_description(sd_bus_slot *slot, const char **ret);
 int sd_bus_slot_get_floating(sd_bus_slot *slot);
 int sd_bus_slot_set_floating(sd_bus_slot *slot, int b);
-int sd_bus_slot_set_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t callback);
-int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *ret);
+int sd_bus_slot_set_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t callback);
+int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *ret);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot);
@@ -231,7 +231,7 @@ int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, int memfd, u
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **ret);
 int sd_bus_message_append_string_iovec(sd_bus_message *m, const struct iovec *iov, unsigned n);
 int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd, uint64_t offset, uint64_t size);
-int sd_bus_message_append_strv(sd_bus_message *m, char **l);
+int sd_bus_message_append_strv(sd_bus_message *m, char **strv);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
 int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all);
@@ -241,7 +241,7 @@ int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *ret);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ret_ptr, size_t *ret_size);
 int sd_bus_message_read_strv(sd_bus_message *m, char ***ret); /* free the result! */
-int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
+int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***strv);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
@@ -256,7 +256,7 @@ int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json_variant 
 
 /* Bus management */
 
-int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
+int sd_bus_get_unique_name(sd_bus *bus, const char **ret);
 int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
 int sd_bus_request_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_release_name(sd_bus *bus, const char *name);
@@ -306,8 +306,8 @@ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *in
 int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **ret);
 int sd_bus_query_sender_privilege(sd_bus_message *m, int capability);
 
-int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t install_callback, void *userdata);
+int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret_slot, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t install_callback, void *userdata);
 
 /* Credential handling */
 

@@ -268,7 +268,7 @@
       the host OS. For processes that crash inside of local containers or other mount namespace-based
       sandboxes, this auxiliary debug information is typically not available on the host (simply because
       containers typically run different software versions than the
-      host). <filename>systemd-coredump</filename> provides two mechanisms to address this:</para>
+      host). <command>systemd-coredump</command> provides two mechanisms to address this:</para>
 
       <orderedlist>
         <listitem><para>For full-OS containers running systemd inside it is a good idea to enable
@@ -410,7 +410,7 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
         <para>When the crashed process was part of a container (or in a process or user namespace in
         general), those are the values as seen <emphasis>outside</emphasis>, in the namespace where
-        <filename>systemd-coredump</filename> is running.</para>
+        <command>systemd-coredump</command> is running.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>

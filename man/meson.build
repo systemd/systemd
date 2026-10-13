@@ -233,6 +233,11 @@ if conf.get('BUILD_MODE_DEVELOPER') == 1
              check_version_history_py,
              suite : 'dist',
              args : source_xml_files)
+
+        test('check-man-prototypes',
+             check_man_prototypes_py,
+             suite : 'dist',
+             args : source_xml_files)
 endif
 
 update_man_rules = custom_target(

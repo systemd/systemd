@@ -34,7 +34,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <command>systemd-firstboot.service</command> unit is one of the units which are used to
+    <para>The <filename>systemd-firstboot.service</filename> unit is one of the units which are used to
     initialize the machine configuration during "First Boot", i.e. when the system is freshly installed or
     after a factory reset. The
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> manager

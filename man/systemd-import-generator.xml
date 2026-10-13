@@ -45,14 +45,14 @@
     <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
     accessible via the kernel command line and system credentials.</para>
 
-    <para><filename>systemd-import-generator</filename> implements
+    <para><command>systemd-import-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-import-generator</filename> understands the following
+    <para><command>systemd-import-generator</command> understands the following
     <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     parameters:</para>
 

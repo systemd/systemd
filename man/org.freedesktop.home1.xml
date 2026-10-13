@@ -225,7 +225,7 @@ node /org/freedesktop/home1 {
       the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
       identifier describing the state the user's home directory is in, as well as a bus path referring to the
       bus object encapsulating the user record and home directory. This object implements the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below. This method, and most others
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface documented below. This method, and most others
       in this interface that take user names, will try to use the caller's home area if the specified user name is
       an empty string.</para>
 
@@ -259,7 +259,7 @@ node /org/freedesktop/home1 {
       returns only after the home directory was fully activated (or the operation failed), which might take
       some time. Clients must be prepared for that, and typically should extend the D-Bus method call
       timeout accordingly. This method is equivalent to the <function>Activate()</function> method on the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below, but may be called on the
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface documented below, but may be called on the
       manager object and takes a user name as additional argument, instead.</para>
 
       <para><function>ActivateHomeIfReferenced()</function> is identical to
@@ -269,7 +269,7 @@ node /org/freedesktop/home1 {
 
       <para><function>DeactivateHome()</function> deactivates (i.e. unmounts) the home directory of the
       specified user. It is equivalent to the <function>Deactivate()</function> method on the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface documented below.</para>
 
       <para><function>RegisterHome()</function> registers a new home directory locally. It receives the JSON
       user record as only argument (which typically excludes the <literal>secret</literal>
@@ -292,7 +292,7 @@ node /org/freedesktop/home1 {
       <filename>systemd-homed.service</filename> and be listed among known records. Since the user record is
       embedded into the home directory this operation generally does not discard data belonging to the user
       or their record. This method is equivalent to
-      <function>Unregister()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      <function>Unregister()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename>
       interface.</para>
 
       <para><function>CreateHome()</function> registers and creates a new home directory. This takes a fully
@@ -306,7 +306,7 @@ node /org/freedesktop/home1 {
       This can be done via the dictionary passed as the <varname>blobs</varname> argument to this method: the values
       are open file descriptors to regular files, and the keys are the filenames that should contain their respective
       file's data in the blob directory. Note that for security reasons, the file descriptors passed into this method
-      must have enough privileges to read their target file and thus cannot be <literal>O_PATH</literal>; this
+      must have enough privileges to read their target file and thus cannot be <constant>O_PATH</constant>; this
       is done to ensure the caller is actually permitted to read the file they are asking to publish in the
       blob directories. If the user record passed as the first argument contains a <literal>blobManifest</literal>
       field it will be enforced; otherwise, a <literal>blobManifest</literal> field will be generated and inserted
@@ -318,12 +318,12 @@ node /org/freedesktop/home1 {
       <literal>secret</literal> section. Invoking <function>RegisterHome()</function> followed by
       <function>RealizeHome()</function> is mostly equivalent to calling <function>CreateHome()</function>,
       except that the latter combines the two in atomic fashion. This method is equivalent to
-      <function>Realize()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      <function>Realize()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename>
       interface.</para>
 
       <para><function>RemoveHome()</function> unregisters a user record locally, and removes the home
       directory belonging to it, if it is accessible. It takes a user name as argument. This method is equivalent to
-      <function>Remove()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      <function>Remove()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename>
       interface.</para>
 
       <para><function>FixateHome()</function> <literal>fixates</literal> an automatically discovered home
@@ -334,7 +334,7 @@ node /org/freedesktop/home1 {
       additional (typically previously encrypted) user record data from the home directory. A home directory
       mus be fixated before it can be logged into. This method call takes a user name and a JSON user record
       consisting only of the <literal>secret</literal> section as argument. This method is equivalent to
-      <function>Fixate()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <function>Fixate()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>AuthenticateHome()</function> checks passwords or other authentication credentials
       associated with the home directory. It takes a user name and a JSON user record consisting only of the
@@ -343,7 +343,7 @@ node /org/freedesktop/home1 {
       executes no further operation. Like <function>ActivateHome()</function> it is usually first invoked
       with an empty JSON user record, which is then populated for subsequent tries with additional
       authentication data supplied. This method is equivalent to
-      <function>Authenticate()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      <function>Authenticate()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename>
       interface.</para>
 
       <para><function>UpdateHome()</function> updates a locally registered user record. Takes a fully
@@ -354,7 +354,7 @@ node /org/freedesktop/home1 {
       storage back-end, or resizes the storage back-end. Typically a home directory is first updated, and then
       the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
       as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
-      <function>Update()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <function>Update()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>UpdateHomeEx()</function> is like <function>UpdateHome()</function>, but it allows for
       changes to the blob directory (see <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob
@@ -370,7 +370,7 @@ node /org/freedesktop/home1 {
       and may be propagated into the home directory the next time it is reconciled (most likely when the user next logs in).
       Note that any changes made with this flag set may be lost if the home area has a newer record, which can happen
       if the home area is updated on another machine after this method call. This method is equivalent to
-      <function>UpdateEx()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <function>UpdateEx()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
       name, a disk size in bytes, and optionally a user record consisting only of the <literal>secret</literal>
@@ -378,7 +378,7 @@ node /org/freedesktop/home1 {
       the size already specified in the user record. Typically, if the user record is updated using
       <function>UpdateHome()</function> above this is used to propagate the size configured there-in down to
       the underlying storage back-end. This method is equivalent to <function>Resize()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>ChangePasswordHome()</function> changes the passwords/authentication tokens of a home
       directory. Takes a user name, and two JSON user record objects, each consisting only of the
@@ -393,19 +393,19 @@ node /org/freedesktop/home1 {
       original host, the passwords of the three might get out of sync. By issuing
       <function>ChangePasswordHome()</function> the three locations are updated to match the newest
       information. This method is equivalent to <function>ChangePassword()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>LockHome()</function> temporarily suspends access to a home directory, flushing out any
       cryptographic keys from memory. This is only supported on some back-ends, and is usually done during system
       suspend, in order to effectively secure home directories while the system is sleeping. Takes a user
       name as single argument. If an application attempts to access a home directory while it is locked it
       will typically freeze until the home directory is unlocked again. This method is equivalent to
-      <function>Lock()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <function>Lock()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>UnlockHome()</function> undoes the effect of <function>LockHome()</function>. Takes a
       user name and a user record consisting only of the <literal>secret</literal> section as arguments. This
       method is equivalent to <function>Unlock()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>AcquireHome()</function> activates or unlocks a home directory in a reference counted
       mode of operation. Takes a user name and user record consisting only of <literal>secret</literal>
@@ -422,13 +422,13 @@ node /org/freedesktop/home1 {
       directory. If a home directory has at least one client with an open reference to the home directory
       that does not support this it is not suspended automatically at system suspend, otherwise it is. This
       method is equivalent to <function>Acquire()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>RefHome()</function> is similar to <function>AcquireHome()</function> but takes no user
       record with <literal>secret</literal> section, i.e. will take an additional reference to an already
       activated/unlocked home directory without attempting to activate/unlock it itself. It will fail if the
       home directory is not already activated. This method is equivalent to
-      <function>Ref()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      <function>Ref()</function> on the <interfacename>org.freedesktop.home1.Home</interfacename>
       interface.</para>
 
       <para><function>RefHomeUnrestricted()</function> is identical to <function>RefHome()</function> but
@@ -441,7 +441,7 @@ node /org/freedesktop/home1 {
       home directory (which happens automatically when the last referencing file descriptor is closed), but
       is simply a synchronization mechanism that allows delaying of the user session's termination until any
       triggered deactivation is completed. This method is equivalent to <function>Release()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      <interfacename>org.freedesktop.home1.Home</interfacename> interface.</para>
 
       <para><function>LockAllHomes()</function> locks all active home directories that only have references
       that opted into automatic suspending during system suspend. This is usually invoked automatically
@@ -609,14 +609,14 @@ node /org/freedesktop/home1/home {
       <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
       <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
       <function>Release()</function>,
-      operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
+      operate like their matching counterparts on the <interfacename>org.freedesktop.home1.Manager</interfacename>
       interface (see above). The main difference is that they are methods of the home directory objects, and
       hence carry no additional user name parameter. Which of the two flavors of methods to call depends on
       the handles to the user known on the client side: if only the user name is known, it is preferable to use
       the methods on the manager object since they operate with user names only. Clients can also easily operate
       on their own home area by using the methods on the manager object with an empty string as the user name.
       If the client has the home's object path already acquired in some way, however, it is preferable to operate
-      on the <classname>org.freedesktop.home1.Home</classname> objects instead.</para>
+      on the <interfacename>org.freedesktop.home1.Home</interfacename> objects instead.</para>
     </refsect2>
 
     <refsect2>

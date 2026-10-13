@@ -49,7 +49,7 @@
     performed before the other file systems. Other file systems may be checked in parallel, except when
     they are on the same rotating disk.</para>
 
-    <para><filename>systemd-fsck</filename> does not know any details
+    <para><command>systemd-fsck</command> does not know any details
     about specific filesystems, and simply executes file system
     checkers specific to each filesystem type
     (<filename>fsck.<replaceable>type</replaceable></filename>). These checkers will decide if

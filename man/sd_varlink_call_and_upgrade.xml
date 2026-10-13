@@ -29,7 +29,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_call_and_upgrade</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>const char *<parameter>method</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
         <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
@@ -40,7 +40,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_call_and_upgradeb</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>const char *<parameter>method</parameter></paramdef>
         <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
         <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
@@ -51,7 +51,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_call_and_upgradebo</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>const char *<parameter>method</parameter></paramdef>
         <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
         <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
@@ -73,7 +73,7 @@
     descriptors, in a manner similar to the <literal>Upgrade:</literal> mechanism of HTTP.</para>
 
     <para><function>sd_varlink_call_and_upgrade()</function> synchronously invokes the method
-    <parameter>method</parameter> on the connection <parameter>link</parameter>, requesting a protocol upgrade,
+    <parameter>method</parameter> on the connection <parameter>v</parameter>, requesting a protocol upgrade,
     and waits for the reply. It takes the Varlink connection object, the method name, a JSON object with the
     method call parameters (which may be <constant>NULL</constant>), two output pointers for the reply
     parameters and a possible error identifier, and two output pointers for the file descriptors. The reply

@@ -31,8 +31,8 @@
       <funcprototype>
         <funcdef>int <function>sd_seat_get_active</function></funcdef>
         <paramdef>const char *<parameter>seat</parameter></paramdef>
-        <paramdef>char **<parameter>session</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>char **<parameter>ret_session</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret_uid</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -40,7 +40,7 @@
         <paramdef>const char *<parameter>seat</parameter></paramdef>
         <paramdef>char ***<parameter>ret_sessions</parameter></paramdef>
         <paramdef>uid_t **<parameter>ret_uids</parameter></paramdef>
-        <paramdef>unsigned int *<parameter>ret_n_uids</parameter></paramdef>
+        <paramdef>unsigned *<parameter>ret_n_uids</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

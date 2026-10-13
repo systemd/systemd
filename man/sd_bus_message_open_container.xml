@@ -118,17 +118,13 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para><parameter>m</parameter> or <parameter>contents</parameter> are
-          <constant>NULL</constant> or <parameter>type</parameter> is invalid.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <constant>NULL</constant> or <parameter>type</parameter> is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
-          <listitem><para>Message <parameter>m</parameter> has invalid structure.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>Message <parameter>m</parameter> has invalid structure.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -136,42 +132,32 @@
 
           <listitem><para>Message <parameter>m</parameter> does not have a container of type
           <parameter>type</parameter> at the current position, or the contents do not match
-          <parameter>contents</parameter>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <parameter>contents</parameter>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message <parameter>m</parameter> is already sealed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message <parameter>m</parameter> is already sealed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
-          <listitem><para>The message <parameter>m</parameter> is in an invalid state.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message <parameter>m</parameter> is in an invalid state.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBUSY</constant></term>
 
           <listitem><para><function>sd_bus_message_exit_container()</function> was called but there are
-          unread members left in the container.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          unread members left in the container.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

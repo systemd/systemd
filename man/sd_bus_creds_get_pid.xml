@@ -62,145 +62,145 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>pid_t *<parameter>pid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_pidfd_dup</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>int *<parameter>ret_fd</parameter></paramdef>
+        <paramdef>int *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_ppid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>pid_t *<parameter>ppid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_tid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_uid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_euid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_suid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_fsuid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_gid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+        <paramdef>gid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_egid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+        <paramdef>gid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_sgid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+        <paramdef>gid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_fsgid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>gid_t *<parameter>gid</parameter></paramdef>
+        <paramdef>gid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_supplementary_gids</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const gid_t **<parameter>gids</parameter></paramdef>
+        <paramdef>const gid_t **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_comm</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>comm</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_tid_comm</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>comm</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_exe</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>exe</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_cmdline</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>char ***<parameter>cmdline</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_cgroup</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>cgroup</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_unit</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>unit</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_slice</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>slice</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_user_unit</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>unit</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_user_slice</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>slice</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_session</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>slice</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_owner_uid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -230,43 +230,43 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_selinux_context</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>context</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_audit_session_id</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uint32_t *<parameter>sessionid</parameter></paramdef>
+        <paramdef>uint32_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_audit_login_uid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uid_t *<parameter>loginuid</parameter></paramdef>
+        <paramdef>uid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_tty</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>tty</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_unique_name</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>name</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_well_known_names</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>char ***<parameter>name</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_get_description</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>const char **<parameter>name</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

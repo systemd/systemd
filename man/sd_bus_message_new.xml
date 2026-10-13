@@ -42,23 +42,23 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_new</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>uint8_t <parameter>type</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus_message *<function>sd_bus_message_ref</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus_message *<function>sd_bus_message_unref</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_bus_message_unrefp</function></funcdef>
-        <paramdef>sd_bus_message **<parameter>mp</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -72,7 +72,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_message_new()</function> creates a new bus message object attached to the
-    bus <parameter>bus</parameter> and returns it in the output parameter <parameter>m</parameter>.
+    bus <parameter>bus</parameter> and returns it in the output parameter <parameter>ret</parameter>.
     This object is reference-counted, and will be destroyed when all references are gone. Initially,
     the caller of this function owns the sole reference to the message object. Note that the message
     object holds a reference to the bus object, so the bus object will not be destroyed as long as
@@ -100,10 +100,10 @@
     </para>
 
     <para><function>sd_bus_message_ref()</function> increases the internal reference counter of
-    <parameter>m</parameter> by one.</para>
+    <parameter>p</parameter> by one.</para>
 
     <para><function>sd_bus_message_unref()</function> decreases the internal reference counter of
-    <parameter>m</parameter> by one. Once the reference count has dropped to zero, message object is
+    <parameter>p</parameter> by one. Once the reference count has dropped to zero, message object is
     destroyed and cannot be used anymore, so further calls to <function>sd_bus_message_ref()</function> or
     <function>sd_bus_message_unref()</function> are illegal.</para>
 

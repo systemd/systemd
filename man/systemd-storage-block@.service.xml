@@ -32,7 +32,7 @@
     <title>Description</title>
 
     <para><filename>systemd-storage-block@.service</filename> is a system service that implements the
-    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    <interfacename>io.systemd.StorageProvider</interfacename> <ulink url="https://varlink.org/">Varlink</ulink>
     interface, exposing the system's block devices (such as disks, partitions, and device-mapper
     nodes) as storage volumes that may be acquired by other programs as file descriptors.</para>
 

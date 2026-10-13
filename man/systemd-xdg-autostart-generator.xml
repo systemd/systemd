@@ -27,7 +27,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-xdg-autostart-generator</filename> is a generator
+    <para><command>systemd-xdg-autostart-generator</command> is a generator
     that creates .service units for
     <ulink url="https://specifications.freedesktop.org/autostart-spec/autostart-spec-latest.html">XDG autostart</ulink>
     files.
@@ -35,7 +35,7 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     .</para>
 
-    <para>Units created by <filename>systemd-xdg-autostart-generator</filename>
+    <para>Units created by <command>systemd-xdg-autostart-generator</command>
     can be started by the desktop environment using <literal>xdg-desktop-autostart.target</literal>.
     See
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -68,7 +68,7 @@
           </row>
           <row>
             <entry><varname>OnlyShowIn=</varname>, <varname>NotShowIn=</varname></entry>
-            <entry><varname>ExecCondition=</varname> using <filename>systemd-xdg-autostart-condition</filename></entry>
+            <entry><varname>ExecCondition=</varname> using <command>systemd-xdg-autostart-condition</command></entry>
           </row>
           <row>
             <entry><varname>TryExec=</varname></entry>
@@ -76,7 +76,7 @@
           </row>
           <row>
             <entry><varname>AutostartCondition=</varname> (GNOME extension)</entry>
-            <entry><varname>ExecCondition=</varname> using <filename>gnome-systemd-autostart-condition</filename></entry>
+            <entry><varname>ExecCondition=</varname> using <command>gnome-systemd-autostart-condition</command></entry>
           </row>
           <row>
             <entry><varname>X-GNOME-Autostart-Phase=</varname></entry>
@@ -84,13 +84,13 @@
           </row>
           <row>
             <entry><varname>X-KDE-autostart-condition=</varname></entry>
-            <entry><varname>ExecCondition=</varname> using <filename>kde-systemd-start-condition</filename></entry>
+            <entry><varname>ExecCondition=</varname> using <command>kde-systemd-start-condition</command></entry>
           </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para><filename>systemd-xdg-autostart-generator</filename> implements
+    <para><command>systemd-xdg-autostart-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 

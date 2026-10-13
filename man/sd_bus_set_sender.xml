@@ -30,13 +30,13 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_set_sender</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char* <parameter>name</parameter></paramdef>
+        <paramdef>const char* <parameter>sender</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_sender</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char** <parameter>name</parameter></paramdef>
+        <paramdef>const char** <parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -46,14 +46,14 @@
     <title>Description</title>
 
     <para><function>sd_bus_set_sender()</function> configures the default sender service name to use for outgoing
-    messages. The service name specified in the <parameter>name</parameter> parameter is set on all outgoing messages
+    messages. The service name specified in the <parameter>sender</parameter> parameter is set on all outgoing messages
     that are sent on the connection and have no sender set yet, for example through
     <citerefentry><refentrytitle>sd_bus_message_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Note
     that this function is only supported on direct connections, i.e. not on connections to a bus broker as the broker
     will fill in the sender service name automatically anyway. By default, no sender name is configured, and hence
-    messages are sent without sender field set. If the <parameter>name</parameter> parameter is specified as
+    messages are sent without sender field set. If the <parameter>sender</parameter> parameter is specified as
     <constant>NULL</constant> the default sender service name is cleared, returning to the default state if a default
-    sender service name was set before. If passed as non-<constant>NULL</constant> the specified name must be a valid
+    sender service name was set before. If passed as non-<constant>NULL</constant> the specified sender must be a valid
     unique or well-known service name.</para>
 
     <para><function>sd_bus_get_sender()</function> may be used to query the current default service name for outgoing

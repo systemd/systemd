@@ -138,7 +138,7 @@
     <para>Note that <function>sd_id128_get_machine_app_specific()</function>,
     <function>sd_id128_get_boot()</function>, <function>sd_id128_get_boot_app_specific()</function>,
     <function>sd_id128_get_invocation()</function> and
-    <function>sd_id128_get_invocation_app_specific</function> always return UUID Variant 1 Version 4
+    <function>sd_id128_get_invocation_app_specific()</function> always return UUID Variant 1 Version 4
     compatible IDs. <function>sd_id128_get_machine()</function> will also return a UUID Variant 1 Version 4
     compatible ID on new installations but might not on older. It is possible to convert the machine ID
     non-reversibly into a UUID Variant 1 Version 4 compatible one. For more information, see
@@ -168,9 +168,7 @@
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when <filename>/etc/machine-id</filename>
-          is missing.</para>
-
-          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+          is missing.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -179,9 +177,7 @@
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when <filename>/etc/machine-id</filename>
           is empty or all zeros. Also returned by <function>sd_id128_get_invocation()</function> when the
-          invocation ID is all zeros.</para>
-
-          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+          invocation ID is all zeros.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -189,9 +185,7 @@
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when the content of
-          <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -199,9 +193,7 @@
 
           <listitem><para>Returned by <function>sd_id128_get_boot()</function> and
           <function>sd_id128_get_boot_app_specific()</function> when <filename>/proc/</filename> is not
-          mounted.</para>
-
-          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          mounted.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -211,27 +203,21 @@
           set. Also returned by <function>sd_id128_get_app_specific()</function>,
           <function>sd_id128_get_machine_app_specific()</function>, and
           <function>sd_id128_get_boot_app_specific()</function> when the <parameter>app_id</parameter>
-          parameter is all zeros.</para>
-
-          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+          parameter is all zeros.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EUCLEAN</constant></term>
 
           <listitem><para>Returned by any of the functions described here when the configured value has
-          invalid format.</para>
-
-          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          invalid format.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>Requested information could not be retrieved because of insufficient permissions.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -267,7 +253,7 @@ As man:sd-id128(3) macro:
   <refsect1>
     <title>History</title>
     <para><function>sd_id128_get_machine()</function> and
-    <function>sd_id128_get_boot()</function> were added in version 187.</para>
+    <function>sd_id128_get_boot()</function> were added in version 38.</para>
     <para><function>sd_id128_get_invocation()</function> was added in version 232.</para>
     <para><function>sd_id128_get_machine_app_specific()</function> was added in version 233.</para>
     <para><function>sd_id128_get_boot_app_specific()</function> was added in version 240.</para>

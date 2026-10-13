@@ -45,7 +45,7 @@
 
       <funcprototype>
         <funcdef>void <function>sd_login_monitor_unrefp</function></funcdef>
-        <paramdef>sd_login_monitor **<parameter>m</parameter></paramdef>
+        <paramdef>sd_login_monitor **<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -66,7 +66,7 @@
       <funcprototype>
         <funcdef>int <function>sd_login_monitor_get_timeout</function></funcdef>
         <paramdef>sd_login_monitor *<parameter>m</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>timeout_usec</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_timeout_usec</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -161,7 +161,7 @@
     return a timeout value for usage in <function>poll()</function>.
     This returns a value in microseconds since the epoch of
     <constant>CLOCK_MONOTONIC</constant> for timing out
-    <function>poll()</function> in <varname>timeout_usec</varname>.
+    <function>poll()</function> in <varname>ret_timeout_usec</varname>.
     See
     <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for details about <constant>CLOCK_MONOTONIC</constant>. If there

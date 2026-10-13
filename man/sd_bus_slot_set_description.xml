@@ -33,8 +33,8 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_slot_get_description</function></funcdef>
-        <paramdef>sd_bus_slot* <parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>description</parameter></paramdef>
+        <paramdef>sd_bus_slot* <parameter>slot</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -49,7 +49,7 @@
     which case the description is unset.</para>
 
     <para><function>sd_bus_slot_get_description()</function> returns a description string in
-    <parameter>description</parameter>. If the string is not set, e.g. with
+    <parameter>ret</parameter>. If the string is not set, e.g. with
     <function>sd_bus_slot_set_description()</function>, and the slot is a bus match callback slot,
     the match string will be returned. Otherwise, <constant>-ENXIO</constant> is returned.
     </para>
@@ -94,7 +94,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_slot_set_description()</function> and
-    <function>sd_bus_slot_get_description()</function> were added in version 240.</para>
+    <function>sd_bus_slot_get_description()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

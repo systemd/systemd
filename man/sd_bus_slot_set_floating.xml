@@ -56,7 +56,7 @@
 
     <para>Bus slot objects may be allocated with calls such as
     <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If the
-    <parameter>slot</parameter> of these functions is non-<constant>NULL</constant> the slot object will be of the
+    <parameter>ret_slot</parameter> of these functions is non-<constant>NULL</constant> the slot object will be of the
     regular kind (i.e. non-floating), otherwise it will be created floating. With
     <function>sd_bus_slot_set_floating()</function> a bus slot object allocated as regular can be converted into a
     floating object and back. This is particularly useful for creating a bus slot object, then changing parameters of

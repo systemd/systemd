@@ -55,7 +55,7 @@
     group.
     This is done by sending a notification over varlink to all sockets found in
     <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should implement the
-    <constant>io.systemd.oom.Prekill</constant> interface. The notification contains the control group path
+    <interfacename>io.systemd.oom.Prekill</interfacename> interface. The notification contains the control group path
     to allow the hook to identify which control group is being killed. This allows external components to
     perform any necessary cleanup or logging before the control group is terminated. The hook is not intended
     as a way to avoid the kill, but rather as a notification mechanism.

@@ -437,7 +437,7 @@
         started again, and thus the service can be triggered multiple times. Defaults to
         <option>true</option>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
     </variablelist>
 

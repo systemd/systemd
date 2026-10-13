@@ -116,7 +116,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_stream_fd()</function> was added in version 187.</para>
+    <para><function>sd_journal_stream_fd()</function> was added in version 38.</para>
     <para><function>sd_journal_stream_fd_with_namespace()</function> was added in version 256.</para>
   </refsect1>
 

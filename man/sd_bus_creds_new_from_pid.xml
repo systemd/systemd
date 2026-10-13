@@ -33,41 +33,41 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_new_from_pid</function></funcdef>
+        <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
-        <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_new_from_pidfd</function></funcdef>
+        <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
         <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
-        <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>uint64_t <function>sd_bus_creds_get_mask</function></funcdef>
-        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const sd_bus_creds *<parameter>c</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>uint64_t <function>sd_bus_creds_get_augmented_mask</function></funcdef>
-        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const sd_bus_creds *<parameter>c</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus_creds *<function>sd_bus_creds_ref</function></funcdef>
-        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>sd_bus_creds *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus_creds *<function>sd_bus_creds_unref</function></funcdef>
-        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>sd_bus_creds *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_bus_creds_unrefp</function></funcdef>
-        <paramdef>sd_bus_creds **<parameter>c</parameter></paramdef>
+        <paramdef>sd_bus_creds **<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
 
@@ -187,16 +187,16 @@
     </para>
 
     <para><function>sd_bus_creds_ref()</function> creates a new
-    reference to the credentials object <parameter>c</parameter>. This
+    reference to the credentials object <parameter>p</parameter>. This
     object will not be destroyed until
     <function>sd_bus_creds_unref()</function> has been called as many
     times plus once more. Once the reference count has dropped to zero,
-    <parameter>c</parameter> cannot be used anymore, so further
-    calls to <function>sd_bus_creds_ref(c)</function> or
-    <function>sd_bus_creds_unref(c)</function> are illegal.</para>
+    <parameter>p</parameter> cannot be used anymore, so further
+    calls to <function>sd_bus_creds_ref(p)</function> or
+    <function>sd_bus_creds_unref(p)</function> are illegal.</para>
 
     <para><function>sd_bus_creds_unref()</function> destroys a reference
-    to <parameter>c</parameter>.</para>
+    to <parameter>p</parameter>.</para>
 
     <para><function>sd_bus_creds_unrefp()</function> is similar to
     <function>sd_bus_creds_unref()</function> but takes a pointer to a
