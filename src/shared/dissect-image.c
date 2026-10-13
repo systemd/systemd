@@ -4999,10 +4999,12 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
         return options->options[designator];
 }
 
-int mount_image_privately_interactively(
+int mount_image_privately_full(
                 const char *image,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
+                bool interactive,
+                const char *passphrase,
                 char **ret_directory,
                 int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
@@ -5057,9 +5059,25 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
-        if (r < 0)
-                return r;
+        if (interactive) {
+                r = dissected_image_decrypt_interactively(
+                                dissected_image,
+                                passphrase,
+                                &verity,
+                                image_policy,
+                                flags);
+                if (r < 0)
+                        return r;
+        } else {
+                r = dissected_image_decrypt(dissected_image,
+                                /* root= */ NULL,
+                                passphrase,
+                                &verity,
+                                image_policy,
+                                flags);
+                if (r < 0)
+                        return r;
+        }
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -5108,6 +5126,24 @@ int mount_image_privately_interactively(
 
         *ret_loop_device = TAKE_PTR(d);
         return 0;
+}
+
+int mount_image_privately_interactively(
+                const char *image,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags,
+                char **ret_directory,
+                int *ret_dir_fd,
+                LoopDevice **ret_loop_device) {
+
+        return mount_image_privately_full(image,
+                        image_policy,
+                        flags,
+                        /* interactive= */ true,
+                        /* passphrase= */ NULL,
+                        ret_directory,
+                        ret_dir_fd,
+                        ret_loop_device);
 }
 
 static bool mount_options_relax_extension_release_checks(const MountOptions *options) {

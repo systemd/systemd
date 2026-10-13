@@ -253,6 +253,7 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
+int mount_image_privately_full(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, bool interactive, const char *passphrase, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
 int verity_dissect_and_mount(
