@@ -123,6 +123,11 @@ CHANGES WITH 263 in spe:
         * "networkctl renew" now renews the DHCPv6 lease too, not only the
           DHCPv4 lease.
 
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReason field of
+          the interface description provided over Varlink.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate's "update" command acquired a new --loop= switch.

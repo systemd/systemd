@@ -13,6 +13,7 @@
 #include "ethtool-util.h"
 #include "forward.h"
 #include "in-addr-util.h"
+#include "networkd-link.h"
 
 typedef struct VxLanInfo {
         uint32_t vni;
@@ -61,6 +62,8 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
+
+        LinkConfiguringReason configuring_reason;
 
         /* DHCPv4 */
         sd_dhcp_message *dhcp_message;
