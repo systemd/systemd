@@ -9,6 +9,9 @@ executables += [
                 'name' : 'varlinkctl',
                 'public' : true,
                 'sources' : varlinkctl_sources,
+                'dependencies' : [
+                        libbpf_cflags,
+                ],
         },
 ]
 
