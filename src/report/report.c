@@ -35,7 +35,7 @@
 #include "web-util.h"
 
 /* We limit per source, with the METRICS_LINKS_MAX this gives us a global cap too */
-#define METRICS_PER_SOURCE_MAX 4096U
+#define METRICS_PER_SOURCE_MAX 16384U
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
