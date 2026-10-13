@@ -226,6 +226,7 @@ int link_append_to_master(Link *link);
 
 void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
+LinkConfiguringReason link_get_configuring_reason(Link *link, Address **ret_address);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_master);

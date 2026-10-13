@@ -23,6 +23,7 @@
 #include "json-util.h"
 #include "macvlan-util.h"
 #include "netif-util.h"
+#include "network-util.h"
 #include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-dump-util.h"
@@ -227,6 +228,23 @@ static int format_config_files(char ***files, const char *main_config) {
         return 0;
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_link_configuring_reason, LinkConfiguringReason, link_configuring_reason_from_string);
+
+static LinkConfiguringReason link_info_get_configuring_reason(const LinkInfo *info) {
+        LinkConfiguringReason reason;
+        sd_json_variant *v;
+
+        assert(info);
+
+        if (json_variant_find_object(info->description, STRV_MAKE("Interface", "ConfiguringReason"), &v) < 0)
+                return _LINK_CONFIGURING_REASON_INVALID;
+
+        if (dispatch_link_configuring_reason("ConfiguringReason", v, /* flags= */ 0, &reason) < 0)
+                return _LINK_CONFIGURING_REASON_INVALID;
+
+        return reason;
+}
+
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
@@ -333,6 +351,15 @@ static int link_status_one(
                                    on_color_setup, setup_state ?: "unmanaged", off_color_setup);
         if (r < 0)
                 return table_log_add_error(r);
+
+        LinkConfiguringReason reason = link_info_get_configuring_reason(info);
+        if (reason >= 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Configuring",
+                                   TABLE_STRING, link_configuring_reason_message_to_string(reason));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         r = table_add_many(table,
                            TABLE_FIELD, "Online state",

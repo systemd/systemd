@@ -49,6 +49,11 @@ CHANGES WITH 263 in spe:
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
 
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReason field of
+          the interface description provided over Varlink.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:

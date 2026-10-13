@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
         test_table(TunnelMode, tunnel_mode, TUNNEL_MODE);
         test_table(IPv6PrivacyExtensions, ipv6_privacy_extensions, IPV6_PRIVACY_EXTENSIONS);
         test_table(IPVlanFlags, ipvlan_flags, NETDEV_IPVLAN_FLAGS);
+        test_table(LinkConfiguringReason, link_configuring_reason, LINK_CONFIGURING_REASON);
         test_table(LinkOperationalState, link_operstate, LINK_OPERSTATE);
         /* test_table(link_state, LINK_STATE);  — not a reversible mapping */
         test_table(LLDPMode, lldp_mode, LLDP_MODE);
