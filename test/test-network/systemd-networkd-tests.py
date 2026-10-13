@@ -6219,6 +6219,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         time.sleep(1)
         output = networkctl_status('test1')
         self.assertIn('State: routable (configuring)', output)
+        self.assertIn('Configuring: static routes are not configured', output)
+        output = networkctl_json('test1')
+        check_json(output)
+        self.assertIn('"ConfiguringReasons":["static_routes"]', output)
 
         # Check if the route which needs nexthop 21 are forgotten.
         output = networkctl_json()
@@ -6229,6 +6233,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # then the route requested by test1 can be configured.
         networkctl_reconfigure('dummy98')
         self.wait_online('test1:routable')
+
+        # Check if the reason is cleared once the interface is configured.
+        output = networkctl_status('test1')
+        self.assertNotIn('Configuring:', output)
+        output = networkctl_json('test1')
+        check_json(output)
+        self.assertNotIn('ConfiguringReasons', output)
 
         # Check if the requested route actually configured.
         output = check_output('ip route show 10.10.11.10')
