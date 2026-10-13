@@ -18,6 +18,7 @@ typedef struct DissectedPartition {
         int partno;                 /* -1 if there was no partition and the images contains a file system directly */
         Architecture architecture;  /* Intended architecture: either native, secondary or unset ARCHITECTURE_INVALID. */
         sd_id128_t uuid;            /* Partition entry UUID as reported by the GPT */
+        sd_id128_t type_uuid;       /* Partition type UUID as reported by the GPT */
         char *fstype;
         char *node;
         char *label;
@@ -83,13 +84,22 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
 } DissectImageFlags;
 
+typedef enum PartitionTableType {
+        PARTITION_GPT,
+        PARTITION_MBR,
+        PARTITION_BARE,            /* No partition table, the image contains a file system directly */
+        _PARTITION_TABLE_TYPE_MAX,
+        _PARTITION_TABLE_TYPE_INVALID = -EINVAL,
+} PartitionTableType;
+
 typedef struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
         bool verity_ready:1;       /* verity available, fully specified and usable */
         bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
-        bool single_file_system:1; /* MBR/GPT or single file system */
+
+        PartitionTableType partition_table_type;
 
         LoopDevice *loop;
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
