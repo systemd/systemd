@@ -98,6 +98,21 @@ SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 "$SD_PCRLOCK" is-supported
 "$SD_PCRLOCK" cel --no-pager --json=pretty
 "$SD_PCRLOCK" log --pcr="$PCRS"
+
+# The log header (the Spec ID event) is an EV_NO_ACTION event in the legacy event format, which should be
+# retained as the first record of the firmware log, with a single all-zero SHA1 digest.
+SPEC_ID_EVENT_CHECK='.recnum == 1 and .pcr == 0 and .content_type == "pcclient_std" and
+    .content.event_type == "EV_NO_ACTION" and
+    .digests == [{"hashAlg": "sha1", "digest": "0000000000000000000000000000000000000000"}] and
+    (.content.event_data | startswith("53706563204944204576656e74303300"))'
+if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
+    "$SD_PCRLOCK" cel --json=short | jq -e ".[0] | $SPEC_ID_EVENT_CHECK" >/dev/null
+
+    # EV_NO_ACTION events are not extended into the PCRs, so everything other than the CEL output must still
+    # skip them. Don't restrict the PCRs here, as these events live on PCR 0.
+    "$SD_PCRLOCK" log --json=short |
+        jq -e 'any(.log[]; .pcr == 0) and (any(.log[]; .event == "no-action") | not)' >/dev/null
+fi
 "$SD_PCRLOCK" log --json=pretty --pcr="$PCRS"
 "$SD_PCRLOCK" list-components
 "$SD_PCRLOCK" list-components --location=250-
@@ -260,6 +275,10 @@ systemctl restart systemd-pcrlock.socket
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
+    varlinkctl call --collect --json=short /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}' |
+        jq -e ".[0].record | $SPEC_ID_EVENT_CHECK" >/dev/null
+fi
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'
