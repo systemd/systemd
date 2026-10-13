@@ -91,6 +91,33 @@ static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
+static const char *const link_configuring_reason_message_table[_LINK_CONFIGURING_REASON_MAX] = {
+        [LINK_CONFIGURING_REASON_TRAFFIC_CONTROL]             = "traffic controls are not configured",
+        [LINK_CONFIGURING_REASON_LINK_LAYER]                  = "link layer is configuring",
+        [LINK_CONFIGURING_REASON_ACTIVATION]                  = "link is not activated",
+        [LINK_CONFIGURING_REASON_STACKED_NETDEVS]             = "stacked netdevs are not created",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESSES]            = "static addresses are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS]       = "static address labels are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB]           = "static bridge FDB entries are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB]           = "static bridge MDB entries are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBORS]            = "static neighbors are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY]       = "static neighbor proxy addresses are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEXTHOPS]             = "static nexthops are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTES]               = "static routes are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES] = "static routing policy rules are not configured",
+        [LINK_CONFIGURING_REASON_SR_IOV]                      = "SR-IOV is not configured",
+        [LINK_CONFIGURING_REASON_BEARER]                      = "Bearer has not been applied",
+        [LINK_CONFIGURING_REASON_IPV6LL]                      = "IPv6LL is not configured yet",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY]    = "static address is not ready",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD]                   = "DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX]            = "DHCPv4 is finished, but prefix acquired by DHCPv4-6rd is not assigned yet",
+        [LINK_CONFIGURING_REASON_DHCP6_PD]                    = "DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet",
+        [LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX]             = "DHCPv6 is finished, but prefix acquired by DHCPv6 IA_PD is not assigned yet",
+        [LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING]          = "dynamic addressing protocols are enabled but none of them finished yet",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(link_configuring_reason_message, LinkConfiguringReason);
+
 int parse_operational_state_range(const char *s, LinkOperationalStateRange *ret) {
         LinkOperationalStateRange range = LINK_OPERSTATE_RANGE_INVALID;
         _cleanup_free_ char *buf = NULL;
