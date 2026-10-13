@@ -5601,7 +5601,13 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                                                "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
-                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
+                r = copy_bytes_offset(
+                                t->fd,
+                                /* foffset= */ &(uint64_t) { 0 },
+                                whole_fd,
+                                /* toffset= */ NULL,
+                                /* max_bytes= */ UINT64_MAX,
+                                COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
