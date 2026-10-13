@@ -166,6 +166,12 @@ TEST(find_ovmf_config) {
         ASSERT_TRUE(ovmf_config_is_stateless(config));
         config = ovmf_config_free(config);
 
+        /* Unless it expects QEMU to provide the UEFI variable store, which also applies to stateless flash. */
+        write_descriptor(dir, "00-h-memory.json", "/test/h-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+        write_descriptor(dir, "10-h-flash.json", "/test/h-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+
+        check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, FIND_OVMF_STATELESS, /* expect_path= */ NULL, /* ret= */ NULL);
+
         /* Combined-mode flash firmware carries a writable variable store inside the executable, it must not be treated as stateless. */
         write_descriptor(dir, "00-f-combined.json", "/test/f-combined.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_COMBINED, STRV_MAKE("vmspawn-test-f"));
 

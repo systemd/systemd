@@ -76,21 +76,24 @@ bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature) {
         return strv_contains(config->features, feature);
 }
 
-static bool firmware_is_stateless(const char *device, const char *mode) {
-        /* Memory-mapped firmware (loaded via -bios) carries no NVRAM. For flash, only mode "stateless"
-         * is stateless: an absent mode means "split" (executable plus NVRAM template), and "combined"
-         * images carry the variable store inside the (writable) executable. */
+static bool firmware_is_stateless(const char *device, const char *mode, char * const *features) {
+        /* QEMU provides the variable store, which is host state. */
+        if (strv_contains(features, "host-uefi-vars"))
+                return false;
 
+        /* Otherwise, memory-mapped firmware (loaded via -bios) carries no NVRAM. */
         if (streq_ptr(device, "memory"))
                 return true;
 
+        /* Only mode "stateless" is stateless: an absent mode means "split" (executable plus NVRAM template),
+         * and "combined" images carry the variable store inside the (writable) executable. */
         return streq_ptr(device, "flash") && streq_ptr(mode, "stateless");
 }
 
 bool ovmf_config_is_stateless(const OvmfConfig *config) {
         assert(config);
 
-        return firmware_is_stateless(config->device, config->mode);
+        return firmware_is_stateless(config->device, config->mode, config->features);
 }
 
 DEFINE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
@@ -518,7 +521,7 @@ int find_ovmf_config(
                 }
 
                 if (FLAGS_SET(flags, FIND_OVMF_STATELESS)) {
-                        if (!firmware_is_stateless(fwd->device, fwd->mode)) {
+                        if (!firmware_is_stateless(fwd->device, fwd->mode, fwd->features)) {
                                 log_debug("Skipping %s, firmware is not stateless.", *file);
                                 continue;
                         }
