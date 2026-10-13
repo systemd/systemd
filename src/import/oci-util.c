@@ -108,7 +108,11 @@ int oci_ref_parse(
         assert(ref);
 
         _cleanup_free_ char *without_tag = NULL, *tag = NULL;
-        const char *t = strrchr(ref, ':');
+
+        /* Look for the tag separator only after the last "/", so that we don't mistake the port number of a
+         * registry for a tag, e.g. so that "quay.io:443/fedora/fedora" is parsed correctly. */
+        const char *slash = strrchr(ref, '/');
+        const char *t = strrchr(slash ?: ref, ':');
         if (t) {
                 tag = strdup(t + 1);
                 if (!tag)
