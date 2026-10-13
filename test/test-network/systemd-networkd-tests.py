@@ -6219,6 +6219,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         time.sleep(1)
         output = networkctl_status('test1')
         self.assertIn('State: routable (configuring)', output)
+        self.assertIn('Configuring: static routes are not configured', output)
+        output = networkctl_json('test1')
+        check_json(output)
+        self.assertIn('"ConfiguringReason":"static_routes"', output)
 
         # Check if the route which needs nexthop 21 are forgotten.
         output = networkctl_json()
