@@ -77,6 +77,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on."),
                 SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("A currently enrolled keyslot index."),
                 SD_VARLINK_DEFINE_OUTPUT(slot, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The type of the keyslot."),
