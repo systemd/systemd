@@ -13,6 +13,10 @@ Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 
 ConditionPathExists=/dev/tty0
 
+# On WSL, the virtual consoles belong to the VM, are shared by all
+# distributions running in it, and cannot be seen by users.
+ConditionVirtualization=!wsl
+
 DefaultDependencies=no
 Before=sysinit.target
 Before=initrd-switch-root.target shutdown.target
