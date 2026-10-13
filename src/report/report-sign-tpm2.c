@@ -843,6 +843,7 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                                                 "capabilityMoreData", c->more_caps),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("tpmProperty", tpm_prop),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("authPolicy", auth_policy),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("sessionAuditHashAlg", session_audit_hash_alg),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("attestInfo", attest_info),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("signature", sig),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("signaturePEM", sig_pem));
