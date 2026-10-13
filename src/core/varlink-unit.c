@@ -20,6 +20,8 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "manager.h"
+#include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -763,6 +765,14 @@ typedef struct TransientExecContextParameters {
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+        /* PrivateNetwork is a tristate bool too, but arrives as a yes/no string: the runtime
+         * context emits it via JSON_BUILD_PAIR_YES_NO and the IDL types it as string. */
+        int private_network;
+        /* Int-backed enums: -1 = absent (seeded like the tristates), parsed values >= 0. */
+        ProtectSystem protect_system;
+        ProtectHome protect_home;
+        PrivateTmp private_tmp;
+        PrivateUsers private_users;
 } TransientExecContextParameters;
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
@@ -1503,6 +1513,7 @@ DEFINE_APPLY_EXEC_TRISTATE_BOOL(ignore_sigpipe,            "IgnoreSIGPIPE");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(lock_personality,          "LockPersonality");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(memory_deny_write_execute, "MemoryDenyWriteExecute");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(no_new_privileges,         "NoNewPrivileges");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(private_network,           "PrivateNetwork");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(remove_ipc,                "RemoveIPC");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
@@ -1618,6 +1629,51 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
         return 0;
 }
 
+/* The IDL enums use the Varlink spelling ("read_only"), while the *_from_string() parsers
+ * expect the unit-file spelling ("read-only"); JSON_DISPATCH_ENUM_DEFINE bridges that by
+ * retrying with dashes on a miss. */
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home, ProtectHome, protect_home_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp, PrivateTmp, private_tmp_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users, PrivateUsers, private_users_from_string);
+
+/* For the sandbox knobs typed as yes/no strings in the IDL (PrivateNetwork), matching
+ * JSON_BUILD_PAIR_YES_NO on the runtime-context side, so a JSON boolean is not valid here. */
+static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        r = parse_boolean(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "Value of JSON field '%s' is not a boolean string: %s",
+                                strna(name), sd_json_variant_string(variant));
+
+        *b = r;
+        return 0;
+}
+
+/* The sandbox enums accept every value their parser accepts, as over D-Bus. */
+static bool exec_enum_refuse_nothing(int value) {
+        return false;
+}
+
+DEFINE_APPLY_EXEC_ENUM(protect_system, "ProtectSystem", protect_system_to_string, exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(protect_home,   "ProtectHome",   protect_home_to_string,   exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_tmp,    "PrivateTmp",    private_tmp_to_string,    exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_users,  "PrivateUsers",  private_users_to_string,  exec_enum_refuse_nothing);
+
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1675,6 +1731,12 @@ typedef struct TransientExecProperty {
         { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
+/* Yes/no-string property: a tristate bool whose IDL type is string, see
+ * dispatch_transient_yes_no_string(). */
+#define EXEC_PROPERTY_YES_NO_STRING(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,   \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
 static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
         EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
@@ -1693,8 +1755,13 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
         EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
         EXEC_PROPERTY              ("Nice",                   SD_JSON_VARIANT_INTEGER,       dispatch_transient_nice,                     0,                                                                       0,             apply_exec_nice),
+        EXEC_PROPERTY_ENUM         ("ProtectSystem",          protect_system, dispatch_protect_system),
+        EXEC_PROPERTY_ENUM         ("ProtectHome",            protect_home,   dispatch_protect_home),
+        EXEC_PROPERTY_ENUM         ("PrivateTmp",             private_tmp,    dispatch_private_tmp),
+        EXEC_PROPERTY_YES_NO_STRING("PrivateNetwork",         private_network),
         EXEC_PROPERTY_ABSOLUTE_PATH("NetworkNamespacePath",   network_namespace_path),
         EXEC_PROPERTY_ABSOLUTE_PATH("IPCNamespacePath",       ipc_namespace_path),
+        EXEC_PROPERTY_ENUM         ("PrivateUsers",           private_users,  dispatch_private_users),
         EXEC_PROPERTY_ABSOLUTE_PATH("UserNamespacePath",      user_namespace_path),
         EXEC_PROPERTY_TRISTATE_BOOL("LockPersonality",        lock_personality),
         EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
@@ -1714,6 +1781,7 @@ static const TransientExecProperty exec_properties[] = {
 #undef EXEC_PROPERTY_STRING
 #undef EXEC_PROPERTY_ABSOLUTE_PATH
 #undef EXEC_PROPERTY_ENUM
+#undef EXEC_PROPERTY_YES_NO_STRING
 
 /* Tristate-bool and enum fields default to -1 (= absent). Default-zeroed slots would look
  * "explicitly set" to the apply path. Initialize all tristate fields here so adding a new such property only
@@ -1727,6 +1795,10 @@ static void transient_exec_context_parameters_init(TransientExecContextParameter
          * wide (their dispatchers write them through their own type) */
         assert_cc(sizeof(ExecInput) == sizeof(int));
         assert_cc(sizeof(ExecOutput) == sizeof(int));
+        assert_cc(sizeof(ProtectSystem) == sizeof(int));
+        assert_cc(sizeof(ProtectHome) == sizeof(int));
+        assert_cc(sizeof(PrivateTmp) == sizeof(int));
+        assert_cc(sizeof(PrivateUsers) == sizeof(int));
 
         FOREACH_ELEMENT(prop, exec_properties)
                 if (prop->tristate)
