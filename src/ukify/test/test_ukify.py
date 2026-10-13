@@ -188,6 +188,46 @@ def test_apply_config(tmp_path):
     ]
 
 
+def test_apply_config_grouped_options_are_padded(tmp_path):
+    configs = (
+        (
+            '[PCRSignature:a]\n'
+            'PolicyRef=a\n'
+            'PCRPrivateKey=/path/a.pem\n'
+            'PCRCertificate=/path/a.crt\n'
+            '\n'
+            '[PCRSignature:b]\n'
+            'PCRPrivateKey=/path/b.pem\n'
+            'PCRCertificate=/path/b.crt\n',
+            ['a', None],
+        ),
+        (
+            '[PCRSignature:b]\n'
+            'PCRPrivateKey=/path/b.pem\n'
+            'PCRCertificate=/path/b.crt\n'
+            '\n'
+            '[PCRSignature:a]\n'
+            'PolicyRef=a\n'
+            'PCRPrivateKey=/path/a.pem\n'
+            'PCRCertificate=/path/a.crt\n',
+            [None, 'a'],
+        ),
+    )
+
+    for i, (contents, expected_policyrefs) in enumerate(configs):
+        config = tmp_path / f'config{i}.conf'
+        config.write_text(contents)
+
+        ns = ukify.create_parser().parse_args(['build'])
+        ns.linux = pathlib.Path('linux')
+        ns.initrd = []
+        ukify.apply_config(ns, config)
+        ukify.finalize_options(ns)
+
+        assert ns.policyrefs == expected_policyrefs
+        assert len(ns.policyrefs) == len(ns.pcr_private_keys)
+
+
 def test_parse_args_minimal():
     with pytest.raises(ValueError):
         ukify.parse_args([])
