@@ -116,6 +116,7 @@ typedef struct OvmfConfig {
         char *format;
         char *vars;
         char *vars_format;
+        char *uefi_vars_template; /* JSON template for QEMU's uefi-vars device ("host-uefi-vars" feature) */
         char *device;
         char *mode;
         char **features;
