@@ -253,6 +253,7 @@ int link_append_to_master(Link *link);
 
 void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
+LinkConfiguringReason link_get_configuring_reason(Link *link);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_master);
@@ -270,6 +271,7 @@ int link_drop_requests(Link *link, NetworkConfigSource source);
 int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
+DECLARE_STRING_TABLE_LOOKUP(link_configuring_reason, LinkConfiguringReason);
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(link_configuring_reason_message, LinkConfiguringReason);
 
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
