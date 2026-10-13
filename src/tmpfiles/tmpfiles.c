@@ -701,7 +701,7 @@ static int dir_cleanup(
                 AgeBy age_by_dir) {
 
         bool deleted = false;
-        int r = 0;
+        int r = 0, k;
 
         assert(c);
         assert(i);
@@ -715,19 +715,22 @@ static int dir_cleanup(
                         continue;
 
                 struct statx sx;
-                r = xstatx_full(dirfd(d), de->d_name,
+                k = xstatx_full(dirfd(d), de->d_name,
                                 AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
                                 /* xstatx_flags= */ 0,
                                 STATX_TYPE|STATX_MODE|STATX_UID,
                                 STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
                                 STATX_ATTR_MOUNT_ROOT,
                                 &sx);
-                if (r == -ENOENT)
+                if (k == -ENOENT)
                         continue;
-                if (r < 0) {
+                if (k == -EACCES) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
-                                       "statx(%s/%s) failed: %m", p, de->d_name);
+                        log_debug_errno(k, "statx(%s/%s) failed, ignoring: %m", p, de->d_name);
+                        continue;
+                }
+                if (k < 0) {
+                        r = log_error_errno(k, "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
 
