@@ -42,7 +42,7 @@ static tpm2_log_event_type_info tpm2_log_event_type_table[] = {
         { EV_EFI_PLATFORM_FIRMWARE_BLOB,    "efi-platform-firmware-blob"    },
         { EV_EFI_HANDOFF_TABLES,            "efi-handoff-tables"            },
         { EV_EFI_PLATFORM_FIRMWARE_BLOB2,   "efi-platform-firmware-blob2"   },
-        { EV_EFI_HANDOFF_TABLES2,           "efi-handoff-tables"            },
+        { EV_EFI_HANDOFF_TABLES2,           "efi-handoff-tables2"           },
         { EV_EFI_VARIABLE_BOOT2,            "efi-variable-boot2"            },
         { EV_EFI_HCRTM_EVENT,               "efi-hcrtm-event"               },
         { EV_EFI_VARIABLE_AUTHORITY,        "efi-variable-authority"        },
