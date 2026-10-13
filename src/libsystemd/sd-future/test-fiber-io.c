@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fiber-ops.h"
 #include "fs-util.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -215,12 +216,16 @@ static int interrupted_read_fiber(void *userdata) {
         int fd = PTR_TO_INT(userdata);
         char c;
 
-        /* The data is ready, so the read would complete without suspending. The queued cancellation
-         * must still make the read fail. The data must stay in the pipe. */
-        ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
+        /* The test cancels the fiber while it is suspended here. */
+        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+
+        /* The data is ready, so the read would complete without suspending. The cancellation must still
+         * make the read fail. The data must stay in the pipe. */
         ASSERT_ERROR(sd_fiber_read(fd, &c, 1), ECANCELED);
 
-        ASSERT_OK_EQ(sd_fiber_read(fd, &c, 1), 1);
+        /* A shield hides the cancellation. */
+        SD_FIBER_WITH_SHIELD()
+                ASSERT_OK_EQ(sd_fiber_read(fd, &c, 1), 1);
         ASSERT_EQ(c, 'x');
         return 0;
 }
@@ -236,6 +241,8 @@ TEST(fiber_io_interrupted) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "interrupted-read", interrupted_read_fiber, INT_TO_PTR(pipefd[0]), &f));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
 }
@@ -291,8 +298,9 @@ static int send_after_exit_fiber(void *userdata) {
 
         ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
 
-        /* sd_event_exit() cancelled the fiber. The socket has room, so the send() doesn't have to wait and
-         * has to succeed. */
+        /* sd_event_exit() cancels the fiber with a hard cancellation, which requires a full shield.
+         * The socket has room, so send() can complete without waiting. */
+        FIBER_OPS_SHIELD(FIBER_CANCEL_HARD);
         ASSERT_OK_EQ(sd_fiber_send(fd, "x", 1, /* flags= */ 0), (ssize_t) 1);
         return 0;
 }
@@ -1439,7 +1447,8 @@ static int poll_interrupt_fiber(void *userdata) {
                 ASSERT_EQ(pfd.revents, 0);
         }
 
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        /* The timeout ends with its scope, but the cancellation stays in effect. */
+        ASSERT_EQ(sd_fiber_yield(), s->timeout ? 0 : -ECANCELED);
         return 0;
 }
 
@@ -1464,19 +1473,20 @@ TEST(fiber_poll_interrupted) {
         }
 }
 
-static int poll_timeout_ready_fiber(void *userdata) {
+static int poll_interrupted_ready_fiber(void *userdata) {
         int fd = PTR_TO_FD(userdata);
         struct pollfd pfd = { .fd = fd, .events = POLLIN };
 
         ASSERT_OK_EQ(sd_fiber_ppoll(&pfd, 1, /* timeout= */ NULL, /* sigmask= */ NULL), 1);
         ASSERT_TRUE(FLAGS_SET(pfd.revents, POLLIN));
 
-        /* The fd was ready when the fiber woke up, so the next suspension point reports the timeout. */
-        ASSERT_ERROR(sd_fiber_interrupted(), ETIME);
+        /* The fd was ready when the fiber woke up, so the poll reports the fd, and the cancellation stays
+         * in effect. */
+        ASSERT_ERROR(sd_fiber_interrupted(), ECANCELED);
         return 0;
 }
 
-TEST(fiber_poll_timeout_while_ready) {
+TEST(fiber_poll_interrupted_while_ready) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
@@ -1484,14 +1494,14 @@ TEST(fiber_poll_timeout_while_ready) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "poll-timeout-ready", poll_timeout_ready_fiber, FD_TO_PTR(pipefd[0]), &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-interrupted-ready", poll_interrupted_ready_fiber, FD_TO_PTR(pipefd[0]), &f));
         ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
-        /* The fd becomes ready together with the timeout. The event loop runs the woken fiber before it
-         * polls the fd again. The wait of the fiber therefore returns -ETIME, and sd_fiber_ppoll() then
-         * finds the fd ready. */
+        /* The fd becomes ready together with the cancellation. The event loop runs the woken fiber before
+         * it polls the fd again. The wait of the fiber therefore returns -ECANCELED, and sd_fiber_ppoll()
+         * then finds the fd ready. */
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "x", 1), 1);
-        ASSERT_OK(sd_fiber_resume(f, -ETIME));
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));

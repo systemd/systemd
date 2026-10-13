@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/resource.h>
+
+#include "sd-event.h"
+#include "sd-future.h"
+
 #include "fd-util.h"
 #include "format-util.h"
 #include "pidref.h"
@@ -263,6 +268,113 @@ TEST(pidref_wait_for_terminate_timeout) {
         /* Test timeout when process doesn't terminate */
         ASSERT_OK(pidref_safe_fork("(test-pidref-wait-timeout-expired)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
         ASSERT_ERROR(pidref_wait_for_terminate_full(&pidref, 100 * USEC_PER_MSEC, /* ret_si= */ NULL), ETIMEDOUT);
+}
+
+static int wait_uninterruptible_fiber(void *userdata) {
+        PidRef *pidref = ASSERT_PTR(userdata);
+
+        /* The test cancels the fiber twice during the wait. The shield of the wait hides the first
+         * cancel. The second one makes the cancellation hard, which kills the child with SIGKILL. The
+         * wait goes on until the child is gone. */
+        ASSERT_OK(pidref_wait_for_terminate_uninterruptible(pidref));
+
+        /* The cancellation stays in effect. */
+        ASSERT_ERROR(sd_fiber_interrupted(), ECANCELED);
+
+        /* The child was reaped. */
+        siginfo_t si = {};
+        ASSERT_ERROR_ERRNO(waitid(P_PIDFD, pidref->fd, &si, WEXITED|WNOHANG), ECHILD);
+        return 0;
+}
+
+TEST(pidref_wait_for_terminate_uninterruptible) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        r = ASSERT_OK(pidref_safe_fork("(test-wait)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
+        if (r == 0) {
+                (void) usleep_safe(10 * USEC_PER_SEC);
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_fiber_new(e, "wait-uninterruptible", wait_uninterruptible_fiber, &pidref, &f));
+
+        while (sd_fiber_get_awaiting(f) == NULL)
+                ASSERT_OK(sd_event_run(e, 0));
+
+        usec_t start = now(CLOCK_MONOTONIC);
+
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
+        ASSERT_OK(sd_event_run(e, 100 * USEC_PER_MSEC));
+        ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
+        ASSERT_NOT_NULL(sd_fiber_get_awaiting(f));
+
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
+
+        while (sd_future_state(f) == SD_FUTURE_PENDING)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        ASSERT_OK_ZERO(sd_future_result(f));
+        ASSERT_LT(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 5 * USEC_PER_SEC);
+}
+
+static int wait_on_exit_fiber(void *userdata) {
+        PidRef *pidref = ASSERT_PTR(userdata);
+
+        /* The event loop exit cancels the sleep. */
+        ASSERT_ERROR(sd_fiber_sleep(USEC_INFINITY), ECANCELED);
+
+        /* While the event loop exits, every suspension point fails right away. The wait has to block
+         * instead of retrying in a busy loop until the child exits. */
+        struct rusage before, after;
+        ASSERT_OK_ERRNO(getrusage(RUSAGE_SELF, &before));
+        pidref_done_sigterm_wait(pidref);
+        ASSERT_OK_ERRNO(getrusage(RUSAGE_SELF, &after));
+
+        usec_t cpu = timeval_load(&after.ru_utime) + timeval_load(&after.ru_stime) -
+                     timeval_load(&before.ru_utime) - timeval_load(&before.ru_stime);
+        log_info("Waiting for the child during exit took %s of CPU time.", FORMAT_TIMESPAN(cpu, USEC_PER_MSEC));
+        ASSERT_LT(cpu, 300 * USEC_PER_MSEC);
+        return 0;
+}
+
+TEST(pidref_wait_for_terminate_uninterruptible_on_exit) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(pfd, O_CLOEXEC));
+
+        r = ASSERT_OK(pidref_safe_fork("(test-wait-exit)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
+        if (r == 0) {
+                /* Ignore the SIGTERM of pidref_done_sigterm_wait(), so that the wait takes a while. */
+                (void) signal(SIGTERM, SIG_IGN);
+                pfd[0] = safe_close(pfd[0]);
+                pfd[1] = safe_close(pfd[1]);
+                (void) usleep_safe(1 * USEC_PER_SEC);
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* The read returns EOF once the child ignores SIGTERM and has closed its end of the pipe. */
+        pfd[1] = safe_close(pfd[1]);
+        char x;
+        ASSERT_OK_ZERO_ERRNO(read(pfd[0], &x, 1));
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_fiber_new(e, "wait-on-exit", wait_on_exit_fiber, &pidref, &f));
+
+        /* Run the fiber until it sleeps. */
+        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
+
+        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_state(f), SD_FUTURE_RESOLVED);
+        ASSERT_OK_ZERO(sd_future_result(f));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
