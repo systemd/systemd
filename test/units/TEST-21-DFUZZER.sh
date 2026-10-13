@@ -174,9 +174,33 @@ EOF
     systemctl restart "$service"
 done
 
-test_systemd() {
+run_dfuzzer() {
+    local bus="${1:?}"
+    local log rc=0
+    shift
+
+    log="$(mktemp)"
     systemd-run "$@" --pipe --wait \
-                -- dfuzzer -b "$PAYLOAD_MAX" -n org.freedesktop.systemd1
+                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus" 2>&1 | tee "$log" || rc=$?
+
+    # dfuzzer first enumerates the child objects of a node and then introspects them one by one. Objects
+    # that are inherently short-lived (e.g. job objects of the service manager, which go away once the job
+    # completes, for example because a timer elapsed in the middle of the run) might vanish in between,
+    # in which case dfuzzer stops traversing the bus and exits with 1. Let's not treat that as a failure, as
+    # long as nothing else went wrong.
+    if [[ "$rc" -eq 1 ]] &&
+       grep -E "Error while calling method 'Introspect': .*org\.freedesktop\.DBus\.Error\.UnknownObject" "$log" >/dev/null &&
+       ! grep -E "FAIL|Error" "$log" | grep -Ev "^Error in |Error while calling method 'Introspect': .*org\.freedesktop\.DBus\.Error\.UnknownObject" >/dev/null; then
+        echo "dfuzzer hit an object that vanished during traversal, ignoring."
+        rc=0
+    fi
+
+    rm -f "$log"
+    return "$rc"
+}
+
+test_systemd() {
+    run_dfuzzer org.freedesktop.systemd1 "$@"
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl "$@" daemon-reload
@@ -208,8 +232,7 @@ for name in "${NAME_LIST[@]}"; do
     # enable debugging logs
     systemctl service-log-level "$service" debug || :
 
-    systemd-run --pipe --wait \
-                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
+    run_dfuzzer "$bus"
 
     # disable debugging logs
     systemctl service-log-level "$service" info || :
