@@ -716,7 +716,7 @@ def main() -> None:
     if args.vm_images and not vm:
         # TEST_MKOSI_ARGS may select a directory image only for launching this test.
         # Nested VMs still need the separately built disk images.
-        output_dir = Summary.get(args, args.mkosi_args).output_dir
+        output_dir = (Summary.get(args, args.mkosi_args) if test_mkosi_args else summary).output_dir
         if output_dir.exists():
             vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
         else:
