@@ -548,12 +548,15 @@ static int qmp_client_call_interrupted_fiber(void *userdata) {
         ASSERT_NULL(result);
         ASSERT_NULL(error_desc);
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", /* args= */ NULL, &result, &error_desc));
-        ASSERT_NOT_NULL(result);
-        ASSERT_NULL(error_desc);
-        ASSERT_OK_ZERO(sd_fiber_await(mock));
+        /* A cancellation stays in effect, so the next call needs a shield. */
+        SD_FIBER_WITH_SHIELD() {
+                ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", /* args= */ NULL, &result, &error_desc));
+                ASSERT_NOT_NULL(result);
+                ASSERT_NULL(error_desc);
+                ASSERT_OK_ZERO(sd_fiber_await(mock));
+        }
         ASSERT_OK_ZERO(sd_future_result(mock));
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_EQ(sd_fiber_yield(), error == ECANCELED ? -ECANCELED : 0);
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
 }
