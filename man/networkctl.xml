@@ -176,6 +176,11 @@
                   <para>Configuration for the link is being retrieved or the link is being configured.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
+
+                  <para>The <command>status</command> command shows what the link is waiting for in the
+                  <literal>Configuring</literal> field.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v263"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
