@@ -269,15 +269,9 @@ static int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, cons
         if (memfd < 0)
                 return log_error_errno(memfd, "Failed to create memfd for PE section '%s': %m", name);
 
-        if (lseek(fd, offset, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to PE section '%s': %m", name);
-
-        r = copy_bytes(fd, memfd, size, /* copy_flags= */ 0);
+        r = copy_bytes_offset(fd, &(uint64_t) { offset }, memfd, &(uint64_t) {}, size, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy PE section '%s': %m", name);
-
-        if (lseek(memfd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek memfd: %m");
 
         return TAKE_FD(memfd);
 }
