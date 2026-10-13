@@ -23,6 +23,33 @@ typedef enum LinkState {
         _LINK_STATE_INVALID = -EINVAL,
 } LinkState;
 
+typedef enum LinkConfiguringReason {
+        LINK_CONFIGURING_REASON_TRAFFIC_CONTROL,
+        LINK_CONFIGURING_REASON_LINK_LAYER,
+        LINK_CONFIGURING_REASON_ACTIVATION,
+        LINK_CONFIGURING_REASON_STACKED_NETDEVS,
+        LINK_CONFIGURING_REASON_STATIC_ADDRESSES,
+        LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS,
+        LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB,
+        LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB,
+        LINK_CONFIGURING_REASON_STATIC_NEIGHBORS,
+        LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY,
+        LINK_CONFIGURING_REASON_STATIC_NEXTHOPS,
+        LINK_CONFIGURING_REASON_STATIC_ROUTES,
+        LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES,
+        LINK_CONFIGURING_REASON_SR_IOV,
+        LINK_CONFIGURING_REASON_BEARER,
+        LINK_CONFIGURING_REASON_IPV6LL,
+        LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY,
+        LINK_CONFIGURING_REASON_DHCP4_6RD,
+        LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX,
+        LINK_CONFIGURING_REASON_DHCP6_PD,
+        LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX,
+        LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING,
+        _LINK_CONFIGURING_REASON_MAX,
+        _LINK_CONFIGURING_REASON_INVALID = -EINVAL,
+} LinkConfiguringReason;
+
 typedef enum LinkReconfigurationFlag {
         LINK_RECONFIGURE_UNCONDITIONALLY = 1 << 0, /* Reconfigure an interface even if .network file is unchanged. */
         LINK_RECONFIGURE_CLEANLY         = 1 << 1, /* Drop all existing configs before reconfiguring. Otherwise, reuse existing configs as possible as we can. */
@@ -226,6 +253,7 @@ int link_append_to_master(Link *link);
 
 void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
+LinkConfiguringReason link_get_configuring_reason(Link *link);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_master);
@@ -243,6 +271,8 @@ int link_drop_requests(Link *link, NetworkConfigSource source);
 int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
+DECLARE_STRING_TABLE_LOOKUP(link_configuring_reason, LinkConfiguringReason);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(link_configuring_reason_message, LinkConfiguringReason);
 
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
