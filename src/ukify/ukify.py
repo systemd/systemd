@@ -2438,6 +2438,17 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
             else:
                 print(f'Unknown config setting [{section_name}] {key}=', file=sys.stderr)
 
+    # Fill in missing trailing values for grouped options. These options are
+    # optional, so a group may omit them entirely.
+    for item in CONFIG_ITEMS:
+        if item.config_push is not ConfigItem.config_set_group:
+            continue
+
+        dest = item.argparse_dest()
+        values = getattr(namespace, dest, None)
+        if values is not None:
+            setattr(namespace, dest, values + [None] * (len(namespace._groups) - len(values)))
+
 
 def config_example() -> Iterator[str]:
     prev_section: Optional[str] = None
