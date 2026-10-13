@@ -48,4 +48,12 @@ TEST(oci_registry_is_valid) {
         assert_se(oci_registry_is_valid(NULL) == 0);
 }
 
+TEST(oci_ref_parse) {
+        /* Validate tags */
+        assert_se(oci_ref_parse("quay.io/fedora/fedora", NULL, NULL, NULL) == 0);
+        assert_se(oci_ref_parse("quay.io/fedora/fedora:latest", NULL, NULL, NULL) == 0);
+        assert_se(oci_ref_parse("quay.io:443/fedora/fedora", NULL, NULL, NULL) == 0);
+        assert_se(oci_ref_parse("quay.io:443/fedora/fedora:latest", NULL, NULL, NULL) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
