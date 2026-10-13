@@ -6,7 +6,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-wait_service_active() {(
+wait_service_active() (
     set +ex
     for i in {1..20}; do
         (( i > 1 )) && sleep 0.5
@@ -15,9 +15,9 @@ wait_service_active() {(
         fi
     done
     return 1
-)}
+)
 
-wait_service_inactive() {(
+wait_service_inactive() (
     set +ex
     for i in {1..20}; do
         (( i > 1 )) && sleep 0.5
@@ -27,7 +27,7 @@ wait_service_inactive() {(
         fi
     done
     return 1
-)}
+)
 
 mkdir -p /run/systemd/system
 cat >/run/systemd/system/both.service <<EOF
