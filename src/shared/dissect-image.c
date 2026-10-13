@@ -4999,10 +4999,12 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
         return options->options[designator];
 }
 
-int mount_image_privately_interactively(
+int mount_image_privately_full(
                 const char *image,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
+                bool interactive,
+                const char *passphrase,
                 char **ret_directory,
                 int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
@@ -5057,9 +5059,31 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
-        if (r < 0)
-                return r;
+        if (interactive) {
+                r = dissected_image_decrypt_interactively(
+                                dissected_image,
+                                passphrase,
+                                &verity,
+                                image_policy,
+                                flags);
+                if (r < 0)
+                        return r;
+        } else {
+                r = dissected_image_decrypt(dissected_image,
+                                /* root= */ NULL,
+                                passphrase,
+                                &verity,
+                                image_policy,
+                                flags);
+                if (r == -EKEYREJECTED)
+                        return log_error_errno(r, "Incorrect passphrase!");
+                if (r == -EDESTADDRREQ)
+                        return log_error_errno(r, "Image lacks recognized signature.");
+                if (r == -ERFKILL)
+                        return log_error_errno(r, "Unlocking of Verity/LUKS volumes not permitted by policy.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decrypt/set up image: %m");
+        }
 
         r = detach_mount_namespace();
         if (r < 0)
