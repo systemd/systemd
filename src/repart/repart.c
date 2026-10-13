@@ -6652,7 +6652,9 @@ static int context_copy_blocks(Context *context) {
                  * clone, and then falls back to copying in chunks. */
                 r = copy_bytes_full(
                                 p->copy_blocks_fd,
+                                /* foffset= */ NULL,
                                 partition_target_fd(t),
+                                /* toffset= */ NULL,
                                 p->copy_blocks_size,
                                 /* copy_flags= */ 0,
                                 /* ret_remains= */ NULL,
