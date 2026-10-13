@@ -3897,6 +3897,7 @@ fail:
 int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
+                AskPasswordFlags ask_password_flags,
                 const VeritySettings *verity,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags) {
@@ -3936,7 +3937,7 @@ int dissected_image_decrypt_interactively(
                         .hup_fd = -EBADF,
                 };
 
-                r = ask_password_auto(&req, /* flags= */ 0, &z);
+                r = ask_password_auto(&req, /* flags= */ ask_password_flags, &z);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 
@@ -4999,10 +5000,12 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
         return options->options[designator];
 }
 
-int mount_image_privately_interactively(
+int mount_image_privately_full(
                 const char *image,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
+                bool interactive,
+                const char *passphrase,
                 char **ret_directory,
                 int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
@@ -5057,7 +5060,13 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
+        r = dissected_image_decrypt_interactively(
+                dissected_image,
+                passphrase,
+                interactive ? ASK_PASSWORD_HEADLESS : 0,
+                &verity,
+                image_policy,
+                flags);
         if (r < 0)
                 return r;
 
