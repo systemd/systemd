@@ -133,8 +133,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - systemd-sysupdate: add boolean field to components that indicate that if we
   updated this component we should start from the beginning.
 
-- teach hostnamed to unset tags by wildcard
-
 - define portabled auto-attach dir where DDIs can be dropped that are
   automatically attached after an explicit call to work on it
 
