@@ -232,6 +232,7 @@ simple_tests += files(
         'test-user-record-nss.c',
         'test-user-util.c',
         'test-utf8.c',
+        'test-validatefs-util.c',
         'test-verbs.c',
         'test-vpick.c',
         'test-web-util.c',

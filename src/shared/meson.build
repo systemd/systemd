@@ -267,6 +267,7 @@ shared_sources = files(
         'varlink-io.systemd.oom.Prekill.c',
         'varlink-io.systemd.service.c',
         'varlink-io.systemd.sysext.c',
+        'validatefs-util.c',
         'varlink-serialize.c',
         'vconsole-util.c',
         'verb-log-control.c',
