@@ -63,6 +63,7 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         free(config->format);
         free(config->vars);
         free(config->vars_format);
+        free(config->uefi_vars_template);
         free(config->device);
         free(config->mode);
         strv_free(config->features);
@@ -178,6 +179,7 @@ typedef struct FirmwareData {
         char *firmware_format;
         char *vars;
         char *vars_format;
+        char *uefi_vars_template;
         char *device;
         char *mode;
         FirmwareTarget **targets;
@@ -214,6 +216,7 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         free(fwd->firmware_format);
         free(fwd->vars);
         free(fwd->vars_format);
+        free(fwd->uefi_vars_template);
         free(fwd->device);
         free(fwd->mode);
         firmware_target_free_many(fwd->targets, fwd->n_targets);
@@ -242,6 +245,15 @@ static int firmware_nvram_template(const char *name, sd_json_variant *v, sd_json
         return sd_json_dispatch(v, table, flags, userdata);
 }
 
+static int firmware_uefi_vars(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field table[] = {
+                { "template", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, uefi_vars_template), SD_JSON_MANDATORY },
+                {}
+        };
+
+        return sd_json_dispatch(v, table, flags, userdata);
+}
+
 static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field table_flash[] = {
                 { "device",         SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device), SD_JSON_MANDATORY },
@@ -251,8 +263,9 @@ static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispat
                 {}
         };
         static const sd_json_dispatch_field table_memory[] = {
-                { "device",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device),   SD_JSON_MANDATORY },
-                { "filename", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware), SD_JSON_MANDATORY },
+                { "device",    SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device),   SD_JSON_MANDATORY },
+                { "filename",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware), SD_JSON_MANDATORY },
+                { "uefi-vars", SD_JSON_VARIANT_OBJECT, firmware_uefi_vars,      0,                                0                 },
                 {}
         };
 
@@ -458,6 +471,7 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
                 .format = TAKE_PTR(fwd->firmware_format),
                 .vars = TAKE_PTR(fwd->vars),
                 .vars_format = TAKE_PTR(fwd->vars_format),
+                .uefi_vars_template = TAKE_PTR(fwd->uefi_vars_template),
                 .device = TAKE_PTR(fwd->device),
                 .mode = TAKE_PTR(fwd->mode),
                 .features = TAKE_PTR(fwd->features),
