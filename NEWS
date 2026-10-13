@@ -120,6 +120,9 @@ CHANGES WITH 263 in spe:
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
 
+        * "networkctl renew" now renews the DHCPv6 lease too, not only the
+          DHCPv4 lease.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate's "update" command acquired a new --loop= switch.
