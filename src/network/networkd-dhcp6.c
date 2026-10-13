@@ -870,6 +870,17 @@ int dhcp6_update_hostname(Link *link) {
         return 0;
 }
 
+int dhcp6_renew(Link *link) {
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        /* This does nothing if no lease is acquired, e.g. the client is not started yet, or in the
+         * information request mode. */
+        return sd_dhcp6_client_send_renew(link->dhcp6_client);
+}
+
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
