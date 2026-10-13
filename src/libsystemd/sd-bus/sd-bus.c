@@ -36,6 +36,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "log-context.h"
 #include "memory-util.h"
@@ -159,6 +160,7 @@ static void bus_close_fds(sd_bus *b) {
         bus_close_io_fds(b);
         bus_close_inotify_fd(b);
         b->pidfd = safe_close(b->pidfd);
+        b->busexec_notify_fd = safe_close(b->busexec_notify_fd);
 }
 
 static void bus_reset_queues(sd_bus *b) {
@@ -264,6 +266,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
                 .inotify_fd = -EBADF,
+                .busexec_notify_fd = -EBADF,
                 .exit_code = EXIT_FAILURE,
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
@@ -598,7 +601,7 @@ fail:
          * which is the propagated up towards the event loop. Let's also invalidate the connection, so that
          * if the user then calls back into us again we won't wait any longer. */
 
-        bus_set_state(bus, BUS_CLOSING);
+        bus_enter_closing(bus, r);
         return r;
 }
 
@@ -1775,6 +1778,66 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         return 0;
 }
 
+static void bus_receive_busexec_errno(sd_bus *bus) {
+        assert(bus);
+
+        if (bus->busexec_notify_fd < 0 || !pidref_is_set(&bus->busexec_pidref))
+                return;
+
+        /* EOF can precede the child's final ERRNO= notification. Only wait on disconnect, and bound
+         * the wait so an uncooperative transport cannot indefinitely stall the caller. Without a
+         * pidfd, reporting a more specific error is best effort. */
+        (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, NULL);
+
+        for (unsigned i = 0; i < 64; i++) {
+                char buffer[4096];
+                union {
+                        struct cmsghdr alignment;
+                        uint8_t data[CMSG_SPACE(sizeof(struct ucred))];
+                } control;
+                struct iovec iov = IOVEC_MAKE(buffer, sizeof(buffer) - 1);
+                struct msghdr mh = {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
+                ssize_t n;
+                bool authenticated = false;
+
+                n = recvmsg(bus->busexec_notify_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (n < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        return;
+                }
+                cmsg_close_all(&mh);
+                if (mh.msg_flags & (MSG_TRUNC|MSG_CTRUNC))
+                        continue;
+
+                struct cmsghdr *cmsg;
+                CMSG_FOREACH(cmsg, &mh)
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS &&
+                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                                authenticated = CMSG_TYPED_DATA(cmsg, struct ucred)->pid == bus->busexec_pidref.pid;
+                if (!authenticated)
+                        continue;
+
+                buffer[n] = 0;
+                for (char *line = buffer, *next; line; line = next) {
+                        int error;
+                        const char *value;
+
+                        next = strchr(line, '\n');
+                        if (next)
+                                *next++ = 0;
+                        value = startswith(line, "ERRNO=");
+                        if (value && safe_atoi(value, &error) >= 0 && error > 0 && error <= ERRNO_MAX)
+                                bus->busexec_error = -error;
+                }
+        }
+}
+
 _public_ void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
@@ -1832,6 +1895,9 @@ void bus_enter_closing(sd_bus *bus, int exit_code) {
 
         bus_set_state(bus, BUS_CLOSING);
         bus->exit_code = exit_code;
+
+        if (ERRNO_IS_DISCONNECT(exit_code))
+                bus_receive_busexec_errno(bus);
 
         /* Cancel all outstanding fiber-dispatched method handlers. Most cancellations are scheduled
          * asynchronously (fibers resolve with -ECANCELED the next time they run), but a fiber still
@@ -2394,7 +2460,7 @@ int bus_ensure_running(sd_bus *bus) {
 
         for (;;) {
                 if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
-                        return -ENOTCONN;
+                        return bus->busexec_error < 0 ? bus->busexec_error : -ENOTCONN;
 
                 r = sd_bus_process(bus, NULL);
                 if (r < 0)
