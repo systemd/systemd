@@ -26,6 +26,12 @@ IgnoreOnIsolate=yes
 Conflicts=rescue.service
 Before=rescue.service
 
+# On WSL, all distributions running in the same VM share its TTYs, hence a
+# getty fails in all but the first distribution, and users have no practical
+# way to reach these TTYs anyway.
+# See https://github.com/microsoft/WSL/issues/13595
+ConditionVirtualization=!wsl
+
 [Service]
 ExecStart=-{{AGETTY}} --noreset --noclear --keep-baud 115200,57600,38400,9600 - ${TERM}
 Type=idle
