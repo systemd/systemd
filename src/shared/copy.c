@@ -155,11 +155,11 @@ static int try_reflink_copy_bytes(
         if (max_bytes == 0)
                 return -EOPNOTSUPP;
 
-        off_t fo = foffset ? (off_t) *foffset : FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
+        off_t fo = foffset ? (off_t) *foffset : lseek(fdf, 0, SEEK_CUR);
         if (fo < 0)
                 return -EOPNOTSUPP;
 
-        off_t to = toffset ? (off_t) *toffset : FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
+        off_t to = toffset ? (off_t) *toffset : lseek(fdt, 0, SEEK_CUR);
         if (to < 0)
                 return -EOPNOTSUPP;
 
@@ -219,8 +219,6 @@ int copy_bytes_full(
         assert(fdf >= 0);
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
-        assert(!foffset || !FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE));
-        assert(!toffset || !FLAGS_SET(copy_flags, COPY_SEEK0_TARGET));
 
         /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a
          * maximum of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied.
@@ -249,14 +247,6 @@ int copy_bytes_full(
         fdt = fd_reopen_condition(fdt, O_CLOEXEC | O_NOCTTY | O_RDWR, O_PATH, &fdt_opened);
         if (fdt < 0)
                 return fdt;
-
-        if (FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) &&
-            lseek(fdf, 0, SEEK_SET) < 0)
-                return -errno;
-
-        if (FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) &&
-            lseek(fdt, 0, SEEK_SET) < 0)
-                return -errno;
 
         r = try_reflink_copy_bytes(fdf, foffset, fdt, toffset, max_bytes, copy_flags);
         if (r != -EOPNOTSUPP)
