@@ -540,6 +540,41 @@ echo "$result" | jq -e '.context.CGroup.Slice == "varlink-test.slice"'
 timeout 30 bash -c 'until systemctl is-active varlink-transient-slice.service; do sleep 0.5; done'
 systemctl show -P Slice varlink-transient-slice.service | grep -Fx varlink-test.slice >/dev/null
 
+# Exec sandbox scalars: enum and yes/no-string properties round-trip into the reply
+# context (Varlink spelling), systemctl show and the transient fragment (unit-file
+# spelling, so the next daemon-reload keeps the setting)
+defer_transient_cleanup varlink-transient-sandbox.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-sandbox.service","Exec":{"ProtectSystem":"strict","ProtectHome":"read_only","PrivateTmp":"disconnected","PrivateNetwork":"yes","PrivateUsers":"self"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.ProtectSystem == "strict"'
+echo "$result" | jq -e '.context.Exec.ProtectHome == "read_only"'
+echo "$result" | jq -e '.context.Exec.PrivateTmp == "disconnected"'
+echo "$result" | jq -e '.context.Exec.PrivateNetwork == "yes"'
+echo "$result" | jq -e '.context.Exec.PrivateUsers == "self"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-sandbox.service; do sleep 0.5; done'
+systemctl show -P ProtectSystem varlink-transient-sandbox.service | grep '^strict$' >/dev/null
+systemctl show -P ProtectHome varlink-transient-sandbox.service | grep '^read-only$' >/dev/null
+systemctl show -P PrivateTmpEx varlink-transient-sandbox.service | grep '^disconnected$' >/dev/null
+systemctl show -P PrivateNetwork varlink-transient-sandbox.service | grep '^yes$' >/dev/null
+systemctl show -P PrivateUsersEx varlink-transient-sandbox.service | grep '^self$' >/dev/null
+fragment=$(systemctl show -P FragmentPath varlink-transient-sandbox.service)
+test -n "$fragment"
+grep '^ProtectSystem=strict$'    "$fragment" >/dev/null
+grep '^ProtectHome=read-only$'   "$fragment" >/dev/null
+grep '^PrivateTmp=disconnected$' "$fragment" >/dev/null
+grep '^PrivateNetwork=yes$'      "$fragment" >/dev/null
+grep '^PrivateUsers=self$'       "$fragment" >/dev/null
+
+# The sandbox is live, not just recorded: the unit only succeeds if /usr is
+# read-only and the network namespace is loopback-only
+defer_transient_cleanup varlink-transient-sandbox-live.service
+# shellcheck disable=SC2016
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-sandbox-live.service","Exec":{"ProtectSystem":"strict","PrivateNetwork":"yes"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/sh","arguments":["/bin/sh","-c","test \"$(ls /sys/class/net)\" = lo && ! touch /usr/varlink-sandbox-canary"]}]}}}' >/dev/null
+timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-sandbox-live.service | grep -E "active|failed" >/dev/null; do sleep 0.5; done'
+systemctl show -P Result varlink-transient-sandbox-live.service | grep '^success$' >/dev/null
+test ! -e /usr/varlink-sandbox-canary
+
 # Relative forms: TasksMaxScale/MemoryMaxScale (floats, 1.0 == 100%) are input only,
 # converted internally and written to the fragment as permyriad percentages. An
 # explicit null is treated as absent (so MemoryMax=null does not conflict with
