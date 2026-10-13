@@ -86,6 +86,7 @@
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
 #DefaultRestrictSUIDSGID=
+#DefaultProtectKernelTunables=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst=
 #EventLoopRateLimitIntervalSec=1s
