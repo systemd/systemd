@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sysupdate-config.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
@@ -36,6 +37,8 @@ typedef struct Context {
         char *component_description;
         char **component_documentation;
         bool component_enabled;
+        ComponentSuccessAction component_success_action;
+        ComponentFailureAction component_failure_action;
 
         int component_suggest;
         Condition *component_suggest_on;
