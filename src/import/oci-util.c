@@ -77,7 +77,7 @@ int oci_registry_is_valid(const char *n) {
 }
 
 bool oci_tag_is_valid(const char *n) {
-        if (!n)
+        if (!n || isempty(n))
                 return false;
 
         /* As per https://github.com/opencontainers/distribution-spec/blob/main/spec.md, accept the following regex:
@@ -89,7 +89,7 @@ bool oci_tag_is_valid(const char *n) {
                 return false;
 
         size_t l = strspn(n + 1, ALPHANUMERICAL "._-");
-        if (l > 126)
+        if (l > 127)
                 return false;
         if (n[1+l] != 0)
                 return false;
@@ -108,7 +108,11 @@ int oci_ref_parse(
         assert(ref);
 
         _cleanup_free_ char *without_tag = NULL, *tag = NULL;
-        const char *t = strrchr(ref, ':');
+
+        /* Look for the tag separator only after the last "/", so that we don't mistake the port number of a
+         * registry for a tag, e.g. so that "quay.io:443/fedora/fedora" is parsed correctly. */
+        const char *slash = strrchr(ref, '/');
+        const char *t = strrchr(slash ?: ref, ':');
         if (t) {
                 tag = strdup(t + 1);
                 if (!tag)
