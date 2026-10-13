@@ -2207,8 +2207,14 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                         c->gzip.next_out = buffer;
                         c->gzip.avail_out = COMPRESS_PIPE_BUFFER_SIZE;
 
+                        /* Z_BUF_ERROR is not fatal if all input is used up: it just means no progress was
+                         * possible, which happens if the previous iteration filled the output buffer exactly
+                         * while also consuming all input. That case is handled by the avail_in check
+                         * below. If there's still input left however, Z_BUF_ERROR means we are stuck, hence
+                         * refuse it, so that we don't loop forever. */
                         int zr = sym_inflate(&c->gzip, Z_NO_FLUSH);
-                        if (!IN_SET(zr, Z_OK, Z_STREAM_END))
+                        if (!IN_SET(zr, Z_OK, Z_STREAM_END) &&
+                            !(zr == Z_BUF_ERROR && c->gzip.avail_in == 0))
                                 return -EBADMSG;
 
                         if (c->gzip.avail_out > COMPRESS_PIPE_BUFFER_SIZE)
