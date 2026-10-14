@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -1476,7 +1477,7 @@ static int bus_append_cpu_affinity(sd_bus_message *m, const char *field, const c
                 r = sd_bus_message_append(m, "(sv)", "CPUAffinityFromNUMA", "b", true);
                 if (r < 0)
                         return bus_log_create_error(r);
-                return r;
+                return 1;
         }
 
         return bus_append_parse_cpu_set(m, field, eq);
@@ -1505,14 +1506,54 @@ static int bus_append_numa_mask(sd_bus_message *m, const char *field, const char
         return bus_append_byte_array(m, field, array, allocated);
 }
 
-static int bus_append_filter_list(sd_bus_message *m, const char *field, const char *eq) {
+static int bus_append_filter_list_full(
+                sd_bus_message *m,
+                const char *field,
+                const char *eq,
+                bool address_families) {
+
+        _cleanup_strv_free_ char **l = NULL;
         int allow_list = 1;
         const char *p = eq;
         int r;
 
-        if (*p == '~') {
+        if (address_families && streq(eq, "none"))
+                /* "none" is an empty allow list, i.e. everything is denied. This is also how the manager
+                 * serializes an empty allow list. */
+                p = "";
+        else if (address_families && isempty(eq))
+                /* Conversely, an empty deny list is what the manager treats as a reset, matching the meaning
+                 * of the empty string in unit files. */
+                allow_list = 0;
+        else if (*p == '~') {
                 allow_list = 0;
                 p++;
+        }
+
+        /* Parse everything first, so that the message is not left with open containers on failure. */
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, /* separators= */ WHITESPACE ",", EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
+                if (r == 0)
+                        break;
+
+                if (address_families) {
+                        /* Resolve the name here and send the canonical form, so that the manager understands it
+                         * even if it does not know about the short forms yet, and so that unknown names are
+                         * reported with a useful message. */
+                        int af = af_from_name(word);
+                        if (af < 0)
+                                return log_error_errno(af, "Failed to parse %s= value '%s': unknown address family %s",
+                                                       field, eq, word);
+
+                        r = strv_extend(&l, ASSERT_PTR(af_to_name(af)));
+                } else
+                        r = strv_consume(&l, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
         }
 
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -1535,25 +1576,7 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'a', "s");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r < 0)
-                        return parse_log_error(r, field, eq);
-                if (r == 0)
-                        break;
-
-                r = sd_bus_message_append_basic(m, 's', word);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        r = sd_bus_message_close_container(m);
+        r = sd_bus_message_append_strv(m, l);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1570,6 +1593,14 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
                 return bus_log_create_error(r);
 
         return 1;
+}
+
+static int bus_append_filter_list(sd_bus_message *m, const char *field, const char *eq) {
+        return bus_append_filter_list_full(m, field, eq, /* address_families= */ false);
+}
+
+static int bus_append_address_families(sd_bus_message *m, const char *field, const char *eq) {
+        return bus_append_filter_list_full(m, field, eq, /* address_families= */ true);
 }
 
 static int bus_append_namespace_list(sd_bus_message *m, const char *field, const char *eq) {
@@ -2656,7 +2687,7 @@ static const BusProperty execute_properties[] = {
         { "CPUAffinity",                           bus_append_cpu_affinity                       },
         { "NUMAPolicy",                            bus_append_mpol_from_string                   },
         { "NUMAMask",                              bus_append_numa_mask                          },
-        { "RestrictAddressFamilies",               bus_append_filter_list                        },
+        { "RestrictAddressFamilies",               bus_append_address_families                   },
         { "RestrictFileSystems",                   bus_append_filter_list                        },
         { "SystemCallFilter",                      bus_append_filter_list                        },
         { "SystemCallLog",                         bus_append_filter_list                        },

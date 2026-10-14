@@ -348,6 +348,7 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
     systemd-run --wait --pipe -p RestrictFileSystems="" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS,foo,bar" ls /
     (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
     (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="foo" ls /)
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc
@@ -366,6 +367,66 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /proc)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /dev)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
+fi
+
+# Comma-separated lists in unit files
+#
+# -p arguments are split on the client side (covered by test-bus-unit-util), so load a unit file and
+# check what the manager parsed. The names are reported sorted, so the output is deterministic.
+UNIT=test-07-comma-separated-lists.service
+cat >"/run/systemd/system/$UNIT" <<EOF
+[Service]
+ExecStart=true
+SystemCallFilter=~ptrace,reboot,swapon
+SystemCallLog=ptrace,reboot swapoff
+RestrictFileSystems=~proc,sysfs,foo
+EOF
+systemctl daemon-reload
+if systemctl --version | grep "+SECCOMP"; then
+    assert_eq "$(systemctl show -P SystemCallFilter "$UNIT")" "~ptrace reboot swapon"
+    assert_eq "$(systemctl show -P SystemCallLog "$UNIT")" "ptrace reboot swapoff"
+fi
+if systemctl --version | grep "+BPF_FRAMEWORK"; then
+    assert_eq "$(systemctl show -P RestrictFileSystems "$UNIT")" "~foo proc sysfs"
+fi
+rm "/run/systemd/system/$UNIT"
+systemctl daemon-reload
+
+# RestrictAddressFamilies=
+#
+# The manager accepts address family names without the "AF_" prefix and in any case, but writes the
+# canonical names into the transient unit file. systemd-run would already canonicalize the names on
+# the client side, so talk to the manager directly to exercise the manager's own code.
+if systemctl --version | grep "+SECCOMP"; then
+    UNIT=test-07-restrict-address-families.service
+    busctl call \
+        org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+        org.freedesktop.systemd1.Manager StartTransientUnit \
+        "ssa(sv)a(sa(sv))" "$UNIT" replace 2 \
+          ExecStart "a(sasb)" 1 \
+            sleep 2 sleep infinity false \
+          RestrictAddressFamilies "(bas)" true 2 inet Unix \
+        0
+    grep "^RestrictAddressFamilies=AF_INET AF_UNIX$" "/run/systemd/transient/$UNIT" >/dev/null
+    assert_eq "$(systemctl show -P RestrictAddressFamilies "$UNIT")" "AF_INET AF_UNIX"
+    systemctl stop "$UNIT"
+
+    # An unknown name is rejected with InvalidArgs. busctl only reports the name of the error via
+    # BUSERROR=, so run it as a service and look at StatusBusError.
+    UNIT=test-07-restrict-address-families-bad.service
+    (! systemd-run --wait --pipe --unit="$UNIT" -p NotifyAccess=main \
+        busctl call \
+            org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+            org.freedesktop.systemd1.Manager StartTransientUnit \
+            "ssa(sv)a(sa(sv))" test-07-restrict-address-families-unknown.service replace 2 \
+              ExecStart "a(sasb)" 1 \
+                sleep 2 sleep infinity false \
+              RestrictAddressFamilies "(bas)" true 2 inet huddlduddl \
+            0 2>/tmp/test-07-restrict-address-families.err)
+    assert_eq "$(systemctl show -P StatusBusError "$UNIT")" org.freedesktop.DBus.Error.InvalidArgs
+    grep "Call failed: Invalid address family: huddlduddl" /tmp/test-07-restrict-address-families.err >/dev/null
+    rm /tmp/test-07-restrict-address-families.err
+    systemctl reset-failed "$UNIT"
 fi
 
 # Ensure DynamicUser=yes does not imply PrivateTmp=yes if TemporaryFileSystem=/tmp /var/tmp is set
