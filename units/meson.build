@@ -818,6 +818,14 @@ units = [
           'conditions' : ['ENABLE_REPORT'],
         },
         {
+          'file' : 'systemd-report-diskhealth.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-diskhealth@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
           'file' : 'systemd-report-diskspace.socket',
           'conditions' : ['ENABLE_REPORT', 'HAVE_LIBMOUNT'],
         },
