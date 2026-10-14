@@ -109,10 +109,60 @@
       <varlistentry>
         <term><varname>Enabled=</varname></term>
 
-        <listitem><para>Whether or not this feature is enabled. If unspecified, the feature is disabled
-        by default.</para>
+        <listitem><para>Whether or not this feature is enabled. If unspecified, the
+        <varname>EnabledOn…=</varname> conditions described below are evaluated instead. If neither
+        this setting nor any <varname>EnabledOn…=</varname> condition is specified, the feature is
+        disabled by default.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EnabledOnArchitecture=</varname></term>
+        <term><varname>EnabledOnFirmware=</varname></term>
+        <term><varname>EnabledOnVirtualization=</varname></term>
+        <term><varname>EnabledOnHost=</varname></term>
+        <term><varname>EnabledOnFraction=</varname></term>
+        <term><varname>EnabledOnKernelCommandLine=</varname></term>
+        <term><varname>EnabledOnVersion=</varname></term>
+        <term><varname>EnabledOnCredential=</varname></term>
+        <term><varname>EnabledOnSecurity=</varname></term>
+        <term><varname>EnabledOnOSRelease=</varname></term>
+        <term><varname>EnabledOnMachineTag=</varname></term>
+
+        <listitem><para>Treat this feature as enabled depending on system properties. These settings take
+        the same arguments and implement the same semantics, including the leading <literal>|</literal> for
+        triggering conditions and <literal>!</literal> for negation, as the identically-named
+        <varname>ConditionArchitecture=</varname>, <varname>ConditionFirmware=</varname>,
+        <varname>ConditionVirtualization=</varname>, <varname>ConditionHost=</varname>,
+        <varname>ConditionFraction=</varname>, <varname>ConditionKernelCommandLine=</varname>,
+        <varname>ConditionVersion=</varname>, <varname>ConditionCredential=</varname>,
+        <varname>ConditionSecurity=</varname>, <varname>ConditionOSRelease=</varname> and
+        <varname>ConditionMachineTag=</varname> settings for unit files, which are documented in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The feature is enabled if all specified conditions apply. As with the <varname>Condition…=</varname>
+        settings, assigning an empty string to one of these resets the list.</para>
+
+        <para>Unlike the <varname>SuggestOn…=</varname> settings, these directly control whether the feature
+        is considered enabled, without the need for a separate step that enables suggested features. The
+        conditions are only evaluated if <varname>Enabled=</varname> is not specified, so an explicit
+        <varname>Enabled=</varname> setting (for example in a drop-in written by
+        <command>systemd-sysupdate disable-feature</command>) takes precedence.</para>
+
+        <para>If the conditions cannot be evaluated, for example because of a malformed argument,
+        <command>systemd-sysupdate</command> fails instead of treating the feature as disabled.</para>
+
+        <para>Note that these settings do not enable the feature persistently. The conditions are evaluated
+        anew each time <command>systemd-sysupdate</command> runs, and as soon as they no longer apply, the
+        feature is immediately considered disabled again. This means that its transfers are no longer
+        considered when checking for and downloading updates, and that the resources previously downloaded
+        for it are removed, as for a feature that was disabled explicitly.</para>
+
+        <para>Since the conditions describe the running system, they are not evaluated when operating on a
+        directory tree or disk image with <option>--root=</option> or <option>--image=</option>. In this
+        case the feature is considered not enabled unless <varname>Enabled=</varname> is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -157,7 +207,10 @@
         The feature is suggested if all specified conditions apply. As with the <varname>Condition…=</varname>
         settings, assigning an empty string to one of these resets the list.</para>
 
-        <para>These conditions are only evaluated if <varname>Suggest=</varname> is not specified.</para>
+        <para>These conditions are only evaluated if <varname>Suggest=</varname> is not specified. Since they
+        describe the running system, they are also not evaluated when operating on a directory tree or disk
+        image with <option>--root=</option> or <option>--image=</option>. In this case the feature is not
+        suggested unless <varname>Suggest=</varname> is set.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>

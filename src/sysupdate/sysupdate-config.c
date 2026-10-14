@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "log.h"
+#include "path-util.h"
+#include "runtime-scope.h"
 #include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -149,6 +153,60 @@ static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+static const char* const enabled_on_type_table[_CONDITION_TYPE_MAX] = {
+        [CONDITION_ARCHITECTURE]        = "EnabledOnArchitecture",
+        [CONDITION_FIRMWARE]            = "EnabledOnFirmware",
+        [CONDITION_VIRTUALIZATION]      = "EnabledOnVirtualization",
+        [CONDITION_HOST]                = "EnabledOnHost",
+        [CONDITION_FRACTION]            = "EnabledOnFraction",
+        [CONDITION_KERNEL_COMMAND_LINE] = "EnabledOnKernelCommandLine",
+        [CONDITION_VERSION]             = "EnabledOnVersion",
+        [CONDITION_CREDENTIAL]          = "EnabledOnCredential",
+        [CONDITION_SECURITY]            = "EnabledOnSecurity",
+        [CONDITION_OS_RELEASE]          = "EnabledOnOSRelease",
+        [CONDITION_MACHINE_TAG]         = "EnabledOnMachineTag",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(enabled_on_type, ConditionType);
+
+int config_resolve_enabled(int enabled, Condition *enabled_on, bool default_enabled, const char *root, const char *name) {
+        int r;
+
+        /* An explicit Enabled= setting takes precedence over the EnabledOn…= conditions. */
+        if (enabled >= 0)
+                return enabled;
+
+        if (!enabled_on)
+                return default_enabled;
+
+        /* The conditions describe the running host, hence don't evaluate them for --root= or --image=. */
+        if (!empty_or_root(root)) {
+                log_warning("Not evaluating EnabledOn…= conditions of '%s' for root directory '%s', considering it not enabled.", name, root);
+                return false;
+        }
+
+        /* Fail instead of assuming disabled, since vacuuming would then remove all instances. Don't pass on
+         * the error as is, because callers give some errors a special meaning (e.g. -ENOENT means that no
+         * transfers are defined, after which the cleanup logic removes all recorded resources). */
+        r = condition_test_list(enabled_on, environ, RUNTIME_SCOPE_SYSTEM, enabled_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to evaluate EnabledOn…= conditions of '%s': %m", name);
+                return -EINVAL;
+        }
+
+        return r;
+}
+
+int config_resolve_suggest(int suggest, Condition *suggest_on, const char *root, const char *name) {
+        /* Like the EnabledOn…= conditions, the SuggestOn…= conditions describe the running host, hence don't
+         * evaluate them for --root= or --image=. Otherwise they are evaluated later when needed. */
+        if (suggest >= 0 || !suggest_on || empty_or_root(root))
+                return suggest;
+
+        log_warning("Not evaluating SuggestOn…= conditions of '%s' for root directory '%s', considering it not suggested.", name, root);
+        return false;
+}
 
 int config_parse_url_specifiers_many(
                 const char *unit,

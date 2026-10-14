@@ -11,3 +11,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_protect_version);
 CONFIG_PARSER_PROTOTYPE(config_parse_version_bound);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+int config_resolve_enabled(int enabled, Condition *enabled_on, bool default_enabled, const char *root, const char *name);
+int config_resolve_suggest(int suggest, Condition *suggest_on, const char *root, const char *name);
