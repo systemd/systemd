@@ -13,6 +13,7 @@ typedef struct Feature {
         char *appstream;
 
         bool enabled;
+        Condition *enable_on;
 
         int suggest;
         Condition *suggest_on;
