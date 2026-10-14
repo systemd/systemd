@@ -2263,10 +2263,11 @@ static int cmdline_add_ovmf(
 
                 if (newly_created)
                         destroy_path = TAKE_PTR(d);
-
-                r = fd_verify_regular(vars_fds[0]);
-                if (r < 0)
-                        return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
+                else {
+                        r = fd_verify_regular(vars_fds[0]);
+                        if (r < 0)
+                                return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
+                }
         } else {
                 vars_fds[0] = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
                 if (vars_fds[0] < 0)
