@@ -293,6 +293,11 @@
           definition is copied and used. Cannot be used together with <option>--coco=</option>, as
           confidential computing firmware is stateless.</para>
 
+          <para>Firmware with the <literal>host-uefi-vars</literal> feature does not keep its variables in
+          NVRAM, but in a JSON file mediated by QEMU. For such firmware, the template and an existing state
+          file (see <option>--efi-nvram-state=</option>) must be in that JSON format. Some Secure Boot
+          capable firmware is available only in this form.</para>
+
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
@@ -303,10 +308,12 @@
           system path to a regular file to persistently place the state in. If the file is missing it is
           created as needed. If set to the special string <literal>auto</literal> a persistent path is
           automatically derived from the VM image path or directory path, with the
-          <literal>.efinvramstate</literal> suffix appended. If set to the special string
-          <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
-          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
-          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
+          <literal>.efinvramstate</literal> suffix appended, or <literal>.efivarstate.json</literal> for
+          <literal>host-uefi-vars</literal> firmware (see <option>--efi-nvram-template=</option>). If
+          set to the special string <literal>off</literal> the EFI variable NVRAM state is only maintained
+          transiently and flushed out when the VM shuts down. Defaults to <literal>auto</literal>. An
+          explicit path cannot be used together with <option>--coco=</option>, as confidential computing
+          firmware is stateless.</para>
 
           <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
           <literal>off</literal>.</para>

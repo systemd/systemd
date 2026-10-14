@@ -88,17 +88,44 @@
 #  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #endif
 
+/* QEMU device that provides the UEFI variable store for firmware with the "host-uefi-vars" feature */
+#if defined(__x86_64__)
+#  define QEMU_UEFI_VARS_DEVICE "uefi-vars-x64"
+#elif defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64) || defined(__loongarch64)
+#  define QEMU_UEFI_VARS_DEVICE "uefi-vars-sysbus"
+#else
+#  define QEMU_UEFI_VARS_DEVICE NULL
+#endif
+
 #if defined(__arm__) || defined(__aarch64__)
 #  define QEMU_SERIAL_CONSOLE_NAME "ttyAMA0"
 #else
 #  define QEMU_SERIAL_CONSOLE_NAME "ttyS0"
 #endif
 
+/* fdsets of fds passed on QEMU's command line with --add-fd. QEMU adds an fd to an existing fdset with the
+ * same ID, so the fdsets that are added later via QMP's add-fd are numbered after these. */
+typedef enum QemuFdset {
+        QEMU_FDSET_KVM,
+        QEMU_FDSET_EFI_VARS,
+        _QEMU_FDSET_MAX,
+        _QEMU_FDSET_INVALID = -EINVAL,
+} QemuFdset;
+
+#define QEMU_FDSET_PATH_MAX \
+        (STRLEN("/dev/fdset/") + DECIMAL_STR_MAX(int))
+
+char* format_qemu_fdset_path(char buf[static QEMU_FDSET_PATH_MAX], QemuFdset fdset);
+
+#define FORMAT_QEMU_FDSET_PATH(fdset) \
+        format_qemu_fdset_path((char[QEMU_FDSET_PATH_MAX]) {}, (fdset))
+
 typedef struct OvmfConfig {
         char *path;
         char *format;
         char *vars;
         char *vars_format;
+        char *uefi_vars_template; /* JSON template for QEMU's uefi-vars device ("host-uefi-vars" feature) */
         char *device;
         char *mode;
         char **features;
@@ -114,6 +141,10 @@ static inline const char* ovmf_config_vars_format(const OvmfConfig *c) {
 
 bool ovmf_config_is_stateless(const OvmfConfig *config);
 bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature);
+
+static inline bool ovmf_config_has_host_uefi_vars(const OvmfConfig *c) {
+        return ovmf_config_has_feature(c, "host-uefi-vars");
+}
 
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
@@ -143,7 +174,8 @@ int load_ovmf_config(const char *path, OvmfConfig **ret);
 typedef enum FindOvmfConfigFlags {
         FIND_OVMF_STATELESS   = 1 << 0, /* select stateless firmware (flash mode "stateless" or memory-mapped,
                                          * bootable via -bios); default selects pflash firmware with an NVRAM
-                                         * template */
+                                         * template, or firmware with a template for a host-side UEFI
+                                         * variable store */
         FIND_OVMF_REQUIRE_RAW = 1 << 1, /* skip non-raw firmware executables (-bios can't load qcow2) */
 } FindOvmfConfigFlags;
 
