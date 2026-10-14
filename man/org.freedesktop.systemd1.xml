@@ -598,6 +598,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultRestrictSUIDSGID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultProtectKernelTunables = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultProtectKernelModules = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s CtrlAltDelBurstAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
@@ -859,6 +863,10 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultOOMScoreAdjust is not documented!-->
 
     <!--property DefaultRestrictSUIDSGID is not documented!-->
+
+    <!--property DefaultProtectKernelTunables is not documented!-->
+
+    <!--property DefaultProtectKernelModules is not documented!-->
 
     <!--property CtrlAltDelBurstAction is not documented!-->
 
@@ -1343,6 +1351,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultOOMScoreAdjust"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultRestrictSUIDSGID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultProtectKernelTunables"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultProtectKernelModules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CtrlAltDelBurstAction"/>
 
@@ -12914,6 +12926,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PreviousShutdownLateStartTimestampMonotonic</varname>,
       <varname>PreviousShutdownLateFinishTimestamp</varname>, and
       <varname>PreviousShutdownLateFinishTimestampMonotonic</varname> were added in version 262.</para>
+      <para><varname>DefaultProtectKernelTunables</varname> was added in version 263.</para>
+      <para><varname>DefaultProtectKernelModules</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
