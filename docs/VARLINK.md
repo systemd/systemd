@@ -33,10 +33,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   data that other functions can later consume to create a similar object.
 
   Example: `io.systemd.Unit.List` outputs unit configuration, which can later
-  be reused to create another unit via `io.systemd.Unit.StartTransient` (not
-  implemented yet). The `io.systemd.Unit.StartTransient` call should accept
-  only the 'context' portion of the output, without requiring any runtime data
-  such as state (e.g. pid) or statistics.
+  be reused to create another unit via `io.systemd.Unit.StartTransient`.
+  The `io.systemd.Unit.StartTransient` call should accept only the 'context'
+  portion of the output, without requiring any runtime data such as state
+  (e.g. pid) or statistics.
 
 - Following the guideline above, any field within 'context' should be nullable
   by default. This ensures that when a context structure is used as input, the
@@ -45,6 +45,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   definitions to be valid and simplifying reuse across different operations.
   Fields that cannot logically be omitted in input (e.g. a unit type) may remain
   non-nullable.
+
+- Input may accept multiple representations of the same information. Output
+  should be normalized and must not include the same information in multiple
+  forms. Every output field in a reusable context must be accepted on input,
+  so that the context can be fed back without conversion or removal of fields.
+  For example, the context returned by `io.systemd.Unit.List` must be usable
+  as input to `io.systemd.Unit.StartTransient`. The same principle applies to
+  other interfaces that share structures between output and input.
 
 # Enums
 
