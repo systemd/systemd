@@ -351,9 +351,9 @@ node /org/freedesktop/sysupdate1/target/host {
 
         <varlistentry>
           <term><literal>appStream</literal></term>
-          <listitem><para>An optional string that contains an HTTP/HTTPS URL to an
+          <listitem><para>An optional array of strings containing HTTP/HTTPS URLs to
           <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream
-          catalog</ulink> XML file containing metadata about this feature.</para></listitem>
+          catalog</ulink> XML files containing metadata about this feature.</para></listitem>
         </varlistentry>
 
         <varlistentry>
