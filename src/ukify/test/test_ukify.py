@@ -188,6 +188,232 @@ def test_apply_config(tmp_path):
     ]
 
 
+@pytest.mark.parametrize(
+    ('contents', 'expected_policyrefs'),
+    (
+        (
+            '[PCRSignature:a]\n'
+            'PolicyRef=a\n'
+            'PCRPrivateKey=/path/a.pem\n'
+            'PCRCertificate=/path/a.crt\n'
+            '\n'
+            '[PCRSignature:b]\n'
+            'PCRPrivateKey=/path/b.pem\n'
+            'PCRCertificate=/path/b.crt\n',
+            ['a', None],
+        ),
+        (
+            '[PCRSignature:b]\n'
+            'PCRPrivateKey=/path/b.pem\n'
+            'PCRCertificate=/path/b.crt\n'
+            '\n'
+            '[PCRSignature:a]\n'
+            'PolicyRef=a\n'
+            'PCRPrivateKey=/path/a.pem\n'
+            'PCRCertificate=/path/a.crt\n',
+            [None, 'a'],
+        ),
+    ),
+    ids=('trailing-policyref', 'leading-policyref'),
+)
+def test_apply_config_grouped_options_are_padded(tmp_path, contents, expected_policyrefs):
+    config = tmp_path / 'config.conf'
+    config.write_text(contents)
+
+    ns = ukify.create_parser().parse_args(['build'])
+    ns.linux = pathlib.Path('linux')
+    ns.initrd = []
+    ukify.apply_config(ns, config)
+    ukify.finalize_options(ns)
+
+    assert ns.policyrefs == expected_policyrefs
+    assert len(ns.policyrefs) == len(ns.pcr_private_keys)
+
+
+def test_apply_config_does_not_pad_private_keys(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[PCRSignature:a]\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'PCRPublicKey=/path/b.pub\n'
+        'PolicyRef=b\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build'])
+    ns.linux = pathlib.Path('linux')
+    ns.initrd = []
+    ukify.apply_config(ns, config)
+
+    assert ns.pcr_private_keys == ['/path/a.pem']
+    with pytest.raises(ValueError, match='--pcr-public-key= specifications must match'):
+        ukify.finalize_options(ns)
+
+
+@pytest.mark.parametrize(
+    'contents',
+    (
+        '[PCRSignature:a]\nPolicyRef=a\n\n[PCRSignature:b]\nPCRPrivateKey=/path/b.pem\n',
+        '[PCRSignature:a]\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'PolicyRef=b\n'
+        '\n'
+        '[PCRSignature:c]\n'
+        'PCRPrivateKey=/path/c.pem\n',
+    ),
+    ids=('leading-private-key', 'middle-private-key'),
+)
+def test_finalize_options_rejects_missing_private_keys(tmp_path, contents):
+    config = tmp_path / 'config.conf'
+    config.write_text(contents)
+
+    ns = ukify.create_parser().parse_args(['build'])
+    ukify.apply_config(ns, config)
+
+    with pytest.raises(ValueError, match='must be specified for every PCR signature group'):
+        ukify.finalize_options(ns)
+
+
+def test_apply_config_does_not_pad_command_line_groups(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text('[UKI]\nLinux=LINUX\n\n[PCRSignature:c]\nPCRPrivateKey=/path/c.pem\n')
+
+    ns = ukify.create_parser().parse_args(
+        ['build', '--pcr-private-key=/path/a.pem', '--pcr-private-key=/path/b.pem', '--policyref=a']
+    )
+
+    with pytest.raises(ValueError, match='--policyref= specifications must match'):
+        ukify.apply_config(ns, config)
+
+
+def test_apply_config_allows_command_line_optional_groups_with_config_private_key(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text('[PCRSignature:a]\nPCRPrivateKey=/path/a.pem\n')
+
+    ns = ukify.create_parser().parse_args(['build', '--pcr-public-key=/path/a.pub', '--phases=enter-initrd'])
+    ns.linux = pathlib.Path('linux')
+    ukify.apply_config(ns, config)
+    ukify.finalize_options(ns)
+
+    assert ns.pcr_private_keys == ['/path/a.pem']
+    assert ns.pcr_public_keys == ['/path/a.pub']
+    assert ns.phase_path_groups == [['enter-initrd']]
+
+
+def test_apply_config_rejects_command_line_optional_groups_for_config_groups(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[PCRSignature:a]\nPCRPrivateKey=/path/a.pem\n\n[PCRSignature:b]\nPCRPrivateKey=/path/b.pem\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build', '--phases=enter-initrd'])
+
+    with pytest.raises(ValueError, match='--phases= specifications must match'):
+        ukify.apply_config(ns, config)
+
+
+def test_apply_config_extends_command_line_phases_from_config(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[PCRSignature:a]\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'Phases=ready\n'
+        'PCRPrivateKey=/path/b.pem\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build', '--phases=enter-initrd'])
+    ns.linux = pathlib.Path('linux')
+    ukify.apply_config(ns, config)
+    ukify.finalize_options(ns)
+
+    assert ns.phase_path_groups == [['enter-initrd'], ['ready']]
+
+
+def test_apply_config_rejects_partially_extended_command_line_policyrefs(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[PCRSignature:a]\n'
+        'PolicyRef=A\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'PCRPrivateKey=/path/b.pem\n'
+        '\n'
+        '[PCRSignature:c]\n'
+        'PCRPrivateKey=/path/c.pem\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build', '--policyref=X'])
+
+    with pytest.raises(ValueError, match='--policyref= specifications must match'):
+        ukify.apply_config(ns, config)
+
+
+def test_apply_config_allows_command_line_policyrefs_for_all_groups(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text('[PCRSignature:b]\nPCRPrivateKey=/path/b.pem\n')
+
+    ns = ukify.create_parser().parse_args(
+        ['build', '--pcr-private-key=/path/a.pem', '--policyref=X', '--policyref=Y']
+    )
+    ns.linux = pathlib.Path('linux')
+    ukify.apply_config(ns, config)
+    ukify.finalize_options(ns)
+
+    assert ns.policyrefs == ['X', 'Y']
+
+
+def test_apply_config_pads_missing_phases_with_empty_list(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[PCRSignature:a]\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        'Phases=enter-initrd\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'PCRPrivateKey=/path/b.pem\n'
+        '\n'
+        '[PCRSignature:c]\n'
+        'PCRPrivateKey=/path/c.pem\n'
+        'Phases=ready\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build'])
+    ns.linux = pathlib.Path('linux')
+    ns.initrd = []
+    ukify.apply_config(ns, config)
+    ukify.finalize_options(ns)
+
+    assert ns.phase_path_groups == [['enter-initrd'], [], ['ready']]
+
+
+def test_finalize_options_requires_public_key_with_signing_engine(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        '[UKI]\n'
+        'Linux=LINUX\n'
+        'SigningEngine=engine\n'
+        '\n'
+        '[PCRSignature:a]\n'
+        'PCRPrivateKey=/path/a.pem\n'
+        'PCRPublicKey=/path/a.pub\n'
+        '\n'
+        '[PCRSignature:b]\n'
+        'PCRPrivateKey=/path/b.pem\n'
+    )
+
+    ns = ukify.create_parser().parse_args(['build'])
+    ukify.apply_config(ns, config)
+
+    with pytest.raises(ValueError, match='requires --pcr-public-key= or --pcr-certificate='):
+        ukify.finalize_options(ns)
+
+
 def test_parse_args_minimal():
     with pytest.raises(ValueError):
         ukify.parse_args([])
