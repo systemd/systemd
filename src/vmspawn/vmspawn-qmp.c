@@ -263,7 +263,8 @@ static int qmp_fdset_add(
         assert(callback);
         assert(ret_path);
 
-        id = qmp_client_next_fdset_id(qmp);
+        /* Leave the fdsets passed on the command line alone. */
+        id = _QEMU_FDSET_MAX + qmp_client_next_fdset_id(qmp);
 
         r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", id));
         if (r < 0)
