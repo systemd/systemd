@@ -1040,32 +1040,6 @@ The Trusted Platform Module's (TPM) NV index support is too limited to properly
 implement NV index backed additional PCRs. NvPCRs will not be allocated or
 initialized, and will not be available on the system.
 
--- 7a427613a56946b6bfa9aee1dfc553cd
-Subject: Initialization of NvPCR not authorized in this boot
-Defined-By: systemd
-Support: %SUPPORT_URL%
-Documentation: man:systemd-measure(1) man:ukify(1) man:systemd-tpm2-setup.service(8)
-
-An additional NV index backed Platform Configuration Register (PCR) could not be
-initialized, because the authorization required for its initializing write is
-not available. The initializing write to an NvPCR must be authorized by a signed
-PCR policy with the "initrd" policy reference, which is only possible from the
-initrd. This happens if the booted unified kernel image (UKI) does not carry a
-PCR public key (in its .pcrpkey section), if it does not carry a signed PCR
-policy (in its .pcrsig section) for that key with the "initrd" policy
-reference, or if initialization was attempted after the system transitioned
-from the initrd to the host, for example because
-systemd-tpm2-setup-early.service is not included in the initrd.
-
-This is not an error: the affected NvPCRs will not be available during this
-boot, and measurements to them will be skipped.
-
-To make NvPCRs available, sign the UKI's PCR policy for the initrd boot phase
-with the "initrd" policy reference, for example via the --policyref=initrd and
---phase=enter-initrd options of systemd-measure, or the corresponding options
-of ukify, and make sure systemd-tpm2-setup-early.service is included in the
-initrd.
-
 -- eac6d394c925493deac2ba99f3c2bb11
 Subject: An optional dependency for @FEATURE@ is not installed
 Defined-By: systemd
