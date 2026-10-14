@@ -620,6 +620,45 @@ result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-cgroup-nullscale.service","CGroup":{"TasksMax":{"value":16,"scale":null}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
 echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":16,"scale":0}'
 
+# The TasksMax pair is taken exactly as the read side emits it, so a reply can be fed straight
+# back into StartTransient. The fragment carries the normalized permyriad percent.
+defer_transient_cleanup varlink-transient-cgroup-pair.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup-pair.service","CGroup":{"TasksMax":{"value":5000,"scale":10000}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":5000,"scale":10000}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-cgroup-pair.service; do sleep 0.5; done'
+fragment=$(systemctl show -P FragmentPath varlink-transient-cgroup-pair.service)
+test -n "$fragment"
+grep -Fx 'TasksMax=50.00%' "$fragment" >/dev/null
+
+tasks_max=$(echo "$result" | jq -c '.context.CGroup.TasksMax')
+defer_transient_cleanup varlink-transient-cgroup-roundtrip.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    "{\"context\":{\"ID\":\"varlink-transient-cgroup-roundtrip.service\",\"CGroup\":{\"TasksMax\":$tasks_max},\"Service\":{\"Type\":\"oneshot\",\"RemainAfterExit\":true,\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}")
+echo "$result" | jq -e --argjson t "$tasks_max" '.context.CGroup.TasksMax == $t'
+
+# The denominator is whatever configured the unit, so the one the D-Bus TasksMaxScale setter
+# uses (UINT32_MAX) has to be accepted too, not just the permyriad one
+defer_transient_cleanup varlink-transient-cgroup-dbusscale.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup-dbusscale.service","CGroup":{"TasksMax":{"value":2147483647,"scale":4294967295}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":2147483647,"scale":4294967295}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-cgroup-dbusscale.service; do sleep 0.5; done'
+fragment=$(systemctl show -P FragmentPath varlink-transient-cgroup-dbusscale.service)
+grep -Fx 'TasksMax=50.00%' "$fragment" >/dev/null
+
+# TasksMaxScale refuses 0% and 100%, but the unit-file parser accepts both, so they reach the
+# read side and the pair form has to take them back. Only the reply is asserted: a 0% limit
+# leaves the unit unable to fork.
+defer_transient_cleanup varlink-transient-cgroup-zeroscale.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup-zeroscale.service","CGroup":{"TasksMax":{"value":0,"scale":10000}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":0,"scale":10000}'
+defer_transient_cleanup varlink-transient-cgroup-fullscale.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup-fullscale.service","CGroup":{"TasksMax":{"value":10000,"scale":10000}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":10000,"scale":10000}'
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -773,11 +812,11 @@ defer_transient_cleanup varlink-transient-bad-memmax.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-memmax.service","CGroup":{"MemoryMax":0},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "CGroup.MemoryMax"
-# The scale member of TasksMax is output only, TasksMaxScale is the input form
-defer_transient_cleanup varlink-transient-bad-taskscale-member.service
+# A scaled TasksMax above 100% is rejected
+defer_transient_cleanup varlink-transient-bad-taskspair.service
 expect_invalid_parameter \
-    '{"context":{"ID":"varlink-transient-bad-taskscale-member.service","CGroup":{"TasksMax":{"value":5000,"scale":10000}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-    "context"
+    '{"context":{"ID":"varlink-transient-bad-taskspair.service","CGroup":{"TasksMax":{"value":2,"scale":1}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "CGroup.TasksMax"
 # Out-of-range TasksMaxScale= (>= 100%) is rejected
 defer_transient_cleanup varlink-transient-bad-tasksscale.service
 expect_invalid_parameter \
