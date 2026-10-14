@@ -12,6 +12,7 @@ typedef enum ExecDirectoryFlags {
 } ExecDirectoryFlags;
 
 DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(exec_directory_flags, ExecDirectoryFlags);
+const char* exec_directory_flags_to_string(ExecDirectoryFlags flags);
 
 typedef struct UnitInfo {
         const char *machine;
