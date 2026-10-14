@@ -762,6 +762,38 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
         return 0;
 }
 
+/* Enables fs-verity on fdt.  May re-open fdt to do its job. */
+static int enable_fs_verity(int *fdt, const struct fsverity_enable_arg *arg) {
+        int r;
+
+        assert(fdt);
+        assert(*fdt >= 0);
+        assert(arg);
+
+        r = fd_verify_regular(*fdt);
+        if (r < 0)
+                return r;
+
+        /* Okay. We're doing this now. We need to re-open fdt as read-only because
+         * we can't enable fs-verity while writable file descriptors are outstanding. */
+        _cleanup_close_ int reopened_fd = -EBADF;
+        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
+        if (r < 0)
+                return r;
+        if (reopened_fd >= 0)
+                close_and_replace(*fdt, reopened_fd);
+
+        if (ioctl(*fdt, FS_IOC_ENABLE_VERITY, arg) < 0) {
+                log_error_errno(errno, "Failed to set fs-verity metadata: %m");
+                /* For cases where fs-verity is unsupported we return a special error code */
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -ESOCKTNOSUPPORT;
+                return -errno;
+        }
+
+        return 0;
+}
+
 /* Copies fs-verity status.  May re-open fdt to do its job. */
 static int copy_fs_verity(int fdf, int *fdt) {
         int r;
@@ -797,36 +829,23 @@ static int copy_fs_verity(int fdf, int *fdt) {
         /* Make sure that the descriptor is completely initialized */
         assert(r == (int) sizeof desc);
 
-        r = fd_verify_regular(*fdt);
-        if (r < 0)
-                return r;
-
-        /* Okay. We're doing this now. We need to re-open fdt as read-only because
-         * we can't enable fs-verity while writable file descriptors are outstanding. */
-        _cleanup_close_ int reopened_fd = -EBADF;
-        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
-        if (r < 0)
-                return r;
-        if (reopened_fd >= 0)
-                close_and_replace(*fdt, reopened_fd);
-
-        struct fsverity_enable_arg enable_arg = {
+        return enable_fs_verity(fdt, &(const struct fsverity_enable_arg) {
                 .version = desc.version,
                 .hash_algorithm = desc.hash_algorithm,
                 .block_size = UINT32_C(1) << desc.log_blocksize,
                 .salt_size = desc.salt_size,
                 .salt_ptr = (uintptr_t) &desc.salt,
-        };
+        });
+}
 
-        if (ioctl(*fdt, FS_IOC_ENABLE_VERITY, &enable_arg) < 0) {
-                log_error_errno(errno, "Failed to set fs-verity metadata: %m");
-                /* For cases where fs-verity is unsupported we return a special error code */
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -ESOCKTNOSUPPORT;
-                return -errno;
-        }
-
-        return 0;
+/* Enables fs-verity with the defaults of fsverity-utils and composefs: SHA-256, 4 KiB blocks, no salt.
+ * May re-open fd to do its job. */
+int fd_enable_fs_verity(int *fd) {
+        return enable_fs_verity(fd, &(const struct fsverity_enable_arg) {
+                .version = 1,
+                .hash_algorithm = FS_VERITY_HASH_ALG_SHA256,
+                .block_size = 4096,
+        });
 }
 
 static int fd_copy_tree_generic(
@@ -916,9 +935,13 @@ static int fd_copy_regular(
         }
 
         /* NB: fs-verity cannot be enabled when a writable file descriptor is outstanding.
-         * copy_fs_verity() may well re-open 'fdt' as O_RDONLY. All code below this point
-         * needs to be able to work with a read-only file descriptor. */
-        if (FLAGS_SET(copy_flags, COPY_PRESERVE_FS_VERITY)) {
+         * copy_fs_verity() and fd_enable_fs_verity() may well re-open 'fdt' as O_RDONLY. All code
+         * below this point needs to be able to work with a read-only file descriptor. */
+        if (FLAGS_SET(copy_flags, COPY_ENABLE_FS_VERITY)) {
+                r = fd_enable_fs_verity(&fdt);
+                if (r < 0)
+                        goto fail;
+        } else if (FLAGS_SET(copy_flags, COPY_PRESERVE_FS_VERITY)) {
                 r = copy_fs_verity(fdf, &fdt);
                 if (r < 0)
                         goto fail;
