@@ -284,48 +284,25 @@ bool machine_tag_is_valid(const char *s) {
         return in_charset(s, ALPHANUMERICAL "-.=");
 }
 
-bool machine_tag_list_is_valid(char **l) {
-        size_t n = 0;
-        STRV_FOREACH(i, l) {
-                n++;
-                if (n > MACHINE_TAGS_MAX)
-                        return false;
+int machine_tag_list_is_valid(char **l) {
+        int r;
 
-                if (!machine_tag_is_valid(*i))
-                        return false;
-
-                const char *eq = strchr(*i, '=');
-                if (!eq)
-                        continue;
-
-                /* Refuse tags with a common part before the '=', that do no also carry the same value. */
-                size_t np = eq - *i + 1;
-                STRV_FOREACH(j, l) {
-                        if (j == i)
-                                break;
-
-                        if (streq(*i, *j)) /* Fully identical is OK */
-                                continue;
-
-                        if (strneq(*i, *j, np)) /* Not identical, but same key: refuse */
-                                return false;
-                }
+        r = machine_tags_from_strv(l, /* graceful= */ false, /* ret= */ NULL);
+        switch (r) {
+        case -EINVAL:
+        case -E2BIG:
+                return false;
+        case 0:
+                return true;
+        default:
+                return r;
         }
-
-        return true;
 }
 
 int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
-        int r;
-
         assert(ret);
 
-        /* Parses the colon-separated TAGS= machine-info field into a sorted, deduplicated strv. Each tag is
-         * validated: if 'graceful' is true invalid tags are silently dropped, otherwise an invalid tag makes
-         * us fail with -EINVAL. If the same tag or key is specified more than once, the one specified last
-         * wins if 'graceful' is true, otherwise this makes us fail with -EINVAL, too. At most MACHINE_TAGS_MAX
-         * valid tags are accepted. The result is sorted only after deduplication, and is NULL if no (valid)
-         * tags remain. */
+        /* Parse the colon-separated TAGS= machine-info field into a sorted, deduplicated strv. */
 
         if (isempty(s)) {
                 *ret = NULL;
@@ -336,9 +313,21 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
-        /* Maps the key of each tag, i.e. everything up to and including the first '=', or the whole tag if it
-         * has no '=', to the tag itself (borrowed from 'l'). A bare tag and an assignment of the same name
-         * hence get distinct keys and may coexist. */
+        return machine_tags_from_strv(l, graceful, ret);
+}
+
+int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
+        int r;
+
+        /* Go through a list of tags and verify each tag. Invalid tags are silently dropped if 'graceful',
+         * and -EINVAL is returned otherwise. The same valueless tag may specified more than once. If the
+         * same tag with listed with different values, the last value wins if 'graceful', otherwise -EINVAL
+         * is returned, too. At most MACHINE_TAGS_MAX valid tags are accepted. The result is sorted only
+         * after deduplication, and is NULL if no (valid) tags remain. */
+
+        /* Maps the key of each tag, i.e. everything up to and including the first '=', or the whole tag if
+         * it has no '=', to the tag itself (borrowed from 'l'). A bare tag and an assignment of the same
+         * name hence get distinct keys and may coexist. */
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         STRV_FOREACH(i, l) {
                 if (!machine_tag_is_valid(*i)) {
@@ -367,22 +356,22 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
                         assert_se(hashmap_update(h, k, *i) >= 0);
                 } else if (r < 0)
                         return r;
-                else {
-                        assert(r > 0);  /* successfully added the new value */
-                        TAKE_PTR(k);
+                else if (r > 0)
+                        TAKE_PTR(k);   /* successfully added the new value */
+        }
+
+        if (ret) {
+                _cleanup_strv_free_ char **cleaned = NULL;
+                char *v;
+                HASHMAP_FOREACH(v, h) {
+                        r = strv_extend(&cleaned, v);
+                        if (r < 0)
+                                return r;
                 }
+
+                strv_sort(cleaned);
+                *ret = TAKE_PTR(cleaned);
         }
 
-        _cleanup_strv_free_ char **cleaned = NULL;
-        char *v;
-        HASHMAP_FOREACH(v, h) {
-                r = strv_extend(&cleaned, v);
-                if (r < 0)
-                        return r;
-        }
-
-        strv_sort(cleaned);
-
-        *ret = TAKE_PTR(cleaned);
         return 0;
 }

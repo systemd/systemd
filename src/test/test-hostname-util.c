@@ -172,21 +172,21 @@ TEST(machine_tag_is_valid) {
 }
 
 TEST(machine_tag_list_is_valid) {
-        ASSERT_TRUE(machine_tag_list_is_valid(NULL));    /* empty list is valid */
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("a")));
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e")));
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e")));
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa")));     /* same key + same value is OK */
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa")));        /* bare key and assignment coexist */
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2")));    /* one key is a prefix of the other */
-        ASSERT_TRUE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2")));          /* ... and the other way around */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(NULL));    /* empty list is valid */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a")));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e")));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e")));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa")));        /* bare key and assignment coexist */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2")));    /* one key is a prefix of the other */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2")));          /* ... and the other way around */
 
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c")));
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("foo", "")));
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b")));     /* same key, different value */
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3")));   /* ... also when not adjacent */
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b")));
-        ASSERT_FALSE(machine_tag_list_is_valid(STRV_MAKE("=aa")));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa")));     /* same key + same value is OK */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c")));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "")));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b")));          /* same key, different value */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3")));        /* ... also when not adjacent */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b")));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("=aa")));
 }
 
 TEST(machine_tags_from_string) {
