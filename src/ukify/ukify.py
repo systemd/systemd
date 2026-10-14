@@ -2232,6 +2232,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SignKernel',
     ),
     ConfigItem(
+        '--sign-initrd-pcrs',
+        action=argparse.BooleanOptionalAction,
+        help='additionally sign PCR policies that can only be satisfied from the initrd',
+        config_key='UKI/SignInitrdPCRs',
+    ),
+    ConfigItem(
         '--pcr-private-key',
         dest='pcr_private_keys',
         action='append',
