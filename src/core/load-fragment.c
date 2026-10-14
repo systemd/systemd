@@ -4645,6 +4645,12 @@ int config_parse_exec_directories(
                         r = path_simplify_and_warn(dresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
                         if (r < 0)
                                 continue;
+
+                        if (path_startswith(dresolved, "private")) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "%s= symlink can't be 'private', ignoring assignment: %s", lvalue, tuple);
+                                continue;
+                        }
                 }
 
                 ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
