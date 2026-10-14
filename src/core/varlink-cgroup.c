@@ -704,6 +704,8 @@ static int apply_cgroup_cpu_quota_period_usec(
 }
 
 static int apply_cgroup_tasks_max(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
+        int permyriad;
+
         assert(u);
         assert(c);
         assert(p);
@@ -711,16 +713,44 @@ static int apply_cgroup_tasks_max(Unit *u, CGroupContext *c, TransientCGroupCont
         if (!p->tasks_max_set)
                 return 0;
 
-        if (p->tasks_max < 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TasksMax= value out of range.");
+        if (p->tasks_max.scale == 0) {
+                if (p->tasks_max.value < 1)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TasksMax= value out of range.");
 
-        c->tasks_max = (CGroupTasksMax) { .value = p->tasks_max };
+                c->tasks_max = p->tasks_max;
+                unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
+
+                if (p->tasks_max.value == CGROUP_LIMIT_MAX)
+                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=infinity");
+                else
+                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=%" PRIu64, p->tasks_max.value);
+
+                return 0;
+        }
+
+        /* Relative form. The denominator depends on how the unit was configured -- 10000 via
+         * TasksMaxScale and the unit-file percent syntax, UINT32_MAX via the D-Bus TasksMaxScale
+         * setter -- so take the pair as given rather than insisting on one scale, and normalize
+         * only for the fragment, which carries permyriad percent. Unlike TasksMaxScale, 0% and
+         * 100% are accepted: the unit-file parser produces them, so they can appear on the read
+         * side and have to be settable.
+         *
+         * Cap the denominator at UINT32_MAX, which no producer exceeds: cgroup_tasks_max_resolve()
+         * goes through system_tasks_max_scale(), whose overflow guard returns UINT64_MAX once the
+         * numerator passes UINT64_MAX/system_tasks_max(). A larger pair would therefore apply no
+         * limit at all while the fragment still recorded a percentage. */
+        if (p->tasks_max.scale > UINT32_MAX || p->tasks_max.value > p->tasks_max.scale)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TasksMax= scaled value out of range.");
+
+        /* Bounded above, so this cannot overflow and needs no detour through double. */
+        permyriad = (int) ((p->tasks_max.value * 10000 + p->tasks_max.scale / 2) / p->tasks_max.scale);
+
+        c->tasks_max = p->tasks_max;
         unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
-        if (p->tasks_max == CGROUP_LIMIT_MAX)
-                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=infinity");
-        else
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=%" PRIu64, p->tasks_max);
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax",
+                            "TasksMax=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(permyriad));
 
         return 0;
 }
@@ -988,22 +1018,8 @@ DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_zswap_max, sd_json_dispatch_uint
 DEFINE_TRANSIENT_CGROUP_SETTABLE(io_weight, sd_json_dispatch_uint64);
 DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_io_weight, sd_json_dispatch_uint64);
 
-/* A null member means "unset", so only a supplied scale is refused. */
-static int dispatch_transient_cgroup_tasks_max_scale_member(
-                const char *name,
-                sd_json_variant *variant,
-                sd_json_dispatch_flags_t flags,
-                void *userdata) {
-
-        if (sd_json_variant_is_null(variant))
-                return 0;
-
-        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "TasksMax.scale is output only, use TasksMaxScale instead.");
-}
-
-/* TasksMax keeps the CGroupTasksMax object on the wire, so only "value" is accepted as input; the
- * relative form goes through TasksMaxScale, which resolves into the same value/scale pair. */
+/* TasksMax takes the CGroupTasksMax object exactly as the read side emits it, so the output of a
+ * List() call can be fed back in. TasksMaxScale reaches the same pair with a plain fraction. */
 static int dispatch_transient_cgroup_tasks_max(
                 const char *name,
                 sd_json_variant *variant,
@@ -1012,23 +1028,30 @@ static int dispatch_transient_cgroup_tasks_max(
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "value", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,
-                  offsetof(TransientCGroupContextParameters, tasks_max), SD_JSON_MANDATORY },
-                { "scale", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_cgroup_tasks_max_scale_member,
-                  0, 0 },
+                  offsetof(CGroupTasksMax, value), SD_JSON_MANDATORY },
+                { "scale", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,
+                  offsetof(CGroupTasksMax, scale), 0 },
                 {}
         };
 
         TransientCGroupContextParameters *p = ASSERT_PTR(userdata);
+        /* UINT64_MAX stands for "no scale supplied": sd_json_dispatch_uint64() maps null to it, so a
+         * missing and a null member need no separate handling. No producer uses it as a denominator. */
+        CGroupTasksMax tasks_max = { .scale = UINT64_MAX };
         int r;
 
         if (sd_json_variant_is_null(variant))
                 return 0;
 
-        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, p,
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &tasks_max,
                                   /* reterr_bad_field= */ NULL);
         if (r < 0)
                 return r;
 
+        if (tasks_max.scale == UINT64_MAX)
+                tasks_max.scale = 0;
+
+        p->tasks_max = tasks_max;
         p->tasks_max_set = true;
         return 0;
 }
