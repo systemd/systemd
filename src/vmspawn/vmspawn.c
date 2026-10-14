@@ -48,6 +48,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "initrd-cpio.h"
+#include "io-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-bind-user.h"
@@ -1298,6 +1299,24 @@ fallback:
         }
 
         return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+/* QEMU's stdio is the console PTY, which nothing reads before the PTY forwarder starts. When we fail before
+ * that, copy what QEMU wrote (e.g. why it refused to start) to stderr, so that error messages aren't lost. */
+static void flush_console_to_stderrp(int *master) {
+        char buf[4096];
+        ssize_t n;
+
+        assert(master);
+
+        if (*master < 0)
+                return;
+
+        /* The PTY master is non-blocking. It fails with EIO once QEMU has exited and the buffer is empty. */
+        while ((n = read(*master, buf, sizeof(buf))) > 0)
+                (void) loop_write(STDERR_FILENO, buf, n);
+        if (n < 0 && !IN_SET(errno, EAGAIN, EIO))
+                log_debug_errno(errno, "Failed to read QEMU console output, ignoring: %m");
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -3872,6 +3891,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
+        /* Not owned, disarmed when the PTY forwarder takes over. */
+        _cleanup_(flush_console_to_stderrp) int early_console = master;
+
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
@@ -4068,6 +4090,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         if (master >= 0) {
+                early_console = -EBADF;
+
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
