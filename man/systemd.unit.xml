@@ -744,7 +744,8 @@
         state for this unit to also be in active state. This not only means a unit bound to another unit that suddenly
         enters inactive state, but also one that is bound to another unit that gets skipped due to an unmet condition
         check (such as <varname>ConditionPathExists=</varname>, <varname>ConditionPathIsSymbolicLink=</varname>, … —
-        see below) will be stopped, should it be running. Hence, in many cases it is best to combine
+        see below) will be stopped, should it be running, or have its pending start job cancelled, should it
+        not have started up yet. Hence, in many cases it is best to combine
         <varname>BindsTo=</varname> with <varname>After=</varname>.</para>
 
         <para>When <varname>BindsTo=b.service</varname> is used on
