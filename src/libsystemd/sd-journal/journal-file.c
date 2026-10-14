@@ -959,6 +959,21 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                le64toh(o->data.entry_array_offset),
                                                offset);
 
+                /* Objects are only ever appended, hence a hash chain has to move strictly forward. */
+                if (le64toh(o->data.next_hash_offset) > 0 && le64toh(o->data.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_hash_offset),
+                                               offset);
+
+                /* New data objects are prepended to the list of their field, hence that list has to move
+                 * strictly backward. */
+                if (le64toh(o->data.next_field_offset) >= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_field_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_field_offset),
+                                               offset);
+
                 break;
 
         case OBJECT_FIELD:
@@ -975,6 +990,12 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                "Invalid offset, next_hash_offset=" OFSfmt ", head_data_offset=" OFSfmt ": %" PRIu64,
                                                le64toh(o->field.next_hash_offset),
                                                le64toh(o->field.head_data_offset),
+                                               offset);
+
+                if (le64toh(o->field.next_hash_offset) > 0 && le64toh(o->field.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid field object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->field.next_hash_offset),
                                                offset);
                 break;
 
