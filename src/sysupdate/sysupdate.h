@@ -36,6 +36,7 @@ typedef struct Context {
         char *component_description;
         char **component_documentation;
         bool component_enabled;
+        Condition *component_enable_on;
 
         int component_suggest;
         Condition *component_suggest_on;
