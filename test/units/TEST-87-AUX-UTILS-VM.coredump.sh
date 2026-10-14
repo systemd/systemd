@@ -53,6 +53,12 @@ if systemctl -q is-active systemd-coredumpd.service; then
 else
     assert_eq "$(systemctl is-active systemd-coredumpd.service ||:)" "inactive"
     assert_eq "$(systemctl is-active systemd-coredump-register.service ||:)" "inactive"
+    # The skipped coredumpd must not be restarted in a loop (e.g. through its BindsTo=/Upholds= relation
+    # with systemd-coredump-register.service): it stays inactive, skipped by its ExecCondition=, and is not
+    # pushed into the start rate limit.
+    assert_eq "$(systemctl show -P NRestarts systemd-coredumpd.service)" "0"
+    assert_eq "$(systemctl show -P ActiveState systemd-coredumpd.service)" "inactive"
+    assert_eq "$(systemctl show -P Result systemd-coredumpd.service)" "exec-condition"
     [[ ! -e /run/sysctl.d/60-coredump.conf ]]
     sysctl kernel.core_pattern | grep 'systemd-coredump'
 fi
