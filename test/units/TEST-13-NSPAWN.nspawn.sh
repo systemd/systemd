@@ -975,6 +975,104 @@ testcase_notification_socket() {
     rm -fr "$root"
 }
 
+testcase_socket_activation() {
+    # Verify that the socket activation environment variables are properly propagated into the
+    # container, i.e. that $LISTEN_FDNAMES survives, and that $LISTEN_PID refers to the process that
+    # actually ends up running the payload (PID 2 when --as-pid2 is used).
+    # https://github.com/systemd/systemd/issues/43764
+    local root entrypoint socket1 socket2 nspawn
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
+    create_dummy_container "$root"
+    entrypoint="$root/entrypoint.sh"
+    socket1="/run/TEST-13-NSPAWN-socket-activation-1.sock"
+    socket2="/run/TEST-13-NSPAWN-socket-activation-2.sock"
+    rm -f "$socket1" "$socket2"
+
+    cat >"$entrypoint" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+env | grep '^LISTEN_'
+test "$LISTEN_FDS" = "${EXPECTED_FDS:-1}"
+test "${LISTEN_FDNAMES-unset}" = "$EXPECTED_FDNAMES"
+if [[ -v EXPECTED_PID ]]; then
+    test "$LISTEN_PID" = "$EXPECTED_PID"
+    # $LISTEN_PIDFDID must not refer to a different process than $LISTEN_PID
+    test "${LISTEN_PIDFDID-unset}" = "unset"
+else
+    test "$LISTEN_PID" = "$$"
+fi
+for ((fd = 3; fd < 3 + LISTEN_FDS; fd++)); do
+    test -S "/proc/self/fd/$fd"
+done
+EOF
+    chmod +x "$entrypoint"
+
+    nspawn=(systemd-nspawn --register=no --directory="$root")
+
+    # Without --as-pid2 the payload is PID 1 in the container...
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...and with --as-pid2 it's PID 2, as the stub PID 1 forks it off.
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # Multiple file descriptors are passed on in order
+    systemd-socket-activate --listen="$socket1" --listen="$socket2" --fdname=hoge --fdname=fuga --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDS=2 --setenv=EXPECTED_FDNAMES=hoge:fuga \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1" "$socket2"
+
+    # Escape sequences in $LISTEN_FDNAMES are resolved the same way sd_listen_fds_with_names() does, and the
+    # names are escaped again when passed on, so that the payload ends up with the same names
+    systemd-socket-activate --listen="$socket1" --listen="$socket2" \
+                            --fdname='ho\ge' --fdname='fu\\ga' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDS=2 --setenv='EXPECTED_FDNAMES=hoge:fu\\ga' \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1" "$socket2"
+
+    # The prefix nspawn adds to the names of fd store entries it forwards upstream is stripped again
+    systemd-socket-activate --listen="$socket1" --fdname=payload-hoge --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # $LISTEN_FDNAMES is not passed on if it is not set, ...
+    systemd-socket-activate --listen="$socket1" --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...doesn't match the number of file descriptors, ...
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --fdname=fuga --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...cannot be parsed, ...
+    # shellcheck disable=SC1003
+    systemd-socket-activate --listen="$socket1" --fdname='hoge\' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...or contains invalid names
+    systemd-socket-activate --listen="$socket1" --fdname=$'ho\tge' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # An explicit --setenv= takes precedence over the socket activation variables, and $LISTEN_PIDFDID is
+    # not set if $LISTEN_PID is overridden
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --as-pid2 \
+                       --setenv=LISTEN_FDNAMES=override --setenv=EXPECTED_FDNAMES=override \
+                       --setenv=LISTEN_PID=4711 --setenv=EXPECTED_PID=4711 \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    rm -fr "$root"
+}
+
 testcase_os_release() {
     local root entrypoint os_release_source
 
