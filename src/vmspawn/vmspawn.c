@@ -2271,8 +2271,9 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
         /* Mark the UEFI variable store pflash as requiring SMM access. This
          * prevents the guest OS from writing to pflash directly, ensuring all
          * variable updates go through the firmware's validation checks. Without
-         * this, secure boot keys could be overwritten by the OS. */
-        if (ARCHITECTURE_SUPPORTS_SMM) {
+         * this, secure boot keys could be overwritten by the OS. Firmware built
+         * without SMM support could not write its variables at all then. */
+        if (ARCHITECTURE_SUPPORTS_SMM && ovmf_config_has_feature(ovmf_config, "requires-smm")) {
                 r = qemu_config_section(config_file, "global", /* id= */ NULL,
                                         "driver", "cfi.pflash01",
                                         "property", "secure",
@@ -2810,8 +2811,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (ovmf_config && ARCHITECTURE_SUPPORTS_SMM && arg_confidential_computing == COCO_NO) {
-                bool sb = ovmf_config_has_feature(ovmf_config, "secure-boot");
-                r = qemu_config_key(config_file, "smm", on_off(sb));
+                r = qemu_config_key(config_file, "smm", on_off(ovmf_config_has_feature(ovmf_config, "requires-smm")));
                 if (r < 0)
                         return r;
         }
