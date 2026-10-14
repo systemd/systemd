@@ -11,6 +11,7 @@
 #include "dhcp-server-request.h"
 #include "dhcp-server-send.h"
 #include "errno-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "iovec-util.h"
@@ -232,6 +233,22 @@ static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req) {
         return r;
 }
 
+/* An address of a static lease is never assigned from the pool, hence a bound lease for the address can only
+ * be acquired by the host the static lease is configured for. When the host changes its client ID, e.g. when
+ * it is dual-booted or its DHCP client is reconfigured to send a DUID, the bound lease still has the old
+ * client ID. Let's identify the host by its hardware address in that case. */
+static bool dhcp_server_lease_is_same_host(sd_dhcp_server_lease *lease, const DHCPRequest *req) {
+        assert(lease);
+        assert(req);
+        assert(req->message);
+
+        if (hw_addr_is_null(&req->hw_addr))
+                return false;
+
+        return lease->htype == req->message->header.htype &&
+                hw_addr_equal(&lease->hw_addr, &req->hw_addr);
+}
+
 static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req) {
         assert(server);
         assert(req);
@@ -245,7 +262,7 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         /* for now pick a random free address from the pool */
         if (static_lease) {
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
-                if (l && l != existing_lease)
+                if (l && l != existing_lease && !dhcp_server_lease_is_same_host(l, req))
                         /* The address is already assigned to another host. Refusing. */
                         return -EADDRINUSE;
 
@@ -434,10 +451,19 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
          * - if 'l' is NULL, then the address is not assigned to any host.
          * - if 'l' is non-NULL, and equivalent to 'existing_lease', then the address is assigned to the host.
          * - if 'l' is non-NULL, but different from 'existing_lease', then the address is already assigned to
-         *   another host. In this case, we explicitly know that the address should not be used by the host. */
+         *   another host. In this case, we explicitly know that the address should not be used by the host,
+         *   unless it is the static address of the host and the bound lease has the previous client ID of
+         *   the host, see dhcp_server_lease_is_same_host(). */
         sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-        if (l && l != existing_lease)
-                return send_nak ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
+        if (l && l != existing_lease) {
+                if (!static_lease || static_lease->address != address ||
+                    !dhcp_server_lease_is_same_host(l, req))
+                        return send_nak ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
+
+                /* The host requests its static address with a different client ID. Drop the bound lease
+                 * with the old client ID, then the address will be assigned with the new one below. */
+                sd_dhcp_server_lease_unref(l);
+        }
 
         /* Check if the request is consistent with the static lease. */
         if (static_lease) {
