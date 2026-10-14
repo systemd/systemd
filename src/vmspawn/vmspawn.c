@@ -50,6 +50,7 @@
 #include "initrd-cpio.h"
 #include "io-util.h"
 #include "kernel-image.h"
+#include "lock-util.h"
 #include "log.h"
 #include "machine-bind-user.h"
 #include "machine-credential.h"
@@ -2299,7 +2300,8 @@ static int cmdline_add_ovmf(
         if (r < 0)
                 return r;
 
-        if (!ovmf_config->vars && !arg_efi_nvram_template) {
+        /* Firmware with a host-side variable store doesn't use pflash for it, see cmdline_add_uefi_vars(). */
+        if (ovmf_config_has_host_uefi_vars(ovmf_config) || (!ovmf_config->vars && !arg_efi_nvram_template)) {
                 ret_vars_fds[0] = ret_vars_fds[1] = -EBADF;
                 return 0;
         }
@@ -2343,6 +2345,59 @@ static int cmdline_add_ovmf(
 
         ret_vars_fds[0] = TAKE_FD(vars_fds[0]);
         ret_vars_fds[1] = TAKE_FD(vars_fds[1]);
+        return 0;
+}
+
+static int cmdline_add_uefi_vars(
+                FILE *config_file,
+                char ***cmdline,
+                int **pass_fds,
+                size_t *n_pass_fds,
+                const OvmfConfig *ovmf_config,
+                int *ret_fd) {
+        int r;
+
+        assert(config_file);
+        assert(ret_fd);
+
+        if (!ovmf_config || !ovmf_config_has_host_uefi_vars(ovmf_config)) {
+                *ret_fd = -EBADF;
+                return 0;
+        }
+
+        /* Firmware with the "host-uefi-vars" feature keeps its UEFI variables in a QEMU device instead of
+         * pflash. QEMU persists them as JSON, so keep that apart from pflash NVRAM state files. The
+         * firmware needs the device from its first instruction, so it can't be hotplugged via QMP. */
+        const char *device = QEMU_UEFI_VARS_DEVICE;
+        assert(device); /* checked when selecting the firmware */
+
+        _cleanup_close_ int fd = -EBADF;
+        r = prepare_efi_variable_store(
+                        ASSERT_PTR(arg_efi_nvram_template ?: ovmf_config->uefi_vars_template),
+                        ".efivarstate.json",
+                        &fd);
+        if (r < 0)
+                return r;
+
+        /* Unlike pflash drives, QEMU doesn't lock the JSON file, so VMs sharing it would overwrite each
+         * other's variables. Lock it for as long as the VM runs, QEMU shares the lock through its fd. */
+        r = lock_generic(fd, LOCK_BSD, LOCK_EX|LOCK_NB);
+        if (r == -EWOULDBLOCK)
+                return log_error_errno(r, "EFI variable store %s is in use by another VM.", arg_efi_nvram_state_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock EFI variable store: %m");
+
+        r = cmdline_add_fdset(cmdline, pass_fds, n_pass_fds, QEMU_FDSET_EFI_VARS, fd, "efi-vars");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "device", "uefi-vars",
+                                "driver", device,
+                                "jsonfile", FORMAT_QEMU_FDSET_PATH(QEMU_FDSET_EFI_VARS));
+        if (r < 0)
+                return r;
+
+        *ret_fd = TAKE_FD(fd);
         return 0;
 }
 
@@ -2774,6 +2829,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Firmware descriptor '%s' declares flash mode 'combined', which is not supported.",
                                                arg_firmware ?: ovmf_config->path);
+
+                if (ovmf_config_has_host_uefi_vars(ovmf_config)) {
+                        if (!QEMU_UEFI_VARS_DEVICE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Firmware descriptor '%s' requires a host-side UEFI variable store, which QEMU doesn't provide on %s.",
+                                                       arg_firmware ?: ovmf_config->path, architecture_to_string(native_architecture()));
+                        if (!arg_efi_nvram_template && !ovmf_config->uefi_vars_template)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Firmware descriptor '%s' requires a host-side UEFI variable store, but declares no template for it. "
+                                                       "Specify one with --efi-nvram-template=.",
+                                                       arg_firmware ?: ovmf_config->path);
+                }
 
                 if (arg_confidential_computing != COCO_NO) {
                         const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
@@ -3310,6 +3377,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
         }
+
+        _cleanup_close_ int uefi_vars_fd = -EBADF;
+        r = cmdline_add_uefi_vars(config_file, &cmdline, &pass_fds, &n_pass_fds, ovmf_config, &uefi_vars_fd);
+        if (r < 0)
+                return r;
 
         if (arg_linux) {
                 r = strv_extend_many(&cmdline, "-kernel", arg_linux);
