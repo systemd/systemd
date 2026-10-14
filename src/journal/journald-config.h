@@ -109,3 +109,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_compress);
 CONFIG_PARSER_PROTOTYPE(config_parse_forward_to_socket);
 CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_audit_set_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_journal_keep_free);

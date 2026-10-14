@@ -14,6 +14,7 @@
 #include "journald-socket.h"
 #include "log.h"
 #include "parse-util.h"
+#include "percent-util.h"
 #include "proc-cmdline.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -460,6 +461,58 @@ int config_parse_line_max(
         } else
                 *sz = (size_t) v;
 
+        return 0;
+}
+
+int config_parse_journal_keep_free(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        JournalMetrics *m = ASSERT_PTR(data);
+        int r;
+
+        /* keep_free and keep_free_permyriad are mutually exclusive; the
+         * effective value is computed on demand by
+         * journal_effective_keep_free(). */
+        if (isempty(rvalue)) {
+                /* Empty assignment means "pick automatically" */
+                m->keep_free = UINT64_MAX;
+                m->keep_free_permyriad = 0;
+                return 0;
+        }
+
+        r = parse_permyriad(rvalue);
+        if (r >= 0) {
+                if (r == 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Specifying '0%%' for %s means journald may use the entire file system, ignoring KeepFree= entirely.", lvalue);
+
+                m->keep_free_permyriad = r;
+
+                /* 0% explicitly means "keep nothing free". */
+                m->keep_free = r == 0 ? 0 : UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &m->keep_free);
+        if (r < 0) {
+                /* Log the bad line, but do not propagate the error: a
+                 * malformed value must not abort parsing of the rest of
+                 * the file. */
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s='%s', ignoring: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        m->keep_free_permyriad = 0;
         return 0;
 }
 
