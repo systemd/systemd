@@ -64,6 +64,9 @@ typedef struct TransientCGroupContextParameters {
         int tasks_accounting;
         bool tasks_max_set;
         uint64_t tasks_max;
+        /* The "scale" member of the TasksMax object, 0 when absent, i.e. the value is absolute. Not
+         * tasks_max_scale below, which is the TasksMaxScale fraction. */
+        uint64_t tasks_max_scale_member;
         bool tasks_max_scale_set;
         double tasks_max_scale;
 
