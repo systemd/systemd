@@ -9,8 +9,10 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
@@ -206,7 +208,8 @@ TEST(dhcp_server_process_message) {
         ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
 
         /* DHCPREQUEST (selecting) with Requested IP address */
-        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                                                  htobe32(INADDR_LOOPBACK)));
         dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, htobe32(INADDR_LOOPBACK + 3)));
         ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
@@ -216,7 +219,8 @@ TEST(dhcp_server_process_message) {
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, htobe32(0x12345678)));
         ASSERT_OK_ZERO(process_one(server, m));
         dhcp_message_remove_option(m, SD_DHCP_OPTION_SERVER_IDENTIFIER);
-        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                                                  htobe32(INADDR_LOOPBACK)));
 
         /* DHCPREQUEST (selecting) with another address */
         dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
@@ -323,6 +327,105 @@ TEST(dhcp_server_process_message) {
         dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, htobe32(INADDR_LOOPBACK + 42)));
         ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+}
+
+static void set_message_type(sd_dhcp_message *m, uint8_t type) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_MESSAGE_TYPE);
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, type));
+}
+
+static void set_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *client_id) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_CLIENT_IDENTIFIER);
+        ASSERT_OK(dhcp_message_append_option_client_id(m, client_id));
+}
+
+TEST(dhcp_server_static_lease_client_id_change) {
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+        static const struct hw_addr_data hw_addr_other = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'X' }},
+        };
+        be32_t static_address = htobe32(INADDR_LOOPBACK + 42);
+
+        /* The client ID generated from the hardware address, e.g. sent by dhclient without -i. */
+        sd_dhcp_client_id client_id_mac = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+        };
+        /* The node-specific client ID (RFC 4361), e.g. sent by dhclient -i or by systemd-networkd. */
+        sd_dhcp_client_id client_id_duid;
+        ASSERT_OK(sd_dhcp_client_id_set_raw(
+                        &client_id_duid,
+                        (const uint8_t[]) { 0xff, 0x12, 0x34, 0x56, 0x78, 0x00, 0x04, 0xde, 0xad },
+                        9));
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
+                                                8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = static_address },
+                        client_id_mac.raw,
+                        client_id_mac.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(m, BOOTREQUEST, 0x12345678, ARPHRD_ETHER, &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                                                  htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, static_address));
+
+        /* The host acquires the static address with the client ID generated from its hardware address. */
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        sd_dhcp_server_lease *lease = hashmap_get(server->bound_leases_by_address,
+                                                    UINT32_TO_PTR(static_address));
+        ASSERT_NOT_NULL(lease);
+        ASSERT_EQ(client_id_compare_func(&lease->client_id, &client_id_mac), 0);
+
+        /* The same host requests the static address with another client ID. The bound lease with the old
+         * client ID must not prevent the host from acquiring its static address. */
+        set_client_id(m, &client_id_duid);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_address));
+        ASSERT_NOT_NULL(lease);
+        ASSERT_EQ(client_id_compare_func(&lease->client_id, &client_id_duid), 0);
+        ASSERT_EQ(hashmap_size(server->bound_leases_by_client_id), 1u);
+
+        /* Another host with the client ID previously used by the host must not take over the address. */
+        m->header.chaddr[5] = hw_addr_other.ether.ether_addr_octet[5];
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_ERROR(process_one(server, m), EADDRINUSE);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
+
+        lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_address));
+        ASSERT_NOT_NULL(lease);
+        ASSERT_EQ(client_id_compare_func(&lease->client_id, &client_id_duid), 0);
 }
 
 TEST(sd_dhcp_server_set_static_lease) {
