@@ -12109,6 +12109,8 @@ int tpm2_parse_luks2_json(
                 const char *s = sd_json_variant_string(w);
                 if (!s)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference is not a string.");
+                if (!iovec_is_set(&pubkey))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference set, but no public key included in JSON data, refusing.");
                 pubkey_ref = strdup(s);
                 if (!pubkey_ref)
                         return log_oom_debug();
