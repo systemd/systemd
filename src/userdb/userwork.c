@@ -430,7 +430,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                         return r;
 
                 /* If both group + user are specified do a-posteriori filtering */
-                if (p.group_name && p.user_name && !streq(group_name, p.group_name))
+                if (p.group_name && p.user_name &&
+                    (!streq(user_name, p.user_name) || !streq(group_name, p.group_name)))
                         continue;
 
                 r = sd_varlink_replybo(
