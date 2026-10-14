@@ -48,6 +48,7 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pidref.h"
@@ -146,6 +147,7 @@ static int condition_test_kernel_command_line(Condition *c, char **env, RuntimeS
 }
 
 static int condition_test_credential(Condition *c, char **env, RuntimeScope scope) {
+        _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
         assert(c);
@@ -161,7 +163,6 @@ static int condition_test_credential(Condition *c, char **env, RuntimeScope scop
 
         int (*gd)(const char **ret);
         FOREACH_ARGUMENT(gd, get_credentials_dir, get_encrypted_credentials_dir) {
-                _cleanup_free_ char *j = NULL;
                 const char *cd;
 
                 r = gd(&cd);
@@ -170,7 +171,39 @@ static int condition_test_credential(Condition *c, char **env, RuntimeScope scop
                 if (r < 0)
                         return r;
 
-                j = path_join(cd, c->parameter);
+                r = strv_extend(&dirs, cd);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Service managers also search the credential stores, the same as ImportCredential= does */
+        if (IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER)) {
+                _cleanup_strv_free_ char **plain = NULL, **encrypted = NULL;
+
+                r = credential_store_path(scope, &plain);
+                if (r < 0)
+                        return r;
+
+                r = credential_store_path_encrypted(scope, &encrypted);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv_consume(&dirs, TAKE_PTR(plain), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv_consume(&dirs, TAKE_PTR(encrypted), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        /* An inaccessible directory (e.g. a root-only credential store) must not hide a match in a later one,
+         * so only report errors if the credential was found nowhere. */
+        int ret = 0;
+        STRV_FOREACH(d, dirs) {
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(*d, c->parameter);
                 if (!j)
                         return -ENOMEM;
 
@@ -178,12 +211,12 @@ static int condition_test_credential(Condition *c, char **env, RuntimeScope scop
                 if (r >= 0)
                         return true; /* yay! */
                 if (r != -ENOENT)
-                        return r;
+                        RET_GATHER(ret, r);
 
                 /* not found in this dir */
         }
 
-        return false;
+        return ret; /* error, or 0 for "not found" */
 }
 
 static int condition_test_version_cmp(const char *condition, const char *ver) {
