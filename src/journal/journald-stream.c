@@ -255,6 +255,11 @@ static int stdout_stream_log(
         if (r <= 0)
                 return r;
 
+        /* Rate limit before forwarding, so a flooding service cannot overwhelm the
+         * syslog/kmsg/console/wall consumers while journald's own storage stays limited. */
+        if (!manager_message_ratelimit_allowed(s->manager, s->context, priority))
+                return 0;
+
         if (s->forward_to_syslog || s->manager->config.forward_to_syslog)
                 manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
@@ -306,7 +311,7 @@ static int stdout_stream_log(
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        manager_dispatch_message(s->manager, iovec, n, m, s->context, NULL, priority, 0);
+        manager_dispatch_message(s->manager, iovec, n, m, s->context, NULL, priority, 0, /* check_ratelimit= */ false);
         return 0;
 }
 
