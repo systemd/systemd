@@ -1060,11 +1060,11 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                         job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_STOP_FAILURE);
         }
 
-        /* A special check to make sure we take down anything RequisiteOf= if we aren't active. This is when
-         * the verify-active job merges with a satisfying job type, and then loses its invalidation effect,
-         * as the result there is JOB_DONE for the start job we merged into, while we should be failing the
-         * depending job if the said unit isn't in fact active. Oneshots are an example of this, where going
-         * directly from activating to inactive is success.
+        /* A special check to make sure we take down anything RequisiteOf= or BoundBy= if we aren't active.
+         * This is when the verify-active job merges with a satisfying job type, and then loses its
+         * invalidation effect, as the result there is JOB_DONE for the start job we merged into, while we
+         * should be failing the depending job if the said unit isn't in fact active. Oneshots are an
+         * example of this, where going directly from activating to inactive is success.
          *
          * This happens when you use ConditionXYZ= in a unit too, since in that case the job completes with
          * the JOB_DONE result, but the unit never really becomes active. Note that such a case still

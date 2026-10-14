@@ -57,6 +57,7 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_BOUND_BY]               = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                                         UNIT_ATOM_PROPAGATE_STOP |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
+                                        UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                                         UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
                                         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES,
@@ -122,8 +123,8 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
 
         switch ((int64_t) atom) {
 
-                /* Note that we can't list UNIT_REQUIRES here since it's a true subset of UNIT_BINDS_TO, and
-                 * hence its atom bits not uniquely mappable. */
+                /* Note that we can't list UNIT_REQUIRES / UNIT_REQUISITE_OF here since they are true subsets
+                 * of UNIT_BINDS_TO / UNIT_BOUND_BY respectively, hence their atom bits are not uniquely mappable. */
 
         case UNIT_ATOM_PULL_IN_VERIFY |
                 UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE |
@@ -154,17 +155,10 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
         case UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE:
                 return UNIT_UPHOLDS;
 
-        case UNIT_ATOM_PROPAGATE_STOP |
-                UNIT_ATOM_PROPAGATE_START_FAILURE |
-                UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE |
-                UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
-                UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES:
-        case UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE:
-                return UNIT_REQUISITE_OF;
-
         case UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                 UNIT_ATOM_PROPAGATE_STOP |
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
+                UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE |
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                 UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
                 UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES:
