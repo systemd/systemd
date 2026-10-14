@@ -545,6 +545,21 @@ TEST(restrict_realtime) {
                 assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
                 assert_se(errno == ENOANO);
 
+                /* sched_setattr() is refused entirely, as its policy argument cannot be filtered on */
+                struct {
+                        uint32_t size, policy;
+                        uint64_t flags;
+                        int32_t nice;
+                        uint32_t priority;
+                        uint64_t runtime, deadline, period;
+                } attr = {
+                        .size = sizeof(attr),
+                        .policy = SCHED_FIFO,
+                        .priority = 1,
+                };
+                assert_se(syscall(__NR_sched_setattr, 0, &attr, 0) < 0);
+                assert_se(errno == ENOANO);
+
                 _exit(EXIT_SUCCESS);
         }
 }
