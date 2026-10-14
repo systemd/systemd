@@ -3015,7 +3015,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "fd=%d,set=1,opaque=/dev/kvm", kvm_device_fd);
+                r = strv_extendf(&cmdline, "fd=%d,set=%i,opaque=/dev/kvm", kvm_device_fd, QEMU_FDSET_KVM);
                 if (r < 0)
                         return log_oom();
 
@@ -3026,7 +3026,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 r = qemu_config_section(config_file, "accel", /* id= */ NULL,
                                         "accel", "kvm",
-                                        "device", "/dev/fdset/1");
+                                        "device", FORMAT_QEMU_FDSET_PATH(QEMU_FDSET_KVM));
                 if (r < 0)
                         return r;
         } else {
