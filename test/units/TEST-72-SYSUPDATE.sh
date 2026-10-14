@@ -2317,6 +2317,44 @@ assert_dropin "$(comp_enable_dropin compz)" yes
 set_machine_tags ""
 
 # ---------------------------------------------------------------------------
+# EnableOnMachineTag= for a component
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compz.d
+compfeat_transfer /run/sysupdate.compz.d/01-compz.transfer compz "$CF/target-compz"
+cat >/run/sysupdate.compz.component <<EOF
+[Component]
+EnableOnMachineTag=sysupdate-test-tag
+EOF
+
+# Without the matching machine tag the component is disabled.
+set_machine_tags some-other-tag
+(! "$SYSUPDATE" --component=compz --verify=no update) |& grep -F "Component is disabled" >/dev/null
+
+# With the matching tag present it is enabled directly, without any drop-in.
+set_machine_tags sysupdate-test-tag
+"$SYSUPDATE" --component=compz --verify=no update
+test -f "$CF/target-compz/compz-v1.bin"
+test ! -e "$(comp_enable_dropin compz)"
+
+# An explicit Enabled= override takes precedence over the condition.
+"$SYSUPDATE" disable-component compz
+(! "$SYSUPDATE" --component=compz --verify=no update) |& grep -F "Component is disabled" >/dev/null
+set_machine_tags ""
+
+# A condition failing with ENOENT (here because of a missing os-release) must
+# not be mistaken for missing transfer definitions, after which --cleanup=yes
+# would remove all resources recorded in the install database.
+rm -rf /etc/sysupdate.compz.component.d
+cat >/run/sysupdate.compz.component <<EOF
+[Component]
+EnableOnOSRelease=ID=sysupdate-test
+EOF
+(! SYSTEMD_OS_RELEASE=/nonexistent "$SYSUPDATE" --component=compz --verify=no --cleanup=yes update) |& grep -F "Failed to evaluate EnableOn" >/dev/null
+test -f "$CF/target-compz/compz-v1.bin"
+
+# ---------------------------------------------------------------------------
 # enable-feature / disable-feature on the default component + observable effect
 # ---------------------------------------------------------------------------
 compfeat_reset
@@ -2428,6 +2466,78 @@ assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 assert_dropin "$(feat_enable_dropin_default featb)" no
 set_machine_tags ""
+
+# ---------------------------------------------------------------------------
+# EnableOnMachineTag= for a feature (default component)
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d
+compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
+compfeat_transfer /run/sysupdate.d/50-feata.transfer feata "$CF/target-default" feata
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+EnableOnMachineTag=sysupdate-test-tag
+EOF
+
+# Without the matching machine tag the feature is disabled and its transfer is skipped.
+set_machine_tags some-other-tag
+"$SYSUPDATE" --verify=no update
+test -f "$CF/target-default/base-v1.bin"
+test ! -e "$CF/target-default/feata-v1.bin"
+
+# With the matching tag present it is enabled directly, without any drop-in.
+set_machine_tags sysupdate-test-tag
+"$SYSUPDATE" --verify=no update
+test -f "$CF/target-default/feata-v1.bin"
+test ! -e "$(feat_enable_dropin_default feata)"
+
+# An explicit Enabled= override takes precedence over the condition, so vacuuming
+# removes the now-orphaned feature resource.
+"$SYSUPDATE" disable-feature feata
+"$SYSUPDATE" --verify=no vacuum
+test ! -e "$CF/target-default/feata-v1.bin"
+set_machine_tags ""
+
+# The other EnableOn…= conditions work the same way, including negation. An
+# empty assignment resets the list, which falls back to the default (disabled).
+cat >/run/sysupdate.d/featb.feature <<EOF
+[Feature]
+EnableOnKernelCommandLine=sysupdate-test-nonexistent-option
+EOF
+cat >/run/sysupdate.d/featc.feature <<EOF
+[Feature]
+EnableOnKernelCommandLine=!sysupdate-test-nonexistent-option
+EOF
+cat >/run/sysupdate.d/featd.feature <<EOF
+[Feature]
+EnableOnKernelCommandLine=!sysupdate-test-nonexistent-option
+EnableOnKernelCommandLine=
+EOF
+[[ "$("$SYSUPDATE" --json=short features featb | jq -r .enabled)" == false ]]
+[[ "$("$SYSUPDATE" --json=short features featc | jq -r .enabled)" == true ]]
+[[ "$("$SYSUPDATE" --json=short features featd | jq -r .enabled)" == false ]]
+rm -f /run/sysupdate.d/featb.feature /run/sysupdate.d/featc.feature /run/sysupdate.d/featd.feature
+
+# A condition that cannot be evaluated must fail the operation instead of
+# treating the feature as disabled, which would make vacuum remove its resources.
+"$SYSUPDATE" enable-feature feata
+"$SYSUPDATE" --verify=no update
+test -f "$CF/target-default/feata-v1.bin"
+rm -rf /etc/sysupdate.d/feata.feature.d
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+EnableOnFirmware=smbios-field(malformed)
+EOF
+(! "$SYSUPDATE" --verify=no vacuum) |& grep -F "Failed to evaluate EnableOn" >/dev/null
+test -f "$CF/target-default/feata-v1.bin"
+
+# An explicit Enabled= skips the evaluation. The verbs cannot be used to write
+# it since they fail to load the definitions too, so create the drop-in by hand.
+mkdir -p /etc/sysupdate.d/feata.feature.d
+printf '[Feature]\nEnabled=no\n' >/etc/sysupdate.d/feata.feature.d/override.conf
+"$SYSUPDATE" --verify=no vacuum
+test ! -e "$CF/target-default/feata-v1.bin"
 
 # --component-all must still include the default component when all of its
 # transfers are currently disabled by features.

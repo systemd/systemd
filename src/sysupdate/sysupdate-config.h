@@ -11,3 +11,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_protect_version);
 CONFIG_PARSER_PROTOTYPE(config_parse_version_bound);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+int config_resolve_enabled(int enabled, Condition *enable_on, bool default_enabled, const char *name);
