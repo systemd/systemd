@@ -2320,6 +2320,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SignKernel',
     ),
     ConfigItem(
+        '--sign-initrd-pcrs',
+        action=argparse.BooleanOptionalAction,
+        help='additionally sign PCR policies that can only be satisfied from the initrd',
+        config_key='UKI/SignInitrdPCRs',
+    ),
+    ConfigItem(
         '--pcr-private-key',
         dest='pcr_private_keys',
         compgen='file',
@@ -2389,12 +2395,6 @@ CONFIG_ITEMS = [
         '--policy-digest',
         action=argparse.BooleanOptionalAction,
         help='print systemd-measure policy digests for the UKI',
-    ),
-    ConfigItem(
-        '--sign-initrd-pcrs',
-        action=argparse.BooleanOptionalAction,
-        help='additionally sign PCR policies that can only be satisfied from the initrd',
-        config_key='UKI/SignInitrdPCRs',
     ),
     ConfigItem(
         '--json',
