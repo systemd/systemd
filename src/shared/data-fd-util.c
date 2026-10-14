@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "copy.h"
 #include "data-fd-util.h"
@@ -50,16 +49,9 @@ int copy_data_fd(int fd) {
                 if (copy_fd < 0)
                         return copy_fd;
 
-                r = copy_bytes(fd, copy_fd, DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
+                r = copy_bytes_offset(fd, /* foffset= */ NULL, copy_fd, &(uint64_t) {}, DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
-
-                off_t f = lseek(copy_fd, 0, SEEK_SET);
-                if (f < 0)
-                        return -errno;
-                if (f != 0)
-                        return -EIO;
-
                 if (r == 0) {
                         /* Did it fit into the limit? If so, we are done. */
                         r = memfd_set_sealed(copy_fd);
@@ -76,30 +68,26 @@ int copy_data_fd(int fd) {
                 if (tmp_fd < 0)
                         return tmp_fd;
 
+                uint64_t offset = 0;
+
                 if (copy_fd >= 0) {
                         /* If we tried a memfd first and it ended up being too large, then copy this into the
                          * temporary file first. */
 
-                        r = copy_bytes(copy_fd, tmp_fd, UINT64_MAX, /* copy_flags= */ 0);
+                        r = copy_bytes_offset(copy_fd, /* foffset= */ NULL, tmp_fd, &offset, UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
                                 return r;
 
                         assert(r == 0);
                 }
 
-                r = copy_bytes(fd, tmp_fd, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
+                r = copy_bytes_offset(fd, /* foffset= */ NULL, tmp_fd, &offset, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         goto finish;  /* Yay, it fit in */
 
                 /* It didn't fit in. Let's not forget to use what we already used */
-                off_t f = lseek(tmp_fd, 0, SEEK_SET);
-                if (f < 0)
-                        return -errno;
-                if (f != 0)
-                        return -EIO;
-
                 close_and_replace(copy_fd, tmp_fd);
         }
 
@@ -164,7 +152,7 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         if (mfd < 0)
                 return mfd;
 
-        r = copy_bytes(fd, mfd, UINT64_MAX, /* copy_flags= */ 0);
+        r = copy_bytes_offset(fd, /* foffset= */ NULL, mfd, &(uint64_t) {}, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -175,10 +163,6 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
 
                 return fd_reopen(mfd, mode);
         }
-
-        off_t f = lseek(mfd, 0, SEEK_SET);
-        if (f < 0)
-                return -errno;
 
         return TAKE_FD(mfd);
 }

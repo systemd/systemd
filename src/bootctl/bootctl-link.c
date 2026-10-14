@@ -453,7 +453,7 @@ static int begin_copy_file(
         CLEANUP_TMPFILE_AT(target_dir_fd, t);
 
         if (source_fd >= 0) {
-                r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_SEEK0_SOURCE);
+                r = copy_bytes_offset(source_fd, &(uint64_t) {}, write_fd, /* toffset= */ NULL, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy data into '%s': %m", filename);
 

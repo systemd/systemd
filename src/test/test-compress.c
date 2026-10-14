@@ -546,8 +546,8 @@ TEST(decompress_stream_sparse) {
                         ASSERT_OK(decompressed_multi = mkostemp_safe(pattern_decompressed_multi));
 
                         for (unsigned i = 0; i < 4; i++) {
-                                ASSERT_OK(copy_bytes(src, multi, UINT64_MAX, COPY_SEEK0_SOURCE));
-                                ASSERT_OK(copy_bytes(compressed, compressed_multi, UINT64_MAX, COPY_SEEK0_SOURCE));
+                                ASSERT_OK(copy_bytes_offset(src, &(uint64_t) {}, multi, /* toffset= */ NULL, UINT64_MAX, /* copy_flags= */ 0));
+                                ASSERT_OK(copy_bytes_offset(compressed, &(uint64_t) {}, compressed_multi, /* toffset= */ NULL, UINT64_MAX, /* copy_flags= */ 0));
                         }
 
                         ASSERT_EQ(lseek(compressed_multi, 0, SEEK_SET), (off_t) 0);
