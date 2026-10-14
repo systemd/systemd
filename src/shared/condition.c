@@ -48,6 +48,7 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pidref.h"
@@ -146,6 +147,7 @@ static int condition_test_kernel_command_line(Condition *c, char **env, RuntimeS
 }
 
 static int condition_test_credential(Condition *c, char **env, RuntimeScope scope) {
+        _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
         assert(c);
@@ -161,7 +163,6 @@ static int condition_test_credential(Condition *c, char **env, RuntimeScope scop
 
         int (*gd)(const char **ret);
         FOREACH_ARGUMENT(gd, get_credentials_dir, get_encrypted_credentials_dir) {
-                _cleanup_free_ char *j = NULL;
                 const char *cd;
 
                 r = gd(&cd);
@@ -170,7 +171,36 @@ static int condition_test_credential(Condition *c, char **env, RuntimeScope scop
                 if (r < 0)
                         return r;
 
-                j = path_join(cd, c->parameter);
+                r = strv_extend(&dirs, cd);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Service managers also search the credential stores, the same as ImportCredential= does */
+        if (IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER)) {
+                _cleanup_strv_free_ char **plain = NULL, **encrypted = NULL;
+
+                r = credential_store_path(scope, &plain);
+                if (r < 0)
+                        return r;
+
+                r = credential_store_path_encrypted(scope, &encrypted);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv_consume(&dirs, TAKE_PTR(plain), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv_consume(&dirs, TAKE_PTR(encrypted), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(d, dirs) {
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(*d, c->parameter);
                 if (!j)
                         return -ENOMEM;
 

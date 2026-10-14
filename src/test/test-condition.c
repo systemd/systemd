@@ -27,6 +27,7 @@
 #include "libaudit-util.h"
 #include "limits-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -883,13 +884,16 @@ TEST(condition_test_credential) {
         ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
         ASSERT_OK_ERRNO(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY"));
 
+        /* Without a scope, only the credential directories from the environment are checked, which keeps
+         * this independent of the host's credential stores. Those are covered by the next test. */
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "definitelymissing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         /* invalid */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "..", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_OK(mkdtemp_malloc(NULL, &n1));
@@ -899,24 +903,58 @@ TEST(condition_test_credential) {
         ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", n2, /* overwrite= */ true));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "stillmissing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_NOT_NULL((j = path_join(n1, "existing")));
         ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
         free(j);
 
         ASSERT_NOT_NULL((j = path_join(n2, "existing-encrypted")));
         ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true));
         ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true));
+}
+
+TEST(condition_test_credential_store) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *saved = NULL, *j = NULL;
+        Condition *condition;
+
+        /* The user scope credential stores are below $XDG_CONFIG_HOME, which we can redirect */
+        ASSERT_OK(free_and_strdup(&saved, getenv("XDG_CONFIG_HOME")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(setenv("XDG_CONFIG_HOME", t, /* overwrite= */ true));
+
+        ASSERT_NOT_NULL((j = path_join(t, "credstore", "instore")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+        j = mfree(j);
+
+        ASSERT_NOT_NULL((j = path_join(t, "credstore.encrypted", "instore-encrypted")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+
+        FOREACH_STRING(name, "instore", "instore-encrypted") {
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, name, /* trigger= */ false, /* negate= */ false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+                /* without a service manager scope, the credential stores are not searched */
+                ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
+                condition_free(condition);
+        }
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "notinstore", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+        condition_free(condition);
+
+        ASSERT_OK(set_unset_env("XDG_CONFIG_HOME", saved, /* overwrite= */ true));
 }
 
 TEST(condition_test_cpufeature) {
