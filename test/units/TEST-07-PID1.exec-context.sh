@@ -369,6 +369,43 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
 fi
 
+# RestrictAddressFamilies=
+#
+# The manager accepts address family names without the "AF_" prefix and in any case, but writes the
+# canonical names into the transient unit file. systemd-run would already canonicalize the names on
+# the client side, so talk to the manager directly to exercise the manager's own code.
+if systemctl --version | grep "+SECCOMP"; then
+    UNIT=test-07-restrict-address-families.service
+    busctl call \
+        org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+        org.freedesktop.systemd1.Manager StartTransientUnit \
+        "ssa(sv)a(sa(sv))" "$UNIT" replace 2 \
+          ExecStart "a(sasb)" 1 \
+            sleep 2 sleep infinity false \
+          RestrictAddressFamilies "(bas)" true 2 inet Unix \
+        0
+    grep "^RestrictAddressFamilies=AF_INET AF_UNIX$" "/run/systemd/transient/$UNIT" >/dev/null
+    assert_eq "$(systemctl show -P RestrictAddressFamilies "$UNIT")" "AF_INET AF_UNIX"
+    systemctl stop "$UNIT"
+
+    # An unknown name is rejected with InvalidArgs. busctl only reports the name of the error via
+    # BUSERROR=, so run it as a service and look at StatusBusError.
+    UNIT=test-07-restrict-address-families-bad.service
+    (! systemd-run --wait --pipe --unit="$UNIT" -p NotifyAccess=main \
+        busctl call \
+            org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+            org.freedesktop.systemd1.Manager StartTransientUnit \
+            "ssa(sv)a(sa(sv))" test-07-restrict-address-families-unknown.service replace 2 \
+              ExecStart "a(sasb)" 1 \
+                sleep 2 sleep infinity false \
+              RestrictAddressFamilies "(bas)" true 2 inet huddlduddl \
+            0 2>/tmp/test-07-restrict-address-families.err)
+    assert_eq "$(systemctl show -P StatusBusError "$UNIT")" org.freedesktop.DBus.Error.InvalidArgs
+    grep "Call failed: Invalid address family: huddlduddl" /tmp/test-07-restrict-address-families.err >/dev/null
+    rm /tmp/test-07-restrict-address-families.err
+    systemctl reset-failed "$UNIT"
+fi
+
 # Ensure DynamicUser=yes does not imply PrivateTmp=yes if TemporaryFileSystem=/tmp /var/tmp is set
 systemd-run \
     --unit test-07-dynamic-user-tmp.service \
