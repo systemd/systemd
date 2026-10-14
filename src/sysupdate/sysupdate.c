@@ -391,21 +391,23 @@ static int read_component(Context *c) {
                 return log_oom();
 
         ConfigTableItem table[] = {
-                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
-                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
-                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
-                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
-                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
-                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
-                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
-                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
-                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
-                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
-                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
-                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
-                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
-                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
+                { "Component", "Description",                config_parse_string,                   0,                             &c->component_description    },
+                { "Component", "Documentation",              config_parse_url_specifiers_many,      0,                             &c->component_documentation  },
+                { "Component", "Enabled",                    config_parse_bool,                     0,                             &c->component_enabled        },
+                { "Component", "SuccessAction",              config_parse_component_success_action, 0,                             &c->component_success_action },
+                { "Component", "FailureAction",              config_parse_component_failure_action, 0,                             &c->component_failure_action },
+                { "Component", "Suggest",                    config_parse_tristate,                 0,                             &c->component_suggest        },
+                { "Component", "SuggestOnArchitecture",      config_parse_condition,                CONDITION_ARCHITECTURE,        &c->component_suggest_on     },
+                { "Component", "SuggestOnFirmware",          config_parse_condition,                CONDITION_FIRMWARE,            &c->component_suggest_on     },
+                { "Component", "SuggestOnVirtualization",    config_parse_condition,                CONDITION_VIRTUALIZATION,      &c->component_suggest_on     },
+                { "Component", "SuggestOnHost",              config_parse_condition,                CONDITION_HOST,                &c->component_suggest_on     },
+                { "Component", "SuggestOnFraction",          config_parse_condition,                CONDITION_FRACTION,            &c->component_suggest_on     },
+                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,                CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on     },
+                { "Component", "SuggestOnVersion",           config_parse_condition,                CONDITION_VERSION,             &c->component_suggest_on     },
+                { "Component", "SuggestOnCredential",        config_parse_condition,                CONDITION_CREDENTIAL,          &c->component_suggest_on     },
+                { "Component", "SuggestOnSecurity",          config_parse_condition,                CONDITION_SECURITY,            &c->component_suggest_on     },
+                { "Component", "SuggestOnOSRelease",         config_parse_condition,                CONDITION_OS_RELEASE,          &c->component_suggest_on     },
+                { "Component", "SuggestOnMachineTag",        config_parse_condition,                CONDITION_MACHINE_TAG,         &c->component_suggest_on     },
                 {}
         };
 
@@ -2654,18 +2656,21 @@ static int context_update(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
+                bool *installed,
                 bool *reboot_needed) {
 
         UpdateSet *applied = NULL;
-        bool installed = false;
+        bool updated = false;
         int r, ret = 0;
 
         assert(c);
+        assert(installed);
         assert(reboot_needed);
 
-        /* Returns > 0 if an update was installed, 0 if not. Doesn't reboot on its own, but sets
-         * *reboot_needed to true if --reboot is requested and the installed version warrants a reboot. It
-         * never resets *reboot_needed to false, so that it can be accumulated over multiple calls. */
+        /* Sets *installed to true if an update was installed, even if a later step (e.g. the installdb
+         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed to true if --reboot is
+         * requested and the installed version warrants a reboot. It never resets *installed or
+         * *reboot_needed to false, so that they can be accumulated over multiple calls. */
 
         r = context_load_online(
                         c,
@@ -2692,13 +2697,14 @@ static int context_update(
                         if (r < 0)
                                 return r;
 
-                        installed = r > 0;
+                        if (r > 0)
+                                updated = *installed = true;
                 }
 
                 /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
                  * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
                  * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !installed) {
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
@@ -2710,7 +2716,7 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (installed && c->reboot) {
+        if (updated && c->reboot) {
                 /* We installed something, yay */
 
                 assert(applied);
@@ -2727,10 +2733,7 @@ static int context_update(
                         log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
 
-        if (ret < 0)
-                return ret;
-
-        return installed;
+        return ret;
 }
 
 static int context_update_iteration(
@@ -2738,57 +2741,78 @@ static int context_update_iteration(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
-                bool *reboot_needed) {
+                bool *reboot_needed,
+                int *error) {
 
         bool installed = false;
-        int r, ret = 0;
+        int r;
 
         assert(context);
         assert(reboot_needed);
+        assert(error);
 
         /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
-         * installed, 0 if not. */
+         * installed, 0 if not, < 0 on a failure that shall abort the update logic. Failures of individual
+         * components with FailureAction=continue are not returned, but merged into *error, so that the
+         * caller can return them at the very end. */
 
         switch (context->component_select) {
 
         case SELECT_EXPLICIT:
-                return context_update(context, version, booted_version, action_flags, reboot_needed);
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0)
+                        return r;
+
+                return installed;
 
         case SELECT_ALL: {
                 /* Update the default, component-less installation first (if any). Running it before the
                  * enumeration below also ensures the image (if any) is mounted and context->root is set, so
                  * that we enumerate the components inside the image rather than on the host. A missing
                  * default installation (ENOENT) is not an error in this mode. */
-                r = context_update(context, version, booted_version, action_flags, reboot_needed);
-                if (r > 0)
-                        installed = true;
-                else if (r != -ENOENT)
-                        RET_GATHER(ret, r);
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0 && r != -ENOENT)
+                        RET_GATHER(*error, r);
 
                 _cleanup_strv_free_ char **component_names = NULL;
                 r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
                 if (r < 0)
-                        return RET_GATHER(ret, r);
+                        return r;
 
                 STRV_FOREACH(name, component_names) {
                         _cleanup_(context_done) Context cc = CONTEXT_NULL;
 
                         r = context_from_base_with_component(context, *name, &cc);
                         if (r < 0) {
-                                RET_GATHER(ret, r);
+                                RET_GATHER(*error, r);
                                 continue;
                         }
 
-                        r = context_update(&cc, version, booted_version, action_flags, reboot_needed);
+                        bool component_installed = false;
+                        r = context_update(&cc, version, booted_version, action_flags, &component_installed, reboot_needed);
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
-                        if (r > 0)
-                                installed = true;
-                        RET_GATHER(ret, r);
-                }
+                        if (r < 0) {
+                                /* context_update() already logged about the failure */
+                                if (cc.component_failure_action == COMPONENT_FAILURE_FAIL)
+                                        return log_debug_errno(r, "Failed to update component '%s', aborting: %m", *name);
 
-                if (ret < 0)
-                        return ret;
+                                log_debug_errno(r, "Failed to update component '%s', continuing with next component: %m", *name);
+                                RET_GATHER(*error, r);
+                        }
+                        if (component_installed) {
+                                installed = true;
+
+                                if (cc.component_success_action == COMPONENT_SUCCESS_RESTART) {
+                                        /* The component asked us to start from the beginning after it
+                                         * has been updated successfully, for example because it makes
+                                         * new transfer files available. Hence, finish this iteration
+                                         * early, and skip the remaining components. */
+                                        log_info("Component '%s' updated successfully, finishing update iteration early.", *name);
+                                        break;
+                                }
+                        }
+                }
 
                 return installed;
         }
@@ -2866,7 +2890,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 if (arg_loop > 1)
                         log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
 
-                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed);
+                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
                 if (r < 0) {
                         RET_GATHER(ret, r);
                         break;
