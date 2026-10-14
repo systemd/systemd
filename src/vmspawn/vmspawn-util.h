@@ -88,6 +88,15 @@
 #  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #endif
 
+/* QEMU device that provides the UEFI variable store for firmware with the "host-uefi-vars" feature */
+#if defined(__x86_64__)
+#  define QEMU_UEFI_VARS_DEVICE "uefi-vars-x64"
+#elif defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64) || defined(__loongarch64)
+#  define QEMU_UEFI_VARS_DEVICE "uefi-vars-sysbus"
+#else
+#  define QEMU_UEFI_VARS_DEVICE NULL
+#endif
+
 #if defined(__arm__) || defined(__aarch64__)
 #  define QEMU_SERIAL_CONSOLE_NAME "ttyAMA0"
 #else
@@ -133,6 +142,10 @@ static inline const char* ovmf_config_vars_format(const OvmfConfig *c) {
 bool ovmf_config_is_stateless(const OvmfConfig *config);
 bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature);
 
+static inline bool ovmf_config_has_host_uefi_vars(const OvmfConfig *c) {
+        return ovmf_config_has_feature(c, "host-uefi-vars");
+}
+
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
 
@@ -161,7 +174,8 @@ int load_ovmf_config(const char *path, OvmfConfig **ret);
 typedef enum FindOvmfConfigFlags {
         FIND_OVMF_STATELESS   = 1 << 0, /* select stateless firmware (flash mode "stateless" or memory-mapped,
                                          * bootable via -bios); default selects pflash firmware with an NVRAM
-                                         * template */
+                                         * template, or firmware with a template for a host-side UEFI
+                                         * variable store */
         FIND_OVMF_REQUIRE_RAW = 1 << 1, /* skip non-raw firmware executables (-bios can't load qcow2) */
 } FindOvmfConfigFlags;
 
