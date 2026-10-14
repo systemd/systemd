@@ -1883,6 +1883,18 @@ int seccomp_restrict_realtime_full(int error_code) {
                         continue;
                 }
 
+                /* sched_setattr() can switch to SCHED_FIFO/SCHED_RR and is the only way to get
+                 * SCHED_DEADLINE, but the policy is in a struct passed by pointer, which seccomp cannot
+                 * inspect. Hence refuse the call altogether. */
+                r = sym_seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(error_code),
+                                SCMP_SYS(sched_setattr),
+                                0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add sched_setattr() rule for %s, ignoring: %m",
+                                        seccomp_arch_to_string(arch));
+
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return r;

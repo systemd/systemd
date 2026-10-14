@@ -5613,6 +5613,14 @@ int exec_invoke(
                 };
 
                 r = RET_NERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0));
+                if (r == -EPERM && !context->cpu_sched_reset_on_fork) {
+                        /* RestrictRealtime= refuses sched_setattr() altogether (possibly in an outer
+                         * manager), hence fall back to sched_setscheduler(), which it filters per policy.
+                         * We cannot do that with SCHED_RESET_ON_FORK, which the filter refuses too. */
+                        struct sched_param param = { .sched_priority = context->cpu_sched_priority };
+
+                        r = RET_NERRNO(sched_setscheduler(/* pid= */ 0, context->cpu_sched_policy, &param));
+                }
                 if (r == -EINVAL && !sched_policy_supported(context->cpu_sched_policy)) {
                         _cleanup_free_ char *s = NULL;
                         (void) sched_policy_to_string_alloc(context->cpu_sched_policy, &s);
