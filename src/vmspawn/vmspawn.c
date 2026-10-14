@@ -2184,14 +2184,45 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
         return 0;
 }
 
-static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, char **ret_ovmf_vars) {
+/* Passes an fd to QEMU in the given fdset on its command line. The caller keeps owning the fd. */
+static int cmdline_add_fdset(char ***cmdline, int **pass_fds, size_t *n_pass_fds, QemuFdset fdset, int fd, const char *opaque) {
+        int r;
+
+        assert(cmdline);
+        assert(pass_fds);
+        assert(n_pass_fds);
+        assert(fd >= 0);
+        assert(opaque);
+
+        r = strv_extend(cmdline, "--add-fd");
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extendf(cmdline, "fd=%d,set=%i,opaque=%s", fd, fdset, opaque);
+        if (r < 0)
+                return log_oom();
+
+        if (!GREEDY_REALLOC(*pass_fds, *n_pass_fds + 1))
+                return log_oom();
+
+        (*pass_fds)[(*n_pass_fds)++] = fd;
+        return 0;
+}
+
+static int cmdline_add_ovmf(
+                FILE *config_file,
+                char ***cmdline,
+                int **pass_fds,
+                size_t *n_pass_fds,
+                const OvmfConfig *ovmf_config,
+                int ret_vars_fds[static 2]) {
         int r;
 
         assert(config_file);
-        assert(ret_ovmf_vars);
+        assert(ret_vars_fds);
 
         if (!ovmf_config) {
-                *ret_ovmf_vars = NULL;
+                ret_vars_fds[0] = ret_vars_fds[1] = -EBADF;
                 return 0;
         }
 
@@ -2204,7 +2235,7 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                 return r;
 
         if (!ovmf_config->vars && !arg_efi_nvram_template) {
-                *ret_ovmf_vars = NULL;
+                ret_vars_fds[0] = ret_vars_fds[1] = -EBADF;
                 return 0;
         }
 
@@ -2219,39 +2250,30 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
         }
 
         const char *vars_source = arg_efi_nvram_template ?: ovmf_config->vars;
-        _cleanup_close_ int target_fd = -EBADF;
+        _cleanup_close_pair_ int vars_fds[2] = EBADF_PAIR;
         _cleanup_(unlink_and_freep) char *destroy_path = NULL;
         bool newly_created;
-        const char *state;
         if (arg_efi_nvram_state_path) {
                 _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
                 if (!d)
                         return log_oom();
 
-                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT|O_CLOEXEC, 0600, &newly_created);
-                if (target_fd < 0)
-                        return log_error_errno(target_fd, "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
+                vars_fds[0] = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                if (vars_fds[0] < 0)
+                        return log_error_errno(vars_fds[0], "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
 
                 if (newly_created)
                         destroy_path = TAKE_PTR(d);
 
-                r = fd_verify_regular(target_fd);
+                r = fd_verify_regular(vars_fds[0]);
                 if (r < 0)
                         return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
-
-                state = arg_efi_nvram_state_path;
         } else {
-                _cleanup_free_ char *t = NULL;
-                r = tempfn_random_child(/* p= */ NULL, "vmspawn-", &t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary filename: %m");
-
-                target_fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
-                if (target_fd < 0)
-                        return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", t);
+                vars_fds[0] = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
+                if (vars_fds[0] < 0)
+                        return log_error_errno(vars_fds[0], "Failed to create temporary file for OVMF vars: %m");
 
                 newly_created = true;
-                state = *ret_ovmf_vars = TAKE_PTR(t);
         }
 
         if (newly_created) {
@@ -2259,15 +2281,26 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                 if (source_fd < 0)
                         return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
 
-                r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
+                r = copy_bytes(source_fd, vars_fds[0], UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
+                        return log_error_errno(r, "Failed to copy OVMF vars file %s: %m", vars_source);
 
                 /* This isn't always available so don't raise an error if it fails */
-                (void) copy_times(source_fd, target_fd, 0);
+                (void) copy_times(source_fd, vars_fds[0], 0);
         }
 
         destroy_path = mfree(destroy_path); /* disarm auto-destroy */
+
+        /* QEMU's block layer opens the drive read-only first, so it needs a matching fd in the fdset. */
+        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY|O_CLOEXEC);
+        if (vars_fds[1] < 0)
+                return log_error_errno(vars_fds[1], "Failed to reopen OVMF vars file read-only: %m");
+
+        FOREACH_ELEMENT(fd, vars_fds) {
+                r = cmdline_add_fdset(cmdline, pass_fds, n_pass_fds, QEMU_FDSET_EFI_VARS, *fd, "efi-vars");
+                if (r < 0)
+                        return r;
+        }
 
         /* Mark the UEFI variable store pflash as requiring SMM access. This
          * prevents the guest OS from writing to pflash directly, ensuring all
@@ -2284,12 +2317,14 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
         }
 
         r = qemu_config_section(config_file, "drive", "ovmf-vars",
-                                "file", state,
+                                "file", FORMAT_QEMU_FDSET_PATH(QEMU_FDSET_EFI_VARS),
                                 "if", "pflash",
                                 "format", ovmf_config_format(ovmf_config));
         if (r < 0)
                 return r;
 
+        ret_vars_fds[0] = TAKE_FD(vars_fds[0]);
+        ret_vars_fds[1] = TAKE_FD(vars_fds[1]);
         return 0;
 }
 
@@ -3012,18 +3047,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (use_kvm && kvm_device_fd >= 0) {
-                r = strv_extend(&cmdline, "--add-fd");
+                r = cmdline_add_fdset(&cmdline, &pass_fds, &n_pass_fds, QEMU_FDSET_KVM, kvm_device_fd, "/dev/kvm");
                 if (r < 0)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "fd=%d,set=%i,opaque=/dev/kvm", kvm_device_fd, QEMU_FDSET_KVM);
-                if (r < 0)
-                        return log_oom();
-
-                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
-                        return log_oom();
-
-                pass_fds[n_pass_fds++] = kvm_device_fd;
+                        return r;
 
                 r = qemu_config_section(config_file, "accel", /* id= */ NULL,
                                         "accel", "kvm",
@@ -3256,13 +3282,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Memory-mapped firmware asks for -bios loading by definition. Under
          * confidential computing -bios is used even for (stateless) flash firmware. */
-        _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
+        _cleanup_close_pair_ int ovmf_vars_fds[2] = EBADF_PAIR;
         if (ovmf_config && (arg_confidential_computing != COCO_NO || streq_ptr(ovmf_config->device, "memory"))) {
                 r = strv_extend_many(&cmdline, "-bios", ovmf_config->path);
                 if (r < 0)
                         return r;
         } else {
-                r = cmdline_add_ovmf(config_file, ovmf_config, &ovmf_vars);
+                r = cmdline_add_ovmf(config_file, &cmdline, &pass_fds, &n_pass_fds, ovmf_config, ovmf_vars_fds);
                 if (r < 0)
                         return r;
         }
