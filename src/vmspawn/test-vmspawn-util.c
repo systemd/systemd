@@ -185,6 +185,24 @@ TEST(find_ovmf_config) {
         ASSERT_FALSE(ovmf_config_is_stateless(config));
         config = ovmf_config_free(config);
 
+        /* Without FIND_OVMF_STATELESS, the host-uefi-vars firmware above is selected like firmware with an
+         * NVRAM template on supported architectures, if it has a template for the variable store. */
+        if (QEMU_UEFI_VARS_DEVICE) {
+                check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, /* flags= */ 0, "/test/h-memory.fd", &config);
+                ASSERT_TRUE(ovmf_config_has_host_uefi_vars(config));
+                config = ovmf_config_free(config);
+        } else
+                check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, /* flags= */ 0, /* expect_path= */ NULL, /* ret= */ NULL);
+
+        /* Without a template for the variable store it is skipped, both memory-mapped and as stateless
+         * flash, so only the last descriptor matches. */
+        write_descriptor(dir, "00-i-memory.json", "/test/i-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "05-i-flash.json", "/test/i-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "10-i-memory-vars.json", "/test/i-memory-vars.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+
+        check_find(STRV_MAKE("vmspawn-test-i"), /* exclude= */ NULL, /* flags= */ 0,
+                   QEMU_UEFI_VARS_DEVICE ? "/test/i-memory-vars.fd" : NULL, /* ret= */ NULL);
+
         /* Combined-mode flash firmware carries a writable variable store inside the executable, it must not be treated as stateless. */
         write_descriptor(dir, "00-f-combined.json", "/test/f-combined.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_COMBINED, STRV_MAKE("vmspawn-test-f"));
 
