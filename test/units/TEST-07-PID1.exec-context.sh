@@ -369,6 +369,29 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
 fi
 
+# Comma-separated lists in unit files
+#
+# -p arguments are split on the client side (covered by test-bus-unit-util), so load a unit file and
+# check what the manager parsed. The names are reported sorted, so the output is deterministic.
+UNIT=test-07-comma-separated-lists.service
+cat >"/run/systemd/system/$UNIT" <<EOF
+[Service]
+ExecStart=true
+SystemCallFilter=~ptrace,reboot,swapon
+SystemCallLog=ptrace,reboot swapoff
+RestrictFileSystems=~proc,sysfs,foo
+EOF
+systemctl daemon-reload
+if systemctl --version | grep "+SECCOMP"; then
+    assert_eq "$(systemctl show -P SystemCallFilter "$UNIT")" "~ptrace reboot swapon"
+    assert_eq "$(systemctl show -P SystemCallLog "$UNIT")" "ptrace reboot swapoff"
+fi
+if systemctl --version | grep "+BPF_FRAMEWORK"; then
+    assert_eq "$(systemctl show -P RestrictFileSystems "$UNIT")" "~foo proc sysfs"
+fi
+rm "/run/systemd/system/$UNIT"
+systemctl daemon-reload
+
 # RestrictAddressFamilies=
 #
 # The manager accepts address family names without the "AF_" prefix and in any case, but writes the
