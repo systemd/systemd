@@ -588,3 +588,5 @@ These directories are hence a great place to store credentials to load on the sy
 Sometimes it makes sense to conditionalize system services and invoke them only
 if the right system credential is passed to the system.
 Use the `ConditionCredential=` and `AssertCredential=` unit file settings for that.
+Like `ImportCredential=`, they also search the credential store directories described above,
+so a credential placed in e.g. `/run/credstore/` by an initrd or cloud provisioning tool also counts.
