@@ -139,6 +139,7 @@ void context_done(Context *c) {
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
+        condition_free_list(c->component_enable_on);
         condition_free_list(c->component_suggest_on);
 }
 
@@ -390,10 +391,22 @@ static int read_component(Context *c) {
         if (!j)
                 return log_oom();
 
+        int enabled = -1;
         ConfigTableItem table[] = {
                 { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
                 { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
+                { "Component", "Enabled",                    config_parse_tristate,            0,                             &enabled                    },
+                { "Component", "EnableOnArchitecture",       config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_enable_on     },
+                { "Component", "EnableOnFirmware",           config_parse_condition,           CONDITION_FIRMWARE,            &c->component_enable_on     },
+                { "Component", "EnableOnVirtualization",     config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_enable_on     },
+                { "Component", "EnableOnHost",               config_parse_condition,           CONDITION_HOST,                &c->component_enable_on     },
+                { "Component", "EnableOnFraction",           config_parse_condition,           CONDITION_FRACTION,            &c->component_enable_on     },
+                { "Component", "EnableOnKernelCommandLine",  config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_enable_on     },
+                { "Component", "EnableOnVersion",            config_parse_condition,           CONDITION_VERSION,             &c->component_enable_on     },
+                { "Component", "EnableOnCredential",         config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_enable_on     },
+                { "Component", "EnableOnSecurity",           config_parse_condition,           CONDITION_SECURITY,            &c->component_enable_on     },
+                { "Component", "EnableOnOSRelease",          config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_enable_on     },
+                { "Component", "EnableOnMachineTag",         config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_enable_on     },
                 { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
                 { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
                 { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
@@ -422,6 +435,7 @@ static int read_component(Context *c) {
         if (r < 0)
                 return r;
 
+        c->component_enabled = config_resolve_enabled(enabled, c->component_enable_on, /* default_enabled= */ true, c->component);
         return 0;
 }
 

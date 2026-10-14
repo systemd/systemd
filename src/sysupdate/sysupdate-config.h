@@ -9,3 +9,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers_many);
 CONFIG_PARSER_PROTOTYPE(config_parse_condition);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+bool config_resolve_enabled(int enabled, Condition *enable_on, bool default_enabled, const char *name);
