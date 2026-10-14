@@ -98,6 +98,7 @@
  * same ID, so the fdsets that are added later via QMP's add-fd are numbered after these. */
 typedef enum QemuFdset {
         QEMU_FDSET_KVM,
+        QEMU_FDSET_EFI_VARS,
         _QEMU_FDSET_MAX,
         _QEMU_FDSET_INVALID = -EINVAL,
 } QemuFdset;
