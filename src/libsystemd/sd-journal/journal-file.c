@@ -2156,6 +2156,50 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
         return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
 }
 
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret) {
+        assert(f);
+        assert(o);
+        assert(ret);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        *ret = journal_file_entry_n_items(f, o);
+        return 0;
+}
+
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        uint64_t n;
+        int r;
+
+        assert(f);
+        assert(o);
+
+        r = journal_file_entry_n_fields(f, o, offset, &n);
+        if (r < 0)
+                return r;
+        if (i >= n)
+                return -EADDRNOTAVAIL;
+
+        return journal_file_data_payload(
+                        f,
+                        /* o= */ NULL,
+                        journal_file_entry_item_object_offset(f, o, i),
+                        field, field_length,
+                        data_threshold,
+                        ret_data, ret_size);
+}
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
         uint64_t sz;
 
@@ -4593,7 +4637,9 @@ int journal_file_copy_entry(
         };
         boot_id = o->entry.boot_id;
 
-        n = journal_file_entry_n_items(from, o);
+        r = journal_file_entry_n_fields(from, o, p, &n);
+        if (r < 0)
+                return r;
         if (n == 0)
                 return 0;
 
@@ -4608,13 +4654,16 @@ int journal_file_copy_entry(
         }
 
         for (uint64_t i = 0; i < n; i++) {
-                uint64_t h, q;
+                uint64_t h;
                 const void *data;
                 size_t l;
                 Object *u;
 
-                q = journal_file_entry_item_object_offset(from, o, i);
-                r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
+                r = journal_file_entry_field_payload(
+                                from, o, p, i,
+                                /* field= */ NULL, /* field_length= */ 0,
+                                /* data_threshold= */ 0,
+                                &data, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;

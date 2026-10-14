@@ -2635,22 +2635,25 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
-static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128_t *ret) {
+static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, uint64_t offset, sd_id128_t *ret) {
         assert(f);
         assert(o);
         assert(o->object.type == OBJECT_ENTRY);
         assert(ret);
 
-        uint64_t n = journal_file_entry_n_items(f, o);
+        uint64_t n;
+        int r;
+
+        r = journal_file_entry_n_fields(f, o, offset, &n);
+        if (r < 0)
+                return r;
+
         for (uint64_t i = 0; i < n; i++) {
-                uint64_t p;
                 const void *d;
                 size_t l;
-                int r;
 
-                p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, /* o= */ NULL, p, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
-                                              SIZE_MAX, &d, &l);
+                r = journal_file_entry_field_payload(f, o, offset, i, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
+                                                     SIZE_MAX, &d, &l);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2764,7 +2767,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
          * the _MACHINE_ID= field (older journals), fall back to the header's machine_id. */
         sd_id128_t mid = f->header->machine_id;
         if (o && o->object.type == OBJECT_ENTRY) {
-                r = journal_file_entry_get_machine_id(f, o, &mid);
+                r = journal_file_entry_get_machine_id(f, o, offset, &mid);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to read _MACHINE_ID from tail entry, using header value: %m");
         }
@@ -2947,15 +2950,17 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         field_length = strlen(field);
 
-        uint64_t n = journal_file_entry_n_items(f, o);
+        uint64_t n;
+        r = journal_file_entry_n_fields(f, o, f->current_offset, &n);
+        if (r < 0)
+                return r;
+
         for (uint64_t i = 0; i < n; i++) {
-                uint64_t p;
                 const void *d;
                 size_t l;
 
-                p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold,
-                                              ret_data ? &d : NULL, ret_size ? &l : NULL);
+                r = journal_file_entry_field_payload(f, o, f->current_offset, i, field, field_length, j->data_threshold,
+                                                     ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2997,13 +3002,20 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
         if (r < 0)
                 return r;
 
-        for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
-                uint64_t p;
+        uint64_t n;
+        r = journal_file_entry_n_fields(f, o, f->current_offset, &n);
+        if (r < 0)
+                return r;
+
+        for (; j->current_field < n; j->current_field++) {
                 const void *d;
                 size_t l;
 
-                p = journal_file_entry_item_object_offset(f, o, j->current_field);
-                r = journal_file_data_payload(f, NULL, p, NULL, 0, j->data_threshold, &d, &l);
+                r = journal_file_entry_field_payload(
+                                f, o, f->current_offset, j->current_field,
+                                /* field= */ NULL, /* field_length= */ 0,
+                                j->data_threshold,
+                                &d, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
                         continue;
