@@ -3736,8 +3736,8 @@ int bus_exec_context_set_transient_property(
                                         if (r < 0)
                                                 return log_oom();
 
-                                        /* Need to store them in the unit with the escapes, so that they can
-                                         * be parsed again */
+                                        /* unit_concat_strv() quotes each path, so only tuple separators and
+                                         * double quotes need extra escaping before parsing it again. */
                                         _cleanup_free_ char *source_escaped = xescape(*source, ":\"");
                                         if (!source_escaped)
                                                 return log_oom();
@@ -4207,6 +4207,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name,
                               "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
                               "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
+                const char *const escape_chars = ":\"' ";
                 char *source, *destination;
                 ExecDirectory *directory;
                 uint64_t symlink_flags;
@@ -4259,19 +4260,17 @@ int bus_exec_context_set_transient_property(
 
                                 /* Escape tuple separators, quotes and whitespace so the unit file parser
                                  * preserves each path when it splits the assignment into words and fields. */
-                                source_escaped = xescape(source, ":\"' ");
+                                source_escaped = xescape(source, escape_chars);
                                 if (!source_escaped)
                                         return -ENOMEM;
                                 if (destination) {
-                                        destination_escaped = xescape(destination, ":\"' ");
+                                        destination_escaped = xescape(destination, escape_chars);
                                         if (!destination_escaped)
                                                 return -ENOMEM;
                                 }
 
                                 const char *flags_string = exec_directory_flags_to_string(symlink_flags);
-                                if (!flags_string)
-                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                 "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
+                                assert(flags_string); /* Validated before applying the property. */
 
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, exec_directory_type_to_string(i),

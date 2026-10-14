@@ -98,7 +98,7 @@ if output=$(busctl --user call \
     echo 'Manager accepted a ConfigurationDirectorySymlink destination' >&2
     exit 1
 fi
-[[ "$output" == *'Symlink destination is not supported for ConfigurationDirectory='* ]]
+assert_in 'Symlink destination is not supported for ConfigurationDirectory=' "$output"
 
 # A 'private' source is refused by the manager
 assert_fail systemd-run --user -p StateDirectory=private/waldo::ro --wait true
