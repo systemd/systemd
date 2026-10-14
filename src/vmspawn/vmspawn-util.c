@@ -539,6 +539,15 @@ int find_ovmf_config(
                                 log_debug("Skipping %s, firmware is not stateless.", *file);
                                 continue;
                         }
+                } else if (strv_contains(fwd->features, "host-uefi-vars")) {
+                        if (!QEMU_UEFI_VARS_DEVICE) {
+                                log_debug("Skipping %s, QEMU has no host-side UEFI variable store on this architecture.", *file);
+                                continue;
+                        }
+                        if (!fwd->uefi_vars_template) {
+                                log_debug("Skipping %s, firmware does not have a UEFI variable store template.", *file);
+                                continue;
+                        }
                 } else if (!fwd->vars) {
                         log_debug("Skipping %s, firmware does not have an NVRAM template.", *file);
                         continue;
