@@ -53,6 +53,22 @@ if command -v userdbctl >/dev/null; then
     varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }'
     (! varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }' | grep .)
 
+    mkdir -p /run/userdb
+    membership=/run/userdb/test-74-member:test-74-group.membership
+    touch "$membership"
+    trap 'rm -f "$membership"' EXIT
+    member_reply="$(varlinkctl call -j /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-member","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
+    test "$(jq -r .userName <<<"$member_reply")" = test-74-member
+    test "$(jq -r .groupName <<<"$member_reply")" = test-74-group
+    nonmember_reply="$(varlinkctl call --graceful=io.systemd.UserDatabase.NoRecordFound -j \
+        /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
+    test -z "$nonmember_reply"
+    rm "$membership"
+
     if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
         group=haldo
         salt=waldo
@@ -103,7 +119,7 @@ rm_rf_sshbindir() {
     rm -rf "$SSHBINDIR"
 }
 
-trap rm_rf_sshbindir EXIT
+trap 'rm -f "${membership:-}"; rm_rf_sshbindir' EXIT
 
 # Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
 cat >"$SSHBINDIR"/ssh <<'EOF'
