@@ -27,6 +27,10 @@ CHANGES WITH 263 in spe:
           behaviour may be restored with the new SendHostnameUpdates=no
           setting in the [DHCPv4] and [DHCPv6] sections.
 
+        * The "appStream" key of
+          org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
+          strings rather than a single optional string.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
