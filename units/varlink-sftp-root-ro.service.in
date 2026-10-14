@@ -1,0 +1,39 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Varlink SFTP Server (read-only) EQUIVALENT TO ROOT ACCESS
+Documentation=man:varlinkctl(1)
+Requires=varlink-sftp-root-ro.socket
+
+[Service]
+Type=notify
+# -R places sftp-server in read-only mode
+# -e makes it log to stderr (which ends up in the journal)
+ExecStart=varlinkctl serve io.systemd.Sftp.RootReadOnly.Connect -- {{SFTP_SERVER}} -e -R
+
+# While -R already denies writes we still add some sandboxing (because we can).
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectSystem=strict
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native

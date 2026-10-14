@@ -3,7 +3,8 @@
 files = [['README',                true],
          ['systemd-coredump.conf', conf.get('ENABLE_COREDUMP') == 1],
          ['systemd-oom.conf',      conf.get('ENABLE_OOMD') == 1],
-         ['systemd-remote.conf',   conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1]]
+         ['systemd-remote.conf',   conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1],
+         ['varlink-sftp.conf',     conf.get('ENABLE_VARLINK_SFTP') == 1]]
 
 foreach tuple : files
         if enable_sysusers and tuple[1]
