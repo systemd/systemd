@@ -94,6 +94,22 @@
 #  define QEMU_SERIAL_CONSOLE_NAME "ttyS0"
 #endif
 
+/* fdsets of fds passed on QEMU's command line with --add-fd. QEMU adds an fd to an existing fdset with the
+ * same ID, so the fdsets that are added later via QMP's add-fd are numbered after these. */
+typedef enum QemuFdset {
+        QEMU_FDSET_KVM,
+        _QEMU_FDSET_MAX,
+        _QEMU_FDSET_INVALID = -EINVAL,
+} QemuFdset;
+
+#define QEMU_FDSET_PATH_MAX \
+        (STRLEN("/dev/fdset/") + DECIMAL_STR_MAX(int))
+
+char* format_qemu_fdset_path(char buf[static QEMU_FDSET_PATH_MAX], QemuFdset fdset);
+
+#define FORMAT_QEMU_FDSET_PATH(fdset) \
+        format_qemu_fdset_path((char[QEMU_FDSET_PATH_MAX]) {}, (fdset))
+
 typedef struct OvmfConfig {
         char *path;
         char *format;
