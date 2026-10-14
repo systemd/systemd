@@ -30,6 +30,11 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req);
 int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server);
 
 sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const DHCPRequest *req);
+int dhcp_server_get_bound_lease(
+                sd_dhcp_server *server,
+                const DHCPRequest *req,
+                be32_t address,
+                sd_dhcp_server_lease **ret);
 
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v);
 int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_variant **v);
