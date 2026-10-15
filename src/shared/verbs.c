@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "extract-word.h"
 #include "format-table.h"
+#include "json-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "options.h"
@@ -679,27 +680,51 @@ int _command_print_verb_help(
         return 0;
 }
 
+static int synopsis_build_json(const char *argspec, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(ret);
+
+        /* "synopsis" is an array of usage lines, each itself an array of strings. Our synopsis
+         * lines are passed through whole, as a single string each, since they are written for
+         * display and do not split into words cleanly, e.g. "[CONFIGURATION FILE…]". */
+
+        NULSTR_FOREACH(spec, argspec) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRV(STRV_MAKE(spec)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON array to array: %m");
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int verb_build_json(
                 const Verb *verb,
+                const char *group,
                 const Option options[],
                 const Option options_end[],
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL, *synopsis = NULL;
         int r;
 
         assert(verb);
         assert(verb->verb);
         assert(ret);
 
-        /* Verbs are represented as command objects, as described in the CLI-Introspection
-         * Specification (https://uapi-group.org/specifications/specs/cli_introspection/).
-         * In particular, a verb which declares an option namespace carries its own "options"
-         * array, just like the top-level command object.
+        /* Verbs are represented as nested command objects, as described in the CLI-Introspection
+         * Specification (https://uapi-group.org/specifications/specs/cli_introspection/). In
+         * particular, a verb which declares an option namespace carries its own option objects in
+         * "arguments", just like the top-level command object. "sections" names the group the verb
+         * is listed under in the help output, "Commands" for the default group (see
+         * print_verb_option_help()).
          *
-         * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields
-         * are extensions not (yet) covered by the specification. Note that the argument
-         * counts include the verb itself. */
+         * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields are extensions
+         * not (yet) covered by the specification, hence carry the "x-systemd." prefix which the
+         * specification requires for vendor extensions. Note that the argument counts include the
+         * verb itself. */
 
         if (verb->option_namespace) {
                 r = options_build_json(options, options_end, verb->option_namespace,
@@ -708,31 +733,43 @@ static int verb_build_json(
                         return r;
         }
 
+        r = synopsis_build_json(verb->argspec, &synopsis);
+        if (r < 0)
+                return r;
+
         r = sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "command"),
+                        SD_JSON_BUILD_PAIR_STRING("id", verb->verb),
                         SD_JSON_BUILD_PAIR_STRV("names", STRV_MAKE(verb->verb)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->help,
-                                        "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
+                                        "help", SD_JSON_BUILD_STRING(verb->help)),
+                        SD_JSON_BUILD_PAIR_STRV("sections", STRV_MAKE(group ?: "Commands")),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!opts,
+                                        "arguments", SD_JSON_BUILD_VARIANT(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->footer,
                                         "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(verb->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(
-                                        verb->min_args != VERB_ANY,
-                                        "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        verb->max_args != VERB_ANY,
-                                        "maxArguments", SD_JSON_BUILD_UNSIGNED(verb->max_args)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        FLAGS_SET(verb->flags, VERB_DEFAULT),
-                                        "isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                                        !!synopsis,
+                                        "synopsis", SD_JSON_BUILD_VARIANT(synopsis)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_DEPRECATED),
                                         "isDeprecated", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->min_args != VERB_ANY,
+                                        "x-systemd.minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->max_args != VERB_ANY,
+                                        "x-systemd.maxArguments", SD_JSON_BUILD_UNSIGNED(verb->max_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_DEFAULT),
+                                        "x-systemd.isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_ONLINE_ONLY),
-                                        "isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
+                                        "x-systemd.isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -746,7 +783,8 @@ static int command_build_json(
                 const Option options_end[],
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *opts = NULL, *cmds = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *docs = NULL,
+                *opts = NULL, *args = NULL, *synopsis = NULL;
         int r;
 
         assert(cmdverb);
@@ -764,45 +802,88 @@ static int command_build_json(
         }
         assert(names);  /* At least the primary name must be defined */
 
+        NULSTR_FOREACH(page, cmd->man_pages) {
+                const char *uri = strjoina("man:", page);
+
+                r = sd_json_variant_append_arrayb(&docs, SD_JSON_BUILD_STRING(uri));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON string to array: %m");
+        }
+
+        /* "arguments" lists the option objects first, followed by the verbs as nested command objects. */
         r = options_build_json(options, options_end, cmd->option_namespace, cmd->option_groups, &opts);
         if (r < 0)
                 return r;
 
+        sd_json_variant *o;
+        JSON_VARIANT_ARRAY_FOREACH(o, opts) {
+                r = sd_json_variant_append_array(&args, o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        const char *group = NULL;
         for (const Verb *verb = verbverbs; verb < verbs_end; verb++) {
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;  /* Start of entries for another command */
 
-                if (FLAGS_SET(verb->flags, VERB_GROUP_MARKER))
+                if (FLAGS_SET(verb->flags, VERB_GROUP_MARKER)) {
+                        group = verb->verb;
                         continue;
+                }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
-                r = verb_build_json(verb, options, options_end, &o);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = verb_build_json(verb, group, options, options_end, &v);
                 if (r < 0)
                         return r;
 
-                r = sd_json_variant_append_array(&cmds, o);
+                r = sd_json_variant_append_array(&args, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append JSON object to array: %m");
         }
+
+        r = synopsis_build_json(cmd->argspec, &synopsis);
+        if (r < 0)
+                return r;
+
+        /* Following the example in the specification, list the major version followed by the full
+         * version, unless they are the same. */
+        _cleanup_strv_free_ char **versions = strv_new(PROJECT_VERSION_STR, PROJECT_VERSION_FULL);
+        if (!versions)
+                return log_oom();
+        strv_uniq(versions);
 
         _cleanup_strv_free_ char **features = strv_split(systemd_features, /* separators= */ NULL);
         if (!features)
                 return log_oom();
 
+        /* The "id" is the primary name, as recommended by the specification. */
         r = sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "command"),
+                        SD_JSON_BUILD_PAIR_STRING("id", cmd->names),
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
                         SD_JSON_BUILD_PAIR_STRING("project", "systemd"),
-                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL),
+                        SD_JSON_BUILD_PAIR_STRV("versions", versions),
                         SD_JSON_BUILD_PAIR_STRV("features", features),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!docs,
+                                        "documentation", SD_JSON_BUILD_VARIANT(docs)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->abstract,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->footer,
                                         "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!cmds, "verbs", SD_JSON_BUILD_VARIANT(cmds)));
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!synopsis,
+                                        "synopsis", SD_JSON_BUILD_VARIANT(synopsis)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!args,
+                                        "arguments", SD_JSON_BUILD_VARIANT(args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(cmd->flags, COMMAND_EXPERIMENTAL),
+                                        "isExperimental", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -848,7 +929,7 @@ int _introspect_cli(
                         &w,
                         SD_JSON_BUILD_PAIR_STRING(
                                         "mediaType",
-                                        "application/vnd.io.systemd.cli-introspection-0"),
+                                        "application/vnd.uapi-group.cli-introspection"),
                         SD_JSON_BUILD_PAIR_VARIANT("commands", commands));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
