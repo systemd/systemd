@@ -12,7 +12,6 @@
 #include "log.h"
 #include "metrics.h"
 #include "path-util.h"
-#include "report-diskhealth.h"
 #include "report-diskhealth-ata.h"
 #include "report-diskhealth-nvme.h"
 #include "report-server.h"
@@ -513,11 +512,11 @@ static int disk_health_generate(const MetricFamily *mf, sd_varlink *link, void *
         return 0;
 }
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(disk_health_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(disk_health_metric_family_table, link, parameters, flags, userdata);
 }
 
