@@ -575,7 +575,9 @@ disk images with `--image=` or similar:
   (which is the default), the signature of suitable disk images is validated
   against any of the certificates in `/etc/verity.d/*.crt` (and similar
   directories in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
-  against its built-in certificates.
+  against its built-in certificates. A signature that fails validation only
+  prevents activation if the image policy allows `signed` but not `verity`, see
+  `systemd.image-policy(7)`.
 
 * `$SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=sec` — takes a timespan, which controls
   the timeout waiting for the image to be configured. Defaults to 100 msec.
