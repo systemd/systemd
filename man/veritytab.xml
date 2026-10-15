@@ -221,8 +221,9 @@ This is based on crypttab(5).
         <literal>base64:</literal>, or an absolute path to a root hash signature file used to verify the root
         hash (in kernel). If the special string <literal>auto</literal> is specified, the root hash signature
         is attempted to be read from the udev property <literal>ID_DISSECT_PART_ROOTHASH_SIG=</literal> (in
-        Base64 format) of the data device. This feature requires Linux kernel version 5.4 or more
-        recent.</para>
+        Base64 format) of the data device. If the data device doesn't have this property, the device is
+        activated without a root hash signature, unless <option>root-hash-signature-required=yes</option> is
+        specified. This feature requires Linux kernel version 5.4 or more recent.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
