@@ -28,6 +28,12 @@ loaderentry_install = custom_target(
         install_dir : kernelinstalldir)
 
 uki_copy_install = files('90-uki-copy.install')
+boot_counting_helper = configure_file(
+        input : 'boot-counting.sh',
+        output : 'boot-counting.sh',
+        copy : true,
+        install : want_kernel_install,
+        install_dir : kernelinstalldir)
 
 kernel_install_files = uki_copy_install + files(
         '50-depmod.install',
