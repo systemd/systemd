@@ -9,6 +9,9 @@ PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
+# --introspect-cli itself is marked as experimental
+export SYSTEMD_EXPERIMENTAL=1
+
 # Options and verbs (nested command objects) share the "arguments" array of a command object.
 JQ_DEFS='def opts: [.arguments[]? | select(.type == "option")];
          def verbs: [.arguments[]? | select(.type == "command")];'
