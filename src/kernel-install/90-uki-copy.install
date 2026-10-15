@@ -32,6 +32,15 @@ ENTRY_NAME="${KERNEL_INSTALL_ENTRY_NAME:-$ENTRY_TOKEN-$KERNEL_VERSION}"
 
 UKI_DIR="$BOOT_ROOT/EFI/Linux"
 
+is_valid_boot_count() {
+    case "$1" in
+        ''|*[!0-9-]*|[-]*|*-|*-*-*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
 case "$COMMAND" in
     remove)
         if [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type1" ]; then
@@ -40,11 +49,21 @@ case "$COMMAND" in
             exit 0
         fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $UKI_DIR/$ENTRY_NAME*.efi and extras"
-        exec rm -rf \
-            "$UKI_DIR/$ENTRY_NAME.efi" \
-            "$UKI_DIR/$ENTRY_NAME.efi.extra.d/" \
-            "$UKI_DIR/$ENTRY_NAME+"*".efi"
+            echo "Removing '$UKI_DIR/$ENTRY_NAME.efi' and its boot-counted variants and extras"
+        rm -f "$UKI_DIR/$ENTRY_NAME.efi"
+        rm -rf "$UKI_DIR/$ENTRY_NAME.efi.extra.d/"
+        for uki in "$UKI_DIR/$ENTRY_NAME+"*.efi; do
+            [ "$uki" = "$UKI_DIR/$ENTRY_NAME+*.efi" ] && break
+
+            tries="${uki#"$UKI_DIR/$ENTRY_NAME"+}"
+            tries="${tries%.efi}"
+            is_valid_boot_count "$tries" || continue
+
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Removing boot-counted UKI '$uki'."
+            rm -f "$uki"
+        done
+        exit 0
         ;;
     add)
         ;;
@@ -75,6 +94,9 @@ if [ -f "$TRIES_FILE" ]; then
     fi
     for uki in "$UKI_DIR/$ENTRY_NAME+"*.efi; do
         [ "$uki" = "$UKI_DIR/$ENTRY_NAME+*.efi" ] && break
+        tries="${uki#"$UKI_DIR/$ENTRY_NAME"+}"
+        tries="${tries%.efi}"
+        is_valid_boot_count "$tries" || continue
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing previous UKI '$uki' that has not yet booted successfully." >&2
         rm -f "$uki"
