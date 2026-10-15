@@ -582,7 +582,7 @@ static int output_short(
                 if (r < 0)
                         return r;
         }
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -805,7 +805,7 @@ static int output_verbose(
         (void) sd_journal_set_data_threshold(j, 0);
 
         r = get_display_realtime(j, &usec);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Unable to read realtime timestamp from entry, assuming bad or partially written entry: %m");
                 return 0;
         }
@@ -932,7 +932,7 @@ static int output_export(
         (void) sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Unable to determine cursor of entry, assuming bad or partially written entry: %m");
                 return 0;
         }
@@ -1017,7 +1017,7 @@ static int output_export(
 
                 fputc('\n', f);
         }
-        if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1219,7 +1219,7 @@ int journal_entry_to_json(
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 corrupted_what = "cursor";
                 goto corrupted_skip;
         }
@@ -1292,7 +1292,7 @@ int journal_entry_to_json(
                 size_t size;
 
                 r = sd_journal_enumerate_data(j, &data, &size);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         return 0;
                 }
@@ -1375,7 +1375,7 @@ static int output_cat_field(
                 get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
         r = sd_journal_get_data(j, field, &data, &l);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1441,7 +1441,7 @@ static int output_cat(
                 /* Determine priority of this entry, so that we can color it nicely */
 
                 r = sd_journal_get_data(j, "PRIORITY", &data, &l);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         return 0;
                 }
