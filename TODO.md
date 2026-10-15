@@ -1187,8 +1187,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     work for ECDSA keys since their signatures contain a random component, but
     will work for RSA and Ed25519 keys.
 
-- honour validatefs xattrs in dissect-image.c too
-
 - hook up journald with TPMs? measure new journal records to the TPM in regular
   intervals, validate the journal against current TPM state with that. (taking
   inspiration from IMA log)
