@@ -3190,6 +3190,109 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
 
+int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root) {
+        int r;
+
+        /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
+
+        r = secure_getenv_bool("SYSTEMD_ALLOW_USERSPACE_VERITY");
+        if (r < 0 && r != -ENXIO) {
+                log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!r) {
+                log_debug("Userspace dm-verity signature authentication disabled via $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable.");
+                return 0;
+        }
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.allow_userspace_verity", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse systemd.allow_userspace_verity= kernel command line option, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!b) {
+                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line option.");
+                return 0;
+        }
+
+#if HAVE_OPENSSL
+        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
+        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *s = NULL;
+        _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
+                                               * of declaration in place, please */
+        assert(iovec_is_set(root_hash));
+        assert(iovec_is_set(root_hash_sig));
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
+         * userspace validation. */
+
+        r = conf_files_list_nulstr(&certs, ".crt", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate certificates: %m");
+        if (strv_isempty(certs)) {
+                log_debug("No userspace dm-verity certificates found.");
+                return 0;
+        }
+
+        const unsigned char *d = root_hash_sig->iov_base;
+        p7 = sym_d2i_PKCS7(NULL, &d, (long) root_hash_sig->iov_len);
+        if (!p7)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
+
+        s = hexmem(root_hash->iov_base, root_hash->iov_len);
+        if (!s)
+                return log_oom_debug();
+
+        bio = sym_BIO_new_mem_buf(s, strlen(s));
+        if (!bio)
+                return log_oom_debug();
+
+        sk = sym_sk_X509_new_null();
+        if (!sk)
+                return log_oom_debug();
+
+        STRV_FOREACH(i, certs) {
+                _cleanup_(X509_freep) X509 *c = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*i, "re");
+                if (!f) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
+                if (!c) {
+                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
+                        continue;
+                }
+
+                if (sym_sk_X509_push(sk, c) == 0)
+                        return log_oom_debug();
+
+                TAKE_PTR(c);
+        }
+
+        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        if (r)
+                log_debug("Userspace PKCS#7 validation succeeded.");
+        else
+                log_openssl_errors(LOG_DEBUG, "Userspace PKCS#7 validation failed");
+
+        return r;
+#else
+        log_debug("Not doing client-side validation of dm-verity root hash signatures, OpenSSL support disabled.");
+        return 0;
+#endif
+}
+
 #if HAVE_LIBCRYPTSETUP
 static int decrypted_image_new(DecryptedImage **ret) {
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
@@ -3454,112 +3557,14 @@ static char* dm_deferred_remove_clean(char *name) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
 static int validate_signature_userspace(const VeritySettings *verity, const char *root, DissectImageFlags flags) {
-        int r;
-
-        /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
+        assert(verity);
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_USERSPACE_VERITY)) {
                 log_debug("Userspace dm-verity signature authentication disabled via flag.");
                 return 0;
         }
 
-        r = secure_getenv_bool("SYSTEMD_ALLOW_USERSPACE_VERITY");
-        if (r < 0 && r != -ENXIO) {
-                log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
-                return 0;
-        }
-        if (!r) {
-                log_debug("Userspace dm-verity signature authentication disabled via $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable.");
-                return 0;
-        }
-
-        bool b;
-        r = proc_cmdline_get_bool("systemd.allow_userspace_verity", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse systemd.allow_userspace_verity= kernel command line option, refusing userspace dm-verity signature authentication.");
-                return 0;
-        }
-        if (!b) {
-                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line option.");
-                return 0;
-        }
-
-#if HAVE_OPENSSL
-        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
-        _cleanup_strv_free_ char **certs = NULL;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        _cleanup_free_ char *s = NULL;
-        _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
-                                               * of declaration in place, please */
-        assert(verity);
-        assert(iovec_is_set(&verity->root_hash));
-        assert(iovec_is_set(&verity->root_hash_sig));
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
-        /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
-         * userspace validation. */
-
-        r = conf_files_list_nulstr(&certs, ".crt", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enumerate certificates: %m");
-        if (strv_isempty(certs)) {
-                log_debug("No userspace dm-verity certificates found.");
-                return 0;
-        }
-
-        const unsigned char *d = verity->root_hash_sig.iov_base;
-        p7 = sym_d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig.iov_len);
-        if (!p7)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
-
-        s = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
-        if (!s)
-                return log_oom_debug();
-
-        bio = sym_BIO_new_mem_buf(s, strlen(s));
-        if (!bio)
-                return log_oom_debug();
-
-        sk = sym_sk_X509_new_null();
-        if (!sk)
-                return log_oom_debug();
-
-        STRV_FOREACH(i, certs) {
-                _cleanup_(X509_freep) X509 *c = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-
-                f = fopen(*i, "re");
-                if (!f) {
-                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
-                        continue;
-                }
-
-                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
-                if (!c) {
-                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
-                        continue;
-                }
-
-                if (sym_sk_X509_push(sk, c) == 0)
-                        return log_oom_debug();
-
-                TAKE_PTR(c);
-        }
-
-        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
-        if (r)
-                log_debug("Userspace PKCS#7 validation succeeded.");
-        else
-                log_openssl_errors(LOG_DEBUG, "Userspace PKCS#7 validation failed");
-
-        return r;
-#else
-        log_debug("Not doing client-side validation of dm-verity root hash signatures, OpenSSL support disabled.");
-        return 0;
-#endif
+        return verity_validate_signature_userspace(&verity->root_hash, &verity->root_hash_sig, root);
 }
 
 static bool verity_device_exists(const char *name) {
