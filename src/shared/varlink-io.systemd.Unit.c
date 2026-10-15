@@ -188,7 +188,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupTasksMax,
                 SD_VARLINK_FIELD_COMMENT("The maximum amount of tasks"),
                 SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The scaling factor. Output only: on input use TasksMaxScale instead"),
+                SD_VARLINK_FIELD_COMMENT("The scaling factor. If non-zero, the limit is value/scale of the system's maximum number of tasks. Zero or null means value is an absolute task count"),
                 SD_VARLINK_DEFINE_FIELD(scale, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
