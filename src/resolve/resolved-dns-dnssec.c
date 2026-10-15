@@ -1348,10 +1348,25 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
 
+static int ds_applies_to_dnskey(DnsResourceRecord *ds, DnsAnswerFlags flags, DnsResourceRecord *dnskey) {
+        assert(ds);
+        assert(dnskey);
+
+        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                return false;
+
+        if (ds->key->type != DNS_TYPE_DS)
+                return false;
+        if (ds->key->class != dnskey->key->class)
+                return false;
+
+        return dns_name_equal(dns_resource_key_name(dnskey->key), dns_resource_key_name(ds->key));
+}
+
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
-        bool found_unsupported_algorithm = false;
+        bool found_unsupported_algorithm = false, ignore_sha1 = false;
         int r;
 
         assert(dnskey);
@@ -1359,20 +1374,37 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
         if (dnskey->key->type != DNS_TYPE_DNSKEY)
                 return 0;
 
+        /* RFC 4509, Section 3: ignore SHA-1 DS RRs if there's a stronger one we can use */
+
+        r = dlopen_libcrypto(LOG_WARNING);
+        if (r < 0)
+                return r;
+
         DNS_ANSWER_FOREACH_FLAGS(ds, flags, validated_ds) {
 
-                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                        continue;
-
-                if (ds->key->type != DNS_TYPE_DS)
-                        continue;
-                if (ds->key->class != dnskey->key->class)
-                        continue;
-
-                r = dns_name_equal(dns_resource_key_name(dnskey->key), dns_resource_key_name(ds->key));
+                r = ds_applies_to_dnskey(ds, flags, dnskey);
                 if (r < 0)
                         return r;
                 if (r == 0)
+                        continue;
+
+                if (IN_SET(ds->ds.digest_type, DNSSEC_DIGEST_SHA256, DNSSEC_DIGEST_SHA384) &&
+                    dnssec_algorithm_supported(ds->ds.algorithm) &&
+                    md_supported(digest_to_hash_md(ds->ds.digest_type))) {
+                        ignore_sha1 = true;
+                        break;
+                }
+        }
+
+        DNS_ANSWER_FOREACH_FLAGS(ds, flags, validated_ds) {
+
+                r = ds_applies_to_dnskey(ds, flags, dnskey);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (ignore_sha1 && ds->ds.digest_type == DNSSEC_DIGEST_SHA1)
                         continue;
 
                 r = dnssec_verify_dnskey_by_ds(dnskey, ds, /* mask_revoke= */ false);
