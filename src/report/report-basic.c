@@ -29,11 +29,20 @@
 #include "procfs-util.h"
 #include "psi-util.h"
 #include "report-basic.h"
+#include "report-server.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-report-basic\0",
+        "Generate a report describing the current system.",
+);
+
+const sd_varlink_server_flags_t report_server_flags = 0;
 
 #define LINUX_BIRTHDATE_NSEC (685065600LU * NSEC_PER_SEC)
 
@@ -1065,4 +1074,8 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
 
 int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(metric_family_table, link, parameters, flags, userdata);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }
