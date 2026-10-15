@@ -3538,13 +3538,15 @@ static int do_crypt_activate_verity(
                 /* Preferably propagate the original kernel error, so that the fallback logic can work,
                  * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, root, flags);
-                if (k < 0)
+                if (k == -ENOMEM)
                         return k;
-                if (k == 0) {
-                        log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
+                if (k <= 0) {
+                        if (k < 0)
+                                log_debug_errno(k, "Userspace validation of dm-verity signature failed: %m");
+                        log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace.");
 
-                        /* So if we had a signature and we're supposed to exclusively allow
-                         * signature-based activation, then return the error now */
+                        /* If the policy allows "verity" as well as "signed", the signature is optional and
+                         * we activate the volume by its root hash. */
                         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
                                 return r < 0 ? r : -EDESTADDRREQ;
 
