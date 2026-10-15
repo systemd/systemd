@@ -22,6 +22,7 @@ typedef struct RemoteServer {
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
         bool check_trust;
+        bool add_client_certificate_subject;
         JournalMetrics metrics;
 } RemoteServer;
 extern RemoteServer *journal_remote_server_global;
