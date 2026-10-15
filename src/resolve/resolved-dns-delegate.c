@@ -271,7 +271,7 @@ int config_parse_delegate_dns_servers(
                         continue;
 
                 /* By default, the port number is determined with the transaction feature level.
-                 * See dns_transaction_port() and dns_server_port(). */
+                 * See dns_server_transport_port() and dns_server_port(). */
                 if (IN_SET(port, 53, 853))
                         port = 0;
 
