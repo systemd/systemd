@@ -61,6 +61,9 @@ CHANGES WITH 263 in spe:
         * systemd-portabled now asks polkit before it inspects extension
           images that are specified by path.
 
+        * systemd-mountfsd now asks polkit if the image policy denies
+          setting up Verity.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
