@@ -3,7 +3,12 @@
 sd_journal_sources = files(
         'sd-journal/catalog.c',
         'sd-journal/journal-authenticate-internal.c',
+        'sd-journal/journal-segmented.c',
+        'sd-journal/journal-segmented-index.c',
+        'sd-journal/journal-segmented-query.c',
+        'sd-journal/journal-segmented-write.c',
         'sd-journal/journal-file.c',
+        'sd-journal/journal-postings.c',
         'sd-journal/journal-send.c',
         'sd-journal/journal-vacuum.c',
         'sd-journal/journal-verify.c',
@@ -198,11 +203,10 @@ simple_tests += files(
         'sd-journal/test-catalog.c',
         'sd-journal/test-journal-flush.c',
         'sd-journal/test-journal-init.c',
-        'sd-journal/test-journal-interleaving.c',
         'sd-journal/test-journal-match.c',
+        'sd-journal/test-journal-postings.c',
         'sd-journal/test-journal-send.c',
         'sd-journal/test-journal-stream.c',
-        'sd-journal/test-journal.c',
         'sd-journal/test-mmap-cache.c',
         'sd-login/test-login.c',
         'sd-login/test-sd-login.c',
@@ -272,8 +276,21 @@ libsystemd_tests += [
                 'export' : files('sd-journal/journal-test-util.c'),
         },
         {
+                'sources' : files('sd-journal/test-journal.c'),
+                'import' : ['test-journal-file'],
+        },
+        {
+                'sources' : files('sd-journal/test-journal-interleaving.c'),
+                'import' : ['test-journal-file'],
+        },
+        {
                 'sources' : files('sd-journal/test-journal-append.c'),
                 'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-journal/test-journal-segmented.c'),
+                'import' : ['test-journal-file'],
+                'timeout' : 360,
         },
         {
                 'sources' : files('sd-journal/test-journal-benchmark.c'),
