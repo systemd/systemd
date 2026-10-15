@@ -20,6 +20,36 @@
 
 set -e
 
+is_valid_boot_count() {
+    case "$1" in
+        ''|*[!0-9-]*|[-]*|*-|*-*-*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+remove_boot_counted_files() {
+    boot_counted_prefix=$1
+    boot_counted_suffix=$2
+    boot_counted_message=$3
+    shift 3
+
+    for boot_counted_file in "$boot_counted_prefix"+*"$boot_counted_suffix"; do
+        [ -e "$boot_counted_file" ] || [ -L "$boot_counted_file" ] || continue
+
+        boot_counted_tries=${boot_counted_file#"$boot_counted_prefix"+}
+        boot_counted_tries=${boot_counted_tries%"$boot_counted_suffix"}
+        is_valid_boot_count "$boot_counted_tries" || continue
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "$boot_counted_message '$boot_counted_file'."
+        set -- "$@" "$boot_counted_file"
+    done
+
+    [ "$#" -eq 0 ] || rm -rf -- "$@"
+}
+
 COMMAND="${1:?}"
 KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="${3:?}"
@@ -55,11 +85,11 @@ case "$COMMAND" in
                 echo "BOOT_ENTRY_TYPE=type2, not removing loader entries."
             exit 0
         fi
+        LOADER_ENTRY_BASE="${LOADER_ENTRY%.conf}"
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
-        exec rm -f \
-            "$LOADER_ENTRY" \
-            "${LOADER_ENTRY%.conf}"*".conf"
+            echo "Removing '$LOADER_ENTRY' and its boot-counted variants."
+        remove_boot_counted_files "$LOADER_ENTRY_BASE" .conf "Removing boot-counted loader entry" "$LOADER_ENTRY"
+        exit 0
         ;;
     add)
         ;;
@@ -118,12 +148,7 @@ if [ -f "$TRIES_FILE" ]; then
             echo "Removing previous loader entry '$LOADER_ENTRY' without boot counting." >&2
         rm -f "$LOADER_ENTRY"
     fi
-    for loaderentry in "${LOADER_ENTRY%.conf}+"*.conf; do
-        [ "$loaderentry" = "${LOADER_ENTRY%.conf}+*.conf" ] && break
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing previous loader entry '$loaderentry' that has not yet booted successfully." >&2
-        rm -f "$loaderentry"
-    done
+    remove_boot_counted_files "${LOADER_ENTRY%.conf}" .conf "Removing previous loader entry" >&2
     LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
 fi
 

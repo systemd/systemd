@@ -20,6 +20,36 @@
 
 set -e
 
+is_valid_boot_count() {
+    case "$1" in
+        ''|*[!0-9-]*|[-]*|*-|*-*-*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+remove_boot_counted_files() {
+    boot_counted_prefix=$1
+    boot_counted_suffix=$2
+    boot_counted_message=$3
+    shift 3
+
+    for boot_counted_file in "$boot_counted_prefix"+*"$boot_counted_suffix"; do
+        [ -e "$boot_counted_file" ] || [ -L "$boot_counted_file" ] || continue
+
+        boot_counted_tries=${boot_counted_file#"$boot_counted_prefix"+}
+        boot_counted_tries=${boot_counted_tries%"$boot_counted_suffix"}
+        is_valid_boot_count "$boot_counted_tries" || continue
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "$boot_counted_message '$boot_counted_file'."
+        set -- "$@" "$boot_counted_file"
+    done
+
+    [ "$#" -eq 0 ] || rm -rf -- "$@"
+}
+
 COMMAND="${1:?}"
 KERNEL_VERSION="${2:?}"
 # shellcheck disable=SC2034
@@ -40,11 +70,10 @@ case "$COMMAND" in
             exit 0
         fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $UKI_DIR/$ENTRY_NAME*.efi and extras"
-        exec rm -rf \
-            "$UKI_DIR/$ENTRY_NAME.efi" \
-            "$UKI_DIR/$ENTRY_NAME.efi.extra.d/" \
-            "$UKI_DIR/$ENTRY_NAME+"*".efi"
+            echo "Removing '$UKI_DIR/$ENTRY_NAME.efi' and its boot-counted variants and extras"
+        remove_boot_counted_files "$UKI_DIR/$ENTRY_NAME" .efi "Removing boot-counted UKI" \
+            "$UKI_DIR/$ENTRY_NAME.efi" "$UKI_DIR/$ENTRY_NAME.efi.extra.d/"
+        exit 0
         ;;
     add)
         ;;
@@ -73,12 +102,7 @@ if [ -f "$TRIES_FILE" ]; then
             echo "Removing previous UKI '$UKI_DIR/$ENTRY_NAME.efi' without boot counting." >&2
         rm -f "$UKI_DIR/$ENTRY_NAME.efi"
     fi
-    for uki in "$UKI_DIR/$ENTRY_NAME+"*.efi; do
-        [ "$uki" = "$UKI_DIR/$ENTRY_NAME+*.efi" ] && break
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing previous UKI '$uki' that has not yet booted successfully." >&2
-        rm -f "$uki"
-    done
+    remove_boot_counted_files "$UKI_DIR/$ENTRY_NAME" .efi "Removing previous UKI" >&2
 
     UKI_FILE="$UKI_DIR/$ENTRY_NAME+$TRIES.efi"
 else
