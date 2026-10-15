@@ -104,6 +104,36 @@ umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
 
+# A signature that can't be validated only prevents activation if the image policy allows "signed" but not
+# "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
+# reports a mismatch instead of failing on the garbage signature. The test image usually contains
+# /usr/lib/verity.d/mkosi.crt, but we install a certificate in /run/verity.d/ to be sure.
+mkdir -p /run/verity.d
+cp /usr/share/mkosi.crt /run/verity.d/test-50-mkosi.crt
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=test-50-unknown \
+            -keyout /tmp/test-50-unknown.key -out /tmp/test-50-unknown.crt
+openssl smime -sign -nocerts -noattr -binary \
+              -in "$MINIMAL_IMAGE.roothash" \
+              -inkey /tmp/test-50-unknown.key \
+              -signer /tmp/test-50-unknown.crt \
+              -outform der \
+              -out /tmp/test-50-unknown.p7s
+head -c 64 /dev/urandom >/tmp/test-50-garbage.p7s
+for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" >/dev/null
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" \
+                                             --image-policy=root=verity+signed >/dev/null
+    (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                                --root-hash-sig="$sig" \
+                                                --image-policy=root=signed >/dev/null)
+done
+rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
