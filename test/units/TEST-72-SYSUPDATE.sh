@@ -1181,6 +1181,42 @@ test -L "$ROOT_CLEANUP_ROOT/var/lib/systemd/sysupdate/installdb/$ROOT_CLEANUP_DB
 
 rm -rf "$ROOT_CLEANUP"
 
+# A failed install database write must make "update" fail, rather than report
+# success after installing a resource that cleanup cannot track.
+ROOT_INSTALLDB_FAILURE="$WORKDIR/root-installdb-failure"
+mkdir -p "$ROOT_INSTALLDB_FAILURE/etc/sysupdate.d" \
+         "$ROOT_INSTALLDB_FAILURE/source" \
+         "$ROOT_INSTALLDB_FAILURE/target" \
+         "$ROOT_INSTALLDB_FAILURE/var/lib/systemd/sysupdate"
+
+cat >"$ROOT_INSTALLDB_FAILURE/etc/sysupdate.d/01-alpha.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=/source
+MatchPattern=alpha-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=alpha-@v.bin
+InstancesMax=1
+EOF
+
+echo "$RANDOM" >"$ROOT_INSTALLDB_FAILURE/source/alpha-v1.bin"
+(cd "$ROOT_INSTALLDB_FAILURE/source" && sha256sum alpha-* >SHA256SUMS)
+touch "$ROOT_INSTALLDB_FAILURE/var/lib/systemd/sysupdate/installdb"
+
+set +e
+"$SYSUPDATE" --root="$ROOT_INSTALLDB_FAILURE" --verify=no update \
+    &>"$ROOT_INSTALLDB_FAILURE/update.log"
+rc=$?
+set -e
+[[ $rc -ne 0 ]]
+grep -F "Failed to open install database" "$ROOT_INSTALLDB_FAILURE/update.log" >/dev/null
+test -f "$ROOT_INSTALLDB_FAILURE/target/alpha-v1.bin"
+
+rm -rf "$ROOT_INSTALLDB_FAILURE"
+
 # Briefly check the "--component-all" switch of the "cleanup" verb. Each component
 # keeps its own install database (installdb.<component>), and "cleanup
 # --component-all" must clean up orphaned resources across *all* of them in one

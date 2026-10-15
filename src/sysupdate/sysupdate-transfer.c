@@ -1762,7 +1762,9 @@ int transfer_install_instance(
 
                 t->temporary_pending_path = mfree(t->temporary_pending_path);
 
-                (void) context_installdb_record(t->context, t->target.path, t->target.patterns);
+                r = context_installdb_record(t->context, t->target.path, t->target.patterns);
+                if (r < 0)
+                        return r;
         }
 
         if (t->final_partition_label) {
