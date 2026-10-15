@@ -384,6 +384,76 @@ testcase_kill_properties() {
     echo "$unsupported_kill" | grep "Kill.KillSignal"
 }
 
+testcase_exec_commands() {
+    setup
+
+    local payload fragment
+    TEMP_FILES+=(/tmp/varlink-exec-{condition,start-pre,start,start-post,reload,reload-post,stop,stop-post})
+    rm -f "${TEMP_FILES[@]}"
+    defer_transient_cleanup varlink-transient-exec-commands.service
+
+    payload='{"context":{"ID":"varlink-transient-exec-commands.service","Service":{"Type":"oneshot","RemainAfterExit":true,
+        "ExecCondition":  [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-condition"]}],
+        "ExecStartPre":   [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-start-pre"]}],
+        "ExecStart":      [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-start"]}],
+        "ExecStartPost":  [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-start-post"]}],
+        "ExecReload":     [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-reload"]}],
+        "ExecReloadPost": [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-reload-post"]}],
+        "ExecStop":       [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-stop"]}],
+        "ExecStopPost":   [{"path":"/usr/bin/touch","arguments":["/usr/bin/touch","/tmp/varlink-exec-stop-post"]}]
+    }},"notifyJobChanges":true}'
+
+    varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient "$payload" >/dev/null
+
+    fragment=$(systemctl show -P FragmentPath varlink-transient-exec-commands.service)
+    grep -Fx 'ExecCondition="/usr/bin/touch" "/tmp/varlink-exec-condition"'          "$fragment" >/dev/null
+    grep -Fx 'ExecStartPre="/usr/bin/touch" "/tmp/varlink-exec-start-pre"'           "$fragment" >/dev/null
+    grep -Fx 'ExecStart="/usr/bin/touch" "/tmp/varlink-exec-start"'                  "$fragment" >/dev/null
+    grep -Fx 'ExecStartPost="/usr/bin/touch" "/tmp/varlink-exec-start-post"'         "$fragment" >/dev/null
+    grep -Fx 'ExecReload="/usr/bin/touch" "/tmp/varlink-exec-reload"'                "$fragment" >/dev/null
+    grep -Fx 'ExecReloadPost="/usr/bin/touch" "/tmp/varlink-exec-reload-post"'       "$fragment" >/dev/null
+    grep -Fx 'ExecStop="/usr/bin/touch" "/tmp/varlink-exec-stop"'                    "$fragment" >/dev/null
+    grep -Fx 'ExecStopPost="/usr/bin/touch" "/tmp/varlink-exec-stop-post"'           "$fragment" >/dev/null
+
+    test -e /tmp/varlink-exec-condition
+    test -e /tmp/varlink-exec-start-pre
+    test -e /tmp/varlink-exec-start
+    test -e /tmp/varlink-exec-start-post
+
+    test ! -e /tmp/varlink-exec-reload
+    test ! -e /tmp/varlink-exec-reload-post
+    systemctl reload varlink-transient-exec-commands.service
+    test -e /tmp/varlink-exec-reload
+    test -e /tmp/varlink-exec-reload-post
+
+    test ! -e /tmp/varlink-exec-stop
+    test ! -e /tmp/varlink-exec-stop-post
+    systemctl stop varlink-transient-exec-commands.service
+    test -e /tmp/varlink-exec-stop
+    test -e /tmp/varlink-exec-stop-post
+}
+
+testcase_exec_commands_invalid() {
+    setup
+
+    local field unit
+    local -a fields=(ExecCondition ExecStartPre ExecStart ExecStartPost ExecReload ExecReloadPost ExecStop ExecStopPost)
+
+    for field in "${fields[@]}"; do
+        unit="varlink-transient-invalid-${field}.service"
+        defer_transient_cleanup "$unit"
+        expect_invalid_parameter \
+            '{"context":{"ID":"'"$unit"'","Service":{"Type":"oneshot","'"$field"'":[{"path":"relative/path"}]}}}' \
+            "Service.$field"
+
+        unit="varlink-transient-invalid-flags-${field}.service"
+        defer_transient_cleanup "$unit"
+        expect_invalid_parameter \
+            '{"context":{"ID":"'"$unit"'","Service":{"Type":"oneshot","'"$field"'":[{"path":"/bin/true","privileged":true,"noSetuid":true}]}}}' \
+            "Service.$field"
+    done
+}
+
 testcase_exec_flags() {
     setup
 

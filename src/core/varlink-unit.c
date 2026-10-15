@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <paths.h>
-
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -806,8 +804,8 @@ static void transient_kill_context_parameters_init(TransientKillContextParameter
 typedef struct TransientServiceParameters {
         bool present;
         ServiceType type;
-        TransientExecCommandItem *exec_start;
-        size_t n_exec_start;
+        TransientExecCommandItem *exec_commands[_SERVICE_EXEC_COMMAND_MAX];
+        size_t n_exec_commands[_SERVICE_EXEC_COMMAND_MAX];
         int remain_after_exit;
         /* Indices of stdio fds attached to the method call (SCM_RIGHTS), UINT_MAX if unset. Resolved into
          * the owned fds below by transient_service_resolve_stdio_fds(). */
@@ -821,9 +819,11 @@ typedef struct TransientServiceParameters {
 
 static void transient_service_parameters_done(TransientServiceParameters *p) {
         assert(p);
-        FOREACH_ARRAY(i, p->exec_start, p->n_exec_start)
-                transient_exec_command_item_done(i);
-        free(p->exec_start);
+        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
+                FOREACH_ARRAY(i, p->exec_commands[c], p->n_exec_commands[c])
+                        transient_exec_command_item_done(i);
+                free(p->exec_commands[c]);
+        }
         safe_close(p->stdin_fd);
         safe_close(p->stdout_fd);
         safe_close(p->stderr_fd);
@@ -882,29 +882,33 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
                 {}
         };
 
+        ServiceExecCommand c = service_exec_command_from_string(name);
         TransientServiceParameters *p = ASSERT_PTR(userdata);
         size_t n;
         int r;
 
+        assert(c >= 0);
+
         if (!sd_json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for ExecStart.");
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for %s.", name);
 
         n = sd_json_variant_elements(variant);
         if (n == 0)
                 return 0;
 
-        p->exec_start = new0(TransientExecCommandItem, n);
-        if (!p->exec_start)
+        p->exec_commands[c] = new0(TransientExecCommandItem, n);
+        if (!p->exec_commands[c])
                 return -ENOMEM;
-        p->n_exec_start = n;
+        p->n_exec_commands[c] = n;
 
         for (size_t i = 0; i < n; i++) {
                 sd_json_variant *element = sd_json_variant_by_index(variant, i);
 
-                r = sd_json_dispatch(element, exec_command_dispatch, /* flags= */ 0, &p->exec_start[i]);
+                r = sd_json_dispatch(element, exec_command_dispatch, /* flags= */ 0, &p->exec_commands[c][i]);
                 if (r < 0)
                         return r;
         }
+
         return 0;
 }
 
@@ -1088,7 +1092,14 @@ static int dispatch_transient_kill(const char *name, sd_json_variant *variant, s
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field service_dispatch[] = {
                 { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
+                { "ExecCondition",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStartPre",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
                 { "ExecStart",                    SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStartPost",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecReload",                   SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecReloadPost",               SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStop",                     SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStopPost",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
                 { "RemainAfterExit",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), 0 },
                 { "StandardInputFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdin_fd_index),    0 },
                 { "StandardOutputFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdout_fd_index),   0 },
@@ -1907,7 +1918,18 @@ static int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServic
         return 0;
 }
 
+/* Consumes command argument vectors and stdio fds from sp as they are applied, including on failure. */
 static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_field) {
+        static const char* const exec_fields[_SERVICE_EXEC_COMMAND_MAX] = {
+                [SERVICE_EXEC_CONDITION]   = "Service.ExecCondition",
+                [SERVICE_EXEC_START_PRE]   = "Service.ExecStartPre",
+                [SERVICE_EXEC_START]       = "Service.ExecStart",
+                [SERVICE_EXEC_START_POST]  = "Service.ExecStartPost",
+                [SERVICE_EXEC_RELOAD]      = "Service.ExecReload",
+                [SERVICE_EXEC_RELOAD_POST] = "Service.ExecReloadPost",
+                [SERVICE_EXEC_STOP]        = "Service.ExecStop",
+                [SERVICE_EXEC_STOP_POST]   = "Service.ExecStopPost",
+        };
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
 
@@ -1942,81 +1964,49 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "RemainAfterExit", "RemainAfterExit=%s", yes_no(sp->remain_after_exit));
         }
 
-        FOREACH_ARRAY(item, sp->exec_start, sp->n_exec_start) {
-                _cleanup_(exec_command_freep) ExecCommand *c = NULL;
-                _cleanup_strv_free_ char **argv = NULL;
-                const char *path = item->path;
+        for (ServiceExecCommand cmd = 0; cmd < _SERVICE_EXEC_COMMAND_MAX; cmd++) {
+                const char *name = service_exec_command_to_string(cmd);
 
-                if (item->privileged && item->no_setuid) {
-                        if (reterr_field)
-                                *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "ExecStart 'privileged' and 'noSetuid' flags may not be combined.");
-                }
+                FOREACH_ARRAY(item, sp->exec_commands[cmd], sp->n_exec_commands[cmd]) {
+                        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+                        ExecCommandFlags command_flags;
 
-                if (item->via_shell)
-                        /* Always normalize path (and argv[0] below) to "sh", matching the D-Bus and unit
-                         * file counterparts. The real shell of the target user is determined at execution
-                         * time. */
-                        path = _PATH_BSHELL;
-                else if (!filename_or_absolute_path_is_valid(path)) {
-                        if (reterr_field)
-                                *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", path);
-                }
+                        if (item->privileged && item->no_setuid) {
+                                if (reterr_field)
+                                        *reterr_field = exec_fields[cmd];
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s 'privileged' and 'noSetuid' flags may not be combined.", name);
+                        }
 
-                if (!strv_isempty(item->arguments)) {
-                        argv = strv_copy(item->arguments);
-                        if (!argv)
-                                return -ENOMEM;
-                }
+                        if (!item->via_shell && !filename_or_absolute_path_is_valid(item->path)) {
+                                if (reterr_field)
+                                        *reterr_field = exec_fields[cmd];
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid %s path: %s", name, item->path);
+                        }
 
-                c = new0(ExecCommand, 1);
-                if (!c)
-                        return -ENOMEM;
+                        command_flags =
+                                (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
+                                (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
+                                (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
+                                (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
+                                (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
 
-                c->flags =
-                        (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
-                        (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
-                        (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
-                        (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
-                        (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
-
-                r = path_simplify_alloc(path, &c->path);
-                if (r < 0)
-                        return r;
-
-                if (item->via_shell) {
-                        /* Normalize argv[0] to "sh", preserving login shell semantics requested via a
-                         * leading dash. */
-                        if (strv_isempty(argv))
-                                r = strv_extend(&argv, "sh");
-                        else
-                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                        r = exec_command_new(item->path, TAKE_PTR(item->arguments), command_flags, &c);
                         if (r < 0)
                                 return r;
-                } else if (strv_isempty(argv)) {
-                        /* If no arguments were provided, default argv[0] to the executable path.
-                         * Otherwise the caller is expected to include argv[0] in the arguments array. */
-                        r = strv_extend(&argv, c->path);
-                        if (r < 0)
-                                return r;
+
+                        exec_command_append_list(&s->exec_command[cmd], TAKE_PTR(c));
                 }
 
-                c->argv = TAKE_PTR(argv);
+                LIST_FOREACH(command, c, s->exec_command[cmd]) {
+                        _cleanup_free_ char *a = NULL;
 
-                exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], TAKE_PTR(c));
-        }
+                        r = exec_command_to_setting(c, &a);
+                        if (r < 0)
+                                return r;
 
-        /* Write ExecStart= lines to the transient file */
-        LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
-                _cleanup_free_ char *a = NULL;
-
-                r = exec_command_to_setting(c, &a);
-                if (r < 0)
-                        return r;
-
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=%s", a);
+                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, name, "%s=%s", name, a);
+                }
         }
 
         return 0;
