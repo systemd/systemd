@@ -591,15 +591,6 @@ int bus_connect_transport(
         if (r < 0)
                 return r;
 
-        if (transport == BUS_TRANSPORT_MACHINE) {
-                const char *unique;
-
-                /* Complete Hello so transport errors are reported here, with the connection context. */
-                r = sd_bus_get_unique_name(bus, &unique);
-                if (r < 0)
-                        return r;
-        }
-
         *ret = TAKE_PTR(bus);
         return 0;
 }
@@ -659,24 +650,9 @@ int bus_connect_transport_systemd(
                 assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
                 return sd_bus_open_system_remote(ret, host);
 
-        case BUS_TRANSPORT_MACHINE: {
-                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-                const char *unique;
-
+        case BUS_TRANSPORT_MACHINE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
-
-                r = sd_bus_open_system_machine(&bus, host);
-                if (r < 0)
-                        return r;
-
-                /* Complete Hello so transport errors are reported here, with the connection context. */
-                r = sd_bus_get_unique_name(bus, &unique);
-                if (r < 0)
-                        return r;
-
-                *ret = TAKE_PTR(bus);
-                return 0;
-        }
+                return sd_bus_open_system_machine(ret, host);
 
         case BUS_TRANSPORT_CAPSULE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_USER, -EINVAL);
