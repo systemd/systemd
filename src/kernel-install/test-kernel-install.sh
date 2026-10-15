@@ -83,11 +83,23 @@ grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 grep -qE 'DTBDTB' "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
 
+touch \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+56.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-0.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10+3.conf"
+
 test -f /usr/lib/modules/"$(uname -r)"/vmlinuz && "$kernel_install" inspect
 "$kernel_install" inspect "$D/sources/linux"
 
 "$kernel_install" -v remove 1.1.1
 test ! -e "$entry"
+test ! -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+56.conf"
+test ! -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-0.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.10.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.10+3.conf"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
