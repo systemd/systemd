@@ -529,6 +529,11 @@ testcase_scope() {
 testcase_dependencies() {
     setup
 
+    defer_transient_cleanup varlink-transient-dependency.service
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-dependency.service","Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-dependency.service; do sleep 0.5; done'
+
     # Unit dependencies
     defer_transient_cleanup varlink-transient-deps.service
     varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -542,7 +547,7 @@ testcase_dependencies() {
         '{"context":{"ID":"varlink-invalid-dependency.service","Requires":["invalid@.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' \
         "context"
 
-    # Same for non-transient dependency types
+    # Non-transient dependency types are rejected as PropertyNotSupported
     defer_transient_cleanup varlink-non-transient-dependency.service
     non_transient_dep=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-non-transient-dependency.service","Triggers":["varlink-transient-dependency.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' 2>&1 || true)
