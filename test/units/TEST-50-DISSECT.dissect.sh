@@ -145,6 +145,18 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
+# A service whose policy requires a signature must not reuse a shared Verity device that was set up without
+# one.
+mkdir -p /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
@@ -965,7 +977,7 @@ rm -f /run/systemd/system/testservice-50k.service
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" "$CDIR1" "$CDIR2" "$CIMG1" "$CIMG2" /tmp/vpickminimg /tmp/markers/
 
-# Check dissect shortcut for verity images
+# Check dissect shortcut for verity images.
 cat >/run/systemd/system/testservice-50m.service <<EOF
 [Service]
 Type=notify
@@ -1007,6 +1019,33 @@ umount /tmp/img
 umount /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    for image in "$MINIMAL_IMAGE" /tmp/app0; do
+        name="$(cat "$image.roothash")-verity"
+        timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$name"
+        veritysetup open "$image.raw" "$name" "$image.verity" --root-hash-file "$image.roothash"
+    done
+    mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+    mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+    cursor="$(journalctl -n 1 --show-cursor | sed -n 's/^-- cursor: //p')"
+    test -n "$cursor"
+    systemd-run --wait -P \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                -p ExtensionImages=/tmp/app0.raw \
+                -p ExtensionImagePolicy=root=signed+squashfs \
+                -p MountImages=/tmp/app0.raw:/var/lib/app \
+                -p MountImagePolicy=root=signed+squashfs \
+                cat /opt/script0.sh
+    journalctl --sync
+    test "$(journalctl --after-cursor="$cursor" -n all |
+        grep -cF 'Image policy requires protection checks, skipping verity shortcut.')" -ge 2
+    (! journalctl --after-cursor="$cursor" -n all | grep -F 'Reusing pre-existing verity-protected')
+    umount /tmp/img
+    umount /tmp/ext
+    veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity"
+    veritysetup close "$(cat /tmp/app0.roothash)-verity"
+fi
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
