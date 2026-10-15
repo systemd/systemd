@@ -55,11 +55,36 @@ case "$COMMAND" in
                 echo "BOOT_ENTRY_TYPE=type2, not removing loader entries."
             exit 0
         fi
+        LOADER_ENTRY_BASE="${LOADER_ENTRY%.conf}"
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
-        exec rm -f \
-            "$LOADER_ENTRY" \
-            "${LOADER_ENTRY%.conf}"*".conf"
+            echo "Removing '$LOADER_ENTRY' and its boot-counted variants."
+        rm -f "$LOADER_ENTRY"
+        for loaderentry in "$LOADER_ENTRY_BASE"+*.conf; do
+            [ -f "$loaderentry" ] || continue
+
+            tries="${loaderentry#"$LOADER_ENTRY_BASE"+}"
+            tries="${tries%.conf}"
+            case "$tries" in
+                ''|*[!0-9-]*)
+                    continue
+                    ;;
+            esac
+            case "$tries" in
+                *-*)
+                    tries_done="${tries#*-}"
+                    tries_left="${tries%%-*}"
+                    [ -n "$tries_left" ] && [ -n "$tries_done" ] || continue
+                    case "$tries_done" in
+                        *-*) continue ;;
+                    esac
+                    ;;
+            esac
+
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Removing boot-counted loader entry '$loaderentry'."
+            rm -f "$loaderentry"
+        done
+        exit 0
         ;;
     add)
         ;;
