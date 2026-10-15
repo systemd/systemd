@@ -4,7 +4,9 @@
 
 #include "alloc-util.h"
 #include "journal-remote-parse.h"
+#include "journal-remote.h"
 #include "log.h"
+#include "string-util.h"
 
 RemoteSource* source_free(RemoteSource *source) {
         if (!source)
@@ -19,6 +21,7 @@ RemoteSource* source_free(RemoteSource *source) {
         sd_event_source_unref(source->buffer_event);
 
         free(source->encoding);
+        free(source->client_certificate_subject);
         return mfree(source);
 }
 
@@ -70,6 +73,29 @@ int process_source(RemoteSource *source, JournalFileFlags file_flags) {
         }
 
         assert(source->importer.iovw.iovec);
+
+        if (source->writer->server->add_client_certificate_subject) {
+                struct iovec_wrapper *iovw = &source->importer.iovw;
+                size_t n = 0;
+
+                /* Drop all supplied copies, including binary fields and metadata from earlier hops. */
+                FOREACH_ARRAY(i, iovw->iovec, iovw->count) {
+                        if (i->iov_len >= strlen("_REMOTE_CERTIFICATE_SUBJECT=") &&
+                            memcmp(i->iov_base, "_REMOTE_CERTIFICATE_SUBJECT=", strlen("_REMOTE_CERTIFICATE_SUBJECT=")) == 0)
+                                continue;
+                        iovw->iovec[n++] = *i;
+                }
+                iovw->count = n;
+
+                if (source->client_certificate_subject) {
+                        r = iovw_put(iovw, source->client_certificate_subject, strlen(source->client_certificate_subject));
+                        if (r < 0)
+                                goto freeing;
+                }
+
+                if (iovw_isempty(iovw))
+                        goto freeing;
+        }
 
         r = writer_write(source->writer,
                          &source->importer.iovw,
