@@ -87,7 +87,7 @@ systemctl_user is-active minimal-app0-bar.service && exit 1
 
 # Ensure pinning by policy works
 cat /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf
-grep -q -F 'root=signed+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf
+grep -q -F 'root=verity+signed+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf
 
 portablectl_user "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
@@ -158,8 +158,8 @@ grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/user/4711/systemd/u
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf
 # Ensure pinning by policy works
-grep -q -F 'RootImagePolicy=root=signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
-grep -q -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
+grep -q -F 'RootImagePolicy=root=verity+signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
+grep -q -F 'ExtensionImagePolicy=root=verity+signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
 
 portablectl_user "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 

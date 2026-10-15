@@ -143,7 +143,11 @@
 
         <para>When images are attached, an image policy will be generated that pins the attached image by
         the exact content that was found while attaching, so that it cannot be swapped downgrading security
-        (e.g.: removing dm-verity protection) without a full reinstallation. For more details on policies, see
+        (e.g.: removing dm-verity protection) without a full reinstallation. The generated policy doesn't
+        require a valid dm-verity signature, even if the image contains one. To require a valid signature, add a
+        drop-in for the attached unit that sorts after <filename>20-portable.conf</filename> and sets
+        <varname>RootImagePolicy=</varname> to a policy that allows <option>signed</option> but not
+        <option>verity</option>. For more details on policies, see
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="vpick.xml" xpointer="image"/>

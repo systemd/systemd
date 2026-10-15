@@ -312,8 +312,10 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
                         }
 
                         if (!verity || verity->designator < 0 || verity->designator == pd) {
+                                /* We also pin "verity" for signed images, so that an image signed with a key
+                                 * that the host doesn't trust can still be activated with Verity alone. */
                                 if (image->verity_sig_ready || (verity && iovec_is_set(&verity->root_hash_sig)))
-                                        f |= PARTITION_POLICY_SIGNED;
+                                        f |= PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
                                 else if (image->verity_ready || (verity && iovec_is_set(&verity->root_hash)))
                                         f |= PARTITION_POLICY_VERITY;
                         }
