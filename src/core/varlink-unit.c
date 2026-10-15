@@ -1944,8 +1944,7 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
 
         FOREACH_ARRAY(item, sp->exec_start, sp->n_exec_start) {
                 _cleanup_(exec_command_freep) ExecCommand *c = NULL;
-                _cleanup_strv_free_ char **argv = NULL;
-                const char *path = item->path;
+                ExecCommandFlags command_flags;
 
                 if (item->privileged && item->no_setuid) {
                         if (reterr_field)
@@ -1954,56 +1953,22 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
                                                "ExecStart 'privileged' and 'noSetuid' flags may not be combined.");
                 }
 
-                if (item->via_shell)
-                        /* Always normalize path (and argv[0] below) to "sh", matching the D-Bus and unit
-                         * file counterparts. The real shell of the target user is determined at execution
-                         * time. */
-                        path = _PATH_BSHELL;
-                else if (!filename_or_absolute_path_is_valid(path)) {
+                if (!item->via_shell && !filename_or_absolute_path_is_valid(item->path)) {
                         if (reterr_field)
                                 *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", path);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", item->path);
                 }
 
-                if (!strv_isempty(item->arguments)) {
-                        argv = strv_copy(item->arguments);
-                        if (!argv)
-                                return -ENOMEM;
-                }
-
-                c = new0(ExecCommand, 1);
-                if (!c)
-                        return -ENOMEM;
-
-                c->flags =
+                command_flags =
                         (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
                         (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
                         (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
                         (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
                         (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
 
-                r = path_simplify_alloc(path, &c->path);
+                r = exec_command_new(item->path, TAKE_PTR(item->arguments), command_flags, &c);
                 if (r < 0)
                         return r;
-
-                if (item->via_shell) {
-                        /* Normalize argv[0] to "sh", preserving login shell semantics requested via a
-                         * leading dash. */
-                        if (strv_isempty(argv))
-                                r = strv_extend(&argv, "sh");
-                        else
-                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
-                        if (r < 0)
-                                return r;
-                } else if (strv_isempty(argv)) {
-                        /* If no arguments were provided, default argv[0] to the executable path.
-                         * Otherwise the caller is expected to include argv[0] in the arguments array. */
-                        r = strv_extend(&argv, c->path);
-                        if (r < 0)
-                                return r;
-                }
-
-                c->argv = TAKE_PTR(argv);
 
                 exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], TAKE_PTR(c));
         }

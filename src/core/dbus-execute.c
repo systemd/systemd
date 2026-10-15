@@ -1700,16 +1700,6 @@ int bus_set_transient_exec_command(
                         if (strv_isempty(argv))
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "\"%s\" argv cannot be empty", name);
-                } else {
-                        /* Always normalize path and argv0 to be "sh" */
-                        path = _PATH_BSHELL;
-
-                        if (strv_isempty(argv))
-                                r = strv_extend(&argv, "sh");
-                        else
-                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
-                        if (r < 0)
-                                return r;
                 }
 
                 r = sd_bus_message_exit_container(message);
@@ -1719,16 +1709,7 @@ int bus_set_transient_exec_command(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_(exec_command_freep) ExecCommand *c = NULL;
 
-                        c = new(ExecCommand, 1);
-                        if (!c)
-                                return -ENOMEM;
-
-                        *c = (ExecCommand) {
-                                .argv = TAKE_PTR(argv),
-                                .flags = command_flags,
-                        };
-
-                        r = path_simplify_alloc(path, &c->path);
+                        r = exec_command_new(path, TAKE_PTR(argv), command_flags, &c);
                         if (r < 0)
                                 return r;
 
