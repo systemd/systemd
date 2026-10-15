@@ -2656,7 +2656,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, uint64_t
                                                      SIZE_MAX, &d, &l);
                 if (r == 0)
                         continue;
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }
@@ -2963,7 +2963,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                                                      ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }
@@ -3016,7 +3016,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
                                 /* field= */ NULL, /* field_length= */ 0,
                                 j->data_threshold,
                                 &d, &l);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
                         continue;
                 }
@@ -3491,10 +3491,7 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         if (r < 0)
                 return r;
 
-        j->unique_file = NULL;
-        j->unique_offset = 0;
-        j->unique_file_lost = false;
-
+        sd_journal_restart_unique(j);
         return 0;
 }
 

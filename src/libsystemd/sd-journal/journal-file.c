@@ -534,6 +534,25 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
         return true;
 }
 
+static int journal_file_verify_machine_id(JournalFile *f) {
+        sd_id128_t machine_id;
+        int r;
+
+        assert(f);
+
+        r = sd_id128_get_machine(&machine_id);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
+                machine_id = SD_ID128_NULL;
+        else if (r < 0)
+                return r;
+
+        if (!sd_id128_equal(machine_id, f->header->machine_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                       "Trying to open journal file from different host for writing, refusing.");
+
+        return 0;
+}
+
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
 
@@ -706,19 +725,12 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
 
         if (journal_file_writable(f)) {
-                sd_id128_t machine_id;
                 uint8_t state;
                 int r;
 
-                r = sd_id128_get_machine(&machine_id);
-                if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
-                        machine_id = SD_ID128_NULL;
-                else if (r < 0)
+                r = journal_file_verify_machine_id(f);
+                if (r < 0)
                         return r;
-
-                if (!sd_id128_equal(machine_id, f->header->machine_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "Trying to open journal file from different host for writing, refusing.");
 
                 state = f->header->state;
 
@@ -760,6 +772,25 @@ int journal_file_fstat(JournalFile *f) {
         r = stat_verify_linked(&f->last_stat);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
+        struct statvfs svfs;
+        uint64_t available;
+
+        assert(f);
+
+        if (new_size <= f->metrics.min_size || f->metrics.keep_free == 0)
+                return 0;
+
+        if (fstatvfs(f->fd, &svfs) < 0)
+                return 0;
+
+        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
+        if (new_size - old_size > available)
+                return -E2BIG;
 
         return 0;
 }
@@ -812,18 +843,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (JOURNAL_HEADER_COMPACT(f->header) && new_size > UINT32_MAX)
                 return -E2BIG;
 
-        if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
-                struct statvfs svfs;
-
-                if (fstatvfs(f->fd, &svfs) >= 0) {
-                        uint64_t available;
-
-                        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
-
-                        if (new_size - old_size > available)
-                                return -E2BIG;
-                }
-        }
+        r = journal_file_check_keep_free(f, old_size, new_size);
+        if (r < 0)
+                return r;
 
         /* Increase by larger blocks at once */
         new_size = ROUND_UP(new_size, FILE_SIZE_INCREASE);
@@ -967,6 +989,35 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
         return 0;
 }
 
+static int journal_file_check_entry_header(Object *o, uint64_t offset) {
+        assert(o);
+
+        if (le64toh(o->entry.seqnum) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
+                                       le64toh(o->entry.seqnum),
+                                       offset);
+
+        if (!VALID_REALTIME(le64toh(o->entry.realtime)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.realtime),
+                                       offset);
+
+        if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.monotonic),
+                                       offset);
+
+        if (sd_id128_is_null(o->entry.boot_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid object entry with an empty boot ID: %" PRIu64,
+                                       offset);
+
+        return 0;
+}
+
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
 static int check_object(JournalFile *f, Object *o, uint64_t offset) {
@@ -1059,30 +1110,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f),
                                                offset);
 
-                if (le64toh(o->entry.seqnum) <= 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
-                                               le64toh(o->entry.seqnum),
-                                               offset);
-
-                if (!VALID_REALTIME(le64toh(o->entry.realtime)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.realtime),
-                                               offset);
-
-                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.monotonic),
-                                               offset);
-
-                if (sd_id128_is_null(o->entry.boot_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid object entry with an empty boot ID: %" PRIu64,
-                                               offset);
-
-                break;
+                return journal_file_check_entry_header(o, offset);
         }
 
         case OBJECT_DATA_HASH_TABLE:
@@ -1263,6 +1291,21 @@ static uint64_t inc_seqnum(uint64_t seqnum) {
         return 1; /* skip over UINT64_MAX and 0 when we run out of seqnums and start again */
 }
 
+static uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum) {
+        uint64_t next_seqnum;
+
+        assert(f);
+        assert(f->header);
+
+        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
+
+        /* If an external seqnum counter was passed, use the maximum of both */
+        if (seqnum)
+                next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+
+        return next_seqnum;
+}
+
 static uint64_t journal_file_entry_seqnum(
                 JournalFile *f,
                 uint64_t *seqnum) {
@@ -1272,14 +1315,12 @@ static uint64_t journal_file_entry_seqnum(
         assert(f);
         assert(f->header);
 
-        /* Picks a new sequence number for the entry we are about to add and returns it. */
+        /* Picks the sequence number of the next entry and returns it. If an external seqnum counter was
+         * passed, it is updated too. */
 
-        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
-
-        /* If an external seqnum counter was passed, we update both the local and the external one, and set
-         * it to the maximum of both */
+        next_seqnum = journal_file_next_seqnum(f, seqnum);
         if (seqnum)
-                *seqnum = next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+                *seqnum = next_seqnum;
 
         f->header->tail_entry_seqnum = htole64(next_seqnum);
 
@@ -1586,7 +1627,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         assert(f);
 
         /* Only accept truncation when reading. On writing it's not possible to know how to safely proceed. */
-        if (journal_file_writable(f) || !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+        if (journal_file_writable(f) || !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                 return false;
 
         log_debug_errno(r, "Failed to read %s at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
@@ -2455,6 +2496,45 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
         }
 }
 
+static int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
+        assert(f);
+        assert(f->header);
+        assert(ts);
+        assert(boot_id);
+
+        if (!f->strict_order)
+                return 0;
+
+        /* If requested be stricter with ordering in this journal file, to make searching via
+         * bisection fully deterministic. This is an optional feature, so that if desired journal
+         * files can be written where the ordering is not strictly enforced (in which case bisection
+         * will yield *a* result, but not the *only* result, when searching for points in
+         * time). Strict ordering mode is enabled when journald originally writes the files, but
+         * might not necessarily be if other tools (the remoting tools for example) write journal
+         * files from combined sources.
+         *
+         * Typically, if any of the errors generated here are seen journald will just rotate the
+         * journal files and start anew. */
+
+        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                       "timestamp %" PRIu64 ", refusing entry.",
+                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+
+        if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
+            ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(ENOTNAM),
+                                "Monotonic timestamp %" PRIu64
+                                " smaller than previous monotonic timestamp %" PRIu64
+                                " while having the same boot ID, refusing entry.",
+                                ts->monotonic,
+                                le64toh(f->header->tail_entry_monotonic));
+
+        return 0;
+}
+
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -2480,34 +2560,9 @@ static int journal_file_append_entry_internal(
         assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
-        if (f->strict_order) {
-                /* If requested be stricter with ordering in this journal file, to make searching via
-                 * bisection fully deterministic. This is an optional feature, so that if desired journal
-                 * files can be written where the ordering is not strictly enforced (in which case bisection
-                 * will yield *a* result, but not the *only* result, when searching for points in
-                 * time). Strict ordering mode is enabled when journald originally writes the files, but
-                 * might not necessarily be if other tools (the remoting tools for example) write journal
-                 * files from combined sources.
-                 *
-                 * Typically, if any of the errors generated here are seen journald will just rotate the
-                 * journal files and start anew. */
-
-                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                               "Realtime timestamp %" PRIu64 " smaller than previous realtime "
-                                               "timestamp %" PRIu64 ", refusing entry.",
-                                               ts->realtime, le64toh(f->header->tail_entry_realtime));
-
-                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
-                    ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                        return log_debug_errno(
-                                        SYNTHETIC_ERRNO(ENOTNAM),
-                                        "Monotonic timestamp %" PRIu64
-                                        " smaller than previous monotonic timestamp %" PRIu64
-                                        " while having the same boot ID, refusing entry.",
-                                        ts->monotonic,
-                                        le64toh(f->header->tail_entry_monotonic));
-        }
+        r = journal_file_check_entry_order(f, ts, boot_id);
+        if (r < 0)
+                return r;
 
         if (seqnum_id) {
                 /* Settle the passed in sequence number ID */
@@ -2953,7 +3008,7 @@ static int generic_array_get(
 
         while (a > 0) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         /* If there's corruption and we're going downwards, let's pretend we reached the
                          * final entry in the entry array chain. */
 
@@ -3026,7 +3081,7 @@ static int generic_array_get(
 
                                 return 1;
                         }
-                        if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                        if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                                 return r;
 
                         /* OK, so this entry is borked. Most likely some entry didn't get synced to
@@ -3086,7 +3141,7 @@ static int generic_array_bisect_step(
                 r = -EBADMSG;
         else
                 r = test_object(f, p, needle);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
                 if (i == *left) {
@@ -3192,7 +3247,7 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
                 else if (r < 0)
                         return r;
@@ -3790,7 +3845,7 @@ int journal_file_move_to_entry_for_data(
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r >= 0)
                         goto use_extra;
-                if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r;
         }
 
@@ -3802,7 +3857,7 @@ int journal_file_move_to_entry_for_data(
                                       direction == DIRECTION_DOWN ? 0 : n - 1,
                                       direction,
                                       ret_object, ret_offset);
-                if (!IN_SET(r, 0, -EADDRNOTAVAIL, -EBADMSG))
+                if (r != 0 && !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r; /* found or critical error. */
         }
 
@@ -4664,7 +4719,7 @@ int journal_file_copy_entry(
                                 /* field= */ NULL, /* field_length= */ 0,
                                 /* data_threshold= */ 0,
                                 &data, &l);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }
