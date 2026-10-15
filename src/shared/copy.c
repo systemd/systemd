@@ -89,50 +89,72 @@ static int look_for_signals(CopyFlags copy_flags) {
         return 0;
 }
 
-static int create_hole(int fd, off_t size) {
-        off_t offset;
-        off_t end;
+static int create_hole(int fd, uint64_t *offset, off_t size) {
+        off_t cur, end, o;
 
-        offset = lseek(fd, 0, SEEK_CUR);
-        if (offset < 0)
+        POINTER_MAY_BE_NULL(offset);
+
+        cur = lseek(fd, 0, SEEK_CUR);
+        if (cur < 0)
                 return -errno;
 
+        /* fstat() reports a size of 0 for block devices, but lseek() returns their size. */
         end = lseek(fd, 0, SEEK_END);
         if (end < 0)
                 return -errno;
 
-        /* If we're not at the end of the target file, try to punch a hole in the existing space using fallocate(). */
+        if (offset) {
+                o = (off_t) *offset;
 
-        if (offset < end &&
-            fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, MIN(size, end - offset)) < 0 &&
+                /* The caller passed an explicit offset, so the file offset must not move. We seek back to
+                 * undo the SEEK_END above. */
+                if (lseek(fd, cur, SEEK_SET) < 0)
+                        return -errno;
+        } else {
+                o = cur;
+
+                if (lseek(fd, o + size, SEEK_SET) < 0)
+                        return -errno;
+        }
+
+        /* If the hole starts before the end of the target file, try to punch a hole in the existing space
+         * using fallocate(). */
+
+        if (o < end &&
+            fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, o, MIN(size, end - o)) < 0 &&
             !ERRNO_IS_NOT_SUPPORTED(errno))
                 return -errno;
 
-        if (end - offset >= size) {
-                /* If we've created the full hole, set the file pointer to the end of the hole we created and exit. */
-                if (lseek(fd, offset + size, SEEK_SET) < 0)
-                        return -errno;
+        /* fallocate() with FALLOC_FL_KEEP_SIZE does not grow the file. ftruncate() grows it, and the new
+         * range reads as a hole. */
 
-                return 0;
-        }
-
-        /* If we haven't created the full hole, use ftruncate() to grow the file (and the hole) to the
-         * required size and move the file pointer to the end of the file. */
-
-        size -= end - offset;
-
-        if (ftruncate(fd, end + size) < 0)
+        if (o + size > end &&
+            ftruncate(fd, o + size) < 0)
                 return -errno;
 
-        if (lseek(fd, 0, SEEK_END) < 0)
-                return -errno;
+        if (offset)
+                *offset += size;
 
         return 0;
 }
 
+typedef struct SavedOffset {
+        int fd;
+        off_t offset;
+} SavedOffset;
+
+static void saved_offset_restore(SavedOffset *s) {
+        assert(s);
+
+        if (s->offset >= 0)
+                (void) lseek(s->fd, s->offset, SEEK_SET);
+}
+
 static int try_reflink_copy_bytes(
                 int fdf,
+                uint64_t *foffset,
                 int fdt,
+                uint64_t *toffset,
                 uint64_t max_bytes,
                 CopyFlags copy_flags) {
 
@@ -140,39 +162,45 @@ static int try_reflink_copy_bytes(
 
         assert(fdf >= 0);
         assert(fdt >= 0);
+        POINTER_MAY_BE_NULL(foffset);
+        POINTER_MAY_BE_NULL(toffset);
 
         if (max_bytes == 0)
                 return -EOPNOTSUPP;
 
-        off_t foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
-        if (foffset < 0)
+        off_t fo = foffset ? (off_t) *foffset : lseek(fdf, 0, SEEK_CUR);
+        if (fo < 0)
                 return -EOPNOTSUPP;
 
-        off_t toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
-        if (toffset < 0)
+        off_t to = toffset ? (off_t) *toffset : lseek(fdt, 0, SEEK_CUR);
+        if (to < 0)
                 return -EOPNOTSUPP;
 
-        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes);
+        r = reflink_range(fdf, fo, fdt, to, max_bytes);
         if (r < 0)
                 return -EOPNOTSUPP;
 
+        uint64_t n = max_bytes;
         if (max_bytes == UINT64_MAX) {
-                off_t end;
+                struct stat st;
 
-                end = lseek(fdf, 0, SEEK_END);
-                if (end < 0)
+                if (fstat(fdf, &st) < 0)
                         return -errno;
-                if (end < foffset)
+                if (st.st_size < fo)
                         return -ESPIPE;
 
-                if (lseek(fdt, toffset + (end - foffset), SEEK_SET) < 0)
-                        return -errno;
-        } else {
-                if (lseek(fdf, foffset + max_bytes, SEEK_SET) < 0)
-                        return -errno;
-                if (lseek(fdt, toffset + max_bytes, SEEK_SET) < 0)
-                        return -errno;
+                n = st.st_size - fo;
         }
+
+        if (foffset)
+                *foffset += n;
+        else if (lseek(fdf, fo + n, SEEK_SET) < 0)
+                return -errno;
+
+        if (toffset)
+                *toffset += n;
+        else if (lseek(fdt, to + n, SEEK_SET) < 0)
+                return -errno;
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
                 r = fd_verify_linked(fdf);
@@ -185,7 +213,8 @@ static int try_reflink_copy_bytes(
 }
 
 int copy_bytes_full(
-                int fdf, int fdt,
+                int fdf, uint64_t *foffset,
+                int fdt, uint64_t *toffset,
                 uint64_t max_bytes,
                 CopyFlags copy_flags,
                 void **ret_remains,
@@ -194,13 +223,17 @@ int copy_bytes_full(
                 void *userdata) {
 
         _cleanup_close_ int fdf_opened = -EBADF, fdt_opened = -EBADF;
-        bool try_cfr = true, try_sendfile = true;
+        /* sendfile() always writes at the file offset of the target, hence skip it if a target offset is
+         * given. */
+        bool try_cfr = true, try_sendfile = !toffset;
         uint64_t copied_total = 0;
         int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
+        POINTER_MAY_BE_NULL(foffset);
+        POINTER_MAY_BE_NULL(toffset);
 
         /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a
          * maximum of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied.
@@ -209,12 +242,33 @@ int copy_bytes_full(
          * ret_remains/ret_remains_size is not NULL, then it will be initialized with an allocated buffer
          * containing this "remaining" data. Note that these two parameters are initialized with a valid
          * buffer only on failure and only if there's actually data already read. Otherwise these parameters
-         * if non-NULL are set to NULL. */
+         * if non-NULL are set to NULL.
+         *
+         * If 'foffset' is NULL, the data is read at the file offset of 'fdf', and the file offset is
+         * advanced. Otherwise the data is read at '*foffset', and '*foffset' is advanced by the number of
+         * bytes copied, like with copy_file_range(). 'toffset' works the same way for 'fdt'. */
 
         if (ret_remains)
                 *ret_remains = NULL;
         if (ret_remains_size)
                 *ret_remains_size = 0;
+
+        /* With a source offset, the loop below passes at most INT64_MAX minus the offset to sendfile(). At a
+         * source offset of INT64_MAX, the loop passes 0 bytes. sendfile() then returns 0, and the copy ends
+         * as if the source reached EOF. */
+        if ((foffset && *foffset >= INT64_MAX) || (toffset && *toffset >= INT64_MAX))
+                return -EOVERFLOW;
+
+        /* Files can't grow beyond INT64_MAX bytes. A write beyond INT64_MAX fails with EFBIG. If an offset
+         * plus max_bytes is larger than INT64_MAX, we copy up to INT64_MAX instead of failing. We leave
+         * max_bytes == UINT64_MAX alone, because it means "until EOF". The reflink path below only clones up
+         * to EOF when max_bytes is UINT64_MAX. */
+        if (max_bytes != UINT64_MAX) {
+                if (foffset)
+                        max_bytes = MIN(max_bytes, (uint64_t) INT64_MAX - *foffset);
+                if (toffset)
+                        max_bytes = MIN(max_bytes, (uint64_t) INT64_MAX - *toffset);
+        }
 
         fdf = fd_reopen_condition(fdf, O_CLOEXEC | O_NOCTTY | O_RDONLY, O_PATH, &fdf_opened);
         if (fdf < 0)
@@ -223,17 +277,17 @@ int copy_bytes_full(
         if (fdt < 0)
                 return fdt;
 
-        if (FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) &&
-            lseek(fdf, 0, SEEK_SET) < 0)
-                return -errno;
-
-        if (FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) &&
-            lseek(fdt, 0, SEEK_SET) < 0)
-                return -errno;
-
-        r = try_reflink_copy_bytes(fdf, fdt, max_bytes, copy_flags);
+        r = try_reflink_copy_bytes(fdf, foffset, fdt, toffset, max_bytes, copy_flags);
         if (r != -EOPNOTSUPP)
                 return r;
+
+        /* SEEK_DATA and SEEK_HOLE below move the file offset of 'fdf', even if 'foffset' is given. */
+        _cleanup_(saved_offset_restore) SavedOffset saved_foffset = { .fd = fdf, .offset = -1 };
+        if (foffset && FLAGS_SET(copy_flags, COPY_HOLES)) {
+                saved_foffset.offset = lseek(fdf, 0, SEEK_CUR);
+                if (saved_foffset.offset < 0)
+                        return -errno;
+        }
 
         usec_t start_timestamp = USEC_INFINITY;
         if (progress)
@@ -251,8 +305,11 @@ int copy_bytes_full(
                         return r;
 
                 /* sendfile() accepts at most SSIZE_MAX-offset bytes to copy, hence let's subtract how much
-                 * copied so far from SSIZE_MAX as maximum of what we want to copy. */
-                if (try_sendfile) {
+                 * copied so far from SSIZE_MAX as maximum of what we want to copy. If 'foffset' is given, we
+                 * know the offset, and subtract it from INT64_MAX instead. */
+                if (try_sendfile && foffset)
+                        m = MIN((uint64_t) SSIZE_MAX, (uint64_t) INT64_MAX - *foffset);
+                else if (try_sendfile) {
                         assert(copied_total < SSIZE_MAX);
                         m = (uint64_t) SSIZE_MAX - copied_total;
                 } else
@@ -267,9 +324,13 @@ int copy_bytes_full(
                 if (copy_flags & COPY_HOLES) {
                         off_t c, e;
 
-                        c = lseek(fdf, 0, SEEK_CUR);
-                        if (c < 0)
-                                return -errno;
+                        if (foffset)
+                                c = *foffset;
+                        else {
+                                c = lseek(fdf, 0, SEEK_CUR);
+                                if (c < 0)
+                                        return -errno;
+                        }
 
                         /* To see if we're in a hole, we search for the next data offset. */
                         e = lseek(fdf, c, SEEK_DATA);
@@ -285,9 +346,12 @@ int copy_bytes_full(
                         if (e > c) {
                                 /* Make sure our new hole doesn't go over the maximum size we're allowed to copy. */
                                 n = MIN(max_bytes, (uint64_t) e - c);
-                                r = create_hole(fdt, n);
+                                r = create_hole(fdt, toffset, n);
                                 if (r < 0)
                                         return r;
+
+                                if (foffset)
+                                        *foffset += n;
 
                                 /* Make sure holes are taken into account in the maximum size we're supposed to copy. */
                                 if (max_bytes != UINT64_MAX) {
@@ -319,7 +383,7 @@ int copy_bytes_full(
                                 assert(e > c);
 
                                 /* SEEK_HOLE modifies the file offset so we need to move back to the initial offset. */
-                                if (lseek(fdf, c, SEEK_SET) < 0)
+                                if (!foffset && lseek(fdf, c, SEEK_SET) < 0)
                                         return -errno;
 
                                 /* Make sure we're not copying more than the current data segment. */
@@ -330,7 +394,9 @@ int copy_bytes_full(
 
                 /* First, try copy_file_range(), unless we already tried */
                 if (try_cfr) {
-                        n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
+                        loff_t fo = foffset ? (loff_t) *foffset : 0, to = toffset ? (loff_t) *toffset : 0;
+
+                        n = try_copy_file_range(fdf, foffset ? &fo : NULL, fdt, toffset ? &to : NULL, m, 0u);
                         if (n < 0) {
                                 if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF, -EOPNOTSUPP))
                                         return n;
@@ -357,7 +423,9 @@ int copy_bytes_full(
 
                 /* Second, try sendfile(), unless we already tried */
                 if (try_sendfile) {
-                        n = sendfile(fdt, fdf, NULL, m);
+                        off_t fo = foffset ? (off_t) *foffset : 0;
+
+                        n = sendfile(fdt, fdf, foffset ? &fo : NULL, m);
                         if (n < 0) {
                                 if (!IN_SET(errno, EINVAL, ENOSYS))
                                         return -errno;
@@ -380,7 +448,7 @@ int copy_bytes_full(
                         uint8_t buf[MIN(m, COPY_BUFFER_SIZE)], *p = buf;
                         ssize_t z;
 
-                        n = read(fdf, buf, sizeof buf);
+                        n = foffset ? pread(fdf, buf, sizeof buf, *foffset) : read(fdf, buf, sizeof buf);
                         if (n < 0)
                                 return -errno;
                         if (n == 0) /* EOF */
@@ -390,7 +458,7 @@ int copy_bytes_full(
                         do {
                                 ssize_t k;
 
-                                k = write(fdt, p, z);
+                                k = toffset ? pwrite(fdt, p, z, *toffset + (p - buf)) : write(fdt, p, z);
                                 if (k < 0) {
                                         r = -errno;
 
@@ -418,6 +486,10 @@ int copy_bytes_full(
 
         next:
                 copied_total += n;
+                if (foffset)
+                        *foffset += n;
+                if (toffset)
+                        *toffset += n;
 
                 /* Disable sendfile() in case we are getting too close to it's SSIZE_MAX-offset limit */
                 if (copied_total > SSIZE_MAX - COPY_BUFFER_SIZE)
@@ -448,7 +520,7 @@ int copy_bytes_full(
         }
 
         if (copy_flags & COPY_TRUNCATE) {
-                off_t off = lseek(fdt, 0, SEEK_CUR);
+                off_t off = toffset ? (off_t) *toffset : lseek(fdt, 0, SEEK_CUR);
                 if (off < 0)
                         return -errno;
 
@@ -894,7 +966,17 @@ static int fd_copy_regular(
         if (r < 0)
                 return r;
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
+        r = copy_bytes_full(
+                        fdf,
+                        /* foffset= */ NULL,
+                        fdt,
+                        /* toffset= */ NULL,
+                        /* max_bytes= */ UINT64_MAX,
+                        copy_flags,
+                        /* ret_remains= */ NULL,
+                        /* ret_remains_size= */ NULL,
+                        progress,
+                        userdata);
         if (r < 0)
                 goto fail;
 
@@ -1483,7 +1565,17 @@ int copy_file_fd_at_full(
         if (fstat(fdt, &st) < 0)
                 return -errno;
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress_bytes, userdata);
+        r = copy_bytes_full(
+                        fdf,
+                        /* foffset= */ NULL,
+                        fdt,
+                        /* toffset= */ NULL,
+                        /* max_bytes= */ UINT64_MAX,
+                        copy_flags,
+                        /* ret_remains= */ NULL,
+                        /* ret_remains_size= */ NULL,
+                        progress_bytes,
+                        userdata);
         if (r < 0)
                 return r;
 
@@ -1563,7 +1655,17 @@ int copy_file_at_full(
         if ((chattr_mask & CHATTR_EARLY_FL) != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
+        r = copy_bytes_full(
+                        fdf,
+                        /* foffset= */ NULL,
+                        fdt,
+                        /* toffset= */ NULL,
+                        /* max_bytes= */ UINT64_MAX,
+                        copy_flags & ~COPY_LOCK_BSD,
+                        /* ret_remains= */ NULL,
+                        /* ret_remains_size= */ NULL,
+                        progress_bytes,
+                        userdata);
         if (r < 0)
                 goto fail;
 

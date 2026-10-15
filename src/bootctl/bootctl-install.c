@@ -520,11 +520,13 @@ static int copy_file_with_version_check(
 
         CLEANUP_TMPFILE_AT(dest_parent_fd, t);
 
-        /* Reset file offset before we start copying, since we copy this file multiple times, and the offset
-         * might be left at the end of the file. (Resetting before rather than after a copy attempt is safer
-         * because a previous attempt might have failed half-way, leaving the file offset at some undefined
-         * place.) */
-        r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_SEEK0_SOURCE);
+        r = copy_bytes_offset(
+                        source_fd,
+                        /* foffset= */ &(uint64_t) { 0 },
+                        write_fd,
+                        /* toffset= */ NULL,
+                        /* max_bytes= */ UINT64_MAX,
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", source_path, dest_path);
 

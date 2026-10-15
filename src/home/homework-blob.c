@@ -94,9 +94,6 @@ static int copy_one_blob(
 
         /* Next we copy but don't yet link the file into the blob directory */
 
-        if (lseek(src_fd, initial, SEEK_SET) < 0)
-                return log_debug_errno(errno, "Failed to rewind fd for blob %s: %m", name);
-
         dest = open_tmpfile_linkable_at(dest_dfd, name, O_RDWR|O_CLOEXEC, &dest_tmpname);
         if (dest < 0)
                 return log_debug_errno(dest, "Failed to create dest tmpfile for blob %s: %m", name);
@@ -106,15 +103,18 @@ static int copy_one_blob(
         if (fchown(dest, uid, uid) < 0)
                 return log_debug_errno(errno, "Failed to chown blob %s: %m", name);
 
-        r = copy_bytes(src_fd, dest, BLOB_DIR_MAX_SIZE, 0);
+        r = copy_bytes_offset(
+                        src_fd,
+                        /* foffset= */ &(uint64_t) { initial },
+                        dest,
+                        /* toffset= */ &(uint64_t) { 0 },
+                        /* max_bytes= */ BLOB_DIR_MAX_SIZE,
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to copy blob %s: %m", name);
 
         /* The source FD might have changed while we were busy copying, thus invalidating the hash.
          * So, we re-hash the data we just copied to make sure that this didn't happen. */
-
-        if (lseek(dest, 0, SEEK_SET) < 0)
-                return log_debug_errno(errno, "Failed to rewind blob %s for rehash: %m", name);
 
         r = sha256_fd(dest, BLOB_DIR_MAX_SIZE, hash);
         if (r < 0)
