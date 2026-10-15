@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "cgroup.h"
 #include "core-forward.h"
 
 int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void *userdata);
@@ -63,7 +64,7 @@ typedef struct TransientCGroupContextParameters {
 
         int tasks_accounting;
         bool tasks_max_set;
-        uint64_t tasks_max;
+        CGroupTasksMax tasks_max;
         bool tasks_max_scale_set;
         double tasks_max_scale;
 
