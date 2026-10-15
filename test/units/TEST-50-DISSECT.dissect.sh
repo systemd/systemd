@@ -304,6 +304,28 @@ systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity=unused+absent)
 
+# A signature partition that can't be parsed is ignored, unless the image policy requires a signature.
+cp "$MINIMAL_IMAGE.gpt" /tmp/test-50-badsig.gpt
+loop="$(losetup --show -P -f /tmp/test-50-badsig.gpt)"
+udevadm wait --timeout=60 --settle --initialized=no "${loop}p3"
+printf 'garbage' | udevadm lock --timeout=60 --device="${loop}p3" dd of="${loop}p3" conv=notrunc
+losetup -d "$loop"
+udevadm settle --timeout=60
+systemd-dissect --mtree /tmp/test-50-badsig.gpt >/dev/null
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" >/dev/null
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=signed >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+# Set up a shared Verity device for the same root hash without a signature. A policy that requires a
+# signature must not reuse it.
+mkdir -p /tmp/test-50-badsig-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-badsig-mnt
+(! SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+systemd-dissect --umount /tmp/test-50-badsig-mnt
+rmdir /tmp/test-50-badsig-mnt
+rm /tmp/test-50-badsig.gpt
+
 # Test RootImagePolicy= unit file setting
 systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
