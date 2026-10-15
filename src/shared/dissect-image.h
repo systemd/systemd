@@ -83,6 +83,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
         DISSECT_IMAGE_TPM2_UNLOCK               = 1 << 30, /* If no passphrase is supplied, try unlocking LUKS partitions via a TPM2 token enrolled in the LUKS2 header */
+        DISSECT_IMAGE_VERITY_SHARE_SAME_FILE    = 1U << 31,
 } DissectImageFlags;
 
 typedef enum PartitionTableType {
@@ -180,7 +181,7 @@ int dissect_image_file(const char *path, const VeritySettings *verity, const Mou
 int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
-int dissected_image_new_from_existing_verity(const char *src, const VeritySettings *verity, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, RuntimeScope runtime_scope, DissectImageFlags dissect_image_flags, DissectedImage **ret);
+int dissected_image_new_from_existing_verity(const char *src, int src_fd, const VeritySettings *verity, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, RuntimeScope runtime_scope, DissectImageFlags dissect_image_flags, DissectedImage **ret);
 
 void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);

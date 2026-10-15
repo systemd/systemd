@@ -3,6 +3,7 @@
 #include <fnmatch.h>
 #include <linux/loop.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -1991,8 +1992,18 @@ static int dissect_image(
 }
 #endif
 
+#if HAVE_LIBCRYPTSETUP
+static int verity_can_reuse(
+                int image_fd,
+                const VeritySettings *verity,
+                const char *name,
+                DissectImageFlags flags,
+                struct crypt_device **ret_cd);
+#endif
+
 int dissected_image_new_from_existing_verity(
                 const char *src,
+                int src_fd,
                 const VeritySettings *verity,
                 const MountOptions *options,
                 const ImagePolicy *image_policy,
@@ -2056,6 +2067,24 @@ int dissected_image_new_from_existing_verity(
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        if (FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_VERITY_SHARE_SAME_FILE)) {
+#if HAVE_LIBCRYPTSETUP
+                _cleanup_close_ int fd_close = -EBADF;
+
+                if (src_fd < 0) {
+                        src_fd = fd_close = RET_NERRNO(open(src, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+                        if (src_fd < 0)
+                                return src_fd;
+                }
+
+                r = verity_can_reuse(src_fd, verity, node + STRLEN("/dev/mapper/"), dissect_image_flags, /* ret_cd= */ NULL);
+                if (r < 0)
+                        return r == -EINVAL ? -ENOPKG : r;
+#else
+                return -ENOPKG;
+#endif
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
@@ -3288,18 +3317,22 @@ static int decrypt_partition(
 }
 
 static int verity_can_reuse(
+                int image_fd,
                 const VeritySettings *verity,
                 const char *name,
+                DissectImageFlags flags,
                 struct crypt_device **ret_cd) {
 
-        /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
         int r;
 
         assert(verity);
         assert(name);
-        assert(ret_cd);
+
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = sym_crypt_init_by_name(&cd, name);
         if (r < 0)
@@ -3310,6 +3343,47 @@ static int verity_can_reuse(
         r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
+
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE_SAME_FILE)) {
+                _cleanup_(loop_device_unrefp) LoopDevice *existing_loop = NULL;
+                struct stat st;
+
+                /* The root hash does not prove that the caller can read the existing device's backing file. */
+                if (image_fd < 0 || !crypt_params.data_device)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot determine backing file of verity device.");
+
+                r = fd_vet_accmode(image_fd, O_RDONLY);
+                if (r < 0)
+                        return log_debug_errno(r, "Image file descriptor is not readable: %m");
+
+                if (fstat(image_fd, &st) < 0)
+                        return log_debug_errno(errno, "Failed to stat image file descriptor: %m");
+
+                r = loop_device_open_from_path(crypt_params.data_device, O_RDONLY, LOCK_UN, &existing_loop);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open existing verity data device: %m");
+
+                if (!S_ISBLK(st.st_mode) || st.st_rdev != existing_loop->devno) {
+                        if (S_ISBLK(st.st_mode)) {
+                                struct loop_info64 info = {};
+
+                                if (ioctl(image_fd, LOOP_GET_STATUS64, &info) < 0) {
+                                        if (errno == ENOTTY)
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Image block device is not a loop device.");
+
+                                        return log_debug_errno(errno, "Failed to get image loop device status: %m");
+                                }
+
+                                st.st_dev = info.lo_device;
+                                st.st_ino = info.lo_inode;
+                        } else if (!S_ISREG(st.st_mode))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Image file descriptor is not a regular file or block device.");
+
+                        if (LOOP_DEVICE_IS_FOREIGN(existing_loop) ||
+                            st.st_dev != existing_loop->backing_devno || st.st_ino != existing_loop->backing_inode)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Verity device already exists but backing files are different.");
+                }
+        }
 
         _cleanup_(iovec_done) struct iovec root_hash_existing = {
                 .iov_base = malloc0(verity->root_hash.iov_len),
@@ -3330,7 +3404,8 @@ static int verity_can_reuse(
         if (iovec_is_set(&verity->root_hash_sig) != FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
 
-        *ret_cd = TAKE_PTR(cd);
+        if (ret_cd)
+                *ret_cd = TAKE_PTR(cd);
         return 0;
 }
 
@@ -3700,7 +3775,7 @@ static int verity_partition(
                 if (!restore_deferred_remove)
                         return log_oom_debug();
 
-                r = verity_can_reuse(verity, name, &existing_cd);
+                r = verity_can_reuse(di->loop ? di->loop->fd : -EBADF, verity, name, flags, &existing_cd);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
@@ -5169,6 +5244,7 @@ int verity_dissect_and_mount(
          * cannot be found, then fallback to the slow path (full dissect). */
         r = dissected_image_new_from_existing_verity(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                        src_fd,
                         verity,
                         options,
                         image_policy,
