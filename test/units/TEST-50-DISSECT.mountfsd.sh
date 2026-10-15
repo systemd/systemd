@@ -125,16 +125,18 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
 
-# If the kernel support is present unprivileged user units should be able to use verity images too
+# If the kernel support is present unprivileged user units should be able to use verity images too. mountfsd
+# only shares Verity devices for images in trusted directories, so the devices don't use the root hash as their
+# name.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
-        test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
+        true
 
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
+        true
 
     # Without a signature this should not work, as mountfsd should reject it, even if we explicitly ask to
     # trust it
@@ -142,12 +144,12 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
     # Mount options should not be allowed without elevated privileges
@@ -176,13 +178,13 @@ EOF
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         --property RootImageOptions="root:nosuid" \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && mount | grep -F squashfs | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F squashfs | grep -F nosuid >/dev/null"
 
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
 
     rm -f /etc/polkit-1/rules.d/mountoptions.rules
     systemctl try-reload-or-restart polkit.service
