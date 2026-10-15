@@ -81,6 +81,46 @@ TEST(dnssec_verify_dns_key) {
 
         ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds(dnskey, ds1, /* mask_revoke= */ false));
         ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds(dnskey, ds2, /* mask_revoke= */ false));
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *ds2_bad = NULL;
+        ds2_bad = dns_resource_record_copy(ds2);
+        ASSERT_NOT_NULL(ds2_bad);
+        ((uint8_t*) ds2_bad->ds.digest)[0] ^= 0xff;
+        ASSERT_OK_ZERO(dnssec_verify_dnskey_by_ds(dnskey, ds2_bad, /* mask_revoke= */ false));
+
+        _cleanup_(dns_answer_unrefp) DnsAnswer *sha1_only = NULL, *both = NULL, *sha1_and_bad = NULL, *sha1_and_unauthenticated_bad = NULL;
+
+        /* A lone SHA-1 DS is used */
+        ASSERT_NOT_NULL(sha1_only = dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(sha1_only, ds1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds_search(dnskey, sha1_only));
+
+        ASSERT_NOT_NULL(both = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(both, ds1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(both, ds2, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds_search(dnskey, both));
+
+        /* The SHA-1 DS is ignored if a SHA-256 DS is present, even a non-matching one */
+        ASSERT_NOT_NULL(sha1_and_bad = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(sha1_and_bad, ds1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(sha1_and_bad, ds2_bad, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK_ZERO(dnssec_verify_dnskey_by_ds_search(dnskey, sha1_and_bad));
+
+        /* … but only if that SHA-256 DS is authenticated */
+        ASSERT_NOT_NULL(sha1_and_unauthenticated_bad = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(sha1_and_unauthenticated_bad, ds1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(sha1_and_unauthenticated_bad, ds2_bad, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds_search(dnskey, sha1_and_unauthenticated_bad));
+
+        /* … and only if we support its key algorithm */
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *ds2_ed448 = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *sha1_and_unsupported_algorithm = NULL;
+        ASSERT_NOT_NULL(ds2_ed448 = dns_resource_record_copy(ds2));
+        ds2_ed448->ds.algorithm = DNSSEC_ALGORITHM_ED448;
+        ASSERT_NOT_NULL(sha1_and_unsupported_algorithm = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(sha1_and_unsupported_algorithm, ds1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(sha1_and_unsupported_algorithm, ds2_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds_search(dnskey, sha1_and_unsupported_algorithm));
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example1) {
