@@ -1991,7 +1991,7 @@ static int dissect_image(
 }
 #endif
 
-#if HAVE_LIBCRYPTSETUP
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
 static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
         int r;
 
@@ -2005,6 +2005,40 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
                 log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE, ignoring: %m");
 
         return r != 0;
+}
+
+static bool verity_need_validated_device(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
+        /* We only use a device without a validated signature if the policy allows "verity" and we don't have
+         * a signature that we could use instead. */
+        return !FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) || verity_use_signature(verity, policy_flags);
+}
+#endif
+
+#if HAVE_BLKID
+static int verity_device_has_validated_signature(const char *name) {
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity params = {};
+        int r;
+
+        assert(name);
+
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_get_verity_info(cd, &params);
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 #endif
 
@@ -2045,6 +2079,10 @@ int dissected_image_new_from_existing_verity(
             !iovec_is_set(&verity->root_hash))
                 return -ENOPKG;
 
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+
         /* The policy fstype flags translate to the literal fstype name of each filesystem.
          * Input must be a single filesystem image, if the policy specifies more than one, we need to dissect */
         r = partition_policy_determine_fstype(image_policy, PARTITION_ROOT, &encrypted, &root_fstype_string);
@@ -2062,7 +2100,9 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
+        const char *name = strjoina(root_hash_encoded, "-verity");
+
+        node = path_join("/dev/mapper", name);
         if (!node)
                 return -ENOMEM;
 
@@ -2070,9 +2110,24 @@ int dissected_image_new_from_existing_verity(
         if (r < 0)
                 return r;
 
+        /* We open the device before we check its signature. The device can't be removed while we keep it
+         * open, so the check applies to the device that we use. */
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        /* If the policy requires a signature, or if we have a signature and the policy allows "signed", we
+         * only use the existing device here if the kernel validated a signature when it set up the device.
+         * Otherwise we fall back to the full dissection, which checks our signature. */
+        if (verity_need_validated_device(verity, root_flags)) {
+                r = verity_device_has_validated_signature(name);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check signature state of verity device %s, not using it: %m", name);
+                else if (r == 0)
+                        log_debug("Existing verity device %s has no validated signature, not using it.", name);
+                if (r <= 0)
+                        return -ENOPKG;
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
@@ -3348,7 +3403,7 @@ static int verity_can_reuse(
          * the device. LSMs such as IPE check the recorded validation, for example to only run programs from
          * verity devices with a validated signature. */
         if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE) &&
-            (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) || verity_use_signature(verity, policy_flags)))
+            verity_need_validated_device(verity, policy_flags))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
 
         *ret_cd = TAKE_PTR(cd);

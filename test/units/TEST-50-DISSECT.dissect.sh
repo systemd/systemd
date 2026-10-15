@@ -148,6 +148,18 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --image-policy=root=signed 2>&1 >/dev/null) |
         grep -F "Image lacks recognized signature." >/dev/null
 done
+# A service whose policy requires a signature must not reuse a shared Verity device that was set up without
+# one.
+mkdir -p /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
@@ -591,6 +603,9 @@ systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -
 # Check dissect shortcut for verity images
 # No verity for the second img (previous test benefits from variations), remove it for the next one
 rm -f "$VDIR/${VBASE}_1.raw"
+# With a signature, the shortcut only reuses a device whose signature the kernel validated, and the kernel can't
+# validate the signature on every host. Hide the signature, so that the shortcut reuses the devices.
+mv "$MINIMAL_IMAGE.roothash.p7s" "$MINIMAL_IMAGE.roothash.p7s.bak"
 cat >/run/systemd/system/testservice-50e-vpick.service <<EOF
 [Service]
 Type=notify
@@ -629,6 +644,7 @@ umount -R /tmp/img
 umount -R /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
+mv "$MINIMAL_IMAGE.roothash.p7s.bak" "$MINIMAL_IMAGE.roothash.p7s"
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -937,7 +953,10 @@ rm -f /run/systemd/system/testservice-50k.service
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" "$CDIR1" "$CDIR2" "$CIMG1" "$CIMG2" /tmp/vpickminimg /tmp/markers/
 
-# Check dissect shortcut for verity images
+# Check dissect shortcut for verity images. As above, hide the signatures, so that the shortcut reuses the
+# devices.
+mv "$MINIMAL_IMAGE.roothash.p7s" "$MINIMAL_IMAGE.roothash.p7s.bak"
+mv /tmp/app0.roothash.p7s /tmp/app0.roothash.p7s.bak
 cat >/run/systemd/system/testservice-50m.service <<EOF
 [Service]
 Type=notify
@@ -979,6 +998,8 @@ umount /tmp/img
 umount /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+mv "$MINIMAL_IMAGE.roothash.p7s.bak" "$MINIMAL_IMAGE.roothash.p7s"
+mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
