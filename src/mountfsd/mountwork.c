@@ -675,12 +675,16 @@ static int vl_method_mount_image(
                                 &verity,
                                 use_policy,
                                 dissect_flags);
-                if (r == -EDESTADDRREQ) {
+                if (IN_SET(r, -EDESTADDRREQ, -ERFKILL)) {
                         /* dissected_image_decrypt() returns EDESTADDRREQ if neither the kernel nor userspace
-                         * validates the dm-verity signature. */
+                         * validates the dm-verity signature. It returns ERFKILL if the image policy refuses
+                         * to use a partition without Verity or without a signature,
+                         * for example because the signature partition is invalid. */
+                        bool key_not_found = r == -EDESTADDRREQ;
 
                         if (!polkit_have_untrusted_action) {
-                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
+                                 log_debug("%s. Trying a stronger polkit authentication before continuing.",
+                                           key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                  r = varlink_verify_polkit_async_full(
                                                  link,
                                                  /* bus= */ NULL,
@@ -694,13 +698,16 @@ static int vl_method_mount_image(
                                          return r;
                                  if (r > 0) {
                                          /* Try again, now that we know the client has enough privileges. */
-                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
+                                         log_debug("Retrying after polkit authentication.");
                                          polkit_have_untrusted_action = true;
                                          continue;
                                  }
                          }
 
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", /* parameters= */ NULL);
+                        return sd_varlink_error(
+                                        link,
+                                        key_not_found ? "io.systemd.MountFileSystem.KeyNotFound" : "io.systemd.MountFileSystem.DeniedByImagePolicy",
+                                        /* parameters= */ NULL);
                 }
                 if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
                                   * under the assumption that some errors are transitional. Which the errors might
