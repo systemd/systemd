@@ -248,7 +248,7 @@ static int varlink_upload_report(Context *context, sd_json_variant *report) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
-        ssize_t jobs = varlink_execute_directory(
+        r = varlink_execute_directory(
                         REPORT_UPLOAD_DIR,
                         "io.systemd.Report.Uploader.Upload",
                         params,
@@ -256,9 +256,9 @@ static int varlink_upload_report(Context *context, sd_json_variant *report) {
                         arg_network_timeout_usec,
                         execute_dir_reply,
                         /* userdata= */ context);
-        if (jobs < 0)
-                return log_error_errno(jobs, "Failed to execute upload via %s: %m", REPORT_UPLOAD_DIR);
-        if (jobs == 0)
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute upload via %s: %m", REPORT_UPLOAD_DIR);
+        if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
                                        "No upload mechanism found via %s.", REPORT_UPLOAD_DIR);
         if (context->upload_result < 0)
