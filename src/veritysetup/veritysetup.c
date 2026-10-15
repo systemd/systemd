@@ -361,12 +361,15 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                 const char *t;
                 r = sd_device_get_property_value(ASSERT_PTR(datadev), "ID_DISSECT_PART_ROOTHASH_SIG", &t);
-                if (r < 0)
-                        return log_error_errno(r, "Automatic root hash signature pick up requested, and device doesn't carry ID_DISSECT_PART_ROOTHASH_SIG property, cannot determine root hash signature.");
-
-                r = unbase64mem(t, &arg_root_hash_signature, &arg_root_hash_signature_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
+                if (r == -ENOENT)
+                        log_debug("Data device doesn't have the ID_DISSECT_PART_ROOTHASH_SIG property, activating without root hash signature.");
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to read ID_DISSECT_PART_ROOTHASH_SIG property of data device: %m");
+                else {
+                        r = unbase64mem(t, &arg_root_hash_signature, &arg_root_hash_signature_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
+                }
         }
 
         r = sym_crypt_init(&cd, verity_device);
