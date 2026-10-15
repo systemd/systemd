@@ -132,6 +132,18 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
+# A service whose policy requires a signature must not reuse a shared Verity device that was set up without
+# one.
+mkdir -p /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=

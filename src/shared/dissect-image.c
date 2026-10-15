@@ -1971,6 +1971,34 @@ static int dissect_image(
 }
 #endif
 
+#if HAVE_BLKID
+static int verity_device_has_validated_signature(const char *name) {
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity params = {};
+        int r;
+
+        assert(name);
+
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_get_verity_info(cd, &params);
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+#endif
+
 int dissected_image_new_from_existing_verity(
                 const char *src,
                 const VeritySettings *verity,
@@ -2008,6 +2036,10 @@ int dissected_image_new_from_existing_verity(
             !iovec_is_set(&verity->root_hash))
                 return -ENOPKG;
 
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+
         /* The policy fstype flags translate to the literal fstype name of each filesystem.
          * Input must be a single filesystem image, if the policy specifies more than one, we need to dissect */
         r = partition_policy_determine_fstype(image_policy, PARTITION_ROOT, &encrypted, &root_fstype_string);
@@ -2025,7 +2057,22 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
+        const char *name = strjoina(root_hash_encoded, "-verity");
+
+        /* If the policy requires a signature, only use the existing device if the kernel validated a
+         * signature when it set up the device. Otherwise the full dissection validates our signature and
+         * sets up a separate device. */
+        if (!FLAGS_SET(root_flags, PARTITION_POLICY_VERITY)) {
+                r = verity_device_has_validated_signature(name);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check signature state of verity device %s, not using it: %m", name);
+                else if (r == 0)
+                        log_debug("Existing verity device %s has no validated signature, not using it.", name);
+                if (r <= 0)
+                        return -ENOPKG;
+        }
+
+        node = path_join("/dev/mapper", name);
         if (!node)
                 return -ENOMEM;
 
