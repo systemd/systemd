@@ -5,6 +5,15 @@ if conf.get('ENABLE_REPORT') != 1
 endif
 
 executables += [
+        executable_template + {
+                'name' : 'systemd-report-example',
+                'sources' : files(
+                        'report-example.c',
+                        'report-server.c',
+                ),
+                'build_by_default' : want_tests != 'false',
+                'install' : 'no',
+        },
         libexec_template + {
                 'name' : 'systemd-report',
                 'public' : true,
