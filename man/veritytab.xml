@@ -228,6 +228,18 @@ This is based on crypttab(5).
       </varlistentry>
 
       <varlistentry>
+        <term><option>root-hash-signature-required</option></term>
+
+        <listitem><para>If specified, the device is only activated if the kernel or userspace validates the
+        root hash signature set with <option>root-hash-signature=</option>. Userspace validation uses the
+        certificates in <filename>/etc/verity.d/</filename> (and related directories). Without this option,
+        the device is activated with the root hash alone if the kernel cannot validate the
+        signature.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>_netdev</option></term>
 
         <listitem><para>Marks this veritysetup device as requiring network. It will be
