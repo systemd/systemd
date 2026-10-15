@@ -145,6 +145,26 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
+# A service whose policy requires a signature fails if no trusted key validates its signature, instead of
+# reusing a shared Verity device that was set up without a signature. Once a certificate for the signature is
+# installed, the service works.
+mkdir -p /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootHashSignature=/tmp/test-50-unknown.p7s \
+            -p RootImagePolicy=root=signed+squashfs \
+            true
+rm /run/verity.d/test-50-unknown.crt
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
@@ -1005,6 +1025,52 @@ timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 8 -F 'Reusin
 systemctl stop testservice-50m.service
 umount /tmp/img
 umount /tmp/ext
+veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+# The shortcut doesn't check whether the kernel validated a signature for an existing device. A unit whose image
+# policy requires a signature doesn't take the shortcut, while a unit whose image policy allows "verity" does.
+# veritysetup sets up the devices without a signature. We look for the messages in the journal of each unit,
+# since the shell trace of this script contains the messages too.
+for image in "$MINIMAL_IMAGE" /tmp/app0; do
+    name="$(cat "$image.roothash")-verity"
+    timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$name"
+    veritysetup open "$image.raw" "$name" "$image.verity" --root-hash-file "$image.roothash"
+done
+mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    systemd-run --wait -P --unit=test-50-shortcut-signed.service \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                -p ExtensionImages=/tmp/app0.raw \
+                -p ExtensionImagePolicy=root=signed+squashfs \
+                -p TemporaryFileSystem=/var/lib \
+                -p MountImages=/tmp/app0.raw:/var/lib/app \
+                -p MountImagePolicy=root=signed+squashfs \
+                cat /opt/script0.sh
+    journalctl --sync
+    journalctl -u test-50-shortcut-signed.service >/tmp/test-50-shortcut.log
+    test "$(grep -cF 'Image policy requires a signature, skipping verity shortcut.' /tmp/test-50-shortcut.log)" -ge 3
+    (! grep -F 'Reusing pre-existing verity-protected' /tmp/test-50-shortcut.log)
+fi
+systemd-run --wait -P --unit=test-50-shortcut-verity.service \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImagePolicy=root=verity+squashfs \
+            -p ExtensionImages=/tmp/app0.raw \
+            -p ExtensionImagePolicy=root=verity+squashfs \
+            -p TemporaryFileSystem=/var/lib \
+            -p MountImages=/tmp/app0.raw:/var/lib/app \
+            -p MountImagePolicy=root=verity+squashfs \
+            cat /opt/script0.sh
+journalctl --sync
+journalctl -u test-50-shortcut-verity.service >/tmp/test-50-shortcut.log
+grep -F 'Reusing pre-existing verity-protected root image' /tmp/test-50-shortcut.log >/dev/null
+test "$(grep -cF 'Reusing pre-existing verity-protected image' /tmp/test-50-shortcut.log)" -ge 2
+rm /tmp/test-50-shortcut.log
+umount /tmp/img
+umount /tmp/ext
+# A unit that checks a device but can't reuse it requests deferred removal of the device, so the devices can be
+# gone already.
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
 
