@@ -173,7 +173,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
                 Object *o;
 
                 r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
-                ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
+                ASSERT_TRUE(ERRNO_IS_NEG_JOURNAL_CORRUPTION(r));
         }
 
         /* Archive and offline file. */
