@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
+#include "dissect-image.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -39,6 +40,7 @@ static uint64_t arg_fec_offset = 0;
 static uint64_t arg_fec_roots = 2;
 static struct iovec arg_root_hash_signature = {};
 static bool arg_root_hash_signature_auto = false;
+static bool arg_root_hash_signature_required = false;
 static char *arg_tpm2_measure_nvpcr = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -272,6 +274,13 @@ static int parse_options(const char *options) {
                         if (r < 0)
                                 return r;
 
+                } else if ((val = startswith(word, "root-hash-signature-required="))) {
+
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse boolean '%s': %m", word);
+
+                        arg_root_hash_signature_required = r;
                 } else if ((val = startswith(word, "tpm2-measure-nvpcr="))) {
                         r = isempty(val) ? 0 : parse_boolean(val);
                         if (r == 0) {
@@ -363,6 +372,10 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
         }
 
+        if (arg_root_hash_signature_required && !iovec_is_set(&arg_root_hash_signature))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Root hash signature for verity device '%s' is required, but none was specified, refusing.", volume);
+
         r = sym_crypt_init(&cd, verity_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to open verity device %s: %m", verity_device);
@@ -412,28 +425,44 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
-        bool signed_activation = false;
+        bool signature_validated = false, activated = false;
         if (iovec_is_set(&arg_root_hash_signature)) {
                 r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature.iov_base, arg_root_hash_signature.iov_len, arg_activate_flags);
-                if (r < 0) {
-                        log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
+                if (r >= 0)
+                        signature_validated = activated = true;
+                else {
+                        log_info_errno(r, "Unable to activate verity device '%s' with root hash signature checking in kernel (%m), validating signature in userspace.", volume);
 
-                        r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
+                        /* The kernel rejects a signature if its certificate is only in /etc/verity.d/ and
+                         * not in the kernel keyring. dissect-image validates such a signature in userspace,
+                         * and we do the same. */
+                        r = verity_validate_signature_userspace(&IOVEC_MAKE(rh, rh_size), &arg_root_hash_signature, /* root= */ NULL);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r > 0) {
+                                log_info("Userspace validated the root hash signature of verity device '%s'.", volume);
+                                signature_validated = true;
+                        } else if (arg_root_hash_signature_required) {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to validate required root hash signature of verity device '%s' in userspace: %m", volume);
 
-                        log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
-                } else
-                        signed_activation = true;
-        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                       "Neither the kernel nor userspace validated the required root hash signature of verity device '%s', refusing.", volume);
+                        } else
+                                log_info("Userspace didn't validate the root hash signature of verity device '%s', activating without it.", volume);
+                }
+        }
+
+        if (!activated) {
                 r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
+        }
 
         (void) pcrextend_verity_now(
                         volume,
                         &IOVEC_MAKE(rh, rh_size),
-                        signed_activation ? &arg_root_hash_signature : NULL);
+                        signature_validated ? &arg_root_hash_signature : NULL);
 
         return 0;
 }
