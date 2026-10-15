@@ -534,7 +534,6 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
                 /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
                  * classified by the policy as an 'unprotected' image and will be refused otherwise. */
                 DISSECT_IMAGE_NO_PARTITION_TABLE |
@@ -655,13 +654,18 @@ static int vl_method_mount_image(
 
                 log_debug("Using image policy: %s", ps);
 
+                /* A shared Verity device is reused by anyone who asks for the same root hash. The client
+                 * picks the root hash with the partition UUIDs or the signature partition of its image, and
+                 * reusing the device doesn't check that the image matches the root hash. So only share
+                 * devices if we trust the image, otherwise an untrusted client could mount the contents of
+                 * any shared Verity device. */
                 r = dissected_image_decrypt(
                                 di,
                                 /* root= */ NULL,
                                 p.password,
                                 &verity,
                                 use_policy,
-                                dissect_flags);
+                                dissect_flags | (p.verity_sharing && use_trusted_policy ? DISSECT_IMAGE_VERITY_SHARE : 0));
                 if (IN_SET(r, -EDESTADDRREQ, -ERFKILL)) {
                         /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
                          * key chain which we mangle to EDESTADDRREQ. That's great. We get ERFKILL if the
