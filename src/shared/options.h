@@ -103,7 +103,7 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
 #define OPTION_COMMON_INTROSPECT_CLI                                    \
         /* This option is internal-only for now and not shown in --help */ \
-        OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
+        OPTION_LONG_FLAGS(OPTION_EXPERIMENTAL, "introspect-cli", NULL, /* help= */ NULL)
 
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
