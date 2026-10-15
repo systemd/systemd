@@ -2062,6 +2062,12 @@ int dissected_image_new_from_existing_verity(
             !iovec_is_set(&verity->root_hash))
                 return -ENOPKG;
 
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+        if (!FLAGS_SET(root_flags, PARTITION_POLICY_OPEN))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy requires protection checks, skipping verity shortcut.");
+
         /* The policy fstype flags translate to the literal fstype name of each filesystem.
          * Input must be a single filesystem image, if the policy specifies more than one, we need to dissect */
         r = partition_policy_determine_fstype(image_policy, PARTITION_ROOT, &encrypted, &root_fstype_string);
