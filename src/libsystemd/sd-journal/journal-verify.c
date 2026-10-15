@@ -1030,6 +1030,19 @@ int journal_file_verify(
                         log_notice("Journal file is sealed, but journal sealing support is disabled. Skipping seal verification.");
         }
 
+        if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
+                log_error("Cannot verify file with unknown extensions.");
+                r = -EOPNOTSUPP;
+                goto fail;
+        }
+
+        for (i = 0; i < sizeof(f->header->reserved); i++)
+                if (f->header->reserved[i] != 0) {
+                        error(offsetof(Header, reserved[i]), "Reserved field is non-zero");
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {
                 log_error_errno(r, "Failed to determine temporary directory: %m");
@@ -1091,19 +1104,6 @@ int journal_file_verify(
                 log_error_errno(r, "Failed to open entry array file stream: %m");
                 goto fail;
         }
-
-        if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
-                log_error("Cannot verify file with unknown extensions.");
-                r = -EOPNOTSUPP;
-                goto fail;
-        }
-
-        for (i = 0; i < sizeof(f->header->reserved); i++)
-                if (f->header->reserved[i] != 0) {
-                        error(offsetof(Header, reserved[i]), "Reserved field is non-zero");
-                        r = -EBADMSG;
-                        goto fail;
-                }
 
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_SEALED_CONTINUOUS(f->header))
                 warning(p,
