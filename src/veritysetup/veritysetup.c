@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
+#include "dissect-image.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -39,6 +40,7 @@ static uint64_t arg_fec_roots = 2;
 static void *arg_root_hash_signature = NULL;
 static size_t arg_root_hash_signature_size = 0;
 static bool arg_root_hash_signature_auto = false;
+static bool arg_root_hash_signature_required = false;
 static char *arg_tpm2_measure_nvpcr = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -151,6 +153,8 @@ static int parse_options(const char *options) {
                         arg_activate_flags |= CRYPT_ACTIVATE_CHECK_AT_MOST_ONCE;
                 else if (streq(word, "panic-on-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
+                else if (streq(word, "root-hash-signature-required"))
+                        arg_root_hash_signature_required = true;
                 else if ((val = startswith(word, "superblock="))) {
 
                         r = parse_boolean(val);
@@ -414,11 +418,34 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
-        bool signed_activation = false;
+        if (arg_root_hash_signature_required && arg_root_hash_signature_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Root hash signature for verity device '%s' is required, but none was specified, refusing.", volume);
+
+        bool signature_validated = false;
         if (arg_root_hash_signature_size > 0) {
                 r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
                 if (r < 0) {
                         log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
+
+                        if (arg_root_hash_signature_required) {
+                                /* The kernel can't validate the signature if the certificate is only in
+                                 * /etc/verity.d/. As for disk images, a signature that userspace validates
+                                 * meets the requirement too. */
+                                r = verity_validate_signature_userspace(
+                                                &IOVEC_MAKE(rh, rh_size),
+                                                &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size),
+                                                /* root= */ NULL);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to validate required root hash signature of verity device '%s': %m", volume);
+                                if (r == 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                               "Neither the kernel nor userspace validated the required root hash signature of verity device '%s', refusing.", volume);
+
+                                signature_validated = true;
+                        }
 
                         r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
                         if (r < 0)
@@ -426,7 +453,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                         log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
                 } else
-                        signed_activation = true;
+                        signature_validated = true;
         } else
                 r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
@@ -435,7 +462,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         (void) pcrextend_verity_now(
                         volume,
                         &IOVEC_MAKE(rh, rh_size),
-                        signed_activation ? &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size) : NULL);
+                        signature_validated ? &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size) : NULL);
 
         return 0;
 }
