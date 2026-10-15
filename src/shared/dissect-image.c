@@ -1062,7 +1062,7 @@ static int dissect_image_from_unpartitioned(
         m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
         m->has_verity_sig = false; /* signature not embedded, must be specified */
-        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash);
+        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash_sig);
 
         if (uuid)
                 m->image_uuid = *uuid;
