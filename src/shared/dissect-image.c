@@ -2070,8 +2070,17 @@ int dissected_image_new_from_existing_verity(
         if (!root_fstype_string)
                 return -ENOPKG;
 
+        /* We don't query the existing device, so we don't know whether the kernel validated a signature for
+         * it. We only know that the device is protected by verity. If the image policy requires a signature,
+         * we dissect the image the full way, which checks the device before it reuses it. */
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+        if (!FLAGS_SET(root_flags, PARTITION_POLICY_VERITY))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy requires a signature, skipping verity shortcut.");
+
         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                found_flags = iovec_is_set(&verity->root_hash_sig) ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
+                found_flags = PARTITION_POLICY_VERITY;
         else
                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
