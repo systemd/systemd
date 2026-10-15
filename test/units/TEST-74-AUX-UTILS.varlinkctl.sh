@@ -65,8 +65,8 @@ if command -v userdbctl >/dev/null; then
     nonmember_reply="$(varlinkctl call --graceful=io.systemd.UserDatabase.NoRecordFound -j \
         /run/systemd/userdb/io.systemd.Multiplexer \
         io.systemd.UserDatabase.GetMemberships \
-        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
-    test -z "$nonmember_reply"
+        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}' 2>&1)"
+    grep "returned expected error: io.systemd.UserDatabase.NoRecordFound" <<<"$nonmember_reply" >/dev/null
     rm "$membership"
 
     if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
