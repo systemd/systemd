@@ -254,6 +254,13 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=verity:swap=
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
+
+# Without a root hash, Verity can't be set up, so a policy that requires Verity must refuse the image instead
+# of mounting the data partition directly.
+SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" >/dev/null
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=verity >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=signed >/dev/null)
+
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity-sig=unused+absent
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity=unused+absent)
