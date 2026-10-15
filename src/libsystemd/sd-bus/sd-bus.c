@@ -31,15 +31,16 @@
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "io-util.h"
-#include "iovec-util.h"
 #include "log.h"
 #include "log-context.h"
 #include "memory-util.h"
+#include "notify-recv.h"
 #include "origin-id.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -161,6 +162,8 @@ static void bus_close_fds(sd_bus *b) {
         bus_close_inotify_fd(b);
         b->pidfd = safe_close(b->pidfd);
         b->busexec_notify_fd = safe_close(b->busexec_notify_fd);
+        b->busexec_notify_path = unlink_and_free(b->busexec_notify_path);
+        b->busexec_notify_dir = rmdir_and_free(b->busexec_notify_dir);
 }
 
 static void bus_reset_queues(sd_bus *b) {
@@ -1790,48 +1793,25 @@ static void bus_receive_busexec_errno(sd_bus *bus) {
         (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, NULL);
 
         for (unsigned i = 0; i < 64; i++) {
-                char buffer[4096];
-                union {
-                        struct cmsghdr alignment;
-                        uint8_t data[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
-                struct iovec iov = IOVEC_MAKE(buffer, sizeof(buffer) - 1);
-                struct msghdr mh = {
-                        .msg_iov = &iov,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                };
-                ssize_t n;
-                bool authenticated = false;
+                _cleanup_free_ char *text = NULL;
+                struct ucred ucred;
+                int r;
 
-                n = recvmsg(bus->busexec_notify_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (n < 0) {
-                        if (errno == EINTR)
-                                continue;
+                r = notify_recv(bus->busexec_notify_fd, &text, &ucred, /* ret_pidref= */ NULL);
+                if (r == -EAGAIN)
+                        continue;
+                if (r < 0)
                         return;
-                }
-                cmsg_close_all(&mh);
-                if (mh.msg_flags & (MSG_TRUNC|MSG_CTRUNC))
+                if (ucred.pid != bus->busexec_pidref.pid)
                         continue;
 
-                struct cmsghdr *cmsg;
-                CMSG_FOREACH(cmsg, &mh)
-                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS &&
-                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                                authenticated = CMSG_TYPED_DATA(cmsg, struct ucred)->pid == bus->busexec_pidref.pid;
-                if (!authenticated)
-                        continue;
-
-                buffer[n] = 0;
-                for (char *line = buffer, *next; line; line = next) {
+                _cleanup_strv_free_ char **lines = strv_split_newlines(text);
+                if (!lines)
+                        return;
+                STRV_FOREACH(line, lines) {
+                        const char *value = startswith(*line, "ERRNO=");
                         int error;
-                        const char *value;
 
-                        next = strchr(line, '\n');
-                        if (next)
-                                *next++ = 0;
-                        value = startswith(line, "ERRNO=");
                         if (value && safe_atoi(value, &error) >= 0 && error > 0 && error <= ERRNO_MAX)
                                 bus->busexec_error = -error;
                 }
@@ -2630,6 +2610,8 @@ _public_ int sd_bus_call(
         }
 
 fail:
+        if (bus->busexec_error < 0 && ERRNO_IS_DISCONNECT(r))
+                r = bus->busexec_error;
         return sd_bus_error_set_errno(reterr_error, r);
 }
 
@@ -3227,6 +3209,7 @@ static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
 
         (void) sd_bus_error_set_errnof(
                         &error,
+                        bus->busexec_error < 0 ? bus->busexec_error :
                         bus->exit_code < 0 ? bus->exit_code : -ETIMEDOUT,
                         "Connection terminated");
 

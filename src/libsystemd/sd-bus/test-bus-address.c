@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -8,8 +9,11 @@
 
 #include "argv-util.h"
 #include "bus-internal.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -21,15 +25,15 @@ static void test_one_address(sd_bus *b,
 
         r = bus_set_address_system_remote(b, host);
         log_info("\"%s\" → %d, \"%s\"", host, r, strna(r >= 0 ? b->address : NULL));
-        assert_se(r == result);
+        ASSERT_EQ(r, result);
         if (r >= 0)
-                assert_se(streq_ptr(b->address, expected));
+                ASSERT_STREQ(b->address, expected);
 }
 
 TEST(bus_set_address_system_remote) {
         _cleanup_(sd_bus_unrefp) sd_bus *b = NULL;
 
-        assert_se(sd_bus_new(&b) >= 0);
+        ASSERT_OK(sd_bus_new(&b));
         if (!strv_isempty(saved_argv + 1)) {
                 STRV_FOREACH(a, saved_argv + 1)
                         test_one_address(b, *a, 0, NULL);
@@ -64,6 +68,13 @@ TEST(bus_set_address_system_remote) {
                          -EINVAL, NULL);
 }
 
+static int transport_error_callback(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        int *error = ASSERT_PTR(userdata);
+
+        *error = -sd_bus_message_get_errno(m);
+        return 1;
+}
+
 TEST(unixexec_errno) {
         static const struct {
                 const char *notification;
@@ -77,21 +88,55 @@ TEST(unixexec_errno) {
                 { "READY=1", -ENOTCONN },
                 { "ERRNO=4096", -ENOTCONN },
                 { "spoof", -ENOTCONN },
+                { "malformed", -ESRCH },
         };
 
-        FOREACH_ELEMENT(c, cases) {
-                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-                _cleanup_free_ char *address = NULL;
-                const char *unique;
+        unsigned mode;
+        FOREACH_ELEMENT(c, cases)
+                FOREACH_ARGUMENT(mode, 0U, 1U, 2U) {
+                        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+                        _cleanup_free_ char *address = NULL, *notify_dir = NULL, *notify_path = NULL;
+                        struct stat st;
+                        const char *unique;
 
-                address = strjoin("unixexec:path=/proc/self/exe,argv1=--notify-test,argv2=", c->notification);
-                ASSERT_NOT_NULL(address);
-                ASSERT_OK(sd_bus_new(&bus));
-                ASSERT_OK(sd_bus_set_address(bus, address));
-                ASSERT_OK(sd_bus_set_bus_client(bus, true));
-                ASSERT_OK(sd_bus_start(bus));
-                ASSERT_ERROR(sd_bus_get_unique_name(bus, &unique), -c->expected);
-        }
+                        address = strjoin("unixexec:path=/proc/self/exe,argv1=--notify-test,argv2=", c->notification);
+                        ASSERT_NOT_NULL(address);
+                        ASSERT_OK(sd_bus_new(&bus));
+                        ASSERT_OK(sd_bus_set_address(bus, address));
+                        ASSERT_OK(sd_bus_set_bus_client(bus, true));
+                        ASSERT_OK(sd_bus_start(bus));
+                        notify_dir = strdup(bus->busexec_notify_dir);
+                        notify_path = strdup(bus->busexec_notify_path);
+                        ASSERT_NOT_NULL(notify_dir);
+                        ASSERT_NOT_NULL(notify_path);
+                        ASSERT_OK_ERRNO(stat(notify_dir, &st));
+                        ASSERT_EQ(st.st_mode & 0777U, 0700U);
+
+                        if (mode == 2) {
+                                int error = -EINPROGRESS;
+
+                                ASSERT_OK(sd_bus_call_method_async(bus, /* ret_slot= */ NULL,
+                                                                  "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                                                                  "org.freedesktop.DBus", "ListNames",
+                                                                  transport_error_callback, &error, /* types= */ NULL));
+                                while (error == -EINPROGRESS) {
+                                        int r = sd_bus_process(bus, /* ret= */ NULL);
+                                        ASSERT_OK(r);
+                                        if (r == 0)
+                                                ASSERT_OK(sd_bus_wait(bus, USEC_PER_SEC));
+                                }
+                                ASSERT_EQ(error, c->expected == -ENOTCONN ? -ECONNRESET : c->expected);
+                        } else if (mode == 1)
+                                ASSERT_ERROR(sd_bus_call_method(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                                                                "org.freedesktop.DBus", "ListNames",
+                                                                /* reterr_error= */ NULL, /* ret_reply= */ NULL,
+                                                                /* types= */ NULL), -c->expected);
+                        else
+                                ASSERT_ERROR(sd_bus_get_unique_name(bus, &unique), -c->expected);
+                        sd_bus_close(bus);
+                        ASSERT_ERROR_ERRNO(access(notify_path, F_OK), ENOENT);
+                        ASSERT_ERROR_ERRNO(access(notify_dir, F_OK), ENOENT);
+                }
 }
 
 static int intro(void) {
@@ -112,6 +157,17 @@ static int intro(void) {
                                 _exit(EXIT_SUCCESS);
                         }
                         ASSERT_EQ(waitpid(pid, NULL, 0), pid);
+                } else if (streq(saved_argv[2], "malformed")) {
+                        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+                        union sockaddr_union sa;
+                        int size;
+
+                        ASSERT_OK_ERRNO(fd);
+                        ASSERT_OK(size = sockaddr_un_set_path(&sa.un, ASSERT_PTR(getenv("NOTIFY_SOCKET"))));
+                        static const char malformed[] = "ERRNO=13\0ERRNO=3";
+                        ASSERT_EQ(sendto(fd, malformed, sizeof(malformed) - 1, 0, &sa.sa, size),
+                                  (ssize_t) sizeof(malformed) - 1);
+                        ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, "ERRNO=3"));
                 } else
                         ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, saved_argv[2]));
                 _exit(EXIT_FAILURE);
