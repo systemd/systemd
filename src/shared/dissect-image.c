@@ -3114,9 +3114,25 @@ static int decrypt_partition(
         return 0;
 }
 
+static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
+        int r;
+
+        assert(verity);
+
+        if (!iovec_is_set(&verity->root_hash_sig) || !FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED))
+                return false;
+
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE, ignoring: %m");
+
+        return r != 0;
+}
+
 static int verity_can_reuse(
                 const VeritySettings *verity,
                 const char *name,
+                PartitionPolicyFlags policy_flags,
                 struct crypt_device **ret_cd) {
 
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
@@ -3151,11 +3167,13 @@ static int verity_can_reuse(
         if (!iovec_equal(&verity->root_hash, &root_hash_existing))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
-        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
-         * same settings, so that a previous unsigned mount will not be reused if the user asks to use
-         * signing for the new one, and vice versa. */
-        if (iovec_is_set(&verity->root_hash_sig) != FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
+        /* We don't reuse a device that the kernel activated without a signature if the policy requires a
+         * signature. We also don't reuse it if we have a signature that the policy allows us to use. In
+         * that case the kernel might validate our signature, and LSMs such as IPE treat devices with a
+         * validated signature differently. */
+        if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE) &&
+            (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) || verity_use_signature(verity, policy_flags)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
 
         *ret_cd = TAKE_PTR(cd);
         return 0;
@@ -3293,18 +3311,8 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
-        bool check_signature;
-        if (iovec_is_set(&verity->root_hash_sig) && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
-                r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
-
-                check_signature = r != 0;
-        } else
-                check_signature = false;
-
         bool measure_signature;
-        if (check_signature) {
+        if (verity_use_signature(verity, policy_flags)) {
                 int k;
 
                 /* First, if we have support for signed keys in the kernel, then try that first. */
@@ -3528,7 +3536,7 @@ static int verity_partition(
                 if (!restore_deferred_remove)
                         return log_oom_debug();
 
-                r = verity_can_reuse(verity, name, &existing_cd);
+                r = verity_can_reuse(verity, name, policy_flags, &existing_cd);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
