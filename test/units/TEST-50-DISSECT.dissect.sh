@@ -119,6 +119,19 @@ openssl smime -sign -nocerts -noattr -binary \
               -outform der \
               -out /tmp/test-50-unknown.p7s
 head -c 64 /dev/urandom >/tmp/test-50-garbage.p7s
+# The kernel validated the signature of a shared device, so a mount without a signature reuses the device, even if
+# the policy requires a signature.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    mkdir -p /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-validated-mnt
+    SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mount --image-policy=root=signed "$MINIMAL_IMAGE.raw" /tmp/test-50-reuse-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-reuse-mnt)" = "$(findmnt -n -o MAJ:MIN /tmp/test-50-validated-mnt)"
+    systemd-dissect --umount /tmp/test-50-reuse-mnt
+    systemd-dissect --umount /tmp/test-50-validated-mnt
+    rmdir /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+fi
 for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
     SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
                                              --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
@@ -1471,7 +1484,7 @@ if [[ -f "${BTRFS_MEMBER1:-}" ]]; then
     # Double check that there's no loopdev
     src="$(systemd-run -P \
                     -p MountImages="${loop}p1:/run/img-btrfs:subvol=@demo" \
-                    findmnt -n -o SOURCE /run/img-btrfs)"
+                    findmnt -n -o MAJ:MIN /run/img-btrfs)"
     assert_eq "${src%%\[*}" "${loop}p1"
 
     trap - EXIT
