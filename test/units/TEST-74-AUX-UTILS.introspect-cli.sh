@@ -9,6 +9,12 @@ PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
+# --introspect-cli itself is marked as experimental
+export SYSTEMD_EXPERIMENTAL=1
+
+# Nope out if the build does not support experimental options at all
+(! systemctl --introspect-cli) |& grep -F 'not supported' >/dev/null && exit 77
+
 # Options and verbs (nested command objects) share the "arguments" array of a command object.
 JQ_DEFS='def opts: [.arguments[]? | select(.type == "option")];
          def verbs: [.arguments[]? | select(.type == "command")];'
