@@ -3953,6 +3953,37 @@ static void dissected_image_undo_decrypt(DissectedImage *m) {
 }
 #endif
 
+static int dissected_image_check_verity_policy(const DissectedImage *m, const ImagePolicy *policy) {
+        assert(m);
+
+        /* The policy checks during dissection accept a partition that has a Verity hash partition, even if
+         * we never set up Verity for it. We don't set up Verity if no root hash is known, for example if
+         * $SYSTEMD_DISSECT_VERITY_GUESS=0 is set and the signature partition can't be used. Mounting the
+         * data partition directly would bypass a policy that only allows "verity" or "signed". */
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                const DissectedPartition *p = m->partitions + i;
+
+                if (!p->found || p->decrypted_node || partition_verity_hash_of(i) < 0)
+                        continue;
+
+                if (streq_ptr(p->fstype, "crypto_LUKS"))
+                        continue;
+
+                PartitionPolicyFlags f = image_policy_get_exhaustively(policy, i);
+                if (f < 0)
+                        return f;
+                if (f & (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED))
+                        continue;
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "Image policy requires Verity for the %s partition, but Verity is not set up, refusing.",
+                                       partition_designator_to_string(i));
+        }
+
+        return 0;
+}
+
 int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *root, /* The root to get user verity certs from (for a sysext) */
@@ -3987,7 +4018,7 @@ int dissected_image_decrypt(
                 return -EINVAL;
 
         if (!m->encrypted && !m->verity_ready)
-                return 0;
+                return dissected_image_check_verity_policy(m, policy);
 
         r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
         if (r >= 0)
@@ -4034,6 +4065,10 @@ int dissected_image_decrypt(
                                 goto fail;
                 }
         }
+
+        r = dissected_image_check_verity_policy(m, policy);
+        if (r < 0)
+                goto fail;
 
         m->decrypted_image = TAKE_PTR(d);
         return 1;
