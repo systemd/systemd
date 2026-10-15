@@ -316,6 +316,8 @@ systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOT
 (! systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
 (! systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=signed >/dev/null)
 (! SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+# With a root hash, the signature partition is ignored and counts as absent. "verity+signed" allows that.
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=verity+signed >/dev/null
 # Set up a shared Verity device for the same root hash without a signature. A policy that requires a
 # signature must not reuse it.
 mkdir -p /tmp/test-50-badsig-mnt
