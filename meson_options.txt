@@ -508,6 +508,8 @@ option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'libidn2 support')
 option('libmount', type : 'feature',
        description : 'libmount support')
+option('liburing', type : 'feature',
+       description : 'io_uring support via liburing (used by sd-event)')
 option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libµhttpd support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
