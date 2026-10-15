@@ -51,11 +51,15 @@ int config_parse_dns_servers(
                 }
         }
 
+        if (ltype == DNS_SERVER_FALLBACK && m->need_builtin_fallbacks && !isempty(rvalue) && !m->fallback_dns_servers)
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "No valid fallback DNS servers specified, using built-in fallback servers.");
+
         /* If we have a manual setting, then we stop reading
          * /etc/resolv.conf */
         if (ltype == DNS_SERVER_SYSTEM)
                 m->read_resolv_conf = false;
-        if (ltype == DNS_SERVER_FALLBACK)
+        if (ltype == DNS_SERVER_FALLBACK && (isempty(rvalue) || m->fallback_dns_servers))
                 m->need_builtin_fallbacks = false;
 
         return 0;
