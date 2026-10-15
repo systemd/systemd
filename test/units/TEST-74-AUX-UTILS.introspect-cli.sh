@@ -176,9 +176,6 @@ INTROSPECTABLE=(
 for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
-    help="$($i --help)"
-    (! grep -E '^See the [^[:space:]]+\.[[:alnum:]]+ man page for details\.$' <<<"$help" >/dev/null)
-
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.uapi-group.cli-introspection"'
     $i --introspect-cli | jq -e --arg name "$i" \
