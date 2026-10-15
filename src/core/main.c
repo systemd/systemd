@@ -2331,7 +2331,7 @@ static int do_reexecute(
                 log_warning_errno(r, "Failed to move /run/systemd/ to /run/systemd.pre-switch-root/, ignoring: %m");
 
         /* Reopen the console */
-        (void) make_console_stdio();
+        (void) make_console_stdio(/* switch_to_text= */ true);
 
         i = 1;         /* Leave args[0] empty for now. */
         for (int j = 1; j <= argc; j++)

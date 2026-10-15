@@ -97,3 +97,9 @@ typedef struct UnitInfo UnitInfo;
 typedef struct UserRecord UserRecord;
 typedef struct Verb Verb;
 typedef struct VeritySettings VeritySettings;
+
+typedef int (*qmp_event_callback_t)(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata);

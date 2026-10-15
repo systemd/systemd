@@ -207,13 +207,36 @@ TEST(utf8_n_codepoints) {
         assert_se(utf8_n_codepoints("\xF1") == SIZE_MAX);
 }
 
+TEST(utf8_char_console_width) {
+        ASSERT_EQ(utf8_char_console_width("a"), 1);
+        ASSERT_EQ(utf8_char_console_width("串"), 2);
+        ASSERT_EQ(utf8_char_console_width("\t"), 8);
+
+        /* How wide we think a character is must agree with whether we consider it valid UTF-8 in the
+         * first place. utf8_encoded_to_unichar(), which this used to be based on, accepts everything
+         * below except the bare continuation byte, while utf8_is_valid() rejects all of them. */
+        FOREACH_STRING(x,
+                       "\x80",                       /* bare continuation byte */
+                       "\xed\xa0\x80",               /* UTF-16 surrogate */
+                       "\xc0\xaf",                   /* overlong '/' */
+                       "\xef\xb7\x90",               /* noncharacter U+FDD0 */
+                       "\xef\xbf\xbe",               /* noncharacter U+FFFE */
+                       "\xf8\x88\x80\x80\x80",       /* obsolete five byte form */
+                       "\xfc\x84\x80\x80\x80\x80") { /* obsolete six byte form */
+                ASSERT_FALSE(utf8_is_valid(x));
+                ASSERT_ERROR(utf8_char_console_width(x), EINVAL);
+                ASSERT_EQ(utf8_console_width(x), SIZE_MAX);
+        }
+}
+
 TEST(utf8_console_width) {
-        assert_se(utf8_console_width("abc") == 3);
-        assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
-        assert_se(utf8_console_width("串") == 2);
-        assert_se(utf8_console_width("") == 0);
-        assert_se(utf8_console_width("…👊🔪💐…") == 8);
-        assert_se(utf8_console_width("\xF1") == SIZE_MAX);
+        ASSERT_EQ(utf8_console_width("abc"), (size_t) 3);
+        ASSERT_EQ(utf8_console_width("zażółcić gęślą jaźń"), (size_t) 19);
+        ASSERT_EQ(utf8_console_width("串"), (size_t) 2);
+        ASSERT_EQ(utf8_console_width(""), (size_t) 0);
+        ASSERT_EQ(utf8_console_width("…👊🔪💐…"), (size_t) 8);
+        ASSERT_EQ(utf8_console_width("\xF1"), SIZE_MAX);
+        ASSERT_EQ(utf8_console_width("\t"), (size_t) 8);
 }
 
 TEST(utf8_to_utf16) {

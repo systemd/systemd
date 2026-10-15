@@ -1028,9 +1028,8 @@ libm = cc.find_library('m')
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
 # If it is installed, but not needed, it will be dropped because of --as-needed.
-if cc.links('''int main(int argc, char **argv) { return 0; }''',
-            args : '-latomic',
-            name : 'libatomic')
+basic_c_prog = '''int main(int argc, char **argv) { return 0; }'''
+if cc.links(basic_c_prog, args : '-latomic', name : 'libatomic')
         libatomic = declare_dependency(link_args : '-latomic')
 else
         libatomic = []
@@ -1760,7 +1759,7 @@ have = get_option('bootloader').require(
         pyelftools.found() and get_option('efi') and efi_arch != '',
         error_message : 'unsupported EFI arch or EFI support is disabled').allowed()
 conf.set10('ENABLE_BOOTLOADER', have)
-conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
+conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
 
 efi_arch_alt = ''
 efi_cpu_family_alt = ''

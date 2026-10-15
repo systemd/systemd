@@ -841,7 +841,6 @@ int manager_start(Manager *m) {
 Manager* manager_free(Manager *m) {
         Link *l;
         DnssdRegisteredService *s;
-        DnsServiceBrowser *sb;
 
         if (!m)
                 return NULL;
@@ -923,8 +922,6 @@ Manager* manager_free(Manager *m) {
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
-        while ((sb = hashmap_first(m->dns_service_browsers)))
-                dns_service_browser_free(sb);
         hashmap_free(m->dns_service_browsers);
 
         hashmap_free(m->hooks);
@@ -2176,12 +2173,16 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
         if (r < 0)
                 return r;
 
+        /* This may re-read /etc/resolv.conf and replace m->dns_servers and m->search_domains, hence call it
+         * before they are passed below, as the order of evaluation of the arguments is unspecified. */
+        DnsServer *current_dns_server = manager_get_dns_server(m);
+
         return dns_configuration_json_append(
                         /* ifname= */ NULL,
                         /* ifindex= */ 0,
                         /* delegate= */ NULL,
                         /* default_route= */ -1,
-                        manager_get_dns_server(m),
+                        current_dns_server,
                         m->dns_servers,
                         m->fallback_dns_servers,
                         m->search_domains,

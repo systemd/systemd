@@ -1335,6 +1335,9 @@ int address_remove_and_cancel(Address *address, Link *link) {
         if (waiting || (address->link && address_exists(address)))
                 return address_remove(address, link);
 
+        /* Otherwise, the address should be already gone or not configured yet. */
+        ipv4acd_detach(link, address);
+
         return 0;
 }
 

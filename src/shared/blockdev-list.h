@@ -8,7 +8,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING = 1 << 1,  /* Only consider block devices with partition scanning */
         BLOCKDEV_LIST_IGNORE_VIRTUAL             = 1 << 2,  /* Ignore virtual devices (devices under /sys/devices/virtual/) */
         BLOCKDEV_LIST_IGNORE_PARTITIONS          = 1 << 3,  /* Ignore partitions */
-        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 4,  /* Ignore ZRAM */
+        BLOCKDEV_LIST_IGNORE_RAMDISK             = 1 << 4,  /* Ignore RAMDISK (by brd module) and ZRAM (by zram module) */
         BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 5,  /* Ignore the block device we are currently booted from */
         BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 6,  /* Ignore disks of zero size (usually drives without a medium) */
         BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 7,  /* Ignore read-only block devices */

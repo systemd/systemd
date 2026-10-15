@@ -58,9 +58,11 @@
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 #define DEFAULT_MINIMUM_UPTIME_USEC (15U * USEC_PER_SEC)
 
-static const char *arg_verb = NULL;
+static char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
+
+STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
 
 COMMAND(
         "systemd-shutdown\0",
@@ -157,9 +159,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_POSITIONAL:
-                        if (!arg_verb)
-                                arg_verb = opts.arg;
-                        else
+                        if (!arg_verb) {
+                                arg_verb = strdup(opts.arg);
+                                if (!arg_verb)
+                                        return log_oom();
+                        } else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;
                 }
@@ -644,13 +648,18 @@ static int run(int argc, char *argv[]) {
                         argv[0] = (char*) "/shutdown";
 
                         (void) setsid();
-                        (void) make_console_stdio();
+                        /* Preserve a graphical splash retained across the exitrd handoff. */
+                        (void) make_console_stdio(/* switch_to_text= */ false);
 
                         log_info("Successfully changed into root pivot.\n"
                                  "Entering exitrd...");
 
                         execv("/shutdown", argv);
-                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
+                        r = -errno;
+
+                        /* The exitrd could not take over. Make subsequent diagnostics visible again. */
+                        (void) make_console_stdio(/* switch_to_text= */ true);
+                        log_error_errno(r, "Failed to execute shutdown binary: %m");
                 } else
                         log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
         }
@@ -736,6 +745,9 @@ static int run(int argc, char *argv[]) {
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
 error:
+        /* Do not leave a graphical splash covering the fatal error before freezing. */
+        (void) make_console_stdio(/* switch_to_text= */ true);
+
         if (r == 0)
                 log_struct(LOG_EMERG,
                            LOG_MESSAGE("Non-shutdown operation requested, cannot operate."),

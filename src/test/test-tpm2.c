@@ -1818,7 +1818,7 @@ static void check_best_attestation_key_template(Tpm2Context *c) {
 
         ASSERT_TRUE(IN_SET(template.type, TPM2_ALG_RSA, TPM2_ALG_ECC));
         ASSERT_TRUE(IN_SET(template.nameAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));
-        ASSERT_EQ(template.objectAttributes, TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | TPMA_OBJECT_SENSITIVEDATAORIGIN | TPMA_OBJECT_USERWITHAUTH | TPMA_OBJECT_ADMINWITHPOLICY | TPMA_OBJECT_RESTRICTED | TPMA_OBJECT_SIGN_ENCRYPT);
+        ASSERT_EQ(template.objectAttributes, TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | TPMA_OBJECT_SENSITIVEDATAORIGIN | TPMA_OBJECT_USERWITHAUTH | TPMA_OBJECT_RESTRICTED | TPMA_OBJECT_SIGN_ENCRYPT);
         ASSERT_EQ(template.parameters.asymDetail.symmetric.algorithm, TPM2_ALG_NULL);
         ASSERT_NE(template.parameters.asymDetail.scheme.scheme, TPM2_ALG_NULL);
         ASSERT_TRUE(IN_SET(template.parameters.asymDetail.scheme.details.anySig.hashAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));

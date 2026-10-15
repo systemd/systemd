@@ -21,6 +21,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -392,7 +393,6 @@ static int journal_file_init_header(
                 JournalFileFlags file_flags,
                 JournalFile *template) {
 
-        ssize_t k;
         int r;
 
         assert(f);
@@ -429,13 +429,7 @@ static int journal_file_init_header(
         } else
                 h.seqnum_id = h.file_id;
 
-        k = pwrite(f->fd, &h, sizeof(h), 0);
-        if (k < 0)
-                return -errno;
-        if (k != sizeof(h))
-                return -EIO;
-
-        return 0;
+        return pwrite_full(f->fd, &h, sizeof(h), 0);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
@@ -985,6 +979,21 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                le64toh(o->data.entry_array_offset),
                                                offset);
 
+                /* Objects are only ever appended, hence a hash chain has to move strictly forward. */
+                if (le64toh(o->data.next_hash_offset) > 0 && le64toh(o->data.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_hash_offset),
+                                               offset);
+
+                /* New data objects are prepended to the list of their field, hence that list has to move
+                 * strictly backward. */
+                if (le64toh(o->data.next_field_offset) >= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_field_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_field_offset),
+                                               offset);
+
                 break;
 
         case OBJECT_FIELD:
@@ -1001,6 +1010,12 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                "Invalid offset, next_hash_offset=" OFSfmt ", head_data_offset=" OFSfmt ": %" PRIu64,
                                                le64toh(o->field.next_hash_offset),
                                                le64toh(o->field.head_data_offset),
+                                               offset);
+
+                if (le64toh(o->field.next_hash_offset) > 0 && le64toh(o->field.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid field object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->field.next_hash_offset),
                                                offset);
                 break;
 
@@ -1298,7 +1313,6 @@ int journal_file_append_object(
 
 static int journal_file_setup_data_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1314,14 +1328,20 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
+        /* We deliberately don't zero the hash table items: the table is placed in a newly created file, in
+         * space that was just allocated via posix_fallocate() and hence reads as zeroes anyway. Writing the
+         * zeroes through the memory map would not only write out the whole table once for no reason: the
+         * sequential write faults would also make the kernel's mmap readahead instantiate most of the table
+         * in large folios, on file systems that support them. And since write faults on shared file mappings
+         * dirty the whole folio, each later update of a single hash bucket would then cause the whole folio
+         * to be written back. See #40262. */
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1331,7 +1351,6 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
 static int journal_file_setup_field_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1343,14 +1362,13 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
+        /* No need to zero the items, see journal_file_setup_data_hash_table(). */
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s * sizeof(HashItem));

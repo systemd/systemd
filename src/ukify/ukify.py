@@ -86,12 +86,21 @@ COMMON_NAME_MAX_LEN = 64
 INITRD_PCR_POLICY: tuple[list[str], str] = (['enter-initrd'], 'initrd')
 
 
+def terminal_is_dumb() -> bool:
+    return (
+        not sys.stdout.isatty()
+        or not sys.stderr.isatty()
+        or os.getenv('TERM', '') == 'dumb'
+        or bool(os.getenv('NO_COLOR'))
+    )
+
+
 class Style:
-    bold = '\033[0;1;39m' if sys.stderr.isatty() else ''
-    gray = '\033[0;38;5;245m' if sys.stderr.isatty() else ''
-    red = '\033[31;1m' if sys.stderr.isatty() else ''
-    yellow = '\033[33;1m' if sys.stderr.isatty() else ''
-    reset = '\033[0m' if sys.stderr.isatty() else ''
+    bold = '\033[0;1;39m' if not terminal_is_dumb() else ''
+    gray = '\033[0;38;5;245m' if not terminal_is_dumb() else ''
+    red = '\033[31;1m' if not terminal_is_dumb() else ''
+    yellow = '\033[33;1m' if not terminal_is_dumb() else ''
+    reset = '\033[0m' if not terminal_is_dumb() else ''
 
 
 def guess_efi_arch() -> str:
@@ -472,7 +481,7 @@ class Section:
 
     @classmethod
     def parse_output(cls, s: str) -> 'Section':
-        if not (m := re.match(r'([a-zA-Z0-9_.]+):(text|binary)(?:@(.+))?', s)):
+        if not (m := re.fullmatch(r'([a-zA-Z0-9_.]+):(text|binary)(?:@(.+))?', s)):
             raise ValueError(f'Cannot parse section spec: {s!r}')
 
         name, ttype, out = m.groups()
@@ -641,7 +650,13 @@ class SystemdSbSign(SignTool):
 
 
 def parse_banks(s: str) -> list[str]:
-    banks = re.split(r',|\s+', s)
+    s = s.strip()
+    if not s:
+        return []
+    # Allow a single trailing comma, but reject any other empty entry.
+    banks = re.split(r'\s*,\s*|\s+', s.removesuffix(',').rstrip())
+    if '' in banks:
+        raise argparse.ArgumentTypeError(f'Empty entry in PCR bank list {s!r}')
     # TODO: do some sanity checking here
     return banks
 
@@ -658,7 +673,8 @@ KNOWN_PHASES = (
 
 def parse_phase_paths(s: str) -> list[str]:
     # Split on commas or whitespace here. Commas might be hard to parse visually.
-    paths = re.split(r',|\s+', s)
+    # Allow a single trailing comma. Other empty entries are rejected below as unknown phases.
+    paths = re.split(r'\s*,\s*|\s+', s.strip().removesuffix(',').rstrip())
 
     for path in paths:
         for phase in path.split(':'):
@@ -1226,8 +1242,8 @@ NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
 DEVICE_TYPE_DEVICETREE = 1
 DEVICE_TYPE_UEFI_FW = 2
 
-# Keep in sync with efifirmware.h
-FWHEADERMAGIC = 'feeddead'
+# Keep in sync with src/boot/efi-firmware.h
+FWHEADERMAGIC = 0xFEEDDEAD
 EFIFW_HEADER_SIZE = 4 + 4 + 4 + 4
 
 
@@ -1342,10 +1358,9 @@ def parse_efifw_dir(path: Path) -> bytes:
     # terminated by NULL.
     fwid = b'' + dirname.encode() + b'\0'
     fwid_len = len(fwid)
-    magic = bytes.fromhex(FWHEADERMAGIC)
 
     efifw_header_blob = b''
-    efifw_header_blob += struct.pack('<p', magic)
+    efifw_header_blob += struct.pack('<I', FWHEADERMAGIC)
     efifw_header_blob += struct.pack('<I', EFIFW_HEADER_SIZE)
     efifw_header_blob += struct.pack('<I', fwid_len)
     efifw_header_blob += struct.pack('<I', payload_len)
@@ -1935,7 +1950,7 @@ class ConfigItem:
             return True
         if s_l in {'0', 'false', 'no', 'n', 'f', 'off'}:
             return False
-        raise ValueError('f"Invalid boolean literal: {s!r}')
+        raise ValueError(f'Invalid boolean literal: {s!r}')
 
     # arguments for argparse.ArgumentParser.add_argument()
     name: Union[str, tuple[str, str]]
@@ -2283,6 +2298,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SignKernel',
     ),
     ConfigItem(
+        '--sign-initrd-pcrs',
+        action=argparse.BooleanOptionalAction,
+        help='additionally sign PCR policies that can only be satisfied from the initrd',
+        config_key='UKI/SignInitrdPCRs',
+    ),
+    ConfigItem(
         '--pcr-private-key',
         dest='pcr_private_keys',
         action='append',
@@ -2347,12 +2368,6 @@ CONFIG_ITEMS = [
         '--policy-digest',
         action=argparse.BooleanOptionalAction,
         help='print systemd-measure policy digests for the UKI',
-    ),
-    ConfigItem(
-        '--sign-initrd-pcrs',
-        action=argparse.BooleanOptionalAction,
-        help='additionally sign PCR policies that can only be satisfied from the initrd',
-        config_key='UKI/SignInitrdPCRs',
     ),
     ConfigItem(
         '--json',

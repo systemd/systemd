@@ -346,6 +346,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook*R22*:*
  KEYBOARD_KEY_6e=wlan
 
 ###########################################################
+# Casper
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*CASPER*:pn*NIRVANA*:*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
+###########################################################
 # Clevo
 ###########################################################
 
@@ -638,6 +647,21 @@ evdev:input:b0003v0458p0708*
 evdev:input:b0003v18D1p8001*
 evdev:input:b0003v18D1p8007*
  KEYBOARD_KEY_b002f=reserved                            # Disable micmute key
+
+# Google Pixelbook (Eve)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGoogle:pnEve:*
+ KEYBOARD_KEY_3b=back                                   # F1 Back
+ KEYBOARD_KEY_3c=refresh                                # F2 Refresh
+ KEYBOARD_KEY_3d=zoom                                   # F3 Fullscreen
+ KEYBOARD_KEY_3e=scale                                  # F4 Overview
+ KEYBOARD_KEY_3f=brightnessdown                         # F5 Brightness down
+ KEYBOARD_KEY_40=brightnessup                           # F6 Brightness up
+ KEYBOARD_KEY_41=playpause                              # F7 Play/Pause
+ KEYBOARD_KEY_42=mute                                   # F8 Mute
+ KEYBOARD_KEY_43=volumedown                             # F9 Volume down
+ KEYBOARD_KEY_44=volumeup                               # F10 Volume up
+ KEYBOARD_KEY_5d=controlpanel                           # Menu key
+ KEYBOARD_KEY_d8=assistant                              # Assistant key
 
 ###########################################################
 # Haier
@@ -1175,6 +1199,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N5*:pvrThinkBook16pG5IRX:*
 # Both mic mute events come from this device: 0x8 (ACPI) and 0x13e (WMI)
 evdev:name:Ideapad extra buttons:dmi:*:svnLENOVO:pn21MV:pvrThinkBook14G7ARP:*
  KEYBOARD_KEY_13e=unknown                               # Fn+F4 mic mute, also emitted as scan code 0x8, ignore
+
+# Lenovo ThinkBook 16 G7 ARP (Type 21MW)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn21MW*:pvr*
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
 
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  KEYBOARD_KEY_62=unknown                                # Touchpad on, also emitted by "Ideapad extra buttons", ignore

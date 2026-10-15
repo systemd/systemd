@@ -165,6 +165,7 @@ struct sd_event {
         bool watchdog:1;
         bool profile_delays:1;
         bool exit_on_idle:1;
+        bool ratelimit_expired:1;
 
         int exit_code;
 
@@ -2495,6 +2496,7 @@ static int event_add_inotify_fd_internal(
                 sd_event_source **ret,
                 int fd,
                 bool donate,
+                const char *path,
                 uint32_t mask,
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
@@ -2560,14 +2562,14 @@ static int event_add_inotify_fd_internal(
 
                 LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
 
-                _cleanup_free_ char *path = NULL;
-                r = fd_get_path(inode_data->fd, &path);
+                _cleanup_free_ char *fd_path = NULL;
+                r = fd_get_path(inode_data->fd, &fd_path);
                 if (r < 0 && r != -ENOSYS) { /* The path is optional, hence ignore -ENOSYS. */
                         event_gc_inode_data(e, inode_data);
                         return r;
                 }
 
-                free_and_replace(inode_data->path, path);
+                free_and_replace(inode_data->path, fd_path);
         }
 
         /* Link our event source to the inode data object */
@@ -2578,6 +2580,9 @@ static int event_add_inotify_fd_internal(
         r = inode_data_realize_watch(e, inode_data);
         if (r < 0)
                 return r;
+
+        if (path)
+                (void) sd_event_source_set_description(s, path);
 
         if (ret)
                 *ret = s;
@@ -2594,7 +2599,7 @@ _public_ int sd_event_add_inotify_fd(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ false, mask, callback, userdata);
+        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ false, /* path= */ NULL, mask, callback, userdata);
 }
 
 _public_ int sd_event_add_inotify(
@@ -2605,27 +2610,15 @@ _public_ int sd_event_add_inotify(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s = NULL; /* avoid false maybe-uninitialized warning */
-        int fd, r;
-
         assert_return(path, -EINVAL);
 
-        fd = open(path, O_PATH | O_CLOEXEC |
-                        (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
-                        (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        int fd = open(path, O_PATH | O_CLOEXEC |
+                            (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                            (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
-        r = event_add_inotify_fd_internal(e, &s, fd, /* donate= */ true, mask, callback, userdata);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s, path);
-
-        if (ret)
-                *ret = s;
-
-        return r;
+        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ true, path, mask, callback, userdata);
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
@@ -3380,7 +3373,7 @@ _public_ void* sd_event_source_get_userdata(sd_event_source *s) {
         return s->userdata;
 }
 
-_public_ void *sd_event_source_set_userdata(sd_event_source *s, void *userdata) {
+_public_ void* sd_event_source_set_userdata(sd_event_source *s, void *userdata) {
         void *ret;
 
         assert_return(s, NULL);
@@ -4567,6 +4560,8 @@ _public_ int sd_event_prepare(sd_event *e) {
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
         PROTECT_EVENT(e);
 
+        e->ratelimit_expired = false;
+
         if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
                 (void) sd_event_exit(e, 0);
 
@@ -4783,7 +4778,6 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
 }
 
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
-        bool ratelimit_expired = false;
         int r;
 
         assert_return(e, -EINVAL);
@@ -4849,7 +4843,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
         else if (r == 1)
-                ratelimit_expired = true;
+                e->ratelimit_expired = true;
 
         r = process_timer(e, e->timestamp.realtime, &e->realtime_alarm);
         if (r < 0)
@@ -4863,10 +4857,11 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
-        if (ratelimit_expired) {
-                /* Ratelimit expiry callback was called. Let's postpone processing pending sources and put
-                 * the loop in the initial state in order to evaluate (in the next iteration) also sources
-                 * that were potentially re-enabled by the callback.
+        if (e->ratelimit_expired) {
+                /* Ratelimit expiry callback was called. Let's postpone processing pending sources in order
+                 * to evaluate (in the next iteration) also sources that were potentially re-enabled by the
+                 * callback. Report this as pending rather than returning 0, as the caller would block
+                 * otherwise. sd_event_dispatch() then returns right away.
                  *
                  * Wondering why we treat only the CLOCK_BOOTTIME invocation of process_timer() differently?
                  * Once event source is ratelimited we essentially transform it into a CLOCK_BOOTTIME timer
@@ -4875,8 +4870,8 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                  * Note that we don't short-circuit earlier because all timer prioqs must be fully processed
                  * as their timerfds may have already been flushed by process_epoll(), so skipping them would
                  * leave those sources unprocessed and the timerfds un-rearmed. */
-                r = 0;
-                goto finish;
+                e->state = SD_EVENT_PENDING;
+                return 1;
         }
 
         if (event_next_pending(e)) {
@@ -4901,6 +4896,12 @@ _public_ int sd_event_dispatch(sd_event *e) {
         assert_return(!event_origin_changed(e), -ECHILD);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_PENDING, -EBUSY);
+
+        if (e->ratelimit_expired) {
+                /* A ratelimit expiry callback was called in this iteration, don't dispatch anything else. */
+                e->state = SD_EVENT_INITIAL;
+                return 1;
+        }
 
         if (e->exit_requested)
                 return dispatch_exit(e);

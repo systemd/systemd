@@ -21,6 +21,7 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -115,7 +116,7 @@ def test_apply_config(tmp_path):
         Uname = 1.2.3
         EFIArch=arm
         Stub = some/path4
-        PCRBanks = sha512,sha1
+        PCRBanks = sha512, sha1,
         SigningEngine = engine1
         SecureBootPrivateKey = some/path5
         SecureBootCertificate = some/path6
@@ -124,7 +125,7 @@ def test_apply_config(tmp_path):
         [PCRSignature:NAME]
         PCRPrivateKey = some/path7
         PCRPublicKey = some/path8
-        Phases = {':'.join(ukify.KNOWN_PHASES)}
+        Phases = enter-initrd, {':'.join(ukify.KNOWN_PHASES)},
         '''
         )
     )
@@ -155,7 +156,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
     ukify.finalize_options(ns)
 
@@ -180,7 +183,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
 
 def test_parse_args_minimal():
@@ -343,6 +348,26 @@ def test_parse_sections():
     assert opts.sections[1].content == pathlib.Path('FILE')
     assert opts.sections[1].tmpfile is None
     assert opts.sections[1].measure is False
+
+
+def test_parse_output_sections():
+    sec = ukify.Section.parse_output('.cmdline:text')
+    assert sec.name == '.cmdline'
+    assert sec.output_mode == 'text'
+    assert sec.content is None
+
+    sec = ukify.Section.parse_output('.linux:binary@out dir/a:b')
+    assert sec.name == '.linux'
+    assert sec.output_mode == 'binary'
+    assert sec.content == pathlib.Path('out dir/a:b')
+
+
+@pytest.mark.parametrize(
+    'spec', ['.cmdline:textjunk', '.linux:binarybad', '.cmdline:text@', '.cmdline:text\n']
+)
+def test_parse_output_invalid(spec):
+    with pytest.raises(ValueError, match='Cannot parse section spec'):
+        ukify.Section.parse_output(spec)
 
 
 def test_config_priority(tmp_path):
@@ -849,6 +874,20 @@ def test_inspect_json_profiles(tmp_path, capsys):
     assert profile_cmdlines == ['PROFILE0ARG', 'PROFILE1ARG']
 
     shutil.rmtree(tmp_path)
+
+
+def test_parse_efifw_dir(tmp_path):
+    fwdir = tmp_path / 'fw0'
+    fwdir.mkdir()
+    payload = b'EFIFW0'
+    (fwdir / 'firmware.bin').write_bytes(payload)
+
+    fwname = fwdir.name.encode() + b'\0'
+
+    comp = (ukify.FWHEADERMAGIC, ukify.EFIFW_HEADER_SIZE, len(fwname), len(payload))
+    blob = ukify.parse_efifw_dir(fwdir)
+    assert comp == struct.unpack_from('<IIII', blob[: ukify.EFIFW_HEADER_SIZE])
+    assert (fwname + payload) == blob[ukify.EFIFW_HEADER_SIZE :]
 
 
 def test_inspect_json_alternative_set_sections(tmp_path, capsys):

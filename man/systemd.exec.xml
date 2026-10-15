@@ -1085,6 +1085,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <manvolnum>5</manvolnum></citerefentry>) is typically a better choice than <varname>LimitNPROC=</varname>.
         </para>
 
+        <para>These settings, including the defaults described below, do not affect commands prefixed with
+        <literal>+</literal>. Such commands inherit the resource limits of the service manager itself, which may be
+        different.</para>
+
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
@@ -2799,7 +2803,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         for details about these scheduling policies. Realtime scheduling policies may be used to monopolize CPU
         time for longer periods of time, and may hence be used to lock up or otherwise trigger Denial-of-Service
         situations on the system. It is hence recommended to restrict access to realtime scheduling to the few programs
-        that actually require them. Defaults to off.</para>
+        that actually require them. Note that the scheduling policy passed to
+        <citerefentry project='man-pages'><refentrytitle>sched_setattr</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        cannot be inspected by the system call filter, hence that system call is refused altogether, including
+        for non-realtime uses. Defaults to off.</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>

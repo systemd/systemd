@@ -652,11 +652,14 @@ testcase_locale_gen_leading_space() {
 }
 
 teardown_localed_alternate_paths() {
-    set +eu
+    set +e
 
     rm -rf /run/systemd/system/systemd-localed.service.d
+    rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-localed
+
+    set -e
 }
 
 testcase_localed_alternate_paths() {

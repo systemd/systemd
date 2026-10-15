@@ -3194,6 +3194,9 @@ int ndisc_stop(Link *link) {
 void ndisc_flush(Link *link) {
         assert(link);
 
+        /* First, drop pending requests. */
+        (void) link_drop_requests(link, NETWORK_CONFIG_SOURCE_NDISC);
+
         /* Remove all addresses, routes, RDNSS, DNSSL, DNR, and Captive Portal entries, without exception. */
         (void) ndisc_drop_outdated(link, /* router= */ NULL, /* timestamp_usec= */ USEC_INFINITY);
         (void) ndisc_drop_redirect(link, /* router= */ NULL);

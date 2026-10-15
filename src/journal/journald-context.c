@@ -600,6 +600,14 @@ void client_context_maybe_refresh(
         if (label && !streq_ptr(label, c->label))
                 goto refresh;
 
+        /* If the unit the caller told us about (i.e. the one a stdout stream was opened for) doesn't match
+         * the cached data, then the process likely was moved to a different cgroup since we cached it. This
+         * happens in particular for sd-executor on kernels lacking CLONE_INTO_CGROUP: it logs a few messages
+         * while still in the service manager's cgroup, and then attaches itself to the unit's cgroup before
+         * connecting stdout/stderr to us. */
+        if (unit_id && !streq_ptr(unit_id, c->unit) && !streq_ptr(unit_id, c->user_unit))
+                goto refresh;
+
         return;
 
 refresh:

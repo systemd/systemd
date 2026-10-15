@@ -54,7 +54,12 @@ cleanup() {
         systemd-dissect --detach "$LOOPDEV"
         LOOPDEV=""
     fi
-    rm -rf "$WORKDIR"
+    if [[ -n "${WORKDIR:-}" ]]; then
+        rm -rf "$WORKDIR"
+        WORKDIR=""
+    fi
+
+    set -e
 }
 
 create_fake_os_source_tree() {
@@ -199,8 +204,6 @@ testcase_sysinstall_basic() {
         "$WORKDIR/target.img"
 
     validate_image
-
-    cleanup
 }
 
 testcase_sysinstall_varlink_basic() {

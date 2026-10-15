@@ -158,16 +158,17 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->locked_events_by_disk);
         sd_event_source_unref(manager->requeue_locked_events_timer_event_source);
 
-        safe_close(manager->inotify_fd);
-
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
 
         sd_varlink_server_unref(manager->varlink_server);
 
+        /* udev watch */
         sd_event_source_unref(manager->inotify_event);
         set_free(manager->synthesize_change_child_event_sources);
+        safe_close(manager->inotify_fd);
+
         set_free(manager->synthesized_events);
         sd_event_source_unref(manager->synthesized_events_clear_event_source);
         sd_event_source_unref(manager->kill_workers_event);
@@ -1307,13 +1308,22 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
+        /* Check whether there are uevents not received yet. If so, we will soon receive them. Do not remove
+         * the queue file and do not kill workers. */
+        if (sd_event_source_get_pending(sd_device_monitor_get_event_source(manager->monitor)) != 0)
+                return 0;
+
+        /* We are currently synthesizing change uevents, hence new uevents may come soon. */
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0;
+
         (void) manager_unlink_queue_file(manager);
         (void) manager_reset_kill_workers_timer(manager);
 
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
 
-        if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
+        if (manager->workers_cgroup)
                 /* cleanup possible left-over processes in the workers cgroup */
                 if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
                         (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
@@ -1374,9 +1384,20 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret= */ NULL, on_post, manager);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_post(e, &s, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
+
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_POST);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to post event source: %m");
+
+        (void) sd_event_source_set_description(s, "post-event-source");
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set floating to post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
         r = sd_event_add_memory_pressure(e, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);

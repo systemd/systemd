@@ -45,7 +45,9 @@
     <filename>/usr/local/lib/systemd/report.files/</filename> and
     <filename>/usr/lib/systemd/report.files/</filename>. Typically these directories contain symlinks pointing
     to the actual files in the file system whose contents shall be reported. Entries with the same name in an
-    earlier directory override those in a later one.</para>
+    earlier directory override those in a later one. An entry that is a symlink to
+    <filename>/dev/null</filename> masks the identically named entries in later directories, so that no
+    metric is reported for that name. Entries that are not regular files are ignored.</para>
 
     <para>Each entry is reported as a metric named
     <literal>io.systemd.Files.<replaceable>NAME</replaceable></literal>, where
