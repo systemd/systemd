@@ -61,6 +61,12 @@ CHANGES WITH 263 in spe:
         * systemd-portabled now asks polkit before it inspects extension
           images that are specified by path.
 
+        * systemd-veritysetup gained a root-hash-signature-required= option,
+          which systemd-gpt-auto-generator enables if systemd.image_policy=
+          requires a signature. If the kernel can't validate the root hash
+          signature, systemd-veritysetup now validates it in userspace with
+          the certificates in /etc/verity.d/, like systemd-dissect does.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and

@@ -145,7 +145,23 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
-rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
+# With root-hash-signature-required=yes, systemd-veritysetup only sets up the device if the kernel or
+# userspace validates the signature.
+for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
+    (! /usr/lib/systemd/systemd-veritysetup attach test-50-required "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" \
+                                            "$MINIMAL_IMAGE_ROOTHASH" \
+                                            "root-hash-signature=$sig,root-hash-signature-required=yes")
+    /usr/lib/systemd/systemd-veritysetup attach test-50-optional "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" \
+                                         "$MINIMAL_IMAGE_ROOTHASH" \
+                                         "root-hash-signature=$sig,root-hash-signature-required=no"
+    /usr/lib/systemd/systemd-veritysetup detach test-50-optional
+done
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+/usr/lib/systemd/systemd-veritysetup attach test-50-required "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" \
+                                     "$MINIMAL_IMAGE_ROOTHASH" \
+                                     root-hash-signature=/tmp/test-50-unknown.p7s,root-hash-signature-required=yes
+/usr/lib/systemd/systemd-veritysetup detach test-50-required
+rm /run/verity.d/test-50-mkosi.crt /run/verity.d/test-50-unknown.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
