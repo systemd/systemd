@@ -77,7 +77,7 @@
       provides a more limited resolver, that operates in "proxy" mode only, i.e. it will pass most DNS
       messages relatively unmodified to the current upstream DNS servers and back, but not try to process the
       messages locally, and hence does not validate DNSSEC, or offer up LLMNR/MulticastDNS. (It will
-      translate to DNS-over-TLS communication if needed however.)</para></listitem>
+      translate to DNS-over-TLS or DNS-over-HTTPS communication if needed however.)</para></listitem>
     </itemizedlist>
 
     <para>The DNS servers contacted are determined from the global settings in
@@ -370,9 +370,11 @@ search foobar.com barbar.com
       <listitem><para><command>systemd-resolved</command> maintains the
       <filename>/run/systemd/resolve/resolv.conf</filename> file for compatibility with traditional Linux
       programs. This file may be symlinked from <filename>/etc/resolv.conf</filename> and is always kept
-      up-to-date, containing information about all known DNS servers. Note the file format's limitations: it
-      does not know a concept of per-interface DNS servers and hence only contains system-wide DNS server
-      definitions. Note that <filename>/run/systemd/resolve/resolv.conf</filename> should not be used
+      up-to-date, containing information about all known DNS servers that can be represented in this file format.
+      Note the file format's limitations: it does not know a concept of per-interface DNS servers and hence only
+      contains system-wide DNS server definitions. It also cannot represent the transport, authentication name,
+      or URI of a DNS-over-HTTPS endpoint, so such endpoints are omitted. Note that
+      <filename>/run/systemd/resolve/resolv.conf</filename> should not be used
       directly by applications, but only through a symlink from <filename>/etc/resolv.conf</filename>. If
       this mode of operation is used local clients that bypass any local DNS API will also bypass
       <command>systemd-resolved</command> and will talk directly to the known DNS servers.</para></listitem>

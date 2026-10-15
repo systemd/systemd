@@ -431,7 +431,7 @@ int write_base64_file_at(
         _cleanup_free_ char *encoded = NULL;
         ssize_t n;
 
-        n = base64mem_full(data ? data->iov_base : NULL, data ? data->iov_len : 0, 79, &encoded);
+        n = base64mem_full(data ? data->iov_base : NULL, data ? data->iov_len : 0, 79, /* url_encoding= */ false, &encoded);
         if (n < 0)
                 return n;
 

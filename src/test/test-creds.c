@@ -120,7 +120,7 @@ TEST(read_credential_with_decryption) {
                         _cleanup_(iovec_done_erase) struct iovec result = {};
 
                         ASSERT_OK(base64mem_full(oversized, CREDENTIAL_ENCRYPTED_SIZE_MAX + 1,
-                                                 *line_break, &encoded));
+                                                 *line_break, /* url_encoding= */ false, &encoded));
                         ASSERT_OK(write_string_file(encrypted_path, encoded, WRITE_STRING_FILE_TRUNCATE));
                         ASSERT_ERROR(read_credential_with_decryption("foo", &result.iov_base,
                                                                     &result.iov_len), E2BIG);
@@ -237,7 +237,7 @@ TEST(read_credential_with_decryption_encrypted) {
                         _cleanup_(erase_and_freep) char *text = NULL;
 
                         ASSERT_OK(base64mem_full(encrypted.iov_base, encrypted.iov_len,
-                                                 *line_break, &encoded));
+                                                 *line_break, /* url_encoding= */ false, &encoded));
                         if (input->data.iov_len == CREDENTIAL_SIZE_MAX)
                                 ASSERT_GT(strlen(encoded), (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
                         ASSERT_OK(write_string_file(credential_path, encoded,
@@ -267,7 +267,7 @@ TEST(read_credential_with_decryption_encrypted) {
                         _cleanup_(iovec_done_erase) struct iovec result = {};
 
                         ASSERT_OK(base64mem_full(invalid, CREDENTIAL_ENCRYPTED_SIZE_MAX - *delta,
-                                                 79, &encoded));
+                                                 79, /* url_encoding= */ false, &encoded));
                         ASSERT_OK(write_string_file(credential_path, encoded, WRITE_STRING_FILE_TRUNCATE));
                         ASSERT_ERROR(read_credential_with_decryption("foo", &result.iov_base,
                                                                     &result.iov_len), EOPNOTSUPP);

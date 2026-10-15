@@ -575,15 +575,19 @@ ssize_t base64mem_full(
                 const void *p,
                 size_t l,
                 size_t line_break,
+                bool url_encoding,
                 char **ret) {
 
         const uint8_t *x;
+        char (*to_char)(int x);
         char *b, *z;
         size_t m;
 
         assert(p || l == 0);
         assert(line_break > 0);
         assert(ret);
+
+        to_char = url_encoding ? urlsafe_base64char : base64char;
 
         /* three input bytes makes four output bytes, padding is added so we must round up */
         m = 4 * (l + 2) / 3 + 1;
@@ -597,32 +601,32 @@ ssize_t base64mem_full(
         for (x = p; x && x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
+                *(z++) = to_char(x[0] >> 2);                    /* 00XXXXXX */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
+                *(z++) = to_char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
+                *(z++) = to_char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char(x[2] & 63);                    /* 00ZZZZZZ */
+                *(z++) = to_char(x[2] & 63);                    /* 00ZZZZZZ */
         }
 
         switch (l % 3) {
         case 2:
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char(x[0] >> 2);                   /* 00XXXXXX */
+                *(z++) = to_char(x[0] >> 2);                   /* 00XXXXXX */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
+                *(z++) = to_char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char((x[1] & 15) << 2);            /* 00YYYY00 */
+                *(z++) = to_char((x[1] & 15) << 2);            /* 00YYYY00 */
                 maybe_line_break(&z, b, line_break);
                 *(z++) = '=';
                 break;
 
         case 1:
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char(x[0] >> 2);        /* 00XXXXXX */
+                *(z++) = to_char(x[0] >> 2);        /* 00XXXXXX */
                 maybe_line_break(&z, b, line_break);
-                *(z++) = base64char((x[0] & 3) << 4);  /* 00XX0000 */
+                *(z++) = to_char((x[0] & 3) << 4);  /* 00XX0000 */
                 maybe_line_break(&z, b, line_break);
                 *(z++) = '=';
                 maybe_line_break(&z, b, line_break);
@@ -635,6 +639,24 @@ ssize_t base64mem_full(
 
         assert(z >= b); /* Let static analyzers know that the answer is non-negative. */
         return z - b;
+}
+
+ssize_t base64urlmem(const void *p, size_t l, char **ret) {
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t n;
+
+        assert(p || l == 0);
+        assert(ret);
+
+        n = base64mem_full(p, l, SIZE_MAX, /* url_encoding= */ true, &encoded);
+        if (n < 0)
+                return n;
+
+        while (n > 0 && encoded[n - 1] == '=')
+                encoded[--n] = 0;
+
+        *ret = TAKE_PTR(encoded);
+        return n;
 }
 
 static ssize_t base64_append_width(

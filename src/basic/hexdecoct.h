@@ -28,10 +28,12 @@ int unbase64char(char c) _const_;
 char* base32hexmem(const void *p, size_t l, bool padding) _nonnull_if_nonzero_(1, 2);
 int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *len) _nonnull_if_nonzero_(1, 2);
 
-ssize_t base64mem_full(const void *p, size_t l, size_t line_break, char **ret) _nonnull_if_nonzero_(1, 2);
+ssize_t base64mem_full(const void *p, size_t l, size_t line_break, bool url_encoding, char **ret) _nonnull_if_nonzero_(1, 2);
 static inline ssize_t base64mem(const void *p, size_t l, char **ret) {
-        return base64mem_full(p, l, SIZE_MAX, ret);
+        return base64mem_full(p, l, SIZE_MAX, /* url_encoding= */ false, ret);
 }
+/* RFC 4648 base64url without padding. */
+ssize_t base64urlmem(const void *p, size_t l, char **ret) _nonnull_if_nonzero_(1, 2);
 
 ssize_t base64_append(
                 char **prefix,

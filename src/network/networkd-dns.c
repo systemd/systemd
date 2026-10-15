@@ -11,6 +11,7 @@
 #include "networkd-network.h"
 #include "ordered-set.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -257,7 +258,21 @@ int config_parse_dns(
                         continue;
                 }
 
-                if (IN_SET(dns->port, 53, 853))
+                DnsServerNameClass name_class = dns_server_name_classify(dns->server_name);
+                if (name_class == DNS_SERVER_NAME_OTHER_URI) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "DNS server URI must use HTTPS, ignoring: %s", w);
+                        continue;
+                }
+#if !(HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL)
+                if (name_class == DNS_SERVER_NAME_DOH_URI) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "DNS-over-HTTPS support is unavailable, ignoring: %s", w);
+                        continue;
+                }
+#endif
+
+                if (name_class == DNS_SERVER_NAME && IN_SET(dns->port, 53, 853))
                         dns->port = 0;
 
                 if (!GREEDY_REALLOC(n->dns, n->n_dns + 1))

@@ -296,6 +296,15 @@ TEST(in_addr_ifindex_name_from_string_auto) {
         test_in_addr_ifindex_name_from_string_auto_one("fe80::18%1#another.test.com", "another.test.com");
 }
 
+TEST(dns_server_name_classify) {
+        ASSERT_EQ(dns_server_name_classify(NULL), DNS_SERVER_NAME);
+        ASSERT_EQ(dns_server_name_classify("resolver.example"), DNS_SERVER_NAME);
+        ASSERT_EQ(dns_server_name_classify("https://resolver.example/dns-query"), DNS_SERVER_NAME_DOH_URI);
+        ASSERT_EQ(dns_server_name_classify("HTTPS://resolver.example/dns-query"), DNS_SERVER_NAME_DOH_URI);
+        ASSERT_EQ(dns_server_name_classify("https:resolver.example/dns-query"), DNS_SERVER_NAME_OTHER_URI);
+        ASSERT_EQ(dns_server_name_classify("http://resolver.example/dns-query"), DNS_SERVER_NAME_OTHER_URI);
+}
+
 static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str, int family, uint16_t port, int ifindex,
                                                                 const char *server_name, const char *str_repr) {
         union in_addr_union a;
