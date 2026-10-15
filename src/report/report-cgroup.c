@@ -14,8 +14,17 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "report-cgroup.h"
+#include "report-server.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-cgroup\0",
+        "Report cgroup metrics.",
+);
+
+const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
 
 /* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
  * in a single read so each scrape only opens the file once per cgroup. */
@@ -395,4 +404,8 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
 
 int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(cgroup_metric_family_table, link, parameters, flags, userdata);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

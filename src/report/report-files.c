@@ -12,11 +12,21 @@
 #include "metrics.h"
 #include "path-util.h"
 #include "report-files.h"
+#include "report-server.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "varlink-idl-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-files\0",
+        "Report the contents of files as system report metrics.",
+        .man_pages = "systemd-report-files@.service(8)\0",
+);
+
+const sd_varlink_server_flags_t report_server_flags = 0;
 
 /* Upper bounds, to protect against pathologically large directories or files. */
 #define REPORT_FILES_MAX 1024U
@@ -221,4 +231,8 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         return metrics_method_describe(families, link, parameters, flags, /* userdata= */ NULL);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }
