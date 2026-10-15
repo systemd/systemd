@@ -23,12 +23,14 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "notify-recv.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -1174,6 +1176,9 @@ int bus_socket_connect(sd_bus *b) {
 }
 
 int bus_socket_exec(sd_bus *b) {
+        _cleanup_close_ int notify_fd = -EBADF;
+        _cleanup_(rmdir_and_freep) char *notify_dir = NULL;
+        _cleanup_(unlink_and_freep) char *notify_path = NULL;
         int s[2], r;
 
         assert(b);
@@ -1194,6 +1199,19 @@ int bus_socket_exec(sd_bus *b) {
                           b->exec_argv && !line ? "…" : "");
         }
 
+        /* A private directory prevents other users from filling the notification queue and blocking
+         * the transport's sd_notify() calls. */
+        r = mkdtemp_malloc("/tmp/sd-busexec-XXXXXX", &notify_dir);
+        if (r < 0)
+                return r;
+        notify_path = path_join(notify_dir, "notify");
+        if (!notify_path)
+                return -ENOMEM;
+
+        notify_fd = notify_socket_prepare_fd(notify_path, /* accept_fds= */ false, /* ret_path= */ NULL);
+        if (notify_fd < 0)
+                return notify_fd;
+
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
                 return -errno;
@@ -1211,14 +1229,21 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
+                if (setenv("NOTIFY_SOCKET", notify_path, 1) < 0)
+                        _exit(EXIT_FAILURE);
+
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
                 else
                         execvp(b->exec_path, STRV_MAKE(b->exec_path));
 
+                (void) sd_notifyf(/* unset_environment= */ false, "ERRNO=%i", errno);
                 _exit(EXIT_FAILURE);
         }
 
+        b->busexec_notify_fd = TAKE_FD(notify_fd);
+        b->busexec_notify_path = TAKE_PTR(notify_path);
+        b->busexec_notify_dir = TAKE_PTR(notify_dir);
         safe_close(s[1]);
         b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 
