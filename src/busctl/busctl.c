@@ -171,15 +171,6 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
-        if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                const char *unique;
-
-                /* Complete Hello so transport errors are reported here, with the connection context. */
-                r = sd_bus_get_unique_name(bus, &unique);
-                if (r < 0)
-                        return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
-        }
-
         *ret = TAKE_PTR(bus);
 
         return 0;
