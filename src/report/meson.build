@@ -5,6 +5,17 @@ if conf.get('ENABLE_REPORT') != 1
 endif
 
 executables += [
+        # Compile and link the provider example to keep the documented contract checked;
+        # runtime behavior is covered by integration tests of the actual providers.
+        executable_template + {
+                'name' : 'systemd-report-example',
+                'sources' : files(
+                        'report-example.c',
+                        'report-server.c',
+                ),
+                'build_by_default' : want_tests != 'false',
+                'install' : 'no',
+        },
         libexec_template + {
                 'name' : 'systemd-report',
                 'public' : true,
