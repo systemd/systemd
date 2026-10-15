@@ -65,8 +65,8 @@ if command -v userdbctl >/dev/null; then
     nonmember_reply="$(varlinkctl call --graceful=io.systemd.UserDatabase.NoRecordFound -j \
         /run/systemd/userdb/io.systemd.Multiplexer \
         io.systemd.UserDatabase.GetMemberships \
-        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
-    test -z "$nonmember_reply"
+        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}' 2>&1)"
+    grep "returned expected error: io.systemd.UserDatabase.NoRecordFound" <<<"$nonmember_reply" >/dev/null
     rm "$membership"
 
     if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
@@ -379,6 +379,25 @@ result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Dec
 echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
+
+# Verify consistent handling of omitted/null/empty parameters
+check_output_is_empty_object() {
+    REPLY="$1"
+    # This is a "Varlink server" that reads the incoming call, discards it, and
+    # directly sends the contents of $REPLY as the reply. This lets us exercise
+    # sd-varlink's client-side parsing of the Varlink call/reply framing
+    # shellcheck disable=SC2016
+    SERVE_PID=$(systemd-notify --fork -- \
+        systemd-socket-activate -l "$SERVE_SOCKET" --inetd -a -- \
+            bash -c 'read -r -d "" _; printf "%s\0" "$0"' "$REPLY")
+    varlinkctl call "unix:$SERVE_SOCKET" com.example.Test '{}' | grep "^{}$"
+    varlinkctl --exec call "unix:$SERVE_SOCKET" com.example.Test '{}' -- grep "^{}$"
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+}
+check_output_is_empty_object '{}'
+check_output_is_empty_object '{"parameters": null}'
+check_output_is_empty_object '{"parameters": {}}'
 
 rm -f "$SERVE_SOCKET"
 rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"
