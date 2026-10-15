@@ -5601,7 +5601,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                                                "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
-                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
+                r = copy_bytes_offset(t->fd, &(uint64_t) { 0 }, whole_fd, /* toffset= */ NULL, UINT64_MAX, COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
@@ -6636,13 +6636,9 @@ static int context_copy_blocks(Context *context) {
                 if (p->copy_blocks_offset == UINT64_MAX)
                         log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                                  p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
-                else {
+                else
                         log_info("Copying in '%s' @ %" PRIu64 " (%s) on block level into future partition %" PRIu64 ".",
                                  p->copy_blocks_path, p->copy_blocks_offset, FORMAT_BYTES(p->copy_blocks_size), p->partno);
-
-                        if (lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
-                                return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
-                }
 
                 /* We call copy_bytes_full() instead of copy_file_range() directly, because copy_file_range()
                  * needs to be called with a size limit to allow for progress updates. But we don't want that
@@ -6652,7 +6648,9 @@ static int context_copy_blocks(Context *context) {
                  * clone, and then falls back to copying in chunks. */
                 r = copy_bytes_full(
                                 p->copy_blocks_fd,
+                                p->copy_blocks_offset == UINT64_MAX ? NULL : &(uint64_t) { p->copy_blocks_offset },
                                 partition_target_fd(t),
+                                /* toffset= */ NULL,
                                 p->copy_blocks_size,
                                 /* copy_flags= */ 0,
                                 /* ret_remains= */ NULL,
