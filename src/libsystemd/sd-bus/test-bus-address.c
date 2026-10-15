@@ -9,14 +9,16 @@
 
 #include "argv-util.h"
 #include "bus-internal.h"
-#include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_one_address(sd_bus *b,
                              const char *host,
@@ -139,6 +141,34 @@ TEST(unixexec_errno) {
                 }
 }
 
+TEST(unixexec_notify_unavailable) {
+        _cleanup_(rmdir_and_freep) char *long_dir = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-bus-notify-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-XXXXXX", &long_dir));
+
+        FOREACH_STRING(tmp, "/proc", long_dir) {
+                int r = ASSERT_OK(pidref_safe_fork("(test-notify-unavailable)", FORK_WAIT, /* ret= */ NULL));
+                if (r > 0)
+                        continue;
+
+                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+                const char *unique;
+
+                ASSERT_OK_ERRNO(setenv("TMPDIR", tmp, /* overwrite= */ true));
+                ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", "/unrelated-supervisor", /* overwrite= */ true));
+                ASSERT_OK(sd_bus_new(&bus));
+                ASSERT_OK(sd_bus_set_address(bus, "unixexec:path=/proc/self/exe,argv1=--notify-test,argv2=no-notify"));
+                ASSERT_OK(sd_bus_set_bus_client(bus, true));
+                ASSERT_OK(sd_bus_start(bus));
+                ASSERT_LT(bus->busexec_notify_fd, 0);
+                ASSERT_NULL(bus->busexec_notify_path);
+                ASSERT_NULL(bus->busexec_notify_dir);
+                ASSERT_ERROR(sd_bus_get_unique_name(bus, &unique), ENOTCONN);
+                sd_bus_close(bus);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 static int intro(void) {
         if (strv_length(saved_argv) == 3 && streq(saved_argv[1], "--notify-test")) {
                 char byte;
@@ -147,7 +177,9 @@ static int intro(void) {
                  * cannot race with our exit and fail with EPIPE. */
                 ASSERT_OK(loop_read_exact(STDIN_FILENO, &byte, sizeof(byte), /* do_poll= */ true));
 
-                if (streq(saved_argv[2], "spoof")) {
+                if (streq(saved_argv[2], "no-notify"))
+                        ASSERT_NULL(getenv("NOTIFY_SOCKET"));
+                else if (streq(saved_argv[2], "spoof")) {
                         pid_t pid;
 
                         pid = fork();

@@ -3,6 +3,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "async-close.h"
 #include "constants.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -103,6 +104,23 @@ int notify_socket_prepare_full(
         return 0;
 }
 
+static void notify_cmsg_close_all(struct msghdr *mh) {
+        assert(mh);
+
+        struct cmsghdr *cmsg;
+        CMSG_FOREACH(cmsg, mh) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+                if (cmsg->cmsg_type == SCM_RIGHTS)
+                        asynchronous_close_many(CMSG_TYPED_DATA(cmsg, int),
+                                                (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
+                }
+        }
+}
+
 int notify_recv_with_fd_array(
                 int fd,
                 char **ret_text,
@@ -135,29 +153,28 @@ int notify_recv_with_fd_array(
          * Returns -EAGAIN on recoverable errors (e.g. in case an invalid message is received, following
          * the logic that an invalid message shall be ignored, and treated like no message at all). */
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return -EAGAIN;
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (%s fds sent?), ignoring.",
-                                  ret_fds ? "too many" : "unexpected");
-                return -EAGAIN;
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return -EAGAIN;
+                return log_error_errno(errno, "Failed to receive notification message: %m");
         }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return -EAGAIN;
-        }
-        if (n < 0)
-                return log_error_errno(n, "Failed to receive notification message: %m");
 
-        _cleanup_(cmsg_close_all) struct msghdr received = msghdr;
+        /* Received descriptors can refer to FUSE files or devices with blocking close operations. Always
+         * close SCM_RIGHTS asynchronously, including malformed messages and allocation failures. */
+        _cleanup_(notify_cmsg_close_all) struct msghdr received = msghdr;
+        if (FLAGS_SET(received.msg_flags, MSG_CTRUNC))
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Got message with truncated control data, ignoring.");
+        if (FLAGS_SET(received.msg_flags, MSG_TRUNC))
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Got message with truncated payload data, ignoring.");
+
         const struct ucred *ucred = NULL;
         _cleanup_close_ int pidfd = -EBADF;
         int *fd_array = NULL;
         size_t n_fds = 0;
 
         struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, &msghdr) {
+        CMSG_FOREACH(cmsg, &received) {
                 if (cmsg->cmsg_level != SOL_SOCKET)
                         continue;
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "async-close.h" /* IWYU pragma: export */
 #include "forward.h"
 
 /* These functions implement various potentially slow operations that are executed asynchronously. They are
@@ -18,10 +19,5 @@
 
 int asynchronous_sync(PidRef *ret_pid);
 int asynchronous_fsync(int fd, PidRef *ret_pid);
-
-int asynchronous_close(int fd);
-void asynchronous_close_many(const int fds[], size_t n_fds);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(int, asynchronous_close);
 
 int asynchronous_rm_rf(const char *p, RemoveFlags flags);
