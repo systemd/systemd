@@ -309,6 +309,50 @@ systemctl stop systemd-journal-upload
 systemctl stop systemd-journal-remote.{socket,service}
 rm -rf /var/log/journal/remote/*
 rm /run/systemd/journal-upload.conf.d/99-test.conf
+
+# Reuse the trusted HTTPS receiver to check attribution and replacement of supplied fields.
+for setting in '' yes; do
+    if [[ -n "$setting" ]]; then
+        echo "AddClientCertificateSubject=$setting" >>/run/systemd/journal-remote.conf.d/99-test.conf
+    fi
+    {
+        printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+            '_BOOT_ID=0123456789abcdef0123456789abcdef' \
+            'MESSAGE=certificate-subject-test' '_HOSTNAME=sender-claimed-host' \
+            '_REMOTE_CERTIFICATE_SUBJECT=CN=forged-one' '_REMOTE_CERTIFICATE_SUBJECT=CN=forged-two'
+        printf '_REMOTE_CERTIFICATE_SUBJECT\n\x03\0\0\0\0\0\0\0a\0b\n\n'
+    } >/run/systemd/remote-pki/subject.export
+    systemctl restart systemd-journal-remote.socket
+    for _ in 1 2; do
+        curl --silent --show-error --fail --max-time 15 \
+            --cacert /run/systemd/remote-pki/ca.crt \
+            --cert /run/systemd/remote-pki/client.crt \
+            --key /run/systemd/remote-pki/client.key \
+            --header 'Content-Type: application/vnd.fdo.journal' \
+            --data-binary @/run/systemd/remote-pki/subject.export https://localhost:19532/upload
+    done
+    expected='["CN=forged-one","CN=forged-two",[97,0,98]]'
+    if [[ "$setting" == yes ]]; then
+        expected=null
+        if /usr/lib/systemd/systemd-journal-remote --version | grep -F +GNUTLS >/dev/null; then
+            expected='"C=CZ,L=Brno,O=Foo,OU=Bar,CN=Test Client"'
+        fi
+    fi
+    journalctl --directory=/var/log/journal/remote -o json --all |
+        jq -se --argjson expected "$expected" 'length == 2 and all(.[];
+            ._REMOTE_CERTIFICATE_SUBJECT == $expected and ._HOSTNAME == "sender-claimed-host")'
+    systemctl stop systemd-journal-remote.{socket,service}
+    rm -rf /var/log/journal/remote/*
+
+    /usr/lib/systemd/systemd-journal-remote --split-mode=none \
+        --output=/run/systemd/remote-pki/import.journal /run/systemd/remote-pki/subject.export
+    if [[ "$setting" == yes ]]; then
+        expected=null
+    fi
+    journalctl --file=/run/systemd/remote-pki/import.journal -o json --all |
+        jq -se --argjson expected "$expected" 'length == 1 and .[0]._REMOTE_CERTIFICATE_SUBJECT == $expected'
+    rm /run/systemd/remote-pki/import.journal
+done
 rm /run/systemd/journal-remote.conf.d/99-test.conf
 
 DOS_DIR="$(mktemp -d)"
