@@ -553,6 +553,144 @@ TEST(dnssec_verify_rrset_invalid_rsa_dnskey) {
                      EINVAL);
 }
 
+TEST(dnssec_verify_rrset_search_mixed_algorithms) {
+        static const uint8_t signature_blob[] = { 0x00 };
+        static const uint8_t dnskey_blob[] = { 0x01, 0x02, 0x03, 0x04 };
+        static const uint8_t digest_blob[32] = {};
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey_rsa = NULL,
+                *dnskey_ed448 = NULL, *dnskey_rrsig = NULL, *ds_rsa = NULL, *ds_rsa_gost = NULL, *ds_ed448 = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *validated = NULL, *tampered = NULL,
+                *unauthenticated = NULL, *dnskey_only = NULL, *unsupported_digest = NULL,
+                *unsupported_only = NULL, *unsupported_only_unauthenticated = NULL;
+        DnssecResult result;
+
+        /* A zone signed with RSASHA256 and ED448, and an RRset only signed with ED448 */
+
+        ASSERT_NOT_NULL(a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com."));
+        a->a.in_addr.s_addr = inet_addr("192.0.2.1");
+
+        ASSERT_NOT_NULL(dnskey_rsa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com."));
+        dnskey_rsa->dnskey.flags = DNSKEY_FLAG_ZONE_KEY;
+        dnskey_rsa->dnskey.protocol = 3;
+        dnskey_rsa->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
+        dnskey_rsa->dnskey.key_size = sizeof(dnskey_blob);
+        ASSERT_NOT_NULL(dnskey_rsa->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob)));
+
+        ASSERT_NOT_NULL(dnskey_ed448 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com."));
+        dnskey_ed448->dnskey.flags = DNSKEY_FLAG_ZONE_KEY;
+        dnskey_ed448->dnskey.protocol = 3;
+        dnskey_ed448->dnskey.algorithm = DNSSEC_ALGORITHM_ED448;
+        dnskey_ed448->dnskey.key_size = sizeof(dnskey_blob);
+        ASSERT_NOT_NULL(dnskey_ed448->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob)));
+
+        ASSERT_NOT_NULL(ds_rsa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.com."));
+        ds_rsa->ds.key_tag = dnssec_keytag(dnskey_rsa, /* mask_revoke= */ false);
+        ds_rsa->ds.algorithm = DNSSEC_ALGORITHM_RSASHA256;
+        ds_rsa->ds.digest_type = DNSSEC_DIGEST_SHA256;
+        ds_rsa->ds.digest_size = sizeof(digest_blob);
+        ASSERT_NOT_NULL(ds_rsa->ds.digest = memdup(digest_blob, sizeof(digest_blob)));
+
+        ASSERT_NOT_NULL(ds_rsa_gost = dns_resource_record_copy(ds_rsa));
+        ds_rsa_gost->ds.digest_type = DNSSEC_DIGEST_GOST_R_34_11_94;
+
+        ASSERT_NOT_NULL(ds_ed448 = dns_resource_record_copy(ds_rsa));
+        ds_ed448->ds.key_tag = dnssec_keytag(dnskey_ed448, /* mask_revoke= */ false);
+        ds_ed448->ds.algorithm = DNSSEC_ALGORITHM_ED448;
+
+        ASSERT_NOT_NULL(dnskey_rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
+        dnskey_rrsig->rrsig.type_covered = DNS_TYPE_DNSKEY;
+        dnskey_rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_RSASHA256;
+        dnskey_rrsig->rrsig.labels = 2;
+        dnskey_rrsig->rrsig.original_ttl = 3600;
+        dnskey_rrsig->rrsig.expiration = 2000000000;
+        dnskey_rrsig->rrsig.inception = 1000000000;
+        dnskey_rrsig->rrsig.key_tag = dnssec_keytag(dnskey_rsa, /* mask_revoke= */ false);
+        ASSERT_NOT_NULL(dnskey_rrsig->rrsig.signer = strdup("example.com."));
+        dnskey_rrsig->rrsig.signature_size = sizeof(signature_blob);
+        ASSERT_NOT_NULL(dnskey_rrsig->rrsig.signature = memdup(signature_blob, sizeof(signature_blob)));
+
+        ASSERT_NOT_NULL(rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
+        rrsig->rrsig.type_covered = DNS_TYPE_A;
+        rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ED448;
+        rrsig->rrsig.labels = 2;
+        rrsig->rrsig.original_ttl = 3600;
+        rrsig->rrsig.expiration = 2000000000;
+        rrsig->rrsig.inception = 1000000000;
+        rrsig->rrsig.key_tag = dnssec_keytag(dnskey_ed448, /* mask_revoke= */ false);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer = strdup("example.com."));
+        rrsig->rrsig.signature_size = sizeof(signature_blob);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature = memdup(signature_blob, sizeof(signature_blob)));
+
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey_ed448, /* revoked_ok= */ false));
+        ASSERT_OK_ZERO(dnssec_rrsig_match_dnskey(rrsig, dnskey_rsa, /* revoked_ok= */ false));
+
+        ASSERT_NOT_NULL(answer = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(answer, a, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(answer, rrsig, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
+
+        /* The ED448 RRSIG must not make the RRset insecure */
+        ASSERT_NOT_NULL(validated = dns_answer_new(4));
+        ASSERT_OK(dns_answer_add(validated, ds_rsa, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(validated, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(validated, dnskey_rsa, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, dnskey_rrsig));
+        ASSERT_OK(dns_answer_add(validated, dnskey_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, dnskey_rrsig));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, validated, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_MISSING_KEY);
+
+        /* Same if only the ED448 key is authenticated */
+        ASSERT_NOT_NULL(tampered = dns_answer_new(3));
+        ASSERT_OK(dns_answer_add(tampered, ds_rsa, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(tampered, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(tampered, dnskey_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, tampered, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_MISSING_KEY);
+
+        /* Same if the ED448 key is unauthenticated */
+        ASSERT_NOT_NULL(unauthenticated = dns_answer_new(3));
+        ASSERT_OK(dns_answer_add(unauthenticated, ds_rsa, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unauthenticated, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unauthenticated, dnskey_ed448, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, unauthenticated, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_MISSING_KEY);
+
+        /* Same with an authenticated RSASHA256 DNSKEY but no DS */
+        ASSERT_NOT_NULL(dnskey_only = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(dnskey_only, dnskey_rsa, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(dnskey_only, dnskey_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, dnskey_only, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_MISSING_KEY);
+
+        /* Insecure if the RSASHA256 DS uses an unsupported digest */
+        ASSERT_NOT_NULL(unsupported_digest = dns_answer_new(3));
+        ASSERT_OK(dns_answer_add(unsupported_digest, ds_rsa_gost, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unsupported_digest, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unsupported_digest, dnskey_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, unsupported_digest, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_UNSUPPORTED_ALGORITHM);
+
+        /* Insecure if the zone only uses unsupported algorithms */
+        ASSERT_NOT_NULL(unsupported_only = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(unsupported_only, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unsupported_only, dnskey_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, unsupported_only, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_UNSUPPORTED_ALGORITHM);
+
+        /* Same if the ED448 key is unauthenticated */
+        ASSERT_NOT_NULL(unsupported_only_unauthenticated = dns_answer_new(2));
+        ASSERT_OK(dns_answer_add(unsupported_only_unauthenticated, ds_ed448, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(unsupported_only_unauthenticated, dnskey_ed448, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
+
+        ASSERT_OK(dnssec_verify_rrset_search(answer, a->key, unsupported_only_unauthenticated, rrsig->rrsig.inception * USEC_PER_SEC, &result, /* ret_rrsig= */ NULL));
+        ASSERT_EQ(result, DNSSEC_UNSUPPORTED_ALGORITHM);
+}
+
 TEST(dnssec_verify_rrset2) {
         static const uint8_t signature_blob[] = {
                 0x48, 0x45, 0xc8, 0x8b, 0xc0, 0x14, 0x92, 0xf5, 0x15, 0xc6, 0x84, 0x9d, 0x2f, 0xe3, 0x32, 0x11,
