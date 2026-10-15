@@ -10,6 +10,7 @@
 #include "log.h"
 #include "module-util.h"
 #include "recurse-dir.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
@@ -152,10 +153,22 @@ static bool has_virtio_pci(void) {
         return has_virtio_pci_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
 }
 
+static bool has_virtio_bus_device(void) {
+        int r;
+
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
+
+        /* Only lists devices that a virtio transport has already registered. */
+        r = dir_is_empty("/sys/bus/virtio/devices", /* ignore_hidden_or_backup= */ false);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to determine whether host has virtio devices, ignoring: %m");
+
+        return r == 0;
+}
+
 static bool may_have_virtio(void) {
-        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI
-         * or CCW device. */
-        return has_virtio_pci() || has_virtio_ccw();
+        return has_virtio_pci() || has_virtio_ccw() || has_virtio_bus_device();
 }
 
 static bool in_qemu(void) {
