@@ -777,13 +777,15 @@ static int acquire_sig_for_roothash(
 
         int r;
 
+        /* Returns -EBADMSG if the partition contents are not valid signature data. */
+
         assert(fd >= 0);
 
         if (partition_offset == UINT64_MAX || partition_size == UINT64_MAX)
                 return -EINVAL;
 
         if (partition_size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
-                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Verity signature partition is larger than 4M, refusing.");
 
         _cleanup_free_ char *buf = new(char, partition_size+1);
         if (!buf)
@@ -799,32 +801,40 @@ static int acquire_sig_for_roothash(
         if (e) {
                 /* If we found a NUL byte then the rest of the data must be NUL too */
                 if (!memeqzero(e, partition_size - (e - buf)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature data contains embedded NUL byte.");
         } else
                 buf[partition_size] = 0;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature JSON data: %s", STRERROR(r));
 
         sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'rootHash' field.");
 
         _cleanup_(iovec_done) struct iovec root_hash = {};
         r = sd_json_variant_unhex(rh, &root_hash.iov_base, &root_hash.iov_len);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse root hash field: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse root hash field: %s", STRERROR(r));
+        if (root_hash.iov_len < sizeof(sd_id128_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Root hash field is too short.");
 
         sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
         if (!sig)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'signature' field.");
 
         _cleanup_(iovec_done) struct iovec root_hash_sig = {};
         r = sd_json_variant_unbase64(sig, &root_hash_sig.iov_base, &root_hash_sig.iov_len);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature field: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature field: %s", STRERROR(r));
 
         if (ret_root_hash)
                 *ret_root_hash = TAKE_STRUCT(root_hash);
@@ -1518,6 +1528,13 @@ static int dissect_image(
                                                         (uint64_t) size * 512,
                                                         &root_hash,
                                                         /* ret_root_hash_sig= */ NULL);
+                                        if (r == -EBADMSG) {
+                                                /* If the image policy requires a signature, the policy check
+                                                 * fails later, because the image has no usable signature
+                                                 * partition. */
+                                                log_debug_errno(r, "Verity signature partition is invalid, ignoring.");
+                                                continue;
+                                        }
                                         if (r < 0)
                                                 return r;
                                         if (!iovec_equal(&verity->root_hash, &root_hash)) {
@@ -4449,6 +4466,13 @@ int dissected_image_load_verity_sig_partition(
                         p->size,
                         &root_hash,
                         &root_hash_sig);
+        if (r == -EBADMSG) {
+                /* If the image policy requires a signature, dissected_image_decrypt() refuses the image,
+                 * because no signature is loaded. Otherwise dissected_image_guess_verity_roothash()
+                 * derives the root hash from the partition UUIDs. */
+                log_debug_errno(r, "Verity signature partition is invalid, ignoring.");
+                return 0;
+        }
         if (r < 0)
                 return r;
 
