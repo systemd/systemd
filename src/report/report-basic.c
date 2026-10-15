@@ -28,7 +28,6 @@
 #include "path-util.h"
 #include "procfs-util.h"
 #include "psi-util.h"
-#include "report-basic.h"
 #include "report-server.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -43,6 +42,8 @@ COMMAND(
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;
+
+#define METRIC_IO_SYSTEMD_BASIC_PREFIX "io.systemd.Basic."
 
 #define LINUX_BIRTHDATE_NSEC (685065600LU * NSEC_PER_SEC)
 
@@ -1068,11 +1069,11 @@ static const MetricFamily metric_family_table[] = {
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(metric_family_table, link, parameters, flags, userdata);
 }
 

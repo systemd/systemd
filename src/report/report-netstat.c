@@ -14,7 +14,6 @@
 #include "log.h"
 #include "metrics.h"
 #include "netif-util.h"
-#include "report-netstat.h"
 #include "report-server.h"
 #include "sort-util.h"
 #include "utf8.h"
@@ -385,11 +384,11 @@ static const MetricFamily netstat_metric_family_table[_NETSTAT_METRIC_MAX + 1] =
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(netstat_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(netstat_metric_family_table, link, parameters, flags, userdata);
 }
 
