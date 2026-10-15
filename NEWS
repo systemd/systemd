@@ -39,6 +39,9 @@ CHANGES WITH 263 in spe:
           of source:destination. Unknown flags are shown numerically so newer
           manager properties can still be displayed.
 
+        * systemd-mountfsd shares Verity devices only between mounts of the
+          same backing image file.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
