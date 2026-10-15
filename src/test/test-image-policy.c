@@ -171,6 +171,25 @@ static void test_policy_intersect_one(const char *a, const char *b, const char *
         assert_se(image_policy_equivalent(z, t) > 0);
 }
 
+TEST(image_policy_get_verity_sig) {
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+        ASSERT_OK(image_policy_from_string("root=verity+signed", /* graceful= */ false, &p));
+        ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG) & _PARTITION_POLICY_USE_MASK, (PartitionPolicyFlags) (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("root=signed", /* graceful= */ false, &p));
+        ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG) & _PARTITION_POLICY_USE_MASK, (PartitionPolicyFlags) PARTITION_POLICY_UNPROTECTED);
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("root=signed+absent", /* graceful= */ false, &p));
+        ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG) & _PARTITION_POLICY_USE_MASK, (PartitionPolicyFlags) (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("root=verity", /* graceful= */ false, &p));
+        ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG), _PARTITION_POLICY_FLAGS_INVALID);
+}
+
 TEST(image_policy_intersect) {
         test_policy_intersect_one("", "", "", /* intersect= */ true);
         test_policy_intersect_one("-", "-", "-", /* intersect= */ true);
