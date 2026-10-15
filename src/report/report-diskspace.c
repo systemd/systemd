@@ -21,7 +21,6 @@
 #include "metrics.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
-#include "report-diskspace.h"
 #include "report-server.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -367,11 +366,11 @@ static const MetricFamily diskspace_metric_family_table[] = {
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(diskspace_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(diskspace_metric_family_table, link, parameters, flags, userdata);
 }
 

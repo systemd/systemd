@@ -11,7 +11,6 @@
 #include "log.h"
 #include "metrics.h"
 #include "parse-util.h"
-#include "report-hwmon.h"
 #include "report-server.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -231,11 +230,11 @@ static const MetricFamily hwmon_metric_family_table[] = {
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(hwmon_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(hwmon_metric_family_table, link, parameters, flags, userdata);
 }
 
