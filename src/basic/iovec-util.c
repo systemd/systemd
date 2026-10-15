@@ -175,3 +175,24 @@ struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append) {
 
         return iovec;
 }
+
+struct iovec* iovec_consume(struct iovec *iovec, size_t n) {
+
+        /* Similar to iovec_inc(), but instead of moving the pointer ahead we copy the data via memmove() and
+         * thus the pointer stays fixed, but the data moves */
+
+        if (!iovec)
+                return NULL;
+
+        if (n > iovec->iov_len)
+                return NULL;
+
+        if (n == 0) /* NOP — note that this is fine on an empty (or even unset) iovec, so that consuming an
+                     * iovec we already fully drained continues to be a valid (if pointless) operation. */
+                return iovec;
+
+        iovec->iov_len -= n;
+
+        memmove(ASSERT_PTR(iovec->iov_base), (uint8_t*) iovec->iov_base + n, iovec->iov_len);
+        return iovec;
+}
