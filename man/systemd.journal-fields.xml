@@ -456,6 +456,16 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_REMOTE_CERTIFICATE_SUBJECT=</varname></term>
+        <listitem><para>The full distinguished name of the verified HTTPS uploader's certificate.
+        Added by <command>systemd-journal-remote</command> with <varname>AddClientCertificateSubject=yes</varname>;
+        see <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Trust this field only from a receiver with this setting enabled. It identifies the immediate uploader,
+        not the original producer of forwarded entries, and does not authenticate other entry fields.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
