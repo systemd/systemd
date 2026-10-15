@@ -4,8 +4,37 @@
 
 #include "dns-packet.h"
 #include "fd-util.h"
+#include "resolved-conf.h"
+#include "resolved-dns-server.h"
 #include "resolved-manager.h"
 #include "tests.h"
+
+/* ================ config_parse_dns_servers() ================ */
+
+TEST(config_parse_fallback_dns) {
+        Manager manager = {
+                .need_builtin_fallbacks = true,
+        };
+
+        ASSERT_OK(config_parse_dns_servers(
+                          /* unit= */ NULL, "resolved.conf", 1, "Resolve", 1, "FallbackDNS", DNS_SERVER_FALLBACK,
+                          "invalid", /* data= */ NULL, &manager));
+        ASSERT_TRUE(manager.need_builtin_fallbacks);
+        ASSERT_NULL(manager.fallback_dns_servers);
+
+        ASSERT_OK(config_parse_dns_servers(
+                          /* unit= */ NULL, "resolved.conf", 2, "Resolve", 1, "FallbackDNS", DNS_SERVER_FALLBACK,
+                          "192.0.2.1", /* data= */ NULL, &manager));
+        ASSERT_FALSE(manager.need_builtin_fallbacks);
+        ASSERT_NOT_NULL(manager.fallback_dns_servers);
+
+        manager.need_builtin_fallbacks = true;
+        ASSERT_OK(config_parse_dns_servers(
+                          /* unit= */ NULL, "resolved.conf", 3, "Resolve", 1, "FallbackDNS", DNS_SERVER_FALLBACK,
+                          "", /* data= */ NULL, &manager));
+        ASSERT_FALSE(manager.need_builtin_fallbacks);
+        ASSERT_NULL(manager.fallback_dns_servers);
+}
 
 /* ================================================================
  * manager_recv()
