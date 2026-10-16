@@ -1632,15 +1632,20 @@ int varlink_idl_qualified_symbol_name_is_valid(const char *name) {
         return varlink_idl_interface_name_is_valid(iface);
 }
 
-static int varlink_idl_symbol_consistent(const sd_varlink_interface *interface, const sd_varlink_symbol *symbol, int level);
+static int varlink_idl_symbol_consistent(const sd_varlink_interface *interface, const sd_varlink_symbol *symbol, bool experimental, int level);
 
 static int varlink_idl_field_consistent(
                 const sd_varlink_interface *interface,
                 const sd_varlink_symbol *symbol,
                 const sd_varlink_field *field,
+                bool experimental,
                 int level) {
 
+        /* 'experimental' indicates whether the symbol the field is part of is experimental, either because
+         * it is marked as such itself, or because the interface or an enclosing field is. */
+
         const char *symbol_name;
+        bool field_experimental;
         int r;
 
         assert(interface);
@@ -1668,6 +1673,21 @@ static int varlink_idl_field_consistent(
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of field '%s' in symbol '%s' is invalid, refusing.", field->name, symbol_name);
         }
 
+        /* Users of the non-experimental parts must not need to know about the experimental ones. Hence
+         * experimental fields of non-experimental symbols must be nullable. Experimental enum values are
+         * not permitted in non-experimental enums at all, since a non-experimental field of that enum
+         * type might carry them. This is deliberately strict: relaxing it later (e.g. permitting such
+         * values in enums only used for input) breaks no interface definition, tightening it would. */
+        if (!experimental && FLAGS_SET(field->field_flags, SD_VARLINK_EXPERIMENTAL)) {
+                if (field->field_type == SD_VARLINK_ENUM_VALUE)
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Experimental enum value '%s' in non-experimental enum '%s', refusing.", field->name, symbol_name);
+
+                if (!FLAGS_SET(field->field_flags, SD_VARLINK_NULLABLE))
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Experimental field '%s' in non-experimental symbol '%s' is not nullable, refusing.", field->name, symbol_name);
+        }
+
+        field_experimental = experimental || FLAGS_SET(field->field_flags, SD_VARLINK_EXPERIMENTAL);
+
         if (symbol->symbol_type != SD_VARLINK_METHOD) {
                 if (field->field_direction != SD_VARLINK_REGULAR)
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Direction of '%s' in non-method symbol '%s' not regular, refusing.", field->name, symbol_name);
@@ -1693,11 +1713,14 @@ static int varlink_idl_field_consistent(
 
                         if (!IN_SET(found->symbol_type, SD_VARLINK_ENUM_TYPE, SD_VARLINK_STRUCT_TYPE))
                                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol of named type of field '%s' in symbol '%s' is not a type, refusing.", field->name, symbol_name);
+
+                        if (!field_experimental && FLAGS_SET(found->symbol_flags, SD_VARLINK_EXPERIMENTAL))
+                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Non-experimental field '%s' in symbol '%s' refers to experimental type '%s', refusing.", field->name, symbol_name, found->name);
                 } else {
                         /* If this is an anonymous type, then we recursively check if it's consistent, since
                          * it's not part of the interface, and hence we won't validate it from there. */
 
-                        r = varlink_idl_symbol_consistent(interface, field->symbol, level);
+                        r = varlink_idl_symbol_consistent(interface, field->symbol, field_experimental, level);
                         if (r < 0)
                                 return r;
                 }
@@ -1751,7 +1774,11 @@ static sd_varlink_symbol_flags_t varlink_idl_symbol_flags_valid(sd_varlink_symbo
 static int varlink_idl_symbol_consistent(
                 const sd_varlink_interface *interface,
                 const sd_varlink_symbol *symbol,
+                bool experimental,
                 int level) {
+
+        /* 'experimental' indicates whether the symbol is used in an experimental context, i.e. whether the
+         * interface or, for anonymous symbols, the enclosing field is experimental. */
 
         _cleanup_set_free_ Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
@@ -1774,6 +1801,8 @@ static int varlink_idl_symbol_consistent(
         if (IN_SET(symbol->symbol_type, _SD_VARLINK_SYMBOL_COMMENT, _SD_VARLINK_INTERFACE_COMMENT))
                 return 0;
 
+        experimental = experimental || FLAGS_SET(symbol->symbol_flags, SD_VARLINK_EXPERIMENTAL);
+
         for (const sd_varlink_field *field = symbol->fields; field->field_type != _SD_VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
                 if (field->field_type == _SD_VARLINK_FIELD_COMMENT) {
@@ -1794,7 +1823,7 @@ static int varlink_idl_symbol_consistent(
                 if (set_ensure_put(name_set, &string_hash_ops, field->name) < 0)
                         return log_oom();
 
-                r = varlink_idl_field_consistent(interface, symbol, field, level);
+                r = varlink_idl_field_consistent(interface, symbol, field, experimental, level);
                 if (r < 0)
                         return r;
         }
@@ -1831,7 +1860,7 @@ int varlink_idl_consistent(const sd_varlink_interface *interface, int level) {
                 if (set_ensure_put(&name_set, &string_hash_ops, (*symbol)->name) < 0)
                         return log_oom();
 
-                r = varlink_idl_symbol_consistent(interface, *symbol, level);
+                r = varlink_idl_symbol_consistent(interface, *symbol, FLAGS_SET(interface->interface_flags, SD_VARLINK_EXPERIMENTAL), level);
                 if (r < 0)
                         return r;
         }
