@@ -485,7 +485,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         if (!list_methods && strv_length(interfaces) > 1)
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
-        _cleanup_strv_free_ char **methods = NULL;
+        _cleanup_strv_free_ char **methods = NULL, **experimental_methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;
@@ -531,6 +531,13 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                                         r = strv_extendf(&methods, "%s.%s", vi->name, symbol->name);
                                         if (r < 0)
                                                 return log_oom();
+
+                                        if (FLAGS_SET(vi->interface_flags, SD_VARLINK_EXPERIMENTAL) ||
+                                            FLAGS_SET(symbol->symbol_flags, SD_VARLINK_EXPERIMENTAL)) {
+                                                r = strv_extendf(&experimental_methods, "%s.%s", vi->name, symbol->name);
+                                                if (r < 0)
+                                                        return log_oom();
+                                        }
                                 }
                         } else {
                                 pager_open(arg_pager_flags);
@@ -545,13 +552,21 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         }
 
         if (list_methods) {
+                /* Only mark experimental methods if connected to a TTY, so that the output stays parsable,
+                 * e.g. for shell completion. Check this before spawning the pager. */
+                bool mark = on_tty();
+
                 pager_open(arg_pager_flags);
 
                 strv_sort_uniq(methods);
 
-                if (!sd_json_format_enabled(arg_json_format_flags))
-                        strv_print(methods);
-                else {
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        STRV_FOREACH(m, methods)
+                                if (mark && strv_contains(experimental_methods, *m))
+                                        printf("%s%s (experimental)%s\n", ansi_bright_yellow(), *m, ansi_normal());
+                                else
+                                        puts(*m);
+                } else {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
                         r = sd_json_build(&j, SD_JSON_BUILD_STRV(methods));
@@ -663,6 +678,82 @@ static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
         return log_error_errno(errno, "Failed to execute '%s': %m", j);
 }
 
+static int notice_if_method_experimental(sd_varlink **vl, const char *url, const char *method) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_free_ char *interface = NULL;
+        const char *error_id = NULL, *description = NULL, *name;
+        const sd_varlink_symbol *symbol;
+        sd_json_variant *reply = NULL;
+        int r;
+
+        assert(vl);
+        assert(*vl);
+        assert(url);
+        assert(method);
+
+        /* Let the user know if they are calling an experimental method. This requires an additional
+         * roundtrip, hence only do it if somebody is watching. Failures are not fatal, after all this is
+         * purely informational, but the connection might be unusable after a failed call (e.g. after a
+         * timeout), hence reconnect in that case. Note that this must be called before any fds are pushed,
+         * as these would otherwise be sent along with the introspection call. */
+
+        if (arg_quiet || !isatty_safe(STDERR_FILENO))
+                return 0;
+
+        /* The method name has been validated by the caller, hence it contains a dot */
+        name = ASSERT_PTR(strrchr(method, '.'));
+
+        interface = strndup(method, name - method);
+        if (!interface)
+                return log_oom();
+
+        if (streq(interface, "org.varlink.service"))
+                return 0;
+
+        r = sd_varlink_callbo(
+                        *vl,
+                        "org.varlink.service.GetInterfaceDescription",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("interface", interface));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to introspect interface '%s', reconnecting: %m", interface);
+
+                *vl = sd_varlink_unref(*vl);
+                return varlink_connect_auto(vl, url);
+        }
+        if (error_id) {
+                log_debug("Failed to introspect interface '%s', ignoring: %s", interface, error_id);
+                return 0;
+        }
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &description);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to dispatch interface description, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_varlink_idl_parse(description, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &vi);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse interface description, ignoring: %m");
+                return 0;
+        }
+
+        symbol = varlink_idl_find_symbol(vi, SD_VARLINK_METHOD, name + 1);
+        if (!symbol)
+                return 0;
+
+        if (FLAGS_SET(vi->interface_flags, SD_VARLINK_EXPERIMENTAL) ||
+            FLAGS_SET(symbol->symbol_flags, SD_VARLINK_EXPERIMENTAL))
+                log_notice("Method %s() is experimental, it may change incompatibly or be removed in future versions.", method);
+
+        return 0;
+}
+
 static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters, char **exec_cmdline) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -672,6 +763,10 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         int r;
 
         r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = notice_if_method_experimental(&vl, url, method);
         if (r < 0)
                 return r;
 
@@ -835,6 +930,10 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
          * JsonVariant object for method calls. */
 
         r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = notice_if_method_experimental(&vl, url, method);
         if (r < 0)
                 return r;
 

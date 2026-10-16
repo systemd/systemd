@@ -176,6 +176,9 @@
         specified, lists all methods of all interfaces implemented by the service, otherwise just the methods
         in the specified interfaces.</para>
 
+        <para>If standard output and standard error are connected to a terminal, methods that are marked as
+        experimental are highlighted and suffixed with <literal>(experimental)</literal>.</para>
+
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
@@ -199,6 +202,10 @@
         parameters, specify the empty object <literal>{}</literal>.</para>
 
         <para>The reply parameters are written as JSON objects to STDOUT.</para>
+
+        <para>If standard error is connected to a terminal and <option>--quiet</option> is not specified,
+        the interface description is queried first, and a notice is shown if the method is marked as
+        experimental.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
