@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "locale-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
@@ -56,16 +57,11 @@ static char* normalize_locale(const char *name) {
         return strdup(name);
 }
 
-static const char* get_locale_dir(void) {
-        return secure_getenv("SYSTEMD_LOCALE_DIRECTORY") ?:
 #ifdef __GLIBC__
-                "/usr/lib/locale/";
-#else
-                "/usr/share/i18n/locales/musl/";
-#endif
+static const char* get_locale_dir(void) {
+        return secure_getenv("SYSTEMD_LOCALE_DIRECTORY") ?: "/usr/lib/locale/";
 }
 
-#ifdef __GLIBC__
 static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
 
@@ -165,9 +161,7 @@ static int add_locales_from_archive(Set *locales) {
         r = 0;
 
 finish:
-        if (p != MAP_FAILED)
-                munmap(p, st.st_size);
-
+        munmap_safe(p, st.st_size);
         return r;
 }
 
@@ -201,26 +195,38 @@ static int add_locales_from_libdir(Set *locales) {
 
 #else
 
+static const char* const musl_locale_dirs[] = {
+        "/etc/musl/locale",
+        "/usr/share/musl/locale",
+        "/share/musl/locale",
+        "/usr/share/i18n/locales/musl", // compat with musl-locales 0.1.0
+        NULL
+};
+
 static int add_locales_for_musl(Set *locales) {
         int r;
 
         assert(locales);
 
-        _cleanup_closedir_ DIR *dir = opendir(get_locale_dir());
-        if (!dir)
-                return errno == ENOENT ? 0 : -errno;
+        const char *e = secure_getenv("SYSTEMD_LOCALE_DIRECTORY");
 
-        FOREACH_DIRENT(de, dir, return -errno) {
-                if (de->d_type != DT_REG)
+        STRV_FOREACH(d, e ? STRV_MAKE_CONST(e) : musl_locale_dirs) {
+                _cleanup_closedir_ DIR *dir = opendir(*d);
+                if (!dir)
                         continue;
 
-                char *z = normalize_locale(de->d_name);
-                if (!z)
-                        return -ENOMEM;
+                FOREACH_DIRENT(de, dir, return -errno) {
+                        if (de->d_type != DT_REG)
+                                continue;
 
-                r = set_consume(locales, z);
-                if (r < 0)
-                        return r;
+                        char *z = normalize_locale(de->d_name);
+                        if (!z)
+                                return -ENOMEM;
+
+                        r = set_consume(locales, z);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -330,11 +336,18 @@ int locale_is_installed(const char *name) {
 
         /* musl's newlocale() always succeeds and provides a fake locale object even when the locale does
          * not exist. Hence, we need to explicitly check if the locale file exists. */
-        _cleanup_free_ char *p = path_join(get_locale_dir(), name);
-        if (!p)
-                return -ENOMEM;
+        const char *e = secure_getenv("SYSTEMD_LOCALE_DIRECTORY");
 
-        return access(p, F_OK) >= 0;
+        STRV_FOREACH(d, e ? STRV_MAKE_CONST(e) : musl_locale_dirs) {
+                _cleanup_free_ char *p = path_join(*d, name);
+                if (!p)
+                        return -ENOMEM;
+
+                if (access(p, F_OK) >= 0)
+                        return true;
+        }
+
+        return false;
 #endif
 }
 

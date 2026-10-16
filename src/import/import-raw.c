@@ -217,6 +217,12 @@ static int raw_import_finish(RawImport *i) {
         assert(i);
         assert(i->output_fd >= 0);
 
+        if (FLAGS_SET(i->flags, IMPORT_ZERO_FILL)) {
+                r = import_zero_fill(i->output_fd, i->offset, i->size_max, i->written_uncompressed);
+                if (r < 0)
+                        return r;
+        }
+
         /* Nothing of what is below applies to block devices */
         if (S_ISBLK(i->output_stat.st_mode)) {
 
@@ -510,6 +516,7 @@ int raw_import_start(
         assert(local);
         assert(!(flags & ~IMPORT_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
+        assert(!FLAGS_SET(flags, IMPORT_ZERO_FILL) || (offset != UINT64_MAX && size_max != UINT64_MAX));
 
         if (!import_validate_local(local, flags))
                 return -EINVAL;

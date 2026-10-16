@@ -327,6 +327,12 @@ TEST(restrict_namespace) {
                 assert_se(setns(0, 0) == -1);
                 assert_se(errno == EPERM);
 
+                /* The kernel truncates nstype to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        assert_se(syscall(__NR_setns, 0, (unsigned long) (UINT64_C(1) << 32)) == -1);
+                        assert_se(errno == EPERM);
+                }
+
                 pid_t pid = raw_clone(CLONE_NEWNS);
                 assert_se(pid >= 0);
                 if (pid == 0)
@@ -447,6 +453,13 @@ TEST(restrict_address_families) {
 #else
                 assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+
+                /* The kernel truncates the domain to 32 bits, make sure setting upper bits doesn't bypass the filter */
+                if (sizeof(long) == 8) {
+                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
+                        assert_se(fd < 0);
+                        assert_se(errno == EAFNOSUPPORT);
+                }
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
@@ -470,6 +483,13 @@ TEST(restrict_address_families) {
 #else
                 assert_se(fd < 0);
                 assert_se(errno == EAFNOSUPPORT);
+
+                /* Same as above, the allow list must not be bypassed by setting upper bits either */
+                if (sizeof(long) == 8) {
+                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
+                        assert_se(fd < 0);
+                        assert_se(errno == EAFNOSUPPORT);
+                }
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
@@ -525,6 +545,32 @@ TEST(restrict_realtime) {
                 assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
                 assert_se(errno == ENOANO);
 
+                /* sched_setattr() is refused entirely, as its policy argument cannot be filtered on */
+                struct sched_attr attr = {
+                        .size = sizeof(attr),
+                        .sched_policy = SCHED_FIFO,
+                        .sched_priority = 1,
+                };
+                assert_se(sched_setattr(0, &attr, 0) < 0);
+                assert_se(errno == ENOANO);
+
+                attr = (struct sched_attr) {
+                        .size = sizeof(attr),
+                        .sched_policy = SCHED_DEADLINE,
+                        .sched_runtime = 1000000,
+                        .sched_deadline = 10000000,
+                        .sched_period = 10000000,
+                };
+                assert_se(sched_setattr(0, &attr, 0) < 0);
+                assert_se(errno == ENOANO);
+
+                attr = (struct sched_attr) {
+                        .size = sizeof(attr),
+                        .sched_policy = SCHED_OTHER,
+                };
+                assert_se(sched_setattr(0, &attr, 0) < 0);
+                assert_se(errno == ENOANO);
+
                 _exit(EXIT_SUCCESS);
         }
 }
@@ -551,11 +597,11 @@ TEST(memory_deny_write_execute_mmap) {
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
@@ -570,12 +616,11 @@ TEST(memory_deny_write_execute_mmap) {
 #endif
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
-                if (p != MAP_FAILED)
-                        assert_se(munmap(p, page_size()) == 0);
+                munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
+                munmap_safe(p, page_size());
 
                 _exit(EXIT_SUCCESS);
         }

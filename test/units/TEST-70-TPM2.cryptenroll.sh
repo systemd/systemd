@@ -3,16 +3,18 @@
 set -eux
 set -o pipefail
 
-cryptenroll_wipe_and_check() {(
+cryptenroll_wipe_and_check() (
     set +o pipefail
 
     : >/tmp/cryptenroll.out
     systemd-cryptenroll "$@" |& tee /tmp/cryptenroll.out
     grep -qE "Wiped slot [[:digit:]]+" /tmp/cryptenroll.out
-)}
+)
 
 at_exit() {
-    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" /tmp/cryptenroll.out /tmp/password
+    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" /tmp/cryptenroll.out /tmp/password /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
+    # Ignore if polkit doesn't exist
+    systemctl try-reload-or-restart polkit.service || :
 }
 
 trap at_exit EXIT
@@ -154,5 +156,31 @@ varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"tpm2\",\"unlockKeyFile\":\"/tmp/password\"}")
 (! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"pkcs11\",\"unlockKeyFile\":\"/tmp/password\"}")
+
+# Ensure polkit autentication as normal user works
+# Also check that the required policy is installed, as packages might be out of date with the test
+if systemd-analyze compare-versions "$(uname -r)" ge 6.5 && \
+        systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/cryptenroll-unpriv.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if ((action.id == "io.systemd.cryptenroll.enroll" || action.id == "io.systemd.cryptenroll.list-slots") &&
+        subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+    systemctl try-reload-or-restart polkit.service
+
+    chown testuser:testuser "$VL_IMAGE"
+
+    run0 -u testuser varlinkctl call /run/systemd/io.systemd.CryptEnroll io.systemd.CryptEnroll.Enroll \
+        "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"unlockKeyFile\":\"/tmp/password\",\"password\":\"varlinkpassword\", \"allowInteractiveAuthentication\": true}" | grep '"slot"' >/dev/null
+
+    run0 -u testuser varlinkctl call --more /run/systemd/io.systemd.CryptEnroll io.systemd.CryptEnroll.ListSlots "{\"node\":\"$VL_IMAGE\", \"allowInteractiveAuthentication\": true}" | grep '"type":"password"' >/dev/null
+    rm -f /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
+    systemctl try-reload-or-restart polkit.service
+fi
 
 rm -f "$VL_IMAGE"

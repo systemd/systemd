@@ -423,7 +423,7 @@ EOF
 }
 
 teardown_timesyncd_resolve() {
-    set +eu
+    set +e
 
     systemctl start systemd-resolved-varlink.socket
     systemctl start systemd-resolved.service
@@ -431,6 +431,8 @@ teardown_timesyncd_resolve() {
     rm -rf /run/systemd/system/systemd-timesyncd.service.d
     systemctl daemon-reload
     systemctl stop systemd-timesyncd
+
+    set -e
 }
 
 testcase_timesyncd_resolve() {
@@ -481,12 +483,14 @@ EOF
 }
 
 teardown_timedated_alternate_paths() {
-    set +eu
+    set +e
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
     rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
+
+    set -e
 }
 
 testcase_timedated_alternate_paths() {

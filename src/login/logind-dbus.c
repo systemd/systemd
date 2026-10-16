@@ -40,6 +40,7 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-action.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat.h"
@@ -1247,6 +1248,9 @@ static int manager_create_session_by_bus(
         r = session_start(session, message, error);
         if (r < 0)
                 goto fail;
+
+        session_count_started(session);
+
         r = sd_bus_message_exit_container(message);
         if (r < 0)
                 goto fail;

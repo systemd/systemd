@@ -139,7 +139,7 @@ static int proc_mem_can_force_override(void) {
                 r = n > 0 ? 1 : -EIO; /* Nothing written and no error is not a refusal, fail closed. */
 
 finish:
-        (void) munmap(p, page_size());
+        munmap_safe(p, page_size());
         return r;
 }
 

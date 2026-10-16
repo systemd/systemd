@@ -48,7 +48,7 @@ EOF
 
 # Source env assignments from a file and check them - do this in a subshell
 # to not pollute the test environment
-check_environment() {(
+check_environment() (
     # shellcheck source=/dev/null
     source "${1:?}"
 
@@ -65,7 +65,7 @@ check_environment() {(
     [[ ! -v ALSO_INVALID ]]
     [[ ! -v EMPTY_INVALID ]]
     [[ ! -v 3_INVALID ]]
-)}
+)
 
 # Check the output by directly calling the generator
 "$GENERATOR_BIN" | tee "$OUT_FILE"

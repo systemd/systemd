@@ -11,7 +11,6 @@
 #include "copy.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
-#include "efi.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -21,6 +20,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pe-binary.h"
+#include "pe-writer.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -481,7 +481,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         size_t pehashsz;
         r = pe_hash(srcfd, sym_EVP_sha256(), &pehash, &pehashsz);
         if (r < 0)
-                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[0]);
+                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[1]);
 
         _cleanup_free_ uint8_t *idcraw = NULL;
         size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */
@@ -566,94 +566,13 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (sigsz < 0)
                 return log_openssl_errors(LOG_ERR, "Failed to convert PKCS7 signature to DER");
 
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
-        r = pe_load_headers(srcfd, &dos_header, &pe_header);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load headers from PE file: %m");
-
-        const IMAGE_DATA_DIRECTORY *certificate_table;
-        certificate_table = pe_header_get_data_directory(pe_header, IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE);
-        if (!certificate_table)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "File lacks certificate table.");
-
         r = copy_bytes(srcfd, dstfd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
 
-        off_t end = st.st_size;
-        ssize_t n;
-
-        if (st.st_size % 8 != 0) {
-                if (certificate_table->VirtualAddress != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Certificate table is not aligned to 8 bytes");
-
-                n = pwrite(dstfd, (const uint8_t[8]) {}, 8 - (st.st_size % 8), st.st_size);
-                if (n < 0)
-                        return log_error_errno(errno, "Failed to write zero padding: %m");
-                if (n != 8 - (st.st_size % 8))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing zero padding.");
-
-                end += n;
-        }
-
-        uint32_t certsz = sizeof(WIN_CERTIFICATE_HEADER) + sigsz;
-        n = pwrite(dstfd,
-                   &(WIN_CERTIFICATE_HEADER) {
-                           .wRevision = htole16(0x200),
-                           .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
-                           .dwLength = htole32(certsz),
-                   },
-                   sizeof(WIN_CERTIFICATE_HEADER),
-                   end);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to write certificate header: %m");
-        if (n != sizeof(WIN_CERTIFICATE_HEADER))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing certificate header.");
-
-        end += n;
-
-        n = pwrite(dstfd, sig, sigsz, end);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to write signature: %m");
-        if (n != sigsz)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing signature.");
-
-        end += n;
-
-        if (certsz % 8 != 0) {
-                n = pwrite(dstfd, (const uint8_t[8]) {}, 8 - (certsz % 8), end);
-                if (n < 0)
-                        return log_error_errno(errno, "Failed to write zero padding: %m");
-                if ((size_t) n != 8 - (certsz % 8))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing zero padding.");
-        }
-
-        n = pwrite(dstfd,
-                   &(IMAGE_DATA_DIRECTORY) {
-                           .VirtualAddress = certificate_table->VirtualAddress ?: htole32(ROUND_UP(st.st_size, 8)),
-                           .Size = htole32(le32toh(certificate_table->Size) + ROUND_UP(certsz, 8)),
-                   },
-                   sizeof(IMAGE_DATA_DIRECTORY),
-                   le32toh(dos_header->e_lfanew) + PE_HEADER_OPTIONAL_FIELD_OFFSET(pe_header, DataDirectory[IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE]));
-        if (n < 0)
-                return log_error_errno(errno, "Failed to update PE certificate table: %m");
-        if ((size_t) n != sizeof(IMAGE_DATA_DIRECTORY))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while updating PE certificate table.");
-
-        uint32_t checksum;
-        r = pe_checksum(dstfd, &checksum);
+        r = pe_append_signature(dstfd, sig, sigsz);
         if (r < 0)
-                return log_error_errno(r, "Failed to calculate PE file checksum: %m");
-
-        n = pwrite(dstfd,
-                   &(le32_t) { htole32(checksum) },
-                   sizeof(le32_t),
-                   le32toh(dos_header->e_lfanew) + offsetof(PeHeader, optional.CheckSum));
-        if (n < 0)
-                return log_error_errno(errno, "Failed to update PE checksum: %m");
-        if ((size_t) n != sizeof(le32_t))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while updating PE checksum.");
+                return log_error_errno(r, "Failed to append signature to %s: %m", arg_output);
 
         r = link_tmpfile(dstfd, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)

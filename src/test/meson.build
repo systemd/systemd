@@ -105,6 +105,7 @@ simple_tests += files(
         'test-execve.c',
         'test-exit-status.c',
         'test-extract-word.c',
+        'test-fanotify-util.c',
         'test-fdset.c',
         'test-fiemap.c',
         'test-fileio.c',
@@ -410,6 +411,9 @@ executables += [
                 'type' : 'unsafe',
         },
         test_template + {
+                'sources' : files('test-kernel-image.c'),
+        },
+        test_template + {
                 'sources' : files('test-kexec.c'),
                 'link_with' : [libshared],
         },
@@ -470,6 +474,9 @@ executables += [
         test_template + {
                 'sources' : files('test-pe-binary.c'),
                 'dependencies' : libopenssl_cflags,
+        },
+        test_template + {
+                'sources' : files('test-pe-writer.c'),
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),

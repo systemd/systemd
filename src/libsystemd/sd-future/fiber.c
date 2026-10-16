@@ -139,7 +139,7 @@ static int fiber_allocate_stack(size_t size, void **ret) {
         if (r == -EINVAL)
                 r = RET_NERRNO(mprotect(guard, page_size(), PROT_NONE));
         if (r < 0) {
-                (void) munmap(stack, size);
+                munmap_safe(stack, size);
                 return r;
         }
 
@@ -520,8 +520,7 @@ static void fiber_free(sd_future *f) {
                 VALGRIND_STACK_DEREGISTER(fiber->stack_id);
 #endif
 
-        if (fiber->stack.iov_base)
-                (void) munmap(fiber->stack.iov_base, fiber->stack.iov_len);
+        munmap_safe(fiber->stack.iov_base, fiber->stack.iov_len);
 
         sd_event_source_disable_unref(fiber->defer_event_source);
         sd_event_source_disable_unref(fiber->exit_event_source);
@@ -900,10 +899,10 @@ int sd_fiber_await(sd_future *target) {
         _unused_ _cleanup_(sd_future_unrefp) sd_future *ref = future_remove_waiter(&fiber_get(f)->wait);
 
         /* The target can resolve before a cancellation or timeout wakes us up. The operation has then
-         * already taken effect: a channel receive, for example, took an item out of the channel. If we
-         * reported the interruption, the caller would assume that nothing happened. Freeing the future
-         * would then destroy the received item before anyone saw it. Report the completion, and queue
-         * the interruption again so that the next suspension point returns it. */
+         * already taken effect: a channel send, for example, put its item into the channel. If we
+         * reported the interruption, the caller would assume that the send failed and that the channel
+         * destroyed the item, although a receive will still get the item. Report the completion, and
+         * queue the interruption again so that the next suspension point returns it. */
         if (IN_SET(r, -ECANCELED, -ETIME) && sd_future_state(target) == SD_FUTURE_RESOLVED) {
                 assert_se(sd_fiber_resume(f, r) >= 0);
                 return 0;

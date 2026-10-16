@@ -53,6 +53,22 @@ if command -v userdbctl >/dev/null; then
     varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }'
     (! varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }' | grep .)
 
+    mkdir -p /run/userdb
+    membership=/run/userdb/test-74-member:test-74-group.membership
+    touch "$membership"
+    trap 'rm -f "$membership"' EXIT
+    member_reply="$(varlinkctl call -j /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-member","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
+    test "$(jq -r .userName <<<"$member_reply")" = test-74-member
+    test "$(jq -r .groupName <<<"$member_reply")" = test-74-group
+    nonmember_reply="$(varlinkctl call --graceful=io.systemd.UserDatabase.NoRecordFound -j \
+        /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}' 2>&1)"
+    grep "returned expected error: io.systemd.UserDatabase.NoRecordFound" <<<"$nonmember_reply" >/dev/null
+    rm "$membership"
+
     if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
         group=haldo
         salt=waldo
@@ -103,7 +119,7 @@ rm_rf_sshbindir() {
     rm -rf "$SSHBINDIR"
 }
 
-trap rm_rf_sshbindir EXIT
+trap 'rm -f "${membership:-}"; rm_rf_sshbindir' EXIT
 
 # Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
 cat >"$SSHBINDIR"/ssh <<'EOF'
@@ -363,6 +379,25 @@ result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Dec
 echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
+
+# Verify consistent handling of omitted/null/empty parameters
+check_output_is_empty_object() {
+    REPLY="$1"
+    # This is a "Varlink server" that reads the incoming call, discards it, and
+    # directly sends the contents of $REPLY as the reply. This lets us exercise
+    # sd-varlink's client-side parsing of the Varlink call/reply framing
+    # shellcheck disable=SC2016
+    SERVE_PID=$(systemd-notify --fork -- \
+        systemd-socket-activate -l "$SERVE_SOCKET" --inetd -a -- \
+            bash -c 'read -r -d "" _; printf "%s\0" "$0"' "$REPLY")
+    varlinkctl call "unix:$SERVE_SOCKET" com.example.Test '{}' | grep "^{}$"
+    varlinkctl --exec call "unix:$SERVE_SOCKET" com.example.Test '{}' -- grep "^{}$"
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+}
+check_output_is_empty_object '{}'
+check_output_is_empty_object '{"parameters": null}'
+check_output_is_empty_object '{"parameters": {}}'
 
 rm -f "$SERVE_SOCKET"
 rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"

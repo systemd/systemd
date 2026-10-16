@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "acl-util.h"
+#include "blockdev-util.h"
 #include "capability-util.h"
 #include "compress.h"
 #include "dirent-util.h"
@@ -15,6 +16,7 @@
 #include "import-common.h"
 #include "libarchive-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "os-util.h"
@@ -25,6 +27,44 @@
 #include "stat-util.h"
 #include "tar-util.h"
 #include "tmpfile-util.h"
+
+static int drain_null_padding(int fd) {
+        uint64_t n = 0;
+
+        assert(fd >= 0);
+
+        /* libarchive stops reading as soon as it encounters the end-of-archive marker, but tar archives are
+         * usually padded with zeroes to a full record size (10K for GNU tar) after it. Read and discard
+         * that, so that the writing side doesn't get EPIPE when it pushes the final bytes after we exited
+         * already. Insist that this padding is actually all zeroes though, and refuse any other trailing
+         * garbage. */
+
+        for (;;) {
+                uint8_t buf[64U*1024U];
+                ssize_t l;
+
+                l = read(fd, buf, sizeof(buf));
+                if (l < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to read trailing archive padding: %m");
+                }
+                if (l == 0)
+                        break;
+
+                if (!memeqzero(buf, l))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Non-zero trailing data after end of archive, refusing.");
+
+                n += l;
+        }
+
+        if (n > 0)
+                log_debug("Discarded %" PRIu64 " bytes of zero padding after end of archive.", n);
+
+        return 0;
+}
 
 int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         int r;
@@ -94,6 +134,9 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                         log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_x(pipefd[0], tree_fd, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (drain_null_padding(pipefd[0]) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
@@ -429,6 +472,29 @@ int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags) {
         r = rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
         if (r < 0)
                 return log_error_errno(r, "Failed to remove '%s': %m", path);
+
+        return 0;
+}
+
+int import_zero_fill(int fd, uint64_t offset, uint64_t size_max, uint64_t skip) {
+        int r;
+
+        assert(fd >= 0);
+        assert(offset != UINT64_MAX);
+        assert(size_max != UINT64_MAX);
+
+        /* Fill up whatever is left of the destination range (i.e. the range starting at 'offset' and
+         * 'size_max' bytes long, minus the first 'skip' bytes we already wrote) with zeroes, so that no
+         * remnants of previous, larger contents survive after our data. */
+
+        if (skip > size_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Number of bytes to skip larger than maximum size of destination range.");
+        if (offset > UINT64_MAX - skip)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Destination offset overflows.");
+
+        r = blockdev_zero_out(fd, offset + skip, size_max - skip);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fill up destination with zeroes: %m");
 
         return 0;
 }

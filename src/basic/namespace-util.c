@@ -300,15 +300,16 @@ int namespace_enter_full(
                 /* If we don't have CAP_SYS_ADMIN in our own user namespace, our best bet is to enter the
                  * user namespace first (if we got one) to get CAP_SYS_ADMIN within the child user namespace,
                  * and then hope the other namespaces are owned by the child user namespace. If they aren't,
-                 * we'll just get an EPERM later on when trying to setns() to them. */
+                 * we'll just get an EPERM later on when trying to setns() to them. If there's no namespace
+                 * left to join, there's nothing to need privileges for. */
 
-                if (userns_fd < 0)
+                if (userns_fd >= 0) {
+                        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                                return -errno;
+                } else if (pidns_fd >= 0 || mntns_fd >= 0 || netns_fd >= 0 || root_fd >= 0)
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EPERM),
                                         "Need CAP_SYS_ADMIN or a child user namespace to enter namespaces.");
-
-                if (setns(userns_fd, CLONE_NEWUSER) < 0)
-                        return -errno;
         }
 
         if (pidns_fd >= 0)

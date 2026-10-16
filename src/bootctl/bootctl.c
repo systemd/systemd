@@ -17,13 +17,13 @@
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
-#include "bootctl-util.h"
 #include "bootspec-util.h"
 #include "build.h"
 #include "crypto-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
@@ -801,9 +801,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
-        LIBTSS2_ESYS_NOTE(suggested);
-        LIBTSS2_MU_NOTE(suggested);
-        LIBTSS2_RC_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

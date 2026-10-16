@@ -9604,6 +9604,75 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
 
+    def setup_dhcp_client_send_system_hostname(self, network_unit):
+        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
+        # namespace, otherwise the message would not be delivered to a local address.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+        copy_network_unit(network_unit)
+
+        self.addCleanup(socket.sethostname, socket.gethostname())
+        socket.sethostname('test-hostname-old')
+
+        start_dnsmasq(namespace='ns-server')
+        start_networkd()
+        self.wait_online('veth99:routable')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('client provides name: test-hostname-old', output)
+        self.assertNotIn('test-hostname-new', output)
+
+    def test_dhcp_client_send_system_hostname(self):
+        # The hostname sent by the DHCP client must follow the system hostname, and the lease must be
+        # renewed when the hostname is changed.
+        # See https://github.com/systemd/systemd/issues/36440
+        self.setup_dhcp_client_send_system_hostname('25-dhcp-client-send-system-hostname.network')
+
+        since = datetime.datetime.now()
+        socket.sethostname('test-hostname-new')
+        if enable_debug:
+            self.check_networkd_log('System hostname changed', since=since)
+
+        # The lease time is 2 minutes, hence the new hostname must be sent much earlier than on the
+        # regular renewal.
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if 'client provides name: test-hostname-new' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after hostname change')
+        print(output)
+        self.assertIn('client provides name: test-hostname-new', output)
+
+    def test_dhcp_client_send_system_hostname_no_updates(self):
+        # With SendHostnameUpdates=no, the hostname known when the interface was configured must be
+        # sent even after the system hostname is changed.
+        self.setup_dhcp_client_send_system_hostname('25-dhcp-client-send-system-hostname-no-updates.network')
+
+        socket.sethostname('test-hostname-new')
+
+        count = read_dnsmasq_log_file().count('client provides name: test-hostname-old')
+        networkctl('renew', 'veth99')
+
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if output.count('client provides name: test-hostname-old') > count:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after renew')
+        print(output)
+        self.assertGreater(output.count('client provides name: test-hostname-old'), count)
+        self.assertNotIn('test-hostname-new', output)
+
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(
             '25-veth.netdev',

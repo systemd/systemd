@@ -206,7 +206,7 @@ TEST(naptr) {
                 assert_se(sd_json_variant_append_array(&a, v) >= 0);
         }
 
-        assert(streq(joined, twilio_reply_string));
+        assert_se(streq(joined, twilio_reply_string));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parsed = NULL;
         assert_se(sd_json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* reterr_line= */ NULL, /* ret_column= */ NULL) >= 0);

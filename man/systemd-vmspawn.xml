@@ -127,8 +127,8 @@
           file until the VM terminates. The VM can therefore fill up the file system that contains the
           file.</para>
 
-          <para>Note that <option>--ephemeral</option> will not work with
-          <option>--extra-drive=</option>.</para>
+          <para>Drives added via <option>--extra-drive=</option> are not snapshotted, so in combination with
+          <option>--ephemeral</option> they have to be read-only.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
@@ -293,6 +293,11 @@
           definition is copied and used. Cannot be used together with <option>--coco=</option>, as
           confidential computing firmware is stateless.</para>
 
+          <para>Firmware with the <literal>host-uefi-vars</literal> feature does not keep its variables in
+          NVRAM, but in a JSON file mediated by QEMU. For such firmware, the template and an existing state
+          file (see <option>--efi-nvram-state=</option>) must be in that JSON format. Some Secure Boot
+          capable firmware is available only in this form.</para>
+
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
@@ -303,10 +308,12 @@
           system path to a regular file to persistently place the state in. If the file is missing it is
           created as needed. If set to the special string <literal>auto</literal> a persistent path is
           automatically derived from the VM image path or directory path, with the
-          <literal>.efinvramstate</literal> suffix appended. If set to the special string
-          <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
-          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
-          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
+          <literal>.efinvramstate</literal> suffix appended, or <literal>.efivarstate.json</literal> for
+          <literal>host-uefi-vars</literal> firmware (see <option>--efi-nvram-template=</option>). If
+          set to the special string <literal>off</literal> the EFI variable NVRAM state is only maintained
+          transiently and flushed out when the VM shuts down. Defaults to <literal>auto</literal>. An
+          explicit path cannot be used together with <option>--coco=</option>, as confidential computing
+          firmware is stateless.</para>
 
           <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
           <literal>off</literal>.</para>
@@ -652,14 +659,17 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:]<replaceable>PATH</replaceable></option></term>
+          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:][ro:]<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual
           machine as another drive. Optionally, the image format and/or disk type can be specified by prefixing
-          the path with their values separated by colons. The format and disk type prefixes can appear in any
-          order. The format defaults to <literal>raw</literal> and the disk type defaults to the value of
-          <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
-          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
+          the path with their values separated by colons, and the <literal>ro</literal> prefix makes the drive
+          read-only. The prefixes can appear in any order. The format defaults to <literal>raw</literal> and
+          the disk type defaults to the value of <option>--image-disk-type=</option> (which itself defaults
+          to <literal>virtio-blk</literal>). The disk type <literal>scsi-cd</literal> is always read-only, and
+          <literal>nvme</literal> cannot be read-only.
+          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.
+          With <option>--ephemeral</option>, only read-only drives are allowed.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>

@@ -17,11 +17,20 @@ at_exit() {
         rm -f "$PRIVATE"
         mv "$PRIVATE.real" "$PRIVATE"
     fi
-    systemctl stop update-helper-test.service 'update-helper-test@*.service' update-helper-victim.service
+
+    rm -f /run/systemd/user/dbus-broker.service.d/block-restart.conf
+    rm -f /run/systemd/user/dbus.socket.d/99-allow-manual-restart.conf
+    run0 -u testuser systemctl --user daemon-reload
+
+    systemctl stop update-helper-test.service 'update-helper-test@*.service' update-helper-victim.service \
+                   update-helper-bridge.socket 'update-helper-bridge@*.service'
     loginctl disable-linger testuser
+    rm -rf /run/systemd/system/update-helper-bridge.socket.d
     rm -f /etc/systemd/system/update-helper-test.service \
           /etc/systemd/system/update-helper-test@.service \
           /run/systemd/system/update-helper-victim.service \
+          /run/systemd/system/update-helper-bridge.socket \
+          /run/systemd/system/update-helper-bridge@.service \
           /etc/systemd/system-preset/00-update-helper-test.preset \
           /etc/systemd/user/update-helper-test.service \
           /etc/systemd/user-preset/00-update-helper-test.preset \
@@ -138,7 +147,78 @@ ln -s /run/systemd/private "$PRIVATE"
 "$HELPER" remove-user-units update-helper-victim.service
 systemctl is-active update-helper-victim.service
 rm "$PRIVATE"
+
+# update-helper-bridge.socket forwards each connection to the private socket of the system manager. If the
+# helper sends method calls over such a connection, the system manager stops update-helper-victim.service.
+cat >/run/systemd/system/update-helper-bridge.socket <<EOF
+[Socket]
+ListenStream=$PRIVATE
+Accept=yes
+EOF
+cat >/run/systemd/system/update-helper-bridge@.service <<EOF
+[Service]
+ExecStart=systemd-stdio-bridge --bus-path=unix:path=/run/systemd/private
+EOF
+systemctl daemon-reload
+
+: "A socket that the user does not own in place of the private socket of a user manager is refused"
+systemctl start update-helper-bridge.socket
+[[ "$(stat -c %U "$PRIVATE")" == root ]]
+# chase() with CHASE_SAFE fails with ENOLINK on the step from the directory of testuser to a socket of root.
+# The helper therefore never connects, and NAccepted stays 0.
+"$HELPER" remove-user-units update-helper-victim.service 2>&1 | grep "Link has been severed" >/dev/null
+systemctl is-active update-helper-victim.service
+[[ "$(systemctl show -P NAccepted update-helper-bridge.socket)" -eq 0 ]]
+systemctl stop update-helper-bridge.socket
+rm "$PRIVATE"
+
+: "A socket that PID 1 listens on in place of the private socket of a user manager is refused"
+mkdir -p /run/systemd/system/update-helper-bridge.socket.d
+cat >/run/systemd/system/update-helper-bridge.socket.d/user.conf <<EOF
+[Socket]
+SocketUser=testuser
+EOF
+systemctl daemon-reload
+systemctl start update-helper-bridge.socket
+[[ "$(stat -c %U "$PRIVATE")" == testuser ]]
+"$HELPER" remove-user-units update-helper-victim.service
+# shellcheck disable=SC2016
+timeout 30 bash -c 'until [[ "$(systemctl show -P NAccepted update-helper-bridge.socket)" -ge 1 ]]; do sleep .5; done'
+systemctl is-active update-helper-victim.service
+systemctl stop update-helper-bridge.socket
+rm "$PRIVATE"
 mv "$PRIVATE.real" "$PRIVATE"
+
+: "The helper does not need the D-Bus broker of the user"
+# user_systemctl() needs the D-Bus broker of the user. systemctl --user connects to the private socket of
+# the user manager directly.
+user_systemctl_private() {
+    run0 -u testuser systemctl --user "$@"
+}
+
+# openSUSE may install a block-restart.conf drop-in file,
+# which prevents dbus.service from being manually stopped.
+mkdir -p /run/systemd/user/dbus-broker.service.d/
+ln -sf /dev/null /run/systemd/user/dbus-broker.service.d/block-restart.conf
+
+# Also allow to restart dbus.socket, which is prohibited on openSUSE.
+mkdir -p /run/systemd/user/dbus.socket.d/
+cat >/run/systemd/user/dbus.socket.d/99-allow-manual-restart.conf <<EOF
+[Unit]
+RefuseManualStart=false
+RefuseManualStop=false
+EOF
+
+user_systemctl_private daemon-reload
+
+user_systemctl start update-helper-test.service
+id="$(user_systemctl show -P InvocationID update-helper-test.service)"
+user_systemctl_private stop dbus.socket dbus.service
+"$HELPER" mark-restart-user-units update-helper-test.service
+[[ "$(user_systemctl_private show -P Markers update-helper-test.service)" == needs-restart ]]
+"$HELPER" user-restart
+[[ "$(user_systemctl_private show -P InvocationID update-helper-test.service)" != "$id" ]]
+user_systemctl_private start dbus.socket
 
 : "A frozen user manager does not block the helper"
 user_systemctl start update-helper-test.service

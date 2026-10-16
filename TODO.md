@@ -127,12 +127,27 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- systemd-report needs an upload queue. After all it records resource usage,
+  and it would be useful to collect this data even when networking is not
+  available, and upload it once it is. Make this smart, i.e. introduce a
+  monotonic report counter for this, so that we have strict ordering even with
+  no clock, and if the queue grows too large remove "logarithmically", i.e.
+  for really old stuff only keep one report per week, for really recent stuff
+  one per 5min, and in between logarithmically increasing.
+
+- teach hostnamed to unset tags by wildcard
+
+- define portabled auto-attach dir where DDIs can be dropped that are
+  automatically attached after an explicit call to work on it
+
+- portabled attempt counters and automatic fallback with reattachment of
+  portable service
+
+- make vpick assessment counting work
+
 - sysext: condition confext/sysext on machine tags, too
 
 - sysupdate: add health check logic, revert updates if fail
-
-- sysupdate: run things in a loop always, to deal with stepping stones, and
-  adding new transfer files. finish, when stable.
 
 - sysupdate: add flag field for features and components, to require a restart
   of the update loop once they have been updated.
@@ -154,10 +169,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - acquire a TSA from time stamping server, include it in report
 
 - **report:**
-  - implement metrics provider in logind: report number of active
-    sessions, and number of sessions since boot.
-  - implement metrics provider in journald that reports number of log messages
-    received since boot, by log priority
   - allow to compile statically (together with the basic and cgroup
     backends)
   - make sure backends can also be invoked via forking off
@@ -336,10 +347,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - repart: add MatchLabel= which matches against partition label, so that we
   truly can install different images in parallel
-
-- add "systemctl wait" or so, which does what "systemd-run --wait" does, but
-  for all units. It should be both a way to pin units into memory as well as a
-  wait to retrieve their exit data.
 
 - add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running

@@ -12,7 +12,12 @@ fi
 
 bootctl
 
-CURRENT_UKI=$(bootctl --print-stub-path)
+STUB_PATH=$(bootctl --print-stub-path)
+CURRENT_UKI=$STUB_PATH
+# With boot counting, systemd-bless-boot may already have renamed the UKI.
+if [[ ! -f "$CURRENT_UKI" ]]; then
+    CURRENT_UKI="${CURRENT_UKI%+*}.efi"
+fi
 MEASURE=/usr/lib/systemd/systemd-measure
 
 echo "CURRENT UKI ($CURRENT_UKI):"
@@ -58,15 +63,21 @@ systemd-cryptsetup attach multiprof /root/encrypted.raw - tpm2-device=auto,headl
 systemd-cryptsetup detach multiprof
 
 if [[ "$ID" == "main" ]]; then
-    bootctl set-default "$(basename "$CURRENT_UKI")@profile1"
+    # Give the UKI a mixed case name with a boot counter. Entry IDs are matched case insensitively
+    # and without the counter, so the lower case ID without counter has to keep working.
+    mv "$CURRENT_UKI" "$(dirname "$CURRENT_UKI")/Multi-Profile+3.efi"
+    bootctl set-default "multi-profile.efi@profile1"
     reboot
     exit 0
 elif [[ "$ID" == "profile1" ]]; then
     grep testprofile1=1 /proc/cmdline
-    bootctl set-default "$(basename "$CURRENT_UKI")@profile2"
+    # The renamed UKI with the boot counter has to be what systemd-boot booted.
+    [[ "$(basename "$STUB_PATH")" == Multi-Profile+* ]]
+    # The profile ID is "Profile2", the lower case entry ID has to match it anyway.
+    bootctl set-default "multi-profile.efi@profile2"
     reboot
     exit 0
-elif [[ "$ID" == "profile2" ]]; then
+elif [[ "$ID" == "Profile2" ]]; then
     grep testprofile2=1 /proc/cmdline
     rm /root/encrypted.raw
     # Reset the default boot entry so a subsequent re-run of the test does not

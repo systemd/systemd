@@ -51,5 +51,9 @@ DeviceAllow=block-blkext rw
 DeviceAllow=/dev/mapper/control rw
 DeviceAllow=block-device-mapper rw
 
+# nspawn unlocks LUKS encrypted images via a TPM2 token enrolled in them, in
+# which case it needs access to the TPM2 resource manager device.
+DeviceAllow=/dev/tpmrm0 rw
+
 [Install]
 WantedBy=machines.target

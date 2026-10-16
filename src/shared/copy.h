@@ -19,7 +19,7 @@ typedef enum CopyFlags {
         COPY_ALL_XATTRS                   = 1 << 12, /* Preserve all xattrs when copying, not just those in the user namespace */
         COPY_HOLES                        = 1 << 13, /* Copy holes */
         COPY_GRACEFUL_WARN                = 1 << 14, /* Skip copying file types that aren't supported by the target filesystem */
-        COPY_TRUNCATE                     = 1 << 15, /* Truncate to current file offset after copying */
+        COPY_TRUNCATE                     = 1 << 15, /* Truncate the target at the end of the copied data */
         COPY_LOCK_BSD                     = 1 << 16, /* Return a BSD exclusively locked file descriptor referring to the copied image/directory. */
         COPY_VERIFY_LINKED                = 1 << 17, /* Check the source file is still linked after copying. */
         COPY_RESTORE_DIRECTORY_TIMESTAMPS = 1 << 18, /* Make sure existing directory timestamps don't change during copying. */
@@ -33,8 +33,6 @@ typedef enum CopyFlags {
         COPY_NOCOW_AFTER                  = 1 << 19,
         COPY_PRESERVE_FS_VERITY           = 1 << 20, /* Preserve fs-verity when copying. */
         COPY_MERGE_APPLY_STAT             = 1 << 21, /* When we reuse an existing directory inode, apply source ownership/mode/xattrs/timestamps */
-        COPY_SEEK0_SOURCE                 = 1 << 22, /* Seek back to start of source file before copying */
-        COPY_SEEK0_TARGET                 = 1 << 23, /* Seek back to start of target file before copying */
 } CopyFlags;
 
 typedef enum DenyType {
@@ -97,9 +95,22 @@ static inline int copy_directory_at(int dir_fdf, const char *from, int dir_fdt, 
         return copy_directory_at_full(dir_fdf, from, dir_fdt, to, override_uid, override_gid, copy_flags, NULL, NULL, NULL);
 }
 
-int copy_bytes_full(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);
+int copy_bytes_full(int fdf, uint64_t *foffset, int fdt, uint64_t *toffset, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_bytes_offset(int fdf, uint64_t *foffset, int fdt, uint64_t *toffset, uint64_t max_bytes, CopyFlags copy_flags) {
+        return copy_bytes_full(
+                        fdf,
+                        foffset,
+                        fdt,
+                        toffset,
+                        max_bytes,
+                        copy_flags,
+                        /* ret_remains= */ NULL,
+                        /* ret_remains_size= */ NULL,
+                        /* progress= */ NULL,
+                        /* userdata= */ NULL);
+}
 static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
-        return copy_bytes_full(fdf, fdt, max_bytes, copy_flags, NULL, NULL, NULL, NULL);
+        return copy_bytes_offset(fdf, /* foffset= */ NULL, fdt, /* toffset= */ NULL, max_bytes, copy_flags);
 }
 
 /* See ts_clamp above. Covers atime, mtime, and with COPY_CRTIME the birth time. */

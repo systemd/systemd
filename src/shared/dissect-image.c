@@ -21,6 +21,7 @@
 #include "constants.h"
 #include "copy.h"
 #include "crypto-util.h"
+#include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-private.h"
 #include "devnum-util.h"
@@ -34,6 +35,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "fsck-util.h"
 #include "fstab-util.h"
 #include "gpt.h"
@@ -47,10 +49,12 @@
 #include "json-util.h"
 #include "libmount-util.h"
 #include "loop-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
+#include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -62,11 +66,13 @@
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-util.h"
 #include "varlink-util.h"
@@ -3020,7 +3026,7 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
-        if (!passphrase)
+        if (!passphrase && !FLAGS_SET(flags, DISSECT_IMAGE_TPM2_UNLOCK))
                 return -ENOKEY;
 
         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_ENCRYPTED))
@@ -3054,12 +3060,43 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) || on_verity ? CRYPT_ACTIVATE_READONLY : 0) |
-                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) && !on_verity ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
-        if (r < 0) {
-                log_debug_errno(r, "Failed to activate LUKS device: %m");
-                return r == -EPERM ? -EKEYREJECTED : r;
+        uint32_t activate_flags = ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) || on_verity ? CRYPT_ACTIVATE_READONLY : 0) |
+                                   ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) && !on_verity ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+
+        /* A supplied passphrase is used exclusively, the TPM2 is not consulted then, even if
+         * DISSECT_IMAGE_TPM2_UNLOCK is set. Interactive callers only supply one after the TPM2 attempt below
+         * failed and they prompted the user. */
+        if (passphrase) {
+                r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase), activate_flags);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to activate LUKS device: %m");
+                        return r == -EPERM ? -EKEYREJECTED : r;
+                }
+        } else {
+                /* No passphrase, but TPM2 unlocking was requested (see check above): see if a TPM2 token
+                 * enrolled in the LUKS2 header (e.g. via "systemd-cryptenroll --tpm2-device=…") unseals
+                 * against the local TPM2. If not — no TPM2, no token, policy mismatch — this fails with
+                 * -ENOKEY, exactly as if no TPM2 token existed, so that interactive callers prompt for a
+                 * passphrase and retry with it. If the unsealed secret is rejected by its keyslot we don't
+                 * try the remaining tokens, matching what systemd-cryptsetup does. */
+                _cleanup_(erase_and_freep) char *tpm2_passphrase = NULL;
+                int keyslot;
+
+                r = cryptsetup_tpm2_unlock_auto(cd, &keyslot, &tpm2_passphrase);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Unable to unlock LUKS device via TPM2, and no passphrase supplied: %m");
+                        return -ENOKEY;
+                }
+
+                r = sym_crypt_activate_by_passphrase(cd, name, keyslot, tpm2_passphrase, strlen(tpm2_passphrase), activate_flags);
+                if (r == -EPERM) {
+                        log_debug_errno(r, "Secret unsealed via TPM2 does not unlock LUKS keyslot %i, token out of sync with keyslot: %m", keyslot);
+                        return -ENOKEY;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to activate LUKS device with TPM2-unsealed secret: %m");
         }
 
         fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
@@ -3611,7 +3648,8 @@ int dissected_image_decrypt(
          *
          *      = 0           → There was nothing to decrypt/setup
          *      > 0           → Decrypted/setup successfully
-         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied
+         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied (or
+         *                      TPM2 unlocking was requested via DISSECT_IMAGE_TPM2_UNLOCK, but didn't succeed)
          *      -EKEYREJECTED → dm-crypt: Passed key was not correct
          *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
          *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
@@ -3628,6 +3666,12 @@ int dissected_image_decrypt(
         r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
         if (r >= 0)
                 SET_FLAG(flags, DISSECT_IMAGE_VERITY_SHARE, r);
+
+        /* The environment may only turn TPM2 unlocking off, never on: callers such as systemd-mountfsd
+         * act on behalf of unprivileged clients and must not be talked into unsealing images for them. */
+        r = secure_getenv_bool("SYSTEMD_DISSECT_TPM2_UNLOCK");
+        if (r == 0)
+                flags &= ~DISSECT_IMAGE_TPM2_UNLOCK;
 
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
@@ -5541,73 +5585,125 @@ int mountfsd_mount_directory(
         return mountfsd_mount_directory_fd(vl, directory_fd, userns_fd, flags, ret_mount_fd);
 }
 
-int mountfsd_make_directory_fd(
-                sd_varlink *vl,
-                int parent_fd,
-                const char *name,
-                mode_t mode,
-                DissectImageFlags flags,
-                int *ret_directory_fd) {
-
+int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd) {
         int r;
 
         assert(parent_fd >= 0);
         assert(name);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
-        if (!vl) {
-                r = mountfsd_connect(&_vl);
-                if (r < 0)
-                        return r;
+        /* Creates an empty directory owned by the foreign UID range's root user. For that we acquire a user
+         * namespace from nsresourced that maps our own UID to root and the foreign UID range 1:1, join it
+         * in a child and create the directory there. */
 
-                vl = _vl;
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        if (mode == MODE_INVALID)
+                mode = 0700;
+        else
+                mode &= 0775; /* refuse generating world writable dirs */
+
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns_self(
+                        /* vl= */ NULL,
+                        /* name= */ NULL,
+                        /* map_foreign= */ true);
+        if (userns_fd < 0)
+                return log_debug_errno(userns_fd, "Failed to allocate user namespace mapping the foreign UID range: %m");
+
+        _cleanup_close_pair_ int transfer_fds[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, transfer_fds) < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
+        if (pipe2(errno_pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to open pipe: %m");
+
+        r = pidref_safe_fork_full(
+                        "(sd-mkdir)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, parent_fd, transfer_fds[1], errno_pipe_fds[1] }, 4,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
+        if (r < 0) {
+                errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
+
+                int q = read_errno(errno_pipe_fds[0]);
+                if (q < 0 && q != -EIO)
+                        return q;
+
+                return r;
+        }
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to join user namespace: %m");
+                        report_errno_and_exit(errno_pipe_fds[1], r);
+                }
+
+                _cleanup_free_ char *t = NULL;
+                r = tempfn_random(name, "foreign", &t);
+                if (r < 0)
+                        report_errno_and_exit(errno_pipe_fds[1], r);
+
+                _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, mode);
+                if (fd < 0) {
+                        log_debug_errno(fd, "Failed to create directory '%s': %m", t);
+                        report_errno_and_exit(errno_pipe_fds[1], fd);
+                }
+
+                /* Set mode explicitly, as paranoia regarding umask games */
+                if (fchmod(fd, mode) < 0) {
+                        r = log_debug_errno(errno, "Failed to set access mode of directory '%s': %m", t);
+                        goto child_fail;
+                }
+
+                if (fchown(fd, FOREIGN_UID_BASE, FOREIGN_UID_BASE) < 0) {
+                        r = log_debug_errno(errno, "Failed to change ownership of directory '%s' to foreign UID range: %m", t);
+                        goto child_fail;
+                }
+
+                r = rename_noreplace(parent_fd, t, parent_fd, name);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to rename '%s' to '%s': %m", t, name);
+                        goto child_fail;
+                }
+
+                r = send_one_fd(transfer_fds[1], fd, /* flags= */ 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send directory fd to parent: %m");
+                        (void) unlinkat(parent_fd, name, AT_REMOVEDIR);
+                        report_errno_and_exit(errno_pipe_fds[1], r);
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) unlinkat(parent_fd, t, AT_REMOVEDIR);
+                report_errno_and_exit(errno_pipe_fds[1], r);
         }
 
-        r = sd_varlink_push_dup_fd(vl, parent_fd);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to push parent fd into varlink connection: %m");
+        transfer_fds[1] = safe_close(transfer_fds[1]);
 
-        sd_json_variant *reply = NULL;
-        const char *error_id = NULL;
-        r = varlink_callbo_and_log(
-                        vl,
-                        "io.systemd.MountFileSystem.MakeDirectory",
-                        &reply,
-                        &error_id,
-                        SD_JSON_BUILD_PAIR_UNSIGNED("parentFileDescriptor", 0),
-                        SD_JSON_BUILD_PAIR_STRING("name", name),
-                        SD_JSON_BUILD_PAIR_CONDITION(!IN_SET(mode, MODE_INVALID, 0700), "mode", SD_JSON_BUILD_UNSIGNED(mode)), /* suppress this field if default/unset */
-                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
-        if (r < 0)
-                return r;
-
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "directoryFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, 0, SD_JSON_MANDATORY },
-                {}
-        };
-
-        unsigned directory_fd_idx = UINT_MAX;
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &directory_fd_idx);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse MountImage() reply: %m");
-
-        _cleanup_close_ int directory_fd = sd_varlink_take_fd(vl, directory_fd_idx);
+        _cleanup_close_ int directory_fd = receive_one_fd(transfer_fds[0], /* flags= */ 0);
         if (directory_fd < 0)
-                return log_debug_errno(directory_fd, "Failed to take directory fd from Varlink connection: %m");
+                return log_debug_errno(directory_fd, "Failed to receive directory fd from child: %m");
 
         if (ret_directory_fd)
                 *ret_directory_fd = TAKE_FD(directory_fd);
         return 0;
 }
 
-int mountfsd_make_directory(
-                sd_varlink *vl,
-                const char *path,
-                mode_t mode,
-                DissectImageFlags flags,
-                int *ret_directory_fd) {
-
+int mkdir_foreign(const char *path, mode_t mode, int *ret_directory_fd) {
         int r;
+
+        assert(path);
 
         _cleanup_free_ char *parent = NULL;
         r = path_extract_directory(path, &parent);
@@ -5623,7 +5719,7 @@ int mountfsd_make_directory(
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", parent);
 
-        return mountfsd_make_directory_fd(vl, fd, dirname, mode, flags, ret_directory_fd);
+        return mkdir_foreign_at(fd, dirname, mode, ret_directory_fd);
 }
 
 int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd) {

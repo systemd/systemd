@@ -200,10 +200,13 @@ journalctl -q -n 0 --cursor-file=/tmp/reload-nohandler-cursor
 (! systemctl start notify-reload-no-handler.service)
 assert_eq "$(systemctl show notify-reload-no-handler.service -P SubState)" "failed"
 assert_eq "$(systemctl show notify-reload-no-handler.service -P Result)" "protocol"
-# Verify error was logged about missing signal handler
+# Verify error was logged about missing signal handler. Note that we match on the message text (which
+# includes the unit name as prefix) rather than with -u: if PID 1's journal socket is congested (which might
+# happen as we run with debug logging), it falls back to logging to /dev/kmsg, in which case the
+# structured UNIT= field is lost, and hence a -u match would not find the message.
 journalctl --sync
-journalctl -u notify-reload-no-handler.service --cursor-file=/tmp/reload-nohandler-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+journalctl SYSLOG_IDENTIFIER=systemd --cursor-file=/tmp/reload-nohandler-cursor \
+    --grep "^notify-reload-no-handler\.service: .*lacks handler for reload signal" >/dev/null
 systemctl reset-failed notify-reload-no-handler.service
 rm -f /tmp/reload-nohandler-in /tmp/reload-nohandler-out
 
@@ -230,10 +233,10 @@ journalctl -q -n 0 --cursor-file=/tmp/reload-toggle-cursor
 systemctl reload --no-block notify-reload-toggle-handler.service
 # The service will die from SIGHUP since the handler is removed
 timeout 10 bash -c 'while systemctl is-active --quiet notify-reload-toggle-handler.service; do sleep .5; done'
-# Verify warning was logged
+# Verify warning was logged (see above regarding why we don't use -u here)
 journalctl --sync
-journalctl -u notify-reload-toggle-handler.service --cursor-file=/tmp/reload-toggle-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+journalctl SYSLOG_IDENTIFIER=systemd --cursor-file=/tmp/reload-toggle-cursor \
+    --grep "^notify-reload-toggle-handler\.service: .*lacks handler for reload signal" >/dev/null
 rm -f /tmp/reload-toggle-in /tmp/reload-toggle-out
 
 # Test 4: Well-behaved service with handler should work correctly

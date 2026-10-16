@@ -470,6 +470,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--loop=</option></term>
+
+        <listitem><para>Takes a positive integer. When used in combination with the <command>update</command>
+        command, the update logic is run repeatedly, until either an iteration installs nothing, or the
+        specified number of iterations has been reached. Each iteration re-reads all definition files (and
+        re-enumerates components, if <option>--component-all</option> is used). This is useful if
+        installing an update can make further updates available, for example because the update ships new
+        or changed transfer files or components, or because a system extension it installs contains such
+        files. Reaching the iteration limit while updates are still being installed is not considered a
+        failure. If not specified, defaults to 1, i.e. a single iteration is run. If combined with
+        <option>--reboot</option>, the reboot is requested only once, after the last iteration. May not be
+        used with <command>acquire</command>.</para>
+
+        <para><filename>systemd-sysupdate-update.service</filename> runs with <option>--loop=16</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--offline</option></term>
 
         <listitem><para>Prevents fetching metadata from the network (i.e. <filename>SHA256SUMS</filename>).

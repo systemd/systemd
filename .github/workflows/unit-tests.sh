@@ -33,11 +33,11 @@ ADDITIONAL_TARGET_DEPS=(
 )
 CROSS_ARCH="${CROSS_ARCH:-}"
 
-function info() {
+info() {
     echo -e "\033[33;1m$1\033[0m"
 }
 
-function run_meson() {
+run_meson() {
     if ! meson "$@"; then
         find . -type f -name meson-log.txt -exec cat '{}' +
         return 1

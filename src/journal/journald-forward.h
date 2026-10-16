@@ -11,6 +11,7 @@ typedef enum SplitMode SplitMode;
 typedef enum AuditSetMode AuditSetMode;
 typedef struct JournalCompressOptions JournalCompressOptions;
 typedef struct JournalConfig JournalConfig;
+typedef struct JournalCounters JournalCounters;
 
 typedef struct Manager Manager;
 typedef struct StreamSyncReq StreamSyncReq;

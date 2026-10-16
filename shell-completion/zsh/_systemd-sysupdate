@@ -42,6 +42,7 @@ local -a opts=(
     '--reboot[Reboot after updating to newer version]'
     '--offline[Do not fetch metadata from the network]'
     '--cleanup=[Clean up orphaned files after completing update]:bool:(yes no)'
+    '--loop=[Repeat update until no further updates are installed, at most N times]:number'
 )
 
 local -a commands=(

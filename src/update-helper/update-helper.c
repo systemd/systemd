@@ -329,30 +329,24 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract user id from unit '%s': %m", unit);
 
-        r = parse_uid(user, NULL);
+        uid_t uid;
+        r = parse_uid(user, &uid);
         if (r < 0)
                 return log_error_errno(r, "User id of user service manager unit %s is not a valid UID: %m", user);
-
-        _cleanup_free_ char *host = strjoin(user, "@");
-        if (!host)
-                return log_oom();
 
         /* On the failure paths below, the bus may still be connecting when the cleanup runs.
          * sd_bus_flush() waits without a timeout until the connection is established. With a frozen user
          * manager, that wait never ends. No messages are queued yet, so closing without a flush loses
          * nothing. */
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_transport(BUS_TRANSPORT_MACHINE, host, RUNTIME_SCOPE_USER, &bus);
+        r = bus_connect_user_systemd_by_uid(uid, unit, &bus);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0) {
-                (void) bus_log_connect_full(LOG_WARNING, r,
-                                            BUS_TRANSPORT_MACHINE, RUNTIME_SCOPE_USER);
+                log_warning_errno(r, "Failed to connect to %s, ignoring: %m", unit);
                 *ret = NULL;
                 return 0;
         }
-
-        r = sd_bus_set_exit_on_disconnect(bus, false);
-        if (r < 0)
-                return r;
 
         /* Wait until the connection is established. A connection failure is then logged once here,
          * instead of as a failure of the first method call. */

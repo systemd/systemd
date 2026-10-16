@@ -8,6 +8,7 @@
 # - io_uring retry callbacks (if QEMU lacks io_uring support)
 # - Multiple device_add commands
 # - blockdev-create job watching with deferred continuation (ephemeral)
+# - read-only extra drives with --ephemeral
 set -eux
 set -o pipefail
 
@@ -53,7 +54,7 @@ WORKDIR="$(mktemp -d)"
 
 at_exit() {
     set +e
-    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
+    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}" "${MACHINE_RO:-}" "${MACHINE_FW:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -63,6 +64,8 @@ at_exit() {
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_RO_PID:-}" ]] && kill "$VMSPAWN_RO_PID" 2>/dev/null && wait "$VMSPAWN_RO_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_FW_PID:-}" ]] && kill "$VMSPAWN_FW_PID" 2>/dev/null && wait "$VMSPAWN_FW_PID" 2>/dev/null
     mountpoint -q "$WORKDIR/ro" && umount "$WORKDIR/ro"
     rm -rf "$WORKDIR"
 }
@@ -177,7 +180,7 @@ ln "$WORKDIR/root.raw" "$WORKDIR/ro/root.raw"
 mount --bind -o ro "$WORKDIR/ro" "$WORKDIR/ro"
 
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-TMPDIR="$WORKDIR/large-tmp" systemd-vmspawn \
+TMPDIR="$WORKDIR/large-tmp" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
     --image="$WORKDIR/ro/root.raw" \
@@ -209,6 +212,29 @@ echo "No QMP device setup errors in ephemeral log"
 
 OVERLAY="$(find_overlay_fd "$MACHINE_EPHEMERAL" "$WORKDIR/large-tmp")"
 echo "Ephemeral overlay was created in \$TMPDIR and is QEMU fd ${OVERLAY##*/}"
+
+# The continuation's device_add must happen before the VM gets resumed.
+if ! DISK_ADD_LINE="$(grep -a -n -m1 '"execute":"device_add".*"id":"vmspawn-0-disk"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   ! CONT_LINE="$(grep -a -n -m1 '"execute":"cont"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   (( DISK_ADD_LINE > CONT_LINE )); then
+    echo "Ephemeral boot disk was not added before resuming the VM. Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ephemeral.log"
+    exit 1
+fi
+echo "Ephemeral boot disk was added before resuming the VM"
+
+# Architectures with PCIe root ports (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) also need a machine
+# reset in between, which must have happened (RESET event received) before the VM gets resumed.
+if [[ "$(uname -m)" =~ ^(x86_64|i[3-6]86|aarch64|arm.*|riscv64|loongarch64)$ ]]; then
+    if ! RESET_LINE="$(grep -a -n -m1 '"execute":"system_reset"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       ! RESET_EVENT_LINE="$(grep -a -n -m1 'Received message: .*"event":"RESET"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       (( DISK_ADD_LINE > RESET_LINE || RESET_LINE > RESET_EVENT_LINE || RESET_EVENT_LINE > CONT_LINE )); then
+        echo "Machine was not reset between adding the ephemeral boot disk and resuming the VM. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-ephemeral.log"
+        exit 1
+    fi
+    echo "Machine was reset between adding the ephemeral boot disk and resuming the VM"
+fi
 
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
@@ -260,5 +286,139 @@ machinectl terminate "$MACHINE_GROW"
 timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
 echo "Grown ephemeral VM terminated cleanly"
+
+# --- Test 4: Read-only NVMe extra drive ---
+# QEMU does not tell the guest that an NVMe drive is read-only, so this is refused.
+
+# Both with an explicit nvme: prefix and with nvme inherited from --image-disk-type=.
+for image_disk_type in virtio-blk nvme; do
+    if [[ "$image_disk_type" == nvme ]]; then
+        spec="ro:$WORKDIR/extra1.raw"
+    else
+        spec="nvme:ro:$WORKDIR/extra1.raw"
+    fi
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --image-disk-type="$image_disk_type" \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "vmspawn unexpectedly accepted --image-disk-type=$image_disk_type --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "Read-only --extra-drive= is not supported with disk type nvme: '$WORKDIR/extra1.raw'\." "$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-nvme-ro.log"
+        exit 1
+    fi
+done
+echo "Read-only NVMe extra drive is refused"
+
+# --- Test 5: Ephemeral with read-only extra drives ---
+# Extra drives get no overlay, so --ephemeral accepts them only if they are
+# read-only.
+
+MACHINE_RO="test-vmspawn-ephemeral-ro-$$"
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+    --machine="$MACHINE_RO" \
+    --ram=256M \
+    --image="$WORKDIR/root.raw" \
+    --ephemeral \
+    --extra-drive="scsi-cd:$WORKDIR/extra1.raw" \
+    --extra-drive="ro:$WORKDIR/extra2.raw" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    root=/dev/vda rw \
+    &>"$WORKDIR/vmspawn-ro.log" &
+VMSPAWN_RO_PID=$!
+
+wait_for_machine "$MACHINE_RO" "$VMSPAWN_RO_PID" "$WORKDIR/vmspawn-ro.log"
+echo "Ephemeral machine '$MACHINE_RO' with read-only extra drives registered with machined"
+
+# The root drive is vmspawn-0, the extra drives vmspawn-1 and vmspawn-2.
+if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|chardev-add) failed:' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-1-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-2-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ro.log"
+    exit 1
+fi
+echo "Extra drives were added read-only"
+
+machinectl terminate "$MACHINE_RO"
+timeout 10 bash -c "while machinectl status '$MACHINE_RO' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_RO_PID' 2>/dev/null; do sleep .5; done"
+echo "Ephemeral VM with read-only extra drives terminated cleanly"
+
+# Writable extra drives, with the disk type inherited or explicit, are still refused.
+for disk_type in "" virtio-blk virtio-scsi nvme; do
+    spec="${disk_type:+$disk_type:}$WORKDIR/extra1.raw"
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --ephemeral \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-rw.log"; then
+        echo "vmspawn unexpectedly accepted --ephemeral with --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "only supports read-only --extra-drive=.*'$WORKDIR/extra1.raw' with disk type ${disk_type:-virtio-blk}\." "$WORKDIR/vmspawn-rw.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-rw.log"
+        exit 1
+    fi
+done
+echo "Writable extra drives are refused with --ephemeral"
+
+# --- Test 6: Boot-time drives are visible to the firmware ---
+# vmspawn adds boot-time drives via QMP device_add, which QEMU treats as a PCIe
+# hotplug. The firmware must still see them as present and powered. The disk doesn't
+# need to be bootable: EDK2 creates a "UEFI Misc Device" boot option for every disk it
+# finds and tries it. Afterwards the firmware may start other boot options such as the
+# UEFI shell, so don't wait for it to give up with "No bootable option".
+
+if ! [[ "$(uname -m)" =~ ^(x86_64|aarch64)$ ]]; then
+    echo "No EDK2 firmware with native PCIe hotplug on $(uname -m), skipping firmware drive test"
+elif ! systemd-vmspawn --firmware=describe &>/dev/null; then
+    # Tests 1 to 3 boot with --linux, which works without UEFI firmware.
+    echo "No UEFI firmware found, skipping firmware drive test"
+else
+    # aarch64 'virt' uses native PCIe hotplug. On x86_64, q35 defaults to ACPI hotplug,
+    # which hides the problem, so force native hotplug there.
+    FW_QEMU_EXTRA=""
+    if [[ "$(uname -m)" == x86_64 ]]; then
+        FW_QEMU_EXTRA="-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off"
+    fi
+
+    MACHINE_FW="test-vmspawn-fw-$$"
+    SYSTEMD_VMSPAWN_QEMU_EXTRA="$FW_QEMU_EXTRA" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+        --machine="$MACHINE_FW" \
+        --ram=256M \
+        --image="$WORKDIR/root.raw" \
+        --tpm=no \
+        --console=read-only \
+        &>"$WORKDIR/vmspawn-fw.log" &
+    VMSPAWN_FW_PID=$!
+
+    wait_for_machine "$MACHINE_FW" "$VMSPAWN_FW_PID" "$WORKDIR/vmspawn-fw.log"
+    # Secure Boot OVMF with SMM under nested virtualization is slow: in CI it took 45s just to bring
+    # up the console, so give the firmware plenty of time to get to BDS.
+    if ! timeout 300 bash -c "until grep -a -E >/dev/null 'BdsDxe: (loading|failed to load) Boot[0-9A-F]{4} \"UEFI Misc Device\"' '$WORKDIR/vmspawn-fw.log'; do sleep .5; done"; then
+        echo "Firmware did not see the boot-time drive. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-fw.log"
+        exit 1
+    fi
+    echo "Firmware found the boot-time drive"
+
+    machinectl terminate "$MACHINE_FW"
+    timeout 10 bash -c "while machinectl status '$MACHINE_FW' &>/dev/null; do sleep .5; done"
+    timeout 10 bash -c "while kill -0 '$VMSPAWN_FW_PID' 2>/dev/null; do sleep .5; done"
+    echo "Firmware drive VM terminated cleanly"
+fi
 
 echo "All vmspawn drive setup tests passed"

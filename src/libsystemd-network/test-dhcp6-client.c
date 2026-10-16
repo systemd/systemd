@@ -887,6 +887,29 @@ static void test_client_verify_solicit(const DHCP6Message *msg, size_t len) {
         assert_se(memcmp(msg, msg_solicit, len - sizeof(be16_t)) == 0);
 }
 
+static void test_client_verify_solicit_with_new_fqdn(const DHCP6Message *msg, size_t len) {
+        static const uint8_t old_fqdn[] = {
+                0x04, 'h', 'o', 's', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        };
+        static const uint8_t new_fqdn[] = {
+                0x04, 'n', 'e', 'x', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        };
+        uint8_t expected[sizeof(msg_solicit)];
+        uint8_t *p;
+
+        log_debug("/* %s */", __func__);
+
+        /* Same as msg_solicit, but with the FQDN set while the client was running. */
+        memcpy(expected, msg_solicit, sizeof(expected));
+        p = memmem_safe(expected, sizeof(expected), old_fqdn, sizeof(old_fqdn));
+        ASSERT_NOT_NULL(p);
+        memcpy(p, new_fqdn, sizeof(new_fqdn));
+
+        ASSERT_EQ(len, sizeof(expected));
+        /* The elapsed time value is not deterministic. Skip it. */
+        ASSERT_EQ(memcmp(msg, expected, len - sizeof(be16_t)), 0);
+}
+
 static void test_client_verify_release(const DHCP6Message *msg, size_t len) {
         log_debug("/* %s */", __func__);
 
@@ -1035,6 +1058,10 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
 
                 switch (test_client_sent_message_count) {
                 case 3:
+                        /* The FQDN can be changed while the client is running, and the new one is sent
+                         * in the following messages. */
+                        ASSERT_OK(sd_dhcp6_client_set_fqdn(client, "next.lab.intra"));
+
                         assert_se(sd_dhcp6_client_stop(client) >= 0);
                         assert_se(sd_dhcp6_client_start(client) >= 0);
                         assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
@@ -1104,7 +1131,7 @@ int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *p
                 break;
 
         case 4:
-                test_client_verify_solicit(packet, len);
+                test_client_verify_solicit_with_new_fqdn(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
 

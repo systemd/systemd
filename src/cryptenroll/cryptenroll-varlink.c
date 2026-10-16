@@ -414,6 +414,7 @@ static int vl_method_list_slots(
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "node", SD_JSON_VARIANT_STRING, json_dispatch_const_path, 0, SD_JSON_MANDATORY|SD_JSON_STRICT },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -422,6 +423,7 @@ static int vl_method_list_slots(
         _cleanup_free_ EnrolledSlot *slots = NULL;
         const char *node = NULL;
         size_t n_slots;
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -433,7 +435,14 @@ static int vl_method_list_slots(
         if (r != 0)
                 return r;
 
-        /* NB: No polkit authentication here for now, given this is read access only. */
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.cryptenroll.list-slots",
+                        /* details= */ NULL,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
 
         c.interactive = false;
         if (strdup_to(&c.node, node) < 0)
@@ -505,7 +514,7 @@ int cryptenroll_varlink_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_INPUT_SENSITIVE|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_HANDLE_SIGINT|SD_VARLINK_SERVER_HANDLE_SIGTERM,
+                        SD_VARLINK_SERVER_INPUT_SENSITIVE|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_HANDLE_SIGINT|SD_VARLINK_SERVER_HANDLE_SIGTERM,
                         &polkit_registry);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
