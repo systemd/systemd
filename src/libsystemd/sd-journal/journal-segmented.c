@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 #include <threads.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -345,9 +346,10 @@ int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t av
         return 0;
 }
 
-static int index_load(JournalFile *f, uint64_t offset, SegmentedIndex *ret) {
+static int index_load(JournalFile *f, uint64_t offset, IndexObject *ret_object, SegmentedIndex *ret) {
         uint64_t file_size;
-        IndexObject *o;
+        IndexObject o;
+        ssize_t n;
         int r;
 
         assert(f);
@@ -358,41 +360,38 @@ static int index_load(JournalFile *f, uint64_t offset, SegmentedIndex *ret) {
         if (!reference_is_valid(f, offset, file_size) || file_size - offset < sizeof(IndexObject))
                 return -EBADMSG;
 
-        r = journal_file_move_to(f, OBJECT_INDEX, /* keep_always= */ false, offset, sizeof(IndexObject), (void**) &o);
+        /* A page fault in a mapping makes the kernel read the whole readahead window around the faulting
+         * page, which is 4 MiB on btrfs. Opening a file loads the header of every index in the chain, and
+         * most queries don't need the entries around them. pread() reads only the pages that hold the
+         * index header. */
+        n = pread(f->fd, &o, sizeof(o), offset);
+        if (n < 0)
+                return -errno;
+        if ((size_t) n < sizeof(o))
+                return -EIO;
+
+        if (o.object.type != OBJECT_INDEX ||
+            le64toh(o.object.size) < sizeof(IndexObject) ||
+            le64toh(o.object.size) > file_size - offset)
+                return -EBADMSG;
+
+        if (segmented_checksum(f, le64toh(o.segment_size), &o, sizeof(IndexObject)) != le32toh(o.object.checksum))
+                return -EBADMSG;
+
+        r = segmented_index_parse(f, &o, offset, ret);
         if (r < 0)
                 return r;
 
-        if (o->object.type != OBJECT_INDEX ||
-            le64toh(o->object.size) < sizeof(IndexObject) ||
-            le64toh(o->object.size) > file_size - offset)
-                return -EBADMSG;
+        if (ret_object)
+                *ret_object = o;
 
-        if (segmented_checksum(f, le64toh(o->segment_size), o, sizeof(IndexObject)) != le32toh(o->object.checksum))
-                return -EBADMSG;
-
-        return segmented_index_parse(f, o, offset, ret);
+        return 0;
 }
 
 bool segmented_index_follows(const SegmentedIndex *i, uint64_t head, uint64_t n_before) {
         assert(i);
 
         return i->head_offset == head && i->first_ordinal == n_before;
-}
-
-static int index_object_load(JournalFile *f, const SegmentedIndex *i, IndexObject *ret) {
-        IndexObject *o;
-        int r;
-
-        assert(f);
-        assert(i);
-        assert(ret);
-
-        r = journal_file_move_to(f, OBJECT_INDEX, /* keep_always= */ false, i->offset, sizeof(IndexObject), (void**) &o);
-        if (r < 0)
-                return r;
-
-        *ret = *o;
-        return 0;
 }
 
 static void header_apply_index(Header *h, const SegmentedIndex *i, const IndexObject *o) {
@@ -480,10 +479,12 @@ static int index_chain_load(JournalFile *f, uint64_t offset) {
 
         assert(a->n_indexes == 0);
 
+        IndexObject newest_object;
+
         for (;;) {
                 SegmentedIndex i;
 
-                r = index_load(f, offset, &i);
+                r = index_load(f, offset, n == 0 ? &newest_object : NULL, &i);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load index at %" PRIu64 " of %s: %m", offset, f->path);
 
@@ -506,11 +507,6 @@ static int index_chain_load(JournalFile *f, uint64_t offset) {
 
                 offset = i.head_offset;
         }
-
-        IndexObject newest_object;
-        r = index_object_load(f, chain, &newest_object);
-        if (r < 0)
-                return r;
 
         if (!GREEDY_REALLOC(a->indexes, n))
                 return -ENOMEM;
