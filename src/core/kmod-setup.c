@@ -10,6 +10,7 @@
 #include "kmod-setup.h"
 #include "log.h"
 #include "module-util.h"
+#include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -170,10 +171,18 @@ static bool has_virtio_bus_device(void) {
 
 static bool has_virtio_mmio(void) {
         _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *device = NULL;
         int r;
 
         if (detect_vm() == VIRTUALIZATION_NONE)
                 return false;
+
+        r = proc_cmdline_get_key("virtio_mmio.device", /* flags= */ 0, &device);
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to read virtio-mmio device from kernel command line, ignoring: %m");
+        else if (r > 0)
+                return true;
 
         r = safe_glob("/sys/bus/platform/devices/*/modalias", /* flags= */ 0, &paths);
         if (r < 0) {
