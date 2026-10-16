@@ -23,7 +23,7 @@ char16_t *disk_get_url(EFI_HANDLE *handle) {
                         continue;
 
                 URI_DEVICE_PATH *udp = (URI_DEVICE_PATH*) dp;
-                return xstrn8_to_16(udp->Uri, dp->Length);
+                return xstrn8_to_16(udp->Uri, LESS_BY((size_t) dp->Length, offsetof(URI_DEVICE_PATH, Uri)));
         }
 
         return NULL;
