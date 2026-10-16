@@ -8,9 +8,11 @@
 #include "dropin.h"
 #include "escape.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -300,19 +302,61 @@ static int unit_file_find_dirs(
         return 0;
 }
 
-int unit_file_find_dropin_paths(
+int unit_file_classify_dependency_entry(
+                const char *path,
+                const char *root,
+                DependencyEntryType *ret_type,
+                char **ret_name) {
+
+        _cleanup_free_ char *name = NULL;
+        DependencyEntryType type;
+        int r;
+
+        assert(path);
+        assert(ret_type);
+
+        /* path includes the root prefix. */
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
+
+        /* An error usually means that the symlink is invalid. PID 1 does not treat an invalid symlink as a
+         * mask. */
+        r = null_or_empty_path_with_root(path, root);
+        if (r == -ENOMEM)
+                return r;
+        if (r > 0)
+                type = DEPENDENCY_ENTRY_MASK;
+        else {
+                r = is_symlink(path);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        type = DEPENDENCY_ENTRY_NOT_SYMLINK;
+                else if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                        type = DEPENDENCY_ENTRY_INVALID_NAME;
+                else
+                        type = DEPENDENCY_ENTRY_SYMLINK;
+        }
+
+        *ret_type = type;
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
+        return 0;
+}
+
+static int unit_file_find_dropin_dirs(
                 const char *original_root,
                 char **lookup_path,
                 Set *unit_path_cache,
                 const char *dir_suffix,
-                const char *file_suffix,
                 const char *name,
                 const Set *aliases,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
         const char *n;
-        int r;
 
         assert(ret);
 
@@ -342,6 +386,29 @@ int unit_file_find_dropin_paths(
                                            &dirs);
         }
 
+        *ret = TAKE_PTR(dirs);
+        return 0;
+}
+
+int unit_file_find_dropin_paths(
+                const char *original_root,
+                char **lookup_path,
+                Set *unit_path_cache,
+                const char *dir_suffix,
+                const char *file_suffix,
+                const char *name,
+                const Set *aliases,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **dirs = NULL;
+        int r;
+
+        assert(ret);
+
+        r = unit_file_find_dropin_dirs(original_root, lookup_path, unit_path_cache, dir_suffix, name, aliases, &dirs);
+        if (r < 0)
+                return r;
+
         if (strv_isempty(dirs)) {
                 *ret = NULL;
                 return 0;
@@ -352,4 +419,63 @@ int unit_file_find_dropin_paths(
                 return log_warning_errno(r, "Failed to create the list of configuration files: %m");
 
         return 1;
+}
+
+int unit_file_find_dropin_entry(
+                const char *original_root,
+                char **lookup_path,
+                const char *dir_suffix,
+                const char *name,
+                const Set *aliases,
+                const char *entry,
+                char **ret) {
+
+        _cleanup_strv_free_ char **dirs = NULL;
+        int r;
+
+        assert(entry);
+        assert(ret);
+
+        /* This returns the same path as unit_file_find_dropin_paths() returns for the file named entry. It
+         * does not list the other files in the drop-in directories, so a lookup of a single name stays
+         * fast. */
+
+        r = unit_file_find_dropin_dirs(original_root, lookup_path, /* unit_path_cache= */ NULL, dir_suffix,
+                                       name, aliases, &dirs);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(d, dirs) {
+                _cleanup_(conf_file_freep) ConfFile *c = NULL;
+                _cleanup_free_ char *p = NULL;
+                const char *rel;
+
+                p = path_join(*d, entry);
+                if (!p)
+                        return -ENOMEM;
+
+                /* conf_files_list_strv() skips a directory that it can't open, for example a regular file
+                 * named like a .wants/ directory. It skips an entry that fails the checks of conf_file_new()
+                 * too. It returns the file with the same name in a later directory instead. */
+                if (access_nofollow(p, F_OK) < 0)
+                        continue;
+
+                /* The directories in dirs start with original_root. conf_file_new() needs the path below
+                 * the root, so that absolute symlinks resolve inside the root. */
+                rel = empty_or_root(original_root) ? p :
+                        path_startswith_full(p, original_root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                if (!rel)
+                        return -EINVAL;
+
+                r = conf_file_new(rel, original_root, /* flags= */ 0, &c);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        continue;
+
+                return strdup_to_full(ret, c->result);
+        }
+
+        *ret = NULL;
+        return 0;
 }
