@@ -1953,8 +1953,12 @@ int journal_file_verify(
                         goto fail;
                 }
 
-        if (f->segmented)
-                return verify_segmented(f, ret_first_contained, ret_last_validated, ret_last_contained, show_progress);
+        if (f->segmented) {
+                segmented_set_readahead(f, true);
+                r = verify_segmented(f, ret_first_contained, ret_last_validated, ret_last_contained, show_progress);
+                segmented_set_readahead(f, false);
+                return r;
+        }
 
         if ((uint64_t) f->last_stat.st_size > OFFSET_ARRAY_IN_MEMORY_MAX_FILE_SIZE) {
                 const char *tmp_dir;

@@ -13,6 +13,7 @@ typedef struct SegmentedWriter SegmentedWriter;
 #define SEGMENTED_REFRESH_USEC (10 * USEC_PER_MSEC)
 
 #define SEGMENTED_RESULTS_MAX 4U
+#define SEGMENTED_PREFETCH_PAGES 256U
 
 typedef struct SegmentedIndex {
         uint64_t offset;
@@ -115,6 +116,17 @@ typedef struct Segmented {
         SegmentedResult results[SEGMENTED_RESULTS_MAX];
         uint64_t result_counter;
 
+        /* The entries prefetched last, as positions in reading order. Reaching 'prefetch_next' starts the
+         * next prefetch at 'prefetch_end'. */
+        direction_t prefetch_direction;
+        uint64_t prefetch_begin;
+        uint64_t prefetch_next;
+        uint64_t prefetch_end;
+        uint64_t prefetch_n;
+        bool prefetch_dense;
+        uint64_t prefetch_pages[SEGMENTED_PREFETCH_PAGES]; /* plus one, of pages prefetched for data objects */
+        bool readahead;   /* if true, the reader loads most entries in order, and page faults read ahead */
+
         SegmentedWriter *writer;
 } Segmented;
 
@@ -151,7 +163,12 @@ typedef enum SegmentedKey {
 } SegmentedKey;
 
 uint64_t segmented_n_entries(JournalFile *f);
+void segmented_prefetch_current_data(JournalFile *f);
 int segmented_entry_load(JournalFile *f, uint64_t ordinal, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+void segmented_prefetch_exact(JournalFile *f, uint64_t offset, uint64_t size);
+void segmented_prefetch(JournalFile *f, uint64_t offset, uint64_t size);
+void segmented_set_readahead(JournalFile *f, bool b);
+void segmented_prefetch_entries(JournalFile *f, uint64_t ordinal, direction_t direction, const PostingBitmap *among);
 int segmented_bisect(JournalFile *f, SegmentedKey key, uint64_t needle, const PostingBitmap *among, direction_t direction, uint64_t *ret);
 int segmented_entry_fields(JournalFile *f, Object *o, uint64_t offset, const SegmentedField **ret, size_t *ret_n);
 int segmented_inline_payload(JournalFile *f, uint64_t offset, const char *field, size_t field_length, const void **ret_data, size_t *ret_size);

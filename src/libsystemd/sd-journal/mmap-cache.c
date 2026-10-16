@@ -48,6 +48,7 @@ struct MMapFileDescriptor {
         int fd;
         int prot;
         bool sigbus;
+        bool random;
 
         LIST_HEAD(Window, windows);
 };
@@ -324,6 +325,10 @@ static int add_mmap(
         if (r < 0)
                 return r;
 
+        /* Without MADV_RANDOM, a page fault reads the whole readahead window around the page. */
+        if (f->random)
+                (void) madvise(d, size, MADV_RANDOM);
+
         w = window_add(f, offset, size, d);
         if (!w) {
                 munmap_safe(d, size);
@@ -543,6 +548,18 @@ int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) 
 
         TAKE_PTR(f);
         return 1;
+}
+
+void mmap_cache_fd_set_random(MMapFileDescriptor *f, bool b) {
+        assert(f);
+
+        if (f->random == b)
+                return;
+
+        f->random = b;
+
+        LIST_FOREACH(windows, w, f->windows)
+                (void) madvise(w->ptr, w->size, b ? MADV_RANDOM : MADV_NORMAL);
 }
 
 MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <threads.h>
 #include <unistd.h>
@@ -665,13 +666,30 @@ static int scan_object(JournalFile *f, uint64_t file_size) {
 
 static int scan(JournalFile *f) {
         uint64_t file_size = (uint64_t) ASSERT_PTR(f)->last_stat.st_size;
+        Segmented *a = ASSERT_PTR(f->segmented);
+        uint64_t prefetched = a->scan_offset;
         int r;
 
         for (;;) {
+                if (a->scan_offset >= prefetched && a->scan_offset < file_size) {
+                        uint64_t size = MIN(file_size - a->scan_offset, 128 * U64_KB);
+
+                        segmented_prefetch(f, a->scan_offset, size);
+                        prefetched = a->scan_offset + size;
+                }
+
                 r = scan_object(f, file_size);
                 if (r <= 0)
                         return r;
         }
+}
+
+void segmented_set_readahead(JournalFile *f, bool b) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+
+        a->readahead = b;
+        a->prefetch_n = 0;
+        mmap_cache_fd_set_random(f->cache_fd, !b);
 }
 
 static void state_reset(JournalFile *f) {
@@ -682,6 +700,9 @@ static void state_reset(JournalFile *f) {
         tail_reset(f, le64toh(f->header->header_size), le64toh(f->header->header_size), 0);
 
         a->current_offset = a->current_ordinal = 0;
+        if (a->readahead)
+                segmented_set_readahead(f, false);
+        a->prefetch_n = 0;
         a->fields_offset = 0;
         a->checked_entry_offset = 0;
         a->tail_fields = set_free(a->tail_fields);
@@ -1055,6 +1076,243 @@ int segmented_entry_at(JournalFile *f, uint64_t ordinal, Object **ret_object, ui
         return 1;
 }
 
+#define PREFETCH_ENTRIES_MIN 16U
+#define PREFETCH_ENTRIES_MAX 1024U
+/* Entries closer than this are prefetched with one read, including what lies between them */
+#define PREFETCH_GAP_MAX (64U * 1024U)
+/* A reader that loads at least one of every PREFETCH_DENSE_GAP entries, for this many entries in a row, gets
+ * the readahead of the kernel */
+#define PREFETCH_READAHEAD_ENTRIES 256U
+#define PREFETCH_DENSE_GAP 4U
+
+/* A prefetch reads the aligned windows of this size that contain the range. A window costs more bandwidth
+ * than the range. An object that the reader loads later from the same window needs no read of its own. The
+ * kernel reads at most the larger of the readahead window of the file and the largest I/O of the device for
+ * each POSIX_FADV_WILLNEED, and ignores the rest of the range. On ext4, the readahead window is 128 KiB by
+ * default, hence PREFETCH_WINDOW must not be larger. */
+#define PREFETCH_WINDOW (128U * 1024U)
+
+void segmented_prefetch_exact(JournalFile *f, uint64_t offset, uint64_t size) {
+        assert(f);
+
+        while (size > 0) {
+                uint64_t n = MIN(size, (uint64_t) PREFETCH_WINDOW);
+
+                if (posix_fadvise(f->fd, offset, n, POSIX_FADV_WILLNEED) != 0)
+                        return;
+
+                offset += n;
+                size -= n;
+        }
+}
+
+void segmented_prefetch(JournalFile *f, uint64_t offset, uint64_t size) {
+        uint64_t end;
+
+        assert(f);
+
+        if (size == 0 || !ADD_SAFE(&end, offset, size))
+                return;
+
+        end = ALIGN_TO_U64(end, PREFETCH_WINDOW);
+        for (offset = ALIGN_DOWN_U64(offset, PREFETCH_WINDOW); offset < end; offset += PREFETCH_WINDOW)
+                if (posix_fadvise(f->fd, offset, PREFETCH_WINDOW, POSIX_FADV_WILLNEED) != 0)
+                        return;
+}
+
+static uint64_t reading_position(uint64_t ordinal, direction_t direction) {
+
+        return direction == DIRECTION_DOWN ? ordinal : UINT64_MAX - ordinal;
+}
+
+static void prefetch_entry_data(JournalFile *f, uint64_t offset) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        uint64_t n;
+        Object *o;
+
+        if (journal_file_move_to_category(f, MMAP_CACHE_CATEGORY_PREFETCH, offset, ENTRY_ITEMS_OFFSET, (void**) &o) < 0 ||
+            o->object.type != OBJECT_ENTRY)
+                return;
+
+        n = le16toh(o->object.aux);
+        if (le64toh(o->object.size) < ENTRY_ITEMS_OFFSET + n * sizeof(le32_t))
+                return;
+
+        if (journal_file_move_to_category(f, MMAP_CACHE_CATEGORY_PREFETCH, offset, ENTRY_ITEMS_OFFSET + n * sizeof(le32_t), (void**) &o) < 0)
+                return;
+
+        for (uint64_t i = 0; i < n; i++) {
+                uint64_t item = le32toh(o->entry.items.compact[i].object_offset),
+                         p = item & ~(uint64_t) _ENTRY_ITEM_TYPE_MASK, page;
+
+                if (!IN_SET(item & _ENTRY_ITEM_TYPE_MASK, ENTRY_ITEM_DATA, ENTRY_ITEM_CONTEXT) || p == 0 || p > offset)
+                        continue;
+
+                p = offset - p;
+
+                /* Consecutive entries refer to many of the same objects. Remember the pages prefetched
+                 * last, so that each one needs only one system call. */
+                page = p / page_size();
+                uint64_t *slot = a->prefetch_pages + (page * UINT64_C(0x9E3779B97F4A7C15) >> 56) % SEGMENTED_PREFETCH_PAGES;
+                if (*slot == page + 1)
+                        continue;
+                *slot = page + 1;
+
+                segmented_prefetch(f, p, 1);
+        }
+}
+
+static void prefetch_entry_offsets(JournalFile *f, uint64_t first, uint64_t last) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+
+        FOREACH_ARRAY(i, a->indexes, a->n_indexes) {
+                uint64_t from = MAX(first, i->first_ordinal),
+                        to = MIN(last + 1, i->first_ordinal + i->n_index_entries);
+
+                if (from < to)
+                        segmented_prefetch(
+                                        f,
+                                        i->offset + i->entry_array_offset + (from - i->first_ordinal) * sizeof(le32_t),
+                                        (to - from) * sizeof(le32_t));
+        }
+}
+
+static bool prefetch_find(Segmented *a, uint64_t position, direction_t direction, const PostingBitmap *among, uint64_t *ret) {
+        uint64_t o = reading_position(position, direction), limit = n_entries_known(a);
+
+        if (direction == DIRECTION_DOWN) {
+                if (among)
+                        return posting_bitmap_find_first(among, o, limit, ret);
+                if (o >= limit)
+                        return false;
+        } else {
+                if (limit == 0)
+                        return false;
+                o = MIN(o, limit - 1);
+                if (among)
+                        return posting_bitmap_find_last(among, 0, o + 1, ret);
+        }
+
+        *ret = o;
+        return true;
+}
+
+void segmented_prefetch_entries(JournalFile *f, uint64_t ordinal, direction_t direction, const PostingBitmap *among) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        uint64_t position = reading_position(ordinal, direction), n, next, start = 0, end = 0;
+        size_t k = 0;
+
+        if (a->readahead) {
+                if (a->prefetch_direction == direction && position - a->prefetch_begin <= PREFETCH_DENSE_GAP) {
+                        a->prefetch_begin = position;
+                        return;
+                }
+
+                segmented_set_readahead(f, false);
+        }
+
+        bool sequential =
+                a->prefetch_n > 0 &&
+                a->prefetch_direction == direction &&
+                position >= a->prefetch_begin &&
+                position <= a->prefetch_end;
+
+        if (sequential && position < a->prefetch_next)
+                return;
+
+        /* An entry refers to data objects anywhere before it, which the prefetching does not cover. When
+         * the reader goes through most entries, the readahead of the kernel around those data objects
+         * reads what the reader needs later. */
+        if (sequential && a->prefetch_dense && a->prefetch_n >= PREFETCH_READAHEAD_ENTRIES) {
+                segmented_set_readahead(f, true);
+                a->prefetch_begin = position;
+                return;
+        }
+
+        /* The entries up to the end of the last prefetch are in the page cache by now, or on their way. Their
+         * data objects can lie anywhere before them, and the reader needs them after the entries. */
+        if (sequential)
+                for (uint64_t q = position, o, p; q < a->prefetch_end; q = reading_position(o, direction) + 1) {
+                        if (!prefetch_find(a, q, direction, among, &o) ||
+                            reading_position(o, direction) >= a->prefetch_end ||
+                            segmented_entry_offset(f, o, &p) < 0)
+                                break;
+
+                        prefetch_entry_data(f, p);
+
+                        if (reading_position(o, direction) == UINT64_MAX)
+                                break;
+                }
+
+        n = sequential ? MIN(a->prefetch_n * 2, PREFETCH_ENTRIES_MAX) : PREFETCH_ENTRIES_MIN;
+        next = sequential ? a->prefetch_end : position;
+
+        a->prefetch_direction = direction;
+        a->prefetch_begin = position;
+        a->prefetch_n = n;
+        a->prefetch_next = UINT64_MAX;
+
+        /* The offsets of the entries are in the entry arrays of the indexes. Prefetch the part that the
+         * loop below reads, too. */
+        uint64_t first, last, q = next;
+        if (!prefetch_find(a, q, direction, among, &first)) {
+                a->prefetch_end = a->prefetch_next = next;
+                return;
+        }
+        last = first;
+        for (uint64_t j = 1; j < n; j++) {
+                q = reading_position(last, direction) + 1;
+                if (q == 0 || !prefetch_find(a, q, direction, among, &last))
+                        break;
+        }
+        prefetch_entry_offsets(f, MIN(first, last), MAX(first, last));
+
+        for (; k < n; k++) {
+                uint64_t o, p;
+
+                if (!prefetch_find(a, next, direction, among, &o))
+                        break;
+
+                if (segmented_entry_offset(f, o, &p) < 0)
+                        break;
+
+                if (end > start && p < end + PREFETCH_GAP_MAX && p + page_size() + PREFETCH_GAP_MAX > start) {
+                        start = MIN(start, p);
+                        end = MAX(end, p + page_size());
+                } else {
+                        if (end > start)
+                                segmented_prefetch(f, start, end - start);
+                        start = p;
+                        end = p + page_size();
+                }
+
+                if (k == n / 2)
+                        a->prefetch_next = reading_position(o, direction);
+
+                next = reading_position(o, direction) + 1;
+                if (next == 0)
+                        break;
+        }
+
+        if (end > start)
+                segmented_prefetch(f, start, end - start);
+
+        a->prefetch_end = next;
+        a->prefetch_next = MIN(a->prefetch_next, next);
+        a->prefetch_dense = k > 0 && next - a->prefetch_begin <= k * PREFETCH_DENSE_GAP;
+}
+
+void segmented_prefetch_current_data(JournalFile *f) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+
+        /* The caller reads the fields of the current entry next. segmented_prefetch_entries() prefetches the
+         * data objects of only some of the entries it prefetches. Without readahead, each data object that
+         * it missed is a read of its own. */
+
+        if (!a->readahead)
+                prefetch_entry_data(f, a->current_offset);
+}
+
 int segmented_entry_load(
                 JournalFile *f,
                 uint64_t ordinal,
@@ -1068,13 +1326,15 @@ int segmented_entry_load(
         /* If the entry cannot be read, the next readable one in 'direction' is loaded instead. Returns 0 if
          * there is none. */
 
+        segmented_prefetch_entries(f, ordinal, direction, /* among= */ NULL);
+
         for (;;) {
                 if (ordinal >= n_entries_known(a))
                         return 0;
 
                 r = segmented_entry_at(f, ordinal, ret_object, ret_offset);
                 if (r > 0) {
-
+                        segmented_prefetch_current_data(f);
                         return 1;
                 }
                 if (r < 0)
