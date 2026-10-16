@@ -285,8 +285,6 @@ static int coredump_fields_load(sd_journal *j, CoredumpFields *f) {
         assert(j);
         assert(f);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
         SD_JOURNAL_FOREACH_DATA(j, d, l)
                 for (CoredumpField i = 0; i < _COREDUMP_FIELD_MAX; i++) {
                         r = retrieve(d, l, coredump_field_table[i], &f->fields[i]);

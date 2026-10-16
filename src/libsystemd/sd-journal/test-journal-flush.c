@@ -125,8 +125,6 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         }
         ASSERT_OK_ZERO(r);
 
-        sd_journal_set_data_threshold(j, 0);
-
         n = 0;
         limit = slow_tests_enabled() ? 10000 : 1000;
         SD_JOURNAL_FOREACH(j) {

@@ -24,10 +24,6 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        /* The coredumps are likely compressed, and for just listing them we don't need to decompress them,
-         * so let's pick a fairly low data threshold here */
-        (void) sd_journal_set_data_threshold(j, 4096);
-
         if (!verb_is_info && !arg_field) {
                 t = table_new("time", "pid", "uid", "gid", "sig", "corefile", "exe", "size");
                 if (!t)

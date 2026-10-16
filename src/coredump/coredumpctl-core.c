@@ -62,9 +62,6 @@ static int acquire_core_from_journal(sd_journal *j, int fd, char **ret_tmpfile) 
                 fd = fdt;
         }
 
-        /* We want full data, nothing truncated. */
-        (void) sd_journal_set_data_threshold(j, 0);
-
         const void *data;
         size_t len;
         r = sd_journal_get_data(j, "COREDUMP", &data, &len);
