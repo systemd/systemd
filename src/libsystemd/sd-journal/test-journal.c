@@ -175,7 +175,6 @@ TEST(duplicate_entry_storage) {
                 ASSERT_OK_POSITIVE(journal_file_entry_field_payload(
                                 f, o, p, i,
                                 /* field= */ NULL, /* field_length= */ 0,
-                                /* data_threshold= */ 0,
                                 &data, &size));
 
                 if (memcmp_nn(data, size, binary, sizeof(binary)) == 0)
