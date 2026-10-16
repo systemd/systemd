@@ -25,6 +25,7 @@ integration_test_template = {
         'cmdline' : [],
         'credentials' : [],
         'qemu-args' : [],
+        'hide-hypervisor' : false,
         'exit-code' : 123,
         'vm' : false,
         'coredump-exclude-regex' : '',
@@ -160,6 +161,10 @@ foreach integration_test : integration_tests
 
         if integration_test['suppress-sync']
                 integration_test_args += ['--suppress-sync']
+        endif
+
+        if integration_test['hide-hypervisor']
+                integration_test_args += ['--hide-hypervisor']
         endif
 
         integration_test_args += ['--']
