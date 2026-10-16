@@ -140,10 +140,13 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                              --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                                              --root-hash-sig="$sig" \
                                              --image-policy=root=verity+signed >/dev/null
+    # Every signature that no trusted key validates is reported the same way, whether the kernel has no key for
+    # it or rejects it for another reason, for example because it is garbage.
     (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
                                                 --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                                                 --root-hash-sig="$sig" \
-                                                --image-policy=root=signed >/dev/null)
+                                                --image-policy=root=signed 2>&1 >/dev/null) |
+        grep -F "Image lacks recognized signature." >/dev/null
 done
 # A service whose policy requires a signature must not reuse a shared Verity device that was set up without
 # one.
@@ -155,6 +158,13 @@ SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
                -p RootHashSignature=/tmp/test-50-unknown.p7s \
                -p RootImagePolicy=root=signed+squashfs \
                true)
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootHashSignature=/tmp/test-50-unknown.p7s \
+            -p RootImagePolicy=root=signed+squashfs \
+            true
+rm /run/verity.d/test-50-unknown.crt
 systemd-dissect --umount /tmp/test-50-unsigned-mnt
 rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
