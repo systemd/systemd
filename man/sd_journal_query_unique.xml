@@ -83,9 +83,7 @@
     journal object, plus a pair of pointers to pointer/size variables where the data object and its size
     shall be stored. The returned data is in a read-only memory map and is only valid until the next
     invocation of <function>sd_journal_enumerate_unique()</function>. Note that the data returned will be
-    prefixed with the field name and <literal>=</literal>. Note that this call is subject to the data field
-    size threshold as controlled by <function>sd_journal_set_data_threshold()</function> and only the initial
-    part of the field up to the threshold is returned. An error is returned for fields which cannot be
+    prefixed with the field name and <literal>=</literal>. An error is returned for fields which cannot be
     retrieved. See the error list below for details.</para>
 
     <para><function>sd_journal_enumerate_available_unique()</function> is similar to
