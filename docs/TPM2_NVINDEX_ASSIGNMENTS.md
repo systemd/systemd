@@ -40,7 +40,7 @@ on the same system. Their base NV index may be changed at build time via the
 assignments.
 
 The `systemd-pcrlock` policy hashes are allocated dynamically at OS
-installation time, one for each installed OS that uses `systemd-pcrlock` based
+installation time, one for each installed OS that uses `systemd-pcrlock`-based
 disk encryption policies. An NV index is picked randomly from the subrange
 (retrying on collision), hence at most 24 such OSes can be installed on the same
 system.
