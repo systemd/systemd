@@ -363,6 +363,141 @@ testcase_exec_sandbox() {
     test ! -e /usr/varlink-sandbox-canary
 }
 
+testcase_exec_sandbox_structured() {
+    setup
+
+    mkdir -p /tmp/vl-bind-ro /tmp/vl-bind-rw
+    echo varlink-bind-ro >/tmp/vl-bind-ro/marker
+    echo varlink-bind-rw >/tmp/vl-bind-rw/marker
+    TEMP_FILES+=(/tmp/vl-bind-ro/marker /tmp/vl-bind-rw/marker /tmp/vl-bind-rw/canary)
+
+    # BindReadOnlyPaths=/CapabilityBoundingSet= take the shapes the read side emits.
+    # ignoreEnoent and options may be omitted; the reply fills in the defaults (false, rbind).
+    # The unit proves both settings are live rather than only recorded: the marker must be
+    # readable through the bind destination, the mount must refuse a write, and the bounding
+    # set must be exactly CAP_NET_ADMIN|CAP_NET_RAW (bits 12 and 13).
+    defer_transient_cleanup varlink-transient-sandbox-structured.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-sandbox-structured.service","Exec":{"BindReadOnlyPaths":[{"source":"/tmp/vl-bind-ro","destination":"/run/vl-bind-dst","ignoreEnoent":false,"options":["rbind"]},{"source":"/tmp/vl-bind-rw","destination":"/run/vl-bind-dst2"},{"source":"/tmp/vl-bind-absent","destination":"/run/vl-bind-absent","ignoreEnoent":true,"options":["norbind"]}],"CapabilityBoundingSet":["CAP_NET_ADMIN","CAP_NET_RAW"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/sh","arguments":["/bin/sh","-c","grep -q varlink-bind-ro /run/vl-bind-dst/marker && ! touch /run/vl-bind-dst/canary 2>/dev/null && grep -qx \"CapBnd:.0000000000003000\" /proc/self/status"]}]}}}')
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths | length == 3'
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths[0] == {"source":"/tmp/vl-bind-ro","destination":"/run/vl-bind-dst","ignoreEnoent":false,"options":["rbind"]}'
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths[1] == {"source":"/tmp/vl-bind-rw","destination":"/run/vl-bind-dst2","ignoreEnoent":false,"options":["rbind"]}'
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths[2] == {"source":"/tmp/vl-bind-absent","destination":"/run/vl-bind-absent","ignoreEnoent":true,"options":["norbind"]}'
+    echo "$result" | jq -e '.context.Exec.CapabilityBoundingSet == ["cap_net_admin","cap_net_raw"]'
+    timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-sandbox-structured.service | grep -Ex "active|failed" >/dev/null; do sleep 0.5; done'
+    systemctl show -P Result varlink-transient-sandbox-structured.service | grep -Fx success >/dev/null
+    test ! -e /tmp/vl-bind-ro/canary
+    systemctl show -P CapabilityBoundingSet varlink-transient-sandbox-structured.service | grep -Fx 'cap_net_admin cap_net_raw' >/dev/null
+    fragment=$(systemctl show -P FragmentPath varlink-transient-sandbox-structured.service)
+    test -n "$fragment"
+    grep -Fx 'BindReadOnlyPaths=/tmp/vl-bind-ro:/run/vl-bind-dst:rbind' "$fragment" >/dev/null
+    grep -Fx 'BindReadOnlyPaths=/tmp/vl-bind-rw:/run/vl-bind-dst2:rbind' "$fragment" >/dev/null
+    grep -Fx 'BindReadOnlyPaths=-/tmp/vl-bind-absent:/run/vl-bind-absent:norbind' "$fragment" >/dev/null
+    grep -Fx 'CapabilityBoundingSet=cap_net_admin cap_net_raw' "$fragment" >/dev/null
+
+    # Feed the reply back unchanged: every field the read side emits has to be accepted on input
+    exec_ctx=$(echo "$result" | jq -c '.context.Exec | {BindReadOnlyPaths, CapabilityBoundingSet}')
+    defer_transient_cleanup varlink-transient-sandbox-roundtrip.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        "{\"context\":{\"ID\":\"varlink-transient-sandbox-roundtrip.service\",\"Exec\":$exec_ctx,\"Service\":{\"Type\":\"oneshot\",\"RemainAfterExit\":true,\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}")
+    echo "$result" | jq -e --argjson e "$exec_ctx" '.context.Exec | {BindReadOnlyPaths, CapabilityBoundingSet} == $e'
+
+    # BindPaths= is the writable variant, and the two lists stay apart
+    defer_transient_cleanup varlink-transient-sandbox-bindrw.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-sandbox-bindrw.service","Exec":{"BindPaths":[{"source":"/tmp/vl-bind-rw","destination":"/run/vl-bind-dst"}]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/sh","arguments":["/bin/sh","-c","touch /run/vl-bind-dst/canary"]}]}}}')
+    echo "$result" | jq -e '.context.Exec.BindPaths[0].destination == "/run/vl-bind-dst"'
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths == null'
+    timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-sandbox-bindrw.service | grep -Ex "active|failed" >/dev/null; do sleep 0.5; done'
+    systemctl show -P Result varlink-transient-sandbox-bindrw.service | grep -Fx success >/dev/null
+    test -e /tmp/vl-bind-rw/canary
+    fragment=$(systemctl show -P FragmentPath varlink-transient-sandbox-bindrw.service)
+    grep -Fx 'BindPaths=/tmp/vl-bind-rw:/run/vl-bind-dst:rbind' "$fragment" >/dev/null
+
+    # An explicit null is absent, not an error: the IDL declares these fields nullable
+    defer_transient_cleanup varlink-transient-sandbox-null.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-sandbox-null.service","Exec":{"BindPaths":null,"BindReadOnlyPaths":[{"source":"/tmp/vl-bind-ro","destination":"/run/vl-bind-dst","ignoreEnoent":null,"options":null}],"CapabilityBoundingSet":null,"SystemCallFilter":null},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    echo "$result" | jq -e '.context.Exec.BindPaths == null'
+    echo "$result" | jq -e '.context.Exec.BindReadOnlyPaths[0] == {"source":"/tmp/vl-bind-ro","destination":"/run/vl-bind-dst","ignoreEnoent":false,"options":["rbind"]}'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-sandbox-null.service; do sleep 0.5; done'
+    fragment=$(systemctl show -P FragmentPath varlink-transient-sandbox-null.service)
+    test -n "$fragment"
+    (! grep -q '^CapabilityBoundingSet=' "$fragment")
+    (! grep -q '^BindPaths=' "$fragment")
+
+    rm -rf /tmp/vl-bind-ro /tmp/vl-bind-rw
+
+    # Relative paths are refused, and the error names the field
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-bind.service","Exec":{"BindReadOnlyPaths":[{"source":"relative/src","destination":"/run/vl-bind-dst"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "Exec.BindReadOnlyPaths"
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-bind2.service","Exec":{"BindPaths":[{"source":"/tmp/vl-bind-ro","destination":"relative/dst"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "Exec.BindPaths"
+    # Unknown capability, and a single element may not carry a whitespace-separated list
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-cap.service","Exec":{"CapabilityBoundingSet":["cap_not_a_capability"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "Exec.CapabilityBoundingSet"
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-cap2.service","Exec":{"CapabilityBoundingSet":["cap_net_admin cap_net_raw"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "Exec.CapabilityBoundingSet"
+    # An unknown mount option is refused while parsing, so the error names the outer field
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-bindopt.service","Exec":{"BindPaths":[{"source":"/tmp","destination":"/run/vl-bind-dst","options":["bogus"]}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "context"
+}
+
+testcase_exec_sandbox_syscall_filter() {
+    setup
+
+    if ! systemctl --version | grep -F -- "+SECCOMP" >/dev/null; then
+        # Without seccomp the property is not registered at all
+        defer_transient_cleanup varlink-transient-scf-unsupported.service
+        unsupported=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+            '{"context":{"ID":"varlink-transient-scf-unsupported.service","Exec":{"SystemCallFilter":{"isAllowList":false,"systemCalls":["vhangup"]}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+        echo "$unsupported" | grep "io.systemd.Unit.PropertyNotSupported"
+        echo "$unsupported" | grep "Exec.SystemCallFilter"
+        return 0
+    fi
+
+    # Deny list: the fragment keeps the unit-file spelling, so a daemon-reload keeps the filter
+    defer_transient_cleanup varlink-transient-scf.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-scf.service","Exec":{"SystemCallFilter":{"isAllowList":false,"systemCalls":["vhangup","ustat:EPERM"]}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    echo "$result" | jq -e '.context.Exec.SystemCallFilter.isAllowList == false'
+    timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-scf.service | grep -Ex "active|failed" >/dev/null; do sleep 0.5; done'
+    systemctl show -P Result varlink-transient-scf.service | grep -Fx success >/dev/null
+    fragment=$(systemctl show -P FragmentPath varlink-transient-scf.service)
+    test -n "$fragment"
+    grep -Fx 'SystemCallFilter=~vhangup ustat:EPERM' "$fragment" >/dev/null
+
+    # The reply lists the resolved syscalls, an errno keeping its "name:errno" spelling, and
+    # feeds straight back in
+    filter=$(echo "$result" | jq -c '.context.Exec.SystemCallFilter')
+    echo "$filter" | jq -e '.systemCalls | index("vhangup") != null'
+    defer_transient_cleanup varlink-transient-scf-roundtrip.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        "{\"context\":{\"ID\":\"varlink-transient-scf-roundtrip.service\",\"Exec\":{\"SystemCallFilter\":$filter},\"Service\":{\"Type\":\"oneshot\",\"RemainAfterExit\":true,\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}")
+    echo "$result" | jq -e --argjson f "$filter" '.context.Exec.SystemCallFilter == $f'
+
+    # An allow list is seeded with @default, as the unit-file and D-Bus paths do, so the unit
+    # still runs with nothing but @system-service listed
+    defer_transient_cleanup varlink-transient-scf-allow.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-scf-allow.service","Exec":{"SystemCallFilter":{"isAllowList":true,"systemCalls":["@system-service"]}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    echo "$result" | jq -e '.context.Exec.SystemCallFilter.isAllowList == true'
+    timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-scf-allow.service | grep -Ex "active|failed" >/dev/null; do sleep 0.5; done'
+    systemctl show -P Result varlink-transient-scf-allow.service | grep -Fx success >/dev/null
+    fragment=$(systemctl show -P FragmentPath varlink-transient-scf-allow.service)
+    grep -Fx 'SystemCallFilter=@system-service' "$fragment" >/dev/null
+
+    # An errno makes no sense on an allow-list entry
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-scf.service","Exec":{"SystemCallFilter":{"isAllowList":true,"systemCalls":["vhangup:EPERM"]}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "Exec.SystemCallFilter"
+}
+
 testcase_kill_properties() {
     setup
 
