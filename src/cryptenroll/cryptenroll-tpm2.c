@@ -206,6 +206,7 @@ int load_volume_key_tpm2(
                                 cd,
                                 UINT32_MAX,
                                 token,
+                                LOG_ERR,
                                 &hash_pcr_mask,
                                 &pcr_bank,
                                 &pubkey,

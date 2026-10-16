@@ -194,7 +194,12 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                 if (r < 0)
                         return r;
 
-                r = sd_json_variant_set_field_boolean(&node, "inotifyWatch", event->inotify_watch);
+                /* for backward compatibility */
+                r = sd_json_variant_set_field_boolean(&node, "inotifyWatch", event->device_watch);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_boolean(&node, "deviceWatch", event->device_watch);
                 if (r < 0)
                         return r;
 
@@ -391,7 +396,7 @@ int dump_event(UdevEvent *event, sd_json_format_flags_t flags, FILE *f) {
                                 fprintf(f, "  %s : %s\n", name, label);
                 }
 
-                fprintf(f, "%sInotify watch:%s\n  %s\n", ansi_highlight(), ansi_normal(), enabled_disabled(event->inotify_watch));
+                fprintf(f, "%sDevice watch:%s\n  %s\n", ansi_highlight(), ansi_normal(), enabled_disabled(event->device_watch));
         }
 
         int ifindex;

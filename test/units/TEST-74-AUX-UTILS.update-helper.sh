@@ -17,6 +17,11 @@ at_exit() {
         rm -f "$PRIVATE"
         mv "$PRIVATE.real" "$PRIVATE"
     fi
+
+    rm -f /run/systemd/user/dbus-broker.service.d/block-restart.conf
+    rm -f /run/systemd/user/dbus.socket.d/99-allow-manual-restart.conf
+    run0 -u testuser systemctl --user daemon-reload
+
     systemctl stop update-helper-test.service 'update-helper-test@*.service' update-helper-victim.service \
                    update-helper-bridge.socket 'update-helper-bridge@*.service'
     loginctl disable-linger testuser
@@ -159,7 +164,9 @@ systemctl daemon-reload
 : "A socket that the user does not own in place of the private socket of a user manager is refused"
 systemctl start update-helper-bridge.socket
 [[ "$(stat -c %U "$PRIVATE")" == root ]]
-"$HELPER" remove-user-units update-helper-victim.service
+# chase() with CHASE_SAFE fails with ENOLINK on the step from the directory of testuser to a socket of root.
+# The helper therefore never connects, and NAccepted stays 0.
+"$HELPER" remove-user-units update-helper-victim.service 2>&1 | grep "Link has been severed" >/dev/null
 systemctl is-active update-helper-victim.service
 [[ "$(systemctl show -P NAccepted update-helper-bridge.socket)" -eq 0 ]]
 systemctl stop update-helper-bridge.socket
@@ -188,6 +195,22 @@ mv "$PRIVATE.real" "$PRIVATE"
 user_systemctl_private() {
     run0 -u testuser systemctl --user "$@"
 }
+
+# openSUSE may install a block-restart.conf drop-in file,
+# which prevents dbus.service from being manually stopped.
+mkdir -p /run/systemd/user/dbus-broker.service.d/
+ln -sf /dev/null /run/systemd/user/dbus-broker.service.d/block-restart.conf
+
+# Also allow to restart dbus.socket, which is prohibited on openSUSE.
+mkdir -p /run/systemd/user/dbus.socket.d/
+cat >/run/systemd/user/dbus.socket.d/99-allow-manual-restart.conf <<EOF
+[Unit]
+RefuseManualStart=false
+RefuseManualStop=false
+EOF
+
+user_systemctl_private daemon-reload
+
 user_systemctl start update-helper-test.service
 id="$(user_systemctl show -P InvocationID update-helper-test.service)"
 user_systemctl_private stop dbus.socket dbus.service

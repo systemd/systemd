@@ -677,15 +677,14 @@
                 <varlistentry>
                   <term><option>watch</option></term>
                   <listitem>
-                    <para>Watch the device node with inotify; when the node is
-                    closed after being opened for writing, a change uevent is
-                    synthesized.</para>
+                    <para>Watch the device node; when the node is closed after being opened for writing, a
+                    change uevent is synthesized.</para>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
                   <term><option>nowatch</option></term>
                   <listitem>
-                    <para>Disable the watching of a device node with inotify.</para>
+                    <para>Disable the watching of a device node.</para>
                   </listitem>
                 </varlistentry>
                 <varlistentry>

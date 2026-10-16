@@ -9,7 +9,10 @@
 #include "macro.h"
 
 /* Send futures and receive futures use ChannelWaiter as private data and share channel_ops. In a
- * send future, `item` is the item to deliver. In a receive future, `item` is the item it received. */
+ * send future, `item` is the item to deliver. A receive future never holds an item. The channel
+ * resolves a receive future when an item is buffered, and sd_channel_recv_get() pops the item at the
+ * head of the buffer. A receive future in a WAIT_ANY group can resolve and then lose to another child.
+ * If the future held an item, freeing the future would destroy that item. */
 
 typedef struct ChannelWaiter ChannelWaiter;
 
@@ -19,6 +22,12 @@ struct ChannelWaiter {
         void *item;
         /* This points to &channel->recv_pending or &channel->send_pending while the waiter is queued. */
         ChannelWaiter **list;
+        /* A receive future is woken when it resolves because an item is buffered. The flag is cleared
+         * when sd_channel_recv_get() reads the future. */
+        bool woken;
+        /* A receive future is a retry if sd_channel_pop() creates it after the item of an earlier
+         * wakeup was popped by another receive. */
+        bool retry;
 };
 
 struct sd_channel {
@@ -35,10 +44,9 @@ struct sd_channel {
         size_t head;
         size_t tail;
 
-        /* A receive only waits while the buffer is empty, and a send only waits while the buffer is
-         * full. sd_channel_try_push() gives an item to a waiting receive future directly instead of
-         * buffering it. sd_channel_try_pop() moves the item of a waiting send into the buffer as soon
-         * as it frees a slot. A channel with a drop policy never queues a send. */
+        /* A receive only starts to wait while the buffer is empty, and each new item wakes one waiting
+         * receive. A send only waits while the buffer is full. A channel with a drop policy never queues
+         * a send. */
         LIST_HEAD(ChannelWaiter, recv_pending);
         LIST_HEAD(ChannelWaiter, send_pending);
 
@@ -67,6 +75,31 @@ static void channel_waiter_enqueue(ChannelWaiter *w, ChannelWaiter **list) {
 
         LIST_APPEND(pending, *list, w);
         w->list = list;
+}
+
+static void channel_enqueue_receive(sd_channel *c, ChannelWaiter *w) {
+        assert(c);
+        assert(w);
+        assert(!w->list);
+
+        if (!w->retry) {
+                channel_waiter_enqueue(w, &c->recv_pending);
+                return;
+        }
+
+        /* A retry goes behind the retries that already wait, and ahead of every first wait. At the tail,
+         * receives that started to wait later would be woken first. At the head, a receive that retries
+         * later would be woken before a receive that has retried for longer. Under steady contention,
+         * the receive that is woken last could wait forever. */
+        ChannelWaiter *last = NULL;
+        LIST_FOREACH(pending, i, c->recv_pending) {
+                if (!i->retry)
+                        break;
+                last = i;
+        }
+
+        LIST_INSERT_AFTER(pending, c->recv_pending, last, w);
+        w->list = &c->recv_pending;
 }
 
 static ChannelWaiter* channel_waiter_pop(ChannelWaiter **list) {
@@ -148,6 +181,20 @@ int sd_channel_new_conflated(sd_event *e, sd_channel_destroy_t destroy, sd_chann
         return sd_channel_new(e, /* capacity= */ 1, SD_CHANNEL_OVERFLOW_DROP_OLDEST, destroy, ret);
 }
 
+static void channel_wake_receiver(sd_channel *c) {
+        assert(c);
+
+        if (c->n_items == 0)
+                return;
+
+        ChannelWaiter *w = channel_waiter_pop(&c->recv_pending);
+        if (!w)
+                return;
+
+        w->woken = true;
+        assert_se(sd_future_resolve(sd_future_from_private(w), 0) >= 0);
+}
+
 static void channel_waiter_free(sd_future *f) {
         ChannelWaiter *w = ASSERT_PTR(sd_future_get_private(f));
 
@@ -155,8 +202,12 @@ static void channel_waiter_free(sd_future *f) {
          * from its list first. */
         assert(!w->list);
 
-        /* The future owns `item` if the send never reached the channel, or if the caller never took
-         * the received item with sd_channel_recv_get(). Destroy the item so that it doesn't leak. */
+        /* The channel wakes one receive per new item. If nobody reads this receive future, the item that
+         * woke it could stay buffered while other receives wait. Wake the next waiting receive instead. */
+        if (w->woken)
+                channel_wake_receiver(w->channel);
+
+        /* A send future still owns `item` if the send never reached the channel. */
         if (w->item)
                 channel_destroy_item(w->channel, w->item);
 
@@ -187,15 +238,7 @@ int sd_channel_try_push(sd_channel *c, void *item) {
         if (c->closed)
                 return -EPIPE;
 
-        ChannelWaiter *w = channel_waiter_pop(&c->recv_pending);
-        if (w) {
-                assert(c->n_items == 0);
-                assert(!c->send_pending);
-                w->item = item;
-                assert_se(sd_future_resolve(sd_future_from_private(w), 0) >= 0);
-                return 1;
-        }
-
+        void *dropped = NULL;
         if (c->n_items >= c->capacity)
                 switch (c->overflow) {
 
@@ -208,13 +251,11 @@ int sd_channel_try_push(sd_channel *c, void *item) {
                         channel_destroy_item(c, item);
                         return 1;
 
-                case SD_CHANNEL_OVERFLOW_DROP_OLDEST: {
-                        void *dropped = c->buffer[c->head];
+                case SD_CHANNEL_OVERFLOW_DROP_OLDEST:
+                        dropped = c->buffer[c->head];
                         c->head = (c->head + 1) % c->capacity;
                         c->n_items--;
-                        channel_destroy_item(c, dropped);
                         break;
-                }
 
                 default:
                         assert_not_reached();
@@ -225,6 +266,18 @@ int sd_channel_try_push(sd_channel *c, void *item) {
         c->buffer[c->tail] = item;
         c->tail = (c->tail + 1) % c->capacity;
         c->n_items++;
+
+        /* Replacing the oldest item does not add an item. When the replaced item was pushed, it woke one
+         * receive if a receive was waiting. Waking one more receive now would only make that receive fail
+         * with -EAGAIN. */
+        if (!dropped)
+                channel_wake_receiver(c);
+
+        /* The destroy callback can call back into the channel or drop the last reference to it. Call it
+         * only after the buffer contains the new item, and don't touch the channel afterwards. */
+        if (dropped)
+                channel_destroy_item(c, dropped);
+
         return 1;
 }
 
@@ -234,8 +287,6 @@ int sd_channel_try_pop(sd_channel *c, void **ret) {
 
         if (c->n_items == 0)
                 return c->closed ? -EPIPE : -ENODATA;
-
-        assert(!c->recv_pending);
 
         *ret = c->buffer[c->head];
         c->head = (c->head + 1) % c->capacity;
@@ -247,6 +298,7 @@ int sd_channel_try_pop(sd_channel *c, void **ret) {
                 c->tail = (c->tail + 1) % c->capacity;
                 c->n_items++;
                 assert_se(sd_future_resolve(sd_future_from_private(s), 0) >= 0);
+                channel_wake_receiver(c);
         }
 
         return 1;
@@ -291,11 +343,11 @@ int sd_channel_send(sd_channel *c, void *item, sd_future **ret) {
         return 0;
 }
 
-int sd_channel_recv(sd_channel *c, sd_future **ret) {
+static int channel_recv_full(sd_channel *c, bool retry, sd_future **ret) {
         int r;
 
-        assert_return(c, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert(c);
+        assert(ret);
 
         if (c->closed && c->n_items == 0)
                 return -EPIPE;
@@ -308,20 +360,24 @@ int sd_channel_recv(sd_channel *c, sd_future **ret) {
         ChannelWaiter *w = sd_future_get_private(f);
         *w = (ChannelWaiter) {
                 .channel = sd_channel_ref(c),
+                .retry = retry,
         };
 
-        void *item;
-        r = sd_channel_try_pop(c, &item);
-        if (r > 0) {
-                w->item = item;
+        if (c->n_items > 0) {
+                w->woken = true;
                 assert_se(sd_future_resolve(f, 0) >= 0);
-        } else {
-                assert(r == -ENODATA);
-                channel_waiter_enqueue(w, &c->recv_pending);
-        }
+        } else
+                channel_enqueue_receive(c, w);
 
         *ret = TAKE_PTR(f);
         return 0;
+}
+
+int sd_channel_recv(sd_channel *c, sd_future **ret) {
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        return channel_recv_full(c, /* retry= */ false, ret);
 }
 
 int sd_channel_recv_get(sd_future *f, void **ret) {
@@ -340,11 +396,14 @@ int sd_channel_recv_get(sd_future *f, void **ret) {
         ChannelWaiter *w = ASSERT_PTR(sd_future_get_private(f));
         assert(!w->list);
 
-        if (!w->item)
+        if (!w->woken)
                 return -ESTALE;
 
-        *ret = TAKE_PTR(w->item);
-        return 1;
+        w->woken = false;
+
+        /* Another receive can pop the item between the wakeup and this call. */
+        r = sd_channel_try_pop(w->channel, ret);
+        return r == -ENODATA ? -EAGAIN : r;
 }
 
 int sd_channel_push(sd_channel *c, void *item) {
@@ -388,31 +447,32 @@ int sd_channel_pop(sd_channel *c, void **ret) {
         assert_return(ret, -EINVAL);
         assert_return(sd_fiber_is_running(), -ESRCH);
 
-        r = sd_fiber_interrupted();
-        if (r < 0)
-                return r;
+        for (bool retry = false;; retry = true) {
+                r = sd_fiber_interrupted();
+                if (r < 0)
+                        return r;
 
-        /* Only allocate a receive future if the pop has to wait for an item. */
-        r = sd_channel_try_pop(c, ret);
-        if (r > 0)
-                return 0;
-        if (r != -ENODATA)
-                return r;
+                /* Only allocate a receive future if the pop has to wait for an item. */
+                r = sd_channel_try_pop(c, ret);
+                if (r > 0)
+                        return 0;
+                if (r != -ENODATA)
+                        return r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
-        r = sd_channel_recv(c, &f);
-        if (r < 0)
-                return r;
+                /* Wakeups are deferred, so another receive can pop the item before this fiber runs. */
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+                r = channel_recv_full(c, retry, &f);
+                if (r < 0)
+                        return r;
 
-        r = sd_fiber_await(f);
-        if (r < 0)
-                return r;
+                r = sd_fiber_await(f);
+                if (r < 0)
+                        return r;
 
-        r = sd_channel_recv_get(f, ret);
-        if (r < 0)
-                return r;
-
-        return 0;
+                r = sd_channel_recv_get(f, ret);
+                if (r != -EAGAIN)
+                        return r < 0 ? r : 0;
+        }
 }
 
 int sd_channel_close(sd_channel *c) {
@@ -434,8 +494,12 @@ int sd_channel_close(sd_channel *c) {
         while ((w = channel_waiter_pop(&c->send_pending)))
                 assert_se(sd_future_resolve(sd_future_from_private(w), -EPIPE) >= 0);
 
-        while ((w = channel_waiter_pop(&c->recv_pending)))
-                assert_se(sd_future_resolve(sd_future_from_private(w), -EPIPE) >= 0);
+        /* A closed channel gets no new items, so no later push would wake a waiting receive. Wake every
+         * waiting receive now. A receive that finds the buffer empty fails with -EPIPE. */
+        while ((w = channel_waiter_pop(&c->recv_pending))) {
+                w->woken = c->n_items > 0;
+                assert_se(sd_future_resolve(sd_future_from_private(w), w->woken ? 0 : -EPIPE) >= 0);
+        }
 
         return 0;
 }

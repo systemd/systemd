@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "condition.h"
+#include "conf-parser.h"
 #include "log.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -65,6 +66,24 @@ static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+static const char* const component_success_action_table[_COMPONENT_SUCCESS_ACTION_MAX] = {
+        [COMPONENT_SUCCESS_CONTINUE] = "continue",
+        [COMPONENT_SUCCESS_RESTART]  = "restart",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_success_action, ComponentSuccessAction);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_component_success_action, component_success_action, ComponentSuccessAction);
+
+static const char* const component_failure_action_table[_COMPONENT_FAILURE_ACTION_MAX] = {
+        [COMPONENT_FAILURE_CONTINUE] = "continue",
+        [COMPONENT_FAILURE_FAIL]     = "fail",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_failure_action, ComponentFailureAction);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_component_failure_action, component_failure_action, ComponentFailureAction);
 
 int config_parse_url_specifiers_many(
                 const char *unit,

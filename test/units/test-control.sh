@@ -62,7 +62,7 @@ _wait_harder() {
     wait "$pid"
 }
 
-_show_summary() {(
+_show_summary() (
     set +x
 
     if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 ]]; then
@@ -83,7 +83,7 @@ _show_summary() {(
             echo "$t"
         done
     fi
-)}
+)
 
 # _log_subtest_result SUBTEST RESULT
 # Log a machine-readable result record for one subtest to the journal. Best-effort: the record

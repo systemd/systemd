@@ -546,8 +546,20 @@ TEST(decompress_stream_sparse) {
                         ASSERT_OK(decompressed_multi = mkostemp_safe(pattern_decompressed_multi));
 
                         for (unsigned i = 0; i < 4; i++) {
-                                ASSERT_OK(copy_bytes(src, multi, UINT64_MAX, COPY_SEEK0_SOURCE));
-                                ASSERT_OK(copy_bytes(compressed, compressed_multi, UINT64_MAX, COPY_SEEK0_SOURCE));
+                                ASSERT_OK(copy_bytes_offset(
+                                                          src,
+                                                          /* foffset= */ &(uint64_t) { 0 },
+                                                          multi,
+                                                          /* toffset= */ NULL,
+                                                          /* max_bytes= */ UINT64_MAX,
+                                                          /* copy_flags= */ 0));
+                                ASSERT_OK(copy_bytes_offset(
+                                                          compressed,
+                                                          /* foffset= */ &(uint64_t) { 0 },
+                                                          compressed_multi,
+                                                          /* toffset= */ NULL,
+                                                          /* max_bytes= */ UINT64_MAX,
+                                                          /* copy_flags= */ 0));
                         }
 
                         ASSERT_EQ(lseek(compressed_multi, 0, SEEK_SET), (off_t) 0);
@@ -701,6 +713,53 @@ TEST(compressor_decompressor_push_api) {
         /* Test decompressor_detect returning 0 on too-small input */
         ASSERT_OK_ZERO(decompressor_detect(&d, "x", 1));
         ASSERT_NULL(d);
+}
+
+TEST(decompressor_push_output_buffer_boundary) {
+        size_t src_size = 2 * COMPRESS_PIPE_BUFFER_SIZE;
+        _cleanup_free_ uint8_t *src = ASSERT_PTR(malloc(src_size));
+
+        /* Use incompressible data, so that the compressed stream is about as large as the uncompressed
+         * one. One of the split points close to COMPRESS_PIPE_BUFFER_SIZE will then result in the first
+         * push filling the output buffer exactly while also consuming all input. This must not be
+         * considered a corrupted stream. */
+        random_bytes(src, src_size);
+
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                log_info("/* testing %s decompressor push at output buffer boundary */", compression_to_string(c));
+
+                _cleanup_(compressor_freep) Compressor *compressor = NULL;
+                _cleanup_free_ void *compressed = NULL, *finish_buf = NULL;
+                size_t compressed_size = 0, compressed_alloc = 0, finish_size = 0, finish_alloc = 0;
+
+                ASSERT_OK(compressor_new(&compressor, c));
+                ASSERT_OK(compressor_start(compressor, src, src_size, &compressed, &compressed_size, &compressed_alloc));
+                ASSERT_OK(compressor_finish(compressor, &finish_buf, &finish_size, &finish_alloc));
+
+                size_t full_size = compressed_size + finish_size;
+                _cleanup_free_ uint8_t *full = ASSERT_PTR(malloc(full_size));
+                memcpy_safe(full, compressed, compressed_size);
+                memcpy_safe(full + compressed_size, finish_buf, finish_size);
+
+                for (size_t split = COMPRESS_PIPE_BUFFER_SIZE - 64;
+                     split < MIN(full_size, COMPRESS_PIPE_BUFFER_SIZE + 192);
+                     split++) {
+                        _cleanup_(compressor_freep) Decompressor *decompressor = NULL;
+                        struct decompressor_test_data result = {};
+
+                        ASSERT_OK_POSITIVE(decompressor_detect(&decompressor, full, full_size));
+                        ASSERT_OK(decompressor_push(decompressor, full, split, test_decompressor_callback, &result));
+                        ASSERT_OK(decompressor_push(decompressor, full + split, full_size - split, test_decompressor_callback, &result));
+                        ASSERT_OK(decompressor_push(decompressor, /* data= */ NULL, /* size= */ 0, test_decompressor_callback, &result));
+
+                        ASSERT_EQ(result.size, src_size);
+                        ASSERT_EQ(memcmp(result.buf, src, src_size), 0);
+                        free(result.buf);
+                }
+        }
 }
 
 static int intro(void) {

@@ -1966,7 +1966,9 @@ int bus_cgroup_set_property(
                                 }
                         }
 
-                        joined = strv_join(l, " ");
+                        /* Quote the names, so that names containing the separators (a comma is a valid character in
+                         * an interface name) or quotes survive being read back from the drop-in. */
+                        joined = unit_concat_strv(l, UNIT_ESCAPE_EXEC_SYNTAX);
                         if (!joined)
                                 return -ENOMEM;
 

@@ -49,4 +49,14 @@ systemctl start --wait TEST-62-RESTRICT-IFACES-3.service
 systemctl start --wait TEST-62-RESTRICT-IFACES-4.service
 systemctl start --wait TEST-62-RESTRICT-IFACES-5.service
 
+# An interface name containing a comma must survive the transient drop-in and a daemon-reload.
+# The interface does not need to exist, unknown names are ignored with a warning.
+systemd-run --unit=TEST-62-RESTRICT-IFACES-transient.service \
+            -p 'RestrictNetworkInterfaces=~"veth,comma"' \
+            sleep infinity
+test "$(systemctl show -P RestrictNetworkInterfaces TEST-62-RESTRICT-IFACES-transient.service)" = '~veth,comma'
+systemctl daemon-reload
+test "$(systemctl show -P RestrictNetworkInterfaces TEST-62-RESTRICT-IFACES-transient.service)" = '~veth,comma'
+systemctl stop TEST-62-RESTRICT-IFACES-transient.service
+
 touch /testok

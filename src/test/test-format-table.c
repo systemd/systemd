@@ -8,6 +8,7 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "json-util.h"
+#include "locale-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -910,6 +911,100 @@ TEST(unsigned_integers) {
         sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
+}
+
+TEST(doubles) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL, *sorted = NULL;
+
+        ASSERT_NOT_NULL((t = table_new("name", "value")));
+        table_set_width(t, 0);
+
+        /* Two decimals unless set otherwise. Later rows of a column inherit the setting. */
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "a",
+                                 TABLE_DOUBLE, 0.5));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "b",
+                                 TABLE_DOUBLE, 917.974,
+                                 TABLE_SET_DECIMALS, 1U));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "c",
+                                 TABLE_DOUBLE, -3.0));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "d",
+                                 TABLE_DOUBLE, 20534.4,
+                                 TABLE_SET_DECIMALS, 0U));
+
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+
+        ASSERT_STREQ(formatted,
+                     "NAME VALUE\n"
+                     "a    0.50\n"
+                     "b    918.0\n"
+                     "c    -3.0\n"
+                     "d    20534\n");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_OK(sd_json_build(&b,
+                                SD_JSON_BUILD_ARRAY(
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "a"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 0.5)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "b"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 917.974)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "c"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", -3.0)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "d"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 20534.4)))));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+
+        /* Sorting compares the values, not their text */
+        ASSERT_OK(table_set_sort(t, (size_t) 1));
+        ASSERT_OK(table_format(t, &sorted));
+        printf("%s\n", sorted);
+
+        ASSERT_STREQ(sorted,
+                     "NAME VALUE\n"
+                     "c    -3.0\n"
+                     "a    0.50\n"
+                     "b    918.0\n"
+                     "d    20534\n");
+}
+
+TEST(doubles_locale) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        locale_t old_loc;
+
+        /* The decimal separator must not depend on LC_NUMERIC */
+        loc = newlocale(LC_NUMERIC_MASK, "de_DE.UTF-8", (locale_t) 0);
+        if (loc == (locale_t) 0)
+                return (void) log_tests_skipped("de_DE.UTF-8 locale not available");
+
+        ASSERT_NOT_NULL((t = table_new("name", "value")));
+        table_set_width(t, 0);
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "a",
+                                 TABLE_DOUBLE, 0.5));
+
+        old_loc = uselocale(loc);
+        ASSERT_OK(table_format(t, &formatted));
+        (void) uselocale(old_loc);
+        printf("%s\n", formatted);
+
+        ASSERT_STREQ(formatted,
+                     "NAME VALUE\n"
+                     "a    0.50\n");
 }
 
 TEST(vertical) {

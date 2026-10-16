@@ -68,7 +68,12 @@ cleanup() {
         systemd-dissect --detach "$TARGETDEV2"
         TARGETDEV2=""
     fi
-    rm -rf "$WORKDIR"
+    if [[ -n "${WORKDIR:-}" ]]; then
+        rm -rf "$WORKDIR"
+        WORKDIR=""
+    fi
+
+    set -e
 }
 
 check_device_auto_environment() {
@@ -288,8 +293,6 @@ testcase_sysinstall_basic() {
         "$WORKDIR/target.img"
 
     validate_image
-
-    cleanup
 }
 
 testcase_sysinstall_varlink_basic() {

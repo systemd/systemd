@@ -53,6 +53,16 @@
     <citerefentry><refentrytitle>systemd-tpm2-swtpm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     service.</para>
 
+    <para>In the initrd, the generator also orders
+    <citerefentry><refentrytitle>systemd-sysext-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-confext-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    after <filename>tpm2.target</filename> and
+    <citerefentry><refentrytitle>systemd-pcrphase-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    so that LUKS encrypted extension images sealed to the TPM2 can be unlocked. This is not done if the
+    software TPM fallback is in use, as the software TPM only becomes available after the extension images
+    are merged, hence such images cannot be unlocked in the initrd in that case.</para>
+
     <para><command>systemd-tpm2-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>

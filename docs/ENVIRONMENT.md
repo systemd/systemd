@@ -146,6 +146,14 @@ All tools:
   RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
   while other uses default to disabled for this.
 
+* `$SYSTEMD_DISSECT_TPM2_UNLOCK=` — takes a boolean. If false, turns off
+  unlocking of LUKS encrypted partitions in disk images via a TPM2 token
+  enrolled in the LUKS2 header (e.g. via `systemd-cryptenroll --tpm2-device=…`)
+  for the tools that do this by default if no passphrase is supplied, i.e.
+  `systemd-dissect`, `systemd-nspawn` and `systemd-sysext`/`systemd-confext`.
+  It cannot turn this on for other uses (including `systemd-mountfsd`),
+  which act on behalf of unprivileged clients.
+
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
@@ -287,6 +295,9 @@ All tools:
   the worker process is killed by the manager process. Defaults to 10 seconds,
   maximum allowed is 5 hours.
 
+* `$SYSTEMD_UDEV_USE_INOTIFY=` — If true, use inotify instead of fanotify for
+  device node watches (`OPTIONS+="watch"`). Defaults to false.
+
 `udevadm` and `systemd-hwdb`:
 
 * `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
@@ -406,7 +417,9 @@ All tools:
 
 * `$SYSTEMD_LOCALE_DIRECTORY=` — The directory must be absolute and normalized.
   If unset, the default locale directory of the C library (`/usr/lib/locale/`
-  for glibc and `/usr/share/i18n/locales/musl/` for musl) will be used.
+  for glibc) will be used. On musl, directories `/etc/musl/locale`,
+  `/usr/share/musl/locale`, `/share/musl/locale` and for compatibility reasons
+  `/usr/share/i18n/locales/musl` will be searched.
 
 `systemd-resolved`:
 

@@ -58,6 +58,7 @@ systemctl daemon-reload
 
 SIGTEST_GPGHOME=
 SIGTEST_OTHERHOME=
+ZEROFILL_LOOP=
 
 at_exit() {
     set +e
@@ -75,6 +76,9 @@ at_exit() {
     fi
     if [ "$SIGTEST_OTHERHOME" != "" ]; then
         gpgconf --homedir "$SIGTEST_OTHERHOME" --kill all 2>/dev/null
+    fi
+    if [ "$ZEROFILL_LOOP" != "" ]; then
+        losetup --detach "$ZEROFILL_LOOP"
     fi
 
     rm -rf "$WORKDIR"
@@ -294,6 +298,10 @@ EOF
     done
 
     cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+AppStream=https://example.com/appstream/second.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -307,6 +315,9 @@ MatchPartitionType=root-x86-64
 EOF
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -334,6 +345,9 @@ InstancesMax=3
 EOF
 
     cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/fourth.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -402,7 +416,7 @@ EOF
 Description=Optional Feature
 Documentation=https://example.com/optional
 Documentation=https://example.com/optional-more
-AppStream=https://example.com/optional.appstream.xml
+AppStream=https://example.com/appstream/optional.appstream-%o.xml
 EOF
 
     cat >"$CONFIGDIR/undocumented.feature" <<EOF
@@ -495,6 +509,8 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appStream') == "[\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" ]]
     else
         exit 1
     fi
@@ -509,7 +525,8 @@ EOF
     ' <<<"$feature_json" >/dev/null
     jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
-    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+    os_release_id="$(. /etc/os-release; echo "$ID")"
+    jq -e ".appStream == [\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" <<<"$feature_json" >/dev/null
 
     suggested_json="$("$SYSUPDATE" --json=short features suggested)"
     jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
@@ -582,7 +599,8 @@ EOF
         grep "Optional Feature" <<<"$feature_output" >/dev/null
         grep "Suggested: no" <<<"$feature_output" >/dev/null
         grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
-        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        grep "https://example.com/appstream/optional.appstream-${os_release_id}.xml" <<<"$feature_output" >/dev/null
         grep -F "99-optional" <<<"$feature_output" >/dev/null
         grep "malformed" <<<"$features_output" >/dev/null
         verify_object_fields "$features_output"
@@ -601,6 +619,9 @@ EOF
     new_version "$sector_size" v7
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -688,6 +709,16 @@ EOF
         exit 1
     fi
 
+    # Check that the target versions are listed correctly.
+    [[ $("$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.current') == 'v9' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.appStream') == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
+    host="$(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -c '.targets[] | select(.id.class=="host")')"
+    [[ $(jq -cr '.allVersions' <<<"$host") == '["v9","v8","v7","v6"]' ]]
+    [[ $(jq -cr '.currentVersion' <<<"$host") == 'v9' ]]
+    [[ $(jq -cr '.appStream' <<<"$host") == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
+
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
     rm "$BACKING_FILE"
@@ -743,6 +774,142 @@ varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.tar
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
 rm -f /run/sysupdate.some-component.component
+mv "$CONFIGDIR.backup" "$CONFIGDIR"
+
+# Test --loop=: the first transfer installs a second transfer file into the definitions directory, which in
+# turn installs the payload. Hence it takes two update iterations to install everything, and a third one to
+# notice that nothing is left to do.
+LOOPDIR="$WORKDIR/loop"
+loop_reset() {
+    rm -rf "$LOOPDIR"
+    mkdir -p "$LOOPDIR/definitions" "$LOOPDIR/source" "$LOOPDIR/target"
+    cat >"$LOOPDIR/source/payload-1.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$LOOPDIR/source
+MatchPattern=payload-@v.bin
+
+[Target]
+Type=regular-file
+Path=$LOOPDIR/target
+MatchPattern=payload-@v.bin
+EOF
+    echo "payload" >"$LOOPDIR/source/payload-1.bin"
+    cat >"$LOOPDIR/definitions/01-definitions.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$LOOPDIR/source
+MatchPattern=payload-@v.transfer
+
+[Target]
+Type=regular-file
+Path=$LOOPDIR/definitions
+MatchPattern=02-payload-@v.transfer
+EOF
+}
+
+loop_reset
+(! "$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=0 update) |& grep -F 'must be greater than zero' >/dev/null
+(! "$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=2 acquire) |& grep -F 'not supported' >/dev/null
+
+# Without --loop= only a single iteration is done, which only installs the second transfer file
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no update
+cmp "$LOOPDIR/source/payload-1.transfer" "$LOOPDIR/definitions/02-payload-1.transfer"
+test ! -e "$LOOPDIR/target/payload-1.bin"
+# … and the next invocation picks up the new transfer file
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no update
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+
+# With --loop= everything is installed in one go, and we stop once nothing is left to do
+loop_reset
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=16 update |& tee "$LOOPDIR/log"
+cmp "$LOOPDIR/source/payload-1.transfer" "$LOOPDIR/definitions/02-payload-1.transfer"
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+grep -F 'stable state reached after 3 iterations' "$LOOPDIR/log" >/dev/null
+(! grep -F 'Starting update iteration 4 ' "$LOOPDIR/log" >/dev/null)
+
+# If the iteration limit is hit while updates are still being installed, this is not a failure
+loop_reset
+"$SYSUPDATE" --definitions="$LOOPDIR/definitions" --verify=no --loop=2 update |& tee "$LOOPDIR/log"
+cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
+grep -F 'Maximum number of update iterations (2) reached' "$LOOPDIR/log" >/dev/null
+
+rm -rf "$LOOPDIR"
+
+# Test SuccessAction= and FailureAction= in *.component files: two components, the first one is configured
+# to restart the update iteration once it has been updated successfully.
+ACTIONDIR="$WORKDIR/component-actions"
+action_reset() {
+    rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+        /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+        /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+    mkdir -p "$ACTIONDIR/source" /run/sysupdate.act-a.d /run/sysupdate.act-b.d
+
+    for c in a b; do
+        mkdir -p "$ACTIONDIR/target-$c"
+        echo "$c" >"$ACTIONDIR/source/act-$c-1.bin"
+        cat >"/run/sysupdate.act-$c.d/01-act-$c.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$ACTIONDIR/source
+MatchPattern=act-$c-@v.bin
+
+[Target]
+Type=regular-file
+Path=$ACTIONDIR/target-$c
+MatchPattern=act-$c-@v.bin
+EOF
+    done
+}
+
+# Move the default component's definitions out of the way, we only want to update our two components
+mv "$CONFIGDIR" "$CONFIGDIR.backup"
+
+# By default we continue with the next component, hence a single iteration updates both
+action_reset
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With SuccessAction=restart the iteration is finished after the first component got updated
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Component 'act-a' updated successfully, finishing update iteration early." "$ACTIONDIR/log" >/dev/null
+# … and the next invocation picks up the second component
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With --loop= the restart happens within a single invocation
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no --loop=16 update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F 'stable state reached after 3 iterations' "$ACTIONDIR/log" >/dev/null
+
+# Test FailureAction=: let updating the first component fail, by pointing its source to a non-directory.
+# By default we continue with the next component (and further iterations), but fail at the very end.
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', continuing with next component" "$ACTIONDIR/log" >/dev/null
+grep -F 'stable state reached after 2 iterations' "$ACTIONDIR/log" >/dev/null
+
+# With FailureAction=fail we fail immediately, and do not update the second component
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+printf '[Component]\nFailureAction=fail\n' >/run/sysupdate.act-a.component
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', aborting" "$ACTIONDIR/log" >/dev/null
+
+rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+    /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+    /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
@@ -1255,6 +1422,161 @@ rm -rf "$CONFIGDIR" "$WORKDIR/blobs"
 rm -f "$WORKDIR/source/notifytest-v1.bin" "$WORKDIR/source/SHA256SUMS" \
       "$WORKDIR/notify-recorder.py" "$NOTIFY_LOG"
 
+verify_zero_fill_partition() {
+    local blockdev="${1:?}"
+    local sigfile="${2:?}"
+    local version="${3:?}"
+    local expect_zeroed="${4:?}"
+    local start size dump tail
+
+    start="$(sfdisk --json "$blockdev" | jq -r ".partitiontable.partitions[] | select(.name == \"sig-$version\") | .start")"
+    test -n "$start"
+    size="$(stat -c %s "$sigfile")"
+    dump="$WORKDIR/zerofill-dump"
+
+    dd if="$blockdev" of="$dump" bs=512 skip="$start" count=64 status=none
+
+    # The partition must start with the payload file in any case
+    cmp -n "$size" "$dump" "$sigfile"
+
+    # Everything after it must be NUL bytes if zero filling is on, and must not be if it is off (the tail of
+    # the longer payload of the version previously stored in the partition then survives)
+    tail="$(tail -c +$((size + 1)) "$dump" | tr -d '\0' | wc -c)"
+    if [[ "$expect_zeroed" == "1" ]]; then
+        test "$tail" -eq 0
+    else
+        test "$tail" -gt 0
+    fi
+}
+
+make_zero_fill_payload() {
+    local size="${1:?}"
+    local file="${2:?}"
+
+    # Generates a JSON object resembling a verity signature of precisely the requested size: the fixed part of
+    # the object is 94 bytes, the signature string makes up the rest
+    test "$size" -gt 94
+    printf '{"rootHash":"%s","signature":"%s"}' \
+           "$(head -c 32 /dev/zero | od -An -v -tx1 | tr -d ' \n')" \
+           "$(head -c $((size - 94)) /dev/zero | tr '\0' A)" >"$file"
+    test "$(stat -c %s "$file")" -eq "$size"
+}
+
+test_zero_fill_partition() {
+    local source_type="${1:?}"      # Source Type= to use (regular-file or url-file)
+    local ptype_uuid="${2:?}"       # partition type UUID to create the partitions with
+    local ptype_name="${3:?}"       # matching partition type identifier for MatchPartitionType=
+    local setting="${4}"            # explicit PartitionZeroFill= line, or empty to test the default
+    local expect_zeroed="${5:?}"    # whether the tail of the partition is expected to be zeroed out
+    local sigdir="$WORKDIR/zerofill-source"
+    local defdir="$WORKDIR/zerofill-defs"
+    local backing="$WORKDIR/zerofill-disk.raw"
+    local blockdev source_path
+
+    rm -rf "$sigdir" "$defdir" "$backing"
+    mkdir -p "$sigdir" "$defdir"
+    truncate -s 4M "$backing"
+
+    if [[ -e /dev/loop-control ]]; then
+        blockdev="$(losetup --find --show "$backing")"
+        ZEROFILL_LOOP="$blockdev"
+    else
+        blockdev="$backing"
+    fi
+
+    sfdisk "$blockdev" <<EOF
+label: gpt
+unit: sectors
+
+size=64, type=$ptype_uuid, name=_empty
+size=64, type=$ptype_uuid, name=_empty
+EOF
+
+    if [[ "$source_type" == "url-file" ]]; then
+        source_path="file://$sigdir"
+    else
+        source_path="$sigdir"
+    fi
+
+    cat >"$defdir/01-zerofill.transfer" <<EOF
+[Source]
+Type=$source_type
+Path=$source_path
+MatchPattern=sig-@v.raw
+
+[Target]
+Type=partition
+Path=$blockdev
+MatchPattern=sig-@v
+MatchPartitionType=$ptype_name
+$setting
+EOF
+
+    # The partition slots are 64 sectors (32768 bytes) each. Payload sizes and the tail state to expect in the
+    # partition after each version, given that with two slots each version replaces the one two steps before:
+    #
+    #   v1: 3000 bytes into an empty slot, hence nothing can survive after it
+    #   v2: exactly fills the slot, nothing is left to zero out at all
+    #   v3: 130 bytes over the 3000 of v1, the tail of v1 survives unless zero filling is on
+    #   v4: leaves less than a sector free after it over the full slot of v2, i.e. the remainder is too small
+    #       for BLKZEROOUT, and the tail of v2 survives unless zero filling is on
+    local -a versions=(v1 v2 v3 v4)
+    local -A payload_size=([v1]=3000 [v2]=32768 [v3]=130 [v4]=32668)
+    local -A zeroed=([v1]=1 [v2]=1 [v3]="$expect_zeroed" [v4]="$expect_zeroed")
+    local v prev=
+
+    for v in "${versions[@]}"; do
+        make_zero_fill_payload "${payload_size[$v]}" "$sigdir/sig-$v.raw"
+        (cd "$sigdir" && sha256sum sig-*.raw >SHA256SUMS)
+
+        "$SYSUPDATE" --verify=no --definitions="$defdir" update
+        verify_zero_fill_partition "$blockdev" "$sigdir/sig-$v.raw" "$v" "${zeroed[$v]}"
+
+        # The version written in the previous step is in the other slot, and must be untouched, i.e. the zero
+        # filling must not have overshot the partition
+        if [[ -n "$prev" ]]; then
+            verify_zero_fill_partition "$blockdev" "$sigdir/sig-$prev.raw" "$prev" "${zeroed[$prev]}"
+        fi
+        prev="$v"
+    done
+
+    # v3 and v4 must have replaced v1 and v2
+    (! sfdisk --json "$blockdev" | jq -e '.partitiontable.partitions[] | select(.name == "sig-v1" or .name == "sig-v2")' >/dev/null)
+
+    # And the partition table itself (including the backup GPT at the end of the device, right after the last
+    # slot) must be intact
+    sfdisk --verify "$blockdev"
+
+    if [[ "$ZEROFILL_LOOP" != "" ]]; then
+        losetup --detach "$ZEROFILL_LOOP"
+        ZEROFILL_LOOP=
+    fi
+
+    rm -rf "$sigdir" "$defdir" "$backing"
+}
+
+test_zero_fill() {
+    # A verity signature partition carries a JSON object that must be followed by NUL bytes only. The split-out
+    # artifact is not padded (so that it's a valid JSON text file), hence sysupdate must make sure that no tail
+    # of a previously installed, longer signature survives when it installs a shorter one into a reused
+    # partition, see https://github.com/systemd/systemd/issues/43567. This is controlled by the
+    # PartitionZeroFill= setting, which defaults to on for verity signature partitions, and off otherwise.
+    local vsig_uuid=41092b05-9fc8-4523-994f-2def0408b176    # root-x86-64-verity-sig
+    local generic_uuid=0fc63daf-8483-4772-8e79-3d69d8477de4 # linux-generic
+
+    # Default for verity signature partitions is on, both for local and URL sources
+    test_zero_fill_partition regular-file "$vsig_uuid" root-x86-64-verity-sig "" 1
+    test_zero_fill_partition url-file "$vsig_uuid" root-x86-64-verity-sig "" 1
+
+    # ... and can be turned off explicitly
+    test_zero_fill_partition regular-file "$vsig_uuid" root-x86-64-verity-sig "PartitionZeroFill=no" 0
+
+    # Default for other partitions is off, but can be turned on explicitly
+    test_zero_fill_partition regular-file "$generic_uuid" linux-generic "" 0
+    test_zero_fill_partition regular-file "$generic_uuid" linux-generic "PartitionZeroFill=yes" 1
+    test_zero_fill_partition url-file "$generic_uuid" linux-generic "PartitionZeroFill=yes" 1
+}
+
 test_signature_verification() {
     if ! command -v gpg >/dev/null; then
         echo "gpg not available, skipping signature verification test"
@@ -1500,6 +1822,7 @@ EOF
 )
 
 test_signature_verification
+test_zero_fill
 test_signature_keyring_overlay
 
 # Test '**/' as prefix in MatchPattern= for subpaths in SHA256SUMS

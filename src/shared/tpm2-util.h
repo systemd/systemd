@@ -263,6 +263,9 @@ typedef struct Tpm2VendorInfo {
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
 int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
 
+int tpm2_get_capability_property(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_PT property, uint32_t *ret);
+int tpm2_get_capability_auth_policy(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_HANDLE handle, TPMT_HA *ret);
+
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
 void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
 void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
@@ -435,6 +438,8 @@ int tpm2_attest_info_to_json(const TPMT_SIG_SCHEME *scheme, const TPMS_ATTEST *a
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret);
 int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant **ret);
 int tpm2_pcr_value_to_json(const Tpm2PCRValue *pcr_value, sd_json_variant **ret);
+int tpm2_tpms_tagged_property_to_json(const TPMS_TAGGED_PROPERTY *property, sd_json_variant **ret);
+int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_variant **ret);
 
 int tpm2_quote(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, const TPML_PCR_SELECTION *pcr_select, TPMS_ATTEST **ret_quoted, TPMT_SIGNATURE **ret_signature);
 int tpm2_nv_certify(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *auth_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPMS_NV_PUBLIC *nv_public, const Tpm2Handle *nv_handle, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
@@ -650,15 +655,23 @@ enum {
 
 DECLARE_STRING_TABLE_LOOKUP(tpm2_pcr_index, int);
 
-/* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
- * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */
-#define TPM2_NV_INDEX_UNASSIGNED_FIRST UINT32_C(0x01800000)
-#define TPM2_NV_INDEX_UNASSIGNED_LAST  UINT32_C(0x01BFFFFF)
+/* The first and last NV index handle that is delegated to the systemd project by the UAPI.19 Linux TPM NV
+ * Index Registry, which in turn manages the range assigned to the Linux community by TCG's "Registry of
+ * Reserved TPM 2.0 Handles and Localities", section 2.2. See docs/TPM2_NVINDEX_ASSIGNMENTS.md. */
+#define TPM2_NV_INDEX_SYSTEMD_FIRST UINT32_C(0x01D10200)
+#define TPM2_NV_INDEX_SYSTEMD_LAST  UINT32_C(0x01D10224)
 
 #if HAVE_TPM2
 /* Verify that the above is indeed a subset of the general NV Index range */
-assert_cc(TPM2_NV_INDEX_UNASSIGNED_FIRST >= TPM2_NV_INDEX_FIRST);
-assert_cc(TPM2_NV_INDEX_UNASSIGNED_LAST <= TPM2_NV_INDEX_LAST);
+assert_cc(TPM2_NV_INDEX_SYSTEMD_FIRST >= TPM2_NV_INDEX_FIRST);
+assert_cc(TPM2_NV_INDEX_SYSTEMD_LAST  <= TPM2_NV_INDEX_LAST);
 #endif
+
+/* A subrange at the end of the above we use to store pcrlock policies in */
+#define TPM2_NV_INDEX_PCRLOCK_FIRST UINT32_C(0x01D1020D)
+#define TPM2_NV_INDEX_PCRLOCK_LAST  UINT32_C(0x01D10224)
+
+assert_cc(TPM2_NV_INDEX_PCRLOCK_FIRST >= TPM2_NV_INDEX_SYSTEMD_FIRST);
+assert_cc(TPM2_NV_INDEX_PCRLOCK_LAST  <= TPM2_NV_INDEX_SYSTEMD_LAST);
 
 bool tpm2_nvpcr_name_is_valid(const char *name);

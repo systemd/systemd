@@ -23,6 +23,13 @@
     "cgtop": ["*cgtop*"],
     "ci": [".github/*"],
     "coccinelle": ["coccinelle/*"],
+    "coco": [
+      "*confidential-virt*",
+      "*tsm-report*",
+      "*report-sign-tsm*",
+      "src/boot/proto/cc-measurement.h",
+      "*TEST-94-COCO*"
+    ],
     "coredump": ["*coredump*"],
     "creds": ["src/core/*cred*", "src/creds/*", "src/shared/*cred*", "units/*cred*"],
     "cryptsetup": ["src/cryptenroll/*", "src/cryptsetup/*", "units/*crypt*"],

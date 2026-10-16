@@ -274,6 +274,7 @@ DHCPv4.QuickAck,                                 config_parse_bool,             
 DHCPv4.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET,                                0
 DHCPv4.Anonymize,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_anonymize)
 DHCPv4.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET,                                0
+DHCPv4.SendHostnameUpdates,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp_send_hostname_updates)
 DHCPv4.BOOTP,                                    config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_bootp)
 DHCPv4.Hostname,                                 config_parse_hostname,                          0,                                      offsetof(Network, dhcp_hostname)
 DHCPv4.Label,                                    config_parse_dhcp_label,                        0,                                      offsetof(Network, dhcp_label)
@@ -319,6 +320,7 @@ DHCPv6.UseSIP,                                   config_parse_bool,             
 DHCPv6.UseCaptivePortal,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_captive_portal)
 DHCPv6.MUDURL,                                   config_parse_mud_url,                           0,                                      offsetof(Network, dhcp6_mudurl)
 DHCPv6.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET6,                               0
+DHCPv6.SendHostnameUpdates,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_hostname_updates)
 DHCPv6.Hostname,                                 config_parse_hostname,                          0,                                      offsetof(Network, dhcp6_hostname)
 DHCPv6.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET6,                               0
 DHCPv6.UserClass,                                config_parse_dhcp6_user_or_vendor_class,        0,                                      offsetof(Network, dhcp6_user_class)

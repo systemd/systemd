@@ -4,6 +4,11 @@ CHANGES WITH 263 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * inotify-backed device watch support will be removed in a future
+          release, making fanotify mandatory. This requires kernel ≥ v5.13
+          with CONFIG_FANOTIFY, CONFIG_TMPFS, and CONFIG_SHMEM. See also the
+          changes in systemd-udevd below.
+
         Feature Removals and Incompatible Changes:
 
         * systemd-networkd and networkctl have been merged into a single
@@ -12,10 +17,60 @@ CHANGES WITH 263 in spe:
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
 
+        * systemd-networkd now updates the hostname sent by the DHCPv4 and
+          DHCPv6 clients when the system hostname is changed. Previously, the
+          hostname known when the interface was configured was sent until the
+          interface was reconfigured. The DHCPv4 lease is renewed immediately
+          to send the new hostname, while for DHCPv6 the new hostname is sent
+          on the next renewal. Since some DHCP servers provide different
+          settings depending on the hostname sent by the client, the previous
+          behaviour may be restored with the new SendHostnameUpdates=no
+          setting in the [DHCPv4] and [DHCPv6] sections.
+
+        * The "appStream" key of
+          org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
+          strings rather than a single optional string.
+
+        Changes in systemd-udevd:
+
+        * systemd-udevd now uses fanotify rather than inotify to watch device
+          nodes (as enabled by the "watch" udev rule option, i.e.
+          OPTIONS+="watch"). This requires kernel ≥ v5.13, CONFIG_FANOTIFY,
+          CONFIG_TMPFS, and CONFIG_SHMEM (for tmpfs-backed devtmpfs); on older
+          kernels or with CONFIG_SHMEM=n (ramfs), device watch uses inotify.
+          Upgrading from an older, inotify-based systemd-udevd is seamless:
+          existing watches are migrated automatically. Downgrading back is not
+          supported: after a downgrade, device watches must be re-established by
+          running "udevadm trigger" for all devices that have a device node.
+
         Changes in systemd-networkd:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
+
+        * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
+          clients now follows the system hostname. The new
+          SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
+          may be used to disable this.
+
+        Changes in systemd-sysupdate:
+
+        * systemd-sysupdate's "update" command acquired a new --loop= switch.
+          If specified, the update logic is run repeatedly until no further
+          updates are installed, or the specified number of iterations is
+          reached. This is useful for updates that make further updates
+          available, for example because they ship new or changed transfer
+          files. systemd-sysupdate-update.service now uses --loop=16.
+
+        Changes in the TPM Subsystem:
+
+        * If the booted UKI carries no PCR public key or no signed PCR policy
+          with the "initrd" policy reference, NvPCRs are now initialized in the
+          initrd with a write policy bound to the current value of PCR 11,
+          instead of not being initialized at all. The names of such NvPCRs,
+          which are measured into PCR 9, change whenever the UKI changes, so
+          this is mostly useful where the value of PCR 11 in the initrd is
+          predictable.
 
 CHANGES WITH 262:
 

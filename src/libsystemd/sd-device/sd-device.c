@@ -573,6 +573,17 @@ _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st
         return device_new_from_mode_and_devnum(ret, st->st_mode, st->st_rdev);
 }
 
+_public_ int sd_device_new_from_device_node_fd(sd_device **ret, int fd) {
+        assert_return(ret, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return sd_device_new_from_stat_rdev(ret, &st);
+}
+
 static int device_new_from_devname(sd_device **ret, const char *devname, bool strict) {
         int r;
 
@@ -1735,10 +1746,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                 return safe_atoi(value, &device->devlink_priority);
 
         case 'W':
-                /* Deprecated. Previously, watch handle is both saved in database and /run/udev/watch.
-                 * However, the handle saved in database may not be updated when the handle is updated
-                 * or removed. Moreover, it is not necessary to store the handle within the database,
-                 * as its value becomes meaningless when udevd is restarted. */
+                /* Deprecated. Was used for the inotify watch handle. */
                 return 0;
 
         case 'V':

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <paths.h>
-
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -20,9 +18,12 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "manager.h"
+#include "namespace.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "scope.h"
 #include "selinux-access.h"
 #include "service.h"
 #include "set.h"
@@ -700,6 +701,7 @@ static ExecOutput exec_output_from_string_harder(const char *s) {
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string_harder);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_oom_policy, OOMPolicy, oom_policy_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -761,6 +763,14 @@ typedef struct TransientExecContextParameters {
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+        /* PrivateNetwork is a tristate bool too, but arrives as a yes/no string: the runtime
+         * context emits it via JSON_BUILD_PAIR_YES_NO and the IDL types it as string. */
+        int private_network;
+        /* Int-backed enums: -1 = absent (seeded like the tristates), parsed values >= 0. */
+        ProtectSystem protect_system;
+        ProtectHome protect_home;
+        PrivateTmp private_tmp;
+        PrivateUsers private_users;
 } TransientExecContextParameters;
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
@@ -794,8 +804,8 @@ static void transient_kill_context_parameters_init(TransientKillContextParameter
 typedef struct TransientServiceParameters {
         bool present;
         ServiceType type;
-        TransientExecCommandItem *exec_start;
-        size_t n_exec_start;
+        TransientExecCommandItem *exec_commands[_SERVICE_EXEC_COMMAND_MAX];
+        size_t n_exec_commands[_SERVICE_EXEC_COMMAND_MAX];
         int remain_after_exit;
         /* Indices of stdio fds attached to the method call (SCM_RIGHTS), UINT_MAX if unset. Resolved into
          * the owned fds below by transient_service_resolve_stdio_fds(). */
@@ -809,9 +819,11 @@ typedef struct TransientServiceParameters {
 
 static void transient_service_parameters_done(TransientServiceParameters *p) {
         assert(p);
-        FOREACH_ARRAY(i, p->exec_start, p->n_exec_start)
-                transient_exec_command_item_done(i);
-        free(p->exec_start);
+        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
+                FOREACH_ARRAY(i, p->exec_commands[c], p->n_exec_commands[c])
+                        transient_exec_command_item_done(i);
+                free(p->exec_commands[c]);
+        }
         safe_close(p->stdin_fd);
         safe_close(p->stdout_fd);
         safe_close(p->stderr_fd);
@@ -831,6 +843,33 @@ static void transient_service_parameters_init(TransientServiceParameters *p) {
         };
 }
 
+typedef struct TransientUSec {
+        usec_t value;
+        bool present;
+} TransientUSec;
+
+typedef struct TransientScopeParameters {
+        bool present;
+        OOMPolicy oom_policy;
+        TransientUSec runtime_max_usec;
+        TransientUSec runtime_rand_extra_usec;
+        TransientUSec timeout_stop_usec;
+        sd_json_variant *pids;
+} TransientScopeParameters;
+
+static void transient_scope_parameters_done(TransientScopeParameters *p) {
+        assert(p);
+
+        p->pids = sd_json_variant_unref(p->pids);
+}
+
+static void transient_scope_parameters_init(TransientScopeParameters *p) {
+        assert(p);
+        *p = (TransientScopeParameters) {
+                .oom_policy = _OOM_POLICY_INVALID,
+        };
+}
+
 static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field exec_command_dispatch[] = {
                 { "path",          SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),           SD_JSON_MANDATORY },
@@ -843,29 +882,33 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
                 {}
         };
 
+        ServiceExecCommand c = service_exec_command_from_string(name);
         TransientServiceParameters *p = ASSERT_PTR(userdata);
         size_t n;
         int r;
 
+        assert(c >= 0);
+
         if (!sd_json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for ExecStart.");
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for %s.", name);
 
         n = sd_json_variant_elements(variant);
         if (n == 0)
                 return 0;
 
-        p->exec_start = new0(TransientExecCommandItem, n);
-        if (!p->exec_start)
+        p->exec_commands[c] = new0(TransientExecCommandItem, n);
+        if (!p->exec_commands[c])
                 return -ENOMEM;
-        p->n_exec_start = n;
+        p->n_exec_commands[c] = n;
 
         for (size_t i = 0; i < n; i++) {
                 sd_json_variant *element = sd_json_variant_by_index(variant, i);
 
-                r = sd_json_dispatch(element, exec_command_dispatch, /* flags= */ 0, &p->exec_start[i]);
+                r = sd_json_dispatch(element, exec_command_dispatch, /* flags= */ 0, &p->exec_commands[c][i]);
                 if (r < 0)
                         return r;
         }
+
         return 0;
 }
 
@@ -873,18 +916,28 @@ typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
         CollectMode collect_mode;
+        char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters exec;
         TransientKillContextParameters kill;
         TransientServiceParameters service;
+        TransientScopeParameters scope;
+        TransientCGroupContextParameters cgroup;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
         const char *bad_kill_field;
         const char *bad_service_field;
+        const char *bad_scope_field;
+        const char *bad_cgroup_field;
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
         assert(p);
+
+        FOREACH_ELEMENT(d, p->dependencies)
+                strv_free(*d);
+
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
+        transient_scope_parameters_done(&p->scope);
 }
 
 static void transient_exec_context_parameters_init(TransientExecContextParameters *p);
@@ -897,6 +950,8 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         transient_exec_context_parameters_init(&p->exec);
         transient_kill_context_parameters_init(&p->kill);
         transient_service_parameters_init(&p->service);
+        transient_scope_parameters_init(&p->scope);
+        transient_cgroup_context_parameters_init(&p->cgroup);
 }
 
 typedef struct StartTransientParameters {
@@ -1037,7 +1092,14 @@ static int dispatch_transient_kill(const char *name, sd_json_variant *variant, s
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field service_dispatch[] = {
                 { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
+                { "ExecCondition",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStartPre",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
                 { "ExecStart",                    SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStartPost",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecReload",                   SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecReloadPost",               SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStop",                     SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "ExecStopPost",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
                 { "RemainAfterExit",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), 0 },
                 { "StandardInputFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdin_fd_index),    0 },
                 { "StandardOutputFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdout_fd_index),   0 },
@@ -1050,16 +1112,94 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
         return sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->service, &p->bad_service_field);
 }
 
+static int dispatch_transient_usec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientUSec *t = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                t->present = false;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &t->value);
+        if (r < 0)
+                return r;
+
+        t->present = true;
+        return 0;
+}
+
+static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field scope_dispatch[] = {
+                { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,      offsetof(TransientScopeParameters, oom_policy),              0 },
+                { "RuntimeMaxUSec",             _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, runtime_max_usec),        0 },
+                { "RuntimeRandomizedExtraUSec", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, runtime_rand_extra_usec), 0 },
+                { "TimeoutStopUSec",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, timeout_stop_usec),       0 },
+                { "PIDs",                       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(TransientScopeParameters, pids),                    0 },
+                {}
+        };
+
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->scope.present = true;
+        return sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->scope, &p->bad_scope_field);
+}
+
+static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->cgroup.present = true;
+        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
+}
+
+static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***dest = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        r = sd_json_dispatch_strv(name, variant, /* flags= */ 0, &units);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(unit, units)
+                if (!unit_name_is_valid(*unit, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
+
+        strv_free_and_replace(*dest, units);
+        return 0;
+}
+
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field context_dispatch[] = {
+        static const sd_json_dispatch_field base_context_dispatch[] = {
                 { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
-                {}
+                { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
+                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       0                 },
         };
+        /* Build dispatch table only once, it's constant. */
+        static sd_json_dispatch_field context_dispatch[ELEMENTSOF(base_context_dispatch) + _UNIT_DEPENDENCY_MAX + 1] = {};
+        static bool context_dispatch_set = false;
+
+        if (!context_dispatch_set) {
+                size_t i = 0;
+
+                FOREACH_ELEMENT(field, base_context_dispatch)
+                        context_dispatch[i++] = *field;
+
+                for (UnitDependency dep = 0; dep < _UNIT_DEPENDENCY_MAX; dep++) {
+                        if (!unit_dependency_can_be_transient(dep))
+                                continue;
+                        context_dispatch[i++] = (sd_json_dispatch_field) {
+                                .name = unit_dependency_to_string(dep),
+                                .type = SD_JSON_VARIANT_ARRAY,
+                                .callback = dispatch_dependency,
+                                .offset = offsetof(StartTransientContextParameters, dependencies[dep]),
+                        };
+                }
+                context_dispatch_set = true;
+        }
 
         StartTransientParameters *p = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
@@ -1079,6 +1219,10 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                         p->unsupported_property = strjoin("Kill.", p->context.bad_kill_field);
                 else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
                         p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
+                else if (streq(bad_field, "Scope") && !isempty(p->context.bad_scope_field))
+                        p->unsupported_property = strjoin("Scope.", p->context.bad_scope_field);
+                else if (streq(bad_field, "CGroup") && !isempty(p->context.bad_cgroup_field))
+                        p->unsupported_property = strjoin("CGroup.", p->context.bad_cgroup_field);
                 else
                         p->unsupported_property = strdup(bad_field);
                 if (!p->unsupported_property)
@@ -1087,7 +1231,24 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         return r;
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
+static void transient_unit_apply_usec(Unit *u, const char *name, usec_t *p, UnitWriteFlags flags, TransientUSec *v) {
+        assert(u);
+        assert(name);
+        assert(p);
+        assert(v);
+
+        if (!v->present)
+                return;
+
+        *p = v->value;
+
+        const char *e = ASSERT_PTR(endswith(name, "USec"));
+        char *n = strndupa_safe(name, e - name);
+        const char *f = FORMAT_TIMESPAN(v->value, USEC_PER_MSEC);
+        unit_write_settingf(u, UNIT_RUNTIME|flags, name, "%sSec=%s", n, f);
+}
+
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
         int r;
 
         assert(u);
@@ -1103,6 +1264,26 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
         if (p->collect_mode >= 0) {
                 u->collect_mode = p->collect_mode;
                 unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
+        }
+
+        for (UnitDependency dep_type = 0; dep_type < _UNIT_DEPENDENCY_MAX; dep_type++) {
+                if (!unit_dependency_can_be_transient(dep_type))
+                        continue;
+
+                const char *dep_type_name = unit_dependency_to_string(dep_type);
+                STRV_FOREACH(dep, p->dependencies[dep_type]) {
+                        r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0) {
+                                if (reterr_field)
+                                        *reterr_field = dep_type_name;
+                                return r;
+                        }
+
+                        _cleanup_free_ char *label = strjoin(dep_type_name, "-", *dep);
+                        if (!label)
+                                return -ENOMEM;
+                        unit_write_settingf(u, UNIT_RUNTIME, label, "%s=%s", dep_type_name, *dep);
+                }
         }
 
         return 0;
@@ -1343,6 +1524,7 @@ DEFINE_APPLY_EXEC_TRISTATE_BOOL(ignore_sigpipe,            "IgnoreSIGPIPE");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(lock_personality,          "LockPersonality");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(memory_deny_write_execute, "MemoryDenyWriteExecute");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(no_new_privileges,         "NoNewPrivileges");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(private_network,           "PrivateNetwork");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(remove_ipc,                "RemoveIPC");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
@@ -1458,6 +1640,51 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
         return 0;
 }
 
+/* The IDL enums use the Varlink spelling ("read_only"), while the *_from_string() parsers
+ * expect the unit-file spelling ("read-only"); JSON_DISPATCH_ENUM_DEFINE bridges that by
+ * retrying with dashes on a miss. */
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home, ProtectHome, protect_home_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp, PrivateTmp, private_tmp_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users, PrivateUsers, private_users_from_string);
+
+/* For the sandbox knobs typed as yes/no strings in the IDL (PrivateNetwork), matching
+ * JSON_BUILD_PAIR_YES_NO on the runtime-context side, so a JSON boolean is not valid here. */
+static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        r = parse_boolean(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "Value of JSON field '%s' is not a boolean string: %s",
+                                strna(name), sd_json_variant_string(variant));
+
+        *b = r;
+        return 0;
+}
+
+/* The sandbox enums accept every value their parser accepts, as over D-Bus. */
+static bool exec_enum_refuse_nothing(int value) {
+        return false;
+}
+
+DEFINE_APPLY_EXEC_ENUM(protect_system, "ProtectSystem", protect_system_to_string, exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(protect_home,   "ProtectHome",   protect_home_to_string,   exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_tmp,    "PrivateTmp",    private_tmp_to_string,    exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_users,  "PrivateUsers",  private_users_to_string,  exec_enum_refuse_nothing);
+
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1515,6 +1742,12 @@ typedef struct TransientExecProperty {
         { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
+/* Yes/no-string property: a tristate bool whose IDL type is string, see
+ * dispatch_transient_yes_no_string(). */
+#define EXEC_PROPERTY_YES_NO_STRING(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,   \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
 static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
         EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
@@ -1533,8 +1766,13 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
         EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
         EXEC_PROPERTY              ("Nice",                   SD_JSON_VARIANT_INTEGER,       dispatch_transient_nice,                     0,                                                                       0,             apply_exec_nice),
+        EXEC_PROPERTY_ENUM         ("ProtectSystem",          protect_system, dispatch_protect_system),
+        EXEC_PROPERTY_ENUM         ("ProtectHome",            protect_home,   dispatch_protect_home),
+        EXEC_PROPERTY_ENUM         ("PrivateTmp",             private_tmp,    dispatch_private_tmp),
+        EXEC_PROPERTY_YES_NO_STRING("PrivateNetwork",         private_network),
         EXEC_PROPERTY_ABSOLUTE_PATH("NetworkNamespacePath",   network_namespace_path),
         EXEC_PROPERTY_ABSOLUTE_PATH("IPCNamespacePath",       ipc_namespace_path),
+        EXEC_PROPERTY_ENUM         ("PrivateUsers",           private_users,  dispatch_private_users),
         EXEC_PROPERTY_ABSOLUTE_PATH("UserNamespacePath",      user_namespace_path),
         EXEC_PROPERTY_TRISTATE_BOOL("LockPersonality",        lock_personality),
         EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
@@ -1554,6 +1792,7 @@ static const TransientExecProperty exec_properties[] = {
 #undef EXEC_PROPERTY_STRING
 #undef EXEC_PROPERTY_ABSOLUTE_PATH
 #undef EXEC_PROPERTY_ENUM
+#undef EXEC_PROPERTY_YES_NO_STRING
 
 /* Tristate-bool and enum fields default to -1 (= absent). Default-zeroed slots would look
  * "explicitly set" to the apply path. Initialize all tristate fields here so adding a new such property only
@@ -1567,6 +1806,10 @@ static void transient_exec_context_parameters_init(TransientExecContextParameter
          * wide (their dispatchers write them through their own type) */
         assert_cc(sizeof(ExecInput) == sizeof(int));
         assert_cc(sizeof(ExecOutput) == sizeof(int));
+        assert_cc(sizeof(ProtectSystem) == sizeof(int));
+        assert_cc(sizeof(ProtectHome) == sizeof(int));
+        assert_cc(sizeof(PrivateTmp) == sizeof(int));
+        assert_cc(sizeof(PrivateUsers) == sizeof(int));
 
         FOREACH_ELEMENT(prop, exec_properties)
                 if (prop->tristate)
@@ -1675,7 +1918,18 @@ static int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServic
         return 0;
 }
 
+/* Consumes command argument vectors and stdio fds from sp as they are applied, including on failure. */
 static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_field) {
+        static const char* const exec_fields[_SERVICE_EXEC_COMMAND_MAX] = {
+                [SERVICE_EXEC_CONDITION]   = "Service.ExecCondition",
+                [SERVICE_EXEC_START_PRE]   = "Service.ExecStartPre",
+                [SERVICE_EXEC_START]       = "Service.ExecStart",
+                [SERVICE_EXEC_START_POST]  = "Service.ExecStartPost",
+                [SERVICE_EXEC_RELOAD]      = "Service.ExecReload",
+                [SERVICE_EXEC_RELOAD_POST] = "Service.ExecReloadPost",
+                [SERVICE_EXEC_STOP]        = "Service.ExecStop",
+                [SERVICE_EXEC_STOP_POST]   = "Service.ExecStopPost",
+        };
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
 
@@ -1710,81 +1964,116 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "RemainAfterExit", "RemainAfterExit=%s", yes_no(sp->remain_after_exit));
         }
 
-        FOREACH_ARRAY(item, sp->exec_start, sp->n_exec_start) {
-                _cleanup_(exec_command_freep) ExecCommand *c = NULL;
-                _cleanup_strv_free_ char **argv = NULL;
-                const char *path = item->path;
+        for (ServiceExecCommand cmd = 0; cmd < _SERVICE_EXEC_COMMAND_MAX; cmd++) {
+                const char *name = service_exec_command_to_string(cmd);
 
-                if (item->privileged && item->no_setuid) {
-                        if (reterr_field)
-                                *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "ExecStart 'privileged' and 'noSetuid' flags may not be combined.");
-                }
+                FOREACH_ARRAY(item, sp->exec_commands[cmd], sp->n_exec_commands[cmd]) {
+                        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+                        ExecCommandFlags command_flags;
 
-                if (item->via_shell)
-                        /* Always normalize path (and argv[0] below) to "sh", matching the D-Bus and unit
-                         * file counterparts. The real shell of the target user is determined at execution
-                         * time. */
-                        path = _PATH_BSHELL;
-                else if (!filename_or_absolute_path_is_valid(path)) {
-                        if (reterr_field)
-                                *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", path);
-                }
+                        if (item->privileged && item->no_setuid) {
+                                if (reterr_field)
+                                        *reterr_field = exec_fields[cmd];
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s 'privileged' and 'noSetuid' flags may not be combined.", name);
+                        }
 
-                if (!strv_isempty(item->arguments)) {
-                        argv = strv_copy(item->arguments);
-                        if (!argv)
-                                return -ENOMEM;
-                }
+                        if (!item->via_shell && !filename_or_absolute_path_is_valid(item->path)) {
+                                if (reterr_field)
+                                        *reterr_field = exec_fields[cmd];
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid %s path: %s", name, item->path);
+                        }
 
-                c = new0(ExecCommand, 1);
-                if (!c)
-                        return -ENOMEM;
+                        command_flags =
+                                (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
+                                (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
+                                (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
+                                (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
+                                (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
 
-                c->flags =
-                        (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
-                        (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
-                        (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
-                        (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
-                        (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
-
-                r = path_simplify_alloc(path, &c->path);
-                if (r < 0)
-                        return r;
-
-                if (item->via_shell) {
-                        /* Normalize argv[0] to "sh", preserving login shell semantics requested via a
-                         * leading dash. */
-                        if (strv_isempty(argv))
-                                r = strv_extend(&argv, "sh");
-                        else
-                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                        r = exec_command_new(item->path, TAKE_PTR(item->arguments), command_flags, &c);
                         if (r < 0)
                                 return r;
-                } else if (strv_isempty(argv)) {
-                        /* If no arguments were provided, default argv[0] to the executable path.
-                         * Otherwise the caller is expected to include argv[0] in the arguments array. */
-                        r = strv_extend(&argv, c->path);
-                        if (r < 0)
-                                return r;
+
+                        exec_command_append_list(&s->exec_command[cmd], TAKE_PTR(c));
                 }
 
-                c->argv = TAKE_PTR(argv);
+                LIST_FOREACH(command, c, s->exec_command[cmd]) {
+                        _cleanup_free_ char *a = NULL;
 
-                exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], TAKE_PTR(c));
+                        r = exec_command_to_setting(c, &a);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, name, "%s=%s", name, a);
+                }
         }
 
-        /* Write ExecStart= lines to the transient file */
-        LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
-                _cleanup_free_ char *a = NULL;
+        return 0;
+}
 
-                r = exec_command_to_setting(c, &a);
+static int transient_scope_apply_pid(Scope *s, sd_json_variant *json, sd_varlink *link, sd_bus_error *reterr_bus_error) {
+        Unit *u = UNIT(ASSERT_PTR(s));
+        int r;
+
+        _cleanup_(pidref_done) PidRef json_pidref = PIDREF_NULL;
+        r = json_dispatch_pidref("Scope.PIDs", json, SD_JSON_STRICT|SD_JSON_RELAX, &json_pidref);
+        if (r < 0)
+                return sd_bus_error_set_errno(reterr_bus_error, r);
+
+        _cleanup_(pidref_done) PidRef peer_pidref = PIDREF_NULL;
+        PidRef *pidref;
+        if (pidref_is_automatic(&json_pidref)) {
+                r = varlink_get_peer_pidref(link, &peer_pidref);
                 if (r < 0)
                         return r;
 
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=%s", a);
+                pidref = &peer_pidref;
+        } else
+                pidref = &json_pidref;
+
+        r = unit_pid_attachable(u, pidref, reterr_bus_error);
+        if (r < 0)
+                return r;
+
+        r = unit_watch_pidref(u, pidref, /* exclusive= */ false);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int transient_scope_apply_properties(
+                Scope *s,
+                TransientScopeParameters *sp,
+                sd_varlink *link,
+                const char **reterr_field,
+                sd_bus_error *reterr_bus_error) {
+        Unit *u = UNIT(ASSERT_PTR(s));
+        int r;
+
+        assert(sp);
+
+        if (sp->oom_policy != _OOM_POLICY_INVALID) {
+                s->oom_policy = sp->oom_policy;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMPolicy", "OOMPolicy=%s", oom_policy_to_string(sp->oom_policy));
+        }
+
+        transient_unit_apply_usec(u, "RuntimeMaxUSec", &s->runtime_max_usec, UNIT_PRIVATE, &sp->runtime_max_usec);
+        transient_unit_apply_usec(u, "RuntimeRandomizedExtraUSec", &s->runtime_rand_extra_usec, UNIT_PRIVATE, &sp->runtime_rand_extra_usec);
+        transient_unit_apply_usec(u, "TimeoutStopUSec", &s->timeout_stop_usec, UNIT_PRIVATE, &sp->timeout_stop_usec);
+
+        sd_json_variant *json_pid = NULL;
+        r = -EINVAL; /* Scope.PIDs is required! */
+        JSON_VARIANT_ARRAY_FOREACH(json_pid, sp->pids) {
+                r = transient_scope_apply_pid(s, json_pid, link, reterr_bus_error);
+                if (r < 0)
+                        break;
+        }
+        if (r < 0) {
+                if (reterr_field)
+                        *reterr_field = "Scope.PIDs";
+                return r;
         }
 
         return 0;
@@ -2082,15 +2371,14 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        r = transient_unit_apply_properties(u, &p.context);
+        bad_field = NULL;
+        r = transient_unit_apply_properties(u, &p.context, &bad_field);
         if (r == -EINVAL)
-                return sd_varlink_error_invalid_parameter_name(link, "context");
+                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "context");
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
-        /* Apply context.Exec only when an Exec object was actually sent. The tristate bool fields are
-         * seeded to -1 ("absent") during Exec dispatch; without an Exec object they stay 0, which the
-         * apply functions would misread as "explicitly false" and write out bogus FooBar=no lines. */
+        /* Apply context.Exec only when an Exec object was actually sent */
         if (p.context.exec.present) {
                 ExecContext *c = unit_get_exec_context(u);
                 if (!c)
@@ -2116,16 +2404,41 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                         return sd_varlink_error_errno(link, r);
         }
 
-        /* Apply service-specific properties from context.Service */
-        Service *s = SERVICE(u);
-        if (s) {
+        /* Apply cgroup properties from context.CGroup */
+        if (p.context.cgroup.present) {
+                CGroupContext *cc = unit_get_cgroup_context(u);
+                if (!cc)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+
                 bad_field = NULL;
-                r = transient_service_apply_properties(s, &p.context.service, &bad_field);
+                r = transient_cgroup_context_apply_properties(u, cc, &p.context.cgroup, &bad_field);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "CGroup");
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        }
+
+        /* Apply service-specific properties from context.Service */
+        Service *service = SERVICE(u);
+        if (service) {
+                bad_field = NULL;
+                r = transient_service_apply_properties(service, &p.context.service, &bad_field);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service.present)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+
+        Scope *scope = SCOPE(u);
+        if (scope) {
+                bad_field = NULL;
+                r = transient_scope_apply_properties(scope, &p.context.scope, link, &bad_field, &bus_error);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Scope");
+                if (r < 0)
+                        return varlink_reply_bus_error(link, r, &bus_error);
+        } else if (p.context.scope.present)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         unit_add_to_load_queue(u);

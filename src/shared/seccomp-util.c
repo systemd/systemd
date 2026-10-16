@@ -1429,13 +1429,14 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                         0);
                 else
                         /* Otherwise, block only the invocations with the appropriate flags in the loop
-                         * below, but also the special invocation with a zero flags argument, right here. */
+                         * below, but also the special invocation with a zero flags argument, right here. The
+                         * kernel takes nstype as an int and truncates it to 32 bits, hence only compare those. */
                         r = sym_seccomp_rule_add_exact(
                                         seccomp,
                                         SCMP_ACT_ERRNO(EPERM),
                                         SCMP_SYS(setns),
                                         1,
-                                        SCMP_A1(SCMP_CMP_EQ, 0));
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, UINT32_MAX, 0));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add setns() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
@@ -1751,7 +1752,9 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         void *af;
 
                         /* If this is a deny list, then generate one rule for each address family that are
-                         * then combined in OR checks. */
+                         * then combined in OR checks. The kernel takes the domain as an int, i.e. it
+                         * truncates the 64-bit register to its low 32 bits, hence only compare those. A plain
+                         * equality check could be bypassed by setting any of the upper bits. */
 
                         SET_FOREACH(af, address_families) {
                                 r = sym_seccomp_rule_add_exact(
@@ -1759,7 +1762,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                                 SCMP_SYS(socket),
                                                 1,
-                                                SCMP_A0(SCMP_CMP_EQ, PTR_TO_INT(af)));
+                                                SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_MAX, (uint32_t) PTR_TO_INT(af)));
                                 if (r < 0)
                                         break;
                         }
@@ -1854,6 +1857,18 @@ int seccomp_restrict_realtime_full(int error_code) {
                                         seccomp_arch_to_string(arch));
                         continue;
                 }
+
+                /* sched_setattr() can switch to SCHED_FIFO/SCHED_RR and is the only way to get
+                 * SCHED_DEADLINE, but the policy is in a struct passed by pointer, which seccomp cannot
+                 * inspect. Hence refuse the call altogether. */
+                r = sym_seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(error_code),
+                                SCMP_SYS(sched_setattr),
+                                0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add sched_setattr() rule for %s, ignoring: %m",
+                                        seccomp_arch_to_string(arch));
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))

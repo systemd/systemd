@@ -14,6 +14,12 @@
 # new inline comments: the first review may post everything, the second drops
 # nits, and from the third on only must-fix findings are posted. Commenting
 # "@claude review full" resets the count for that run.
+#
+# The tracking comment also lists the findings of all reviews so far as a
+# checklist. It is rebuilt by the post job from the review threads on the pull
+# request, without involving the model: a finding is checked once its thread is
+# resolved, whether by the validator, the author, or a reviewer. A resolved
+# finding the validator still sees in the code is struck through as dismissed.
 
 name: Claude Review
 
@@ -69,6 +75,7 @@ jobs:
       head_sha: ${{ steps.context.outputs.head_sha }}
       previous_head: ${{ steps.context.outputs.previous_head }}
       review_count: ${{ steps.context.outputs.review_count }}
+      dismissed: ${{ steps.context.outputs.dismissed }}
       allowed_severities: ${{ steps.context.outputs.allowed_severities }}
 
     steps:
@@ -107,15 +114,18 @@ jobs:
                * model or pull request text. */
               const match = [...(body ?? "").matchAll(new RegExp(STATE_RE, "g"))].at(-1);
               if (!match)
-                return { count: 0, head: null };
+                return { count: 0, head: null, dismissed: [] };
               try {
                 const state = JSON.parse(match[1]);
                 return {
                   count: Number.isSafeInteger(state.count) && state.count > 0 ? state.count : 0,
                   head: typeof state.head === "string" && /^[0-9a-f]{40}$/.test(state.head) ? state.head : null,
+                  dismissed: Array.isArray(state.dismissed)
+                    ? state.dismissed.filter((id) => Number.isSafeInteger(id) && id > 0).slice(0, 1000)
+                    : [],
                 };
               } catch {
-                return { count: 0, head: null };
+                return { count: 0, head: null, dismissed: [] };
               }
             };
 
@@ -163,7 +173,7 @@ jobs:
             const existing = issueComments.find((c) =>
               c.user?.login === "github-actions[bot]" && c.body?.includes(MARKER));
             let commentId;
-            let state = { count: 0, head: null };
+            let state = { count: 0, head: null, dismissed: [] };
 
             if (existing) {
               console.log(`Updating existing tracking comment ${existing.id}.`);
@@ -192,7 +202,9 @@ jobs:
 
             if (/@claude review full\b/.test(process.env.TRIGGER_BODY)) {
               console.log("Full review requested, resetting the review count.");
-              state = { count: 0, head: null };
+              /* Dismissals are decisions about earlier findings, not about the
+               * review round, so they are kept. */
+              state = { ...state, count: 0, head: null };
             }
 
             const severities = allowedSeverities(state.count);
@@ -205,6 +217,7 @@ jobs:
              * there is no "changed since" subset for the reviewers to focus on. */
             core.setOutput("previous_head", state.head === pr.data.head.sha ? "" : state.head ?? "");
             core.setOutput("review_count", state.count);
+            core.setOutput("dismissed", state.dismissed.join(","));
             core.setOutput("allowed_severities", severities.join(","));
 
             /* Build context JSON for Claude. */
@@ -527,9 +540,9 @@ jobs:
           # post job. It also runs with no candidates when there are earlier
           # findings that may have been fixed since.
           if [[ "$(jq length "$INPUT/candidates.json")" == 0 && "$open_threads" == 0 ]]; then
-            echo '{"confirmed": [], "resolve": []}' >"$OUTPUT/validator.json"
+            echo '{"confirmed": [], "resolve": [], "still_present": []}' >"$OUTPUT/validator.json"
           else
-            run_claude validator 10 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
+            run_claude validator 10 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\", \"still_present\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}, \"still_present\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
           "${context}
 
           ${INPUT}/candidates.json holds candidate findings from independent reviewers, possibly
@@ -541,8 +554,9 @@ jobs:
 
           Review comments in discussion.json by github-actions[bot] that start with \"Claude: **\"
           and have no in_reply_to_id are findings from earlier reviews; replies carry that id in
-          in_reply_to_id. Return in resolve the ids of those whose issue is fixed at the head and
-          that have no human replies."
+          in_reply_to_id. Return in resolve the ids of those whose issue is fixed at the head, and
+          in still_present the ids of those whose issue still exists at the head, whether or not
+          they have replies. Leave out any you did not check."
             print_log validator
             if [[ ! -s "$OUTPUT/validator.json" ]]; then
               echo "Validation did not finish." >&2
@@ -554,6 +568,7 @@ jobs:
             comments: [(.confirmed // [])[] | select(type == "object") | . + {commit: $head} | .path |= ltrimstr($source) |
               if (.start_line // 0) >= 1 then . + {start_side: .side} else del(.start_line) end],
             resolve: (.resolve // []),
+            still_present: (.still_present // []),
             lenses: {completed: $completed, failed: $failed}
           }' "$OUTPUT/validator.json" >"$OUTPUT/review-result.json"
 
@@ -592,6 +607,7 @@ jobs:
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
           HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           REVIEW_COUNT: ${{ needs.setup.outputs.review_count }}
+          DISMISSED: ${{ needs.setup.outputs.dismissed }}
           ALLOWED_SEVERITIES: ${{ needs.setup.outputs.allowed_severities }}
         with:
           script: |
@@ -731,16 +747,35 @@ jobs:
               /* Protocol-relative targets resolve off-site without naming a scheme,
                * in inline links, reference definitions, and autolinks alike. */
               .replace(/(\]\(\s*|\]:\s*|<)\/\//g, "$1/\u200b/");
+            /* Earlier findings the validator saw still present at the head. Only
+             * used to tell dismissed findings from fixed ones in the summary, so
+             * a missing or malformed list just means nothing new is marked
+             * dismissed. */
+            const stillPresent = new Set(
+              (Array.isArray(review.still_present) ? review.still_present : [])
+                .filter((id) => Number.isSafeInteger(id) && id > 0),
+            );
+            /* Findings dismissed in earlier runs. They stay dismissed until the
+             * validator reports them fixed, as it may leave out findings it did
+             * not check. */
+            const previouslyDismissed = new Set(
+              (process.env.DISMISSED || "").split(",").map(Number)
+                .filter((id) => Number.isSafeInteger(id) && id > 0),
+            );
+
+            /* An id reported both fixed and still present is contradictory, so
+             * its thread is not resolved. */
             const validResolveIds = review.resolve.filter(
-              (id) => Number.isSafeInteger(id) && id > 0,
+              (id) => Number.isSafeInteger(id) && id > 0 && !stillPresent.has(id),
             );
             const resolveIds = validResolveIds.slice(0, 100);
             const invalidResolveIds = review.resolve.length - validResolveIds.length;
             const truncatedResolveIds = validResolveIds.length - resolveIds.length;
             if (invalidResolveIds > 0)
-              console.log(`Skipping ${invalidResolveIds} invalid review-thread ID(s).`);
+              console.log(`Skipping ${invalidResolveIds} invalid or contradictory review-thread ID(s).`);
             if (truncatedResolveIds > 0)
               console.log(`Truncating ${truncatedResolveIds} valid review-thread ID(s) above the 100-item limit.`);
+            const fixed = new Set(resolveIds);
 
             /* The write-capable job must not trust model-selected repository
              * objects. Limit comments to commits and files belonging to this PR. */
@@ -779,6 +814,19 @@ jobs:
                   typeof c.body !== "string" || c.body.length < 1 || c.body.length > MAX_COMMENT_LENGTH ||
                   !severities.has(c.severity) || !sides.has(c.side))
                 return [];
+
+              /* Keep only the known fields, so that nothing else the model put
+               * into its output reaches the code below. */
+              c = {
+                path: c.path,
+                line: c.line,
+                side: c.side,
+                commit: c.commit,
+                severity: c.severity,
+                body: c.body,
+                ...(c.start_line !== undefined && { start_line: c.start_line }),
+                ...(c.start_side !== undefined && { start_side: c.start_side }),
+              };
 
               /* Enforce the review-round policy and the comment length budget
                * here, so they hold even when the model ignores its prompt. */
@@ -888,51 +936,61 @@ jobs:
             else
               console.log("No inline comments to post.");
 
-            /* Resolve review threads that Claude identified as addressed or dismissed. */
-            if (resolveIds.length > 0) {
-              const resolveSet = new Set(resolveIds);
-
-              /* Fetch all review threads and map first-comment database IDs to thread IDs. */
-              let threads = [];
-              try {
-                let threadCursor = null;
-                do {
-                  const threadQuery = `
-                    query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-                      repository(owner: $owner, name: $repo) {
-                        pullRequest(number: $number) {
-                          reviewThreads(first: 100, after: $cursor) {
-                            pageInfo { hasNextPage endCursor }
-                            nodes {
-                              id
-                              isResolved
-                              comments(first: 100) {
-                                nodes {
-                                  databaseId
-                                  body
-                                  author { login }
-                                }
+            /* Fetch all review threads, after posting so that this run's comments
+             * are included. They serve both thread resolution and the summary.
+             * null means the threads could not be fetched. */
+            let threads = null;
+            try {
+              const fetched = [];
+              let threadCursor = null;
+              do {
+                const threadQuery = `
+                  query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                    repository(owner: $owner, name: $repo) {
+                      pullRequest(number: $number) {
+                        reviewThreads(first: 100, after: $cursor) {
+                          pageInfo { hasNextPage endCursor }
+                          nodes {
+                            id
+                            isResolved
+                            isOutdated
+                            path
+                            line
+                            originalLine
+                            comments(first: 100) {
+                              nodes {
+                                databaseId
+                                body
+                                url
+                                author { login }
                               }
                             }
                           }
                         }
                       }
                     }
-                  `;
+                  }
+                `;
 
-                  const threadResult = await github.graphql(threadQuery, { owner, repo, number: prNumber, cursor: threadCursor });
-                  const page = threadResult.repository.pullRequest.reviewThreads;
-                  threads.push(...page.nodes);
-                  threadCursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
-                } while (threadCursor);
-              } catch (e) {
-                console.log(`Warning: failed to fetch review threads, skipping resolution: ${e.message}`);
-                threads = [];
-              }
+                const threadResult = await github.graphql(threadQuery, { owner, repo, number: prNumber, cursor: threadCursor });
+                const page = threadResult.repository.pullRequest.reviewThreads;
+                fetched.push(...page.nodes);
+                threadCursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+              } while (threadCursor);
+              threads = fetched;
+            } catch (e) {
+              console.log(`Warning: failed to fetch review threads: ${e.message}`);
+            }
 
-              const isBot = (comment) =>
-                comment.author?.login === "github-actions" ||
-                comment.author?.login === "github-actions[bot]";
+            const isBot = (comment) =>
+              comment.author?.login === "github-actions" ||
+              comment.author?.login === "github-actions[bot]";
+
+            /* Resolve review threads that Claude identified as addressed or dismissed. */
+            if (resolveIds.length > 0 && threads === null) {
+              console.log("Skipping resolution of review threads, as they could not be fetched.");
+            } else if (resolveIds.length > 0) {
+              const resolveSet = new Set(resolveIds);
 
               let resolved = 0;
               let alreadyResolved = 0;
@@ -970,6 +1028,7 @@ jobs:
                       }
                     }
                   `, { threadId: thread.id });
+                  thread.isResolved = true;
                   resolved++;
                   console.log(`  Resolved thread for comment ${firstCommentId}`);
                 } catch (e) {
@@ -994,33 +1053,105 @@ jobs:
             }
 
             /* The summary is built here rather than by the model, so it can only
-             * list what was actually posted. */
-            const lenses = review.lenses.completed.join(", ") +
-              (review.lenses.failed.length > 0 ? `; failed: ${review.lenses.failed.join(", ")}` : "");
-            let summary = `Reviewed ${headSha ? headSha.slice(0, 10) : "the pull request"} (${lenses}).`;
-            const headings = { "must-fix": "Must fix", "suggestion": "Suggestions", "nit": "Nits" };
-            for (const severity of Object.keys(headings)) {
-              const items = listed.filter((c) => c.severity === severity);
-              if (items.length === 0)
-                continue;
-              summary += `\n\n### ${headings[severity]}\n` +
-                items.map((c) => {
-                  const path = sanitizeMarkdown(c.path).replace(/[`\r\n]/g, "");
-                  const body = sanitizeMarkdown(c.body).split("\n")[0];
-                  return `- \`${path}:${c.line}\` ${body}${c.unposted ? " (could not be posted inline)" : ""}`;
-                }).join("\n");
+             * list what was actually posted. Findings are taken from the bot's
+             * review threads, so findings of earlier reviews stay listed, checked
+             * once their thread is resolved. Findings of this run that could not
+             * be posted inline have no thread and are added from this run's
+             * results. If the threads could not be fetched, only this run's
+             * findings are listed. */
+            const FINDING_RE = /^Claude: \*\*(must-fix|suggestion|nit)\*\*: /;
+            const findings = [];
+            if (threads !== null) {
+              for (const thread of threads) {
+                const first = thread.comments.nodes[0];
+                const match = first && isBot(first) ? FINDING_RE.exec(first.body || "") : null;
+                if (!match)
+                  continue;
+                findings.push({
+                  id: first.databaseId,
+                  severity: match[1],
+                  path: thread.path,
+                  line: thread.line ?? thread.originalLine,
+                  body: first.body.slice(match[0].length),
+                  url: first.url,
+                  resolved: thread.isResolved,
+                  dismissed: thread.isResolved && !fixed.has(first.databaseId) &&
+                    (stillPresent.has(first.databaseId) || previouslyDismissed.has(first.databaseId)),
+                  outdated: thread.isOutdated,
+                });
+              }
+              findings.sort((a, b) => a.id - b.id);
             }
+            /* Only copy what the summary needs: the model's objects may carry
+             * further fields, such as a url or a resolved state of its own. */
+            findings.push(...listed
+              .filter((c) => threads === null || c.unposted)
+              .map((c) => ({ severity: c.severity, path: c.path, line: c.line, body: c.body, unposted: c.unposted === true })));
+
             /* A run with failed lenses does not raise the bar, and leaves no head
              * behind, so the next run reviews the full diff again. */
             const complete = review.lenses.failed.length === 0;
+            const open = findings.filter((c) => !c.resolved).length;
+            /* Without the threads, earlier findings are unknown, so nothing can
+             * be said about what is still open. */
+            const status =
+              !complete || threads === null ? ""
+              : findings.length === 0 ? " No issues found :tada:"
+              : open === 0 ? " All findings are resolved :tada:"
+              : listed.length === 0 ? ` No new issues found, ${open} still open.`
+              : "";
+
+            const lenses = review.lenses.completed.join(", ") +
+              (review.lenses.failed.length > 0 ? `; failed: ${review.lenses.failed.join(", ")}` : "");
+            let summary = `Reviewed ${headSha ? headSha.slice(0, 10) : "the pull request"} (${lenses}).${status}`;
+            const headings = { "must-fix": "Must fix", "suggestion": "Suggestions", "nit": "Nits" };
+            /* Stay well below GitHub's 65536 character limit for comments. */
+            const MAX_SUMMARY_LENGTH = 60000;
+            let omitted = 0;
+            for (const severity of Object.keys(headings)) {
+              const items = findings.filter((c) => c.severity === severity);
+              if (items.length === 0)
+                continue;
+              /* Only added together with the first item that fits. */
+              let heading = `\n\n### ${headings[severity]}\n`;
+              for (const c of items) {
+                const path = sanitizeMarkdown(c.path || "").replace(/[`\r\n]/g, "");
+                const where = `\`${path}${c.line ? `:${c.line}` : ""}\``;
+                const body = sanitizeMarkdown(c.body).split("\n")[0];
+                const notes = [
+                  c.unposted && "could not be posted inline",
+                  c.outdated && !c.resolved && "outdated",
+                ].filter(Boolean);
+                const text = `${c.url ? `[${where}](${c.url})` : where} ${body}`;
+                /* A dismissed finding was resolved while its issue is still in the
+                 * code: struck through, and without a checkbox, as it was not fixed. */
+                const item = (c.dismissed
+                  ? `- ~~${text}~~ (dismissed)`
+                  : `- [${c.resolved ? "x" : " "}] ${text}` + (notes.length > 0 ? ` (${notes.join(", ")})` : "")) + "\n";
+                if (summary.length + heading.length + item.length > MAX_SUMMARY_LENGTH) {
+                  omitted++;
+                  continue;
+                }
+                summary += heading + item;
+                heading = "";
+              }
+              summary = summary.trimEnd();
+            }
+            if (omitted > 0)
+              summary += `\n\n${omitted} more finding(s) omitted, see the review threads.`;
+
             if (!complete) {
               summary += "\n\nThe review is incomplete, so the next push reviews the full diff again.";
               core.warning(`Review lenses did not finish: ${review.lenses.failed.join(", ")}`);
-            } else if (listed.length === 0)
-              summary += " No issues found :tada:";
+            }
+            /* Without the threads it is unknown which findings are dismissed, so
+             * the previous ones are kept. */
+            const dismissed = threads === null
+              ? [...previouslyDismissed]
+              : findings.filter((c) => c.dismissed).map((c) => c.id);
             const state = JSON.stringify(complete
-              ? { count: reviewCount + 1, head: headSha }
-              : { count: reviewCount, head: null });
+              ? { count: reviewCount + 1, head: headSha, dismissed }
+              : { count: reviewCount, head: null, dismissed });
             summary += `\n\n${MARKER}\n<!-- claude-review-state ${state} -->\n\n[Workflow run](${runUrl})`;
 
             await github.rest.issues.updateComment({

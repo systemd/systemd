@@ -715,18 +715,18 @@ static int dir_cleanup(
                         continue;
 
                 struct statx sx;
-                r = xstatx_full(dirfd(d), de->d_name,
-                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                                /* xstatx_flags= */ 0,
-                                STATX_TYPE|STATX_MODE|STATX_UID,
-                                STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                                STATX_ATTR_MOUNT_ROOT,
-                                &sx);
-                if (r == -ENOENT)
+                int k = xstatx_full(dirfd(d), de->d_name,
+                                    AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                    /* xstatx_flags= */ 0,
+                                    STATX_TYPE|STATX_MODE|STATX_UID,
+                                    STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                    STATX_ATTR_MOUNT_ROOT,
+                                    &sx);
+                if (k == -ENOENT)
                         continue;
-                if (r < 0) {
+                if (k < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
+                        log_full_errno(k == -EACCES ? LOG_DEBUG : LOG_ERR, k,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
@@ -5288,6 +5288,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);

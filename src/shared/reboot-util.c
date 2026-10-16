@@ -269,10 +269,16 @@ static int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, cons
         if (memfd < 0)
                 return log_error_errno(memfd, "Failed to create memfd for PE section '%s': %m", name);
 
-        if (lseek(fd, offset, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to PE section '%s': %m", name);
-
-        r = copy_bytes(fd, memfd, size, /* copy_flags= */ 0);
+        /* copy_bytes_offset() can't use sendfile() when a target offset is given. copy_file_range() fails
+         * with EXDEV when the UKI is on another file system, and the copy then falls back to read() and
+         * pwrite(). Nothing else uses the memfd, so we write at its file offset instead. */
+        r = copy_bytes_offset(
+                        fd,
+                        /* foffset= */ &(uint64_t) { offset },
+                        memfd,
+                        /* toffset= */ NULL,
+                        size,
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy PE section '%s': %m", name);
 
