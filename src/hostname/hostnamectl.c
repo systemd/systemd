@@ -157,13 +157,11 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->icon_name)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Icon name",
-                                   TABLE_STRING, i->icon_name);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "Icon name",
+                           TABLE_STRING_NON_EMPTY, i->icon_name);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (!isempty(i->chassis)) {
                 /* Possibly add a pretty symbol. Let's not bother with non-unicode fallbacks, because this is
@@ -179,29 +177,15 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->chassis_asset_tag)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Chassis Asset Tag",
-                                   TABLE_STRING, i->chassis_asset_tag);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->deployment)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Deployment",
-                                   TABLE_STRING, i->deployment);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->location)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Location",
-                                   TABLE_STRING, i->location);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "Chassis Asset Tag",
+                           TABLE_STRING_NON_EMPTY, i->chassis_asset_tag,
+                           TABLE_FIELD, "Deployment",
+                           TABLE_STRING_NON_EMPTY, i->deployment,
+                           TABLE_FIELD, "Location",
+                           TABLE_STRING_NON_EMPTY, i->location);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (!strv_isempty(i->tags)) {
                 _cleanup_free_ char *j = strv_join(i->tags, ":");
@@ -247,13 +231,11 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->virtualization)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Virtualization",
-                                   TABLE_STRING, i->virtualization);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "Virtualization",
+                           TABLE_STRING_NON_EMPTY, i->virtualization);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (use_fancy_name(i->os_fancy_name)) {
                 r = table_add_many(table,
@@ -271,13 +253,11 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->os_cpe_name)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "CPE OS Name",
-                                   TABLE_STRING, i->os_cpe_name);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "CPE OS Name",
+                           TABLE_STRING_NON_EMPTY, i->os_cpe_name);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (timestamp_is_set(i->os_support_end)) {
                 usec_t n = now(CLOCK_REALTIME);
@@ -292,21 +272,13 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->os_image_id)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "OS Image",
-                                   TABLE_STRING, i->os_image_id);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->os_image_version)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "OS Image Version",
-                                   TABLE_STRING, i->os_image_version);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "OS Image",
+                           TABLE_STRING_NON_EMPTY, i->os_image_id,
+                           TABLE_FIELD, "OS Image Version",
+                           TABLE_STRING_NON_EMPTY, i->os_image_version);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (!isempty(i->kernel_name) && !isempty(i->kernel_release)) {
                 const char *v;
@@ -319,61 +291,23 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->architecture)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Architecture",
-                                   TABLE_STRING, i->architecture);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hardware_vendor)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Hardware Vendor",
-                                   TABLE_STRING, i->hardware_vendor);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hardware_model)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Hardware Model",
-                                   TABLE_STRING, i->hardware_model);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hardware_serial)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Hardware Serial",
-                                   TABLE_STRING, i->hardware_serial);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hardware_sku)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Hardware SKU",
-                                   TABLE_STRING, i->hardware_sku);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hardware_version)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Hardware Version",
-                                   TABLE_STRING, i->hardware_version);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->firmware_version)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Firmware Version",
-                                   TABLE_STRING, i->firmware_version);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "Architecture",
+                           TABLE_STRING_NON_EMPTY, i->architecture,
+                           TABLE_FIELD, "Hardware Vendor",
+                           TABLE_STRING_NON_EMPTY, i->hardware_vendor,
+                           TABLE_FIELD, "Hardware Model",
+                           TABLE_STRING_NON_EMPTY, i->hardware_model,
+                           TABLE_FIELD, "Hardware Serial",
+                           TABLE_STRING_NON_EMPTY, i->hardware_serial,
+                           TABLE_FIELD, "Hardware SKU",
+                           TABLE_STRING_NON_EMPTY, i->hardware_sku,
+                           TABLE_FIELD, "Hardware Version",
+                           TABLE_STRING_NON_EMPTY, i->hardware_version,
+                           TABLE_FIELD, "Firmware Version",
+                           TABLE_STRING_NON_EMPTY, i->firmware_version);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (timestamp_is_set(i->firmware_date)) {
                 usec_t n = now(CLOCK_REALTIME);
