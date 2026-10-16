@@ -793,7 +793,6 @@ Unit* unit_free(Unit *u) {
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
-        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
@@ -818,6 +817,9 @@ Unit* unit_free(Unit *u) {
                 job_uninstall(j);
                 job_free(j);
         }
+
+        /* Only after the jobs are gone, as across a reload they stash whether this subscription is theirs */
+        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
