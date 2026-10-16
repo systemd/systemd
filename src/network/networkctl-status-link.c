@@ -127,10 +127,8 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
 
 #define DUMP_STATS_ONE(name, val_name)                                          \
         ({                                                                      \
-                r = table_add_cell(table, NULL, TABLE_FIELD, name);             \
-                if (r < 0)                                                      \
-                        return table_log_add_error(r);                          \
-                r = table_add_cell(table, NULL,                                 \
+                r = table_add_many(table,                                       \
+                                   TABLE_FIELD, name,                           \
                                    info->has_stats64 ? TABLE_UINT64 : TABLE_UINT32, \
                                    info->has_stats64 ? (void*) &info->stats64.val_name : (void*) &info->stats.val_name); \
                 if (r < 0)                                                      \
@@ -174,15 +172,13 @@ static int dump_hw_address(Table *table, sd_hwdb *hwdb, const char *field, const
         if (addr->length == ETH_ALEN)
                 (void) ieee_oui(hwdb, &addr->ether, &description);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, field);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                   HW_ADDR_TO_STR(addr),
-                                   description ? " (" : "",
-                                   strempty(description),
-                                   description ? ")" : "");
+        r = table_add_many(table,
+                           TABLE_FIELD, field,
+                           TABLE_STRINGF, "%s%s%s%s",
+                           HW_ADDR_TO_STR(addr),
+                           description ? " (" : "",
+                           strempty(description),
+                           description ? ")" : "");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -307,6 +303,8 @@ static int link_status_one(
         if (!table)
                 return log_oom();
 
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -321,49 +319,30 @@ static int link_status_one(
 
         r = table_add_many(table,
                            TABLE_FIELD, "Link File",
-                           TABLE_STRV, link_dropins ?: STRV_MAKE("n/a"),
+                           TABLE_STRV, link_dropins,
                            TABLE_FIELD, "Network File",
-                           TABLE_STRV, network_dropins ?: STRV_MAKE("n/a"),
-                           TABLE_FIELD, "State");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
-                                   on_color_operational, strna(operational_state), off_color_operational,
-                                   on_color_setup, setup_state ?: "unmanaged", off_color_setup);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_many(table,
+                           TABLE_STRV, network_dropins,
+                           TABLE_FIELD, "State",
+                           TABLE_STRINGF_WITH_ANSI, "%s%s%s (%s%s%s)",
+                           on_color_operational, strna(operational_state), off_color_operational,
+                           on_color_setup, setup_state ?: "unmanaged", off_color_setup,
                            TABLE_FIELD, "Online state",
                            TABLE_STRING, online_state ?: "unknown",
-                           TABLE_SET_COLOR, on_color_online);
+                           TABLE_SET_COLOR, on_color_online,
+                           TABLE_FIELD, "Type",
+                           TABLE_STRING_NON_EMPTY, t,
+                           TABLE_FIELD, "Kind",
+                           TABLE_STRING_NON_EMPTY, info->netdev_kind,
+                           TABLE_FIELD, "Path",
+                           TABLE_STRING_NON_EMPTY, path,
+                           TABLE_FIELD, "Driver",
+                           TABLE_STRING_NON_EMPTY, driver,
+                           TABLE_FIELD, "Vendor",
+                           TABLE_STRING_NON_EMPTY, vendor,
+                           TABLE_FIELD, "Model",
+                           TABLE_STRING_NON_EMPTY, model);
         if (r < 0)
                 return table_log_add_error(r);
-
-        r = table_add_string_line(table, "Type", t);
-        if (r < 0)
-                return r;
-
-        r = table_add_string_line(table, "Kind", info->netdev_kind);
-        if (r < 0)
-                return r;
-
-        r = table_add_string_line(table, "Path", path);
-        if (r < 0)
-                return r;
-
-        r = table_add_string_line(table, "Driver", driver);
-        if (r < 0)
-                return r;
-
-        r = table_add_string_line(table, "Vendor", vendor);
-        if (r < 0)
-                return r;
-
-        r = table_add_string_line(table, "Model", model);
-        if (r < 0)
-                return r;
 
         strv_sort(info->alternative_names);
         r = dump_list(table, "Alternative Names", info->alternative_names);
@@ -388,19 +367,17 @@ static int link_status_one(
                 xsprintf(min_str, "%" PRIu32, info->min_mtu);
                 xsprintf(max_str, "%" PRIu32, info->max_mtu);
 
-                r = table_add_cell(table, NULL, TABLE_FIELD, "MTU");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
-                                           info->mtu,
-                                           info->min_mtu > 0 || info->max_mtu > 0 ? " (" : "",
-                                           info->min_mtu > 0 ? "min: " : "",
-                                           info->min_mtu > 0 ? min_str : "",
-                                           info->min_mtu > 0 && info->max_mtu > 0 ? ", " : "",
-                                           info->max_mtu > 0 ? "max: " : "",
-                                           info->max_mtu > 0 ? max_str : "",
-                                           info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
+                r = table_add_many(table,
+                                   TABLE_FIELD, "MTU",
+                                   TABLE_STRINGF, "%" PRIu32 "%s%s%s%s%s%s%s",
+                                   info->mtu,
+                                   info->min_mtu > 0 || info->max_mtu > 0 ? " (" : "",
+                                   info->min_mtu > 0 ? "min: " : "",
+                                   info->min_mtu > 0 ? min_str : "",
+                                   info->min_mtu > 0 && info->max_mtu > 0 ? ", " : "",
+                                   info->max_mtu > 0 ? "max: " : "",
+                                   info->max_mtu > 0 ? max_str : "",
+                                   info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -697,12 +674,10 @@ static int link_status_one(
                 else
                         p = "bridge";
 
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Mode");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%s (%s)",
-                                           ipvlan_mode_to_string(info->ipvlan_mode), p);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Mode",
+                                   TABLE_STRINGF, "%s (%s)",
+                                   ipvlan_mode_to_string(info->ipvlan_mode), p);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -710,38 +685,31 @@ static int link_status_one(
         if (info->has_wlan_link_info) {
                 _cleanup_free_ char *esc = NULL;
 
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Wi-Fi access point");
-                if (r < 0)
-                        return table_log_add_error(r);
-
                 if (info->ssid)
                         esc = cescape(info->ssid);
 
-                r = table_add_cell_stringf(table, NULL, "%s (%s)",
-                                           strnull(esc),
-                                           ETHER_ADDR_TO_STR(&info->bssid));
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Wi-Fi access point",
+                                   TABLE_STRINGF, "%s (%s)",
+                                   strnull(esc), ETHER_ADDR_TO_STR(&info->bssid));
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         if (info->has_bitrates) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Bit Rate (Tx/Rx)");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%sBps/%sBps",
-                                           FORMAT_BYTES_FULL(info->tx_bitrate, 0),
-                                           FORMAT_BYTES_FULL(info->rx_bitrate, 0));
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Bit Rate (Tx/Rx)",
+                                   TABLE_STRINGF, "%sBps/%sBps",
+                                   FORMAT_BYTES_FULL(info->tx_bitrate, 0),
+                                   FORMAT_BYTES_FULL(info->rx_bitrate, 0));
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         if (info->has_tx_queues || info->has_rx_queues) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Number of Queues (Tx/Rx)");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Number of Queues (Tx/Rx)",
+                                   TABLE_STRINGF, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -763,13 +731,13 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                r = table_add_string_line(table, "Duplex", duplex_to_string(info->duplex));
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Duplex",
+                                   TABLE_STRING_NON_EMPTY, duplex_to_string(info->duplex),
+                                   TABLE_FIELD, "Port",
+                                   TABLE_STRING_NON_EMPTY, port_to_string(info->port));
                 if (r < 0)
-                        return r;
-
-                r = table_add_string_line(table, "Port", port_to_string(info->port));
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         r = dump_addresses(rtnl, info->dhcp_message, table, info->ifindex);

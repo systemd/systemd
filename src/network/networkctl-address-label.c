@@ -73,11 +73,9 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                r = table_add_cell(table, NULL, TABLE_UINT32, &label);
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%s/%u", IN6_ADDR_TO_STRING(&prefix), prefixlen);
+                r = table_add_many(table,
+                                   TABLE_UINT32, &label,
+                                   TABLE_STRING, IN6_ADDR_PREFIX_TO_STRING(&prefix, prefixlen));
                 if (r < 0)
                         return table_log_add_error(r);
         }
