@@ -2072,8 +2072,9 @@ static int maybe_decompress_payload(
                 int r;
 
                 if (field) {
-                        r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
-                                                  field_length, '=');
+                        r = decompress_startswith_journal(
+                                        compression, payload, size, &f->compress_buffer,
+                                        field, field_length, '=');
                         if (r < 0)
                                 return log_debug_errno(r,
                                                        "Cannot decompress %s object of length %" PRIu64 ": %m",
