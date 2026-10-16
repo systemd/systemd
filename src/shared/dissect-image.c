@@ -3508,17 +3508,9 @@ static int do_crypt_activate_verity(
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 
-                /* Let's mangle ENOKEY → EDESTADDRREQ, so that we return a clear, recognizable error if
-                 * there's a signature we don't recognize, that is distinct from the LUKS/encryption
-                 * -ENOKEY, which means "password required, but I have none". */
-                if (r == -ENOKEY)
-                        r = -EDESTADDRREQ;
-
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
 
-                /* Preferably propagate the original kernel error, so that the fallback logic can work,
-                 * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, root, flags);
                 if (k == -ENOMEM)
                         return k;
@@ -3528,9 +3520,16 @@ static int do_crypt_activate_verity(
                         log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace.");
 
                         /* If the policy allows "verity" as well as "signed", the signature is optional and
-                         * we activate the volume by its root hash. */
+                         * we activate the volume by its root hash. Otherwise we return -EDESTADDRREQ, so
+                         * that callers get a recognizable error for a signature that no trusted key
+                         * validates, distinct from the LUKS -ENOKEY, which means "password required, but
+                         * I have none". libcryptsetup only returns -ENOKEY if the kernel has no key for the
+                         * signature. It returns other errors, such as -EBUSY, if the kernel rejects the
+                         * signature for other reasons, for example because the signature is malformed. We
+                         * only propagate -EEXIST and -ENODEV, which verity_partition() needs to handle
+                         * concurrent activations of the same volume. */
                         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
-                                return r < 0 ? r : -EDESTADDRREQ;
+                                return IN_SET(r, -EEXIST, -ENODEV) ? r : -EDESTADDRREQ;
 
                         log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
                         measure_signature = false;
