@@ -13,6 +13,20 @@ set -o pipefail
 
 install_extension_images
 
+# Create a copy of the minimal image with a signature that no trusted key validates.
+mkdir -p /tmp/untrusted
+cp /usr/share/minimal_0.raw /tmp/untrusted/minimal_9.raw
+cp /usr/share/minimal_0.verity /tmp/untrusted/minimal_9.verity
+cp /usr/share/minimal_0.roothash /tmp/untrusted/minimal_9.roothash
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=test-29-untrusted \
+            -keyout /tmp/untrusted/key.pem -out /tmp/untrusted/cert.pem
+openssl smime -sign -nocerts -noattr -binary \
+              -in /tmp/untrusted/minimal_9.roothash \
+              -inkey /tmp/untrusted/key.pem \
+              -signer /tmp/untrusted/cert.pem \
+              -outform der \
+              -out /tmp/untrusted/minimal_9.roothash.p7s
+
 # Set longer timeout for slower machines, e.g. non-KVM vm.
 mkdir -p /run/systemd/system.conf.d
 cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
