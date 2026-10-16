@@ -1020,6 +1020,7 @@ struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        const char *pam_name;
         /* Absolute-path strings: must validate via path_is_absolute(). */
         const char *ipc_namespace_path;
         const char *network_namespace_path;
@@ -1395,6 +1396,7 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
 
 DEFINE_APPLY_EXEC_STRING(user,  "User");
 DEFINE_APPLY_EXEC_STRING(group, "Group");
+DEFINE_APPLY_EXEC_STRING(pam_name, "PAMName");
 
 /* Generate an apply fn for an exec-context tristate bool: copy the parsed value to ExecContext and
  * write the corresponding "Name=yes/no" line, skipping if the caller didn't set the field.
@@ -1653,6 +1655,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
         EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
+        EXEC_PROPERTY_STRING       ("PAMName",                pam_name, json_dispatch_const_filename, 0),
         EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
         EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
         EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),

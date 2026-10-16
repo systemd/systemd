@@ -229,6 +229,14 @@ testcase_exec_properties() {
     systemctl show -P SupplementaryGroups varlink-transient-ids.service | grep "${NOBODY_GROUP}" >/dev/null
     systemctl show -P Nice varlink-transient-ids.service | grep '^5$' >/dev/null
 
+    # Exec.PAMName
+    defer_transient_cleanup varlink-transient-pam.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-pam.service","Exec":{"PAMName":"systemd-run0"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    echo "$result" | jq -e '.context.Exec.PAMName == "systemd-run0"'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-pam.service; do sleep 0.5; done'
+    systemctl show -P PAMName varlink-transient-pam.service | grep '^systemd-run0$' >/dev/null
+
     # Exec.OOMScoreAdjust, Exec.UMask, Exec.NoNewPrivileges, Exec.MemoryDenyWriteExecute
     # (int+validator, mode_t, two tristate-bool shapes)
     defer_transient_cleanup varlink-transient-procctl.service
@@ -268,6 +276,11 @@ testcase_exec_properties() {
     defer_transient_cleanup varlink-transient-bad-user.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+        "context"
+    # Invalid PAMName= (not a valid file name) is rejected at JSON dispatch time too
+    defer_transient_cleanup varlink-transient-bad-pam.service
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-pam.service","Exec":{"PAMName":"bad/pam"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
         "context"
     # Out-of-range Nice= value is rejected
     defer_transient_cleanup varlink-transient-bad-nice.service
