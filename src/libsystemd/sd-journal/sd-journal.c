@@ -2653,7 +2653,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, uint64_t
                 size_t l;
 
                 r = journal_file_entry_field_payload(f, o, offset, i, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
-                                                     SIZE_MAX, &d, &l);
+                                                     &d, &l);
                 if (r == 0)
                         continue;
                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
@@ -2959,8 +2959,9 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 const void *d;
                 size_t l;
 
-                r = journal_file_entry_field_payload(f, o, f->current_offset, i, field, field_length, j->data_threshold,
-                                                     ret_data ? &d : NULL, ret_size ? &l : NULL);
+                r = journal_file_entry_field_payload(
+                                f, o, f->current_offset, i, field, field_length,
+                                ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
@@ -3014,7 +3015,6 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
                 r = journal_file_entry_field_payload(
                                 f, o, f->current_offset, j->current_field,
                                 /* field= */ NULL, /* field_length= */ 0,
-                                j->data_threshold,
                                 &d, &l);
                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
@@ -3521,7 +3521,8 @@ static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, s
         if (j->unique_offset == 0)
                 return 0;
 
-        r = journal_file_data_payload_pinned(f, j->unique_offset, NULL, 0, j->data_threshold, ret_data, ret_size);
+        r = journal_file_data_payload_pinned(f, j->unique_offset, /* field= */ NULL, /* field_length= */ 0,
+                                             ret_data, ret_size);
         if (r < 0)
                 return r;
 

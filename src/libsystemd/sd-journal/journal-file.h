@@ -235,7 +235,6 @@ int journal_file_data_payload(
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size);
 int journal_file_data_payload_pinned(
@@ -243,7 +242,6 @@ int journal_file_data_payload_pinned(
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size);
 
@@ -266,7 +264,6 @@ int journal_file_entry_field_payload(
                 uint64_t i,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size);
 
