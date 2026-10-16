@@ -6472,7 +6472,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         return log_error_errno(r, "Unable to derive roothash: %m");
         }
 
-        verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
+        verity_settings = lookup_verity_settings_by_uuid_pair(rp->new_uuid, hp->new_uuid);
 
         if (!verity_settings) {
 #if HAVE_OPENSSL
