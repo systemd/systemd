@@ -23,6 +23,10 @@ static int index_map(JournalFile *f, const SegmentedIndex *i, ObjectType type, u
                                        "Index at %" PRIu64 " of %s refers to something outside of itself.",
                                        i->offset, f->path);
 
+        /* Posting lists can span many pages, and a page fault reads only one of them */
+        if (size > page_size())
+                segmented_prefetch(f, i->offset + offset, size);
+
         return journal_file_move_to(f, type, /* keep_always= */ false, i->offset + offset, size, ret);
 }
 
@@ -62,6 +66,22 @@ int segmented_index_field_name(JournalFile *f, const SegmentedIndex *i, const In
         return 0;
 }
 
+/* A binary search in an index table touches a few items all over the searched range. Without readahead,
+ * each page it touches is a read of its own, so we prefetch the range first, up to this size. */
+#define INDEX_TABLE_PREFETCH_MAX (512U * 1024U)
+/* Listing the values of a field prefetches the data objects of this many values at once */
+#define UNIQUE_PREFETCH_VALUES 256U
+
+static void index_prefetch_table(JournalFile *f, const SegmentedIndex *i, uint64_t offset, uint64_t size) {
+        assert(f);
+        assert(i);
+
+        if (size == 0 || size > INDEX_TABLE_PREFETCH_MAX)
+                return;
+
+        segmented_prefetch(f, i->offset + offset, size);
+}
+
 int segmented_index_find_field(
                 JournalFile *f,
                 const SegmentedIndex *i,
@@ -72,6 +92,8 @@ int segmented_index_find_field(
         uint64_t hash = journal_file_hash_data(f, name, size);
         uint32_t left = 0, right = i->n_fields;
         int r;
+
+        index_prefetch_table(f, i, i->field_table_offset, (uint64_t) i->n_fields * sizeof(IndexFieldItem));
 
         while (left < right) {
                 uint32_t m = left + (right - left) / 2;
@@ -170,6 +192,8 @@ int segmented_index_find_data(
         if (left > i->n_data_items || right > i->n_data_items - left)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Index at %" PRIu64 " of %s has a field with invalid values.", i->offset, f->path);
+
+        index_prefetch_table(f, i, i->data_table_offset + (uint64_t) left * sizeof(IndexDataItem), (uint64_t) right * sizeof(IndexDataItem));
 
         right += left;
 
@@ -740,7 +764,7 @@ static int result_find(
 
                 o = MIN(from, n - 1);
                 for (;;) {
-
+                        segmented_prefetch_entries(f, o, direction, /* among= */ NULL);
                         r = evaluate_ordinal(f, result, m, o);
                         if (r < 0)
                                 return r;
@@ -768,6 +792,8 @@ static int result_find(
                         if (!posting_bitmap_find_last(&result->candidates, /* from= */ 0, from == UINT64_MAX ? from : from + 1, &o))
                                 return 0;
                 }
+
+                segmented_prefetch_entries(f, o, direction, &result->candidates);
 
                 if (result->exact || posting_bitmap_isset(&result->verified, o)) {
                         *ret = o;
@@ -877,7 +903,7 @@ static int result_load(
                 if (included) {
                         r = segmented_entry_at(f, o, ret_object, ret_offset);
                         if (r > 0) {
-
+                                segmented_prefetch_current_data(f);
                                 return 1;
                         }
                         if (r < 0)
@@ -1314,6 +1340,16 @@ int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **
         cursor_check(a, c);
 
         if (c->stage == STAGE_INDEXES) {
+                /* The names of the fields follow the field table in each index. Without the prefetch,
+                 * each index costs a few reads that wait for each other. Listing the fields reads nothing
+                 * else from the indexes. Hence the prefetch reads only the range, and not the windows of
+                 * PREFETCH_WINDOW around it. */
+                if (c->index == 0 && c->position == 0)
+                        FOREACH_ARRAY(i, a->indexes, a->n_indexes)
+                                if (i->data_table_offset > i->field_table_offset &&
+                                    segmented_index_contains(i, i->field_table_offset, i->data_table_offset - i->field_table_offset))
+                                        segmented_prefetch_exact(f, i->offset + i->field_table_offset, i->data_table_offset - i->field_table_offset);
+
                 for (; c->index < a->n_indexes; c->index++, c->position = 0) {
                         const SegmentedIndex *i = a->indexes + c->index;
                         IndexFieldItem item;
@@ -1352,6 +1388,36 @@ int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **
         }
 
         return 0;
+}
+
+static void prefetch_values(JournalFile *f, const SegmentedIndex *i, const IndexFieldItem *field, uint32_t from) {
+        uint32_t first = le32toh(field->first_data), n = le32toh(field->n_data), end;
+        uint64_t last_page = UINT64_MAX;
+
+        /* Listing the values of a field reads the data object of each value, and the data objects of a
+         * segment are spread over the whole segment. */
+
+        if (from >= n || first > i->n_data_items || n > i->n_data_items - first)
+                return;
+
+        end = MIN(n, from + UNIQUE_PREFETCH_VALUES);
+        index_prefetch_table(f, i, i->data_table_offset + (uint64_t) (first + from) * sizeof(IndexDataItem),
+                             (uint64_t) (end - from) * sizeof(IndexDataItem));
+
+        for (uint32_t k = from; k < end; k++) {
+                IndexDataItem data;
+                uint64_t p;
+
+                if (segmented_index_data(f, i, first + k, &data) < 0)
+                        return;
+
+                p = segmented_index_data_offset(i, &data);
+                if (p >= i->offset || p / page_size() == last_page)
+                        continue;
+
+                last_page = p / page_size();
+                segmented_prefetch(f, p, 1);
+        }
 }
 
 int segmented_enumerate_unique(
@@ -1401,6 +1467,9 @@ int segmented_enumerate_unique(
 
                         while (c->position < le32toh(item.n_data)) {
                                 IndexDataItem data;
+
+                                if (c->position % UNIQUE_PREFETCH_VALUES == 0)
+                                        prefetch_values(f, i, &item, c->position);
 
                                 r = segmented_index_data(f, i, le32toh(item.first_data) + c->position, &data);
                                 if (r < 0)

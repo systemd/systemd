@@ -928,7 +928,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
 static int journal_file_move_to_full(
                 JournalFile *f,
-                ObjectType type,
+                MMapCacheCategory c,
                 bool keep_always,
                 uint64_t offset,
                 uint64_t size,
@@ -971,7 +971,7 @@ static int journal_file_move_to_full(
 
         r = mmap_cache_fd_get(
                         f->cache_fd,
-                        type_to_category(type),
+                        c,
                         keep_always,
                         offset,
                         size,
@@ -997,7 +997,17 @@ int journal_file_move_to(
                 uint64_t size,
                 void **ret) {
 
-        return journal_file_move_to_full(f, type, keep_always, offset, size, ret, /* ret_size= */ NULL);
+        return journal_file_move_to_full(f, type_to_category(type), keep_always, offset, size, ret, /* ret_size= */ NULL);
+}
+
+int journal_file_move_to_category(
+                JournalFile *f,
+                MMapCacheCategory c,
+                uint64_t offset,
+                uint64_t size,
+                void **ret) {
+
+        return journal_file_move_to_full(f, c, /* keep_always= */ false, offset, size, ret, /* ret_size= */ NULL);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -1287,7 +1297,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to_full(f, type, /* keep_always= */ false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
+        r = journal_file_move_to_full(f, type_to_category(type), /* keep_always= */ false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
         if (r < 0)
                 return r;
 
@@ -4749,6 +4759,11 @@ int journal_file_open_full(
         r = mmap_cache_add_fd(mmap_cache, f->fd, segmented ? PROT_READ : mmap_prot_from_open_flags(open_flags), &f->cache_fd);
         if (r < 0)
                 goto fail;
+
+        /* The segmented reader prefetches what it reads next, and page faults read only the page they
+         * need. */
+        if (segmented)
+                mmap_cache_fd_set_random(f->cache_fd, true);
 
         if (newly_created) {
                 /* The journal directory may pass on the NOCOW attribute, which only helps files that are

@@ -246,6 +246,7 @@ static inline bool ERRNO_IS_NEG_JOURNAL_CORRUPTION(intmax_t r) {
 }
 
 int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret);
+int journal_file_move_to_category(JournalFile *f, MMapCacheCategory c, uint64_t offset, uint64_t size, void **ret);
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_check_entry_header(Object *o, uint64_t offset);
 int journal_file_pin_object(JournalFile *f, Object *o);
