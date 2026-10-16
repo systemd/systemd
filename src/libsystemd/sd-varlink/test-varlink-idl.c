@@ -427,6 +427,121 @@ TEST(experimental_parse) {
         ASSERT_OK(varlink_idl_consistent(parsed, LOG_DEBUG));
 }
 
+static int parse_and_check_consistent(const char *text) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+        return varlink_idl_consistent(parsed, LOG_DEBUG);
+}
+
+TEST(experimental_consistent) {
+        /* Experimental types may be used by experimental fields (which then must be nullable if the symbol
+         * is not experimental), by experimental symbols, and anywhere in an experimental interface. */
+        ASSERT_OK(parse_and_check_consistent(
+                        "interface xyz.good\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Values (stable)\n"
+                        "# [Experimental]\n"
+                        "type ExpValues (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        ")\n"
+                        "type Stable (\n"
+                        "\tv: Values,\n"
+                        "\t# [Experimental]\n"
+                        "\tev: ?ExpValues,\n"
+                        "\t# [Experimental]\n"
+                        "\te: ?Exp,\n"
+                        "\t# [Experimental]\n"
+                        "\tanon: ?(x: Exp, y: []Exp)\n"
+                        ")\n"
+                        "# [Experimental]\n"
+                        "type AlsoExp (\n"
+                        "\te: Exp,\n"
+                        "\t# [Experimental]\n"
+                        "\tf: Exp,\n"
+                        "\tanon: (x: Exp)\n"
+                        ")\n"
+                        "# [Experimental]\n"
+                        "method ExpMethod(e: Exp) -> (e: [string]Exp)\n"
+                        "method StableMethod(\n"
+                        "\t# [Experimental]\n"
+                        "\te: ?Exp\n"
+                        ") -> (s: Stable)\n"
+                        "# [Experimental]\n"
+                        "error ExpError(e: Exp)\n"));
+
+        ASSERT_OK(parse_and_check_consistent(
+                        "# [Experimental]\n"
+                        "interface xyz.good\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (e: Exp)\n"
+                        "method StableMethod(e: Exp) -> (s: Stable)\n"));
+
+        /* Non-experimental fields must not refer to experimental types */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (e: ?Exp)\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a, b)\n"
+                        "method StableMethod() -> (e: ?[]Exp)\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "error StableError(e: ?Exp)\n"), EUCLEAN);
+
+        /* … not even from within an anonymous type */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (anon: ?(x: ?(y: ?Exp)))\n"), EUCLEAN);
+
+        /* Experimental fields of non-experimental symbols must be nullable */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Stable (\n"
+                        "\t# [Experimental]\n"
+                        "\te: int\n"
+                        ")\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "method StableMethod(\n"
+                        "\t# [Experimental]\n"
+                        "\te: []string\n"
+                        ") -> ()\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Stable (anon: ?(\n"
+                        "\t# [Experimental]\n"
+                        "\te: int\n"
+                        "))\n"), EUCLEAN);
+
+        /* Experimental enum values are not permitted in non-experimental enums */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Values (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        ")\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "method StableMethod() -> (v: (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        "))\n"), EUCLEAN);
+}
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
                 BadFlagsStructTest,
                 SD_VARLINK_SUPPORTS_MORE,
