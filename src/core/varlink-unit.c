@@ -921,7 +921,7 @@ typedef struct StartTransientContextParameters {
         TransientKillContextParameters kill;
         TransientServiceParameters service;
         TransientScopeParameters scope;
-        TransientCGroupContextParameters cgroup;
+        TransientCGroupContextParameters *cgroup;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
         const char *bad_kill_field;
         const char *bad_service_field;
@@ -938,6 +938,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
         transient_scope_parameters_done(&p->scope);
+        transient_cgroup_context_parameters_free(p->cgroup);
 }
 
 static void transient_exec_context_parameters_init(TransientExecContextParameters *p);
@@ -951,7 +952,6 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         transient_kill_context_parameters_init(&p->kill);
         transient_service_parameters_init(&p->service);
         transient_scope_parameters_init(&p->scope);
-        transient_cgroup_context_parameters_init(&p->cgroup);
 }
 
 typedef struct StartTransientParameters {
@@ -1146,7 +1146,6 @@ static int dispatch_transient_scope(const char *name, sd_json_variant *variant, 
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        p->cgroup.present = true;
         return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
 }
 
@@ -2405,13 +2404,13 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         }
 
         /* Apply cgroup properties from context.CGroup */
-        if (p.context.cgroup.present) {
+        if (p.context.cgroup) {
                 CGroupContext *cc = unit_get_cgroup_context(u);
                 if (!cc)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
                 bad_field = NULL;
-                r = transient_cgroup_context_apply_properties(u, cc, &p.context.cgroup, &bad_field);
+                r = transient_cgroup_context_apply_properties(u, cc, p.context.cgroup, &bad_field);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "CGroup");
                 if (r < 0)

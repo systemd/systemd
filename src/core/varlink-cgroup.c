@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "bpf-program.h"
 #include "cgroup.h"
 #include "json-util.h"
@@ -608,6 +609,70 @@ int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void
 /* Write side of the CGroup context for StartTransient: descriptor table like the Exec context in
  * varlink-unit.c, validation mirroring bus_cgroup_set_property() (dbus-cgroup.c). */
 
+/* Numeric fields carry a *_set flag to distinguish absent values from explicit zeroes;
+ * accounting bools are tristates (-1 = absent). Strings are borrowed from the JSON variant. */
+struct TransientCGroupContextParameters {
+        const char *slice;
+
+        bool cpu_weight_set;
+        uint64_t cpu_weight;
+        bool startup_cpu_weight_set;
+        uint64_t startup_cpu_weight;
+        bool cpu_quota_per_sec_usec_set;
+        uint64_t cpu_quota_per_sec_usec;
+        bool cpu_quota_period_usec_set;
+        uint64_t cpu_quota_period_usec;
+
+        int memory_accounting;
+        bool memory_min_set;
+        uint64_t memory_min;
+        bool memory_min_scale_set;
+        double memory_min_scale;
+        bool memory_low_set;
+        uint64_t memory_low;
+        bool memory_low_scale_set;
+        double memory_low_scale;
+        bool startup_memory_low_set;
+        uint64_t startup_memory_low;
+        bool memory_high_set;
+        uint64_t memory_high;
+        bool memory_high_scale_set;
+        double memory_high_scale;
+        bool startup_memory_high_set;
+        uint64_t startup_memory_high;
+        bool memory_max_set;
+        uint64_t memory_max;
+        bool memory_max_scale_set;
+        double memory_max_scale;
+        bool startup_memory_max_set;
+        uint64_t startup_memory_max;
+        bool memory_swap_max_set;
+        uint64_t memory_swap_max;
+        bool memory_swap_max_scale_set;
+        double memory_swap_max_scale;
+        bool startup_memory_swap_max_set;
+        uint64_t startup_memory_swap_max;
+        bool memory_zswap_max_set;
+        uint64_t memory_zswap_max;
+        bool memory_zswap_max_scale_set;
+        double memory_zswap_max_scale;
+        bool startup_memory_zswap_max_set;
+        uint64_t startup_memory_zswap_max;
+        int memory_zswap_writeback;
+
+        int tasks_accounting;
+        bool tasks_max_set;
+        CGroupTasksMax tasks_max;
+        bool tasks_max_scale_set;
+        double tasks_max_scale;
+
+        int io_accounting;
+        bool io_weight_set;
+        uint64_t io_weight;
+        bool startup_io_weight_set;
+        uint64_t startup_io_weight;
+};
+
 static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
         Unit *slice;
         int r;
@@ -1131,7 +1196,7 @@ static const TransientCGroupProperty cgroup_properties[] = {
 #undef CGROUP_PROPERTY_NUMERIC
 #undef CGROUP_PROPERTY_TRISTATE_BOOL
 
-void transient_cgroup_context_parameters_init(TransientCGroupContextParameters *p) {
+static void transient_cgroup_context_parameters_init(TransientCGroupContextParameters *p) {
         assert(p);
 
         *p = (TransientCGroupContextParameters) {};
@@ -1140,16 +1205,21 @@ void transient_cgroup_context_parameters_init(TransientCGroupContextParameters *
                         *(int*) ((uint8_t*) p + prop->parse_offset) = -1;
 }
 
+TransientCGroupContextParameters* transient_cgroup_context_parameters_free(TransientCGroupContextParameters *p) {
+        return mfree(p);
+}
+
 int transient_cgroup_context_dispatch(
                 sd_json_variant *variant,
-                TransientCGroupContextParameters *p,
+                TransientCGroupContextParameters **ret,
                 const char **reterr_field) {
 
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field cgroup_dispatch[ELEMENTSOF(cgroup_properties) + 1] = {};
         static bool cgroup_dispatch_set = false;
+        int r;
 
-        assert(p);
+        assert(ret);
 
         if (!cgroup_dispatch_set) {
                 FOREACH_ELEMENT(prop, cgroup_properties)
@@ -1165,7 +1235,18 @@ int transient_cgroup_context_dispatch(
                 cgroup_dispatch_set = true;
         }
 
-        return sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        _cleanup_free_ TransientCGroupContextParameters *p = new(TransientCGroupContextParameters, 1);
+        if (!p)
+                return -ENOMEM;
+
+        transient_cgroup_context_parameters_init(p);
+
+        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(p);
+        return r;
 }
 
 int transient_cgroup_context_apply_properties(
