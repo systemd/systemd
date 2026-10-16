@@ -2092,7 +2092,7 @@ static int maybe_decompress_payload(
                                 return 1;
                 }
 
-                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
+                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, data_threshold);
                 if (r < 0)
                         return r;
 
@@ -2111,6 +2111,9 @@ static int maybe_decompress_payload(
                                 *ret_size = 0;
                         return 0;
                 }
+
+                if (data_threshold > 0 && size > data_threshold)
+                        return -EFBIG;
 
                 if (ret_data)
                         *ret_data = payload;
