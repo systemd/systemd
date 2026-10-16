@@ -166,6 +166,38 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MethodTest,
                 &vl_error_ErrorTest);
 
+static SD_VARLINK_DEFINE_ENUM_TYPE_FULL(
+                ExperimentalEnumTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_ENUM_VALUE(foo),
+                SD_VARLINK_DEFINE_ENUM_VALUE_FULL(bar, SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                ExperimentalStructTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(y, SD_VARLINK_INT, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY|SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ExperimentalMethodTest,
+                SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(e, ExperimentalEnumTest, SD_VARLINK_NULLABLE|SD_VARLINK_EXPERIMENTAL),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(s, ExperimentalStructTest, SD_VARLINK_MAP|SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_ERROR_FULL(
+                ExperimentalErrorTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_STRING, SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_INTERFACE_FULL(
+                xyz_experimental,
+                "xyz.experimental",
+                SD_VARLINK_EXPERIMENTAL,
+                &vl_type_ExperimentalEnumTest,
+                &vl_type_ExperimentalStructTest,
+                &vl_method_ExperimentalMethodTest,
+                &vl_error_ExperimentalErrorTest);
+
 static void test_parse_format_one(const sd_varlink_interface *iface) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *text = NULL, *text2 = NULL;
@@ -247,6 +279,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_sysext,
                 &vl_interface_org_varlink_service,
                 &vl_interface_xyz_test,
+                &vl_interface_xyz_experimental,
         };
 
         bool sep = false;
@@ -256,6 +289,49 @@ TEST(parse_format) {
                 test_parse_format_one(*i);
                 sep = true;
         }
+}
+
+TEST(experimental) {
+        ASSERT_TRUE(FLAGS_SET(vl_interface_xyz_experimental.interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalStructTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_method_ExperimentalMethodTest.symbol_flags, SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_error_ExperimentalErrorTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_FALSE(FLAGS_SET(vl_type_ExperimentalEnumTest.fields[0].field_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.fields[1].field_flags, SD_VARLINK_EXPERIMENTAL));
+
+        ASSERT_OK(varlink_idl_consistent(&vl_interface_xyz_experimental, LOG_ERR));
+}
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                BadFlagsStructTest,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_INTERFACE(
+                xyz_bad_symbol_flags,
+                "xyz.badsymbolflags",
+                &vl_type_BadFlagsStructTest);
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                BadFlagsEnumTest,
+                SD_VARLINK_DEFINE_ENUM_VALUE_FULL(foo, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_INTERFACE(
+                xyz_bad_enum_value_flags,
+                "xyz.badenumvalueflags",
+                &vl_type_BadFlagsEnumTest);
+
+static SD_VARLINK_DEFINE_INTERFACE_FULL(
+                xyz_bad_interface_flags,
+                "xyz.badinterfaceflags",
+                1 << 0, /* not a valid interface flag */
+                &vl_type_ExperimentalEnumTest);
+
+TEST(invalid_flags) {
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_symbol_flags, LOG_DEBUG), EUCLEAN);
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_enum_value_flags, LOG_DEBUG), EUCLEAN);
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_interface_flags, LOG_DEBUG), EUCLEAN);
 }
 
 TEST(parse) {

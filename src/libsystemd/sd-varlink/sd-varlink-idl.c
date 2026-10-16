@@ -1567,13 +1567,13 @@ static int varlink_idl_field_consistent(
                 if (symbol->symbol_type != SD_VARLINK_ENUM_TYPE)
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field type for '%s' in non-enum symbol '%s', refusing.", field->name, symbol_name);
 
-                if (field->field_flags != 0)
-                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field '%s' in symbol '%s' has non-zero flags set, refusing.", field->name, symbol_name);
+                if ((field->field_flags & ~SD_VARLINK_EXPERIMENTAL) != 0)
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field '%s' in symbol '%s' has invalid flags set, refusing.", field->name, symbol_name);
         } else {
                 if (symbol->symbol_type == SD_VARLINK_ENUM_TYPE)
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Non-enum field type for '%s' in enum symbol '%s', refusing.", field->name, symbol_name);
 
-                if (!IN_SET(field->field_flags & ~SD_VARLINK_NULLABLE, 0, SD_VARLINK_ARRAY, SD_VARLINK_MAP))
+                if (!IN_SET(field->field_flags & ~(SD_VARLINK_NULLABLE|SD_VARLINK_EXPERIMENTAL), 0, SD_VARLINK_ARRAY, SD_VARLINK_MAP))
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of field '%s' in symbol '%s' is invalid, refusing.", field->name, symbol_name);
         }
 
@@ -1639,6 +1639,24 @@ static bool varlink_symbol_is_empty(const sd_varlink_symbol *symbol) {
         return symbol->fields[0].field_type == _SD_VARLINK_FIELD_TYPE_END_MARKER;
 }
 
+static sd_varlink_symbol_flags_t varlink_idl_symbol_flags_valid(sd_varlink_symbol_type_t type) {
+        switch (type) {
+
+        case SD_VARLINK_METHOD:
+                return SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE|
+                        SD_VARLINK_SUPPORTS_UPGRADE|SD_VARLINK_REQUIRES_UPGRADE|
+                        SD_VARLINK_EXPERIMENTAL;
+
+        case SD_VARLINK_ENUM_TYPE:
+        case SD_VARLINK_STRUCT_TYPE:
+        case SD_VARLINK_ERROR:
+                return SD_VARLINK_EXPERIMENTAL;
+
+        default:
+                return 0;
+        }
+}
+
 static int varlink_idl_symbol_consistent(
                 const sd_varlink_interface *interface,
                 const sd_varlink_symbol *symbol,
@@ -1655,6 +1673,9 @@ static int varlink_idl_symbol_consistent(
 
         if (symbol->symbol_type < 0 || symbol->symbol_type >= _SD_VARLINK_SYMBOL_TYPE_MAX)
                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol type for '%s' is not valid, refusing.", symbol_name);
+
+        if ((symbol->symbol_flags & ~varlink_idl_symbol_flags_valid(symbol->symbol_type)) != 0)
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of symbol '%s' are invalid, refusing.", symbol_name);
 
         if (IN_SET(symbol->symbol_type, SD_VARLINK_STRUCT_TYPE, SD_VARLINK_ENUM_TYPE) && varlink_symbol_is_empty(symbol))
                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol '%s' is empty, refusing.", symbol_name);
@@ -1698,6 +1719,9 @@ int varlink_idl_consistent(const sd_varlink_interface *interface, int level) {
 
         if (!varlink_idl_interface_name_is_valid(interface->name))
                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Interface name '%s' is not valid, refusing.", interface->name);
+
+        if ((interface->interface_flags & ~_SD_VARLINK_INTERFACE_FLAGS_ALL) != 0)
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of interface '%s' are invalid, refusing.", interface->name);
 
         for (const sd_varlink_symbol *const *symbol = interface->symbols; *symbol; symbol++) {
 
