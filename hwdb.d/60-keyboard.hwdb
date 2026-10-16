@@ -1727,6 +1727,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15HAIC1MG:*
  KEYBOARD_KEY_d7=bluetooth                              # Fn+F6 Bluetooth key
 
+# Keymaps for MSI Modern 15 B13M
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15B13M:*
+ KEYBOARD_KEY_c0=camera                                 # Fn+F6 Webcam toggle
+
 # MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM, MSI Claw A8 BZ2EM
 evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T41:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T42:*
