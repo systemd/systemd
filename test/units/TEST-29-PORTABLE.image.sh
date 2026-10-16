@@ -17,6 +17,16 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
+# Unprivileged users can inspect images by name, but not with extension images specified by path, because
+# inspecting loop-mounts the extension images as root.
+mkdir -p /run/portables
+cp /usr/share/minimal_0.raw /run/portables/minimal_8.raw
+runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                           GetImageMetadata sas minimal_8 0 >/dev/null
+(! runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                              GetImageMetadataWithExtensions sasast minimal_8 1 /tmp/app0.raw 0 0 >/dev/null)
+rm /run/portables/minimal_8.raw
+
 # The host refuses to attach an image whose signature it doesn't trust, so that the service doesn't only
 # fail when it starts. Inspecting the image still works. Without a signature, the same image is attached
 # and pinned to Verity alone.
