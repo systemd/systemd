@@ -1344,8 +1344,6 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
                 goto finish;
         }
 
-        sd_journal_set_data_threshold(j, 0);
-
         SD_JOURNAL_FOREACH(j) {
                 Object *o = NULL;
                 JournalFile *f;
