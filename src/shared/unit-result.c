@@ -61,18 +61,10 @@ int unit_result_show(const UnitResult *u, FILE *f, sd_json_format_flags_t json_f
         }
 
         if (u->exit_code > 0) {
-                r = table_add_cell(
+                r = table_add_many(
                                 t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD,
-                                "Main processes terminated with");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "code=%s, status=%i/%s",
+                                TABLE_FIELD, "Main processes terminated with",
+                                TABLE_STRINGF, "code=%s, status=%i/%s",
                                 strna(sigchld_code_to_string(u->exit_code)),
                                 u->exit_status,
                                 strna(u->exit_code == CLD_EXITED ?
@@ -110,17 +102,10 @@ int unit_result_show(const UnitResult *u, FILE *f, sd_json_format_flags_t json_f
                 else
                         swap = "";
 
-                r = table_add_cell(
+                r = table_add_many(
                                 t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "Memory peak");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s",
+                                TABLE_FIELD, "Memory peak",
+                                TABLE_STRINGF, "%s%s",
                                 FORMAT_BYTES(u->memory_peak), swap);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -133,17 +118,11 @@ int unit_result_show(const UnitResult *u, FILE *f, sd_json_format_flags_t json_f
                 ip_egress = strjoina("sent ", FORMAT_BYTES(u->ip_egress_bytes));
 
         if (ip_ingress || ip_egress) {
-                r = table_add_cell(
+                r = table_add_many(
                                 t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "IP Traffic");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s%s", strempty(ip_ingress), ip_ingress && ip_egress ? ", " : "", strempty(ip_egress));
+                                TABLE_FIELD, "IP Traffic",
+                                TABLE_STRINGF, "%s%s%s",
+                                strempty(ip_ingress), ip_ingress && ip_egress ? ", " : "", strempty(ip_egress));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -155,17 +134,11 @@ int unit_result_show(const UnitResult *u, FILE *f, sd_json_format_flags_t json_f
                 io_write = strjoina("written ", FORMAT_BYTES(u->io_write_bytes));
 
         if (io_read || io_write) {
-                r = table_add_cell(
+                r = table_add_many(
                                 t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "IO Bytes");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s%s", strempty(io_read), io_read && io_write ? ", " : "", strempty(io_write));
+                                TABLE_FIELD, "IO Bytes",
+                                TABLE_STRINGF, "%s%s%s",
+                                strempty(io_read), io_read && io_write ? ", " : "", strempty(io_write));
                 if (r < 0)
                         return table_log_add_error(r);
         }
