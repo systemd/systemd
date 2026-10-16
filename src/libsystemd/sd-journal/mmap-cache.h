@@ -16,6 +16,8 @@ typedef enum MMapCacheCategory {
         MMAP_CACHE_CATEGORY_FIELD_HASH_TABLE = OBJECT_FIELD_HASH_TABLE,
         MMAP_CACHE_CATEGORY_ENTRY_ARRAY      = OBJECT_ENTRY_ARRAY,
         MMAP_CACHE_CATEGORY_TAG              = OBJECT_TAG,
+        MMAP_CACHE_CATEGORY_CONTEXT          = OBJECT_CONTEXT,
+        MMAP_CACHE_CATEGORY_INDEX            = OBJECT_INDEX,
         MMAP_CACHE_CATEGORY_HEADER, /* for reading file header */
         MMAP_CACHE_CATEGORY_PIN,    /* for temporary pinning a object */
         _MMAP_CACHE_CATEGORY_MAX,
