@@ -3718,16 +3718,27 @@ int bus_exec_context_set_transient_property(
                                 exec_directory_done(d);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
+                                _cleanup_strv_free_ char **escaped = NULL;
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
                                         r = exec_directory_add(d, *source, /* symlink= */ NULL, /* flags= */ 0);
                                         if (r < 0)
                                                 return log_oom();
+
+                                        /* unit_concat_strv() quotes each path, so only tuple separators and
+                                         * double quotes need extra escaping before parsing it again. */
+                                        _cleanup_free_ char *source_escaped = xescape(*source, ":\"");
+                                        if (!source_escaped)
+                                                return log_oom();
+
+                                        r = strv_consume(&escaped, TAKE_PTR(source_escaped));
+                                        if (r < 0)
+                                                return log_oom();
                                 }
                                 exec_directory_sort(d);
 
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
+                                joined = unit_concat_strv(escaped, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
                                         return -ENOMEM;
 
@@ -4183,7 +4194,10 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+        } else if (STR_IN_SET(name,
+                              "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
+                              "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
+                const char *const escape_chars = ":\"' ";
                 char *source, *destination;
                 ExecDirectory *directory;
                 uint64_t symlink_flags;
@@ -4208,6 +4222,12 @@ int bus_exec_context_set_transient_property(
                         if (isempty(destination))
                                 destination = NULL;
                         else {
+                                /* Symlinks are not supported for ConfigurationDirectory=, matching what the
+                                 * unit file parser accepts. The flags field is still useful there, though. */
+                                if (i == EXEC_DIRECTORY_CONFIGURATION)
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                 "Symlink destination is not supported for %s=.",
+                                                                 exec_directory_type_to_string(i));
                                 if (!path_is_valid(destination))
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
                                 if (path_is_absolute(destination))
@@ -4223,24 +4243,29 @@ int bus_exec_context_set_transient_property(
                                 if (r < 0)
                                         return r;
 
-                                /* Need to store them in the unit with the escapes, so that they can be parsed again */
-                                source_escaped = xescape(source, ":");
+                                /* Escape tuple separators, quotes and whitespace so the unit file parser
+                                 * preserves each path when it splits the assignment into words and fields. */
+                                source_escaped = xescape(source, escape_chars);
                                 if (!source_escaped)
                                         return -ENOMEM;
                                 if (destination) {
-                                        destination_escaped = xescape(destination, ":");
+                                        destination_escaped = xescape(destination, escape_chars);
                                         if (!destination_escaped)
                                                 return -ENOMEM;
                                 }
 
+                                const char *flags_string = exec_directory_flags_to_string(symlink_flags);
+                                assert(flags_string); /* Validated before applying the property. */
+
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, exec_directory_type_to_string(i),
-                                                "%s=%s%s%s%s",
+                                                "%s=%s%s%s%s%s",
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
-                                                destination_escaped || FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":" : "",
-                                                destination_escaped,
-                                                FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
+                                                destination || !isempty(flags_string) ? ":" : "",
+                                                strempty(destination_escaped),
+                                                isempty(flags_string) ? "" : ":",
+                                                flags_string);
                         }
                 }
                 if (r < 0)
