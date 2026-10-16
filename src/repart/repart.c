@@ -6423,16 +6423,12 @@ static int iovec_roothash_from_uuid_pair(
         return 0;
 }
 
-static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data_uuid, sd_id128_t hash_uuid) {
-        _cleanup_(iovec_done) struct iovec roothash = {};
-        int r;
-
-        r = iovec_roothash_from_uuid_pair(data_uuid, hash_uuid, &roothash);
-        if (r < 0)
-                return NULL;
+static const VeritySettings *lookup_verity_settings_by_roothash(const struct iovec *roothash) {
+        assert(roothash);
+        assert(iovec_is_set(roothash));
 
         VeritySettings key = {
-                .root_hash = roothash,
+                .root_hash = *roothash,
         };
 
         return set_get(arg_verity_settings, &key);
@@ -6472,7 +6468,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         return log_error_errno(r, "Unable to derive roothash: %m");
         }
 
-        verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
+        verity_settings = lookup_verity_settings_by_roothash(&hp->roothash);
 
         if (!verity_settings) {
 #if HAVE_OPENSSL
@@ -6543,6 +6539,15 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
+static bool verity_roothash_pending(const Partition *rp, const Partition *hp) {
+        assert(rp);
+        assert(hp);
+
+        return !iovec_is_set(&hp->roothash) &&
+               ((!PARTITION_EXISTS(rp) && rp->copy_blocks_fd < 0) ||
+                (!PARTITION_EXISTS(hp) && hp->copy_blocks_fd < 0));
+}
+
 static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
         unsigned percent;
@@ -6608,8 +6613,22 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
-                        return partition_format_verity_sig(context, p);
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator)) {
+                        Partition *hp, *rp;
+
+                        assert_se(hp = p->siblings[VERITY_HASH]);
+                        assert_se(rp = p->siblings[VERITY_DATA]);
+
+                        /* The root hash is only available after new data/hash partitions are formatted. */
+                        if (verity_roothash_pending(rp, hp))
+                                continue;
+
+                        r = partition_format_verity_sig(context, p);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -7826,8 +7845,22 @@ static int context_mkfs(Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
-                        return partition_format_verity_sig(context, p);
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator)) {
+                        Partition *hp, *rp;
+
+                        assert_se(hp = p->siblings[VERITY_HASH]);
+                        assert_se(rp = p->siblings[VERITY_DATA]);
+
+                        /* The root hash is only available after new data/hash partitions are formatted. */
+                        if (verity_roothash_pending(rp, hp))
+                                continue;
+
+                        r = partition_format_verity_sig(context, p);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
 
                 /* Minimized partitions will use the copy blocks logic so skip those here. */
                 if (p->copy_blocks_fd >= 0)
