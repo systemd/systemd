@@ -3560,6 +3560,12 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
 #endif
 }
 
+static bool verity_device_exists(const char *name) {
+        assert(name);
+
+        return IN_SET(sym_crypt_status(/* cd= */ NULL, name), CRYPT_ACTIVE, CRYPT_BUSY);
+}
+
 static int do_crypt_activate_verity(
                 struct crypt_device *cd,
                 const char *root,
@@ -3595,17 +3601,9 @@ static int do_crypt_activate_verity(
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 
-                /* Let's mangle ENOKEY → EDESTADDRREQ, so that we return a clear, recognizable error if
-                 * there's a signature we don't recognize, that is distinct from the LUKS/encryption
-                 * -ENOKEY, which means "password required, but I have none". */
-                if (r == -ENOKEY)
-                        r = -EDESTADDRREQ;
-
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
 
-                /* Preferably propagate the original kernel error, so that the fallback logic can work,
-                 * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, root, flags);
                 if (k == -ENOMEM)
                         return k;
@@ -3615,9 +3613,15 @@ static int do_crypt_activate_verity(
                         log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace.");
 
                         /* If the policy allows "verity" as well as "signed", the signature is optional and
-                         * we activate the volume by its root hash. */
+                         * we activate the volume by its root hash. Otherwise we return -EDESTADDRREQ, the
+                         * error that callers recognize as a signature that no trusted key validates. We
+                         * never return libcryptsetup's -ENOKEY, because callers read -ENOKEY as "password
+                         * required, but I have none". libcryptsetup returns the same errors if the kernel
+                         * rejects the signature and if another process activates the same volume at the
+                         * same time. If another process activated the volume, the device exists. We then
+                         * return -EEXIST, so that verity_partition() checks whether it can use the device. */
                         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
-                                return r < 0 ? r : -EDESTADDRREQ;
+                                return verity_device_exists(name) ? -EEXIST : -EDESTADDRREQ;
 
                         log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
                         measure_signature = false;
