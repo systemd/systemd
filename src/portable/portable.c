@@ -2073,6 +2073,8 @@ int portable_attach(
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes,
+                PortableChange **detach_changes,
+                size_t *n_detach_changes,
                 sd_bus_error *error) {
 
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
@@ -2086,6 +2088,7 @@ int portable_attach(
         int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(!FLAGS_SET(flags, PORTABLE_REATTACH) || (detach_changes && n_detach_changes));
 
         r = portable_profile_validate(scope, profile, error);
         if (r < 0)
@@ -2169,6 +2172,23 @@ int portable_attach(
                         if (r > 0)
                                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
                 }
+
+        /* When reattaching, we only detach the image after the checks above. If attaching fails these
+         * checks, for example because the host doesn't trust the signature of an image, the image stays
+         * attached. */
+        if (FLAGS_SET(flags, PORTABLE_REATTACH)) {
+                r = portable_detach(
+                                scope,
+                                bus,
+                                name_or_path,
+                                extension_image_paths,
+                                flags,
+                                detach_changes,
+                                n_detach_changes,
+                                error);
+                if (r < 0)
+                        return r;
+        }
 
         HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(
@@ -2517,6 +2537,12 @@ int portable_detach(
                         log_debug_errno(r, "Failed to determine image path for '%s', ignoring: %m", item);
                         continue;
                 }
+
+                /* A reattach by image name can pick the copy that --copy=mixed made in the search path.
+                 * portable_attach() attaches that copy again after we return. We must not remove it here. */
+                if (FLAGS_SET(flags, PORTABLE_REATTACH) &&
+                    (path_equal(target, name_or_path) || path_strv_contains(extension_image_paths, target)))
+                        continue;
 
                 r = rm_rf(target, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_MISSING_OK | REMOVE_SYNCFS);
                 if (r < 0) {
