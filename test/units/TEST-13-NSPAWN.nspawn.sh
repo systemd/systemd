@@ -1689,4 +1689,69 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_ready_after_lockdown() {
+    # https://github.com/systemd/systemd/issues/43976
+    local root container_name unit_name leader capbnd
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ready-after-lockdown.XXX)"
+    create_dummy_container "$root"
+    container_name="$(basename "$root")"
+    unit_name="nspawn-ready-after-lockdown.service"
+    trap 'systemctl stop "$unit_name" || :; rm -fr "$root"' RETURN ERR
+
+    # systemd-run returns once nspawn sent READY=1, by then the leader must be fully locked down
+    systemd-run --unit="$unit_name" \
+                --service-type=notify \
+                systemd-nspawn --directory="$root" \
+                               --as-pid2 \
+                               --drop-capability=CAP_NET_RAW \
+                               sleep infinity
+    leader="$(machinectl show --property=Leader --value "$container_name")"
+
+    # CAP_NET_RAW is capability 13
+    capbnd="$(awk '/^CapBnd:/ { print $2 }' "/proc/$leader/status")"
+    (( (0x$capbnd & (1 << 13)) == 0 ))
+    if systemctl --version | grep -F -- "+SECCOMP" >/dev/null; then
+        grep -E '^Seccomp:\s+2$' "/proc/$leader/status" >/dev/null
+    fi
+}
+
+testcase_fully_visible_api_fs_gone_before_image_code() {
+    local root
+
+    if [[ "$IS_USERNS_SUPPORTED" == "no" ]]; then
+        echo "Skipping user namespace test..."
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fully-visible-api-fs.XXX)"
+    create_dummy_container "$root"
+    trap 'rm -fr "$root"' RETURN ERR
+
+    # nspawn resolves --uid= with the image's getent before dropping privileges, by then the fully
+    # visible procfs and sysfs instances must be gone
+    cat >"$root/bin/getent" <<\EOF
+#!/usr/bin/env bash
+
+: >/getent-ran
+if [[ -e /run/host/proc || -e /run/host/sys ]]; then
+    : >/fully-visible-api-fs
+fi
+
+if [[ $1 == passwd ]]; then
+    echo "testuser:x:1000:1000:testuser:/:/bin/sh"
+elif [[ $1 == initgroups ]]; then
+    echo "testuser"
+fi
+EOF
+    chmod +x "$root/bin/getent"
+    useradd --root="$root" --uid 1000 --user-group --create-home testuser
+
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --uid=testuser \
+                   bash -xec '[[ -e /getent-ran && ! -e /fully-visible-api-fs ]]'
+}
+
 run_testcases
