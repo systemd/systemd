@@ -290,8 +290,6 @@ static int workload_load_journal(Workload *w) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", arg_input);
 
-        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
-
         if (arg_entries > 0) {
                 ASSERT_OK(sd_journal_seek_tail(j));
                 r = sd_journal_previous_skip(j, arg_entries);
@@ -1172,8 +1170,6 @@ static int read_test_once(ReadContext *c, read_test_t func, usec_t *ret_usec, ui
         r = sd_journal_open_directory(&j, c->path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", c->path);
-
-        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
 
         r = func(c, j);
         if (r < 0)
