@@ -40,6 +40,11 @@ test ! -e /run/systemd/system.attached/minimal-app0.service
 rm /run/portables/minimal_9.roothash.p7s
 portablectl "${ARGS[@]}" attach --runtime /run/portables/minimal_9.raw minimal-app0
 grep -F 'root=verity+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+# A reattach that is refused because of the signature leaves the image attached.
+cp /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
+(! portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_9.raw minimal-app0)
+test -e /run/systemd/system.attached/minimal-app0.service
+rm /run/portables/minimal_9.roothash.p7s
 portablectl detach --runtime /run/portables/minimal_9.raw minimal-app0
 rm /run/portables/minimal_9.*
 
