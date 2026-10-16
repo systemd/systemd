@@ -46,6 +46,7 @@ at_exit() {
     set +e
 
     rm -f /tmp/app1.verity /tmp/app1.roothash /tmp/app1.roothash.p7s
+    rm -rf /tmp/untrusted/user /etc/polkit-1/rules.d/test-29-untrusted.rules
     loginctl disable-linger testuser
 }
 
@@ -74,6 +75,35 @@ runas_user() {
 
 # Start the user portable daemon
 systemctl_user start dbus-org.freedesktop.portable1.service
+
+: "Test that an image whose signature the host doesn't trust is refused when attaching"
+
+# mountfsd only uses its policy for trusted images on an image outside of the trusted directories if polkit
+# allows the client to mount untrusted images. Allow it for testuser, so that only the pinned policy
+# requires the signature.
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/test-29-untrusted.rules <<'POLKIT'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately" &&
+            subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+systemctl try-reload-or-restart polkit.service
+mkdir -p /tmp/untrusted/user
+cp /tmp/untrusted/minimal_9.raw /tmp/untrusted/minimal_9.verity /tmp/untrusted/minimal_9.roothash \
+   /tmp/untrusted/minimal_9.roothash.p7s /tmp/untrusted/user/
+chmod -R a+rX /tmp/untrusted
+(! portablectl_user "${ARGS[@]}" attach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0 2>/tmp/untrusted/attach.err)
+grep -F "doesn't trust the signature" /tmp/untrusted/attach.err >/dev/null
+test ! -e /run/user/4711/systemd/user.attached/minimal-app0.service
+rm /tmp/untrusted/user/minimal_9.roothash.p7s
+portablectl_user "${ARGS[@]}" attach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0
+grep -F 'root=verity+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+portablectl_user detach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0
+rm -rf /tmp/untrusted/user /etc/polkit-1/rules.d/test-29-untrusted.rules
+systemctl try-reload-or-restart polkit.service
 
 : "Test basic attach, reattach and detach for user portable services"
 
