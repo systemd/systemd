@@ -22,6 +22,7 @@ hwdb_files_test = files(
         '40-imds.hwdb',
         '60-autosuspend.hwdb',
         '60-autosuspend-fingerprint-reader.hwdb',
+        '60-block.hwdb',
         '60-evdev.hwdb',
         '60-input-id.hwdb',
         '60-keyboard.hwdb',
