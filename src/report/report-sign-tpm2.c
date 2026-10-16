@@ -757,7 +757,10 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cv = NULL;
         FOREACH_ARRAY(c, report->components, report->n_components) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *pcr_values = NULL, *nv_public = NULL, *tpm_prop = NULL,
-                        *auth_policy = NULL;
+                        *auth_policy = NULL, *key_public = NULL;
+                _cleanup_free_ char *key_public_pem = NULL;
+                _cleanup_free_ void *key_public_tpm2b = NULL;
+                size_t key_public_tpm2b_size = 0;
                 const char *session_audit_hash_alg = NULL;
 
                 switch (c->type) {
@@ -787,6 +790,29 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                         if (r < 0)
                                 return log_error_errno(r, "Cannot convert NvPCR public area to JSON: %m");
                         break;
+
+                case TPM2_REPORT_TYPE_KEY_CERTIFICATION: {
+                        /* The public area of a certified key is provided in three encodings: as TSS2 JSON
+                         * (like the signing key), as PEM (for verifying the certification with generic
+                         * tools), and as marshalled TPM2B_PUBLIC (which is what systemd-cryptenroll and
+                         * systemd-repart consume via --tpm2-device-key= when sealing secrets to the key). */
+                        r = tpm2_tpmt_public_to_json(c->key_public, &key_public);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert certified key public area to JSON: %m");
+
+                        r = tpm2_tpmt_public_to_pem(c->key_public, &key_public_pem);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert certified key public area to PEM: %m");
+
+                        TPM2B_PUBLIC public2b = {
+                                .size = sizeof(TPMT_PUBLIC),
+                                .publicArea = *c->key_public,
+                        };
+                        r = tpm2_marshal_public(&public2b, &key_public_tpm2b, &key_public_tpm2b_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot marshal certified key public area: %m");
+                        break;
+                }
 
                 case TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY:
                         r = tpm2_tpms_tagged_property_to_json(c->property, &tpm_prop);
@@ -838,11 +864,15 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("nvpcrName", c->nv_pcr_name),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("nvPublic", nv_public),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("authenticatedData", c->authenticated_data),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("keyPublic", key_public),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("keyPublicPEM", key_public_pem),
+                                JSON_BUILD_PAIR_BASE64_NON_EMPTY("keyPublicTPM2B", key_public_tpm2b, key_public_tpm2b_size),
                                 JSON_BUILD_PAIR_CONDITION_BOOLEAN(
                                                 IN_SET(c->type, TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY, TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY),
                                                 "capabilityMoreData", c->more_caps),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("tpmProperty", tpm_prop),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("authPolicy", auth_policy),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("sessionAuditHashAlg", session_audit_hash_alg),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("attestInfo", attest_info),
                                 JSON_BUILD_PAIR_VARIANT_NON_NULL("signature", sig),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("signaturePEM", sig_pem));
@@ -857,6 +887,61 @@ static int build_report(sd_json_variant **v, const Tpm2Report *report, const str
                         SD_JSON_BUILD_PAIR_STRING("publicKeyPEM", pubkey_pem),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(voucher), "voucher", JSON_BUILD_IOVEC_BASE64(voucher)),
                         SD_JSON_BUILD_PAIR_VARIANT("components", cv));
+}
+
+static bool srk_usable_for_certification(const TPM2B_PUBLIC *public) {
+        int r;
+
+        assert(public);
+
+        /* Whatever object sits at the SRK handle gets certified, and the certification is advertised as
+         * proof that secrets sealed to the key can only be unsealed by this TPM. Hence insist on the
+         * attributes of a non-duplicable storage key generated inside the TPM, which our own SRK templates
+         * set, and on the key being usable with plain password sessions: sealing to it needs the USER
+         * role (userWithAuth), TPM2_Certify authorizes the certified object in the ADMIN role, which only
+         * accepts a password if adminWithPolicy is clear. */
+        static const TPMA_OBJECT required =
+                TPMA_OBJECT_FIXEDTPM |
+                TPMA_OBJECT_FIXEDPARENT |
+                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                TPMA_OBJECT_USERWITHAUTH |
+                TPMA_OBJECT_RESTRICTED |
+                TPMA_OBJECT_DECRYPT;
+        static const TPMA_OBJECT forbidden =
+                TPMA_OBJECT_ADMINWITHPOLICY;
+
+        if ((public->publicArea.objectAttributes & required) != required ||
+            (public->publicArea.objectAttributes & forbidden) != 0) {
+                log_notice("SRK lacks the attributes of a password-authorized, non-duplicable storage key (0x%08" PRIx32 "), not certifying it in the report.",
+                           public->publicArea.objectAttributes);
+                return false;
+        }
+
+        /* The report needs the key's name and its public area in three encodings. Make sure up front that
+         * we can produce them, so that a pre-existing SRK we cannot handle (e.g. with a nameAlg other than
+         * SHA256, or an unusual symmetric algorithm) doesn't fail the whole report. */
+        TPM2B_NAME name;
+        r = tpm2_calculate_pubkey_name(&public->publicArea, &name);
+        if (r < 0) {
+                log_notice_errno(r, "Cannot calculate name of SRK, not certifying it in the report: %m");
+                return false;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = tpm2_tpmt_public_to_json(&public->publicArea, &v);
+        if (r < 0) {
+                log_notice_errno(r, "Cannot encode SRK public area as JSON, not certifying it in the report: %m");
+                return false;
+        }
+
+        _cleanup_free_ char *pem = NULL;
+        r = tpm2_tpmt_public_to_pem(&public->publicArea, &pem);
+        if (r < 0) {
+                log_notice_errno(r, "Cannot encode SRK public area as PEM, not certifying it in the report: %m");
+                return false;
+        }
+
+        return true;
 }
 
 static int vl_method_sign(
@@ -929,6 +1014,34 @@ static int vl_method_sign(
         if (r < 0)
                 return log_error_errno(r, "Failed to load any signing keys: %m");
 
+        /* Also certify the SRK with each signing key, and include its public area in the report. Secrets
+         * sealed to a certified SRK (e.g. via the --tpm2-device-key= switch of systemd-cryptenroll or
+         * systemd-repart) can only be unsealed by this TPM, hence a verifier of the report can use it to
+         * encrypt data for this system specifically. As TPM2_Clear replaces the SRK, the certification is
+         * also evidence that the TPM has not been cleared since the report was generated, as long as the
+         * SRK stays the same. If there is no SRK yet we create one, like systemd-cryptenroll does, which
+         * requires the owner hierarchy authorization to be empty. The report remains useful without the
+         * certification, hence failure to acquire a usable SRK is not fatal, and as we serve a single
+         * request per process it is not worth more than a notice either. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *srk_public = NULL;
+        r = tpm2_get_or_create_srk(
+                        c,
+                        /* session= */ NULL,
+                        &srk_public,
+                        /* ret_name= */ NULL,
+                        /* ret_qname= */ NULL,
+                        &srk_handle);
+        if (r < 0)
+                log_notice_errno(r, "Failed to acquire SRK, not certifying it in the report: %m");
+        else {
+                if (r > 0)
+                        log_debug("Created and persisted a new SRK.");
+
+                if (!srk_usable_for_certification(srk_public))
+                        srk_handle = tpm2_handle_free(srk_handle);
+        }
+
         /* Generate a signed TPM report for each signing key. */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dv = NULL;
         FOREACH_ARRAY(key, keys, n_keys) {
@@ -938,7 +1051,14 @@ static int vl_method_sign(
                         return log_error_errno(r, "Failed to acquire a signing key handle for key '%s': %m", key->name);
 
                 _cleanup_(tpm2_report_freep) Tpm2Report *report = NULL;
-                r = tpm2_generate_report(c, &opts, key_handle, &external_data, &report);
+                r = tpm2_generate_report(
+                                c,
+                                &opts,
+                                key_handle,
+                                srk_handle,
+                                srk_handle ? &srk_public->publicArea : NULL,
+                                &external_data,
+                                &report);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate TPM report with key '%s': %m", key->name);
 
