@@ -113,6 +113,7 @@ TYPES = {
 # Patterns that are used to set general properties on a device
 GENERAL_MATCHES = {
     'acpi',
+    'block',
     'bluetooth',
     'dmi',
     'ieee1394',
@@ -187,6 +188,10 @@ def property_grammar():
         ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
         ('ID_AV_PRODUCTION_CONTROLLER', zero_one),
         ('ID_AV_LIGHTS', zero_one),
+        (
+            'ID_BLOCK_IO_TIMEOUT_MS',
+            Or((INTEGER.copy().addCondition(lambda t: 0 < int(t[0]) < 2**32), Literal('max'))),
+        ),
         ('ID_DEBUG_APPLIANCE', name_literal),
         ('ID_PERSIST', zero_one),
         ('ID_PDA', zero_one),
