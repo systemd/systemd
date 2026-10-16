@@ -395,6 +395,16 @@ static int unit_active_state_build_json(const MetricFamily *mf, sd_varlink *vl, 
                                 /* fields= */ NULL);
                 if (r < 0)
                         return r;
+
+                /* UnitSubState is the next table entry, it has no generator of its own */
+                r = metric_build_send_string(
+                                mf + 1,
+                                vl,
+                                unit->id,
+                                unit_sub_state_to_string(unit),
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -678,6 +688,11 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Per unit metric: active state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = unit_active_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitSubState",
+                .description = "Per unit metric: type-specific sub state",
+                .type = METRIC_FAMILY_TYPE_STRING,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitLoadState",
