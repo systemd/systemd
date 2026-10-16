@@ -23,6 +23,7 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "seccomp-util.h"
 #include "securebits-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -1028,6 +1029,13 @@ typedef struct TransientSetCredential {
         struct iovec value;
 } TransientSetCredential;
 
+typedef struct TransientBindPath {
+        const char *source;
+        const char *destination;
+        bool ignore_enoent;
+        bool recursive;
+} TransientBindPath;
+
 struct TransientExecContextParameters {
         bool working_directory_set;
         TransientWorkingDirectory working_directory;
@@ -1042,10 +1050,24 @@ struct TransientExecContextParameters {
         TransientSetCredential *set_credentials_encrypted;
         size_t n_set_credentials_encrypted;
 
+        /* The path strings point into the request variant. */
+        bool bind_paths_set;
+        TransientBindPath *bind_paths;
+        size_t n_bind_paths;
+
+        bool bind_read_only_paths_set;
+        TransientBindPath *bind_read_only_paths;
+        size_t n_bind_read_only_paths;
+
         const char *user;
         const char *group;
         char **supplementary_groups;
+        bool capability_bounding_set_set;
+        uint64_t capability_bounding_set;
         char **log_extra_fields;
+        bool syscall_filter_set;
+        bool syscall_filter_allow_list;
+        char **syscall_filter;
         bool io_uring_filter_set;
         bool io_uring_filter_allow_list;
         char **io_uring_filter;
@@ -1126,7 +1148,10 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
         strv_free(p->environment);
         strv_free(p->supplementary_groups);
         strv_free(p->log_extra_fields);
+        strv_free(p->syscall_filter);
         strv_free(p->io_uring_filter);
+        free(p->bind_paths);
+        free(p->bind_read_only_paths);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
         free(p->bad_field);
@@ -1272,6 +1297,167 @@ static int dispatch_transient_set_credential_array(
         return 0;
 }
 
+/* An array of { source, destination, ignoreEnoent, options }, the shape the runtime context emits. The only
+ * options are "rbind" and "norbind". The default is "rbind", as in the unit file syntax. */
+static int dispatch_transient_bind_path_array(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                TransientBindPath **ret_items,
+                size_t *ret_n,
+                char **reterr_bad_field) {
+
+        typedef struct BindPathParameters {
+                const char *source;
+                const char *destination;
+                bool ignore_enoent;
+                char **options;
+        } BindPathParameters;
+
+        static const sd_json_dispatch_field item_dispatch[] = {
+                { "source",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(BindPathParameters, source),        SD_JSON_MANDATORY },
+                { "destination",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(BindPathParameters, destination),   SD_JSON_MANDATORY },
+                { "ignoreEnoent", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(BindPathParameters, ignore_enoent), SD_JSON_NULLABLE  },
+                { "options",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,         offsetof(BindPathParameters, options),       SD_JSON_NULLABLE  },
+                {}
+        };
+
+        _cleanup_free_ TransientBindPath *items = NULL;
+        size_t n_items;
+        int r;
+
+        assert(ret_items);
+        assert(ret_n);
+
+        n_items = sd_json_variant_elements(variant);
+        if (n_items == 0) {
+                *ret_items = NULL;
+                *ret_n = 0;
+                return 0;
+        }
+
+        items = new0(TransientBindPath, n_items);
+        if (!items)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n_items; i++) {
+                _cleanup_strv_free_ char **options = NULL;
+                BindPathParameters q = {};
+                const char *bad_field = NULL;
+                bool recursive = true;
+
+                r = sd_json_dispatch_full(sd_json_variant_by_index(variant, i), item_dispatch,
+                                          /* bad= */ NULL, /* flags= */ 0, &q, &bad_field);
+                options = q.options; /* Take ownership first, a failed dispatch might have set it already */
+                if (r < 0) {
+                        if (bad_field)
+                                varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, reterr_bad_field);
+                        return r;
+                }
+
+                if (!path_is_absolute(q.source)) {
+                        varlink_propagate_bad_field("source", /* child_bad_field= */ NULL, reterr_bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: source path is not absolute: %s", name, q.source);
+                }
+                if (!path_is_absolute(q.destination)) {
+                        varlink_propagate_bad_field("destination", /* child_bad_field= */ NULL, reterr_bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: destination path is not absolute: %s", name, q.destination);
+                }
+
+                STRV_FOREACH(o, options)
+                        if (streq(*o, "rbind"))
+                                recursive = true;
+                        else if (streq(*o, "norbind"))
+                                recursive = false;
+                        else {
+                                varlink_propagate_bad_field("options", /* child_bad_field= */ NULL, reterr_bad_field);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s: unknown bind mount option: %s", name, *o);
+                        }
+
+                items[i] = (TransientBindPath) {
+                        .source = q.source,
+                        .destination = q.destination,
+                        .ignore_enoent = q.ignore_enoent,
+                        .recursive = recursive,
+                };
+        }
+
+        *ret_n = n_items;
+        *ret_items = TAKE_PTR(items);
+        return 0;
+}
+
+/* An array of capability names, the shape the runtime context emits. Each element is parsed on its own, so
+ * that one element cannot carry a whitespace-separated list. */
+static int dispatch_transient_capability_set(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *ret = ASSERT_PTR(userdata), set = 0;
+        sd_json_variant *e;
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                int cap;
+
+                if (!sd_json_variant_is_string(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                cap = capability_from_name(sd_json_variant_string(e));
+                if (cap < 0)
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "JSON field '%s' contains an unknown capability: %s", strna(name), sd_json_variant_string(e));
+
+                set |= UINT64_C(1) << cap;
+        }
+
+        *ret = set;
+        return 0;
+}
+
+#if HAVE_SECCOMP
+static int dispatch_transient_syscall_filter(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch[] = {
+                { "isAllowList", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientExecContextParameters, syscall_filter_allow_list), SD_JSON_MANDATORY },
+                { "systemCalls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(TransientExecContextParameters, syscall_filter),            SD_JSON_MANDATORY },
+                {}
+        };
+
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        const char *bad_field = NULL;
+        int r;
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+                return r;
+        }
+
+        /* A deny list entry may carry an errno ("name:errno"), an allow list entry may not. */
+        STRV_FOREACH(s, p->syscall_filter) {
+                _cleanup_free_ char *n = NULL;
+                int e;
+
+                r = parse_syscall_and_errno(*s, &n, &e);
+                if (r >= 0 && p->syscall_filter_allow_list && e >= 0)
+                        r = -EINVAL;
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        varlink_propagate_bad_field("systemCalls", /* child_bad_field= */ NULL, &p->bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "SystemCallFilter: invalid system call entry: %s", *s);
+                }
+        }
+
+        p->syscall_filter_set = true;
+        return 0;
+}
+#endif
+
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output,    ExecOutput,    exec_output_from_string_harder);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input,     ExecInput,     exec_input_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
@@ -1288,6 +1474,9 @@ static DEFINE_DISPATCH_EXEC_SETTABLE(oom_score_adjust,          sd_json_dispatch
 static DEFINE_DISPATCH_EXEC_SETTABLE(umask,                     sd_json_dispatch_uint32);
 static DEFINE_DISPATCH_EXEC_SETTABLE(set_credentials,           dispatch_transient_set_credential_array, &p->n_set_credentials, &p->bad_field);
 static DEFINE_DISPATCH_EXEC_SETTABLE(set_credentials_encrypted, dispatch_transient_set_credential_array, &p->n_set_credentials_encrypted, &p->bad_field);
+static DEFINE_DISPATCH_EXEC_SETTABLE(bind_paths,                dispatch_transient_bind_path_array, &p->n_bind_paths, &p->bad_field);
+static DEFINE_DISPATCH_EXEC_SETTABLE(bind_read_only_paths,      dispatch_transient_bind_path_array, &p->n_bind_read_only_paths, &p->bad_field);
+static DEFINE_DISPATCH_EXEC_SETTABLE(capability_bounding_set,   dispatch_transient_capability_set);
 
 static int transient_apply_set_credentials(
                 Unit *u,
@@ -1479,6 +1668,166 @@ static int apply_exec_io_uring_filter(Unit *u, ExecContext *c, TransientExecCont
 
         unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "IOUringFilter", "IOUringFilter=\nIOUringFilter=%s%s",
                             p->io_uring_filter_allow_list ? "" : "~", joined);
+        return 0;
+}
+
+#if HAVE_SECCOMP
+/* Mirrors the D-Bus SystemCallFilter= logic: an allow list is seeded with @default. */
+static int apply_exec_syscall_filter(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(p);
+
+        if (!p->syscall_filter_set)
+                return 0;
+
+        /* Like in unit files and on D-Bus, an empty list resets the setting. */
+        if (strv_isempty(p->syscall_filter)) {
+                c->syscall_allow_list = false;
+                c->syscall_filter = hashmap_free(c->syscall_filter);
+
+                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "SystemCallFilter", "SystemCallFilter=");
+                return 0;
+        }
+
+        if (!c->syscall_filter) {
+                c->syscall_filter = hashmap_new(/* hash_ops= */ NULL);
+                if (!c->syscall_filter)
+                        return -ENOMEM;
+
+                c->syscall_allow_list = p->syscall_filter_allow_list;
+
+                if (c->syscall_allow_list) {
+                        r = seccomp_parse_syscall_filter(
+                                        "@default",
+                                        /* errno_num= */ -1,
+                                        c->syscall_filter,
+                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_ALLOW_LIST,
+                                        u->id,
+                                        /* filename= */ NULL, /* line= */ 0);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        STRV_FOREACH(s, p->syscall_filter) {
+                _cleanup_free_ char *n = NULL;
+                int e;
+
+                r = parse_syscall_and_errno(*s, &n, &e);
+                if (r < 0)
+                        return r;
+
+                r = seccomp_parse_syscall_filter(
+                                n,
+                                e,
+                                c->syscall_filter,
+                                SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
+                                (p->syscall_filter_allow_list ? 0 : SECCOMP_PARSE_INVERT)|
+                                (c->syscall_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
+                                u->id,
+                                /* filename= */ NULL, /* line= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        joined = strv_join(p->syscall_filter, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SystemCallFilter", "SystemCallFilter=%s%s",
+                            p->syscall_filter_allow_list ? "" : "~", joined);
+        return 0;
+}
+#endif
+
+/* Mirrors the D-Bus BindPaths=/BindReadOnlyPaths= logic: bind_mount_add() copies the strings, and each
+ * entry is one line in unit file syntax. */
+static int transient_apply_bind_paths(
+                Unit *u,
+                ExecContext *c,
+                const char *name,
+                const TransientBindPath *items,
+                size_t n_items,
+                bool read_only) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(name);
+
+        FOREACH_ARRAY(item, items, n_items) {
+                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                   &(BindMount) {
+                                           .source = (char*) item->source,
+                                           .destination = (char*) item->destination,
+                                           .read_only = read_only,
+                                           .recursive = item->recursive,
+                                           .ignore_enoent = item->ignore_enoent,
+                                   });
+                if (r < 0)
+                        return r;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, name,
+                                    "%s=%s%s:%s:%s",
+                                    name,
+                                    item->ignore_enoent ? "-" : "",
+                                    item->source,
+                                    item->destination,
+                                    item->recursive ? "rbind" : "norbind");
+        }
+
+        return 0;
+}
+
+static int apply_exec_bind_paths(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(u);
+        assert(c);
+        assert(p);
+
+        /* Like in unit files and on D-Bus, an empty list resets the bind mounts of both kinds. Do that
+         * here, before the entries of either property are added, so that the result does not depend on
+         * which of the two properties has the empty list. */
+        if ((p->bind_paths_set && p->n_bind_paths == 0) ||
+            (p->bind_read_only_paths_set && p->n_bind_read_only_paths == 0)) {
+                bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+                c->bind_mounts = NULL;
+                c->n_bind_mounts = 0;
+
+                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "BindPaths", "BindPaths=");
+        }
+
+        return transient_apply_bind_paths(u, c, "BindPaths", p->bind_paths, p->n_bind_paths, /* read_only= */ false);
+}
+
+static int apply_exec_bind_read_only_paths(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(p);
+
+        return transient_apply_bind_paths(u, c, "BindReadOnlyPaths", p->bind_read_only_paths, p->n_bind_read_only_paths, /* read_only= */ true);
+}
+
+static int apply_exec_capability_bounding_set(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(p);
+
+        if (!p->capability_bounding_set_set)
+                return 0;
+
+        r = capability_set_to_string(p->capability_bounding_set, &s);
+        if (r < 0)
+                return r;
+
+        c->capability_bounding_set = p->capability_bounding_set;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CapabilityBoundingSet", "CapabilityBoundingSet=%s", s);
         return 0;
 }
 
@@ -1675,11 +2024,14 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_STRING       ("RootHashPath",           root_hash_path),
         EXEC_PROPERTY_STRING       ("RootHashSignaturePath",  root_hash_sig_path),
         EXEC_PROPERTY_STRING       ("RootVerity",             root_verity),
+        EXEC_PROPERTY_SETTABLE     ("BindPaths",              bind_paths,                SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE     ("BindReadOnlyPaths",      bind_read_only_paths,      SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_USER_GROUP   ("User",                   user),
         EXEC_PROPERTY_USER_GROUP   ("Group",                  group),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
         EXEC_PROPERTY_STRV         ("SupplementaryGroups",    supplementary_groups),
         EXEC_PROPERTY_FILENAME     ("PAMName",                pam_name),
+        EXEC_PROPERTY_SETTABLE     ("CapabilityBoundingSet",  capability_bounding_set,   SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
         EXEC_PROPERTY_SETTABLE     ("UMask",                  umask,                     SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_SETTABLE     ("OOMScoreAdjust",         oom_score_adjust,          SD_JSON_VARIANT_INTEGER),
@@ -1698,6 +2050,9 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
+#if HAVE_SECCOMP
+        EXEC_PROPERTY              ("SystemCallFilter",       syscall_filter,            SD_JSON_VARIANT_OBJECT),
+#endif
         EXEC_PROPERTY              ("IOUringFilter",          io_uring_filter,           SD_JSON_VARIANT_OBJECT),
         EXEC_PROPERTY_SETTABLE     ("Environment",            environment,               SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
