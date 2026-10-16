@@ -60,8 +60,11 @@
       <option>unprotected</option>).</para></listitem>
 
       <listitem><para><option>signed</option> for partitions that shall exist and be used, with Verity
-      authentication, which are also accompanied by a PKCS#7 signature of the Verity root
-      hash.</para></listitem>
+      authentication, which are also accompanied by a PKCS#7 signature of the Verity root hash. The signature
+      must be valid for a key in the kernel keyring or a certificate in <filename>/etc/verity.d/</filename>
+      (and related directories). If <option>verity</option> is set as well, a partition with a missing or
+      invalid signature is set up with Verity authentication alone. To require a valid signature, set
+      <option>signed</option> without <option>verity</option>.</para></listitem>
 
       <listitem><para><option>encrypted</option> for partitions which shall exist and be used and are
       encrypted with LUKS.</para></listitem>
