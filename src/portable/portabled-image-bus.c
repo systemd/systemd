@@ -406,6 +406,8 @@ int bus_image_common_attach(
                         flags,
                         &changes,
                         &n_changes,
+                        /* detach_changes= */ NULL,
+                        /* n_detach_changes= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -723,23 +725,6 @@ int bus_image_common_reattach(
         if (r == 0) /* Will call us back */
                 return 1;
 
-        /* portable_attach() checks this too, but by then the image is detached already. */
-        r = portable_profile_validate(m->runtime_scope, profile, error);
-        if (r < 0)
-                return r;
-
-        r = portable_detach(
-                        m->runtime_scope,
-                        sd_bus_message_get_bus(message),
-                        image->path,
-                        extension_images,
-                        flags,
-                        &changes_detached,
-                        &n_changes_detached,
-                        error);
-        if (r < 0)
-                return r;
-
         r = portable_attach(
                         m->runtime_scope,
                         sd_bus_message_get_bus(message),
@@ -751,6 +736,8 @@ int bus_image_common_reattach(
                         flags,
                         &changes_attached,
                         &n_changes_attached,
+                        &changes_detached,
+                        &n_changes_detached,
                         error);
         if (r < 0)
                 return r;
