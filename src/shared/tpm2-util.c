@@ -100,6 +100,7 @@ int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
 }
 
 #if HAVE_TPM2
+static DLSYM_PROTOTYPE(Esys_Certify) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextLoad) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextSave) = NULL;
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
@@ -187,6 +188,7 @@ static int dlopen_tpm2_esys(int log_level) {
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
+                        DLSYM_ARG(Esys_Certify),
                         DLSYM_ARG(Esys_ContextLoad),
                         DLSYM_ARG(Esys_ContextSave),
                         DLSYM_ARG(Esys_Create),
@@ -10927,6 +10929,8 @@ static const char* tpm2_st_attest_to_string(TPMI_ST_ATTEST attest) {
                 return "ATTEST_SESSION_AUDIT";
         case TPM2_ST_ATTEST_QUOTE:
                 return "ATTEST_QUOTE";
+        case TPM2_ST_ATTEST_CERTIFY:
+                return "ATTEST_CERTIFY";
         default:
                 log_debug("Unknown attestation type 0x%" PRIx16, attest);
                 return NULL;
@@ -11039,6 +11043,12 @@ static int tpm2_tpms_attest_to_json(const TPMS_ATTEST *attest, sd_json_variant *
                                 SD_JSON_BUILD_PAIR_HEX("pcrDigest", attest->attested.quote.pcrDigest.buffer, attest->attested.quote.pcrDigest.size));
                 break;
         }
+        case TPM2_ST_ATTEST_CERTIFY:
+                r = sd_json_buildo(
+                                &av,
+                                SD_JSON_BUILD_PAIR_HEX("name", attest->attested.certify.name.name, attest->attested.certify.name.size),
+                                SD_JSON_BUILD_PAIR_HEX("qualifiedName", attest->attested.certify.qualifiedName.name, attest->attested.certify.qualifiedName.size));
+                break;
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unknown attestation type id 0x%" PRIx16, attest->type);
@@ -11212,9 +11222,57 @@ static int tpm2_tpmt_asym_scheme_to_json(const TPMT_ASYM_SCHEME *scheme, sd_json
         return 0;
 }
 
+/* Convert the symmetric parameters of an asymmetric object to JSON, in a format compatible with the TCG
+ * TSS2 JSON data format, and which is compatible with the TSS2 implementation. Signing keys carry no
+ * symmetric algorithm, storage keys (such as the SRK) carry AES in CFB mode. The TSS2 JSON format spells
+ * algorithm names in upper case (though it parses them case-insensitively), our string tables in lower
+ * case, hence convert. */
+static int tpm2_tpmt_sym_def_object_to_json(const TPMT_SYM_DEF_OBJECT *symmetric, sd_json_variant **ret) {
+        int r;
+
+        assert(symmetric);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        if (symmetric->algorithm == TPM2_ALG_NULL) {
+                r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL"));
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(v);
+                return 0;
+        }
+
+        const char *a = tpm2_sym_alg_to_string(symmetric->algorithm);
+        if (!a)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric algorithm 0x%" PRIx16, symmetric->algorithm);
+
+        const char *m = tpm2_sym_mode_to_string(symmetric->mode.sym);
+        if (!m)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric mode 0x%" PRIx16, symmetric->mode.sym);
+
+        _cleanup_free_ char *alg = strdup(a), *mode = strdup(m);
+        if (!alg || !mode)
+                return log_oom_debug();
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("algorithm", ascii_strupper(alg)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", symmetric->keyBits.sym),
+                        SD_JSON_BUILD_PAIR_STRING("mode", ascii_strupper(mode)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 /* Convert a TPM public key to JSON, in a format compatible with the TCG TSS2 JSON data format, and which
- * is compatible with the TSS2 implementation. This only supports restricted asymmetric signing keys with
- * the signing scheme RSASSA, RSAPSS or ECDSA.
+ * is compatible with the TSS2 implementation. This only supports asymmetric keys with the signing scheme
+ * RSASSA, RSAPSS, ECDSA or no scheme at all, i.e. restricted signing keys and storage keys.
  *
  * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
@@ -11227,13 +11285,10 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unsupported object type 0x%" PRIx16, public->type);
 
-        /* We're currently only serializing restricted signing keys which never have a symmetric algorithm,
-         * so to avoid implementing the JSON encoding for this, just reject anything with a symmetric
-         * algorithm. */
-        if (public->parameters.asymDetail.symmetric.algorithm != TPM2_ALG_NULL)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unsupported object symmetric algorithm 0x%" PRIx16,
-                                       public->parameters.asymDetail.symmetric.algorithm);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *symv = NULL;
+        r = tpm2_tpmt_sym_def_object_to_json(&public->parameters.asymDetail.symmetric, &symv);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
         r = tpm2_tpmt_asym_scheme_to_json(&public->parameters.asymDetail.scheme, &sv);
@@ -11246,8 +11301,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
         case TPM2_ALG_RSA:
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", public->parameters.rsaDetail.keyBits),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("exponent", public->parameters.rsaDetail.exponent));
@@ -11262,8 +11316,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
 
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_STRING("curveID", tpm2_ecc_curve_to_string(public->parameters.eccDetail.curveID)),
                                 SD_JSON_BUILD_PAIR_OBJECT("kdf",
@@ -11578,6 +11631,71 @@ int tpm2_nv_certify(
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to obtain TPM attestation for NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_certify_info) {
+                _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
+                if (!certify_info_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(certify_info->attestationData, certify_info->size, certify_info_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_certify_info = TAKE_PTR(certify_info_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
+int tpm2_certify(
+                Tpm2Context *c,
+                const Tpm2Handle *object_session,
+                const Tpm2Handle *sign_session,
+                const Tpm2Handle *audit_session,
+                const Tpm2Handle *object,
+                const Tpm2Handle *sign_key,
+                const TPM2B_DATA *qualifying_data,
+                TPMS_ATTEST **ret_certify_info,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(object);
+
+        /* Certifies that the object is loaded into the TPM, by signing its name with the specified signing
+         * key, via TPM2_Certify. This proves to a verifier of the signature that the object (typically a
+         * storage key such as the SRK) resides in the same TPM as the signing key (typically an attestation
+         * key). Without a signing key the TPM returns the attestation unsigned, which is still useful inside
+         * an audit session. */
+
+        log_debug("Fetching TPM attestation for object.");
+
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_Certify(
+                        c->esys_context,
+                        object->esys_handle,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_RH_NULL,
+                        object_session ? object_session->esys_handle : ESYS_TR_PASSWORD,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        &certify_info,
+                        ret_signature ? &signature : NULL);
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to obtain TPM attestation for object: audit session required exclusivity");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM attestation for object: %s", sym_Tss2_RC_Decode(rc));
 
         if (ret_certify_info) {
                 _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
