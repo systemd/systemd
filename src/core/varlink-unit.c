@@ -681,7 +681,6 @@ static ExecOutput exec_output_from_string_harder(const char *s) {
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string_harder);
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
 
 typedef struct TransientWorkingDirectory {
@@ -768,27 +767,13 @@ static void transient_exec_context_parameters_done(TransientExecContextParameter
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
 }
 
-typedef struct TransientKillContextParameters {
-        bool present;
-        KillMode kill_mode;  /* negative = absent */
-        int send_sighup;     /* tristate: -1 = absent */
-} TransientKillContextParameters;
-
-static void transient_kill_context_parameters_init(TransientKillContextParameters *p) {
-        assert(p);
-        *p = (TransientKillContextParameters) {
-                .kill_mode = _KILL_MODE_INVALID,
-                .send_sighup = -1,
-        };
-}
-
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
         CollectMode collect_mode;
         char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters exec;
-        TransientKillContextParameters kill;
+        TransientKillContextParameters *kill;
         TransientServiceParameters *service;
         TransientScopeParameters *scope;
         TransientCGroupContextParameters *cgroup;
@@ -808,6 +793,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_free(p->service);
         transient_scope_parameters_free(p->scope);
+        transient_kill_context_parameters_free(p->kill);
         transient_cgroup_context_parameters_free(p->cgroup);
 }
 
@@ -819,7 +805,6 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
                 .collect_mode = _COLLECT_MODE_INVALID,
         };
         transient_exec_context_parameters_init(&p->exec);
-        transient_kill_context_parameters_init(&p->kill);
 }
 
 typedef struct StartTransientParameters {
@@ -945,18 +930,6 @@ static int dispatch_transient_set_credential_encrypted(const char *name, sd_json
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
-static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field kill_dispatch[] = {
-                { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   0 },
-                { "SendSIGHUP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(TransientKillContextParameters, send_sighup), 0 },
-                {}
-        };
-
-        StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        p->kill.present = true;
-        return sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->kill, &p->bad_kill_field);
-}
-
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
@@ -987,6 +960,11 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
 static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         return transient_scope_dispatch(variant, &p->scope, &p->bad_scope_field);
+}
+
+static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        return transient_kill_context_dispatch(variant, &p->kill, &p->bad_kill_field);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1089,24 +1067,6 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                                 return -ENOMEM;
                         unit_write_settingf(u, UNIT_RUNTIME, label, "%s=%s", dep_type_name, *dep);
                 }
-        }
-
-        return 0;
-}
-
-static int transient_kill_context_apply_properties(Unit *u, KillContext *k, TransientKillContextParameters *p) {
-        assert(u);
-        assert(k);
-        assert(p);
-
-        if (p->kill_mode >= 0) {
-                k->kill_mode = p->kill_mode;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "KillMode", "KillMode=%s", kill_mode_to_string(p->kill_mode));
-        }
-
-        if (p->send_sighup >= 0) {
-                k->send_sighup = p->send_sighup;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SendSIGHUP", "SendSIGHUP=%s", yes_no(p->send_sighup));
         }
 
         return 0;
@@ -1978,12 +1938,12 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         /* Apply context.Kill only when a Kill object was actually sent, on unit types that have a kill
          * context. */
-        if (p.context.kill.present) {
+        if (p.context.kill) {
                 KillContext *k = unit_get_kill_context(u);
                 if (!k)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
-                r = transient_kill_context_apply_properties(u, k, &p.context.kill);
+                r = transient_kill_context_apply_properties(u, k, p.context.kill);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }
