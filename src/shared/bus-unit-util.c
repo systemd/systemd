@@ -3340,3 +3340,13 @@ ExecDirectoryFlags exec_directory_flags_from_string(const char *s) {
 
         return _EXEC_DIRECTORY_FLAGS_INVALID;
 }
+
+const char* exec_directory_flags_to_string(uint64_t flags) {
+        if (flags == 0)
+                return "";
+
+        if (flags == EXEC_DIRECTORY_READ_ONLY)
+                return "ro";
+
+        return NULL;
+}
