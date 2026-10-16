@@ -465,6 +465,16 @@ TEST(parse) {
 
         assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
+        parsed = sd_varlink_interface_free(parsed);
+
+        /* Named types referenced from within anonymous types must be resolved too */
+        ASSERT_OK(sd_varlink_idl_parse("interface quu.waa\n"
+                                       "type Foo (a: int)\n"
+                                       "type Bar (b: ?(c: Foo, d: (e: []Foo)))\n"
+                                       "method Baz(f: (g: Foo)) -> ()\n", NULL, NULL, &parsed));
+        test_parse_format_one(parsed);
+        ASSERT_ERROR(sd_varlink_idl_parse("interface quu.waa\n"
+                                          "type Bar (b: (c: Foo))\n", NULL, NULL, NULL), ENETUNREACH); /* unresolved nested type */
 
         assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
                                        "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */

@@ -1197,11 +1197,23 @@ static int varlink_idl_subparse_struct_or_enum(
 }
 
 static int varlink_idl_resolve_symbol_types(sd_varlink_interface *interface, sd_varlink_symbol *symbol) {
+        int r;
+
         assert(interface);
         assert(symbol);
 
         for (sd_varlink_field *field = symbol->fields; field->field_type != _SD_VARLINK_FIELD_TYPE_END_MARKER; field++) {
                 const sd_varlink_symbol *found;
+
+                if (IN_SET(field->field_type, SD_VARLINK_STRUCT, SD_VARLINK_ENUM)) {
+                        /* Anonymous types are owned by the field, and may refer to named types too. See
+                         * comment in varlink_interface_free() regarding the casting away of `const`. */
+                        r = varlink_idl_resolve_symbol_types(interface, (sd_varlink_symbol*) ASSERT_PTR(field->symbol));
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
 
                 if (field->field_type != SD_VARLINK_NAMED_TYPE)
                         continue;
