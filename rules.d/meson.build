@@ -24,6 +24,7 @@ rules = [
                '60-persistent-v4l.rules',
                '60-sensor.rules',
                '60-serial.rules',
+               '61-block-hwdb.rules',
                '65-integration.rules',
                '70-camera.rules',
                '70-joystick.rules',
