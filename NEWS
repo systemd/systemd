@@ -72,6 +72,16 @@ CHANGES WITH 263 in spe:
           this is mostly useful where the value of PCR 11 in the initrd is
           predictable.
 
+        Changes in libsystemd:
+
+        * sd-varlink-idl.h gained SD_VARLINK_EXPERIMENTAL, which may be used
+          to mark Varlink interfaces, methods, errors, types, fields and enum
+          values as experimental, together with _FULL variants of the
+          definition macros that take flags. The marker is informational
+          only, calls are not refused. Experimental items are shown with a
+          "# [Experimental]" comment line in the interface description, which
+          sd_varlink_idl_parse() turns back into the flag.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
