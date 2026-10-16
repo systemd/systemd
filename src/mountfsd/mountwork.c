@@ -574,23 +574,30 @@ static int vl_method_mount_image(
                                 use_trusted_policy,
                                 p.image_policy,
                                 &use_policy);
-                if (r < 0)
+                if (r == -ENAVAIL)
+                        /* The client's image policy and our own one have nothing in common, so no image
+                         * satisfies both. We handle this like a refusal by the image policy, so that we ask
+                         * polkit whether the client may use the policy for trusted images instead. */
+                        r = log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                            "Client image policy doesn't overlap with our image policy.");
+                else if (r < 0)
                         return r;
+                else {
+                        r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                        if (r < 0)
+                                return r;
 
-                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
-                if (r < 0)
-                        return r;
+                        log_debug("Using image policy: %s", ps);
 
-                log_debug("Using image policy: %s", ps);
-
-                r = dissect_loop_device(
-                                loop,
-                                &verity,
-                                p.options,
-                                use_policy,
-                                /* image_filter= */ NULL,
-                                dissect_flags,
-                                &di);
+                        r = dissect_loop_device(
+                                        loop,
+                                        &verity,
+                                        p.options,
+                                        use_policy,
+                                        /* image_filter= */ NULL,
+                                        dissect_flags,
+                                        &di);
+                }
                 if (r == -ENOPKG)
                         return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
@@ -659,6 +666,10 @@ static int vl_method_mount_image(
                                 use_trusted_policy,
                                 p.image_policy,
                                 &use_policy);
+                if (r == -ENAVAIL)
+                        /* After polkit allowed the client to mount untrusted images, the client's image
+                         * policy might not overlap with our policy for trusted images. */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
                 if (r < 0)
                         return r;
 

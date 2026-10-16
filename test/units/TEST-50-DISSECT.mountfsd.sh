@@ -260,6 +260,12 @@ systemctl try-reload-or-restart polkit.service
 systemd-run -M testuser@ --user --pipe --wait \
     --property RootImage=/var/tmp/test-50-badsig.gpt \
     true
+# A client policy that doesn't overlap with the policy for untrusted images is handled like a refusal by the
+# image policy, so polkit is asked too.
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    --property RootImagePolicy=root=verity:=unused+absent \
+    true
 rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
 systemctl try-reload-or-restart polkit.service
 
