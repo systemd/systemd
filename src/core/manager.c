@@ -1902,6 +1902,8 @@ static void manager_coldplug(Manager *m) {
                 if (r < 0)
                         log_warning_errno(r, "We couldn't coldplug %s, proceeding anyway: %m", u->id);
         }
+
+        varlink_job_flush_stashed_clients(m);
 }
 
 static void manager_catchup(Manager *m) {
