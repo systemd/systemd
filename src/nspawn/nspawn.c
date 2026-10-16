@@ -3399,8 +3399,12 @@ static int inner_child(
                         return r;
         }
 
-        /* Wait until we are cgroup-ified, so that we can mount the right cgroup path writable */
-        if (!barrier_place_and_sync(barrier)) /* #4 */
+        /* Tell the parent that our procfs and sysfs are mounted. */
+        (void) barrier_place(barrier); /* #4 */
+
+        /* Wait until we are cgroup-ified, so that we can mount the right cgroup path writable, and until the
+         * fully visible procfs and sysfs are gone, before we run any code from the image. */
+        if (!barrier_place_and_sync(barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
                                        "Parent died too early");
 
@@ -3619,10 +3623,7 @@ static int inner_child(
         if (!env_use)
                 return log_oom();
 
-        /* Tell the parent that we are fully set up and locked down. */
-        (void) barrier_place(barrier); /* #5 */
-
-        /* Wait until the parent removed the fully visible API file systems. */
+        /* Tell the parent that we are fully set up and locked down, and wait until it finished its setup. */
         if (!barrier_place_and_sync(barrier)) /* #6 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
 
@@ -4403,8 +4404,9 @@ static int outer_child(
                         /* In order to mount procfs and sysfs in an unprivileged container the kernel
                          * requires that a fully visible instance is already present in the target mount
                          * namespace. Mount one here so the inner child can mount its own instances. Later
-                         * we umount the temporary instances created here before we actually exec the
-                         * payload. Since the rootfs is shared the umount will propagate into the container.
+                         * we umount the temporary instances created here before the inner child runs any
+                         * code from the image. Since the rootfs is shared the umount will propagate into the
+                         * container.
                          * Note, the inner child wouldn't be able to unmount the instances on its own since
                          * it doesn't own the originating mount namespace. IOW, the outer child needs to do
                          * this. */
@@ -5709,9 +5711,21 @@ static int run_container(
                         return r;
         }
 
+        /* Wait until the child mounted its own procfs and sysfs, and take the fully visible instances away
+         * before the child runs any code from the image. */
+        if (!barrier_place_and_sync(&barrier)) /* #4 */
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
+
+        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
+                r = wipe_fully_visible_api_fs(mntns_fd);
+                if (r < 0)
+                        return r;
+                mntns_fd = safe_close(mntns_fd);
+        }
+
         /* Notify the child that the parent is ready with all its setup (including cgroup-ification), and
          * that the child can now hand over control to the code to run inside the container. */
-        (void) barrier_place(&barrier); /* #4 */
+        (void) barrier_place(&barrier); /* #5 */
 
         /* Block SIGCHLD here, before notifying child.
          * process_pty() will handle it with the other signals. */
@@ -5744,21 +5758,9 @@ static int run_container(
         if (r < 0)
                 return r;
 
-        /* Wait until the child is fully set up and locked down before we take the fully visible API file
-         * systems away and report readiness. barrier_sync() alone would return on the child's #4. */
-        if (!barrier_place_and_sync(&barrier)) /* #5 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
-
-        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
-                r = wipe_fully_visible_api_fs(mntns_fd);
-                if (r < 0)
-                        return r;
-                mntns_fd = safe_close(mntns_fd);
-        }
-
-        /* And now let the child know that we completed removing the procfs instances, and it can start the
-         * payload. */
-        if (!barrier_place(&barrier)) /* #6 */
+        /* Let the child start the payload, and wait until it is locked down before we report readiness.
+         * barrier_sync() alone would return on the child's #5. */
+        if (!barrier_place_and_sync(&barrier)) /* #6 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service

@@ -1669,6 +1669,7 @@ testcase_ready_after_lockdown() {
     create_dummy_container "$root"
     container_name="$(basename "$root")"
     unit_name="nspawn-ready-after-lockdown.service"
+    trap 'systemctl stop "$unit_name" || :; rm -fr "$root"' RETURN ERR
 
     # systemd-run returns once nspawn sent READY=1, by then the leader must be fully locked down
     systemd-run --unit="$unit_name" \
@@ -1685,9 +1686,44 @@ testcase_ready_after_lockdown() {
     if systemctl --version | grep -F -- "+SECCOMP" >/dev/null; then
         grep -E '^Seccomp:\s+2$' "/proc/$leader/status" >/dev/null
     fi
+}
 
-    systemctl stop "$unit_name"
-    rm -fr "$root"
+testcase_fully_visible_api_fs_gone_before_image_code() {
+    local root
+
+    if [[ "$IS_USERNS_SUPPORTED" == "no" ]]; then
+        echo "Skipping user namespace test..."
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fully-visible-api-fs.XXX)"
+    create_dummy_container "$root"
+    trap 'rm -fr "$root"' RETURN ERR
+
+    # nspawn resolves --uid= with the image's getent before dropping privileges, by then the fully
+    # visible procfs and sysfs instances must be gone
+    cat >"$root/bin/getent" <<\EOF
+#!/usr/bin/env bash
+
+: >/getent-ran
+if [[ -e /run/host/proc || -e /run/host/sys ]]; then
+    : >/fully-visible-api-fs
+fi
+
+if [[ $1 == passwd ]]; then
+    echo "testuser:x:1000:1000:testuser:/:/bin/sh"
+elif [[ $1 == initgroups ]]; then
+    echo "testuser"
+fi
+EOF
+    chmod +x "$root/bin/getent"
+    useradd --root="$root" --uid 1000 --user-group --create-home testuser
+
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --uid=testuser \
+                   bash -xec '[[ -e /getent-ran && ! -e /fully-visible-api-fs ]]'
 }
 
 run_testcases
