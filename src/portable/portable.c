@@ -633,7 +633,9 @@ static int portable_extract_by_path(
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                        r = mountfsd_mount_image_fd(
+                        /* Callers only ask for a pinned policy when attaching an image. In that case mountfsd
+                         * sets up Verity with the pinned policy, like we do below in system scope. */
+                        r = mountfsd_mount_image_fd_full(
                                         /* vl= */ NULL,
                                         rfd,
                                         userns_fd,
@@ -641,9 +643,9 @@ static int portable_extract_by_path(
                                         image_policy,
                                         &verity,
                                         flags,
-                                        &m);
-                        if (r < 0)
-                                return r;
+                                        /* pin_image_policy= */ !!ret_pinned_image_policy,
+                                        &m,
+                                        ret_pinned_image_policy ? &pinned_image_policy : NULL);
                 } else {
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
 
@@ -686,18 +688,38 @@ static int portable_extract_by_path(
                         r = dissected_image_guess_verity_roothash(m, &verity);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to guess verity roothash for '%s': %m", path);
+
+                        /* Callers only ask for a pinned policy when attaching an image. In that case we set
+                         * up Verity with the pinned policy, so that we refuse to attach an image whose
+                         * signature the host doesn't trust, instead of failing when the service starts. We
+                         * also read the metadata through Verity this way. We don't set up Verity when only
+                         * inspecting an image, so that the admin can still inspect an image whose signature
+                         * the host doesn't trust. */
+                        if (ret_pinned_image_policy) {
+                                pinned_image_policy = image_policy_new_from_dissected(m, &verity);
+                                if (!pinned_image_policy)
+                                        return -ENOMEM;
+
+                                r = dissected_image_decrypt(
+                                                m,
+                                                /* root= */ NULL,
+                                                /* passphrase= */ NULL,
+                                                &verity,
+                                                pinned_image_policy,
+                                                flags);
+                        }
                 }
+                if (r == -EDESTADDRREQ)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The host doesn't trust the signature of image '%s'.", path);
+                else if (r == -ERFKILL)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image '%s' is not permitted by the image policy.", path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set up image '%s': %m", path);
 
                 if (!m->image_name) {
                         r = dissected_image_name_from_path(path, &m->image_name);
                         if (r < 0)
                                 return r;
-                }
-
-                if (ret_pinned_image_policy) {
-                        pinned_image_policy = image_policy_new_from_dissected(m, &verity);
-                        if (!pinned_image_policy)
-                                return -ENOMEM;
                 }
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
@@ -911,7 +933,7 @@ static int extract_image_and_extensions(
                         image_policy,
                         &os_release,
                         &unit_files,
-                        &pinned_root_image_policy,
+                        ret_pinned_root_image_policy ? &pinned_root_image_policy : NULL,
                         error);
         if (r < 0)
                 return r;
@@ -986,7 +1008,7 @@ static int extract_image_and_extensions(
                                 image_policy,
                                 &extension_release_meta,
                                 &extra_unit_files,
-                                &policy,
+                                ret_pinned_ext_image_policy ? &policy : NULL,
                                 error);
                 if (r < 0)
                         return r;
