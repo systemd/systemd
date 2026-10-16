@@ -142,7 +142,13 @@ TEST(transient_directory_roundtrip) {
                                                              valid_flags && type != EXEC_DIRECTORY_CONFIGURATION ? 1 : -EINVAL);
                         }
                 }
-
+                FOREACH_STRING(path, "private", "private/nested") {
+                        test_transient_directory_one(bus, manager, type, path,
+                                                     /* destination= */ NULL, /* tuple= */ true,
+                                                     EXEC_DIRECTORY_READ_ONLY, -EINVAL);
+                        test_transient_directory_one(bus, manager, type, "source", path,
+                                                     /* tuple= */ true, EXEC_DIRECTORY_READ_ONLY, -EINVAL);
+                }
         }
 }
 
@@ -187,6 +193,36 @@ TEST(executor_directory_roundtrip) {
                         assert_directory(&parsed.directories[type], *path,
                                          type == EXEC_DIRECTORY_CONFIGURATION ? NULL : *path,
                                          EXEC_DIRECTORY_READ_ONLY);
+        }
+}
+
+TEST(fragment_private_destination) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(unit_freep) Unit *unit = NULL;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &manager);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
+        ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
+
+        for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
+                /* This type rejects any destination before checking the reserved prefix. */
+                if (type == EXEC_DIRECTORY_CONFIGURATION)
+                        continue;
+
+                FOREACH_STRING(value, "source:private", "source:private/nested") {
+                        _cleanup_(exec_directory_done) ExecDirectory directory = {};
+
+                        ASSERT_OK(config_parse_exec_directories(
+                                          "test.service", "test.conf", 1, "Service", 1,
+                                          exec_directory_type_to_string(type), 0, value, &directory, unit));
+                        ASSERT_EQ(directory.n_items, 0U);
+                }
         }
 }
 
