@@ -269,11 +269,16 @@ int main(int argc, char *argv[]) {
                 max_iterations = -1;
         }
 
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         run_test(verification_key, max_iterations);
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test(verification_key, max_iterations);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        run_test(verification_key, max_iterations);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
 
         /* If we're running without any arguments and journal sealing support is enabled,
          * check the journal verification stuff with a valid key as well */
@@ -285,6 +290,10 @@ int main(int argc, char *argv[]) {
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
+
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+                run_test(verification_key, max_iterations);
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         }
 
         test_hash_chain_cycle();

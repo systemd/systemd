@@ -6,6 +6,7 @@
 #include "sd-journal.h"
 
 #include "journal-file-util.h"
+#include "journal-segmented.h"
 #include "journal-test-util.h"
 #include "journal-verify.h"
 #include "mmap-cache.h"
@@ -78,6 +79,7 @@ TEST(append_and_read) {
         model_assert_file(g, &model);
 
         model_append_generated(f, &model, 301);
+        journal_test_refresh(g);
         model_assert_file(g, &model);
         g = journal_file_close(g);
 
@@ -134,11 +136,13 @@ TEST(sync_and_archive) {
 
                 if (i % 500 == 0) {
                         model_assert_file(f, &model);
+                        journal_test_refresh(follower);
                         model_assert_file(follower, &model);
                 }
         }
 
         model_assert_file(f, &model);
+        journal_test_refresh(follower);
         model_assert_file(follower, &model);
 
         /* Before and after a sync */
@@ -181,7 +185,8 @@ TEST(sync_and_archive) {
         model_assert_file(g, &model);
         g = journal_file_close(g);
 
-        /* The follower kept the file open throughout */
+        /* The follower kept the file open throughout. Normally inotify triggers its refresh. */
+        journal_test_refresh(follower);
         ASSERT_EQ(follower->header->state, STATE_ARCHIVED);
         model_assert_file(follower, &model);
         follower = journal_file_close(follower);
@@ -270,6 +275,7 @@ TEST(read_deleted) {
         /* A reader can still read a file that was deleted, including entries appended since */
         model_append_generated(f, &model, 1);
         ASSERT_OK_ERRNO(unlink("test.journal"));
+        journal_test_refresh(follower);
         model_assert_file(follower, &model);
 
         follower = journal_file_close(follower);
@@ -298,6 +304,8 @@ TEST(enumerate_live) {
 
         /* Enumeration finds fields that were appended since */
         model_append(f, NULL, MODEL_REALTIME_BASE + 10, 5010, MODEL_BOOT_A, STRV_MAKE("NEWFIELD=1"));
+        /* sd-journal refreshes segmented files at most every SEGMENTED_REFRESH_USEC */
+        usleep_safe(2 * SEGMENTED_REFRESH_USEC);
 
         SD_JOURNAL_FOREACH_FIELD(j, name)
                 found = found || streq(name, "NEWFIELD");
@@ -327,6 +335,8 @@ TEST(seek_tail_live) {
 
         /* Seeking finds entries that were appended since, even without sd_journal_process() */
         model_append_generated(f, &model, 1);
+        /* sd-journal refreshes segmented files at most every SEGMENTED_REFRESH_USEC */
+        usleep_safe(2 * SEGMENTED_REFRESH_USEC);
 
         ASSERT_OK(sd_journal_seek_tail(j));
         ASSERT_OK_POSITIVE(sd_journal_previous(j));
@@ -336,4 +346,44 @@ TEST(seek_tail_live) {
         f = journal_file_offline_close(f);
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+TEST(seqnum_id) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        sd_id128_t a, b;
+        JournalFile *f, *g;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_id128_randomize(&a));
+        ASSERT_OK(sd_id128_randomize(&b));
+
+        /* Without a sequence number ID a new file uses its file ID */
+        f = journal_test_open(m, "a.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        ASSERT_EQ_ID128(f->header->seqnum_id, f->header->file_id);
+
+        /* journal_file_open_full() writes the ID that it gets to the header of the new file, and ignores the
+         * ID of the template */
+        ASSERT_OK(journal_file_open_full(
+                                  /* fd= */ -EBADF,
+                                  "b.journal",
+                                  O_RDWR|O_CREAT,
+                                  JOURNAL_COMPRESS,
+                                  0644,
+                                  /* compress_threshold_bytes= */ UINT64_MAX,
+                                  /* metrics= */ NULL,
+                                  m,
+                                  /* template= */ f,
+                                  &a,
+                                  &g));
+        ASSERT_EQ_ID128(g->header->seqnum_id, a);
+
+        /* The file that replaces a rotated file gets the ID passed to the rotation */
+        ASSERT_OK(journal_file_rotate(&g, m, JOURNAL_COMPRESS, /* compress_threshold_bytes= */ UINT64_MAX, &b, /* deferred_closes= */ NULL));
+        ASSERT_EQ_ID128(g->header->seqnum_id, b);
+
+        g = journal_file_offline_close(g);
+        f = journal_file_offline_close(f);
+}
+
+DEFINE_JOURNAL_TEST_MAIN(LOG_INFO);
