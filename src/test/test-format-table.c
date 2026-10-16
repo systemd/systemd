@@ -1043,6 +1043,111 @@ TEST(vertical) {
         ASSERT_TRUE(sd_json_variant_equal(a, b));
 }
 
+TEST(string_non_empty) {
+        _cleanup_(table_unrefp) Table *t = ASSERT_NOT_NULL(table_new_vertical());
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_FIELD, "empty1", TABLE_STRING_NON_EMPTY, "",
+                                 TABLE_FIELD, "null1", TABLE_STRING_NON_EMPTY, NULL,
+                                 TABLE_FIELD, "size1", TABLE_SIZE, UINT64_C(1024),
+                                 TABLE_FIELD, "empty2", TABLE_STRING_NON_EMPTY, "",
+                                 TABLE_FIELD, "null2", TABLE_STRING_NON_EMPTY, NULL,
+                                 TABLE_FIELD, "size2", TABLE_SIZE, UINT64_C(2048)));
+
+        _cleanup_free_ char *formatted = NULL;
+        ASSERT_OK(table_format(t, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "size1: 1K\n"
+                     "size2: 2K\n");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_OK(sd_json_buildo(&b,
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size1", 1024),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size2", 2048)));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+}
+
+TEST(stringf) {
+        _cleanup_(table_unrefp) Table *t = ASSERT_NOT_NULL(table_new_vertical());
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_FIELD, "format1", TABLE_STRINGF, "%i %s %i", 42, "foo", 123,
+                                 TABLE_FIELD, "format2", TABLE_STRINGF, "fixed string",
+                                 TABLE_FIELD, "size1", TABLE_SIZE, UINT64_C(1024),
+                                 TABLE_FIELD, "format3", TABLE_STRINGF_WITH_ANSI, "%s%s%s%s", ANSI_HIGHLIGHT_RED, "red", ANSI_HIGHLIGHT_GREEN, "green",
+                                 TABLE_FIELD, "format4", TABLE_STRINGF_WITH_ANSI, "fixed string",
+                                 TABLE_FIELD, "size2", TABLE_SIZE, UINT64_C(2048)));
+
+
+        unsigned saved_columns = columns();
+        _cleanup_free_ char *saved_term = NULL, *saved_color = NULL;
+        const char *e;
+
+        e = getenv("TERM");
+        if (e)
+                ASSERT_NOT_NULL((saved_term = strdup(e)));
+        e = getenv("SYSTEMD_COLORS");
+        if (e)
+                ASSERT_NOT_NULL((saved_color = strdup(e)));
+
+        ASSERT_OK_ERRNO(setenv("COLUMNS", "200", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "24bit", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("TERM", FALLBACK_TERM, /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        _cleanup_free_ char *formatted = NULL;
+        ASSERT_OK(table_format(t, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     ANSI_BRIGHT_BLUE "format1:" ANSI_NORMAL " 42 foo 123\n"
+                     ANSI_BRIGHT_BLUE "format2:" ANSI_NORMAL " fixed string\n"
+                     ANSI_BRIGHT_BLUE "  size1:" ANSI_NORMAL " 1K\n"
+                     ANSI_BRIGHT_BLUE "format3:" ANSI_NORMAL " " ANSI_HIGHLIGHT_RED "red" ANSI_HIGHLIGHT_GREEN "green" ANSI_NORMAL "\n"
+                     ANSI_BRIGHT_BLUE "format4:" ANSI_NORMAL " fixed string" ANSI_NORMAL "\n"
+                     ANSI_BRIGHT_BLUE "  size2:" ANSI_NORMAL " 2K\n");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_OK(sd_json_buildo(&b,
+                                 SD_JSON_BUILD_PAIR_STRING("format1", "42 foo 123"),
+                                 SD_JSON_BUILD_PAIR_STRING("format2", "fixed string"),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size1", 1024),
+                                 SD_JSON_BUILD_PAIR_STRING("format3", "redgreen"),
+                                 SD_JSON_BUILD_PAIR_STRING("format4", "fixed string"),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size2", 2048)));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+
+        /* Validate that color is correctly stripped */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "0", /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        formatted = mfree(formatted);
+        ASSERT_OK(table_format(t, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "format1: 42 foo 123\n"
+                     "format2: fixed string\n"
+                     "  size1: 1K\n"
+                     "format3: redgreen\n"
+                     "format4: fixed string\n"
+                     "  size2: 2K\n");
+
+        a = sd_json_variant_unref(a);
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+
+        ASSERT_OK(setenvf("COLUMNS", /* overwrite= */ true, "%u", saved_columns));
+        ASSERT_OK(set_unset_env("SYSTEMD_COLORS", saved_color, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("TERM", saved_term, /* overwrite= */ true));
+}
+
 TEST(path_basename) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;

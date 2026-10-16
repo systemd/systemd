@@ -229,7 +229,19 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
 
-int journal_file_data_payload(
+int journal_file_data_payload_full(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size);
+
+static inline int journal_file_data_payload(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
@@ -237,7 +249,13 @@ int journal_file_data_payload(
                 size_t field_length,
                 size_t data_threshold,
                 const void **ret_data,
-                size_t *ret_size);
+                size_t *ret_size) {
+
+        return journal_file_data_payload_full(
+                        f, o, offset, field, field_length, data_threshold,
+                        /* flags= */ 0, /* fd= */ -EBADF, ret_data, ret_size);
+}
+
 int journal_file_data_payload_pinned(
                 JournalFile *f,
                 uint64_t offset,
@@ -259,7 +277,20 @@ static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o
 
 /* The fields of an entry. Classic files ignore the offset of the entry object. */
 int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
-int journal_file_entry_field_payload(
+int journal_file_entry_field_payload_full(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size);
+
+static inline int journal_file_entry_field_payload(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
@@ -268,7 +299,12 @@ int journal_file_entry_field_payload(
                 size_t field_length,
                 size_t data_threshold,
                 const void **ret_data,
-                size_t *ret_size);
+                size_t *ret_size) {
+
+        return journal_file_entry_field_payload_full(
+                        f, o, offset, i, field, field_length, data_threshold,
+                        /* flags= */ 0, /* fd= */ -EBADF, ret_data, ret_size);
+}
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
