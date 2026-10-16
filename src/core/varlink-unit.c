@@ -683,7 +683,6 @@ static ExecOutput exec_output_from_string_harder(const char *s) {
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string_harder);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_oom_policy, OOMPolicy, oom_policy_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -783,33 +782,6 @@ static void transient_kill_context_parameters_init(TransientKillContextParameter
         };
 }
 
-typedef struct TransientUSec {
-        usec_t value;
-        bool present;
-} TransientUSec;
-
-typedef struct TransientScopeParameters {
-        bool present;
-        OOMPolicy oom_policy;
-        TransientUSec runtime_max_usec;
-        TransientUSec runtime_rand_extra_usec;
-        TransientUSec timeout_stop_usec;
-        sd_json_variant *pids;
-} TransientScopeParameters;
-
-static void transient_scope_parameters_done(TransientScopeParameters *p) {
-        assert(p);
-
-        p->pids = sd_json_variant_unref(p->pids);
-}
-
-static void transient_scope_parameters_init(TransientScopeParameters *p) {
-        assert(p);
-        *p = (TransientScopeParameters) {
-                .oom_policy = _OOM_POLICY_INVALID,
-        };
-}
-
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
@@ -818,7 +790,7 @@ typedef struct StartTransientContextParameters {
         TransientExecContextParameters exec;
         TransientKillContextParameters kill;
         TransientServiceParameters *service;
-        TransientScopeParameters scope;
+        TransientScopeParameters *scope;
         TransientCGroupContextParameters *cgroup;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
         const char *bad_kill_field;
@@ -835,7 +807,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
 
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_free(p->service);
-        transient_scope_parameters_done(&p->scope);
+        transient_scope_parameters_free(p->scope);
         transient_cgroup_context_parameters_free(p->cgroup);
 }
 
@@ -848,7 +820,6 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         };
         transient_exec_context_parameters_init(&p->exec);
         transient_kill_context_parameters_init(&p->kill);
-        transient_scope_parameters_init(&p->scope);
 }
 
 typedef struct StartTransientParameters {
@@ -986,38 +957,6 @@ static int dispatch_transient_kill(const char *name, sd_json_variant *variant, s
         return sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->kill, &p->bad_kill_field);
 }
 
-static int dispatch_transient_usec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        TransientUSec *t = ASSERT_PTR(userdata);
-        int r;
-
-        if (sd_json_variant_is_null(variant)) {
-                t->present = false;
-                return 0;
-        }
-
-        r = sd_json_dispatch_uint64(name, variant, flags, &t->value);
-        if (r < 0)
-                return r;
-
-        t->present = true;
-        return 0;
-}
-
-static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field scope_dispatch[] = {
-                { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,      offsetof(TransientScopeParameters, oom_policy),              0 },
-                { "RuntimeMaxUSec",             _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, runtime_max_usec),        0 },
-                { "RuntimeRandomizedExtraUSec", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, runtime_rand_extra_usec), 0 },
-                { "TimeoutStopUSec",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_usec,  offsetof(TransientScopeParameters, timeout_stop_usec),       0 },
-                { "PIDs",                       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(TransientScopeParameters, pids),                    0 },
-                {}
-        };
-
-        StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        p->scope.present = true;
-        return sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->scope, &p->bad_scope_field);
-}
-
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
@@ -1043,6 +982,11 @@ static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_js
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         return transient_service_dispatch(variant, &p->service, &p->bad_service_field);
+}
+
+static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        return transient_scope_dispatch(variant, &p->scope, &p->bad_scope_field);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1107,23 +1051,6 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                         return -ENOMEM;
         }
         return r;
-}
-
-static void transient_unit_apply_usec(Unit *u, const char *name, usec_t *p, UnitWriteFlags flags, TransientUSec *v) {
-        assert(u);
-        assert(name);
-        assert(p);
-        assert(v);
-
-        if (!v->present)
-                return;
-
-        *p = v->value;
-
-        const char *e = ASSERT_PTR(endswith(name, "USec"));
-        char *n = strndupa_safe(name, e - name);
-        const char *f = FORMAT_TIMESPAN(v->value, USEC_PER_MSEC);
-        unit_write_settingf(u, UNIT_RUNTIME|flags, name, "%sSec=%s", n, f);
 }
 
 static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
@@ -1736,73 +1663,6 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
         return 0;
 }
 
-static int transient_scope_apply_pid(Scope *s, sd_json_variant *json, sd_varlink *link, sd_bus_error *reterr_bus_error) {
-        Unit *u = UNIT(ASSERT_PTR(s));
-        int r;
-
-        _cleanup_(pidref_done) PidRef json_pidref = PIDREF_NULL;
-        r = json_dispatch_pidref("Scope.PIDs", json, SD_JSON_STRICT|SD_JSON_RELAX, &json_pidref);
-        if (r < 0)
-                return sd_bus_error_set_errno(reterr_bus_error, r);
-
-        _cleanup_(pidref_done) PidRef peer_pidref = PIDREF_NULL;
-        PidRef *pidref;
-        if (pidref_is_automatic(&json_pidref)) {
-                r = varlink_get_peer_pidref(link, &peer_pidref);
-                if (r < 0)
-                        return r;
-
-                pidref = &peer_pidref;
-        } else
-                pidref = &json_pidref;
-
-        r = unit_pid_attachable(u, pidref, reterr_bus_error);
-        if (r < 0)
-                return r;
-
-        r = unit_watch_pidref(u, pidref, /* exclusive= */ false);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int transient_scope_apply_properties(
-                Scope *s,
-                TransientScopeParameters *sp,
-                sd_varlink *link,
-                const char **reterr_field,
-                sd_bus_error *reterr_bus_error) {
-        Unit *u = UNIT(ASSERT_PTR(s));
-        int r;
-
-        assert(sp);
-
-        if (sp->oom_policy != _OOM_POLICY_INVALID) {
-                s->oom_policy = sp->oom_policy;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMPolicy", "OOMPolicy=%s", oom_policy_to_string(sp->oom_policy));
-        }
-
-        transient_unit_apply_usec(u, "RuntimeMaxUSec", &s->runtime_max_usec, UNIT_PRIVATE, &sp->runtime_max_usec);
-        transient_unit_apply_usec(u, "RuntimeRandomizedExtraUSec", &s->runtime_rand_extra_usec, UNIT_PRIVATE, &sp->runtime_rand_extra_usec);
-        transient_unit_apply_usec(u, "TimeoutStopUSec", &s->timeout_stop_usec, UNIT_PRIVATE, &sp->timeout_stop_usec);
-
-        sd_json_variant *json_pid = NULL;
-        r = -EINVAL; /* Scope.PIDs is required! */
-        JSON_VARIANT_ARRAY_FOREACH(json_pid, sp->pids) {
-                r = transient_scope_apply_pid(s, json_pid, link, reterr_bus_error);
-                if (r < 0)
-                        break;
-        }
-        if (r < 0) {
-                if (reterr_field)
-                        *reterr_field = "Scope.PIDs";
-                return r;
-        }
-
-        return 0;
-}
-
 static int varlink_reply_unit_job(sd_varlink *link, Unit *u, Job *j) {
         assert(link);
         assert(u);
@@ -2157,12 +2017,12 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         Scope *scope = SCOPE(u);
         if (scope) {
                 bad_field = NULL;
-                r = transient_scope_apply_properties(scope, &p.context.scope, link, &bad_field, &bus_error);
+                r = transient_scope_apply_properties(scope, p.context.scope, link, &bad_field, &bus_error);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Scope");
                 if (r < 0)
                         return varlink_reply_bus_error(link, r, &bus_error);
-        } else if (p.context.scope.present)
+        } else if (p.context.scope)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         unit_add_to_load_queue(u);
