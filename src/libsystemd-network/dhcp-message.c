@@ -337,6 +337,9 @@ int dhcp_message_append_option_6rd(
         if (32 - ipv4masklen + prefixlen > 128)
                 return -EINVAL;
 
+        if (32 - ipv4masklen + prefixlen == 0)
+                return -EINVAL;
+
         if (n_br_addresses == 0)
                 return -EINVAL;
 
@@ -823,6 +826,11 @@ int dhcp_message_get_option_6rd(
          *               (32 - IPv4MaskLen) + 6rdPrefixLen MUST be less than or equal to 128. */
         uint8_t prefixlen = *p++;
         if (32 - ipv4masklen + prefixlen > 128)
+                return -EBADMSG;
+
+        /* The delegated prefix length is (32 - IPv4MaskLen) + 6rdPrefixLen. A zero-length delegated
+         * prefix would cover the whole IPv6 address space, refuse it. */
+        if (32 - ipv4masklen + prefixlen == 0)
                 return -EBADMSG;
 
         /* 6rdPrefix: The service provider's 6rd IPv6 prefix represented as a 16-octet IPv6 address.
