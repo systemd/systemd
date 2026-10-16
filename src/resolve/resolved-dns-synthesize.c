@@ -555,14 +555,13 @@ int dns_synthesize_answer(
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
-                        int v, w, u;
+                        int v = 0, w, u;
 
-                        if (!shall_synthesize_own_hostname_rrs())
-                                continue;
-
-                        v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
-                        if (v < 0)
-                                return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
+                        if (shall_synthesize_own_hostname_rrs()) {
+                                v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
+                                if (v < 0)
+                                        return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
+                        }
 
                         w = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
                         if (w < 0)
