@@ -602,6 +602,7 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
 }
 
 static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, DnsPacket *p) {
+        unsigned n_attempts;
         bool encrypted;
 
         assert(t);
@@ -620,14 +621,20 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
 
         dns_scope_check_conflicts(t->scope, p);
 
+        n_attempts = t->n_attempts;
+
         t->block_gc++;
         dns_transaction_process_reply(t, p, encrypted);
         t->block_gc--;
 
-        /* If the response wasn't useful, then complete the transition
-         * now. After all, we are the worst feature set now with TCP
-         * sockets, and there's really no point in retrying. */
-        if (t->state == DNS_TRANSACTION_PENDING)
+        /* If the response wasn't useful, then complete the transaction now. After all, we are the worst
+         * feature set now with TCP sockets, and there's really no point in retrying. However, the reply
+         * processing logic might have decided to start a new attempt on its own (e.g. with a reduced feature
+         * level after SERVFAIL, or on a different server after REFUSED), in which case the transaction is
+         * still pending, but with an incremented attempt counter. Don't abort it then. On LLMNR we never
+         * retry after using a stream (RFC 4795, Section 2.7), hence keep the old behaviour there. */
+        if (t->state == DNS_TRANSACTION_PENDING &&
+            (t->scope->protocol == DNS_PROTOCOL_LLMNR || t->n_attempts == n_attempts))
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
         else
                 dns_transaction_gc(t);
