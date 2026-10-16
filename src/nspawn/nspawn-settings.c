@@ -757,21 +757,19 @@ int config_parse_syscall_filter(
                 void *userdata) {
 
         Settings *settings = data;
-        bool negative;
-        const char *items;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        negative = rvalue[0] == '~';
-        items = negative ? rvalue + 1 : rvalue;
+        bool negative = rvalue[0] == '~';
+        const char *items = negative ? rvalue + 1 : rvalue;
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&items, &word, NULL, 0);
+                r = extract_first_word(&items, &word, /* separators= */ WHITESPACE ",", 0);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)

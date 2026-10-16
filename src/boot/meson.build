@@ -266,7 +266,7 @@ if cc.get_id() == 'clang'
 endif
 
 efi_arch_c_args = {
-        'aarch64'     : ['-mgeneral-regs-only'],
+        'aarch64'     : ['-mgeneral-regs-only', '-ffixed-x18'],
         'arm'         : ['-mgeneral-regs-only'],
         # Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
         'loongarch64' : ['-mno-lsx', '-mno-lasx'],

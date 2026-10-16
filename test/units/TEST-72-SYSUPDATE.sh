@@ -298,6 +298,10 @@ EOF
     done
 
     cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+AppStream=https://example.com/appstream/second.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -311,6 +315,9 @@ MatchPartitionType=root-x86-64
 EOF
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -338,6 +345,9 @@ InstancesMax=3
 EOF
 
     cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/fourth.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -406,7 +416,7 @@ EOF
 Description=Optional Feature
 Documentation=https://example.com/optional
 Documentation=https://example.com/optional-more
-AppStream=https://example.com/optional.appstream.xml
+AppStream=https://example.com/appstream/optional.appstream-%o.xml
 EOF
 
     cat >"$CONFIGDIR/undocumented.feature" <<EOF
@@ -499,6 +509,8 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appStream') == "[\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" ]]
     else
         exit 1
     fi
@@ -513,7 +525,8 @@ EOF
     ' <<<"$feature_json" >/dev/null
     jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
-    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+    os_release_id="$(. /etc/os-release; echo "$ID")"
+    jq -e ".appStream == [\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" <<<"$feature_json" >/dev/null
 
     suggested_json="$("$SYSUPDATE" --json=short features suggested)"
     jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
@@ -586,7 +599,8 @@ EOF
         grep "Optional Feature" <<<"$feature_output" >/dev/null
         grep "Suggested: no" <<<"$feature_output" >/dev/null
         grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
-        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        grep "https://example.com/appstream/optional.appstream-${os_release_id}.xml" <<<"$feature_output" >/dev/null
         grep -F "99-optional" <<<"$feature_output" >/dev/null
         grep "malformed" <<<"$features_output" >/dev/null
         verify_object_fields "$features_output"
@@ -605,6 +619,9 @@ EOF
     new_version "$sector_size" v7
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -691,6 +708,16 @@ EOF
     else
         exit 1
     fi
+
+    # Check that the target versions are listed correctly.
+    [[ $("$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.current') == 'v9' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.appStream') == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
+    host="$(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -c '.targets[] | select(.id.class=="host")')"
+    [[ $(jq -cr '.allVersions' <<<"$host") == '["v9","v8","v7","v6"]' ]]
+    [[ $(jq -cr '.currentVersion' <<<"$host") == 'v9' ]]
+    [[ $(jq -cr '.appStream' <<<"$host") == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
@@ -808,6 +835,82 @@ cmp "$LOOPDIR/source/payload-1.bin" "$LOOPDIR/target/payload-1.bin"
 grep -F 'Maximum number of update iterations (2) reached' "$LOOPDIR/log" >/dev/null
 
 rm -rf "$LOOPDIR"
+
+# Test SuccessAction= and FailureAction= in *.component files: two components, the first one is configured
+# to restart the update iteration once it has been updated successfully.
+ACTIONDIR="$WORKDIR/component-actions"
+action_reset() {
+    rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+        /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+        /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+    mkdir -p "$ACTIONDIR/source" /run/sysupdate.act-a.d /run/sysupdate.act-b.d
+
+    for c in a b; do
+        mkdir -p "$ACTIONDIR/target-$c"
+        echo "$c" >"$ACTIONDIR/source/act-$c-1.bin"
+        cat >"/run/sysupdate.act-$c.d/01-act-$c.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$ACTIONDIR/source
+MatchPattern=act-$c-@v.bin
+
+[Target]
+Type=regular-file
+Path=$ACTIONDIR/target-$c
+MatchPattern=act-$c-@v.bin
+EOF
+    done
+}
+
+# Move the default component's definitions out of the way, we only want to update our two components
+mv "$CONFIGDIR" "$CONFIGDIR.backup"
+
+# By default we continue with the next component, hence a single iteration updates both
+action_reset
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With SuccessAction=restart the iteration is finished after the first component got updated
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Component 'act-a' updated successfully, finishing update iteration early." "$ACTIONDIR/log" >/dev/null
+# … and the next invocation picks up the second component
+"$SYSUPDATE" --component-all --verify=no update
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+
+# With --loop= the restart happens within a single invocation
+action_reset
+printf '[Component]\nSuccessAction=restart\n' >/run/sysupdate.act-a.component
+"$SYSUPDATE" --component-all --verify=no --loop=16 update |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F 'stable state reached after 3 iterations' "$ACTIONDIR/log" >/dev/null
+
+# Test FailureAction=: let updating the first component fail, by pointing its source to a non-directory.
+# By default we continue with the next component (and further iterations), but fail at the very end.
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', continuing with next component" "$ACTIONDIR/log" >/dev/null
+grep -F 'stable state reached after 2 iterations' "$ACTIONDIR/log" >/dev/null
+
+# With FailureAction=fail we fail immediately, and do not update the second component
+action_reset
+sed -i "s|^Path=$ACTIONDIR/source\$|Path=/dev/null|" /run/sysupdate.act-a.d/01-act-a.transfer
+printf '[Component]\nFailureAction=fail\n' >/run/sysupdate.act-a.component
+(! "$SYSUPDATE" --component-all --verify=no --loop=16 update) |& tee "$ACTIONDIR/log"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+grep -F "Failed to update component 'act-a', aborting" "$ACTIONDIR/log" >/dev/null
+
+rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
+    /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
+    /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
 # COMPRESSION_MAGIC_BYTES_MAX correctly.

@@ -7,5 +7,6 @@ ExecStart=bash -c 'ping -c 1 -W 0.2 192.168.113.5'
 ExecStart=bash -c '! ping -c 1 -W 0.2 192.168.113.9'
 RestrictNetworkInterfaces=veth0
 RestrictNetworkInterfaces=veth0 veth1
+RestrictNetworkInterfaces=veth0,veth1
 RestrictNetworkInterfaces=~veth0
 Type=oneshot

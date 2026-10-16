@@ -96,6 +96,7 @@ COMMAND(
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
+                .offline = true,                                  \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
@@ -391,21 +392,23 @@ static int read_component(Context *c) {
                 return log_oom();
 
         ConfigTableItem table[] = {
-                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
-                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
-                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
-                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
-                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
-                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
-                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
-                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
-                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
-                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
-                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
-                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
-                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
-                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
+                { "Component", "Description",                config_parse_string,                   0,                             &c->component_description    },
+                { "Component", "Documentation",              config_parse_url_specifiers_many,      0,                             &c->component_documentation  },
+                { "Component", "Enabled",                    config_parse_bool,                     0,                             &c->component_enabled        },
+                { "Component", "SuccessAction",              config_parse_component_success_action, 0,                             &c->component_success_action },
+                { "Component", "FailureAction",              config_parse_component_failure_action, 0,                             &c->component_failure_action },
+                { "Component", "Suggest",                    config_parse_tristate,                 0,                             &c->component_suggest        },
+                { "Component", "SuggestOnArchitecture",      config_parse_condition,                CONDITION_ARCHITECTURE,        &c->component_suggest_on     },
+                { "Component", "SuggestOnFirmware",          config_parse_condition,                CONDITION_FIRMWARE,            &c->component_suggest_on     },
+                { "Component", "SuggestOnVirtualization",    config_parse_condition,                CONDITION_VIRTUALIZATION,      &c->component_suggest_on     },
+                { "Component", "SuggestOnHost",              config_parse_condition,                CONDITION_HOST,                &c->component_suggest_on     },
+                { "Component", "SuggestOnFraction",          config_parse_condition,                CONDITION_FRACTION,            &c->component_suggest_on     },
+                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,                CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on     },
+                { "Component", "SuggestOnVersion",           config_parse_condition,                CONDITION_VERSION,             &c->component_suggest_on     },
+                { "Component", "SuggestOnCredential",        config_parse_condition,                CONDITION_CREDENTIAL,          &c->component_suggest_on     },
+                { "Component", "SuggestOnSecurity",          config_parse_condition,                CONDITION_SECURITY,            &c->component_suggest_on     },
+                { "Component", "SuggestOnOSRelease",         config_parse_condition,                CONDITION_OS_RELEASE,          &c->component_suggest_on     },
+                { "Component", "SuggestOnMachineTag",        config_parse_condition,                CONDITION_MACHINE_TAG,         &c->component_suggest_on     },
                 {}
         };
 
@@ -757,19 +760,21 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         return 0;
 }
 
-static int context_discover_update_sets(Context *c) {
+static int context_discover_update_sets(Context *c, bool log_progress) {
         int r;
 
         assert(c);
 
-        log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
+        if (log_progress)
+                log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
 
         if (!c->offline) {
-                log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
+                if (log_progress)
+                        log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
 
                 r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
                 if (r < 0)
@@ -1254,7 +1259,7 @@ static int context_load_online(
                         return r;
         }
 
-        r = context_discover_update_sets(context);
+        r = context_discover_update_sets(context, /* log_progress= */ true);
         if (r < 0)
                 return r;
 
@@ -1266,6 +1271,7 @@ static bool image_type_can_sysupdate(ImageType image_type) {
         return IN_SET(image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
 }
 
+/* Assumes validation of the image has already been done */
 static int context_load_paths_from_image(Context *context, Image *image) {
         assert(context);
         assert(image);
@@ -1311,21 +1317,151 @@ static int target_identifier_compare_func(const TargetIdentifier *x, const Targe
         return strcmp(x->name, y->name);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
-                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
-                                              TargetIdentifier, target_identifier_free);
+/* This is basically a presentational struct to collect together all the data for the
+ * user-visible Target type in varlink/D-Bus. The data comes from Transfers and UpdateSets. */
+typedef struct Target {
+        TargetIdentifier identifier;
 
-static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
+        char *current_version;
+        bool current_version_is_pending;
+        char **all_versions;
+        char **appstream_urls;
+} Target;
+
+static void target_done(Target *t) {
+        assert(t);
+
+        target_identifier_done(&t->identifier);
+        t->current_version = mfree(t->current_version);
+        t->all_versions = strv_free(t->all_versions);
+        t->appstream_urls = strv_free(t->appstream_urls);
+}
+
+static Target *target_free(Target *t) {
+        if (!t)
+                return NULL;
+
+        target_done(t);
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
+
+static int target_new(TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+
+        assert(name);
+        assert(ret);
+
+        t = new(Target, 1);
+        if (!t)
+                return -ENOMEM;
+
+        *t = (Target) {
+                .identifier = {
+                        .class = class,
+                        .name = strdup(name),
+                },
+        };
+
+        if (!t->identifier.name)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
+static void target_hash_func(const Target *t, struct siphash *state) {
+        assert(t);
+
+        target_identifier_hash_func(&t->identifier, state);
+}
+
+static int target_compare_func(const Target *x, const Target *y) {
+        assert(x);
+        assert(y);
+
+        return target_identifier_compare_func(&x->identifier, &y->identifier);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
+                                              Target, target_hash_func, target_compare_func,
+                                              Target, target_free);
+
+/* Needs context_load_online() to have been called on `context`, or context_load_offline()
+ * plus context_discover_update_sets(). */
+static int context_build_target(Context *context, TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
+        const char *current = NULL;
+        bool current_is_pending = false;
+        int r;
+
+        assert(context);
+        assert(class >= 0);
+        assert(name);
+
+        FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                UpdateSet *us = *update_set;
+
+                if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                    FLAGS_SET(us->flags, UPDATE_NEWEST)) {
+                        current = us->version;
+                        current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                }
+
+                r = strv_extend(&versions, us->version);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = target_new(class, name, &t);
+        if (r < 0)
+                return log_oom();
+
+        if (current) {
+                t->current_version = strdup(current);
+                if (!t->current_version)
+                        return log_oom();
+        }
+
+        t->current_version_is_pending = current_is_pending;
+        t->all_versions = TAKE_PTR(versions);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                STRV_FOREACH(appstream_url, (*tr)->appstream) {
+                        /* Avoid duplicates */
+                        if (strv_contains(appstream_urls, *appstream_url))
+                                continue;
+
+                        r = strv_extend(&appstream_urls, *appstream_url);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        t->appstream_urls = TAKE_PTR(appstream_urls);
+
+        if (ret)
+                *ret = TAKE_PTR(t);
+
+        return 0;
+}
+
+static int enumerate_image_class(Context *context, RuntimeScope runtime_scope, TargetClass class, Set **targets) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *image;
         int r;
+
+        assert(context);
+        assert(runtime_scope >= 0 && runtime_scope < _RUNTIME_SCOPE_MAX && runtime_scope != RUNTIME_SCOPE_GLOBAL);
+        assert(class >= 0 && class < _TARGET_CLASS_MAX);
 
         r = image_discover(runtime_scope, (ImageClass) class, NULL, &images);
         if (r < 0)
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
                 _cleanup_(context_done) Context image_context = CONTEXT_NULL;
 
@@ -1339,28 +1475,49 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 if (r < 0)
                         return r;
 
+                image_context.verify = context->verify;
+                image_context.offline = true;
+
+                if (context->image_policy) {
+                        image_context.image_policy = image_policy_copy(context->image_policy);
+                        if (!image_context.image_policy)
+                                return log_oom();
+                }
+
                 /* Load the components in a separate Context specific to the given Image before
                  * committing to loading that state to the main Context. */
                 r = context_load_offline(
                                 &image_context,
                                 PROCESS_IMAGE_READ_ONLY,
                                 /* read_definitions_flags= */ 0);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
 
                 r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to list components in broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
                 if (!have) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
 
-                r = target_identifier_new(class, image->name, &t);
+                r = context_discover_update_sets(&image_context, /* log_progress= */ false);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = context_build_target(&image_context, class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1380,25 +1537,49 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 return r;
 
         if (have_default_component) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_HOST, "host", &t);
+                r = context_build_target(context, TARGET_HOST, "host", &t);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(component, component_names) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_(context_done) Context component_context = CONTEXT_NULL;
 
-                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                r = context_from_base_with_component(context, *component, &component_context);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                component_context.offline = true;
+
+                /* Load the component in a separate Context specific to its sysupdate.$component.d
+                 * directory. */
+                r = context_load_offline(
+                                &component_context,
+                                PROCESS_IMAGE_READ_ONLY,
+                                /* read_definitions_flags= */ 0);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken component ‘%s’, skipping it: %m", *component);
+                        continue;
+                }
+
+                r = context_discover_update_sets(&component_context, /* log_progress= */ false);
+                if (r < 0)
+                        return r;
+
+                r = context_build_target(&component_context, TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1418,7 +1599,7 @@ static int context_enumerate_targets(Context *context, Set **targets) {
         assert(context);
 
         FOREACH_ARRAY(class, discoverable_classes, ELEMENTSOF(discoverable_classes)) {
-                r = enumerate_image_class(RUNTIME_SCOPE_SYSTEM, *class, targets);
+                r = enumerate_image_class(context, RUNTIME_SCOPE_SYSTEM, *class, targets);
                 if (r < 0)
                         return r;
         }
@@ -1470,6 +1651,15 @@ static int context_load_paths_from_target(Context *context) {
                         r = context_load_paths_from_image(&image_context, image);
                         if (r < 0)
                                 return r;
+
+                        image_context.verify = context->verify;
+                        image_context.offline = true;
+
+                        if (context->image_policy) {
+                                image_context.image_policy = image_policy_copy(context->image_policy);
+                                if (!image_context.image_policy)
+                                        return log_oom();
+                        }
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
@@ -1977,7 +2167,6 @@ VERB(verb_list, "list", "[VERSION]\0", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -2007,38 +2196,19 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
-                const char *current = NULL;
-                bool current_is_pending = false;
+                _cleanup_(target_freep) Target *target = NULL;
 
-                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
-                        UpdateSet *us = *update_set;
+                /* We’re just using this to get the versions and appstream URLs, so the class
+                 * and name don’t matter, which means we can avoid trying to rebuild them from
+                 * the command line context. Arbitrarily choose the host. */
+                r = context_build_target(&context, TARGET_HOST, "host", &target);
+                if (r < 0)
+                        return r;
 
-                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST)) {
-                                current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
-                        }
-
-                        r = strv_extend(&versions, us->version);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
-                        STRV_FOREACH(appstream_url, (*tr)->appstream) {
-                                /* Avoid duplicates */
-                                if (strv_contains(appstream_urls, *appstream_url))
-                                        continue;
-
-                                r = strv_extend(&appstream_urls, *appstream_url);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
-                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_STRING(target->current_version_is_pending ? "current+pending" : "current", target->current_version),
+                                   SD_JSON_BUILD_PAIR_STRV("all", target->all_versions),
+                                   SD_JSON_BUILD_PAIR_STRV("appStream", target->appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -2468,12 +2638,15 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                                 "Failed to determine whether feature '%s' is suggested, omitting field: %m",
                                 f->id);
 
+        /* FIXME: Long term we’d like to support an array of AppStream URLs, but currently the D-Bus interface
+         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
+
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appStream", f->appstream),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("appStream", STRV_MAKE(f->appstream)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("enabled", f->enabled),
                         SD_JSON_BUILD_PAIR_CONDITION(suggested >= 0, "suggested", SD_JSON_BUILD_BOOLEAN(suggested > 0)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
@@ -2654,18 +2827,21 @@ static int context_update(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
+                bool *installed,
                 bool *reboot_needed) {
 
         UpdateSet *applied = NULL;
-        bool installed = false;
+        bool updated = false;
         int r, ret = 0;
 
         assert(c);
+        assert(installed);
         assert(reboot_needed);
 
-        /* Returns > 0 if an update was installed, 0 if not. Doesn't reboot on its own, but sets
-         * *reboot_needed to true if --reboot is requested and the installed version warrants a reboot. It
-         * never resets *reboot_needed to false, so that it can be accumulated over multiple calls. */
+        /* Sets *installed to true if an update was installed, even if a later step (e.g. the installdb
+         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed to true if --reboot is
+         * requested and the installed version warrants a reboot. It never resets *installed or
+         * *reboot_needed to false, so that they can be accumulated over multiple calls. */
 
         r = context_load_online(
                         c,
@@ -2692,13 +2868,14 @@ static int context_update(
                         if (r < 0)
                                 return r;
 
-                        installed = r > 0;
+                        if (r > 0)
+                                updated = *installed = true;
                 }
 
                 /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
                  * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
                  * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !installed) {
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
@@ -2710,7 +2887,7 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (installed && c->reboot) {
+        if (updated && c->reboot) {
                 /* We installed something, yay */
 
                 assert(applied);
@@ -2727,10 +2904,7 @@ static int context_update(
                         log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
 
-        if (ret < 0)
-                return ret;
-
-        return installed;
+        return ret;
 }
 
 static int context_update_iteration(
@@ -2738,57 +2912,78 @@ static int context_update_iteration(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
-                bool *reboot_needed) {
+                bool *reboot_needed,
+                int *error) {
 
         bool installed = false;
-        int r, ret = 0;
+        int r;
 
         assert(context);
         assert(reboot_needed);
+        assert(error);
 
         /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
-         * installed, 0 if not. */
+         * installed, 0 if not, < 0 on a failure that shall abort the update logic. Failures of individual
+         * components with FailureAction=continue are not returned, but merged into *error, so that the
+         * caller can return them at the very end. */
 
         switch (context->component_select) {
 
         case SELECT_EXPLICIT:
-                return context_update(context, version, booted_version, action_flags, reboot_needed);
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0)
+                        return r;
+
+                return installed;
 
         case SELECT_ALL: {
                 /* Update the default, component-less installation first (if any). Running it before the
                  * enumeration below also ensures the image (if any) is mounted and context->root is set, so
                  * that we enumerate the components inside the image rather than on the host. A missing
                  * default installation (ENOENT) is not an error in this mode. */
-                r = context_update(context, version, booted_version, action_flags, reboot_needed);
-                if (r > 0)
-                        installed = true;
-                else if (r != -ENOENT)
-                        RET_GATHER(ret, r);
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0 && r != -ENOENT)
+                        RET_GATHER(*error, r);
 
                 _cleanup_strv_free_ char **component_names = NULL;
                 r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
                 if (r < 0)
-                        return RET_GATHER(ret, r);
+                        return r;
 
                 STRV_FOREACH(name, component_names) {
                         _cleanup_(context_done) Context cc = CONTEXT_NULL;
 
                         r = context_from_base_with_component(context, *name, &cc);
                         if (r < 0) {
-                                RET_GATHER(ret, r);
+                                RET_GATHER(*error, r);
                                 continue;
                         }
 
-                        r = context_update(&cc, version, booted_version, action_flags, reboot_needed);
+                        bool component_installed = false;
+                        r = context_update(&cc, version, booted_version, action_flags, &component_installed, reboot_needed);
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
-                        if (r > 0)
-                                installed = true;
-                        RET_GATHER(ret, r);
-                }
+                        if (r < 0) {
+                                /* context_update() already logged about the failure */
+                                if (cc.component_failure_action == COMPONENT_FAILURE_FAIL)
+                                        return log_debug_errno(r, "Failed to update component '%s', aborting: %m", *name);
 
-                if (ret < 0)
-                        return ret;
+                                log_debug_errno(r, "Failed to update component '%s', continuing with next component: %m", *name);
+                                RET_GATHER(*error, r);
+                        }
+                        if (component_installed) {
+                                installed = true;
+
+                                if (cc.component_success_action == COMPONENT_SUCCESS_RESTART) {
+                                        /* The component asked us to start from the beginning after it
+                                         * has been updated successfully, for example because it makes
+                                         * new transfer files available. Hence, finish this iteration
+                                         * early, and skip the remaining components. */
+                                        log_info("Component '%s' updated successfully, finishing update iteration early.", *name);
+                                        break;
+                                }
+                        }
+                }
 
                 return installed;
         }
@@ -2866,7 +3061,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 if (arg_loop > 1)
                         log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
 
-                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed);
+                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
                 if (r < 0) {
                         RET_GATHER(ret, r);
                         break;
@@ -3260,25 +3455,33 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
+        r = context_discover_update_sets(&context, /* log_progress= */ false);
+        if (r < 0)
+                return r;
+
         r = context_enumerate_targets(&context, &targets);
         if (r < 0)
                 return r;
 
         /* Sort to ensure consistent ordering */
         size_t n;
-        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        _cleanup_free_ Target **sorted = NULL;
         r = set_dump_sorted(targets, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
         FOREACH_ARRAY(p, sorted, n) {
-                TargetIdentifier *target_identifier = *p;
-                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                Target *target = *p;
+                const char *name = (target->identifier.class != TARGET_HOST) ? target->identifier.name : NULL;
 
                 r = sd_json_variant_append_arraybo(&l,
                                 SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target->identifier.class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("currentVersion", target->current_version),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("currentVersionIsPending", target->current_version_is_pending),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("allVersions", target->all_versions),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("appStream", target->appstream_urls));
                 if (r < 0)
                         return r;
         }
@@ -3674,9 +3877,7 @@ static int run(int argc, char *argv[]) {
         LIBFDISK_NOTE(recommended);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
-        LIBTSS2_ESYS_NOTE(suggested);
-        LIBTSS2_MU_NOTE(suggested);
-        LIBTSS2_RC_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

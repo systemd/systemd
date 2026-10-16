@@ -37,11 +37,13 @@ const char* af_to_name_short(int id) {
 }
 
 int af_from_name(const char *name) {
-        const struct af_name *sc;
+        size_t len = strlen(ASSERT_PTR(name));
 
-        assert(name);
-
-        sc = lookup_af(name, strlen(name));
+        const struct af_name *sc = lookup_af(name, len);
+        if (!sc && len + strlen("AF_") <= MAX_WORD_LENGTH) {
+                const char *t = strjoina("AF_", name);
+                sc = lookup_af(t, strlen("AF_") + len);
+        }
         if (!sc)
                 return -EINVAL;
 

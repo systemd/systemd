@@ -27,6 +27,10 @@ CHANGES WITH 263 in spe:
           behaviour may be restored with the new SendHostnameUpdates=no
           setting in the [DHCPv4] and [DHCPv6] sections.
 
+        * The "appStream" key of
+          org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
+          strings rather than a single optional string.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
@@ -57,6 +61,16 @@ CHANGES WITH 263 in spe:
           reached. This is useful for updates that make further updates
           available, for example because they ship new or changed transfer
           files. systemd-sysupdate-update.service now uses --loop=16.
+
+        Changes in the TPM Subsystem:
+
+        * If the booted UKI carries no PCR public key or no signed PCR policy
+          with the "initrd" policy reference, NvPCRs are now initialized in the
+          initrd with a write policy bound to the current value of PCR 11,
+          instead of not being initialized at all. The names of such NvPCRs,
+          which are measured into PCR 9, change whenever the UKI changes, so
+          this is mostly useful where the value of PCR 11 in the initrd is
+          predictable.
 
 CHANGES WITH 262:
 

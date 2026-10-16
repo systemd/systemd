@@ -127,11 +127,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
-- systemd-sysupdate: add matchpattern that only controls ownership, nothing
-  else
-
-- systemd-sysupdate: add boolean field to components that indicate that if we
-  updated this component we should start from the beginning.
+- systemd-report needs an upload queue. After all it records resource usage,
+  and it would be useful to collect this data even when networking is not
+  available, and upload it once it is. Make this smart, i.e. introduce a
+  monotonic report counter for this, so that we have strict ordering even with
+  no clock, and if the queue grows too large remove "logarithmically", i.e.
+  for really old stuff only keep one report per week, for really recent stuff
+  one per 5min, and in between logarithmically increasing.
 
 - teach hostnamed to unset tags by wildcard
 

@@ -17,6 +17,15 @@ if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${
     exit 77
 fi
 
+# systemd-pcrlock requires that the firmware measured the boot. Occasionally the TPM breaks down already
+# during firmware execution in CI (all TCG2 measurements fail with EFI_DEVICE_ERROR, and systemd-stub
+# reports no active PCR banks), in which case we can't test anything here.
+if ! systemd-analyze has-tpm2 -q; then
+    systemd-analyze has-tpm2 ||:
+    echo "Firmware TPM2 support not available, skipping pcrlock tests"
+    exit 77
+fi
+
 at_exit() {
     if [[ $? -ne 0 ]]; then
         # Dump the event log on fail, to make debugging a bit easier

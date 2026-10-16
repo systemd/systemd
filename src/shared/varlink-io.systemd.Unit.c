@@ -188,7 +188,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupTasksMax,
                 SD_VARLINK_FIELD_COMMENT("The maximum amount of tasks"),
                 SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The scaling factor. Output only: on input use TasksMaxScale instead"),
+                SD_VARLINK_FIELD_COMMENT("The scaling factor. If non-zero, the limit is value/scale of the system's maximum number of tasks. Zero or null means value is an absolute task count"),
                 SD_VARLINK_DEFINE_FIELD(scale, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -1056,7 +1056,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeRandomizedExtraSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#TimeoutStopSec="),
-                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of processes to move into the new scope. Required at unit creation time via StartTransient()."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PIDs, ProcessId, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ScopeResult,
@@ -1991,6 +1993,7 @@ static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
 static SD_VARLINK_DEFINE_ERROR(AlreadyBeingWatched);
+static SD_VARLINK_DEFINE_ERROR(ProcessIdUnknown);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 StartTransient,
@@ -2198,4 +2201,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
                 &vl_error_BadUnitSetting,
                 SD_VARLINK_SYMBOL_COMMENT("The job or unit is already being watched by another streaming connection"),
-                &vl_error_AlreadyBeingWatched);
+                &vl_error_AlreadyBeingWatched,
+                SD_VARLINK_SYMBOL_COMMENT("The specified process could not be found"),
+                &vl_error_ProcessIdUnknown);

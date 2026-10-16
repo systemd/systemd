@@ -99,6 +99,8 @@ at_exit() {
     tpm2_setprimarypolicy -C lockout
 
     systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
+    rm -rf /run/systemd/system/systemd-report-sign-tpm2.socket.d /run/systemd/system/systemd-pcrlock.socket.d
+    systemctl daemon-reload
     rm -rf "$WORK"
 }
 trap at_exit EXIT
@@ -126,10 +128,22 @@ tpm2_setprimarypolicy -C lockout -L "$WORK/lockout.policy" -g sha256
 tpm2_changeauth -c lockout "$LOCKOUT_AUTH"
 lockout_modified=1
 
-# The TPM2 backend reads the event log from pcrlock's Varlink interface, so make
-# sure its socket is up.
-systemctl start systemd-pcrlock.socket
+# The TPM2 backend's socket carries ConditionSecurity=measured-uki, which does not
+# necessarily hold in the test VM, in which case the socket is silently skipped and
+# the report ends up without a TPM2 signature. The same applies to pcrlock's socket,
+# whose Varlink interface the TPM2 backend reads the event log from, and without
+# which signing fails. Drop the condition from both, exactly like
+# TEST-70-TPM2.pcrextend.sh does for systemd-pcrextend.socket.
+for unit in systemd-report-sign-tpm2.socket systemd-pcrlock.socket; do
+    mkdir -p "/run/systemd/system/$unit.d"
+    cat >"/run/systemd/system/$unit.d/50-no-condition.conf" <<EOF
+[Unit]
+ConditionSecurity=
+EOF
+done
+systemctl daemon-reload
 
+systemctl start systemd-pcrlock.socket
 systemctl start systemd-report.socket
 systemctl start systemd-report-sign-tpm2.socket
 

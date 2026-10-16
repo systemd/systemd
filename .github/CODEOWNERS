@@ -39,3 +39,14 @@
 # sd-future
 /src/libsystemd/sd-future/              @daandemeyer
 /src/systemd/sd-future.h                @daandemeyer
+
+# Confidential Computing
+/src/basic/confidential-virt.*              @katexochen
+/src/fundamental/confidential-virt.h        @katexochen
+/src/shared/tsm-report.*                    @katexochen
+/src/report/report-sign-tsm.c               @katexochen
+/units/systemd-report-sign-tsm*             @katexochen
+/man/systemd-report-sign-tsm@.service.xml   @katexochen
+/src/boot/proto/cc-measurement.h            @katexochen
+/test/integration-tests/TEST-94-COCO/       @katexochen
+/test/units/TEST-94-COCO*                   @katexochen

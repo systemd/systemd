@@ -196,7 +196,6 @@ simple_tests += files(
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-catalog.c',
-        'sd-journal/test-journal-file.c',
         'sd-journal/test-journal-flush.c',
         'sd-journal/test-journal-init.c',
         'sd-journal/test-journal-interleaving.c',
@@ -269,6 +268,10 @@ libsystemd_tests += [
                 'timeout' : 360,
         },
         {
+                'sources' : files('sd-journal/test-journal-file.c'),
+                'export' : files('sd-journal/journal-test-util.c'),
+        },
+        {
                 'sources' : files('sd-journal/test-journal-append.c'),
                 'type' : 'manual',
         },
@@ -310,4 +313,5 @@ simple_fuzzers += files(
         'sd-bus/fuzz-bus-match.c',
         'sd-bus/fuzz-bus-message.c',
         'sd-hwdb/fuzz-hwdb.c',
+        'sd-journal/fuzz-journal-file.c',
 )

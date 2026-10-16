@@ -19,6 +19,17 @@ custom_target(
         install : true,
         install_dir : bashcompletiondir)
 
+if want_ukify
+        custom_target(
+                'ukify-bash-completion',
+                input : ukify,
+                output : 'ukify',
+                command : [python, '@INPUT@', 'completion', 'bash'],
+                capture : true,
+                install : true,
+                install_dir : bashcompletiondir)
+endif
+
 foreach item : [
         ['bootctl',             ''],
         ['busctl',              ''],

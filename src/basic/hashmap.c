@@ -299,7 +299,7 @@ _destructor_ static void cleanup_pools(void) {
 }
 #endif
 
-static unsigned n_buckets(HashmapBase *h) {
+static inline unsigned n_buckets(HashmapBase *h) {
         assert(h);
         return h->has_indirect ? h->indirect.n_buckets
                                : hashmap_type_info[h->type].n_direct_buckets;
@@ -329,13 +329,13 @@ static void n_entries_dec(HashmapBase *h) {
                 h->n_direct_entries--;
 }
 
-static void* storage_ptr(HashmapBase *h) {
+static inline void* storage_ptr(HashmapBase *h) {
         assert(h);
         return h->has_indirect ? h->indirect.storage
                                : h->direct.storage;
 }
 
-static uint8_t* hash_key(HashmapBase *h) {
+static inline uint8_t* hash_key(HashmapBase *h) {
         assert(h);
         return h->has_indirect ? h->indirect.hash_key
                                : shared_hash_key;
@@ -347,13 +347,25 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 
         assert(h);
 
-        siphash24_init(&state, hash_key(h));
+        /* The keys of trivial_hash_ops and uint64_hash_ops fit in 64 bits. siphash24_uint64() hashes such
+         * a key without the indirect call through hash_ops and keeps the SipHash state in registers. On
+         * 32-bit and big-endian architectures, the result differs from the result of trivial_hash_func(),
+         * which hashes the key in native byte order. Only this function maps keys to buckets, so the
+         * difference does not matter. */
+        if (h->hash_ops->hash == trivial_hash_func)
+                hash = siphash24_uint64((uintptr_t) p, hash_key(h));
+        else if (h->hash_ops->hash == (hash_func_t) uint64_hash_func)
+                hash = siphash24_uint64(*(const uint64_t*) p, hash_key(h));
+        else {
+                siphash24_init(&state, hash_key(h));
+                h->hash_ops->hash(p, &state);
+                hash = siphash24_finalize(&state);
+        }
 
-        h->hash_ops->hash(p, &state);
-
-        hash = siphash24_finalize(&state);
-
-        return (unsigned) (hash % n_buckets(h));
+        /* n_buckets is not a power of two, so a modulo needs a division. Multiplying the upper 32 bits of
+         * the hash with n_buckets and keeping the upper 32 bits of the product maps the hash to
+         * [0, n_buckets) almost as evenly, without a division. */
+        return (unsigned) (((hash >> 32) * n_buckets(h)) >> 32);
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 
@@ -383,7 +395,7 @@ static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
         memcpy(hash_key, current, sizeof(current));
 }
 
-static struct hashmap_base_entry* bucket_at(HashmapBase *h, unsigned idx) {
+static inline struct hashmap_base_entry* bucket_at(HashmapBase *h, unsigned idx) {
         assert(h);
         return CAST_ALIGN_PTR(
                         struct hashmap_base_entry,
@@ -420,7 +432,7 @@ static struct hashmap_base_entry* bucket_at_virtual(HashmapBase *h, struct swap_
         assert_not_reached();
 }
 
-static dib_raw_t* dib_raw_ptr(HashmapBase *h) {
+static inline dib_raw_t* dib_raw_ptr(HashmapBase *h) {
         assert(h);
         return (dib_raw_t*)
                 ((uint8_t*) storage_ptr(h) + hashmap_type_info[h->type].entry_size * n_buckets(h));
@@ -514,15 +526,15 @@ static void bucket_move_entry(HashmapBase *h, struct swap_entries *swap,
         }
 }
 
-static unsigned next_idx(HashmapBase *h, unsigned idx) {
-        return (idx + 1U) % n_buckets(h);
+static inline unsigned next_idx(HashmapBase *h, unsigned idx) {
+        return idx + 1U < n_buckets(h) ? idx + 1U : 0U;
 }
 
 static unsigned prev_idx(HashmapBase *h, unsigned idx) {
-        return (n_buckets(h) + idx - 1U) % n_buckets(h);
+        return idx > 0U ? idx - 1U : n_buckets(h) - 1U;
 }
 
-static void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
+static inline void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
         assert(h);
         assert(e);
 
@@ -1140,13 +1152,13 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
         if (_unlikely_(new_n_buckets < new_n_entries))
                 return -ENOMEM;
 
-        if (_unlikely_(new_n_buckets > UINT_MAX / (hi->entry_size + sizeof(dib_raw_t))))
-                return -ENOMEM;
-
         old_n_buckets = n_buckets(h);
 
         if (_likely_(new_n_buckets <= old_n_buckets))
                 return 0;
+
+        if (_unlikely_(new_n_buckets > UINT_MAX / (hi->entry_size + sizeof(dib_raw_t))))
+                return -ENOMEM;
 
         new_shift = log2u_round_up(MAX(
                         new_n_buckets * (hi->entry_size + sizeof(dib_raw_t)),
@@ -1247,6 +1259,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
  * Returns: index of the found entry, or IDX_NIL if not found.
  */
 static unsigned base_bucket_scan(HashmapBase *h, unsigned idx, const void *key) {
+        compare_func_t compare = h->hash_ops->compare;
         struct hashmap_base_entry *e;
         unsigned dib, distance;
         dib_raw_t *dibs = dib_raw_ptr(h);
@@ -1263,7 +1276,9 @@ static unsigned base_bucket_scan(HashmapBase *h, unsigned idx, const void *key) 
                         return IDX_NIL;
                 if (dib == distance) {
                         e = bucket_at(h, idx);
-                        if (h->hash_ops->compare(e->key, key) == 0)
+
+                        /* Most maps compare keys by pointer. Do that here, without the indirect call. */
+                        if (compare == trivial_compare_func ? e->key == key : compare(e->key, key) == 0)
                                 return idx;
                 }
 

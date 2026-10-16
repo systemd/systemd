@@ -406,7 +406,9 @@ else
     VMSPAWN_FW_PID=$!
 
     wait_for_machine "$MACHINE_FW" "$VMSPAWN_FW_PID" "$WORKDIR/vmspawn-fw.log"
-    if ! timeout 60 bash -c "until grep -a -E >/dev/null 'BdsDxe: (loading|failed to load) Boot[0-9A-F]{4} \"UEFI Misc Device\"' '$WORKDIR/vmspawn-fw.log'; do sleep .5; done"; then
+    # Secure Boot OVMF with SMM under nested virtualization is slow: in CI it took 45s just to bring
+    # up the console, so give the firmware plenty of time to get to BDS.
+    if ! timeout 300 bash -c "until grep -a -E >/dev/null 'BdsDxe: (loading|failed to load) Boot[0-9A-F]{4} \"UEFI Misc Device\"' '$WORKDIR/vmspawn-fw.log'; do sleep .5; done"; then
         echo "Firmware did not see the boot-time drive. Full vmspawn log:"
         cat "$WORKDIR/vmspawn-fw.log"
         exit 1

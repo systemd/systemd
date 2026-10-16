@@ -201,6 +201,12 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+/* Reading an object fails with EBADMSG if the object is corrupted, and with EADDRNOTAVAIL if it lies outside
+ * of the file. Readers skip objects that fail with either error. */
+static inline bool ERRNO_IS_NEG_JOURNAL_CORRUPTION(intmax_t r) {
+        return IN_SET(r, -EBADMSG, -EADDRNOTAVAIL);
+}
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
@@ -250,6 +256,19 @@ static inline size_t journal_file_data_payload_offset(JournalFile *f) {
 static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
 }
+
+/* The fields of an entry. Classic files ignore the offset of the entry object. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
