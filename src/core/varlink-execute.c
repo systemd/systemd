@@ -12,20 +12,26 @@
 #include "execute.h"
 #include "image-policy.h"
 #include "ioprio-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "nsflags.h"
 #include "ordered-set.h"
+#include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "securebits-util.h"
 #include "set.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "unit.h"
+#include "user-util.h"
 #include "varlink-common.h"
 #include "varlink-execute.h"
+
+/* Read side of the Exec context for List. */
 
 #define JSON_BUILD_PAIR_MOUNT_PROPAGATION_FLAG(name, s) \
         SD_JSON_BUILD_PAIR_CONDITION(!isempty(s), name, JSON_BUILD_STRING_UNDERSCORIFY(s))
@@ -982,4 +988,783 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         /* System V Compatibility */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("UtmpIdentifier", c->utmp_id),
                         JSON_BUILD_PAIR_ENUM("UtmpMode", exec_utmp_mode_to_string(c->utmp_mode)));
+}
+
+/* Write side of the Exec context for StartTransient. */
+
+typedef struct TransientWorkingDirectory {
+        const char *path;
+        bool home;
+        bool missing_ok;
+} TransientWorkingDirectory;
+
+typedef struct TransientSetCredential {
+        const char *id;
+        struct iovec value;
+} TransientSetCredential;
+
+struct TransientExecContextParameters {
+        bool working_directory_set;
+        TransientWorkingDirectory working_directory;
+        bool environment_set;
+        char **environment;
+
+        bool set_credentials_set;
+        TransientSetCredential *set_credentials;
+        size_t n_set_credentials;
+
+        bool set_credentials_encrypted_set;
+        TransientSetCredential *set_credentials_encrypted;
+        size_t n_set_credentials_encrypted;
+
+        const char *user;
+        const char *group;
+        char **supplementary_groups;
+        /* Absolute-path strings: must validate via path_is_absolute(). */
+        const char *ipc_namespace_path;
+        const char *network_namespace_path;
+        const char *root_directory;
+        const char *root_hash_path;
+        const char *root_hash_sig_path;
+        const char *root_image;
+        const char *root_mstack;
+        const char *root_verity;
+        const char *tty_path;
+        const char *user_namespace_path;
+        bool nice_set;
+        int nice;
+        bool oom_score_adjust_set;
+        int oom_score_adjust;
+        bool umask_set;
+        uint32_t umask;
+        /* Tristate bools: -1 = absent, 0/1 = no/yes. */
+        int dynamic_user;
+        int ignore_sigpipe;
+        int lock_personality;
+        int memory_deny_write_execute;
+        int no_new_privileges;
+        int remove_ipc;
+        int restrict_realtime;
+        int restrict_suid_sgid;
+        int root_ephemeral;
+        /* Enums: parsed via JSON_DISPATCH_ENUM_DEFINE dispatchers, negative = absent. */
+        ExecInput std_input;
+        ExecOutput std_output;
+        ExecOutput std_error;
+        /* PrivateNetwork is a tristate bool too, but arrives as a yes/no string: the runtime
+         * context emits it via JSON_BUILD_PAIR_YES_NO and the IDL types it as string. */
+        int private_network;
+        /* Int-backed enums: -1 = absent (seeded like the tristates), parsed values >= 0. */
+        ProtectSystem protect_system;
+        ProtectHome protect_home;
+        PrivateTmp private_tmp;
+        PrivateUsers private_users;
+};
+
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input, ExecInput, exec_input_from_string);
+
+static ExecOutput exec_output_from_string_harder(const char *s) {
+        ExecOutput o;
+
+        /* Like exec_output_from_string(), but also accepts the spelling of the combined types used in the
+         * Varlink IDL (and hence in our own JSON output), i.e. with "_" instead of "+", so that what we emit
+         * can be fed back to us. */
+
+        o = exec_output_from_string(s);
+        if (o >= 0)
+                return o;
+
+        if (streq_ptr(s, "kmsg_console"))
+                return EXEC_OUTPUT_KMSG_AND_CONSOLE;
+        if (streq_ptr(s, "journal_console"))
+                return EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+
+        return _EXEC_OUTPUT_INVALID;
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string_harder);
+
+static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
+        FOREACH_ARRAY(item, items, n)
+                iovec_done_erase(&item->value);
+        free(items);
+}
+
+TransientExecContextParameters* transient_exec_context_parameters_free(TransientExecContextParameters *p) {
+        if (!p)
+                return NULL;
+
+        strv_free(p->environment);
+        strv_free(p->supplementary_groups);
+        transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
+        transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
+
+        return mfree(p);
+}
+
+static int dispatch_const_string_empty_as_null(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **s = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_json_dispatch_const_string(name, variant, flags, s);
+        if (r >= 0 && isempty(*s))
+                *s = NULL;
+        return r;
+}
+
+static int dispatch_transient_working_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* No equivalent D-Bus properties, so use varlink camelCase */
+        static const sd_json_dispatch_field dispatch[] = {
+                { "path",      SD_JSON_VARIANT_STRING,  dispatch_const_string_empty_as_null, offsetof(TransientWorkingDirectory, path),       0 },
+                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, home),       0 },
+                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, missing_ok), 0 },
+                {}
+        };
+
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->working_directory_set = true;
+        return sd_json_dispatch(variant, dispatch, flags, &p->working_directory);
+}
+
+/* Generate a parse wrapper that flips TransientExecContextParameters.<field>_set and delegates the
+ * actual value parse to the named primitive dispatcher. For fields where the JSON value type alone
+ * cannot distinguish "absent" from "explicitly set to the default" (int 0, empty strv, etc.). */
+#define DEFINE_TRANSIENT_EXEC_SETTABLE(field, primitive_dispatch)           \
+        static int dispatch_transient_##field(                              \
+                        const char *name,                                   \
+                        sd_json_variant *variant,                           \
+                        sd_json_dispatch_flags_t flags,                     \
+                        void *userdata) {                                   \
+                TransientExecContextParameters *p = ASSERT_PTR(userdata);   \
+                p->field##_set = true;                                      \
+                return primitive_dispatch(name, variant, flags, &p->field); \
+        }
+
+DEFINE_TRANSIENT_EXEC_SETTABLE(environment,      sd_json_dispatch_strv);
+DEFINE_TRANSIENT_EXEC_SETTABLE(nice,             sd_json_dispatch_int32);
+DEFINE_TRANSIENT_EXEC_SETTABLE(oom_score_adjust, sd_json_dispatch_int32);
+DEFINE_TRANSIENT_EXEC_SETTABLE(umask,            sd_json_dispatch_uint32);
+
+static int dispatch_transient_set_credential_array(
+                sd_json_variant *variant,
+                TransientSetCredential **ret_items,
+                size_t *ret_n) {
+
+        static const sd_json_dispatch_field item_dispatch[] = {
+                { "id",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientSetCredential, id),    SD_JSON_MANDATORY },
+                { "value", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec,  offsetof(TransientSetCredential, value), SD_JSON_MANDATORY },
+                {}
+        };
+
+        TransientSetCredential *items = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret_items);
+        assert(ret_n);
+
+        CLEANUP_ARRAY(items, n, transient_set_credential_array_free);
+
+        size_t n_items = sd_json_variant_elements(variant);
+        if (n_items == 0) {
+                *ret_items = NULL;
+                *ret_n = 0;
+                return 0;
+        }
+
+        items = new0(TransientSetCredential, n_items);
+        if (!items)
+                return -ENOMEM;
+
+        for (; n < n_items; n++) {
+                r = sd_json_dispatch(sd_json_variant_by_index(variant, n), item_dispatch, /* flags= */ 0, &items[n]);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_n = n;
+        *ret_items = TAKE_PTR(items);
+        return 0;
+}
+
+static int dispatch_transient_set_credential(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials);
+}
+
+static int dispatch_transient_set_credential_encrypted(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_encrypted_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted);
+}
+
+static int transient_apply_set_credentials(
+                Unit *u,
+                ExecContext *c,
+                const TransientSetCredential *items,
+                size_t n_items,
+                bool encrypted) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+
+        FOREACH_ARRAY(item, items, n_items) {
+                const char *err = NULL;
+
+                r = exec_context_apply_set_credential(u, c, item->id, item->value.iov_base, item->value.iov_len,
+                                                     encrypted, UNIT_RUNTIME|UNIT_PRIVATE, &err);
+                if (r == -EINVAL)
+                        return log_debug_errno(r, "%s: %s", err, item->id);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int apply_exec_environment(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(p);
+
+        if (!p->environment_set)
+                return 0;
+
+        r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
+        if (IN_SET(r, -E2BIG, -EINVAL))
+                /* Convert E2BIG into EINVAL so the central loop maps it to Exec.Environment. */
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       r == -E2BIG ? "Too many environment assignments." : "Invalid Environment list.");
+        return r;
+}
+
+static int apply_exec_nice(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(p);
+
+        if (!p->nice_set)
+                return 0;
+
+        if (!nice_is_valid(p->nice))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid Nice= value: %i", p->nice);
+
+        c->nice = p->nice;
+        c->nice_set = true;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Nice", "Nice=%i", p->nice);
+        return 0;
+}
+
+static int apply_exec_oom_score_adjust(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        if (!p->oom_score_adjust_set)
+                return 0;
+
+        if (!oom_score_adjust_is_valid(p->oom_score_adjust))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid OOMScoreAdjust= value: %i", p->oom_score_adjust);
+
+        c->oom_score_adjust = p->oom_score_adjust;
+        c->oom_score_adjust_set = true;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMScoreAdjust",
+                            "OOMScoreAdjust=%i", p->oom_score_adjust);
+        return 0;
+}
+
+static int apply_exec_set_credential(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(p);
+
+        if (!p->set_credentials_set)
+                return 0;
+        return transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials, /* encrypted= */ false);
+}
+
+static int apply_exec_set_credential_encrypted(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(p);
+
+        if (!p->set_credentials_encrypted_set)
+                return 0;
+        return transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted, /* encrypted= */ true);
+}
+
+static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(p);
+
+        if (!p->supplementary_groups)
+                return 0;
+
+        STRV_FOREACH(g, p->supplementary_groups)
+                if (!valid_user_group_name(*g, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid supplementary group name: %s", *g);
+
+        r = strv_extend_strv(&c->supplementary_groups, p->supplementary_groups, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        joined = strv_join(p->supplementary_groups, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "SupplementaryGroups",
+                            "SupplementaryGroups=%s", joined);
+        return 0;
+}
+
+static int apply_exec_umask(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        if (!p->umask_set)
+                return 0;
+
+        /* mode_t bits beyond 07777 are reserved/meaningless; reject so a caller passing a stray
+         * negative or out-of-range int fails clearly instead of having the kernel silently mask it. */
+        if (p->umask > 07777)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid UMask= value: %#" PRIo32, p->umask);
+
+        c->umask = (mode_t) p->umask;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "UMask", "UMask=%04" PRIo32, p->umask);
+        return 0;
+}
+
+static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *simplified = NULL;
+        TransientWorkingDirectory *wd = &p->working_directory;
+        int r;
+
+        assert(p);
+
+        if (!p->working_directory_set)
+                return 0;
+
+        if (wd->home && wd->path)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "WorkingDirectory: 'home' and 'path' are mutually exclusive");
+        if (!wd->home && !wd->path)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "WorkingDirectory: must specify either 'home' or 'path'");
+
+        if (!wd->home) {
+                if (!path_is_absolute(wd->path))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: expects an absolute path");
+                r = path_simplify_alloc(wd->path, &simplified);
+                if (r < 0)
+                        return r;
+                if (!path_is_normalized(simplified))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: expects a normalized path");
+        }
+
+        free_and_replace(c->working_directory, simplified);
+        c->working_directory_home = wd->home;
+        c->working_directory_missing_ok = wd->missing_ok;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "WorkingDirectory",
+                            "WorkingDirectory=%s%s",
+                            c->working_directory_missing_ok ? "-" : "",
+                            c->working_directory_home ? "~" : strempty(c->working_directory));
+        return 0;
+}
+
+/* Generate an apply fn for an exec-context string field: copy the parsed value to ExecContext and
+ * write the corresponding "Name=value" line, skipping if the caller didn't set the field.
+ * Used where the parsed value is NULL or already validated by the dispatch callback. */
+#define DEFINE_APPLY_EXEC_STRING(field, JsonName)                       \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                                                                        \
+                if (!p->field)                                          \
+                        return 0;                                       \
+                                                                        \
+                r = free_and_strdup(&c->field, p->field);               \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
+                                    JsonName "=%s", p->field);          \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_STRING(user,  "User");
+DEFINE_APPLY_EXEC_STRING(group, "Group");
+
+/* Generate an apply fn for an exec-context tristate bool: copy the parsed value to ExecContext and
+ * write the corresponding "Name=yes/no" line, skipping if the caller didn't set the field.
+ * Used for the sandbox bool batch where parse and apply are entirely mechanical. */
+#define DEFINE_APPLY_EXEC_TRISTATE_BOOL(field, JsonName)                \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (p->field < 0)                                       \
+                        return 0;                                       \
+                c->field = p->field;                                    \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
+                                    JsonName "=%s", yes_no(p->field));  \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(dynamic_user,              "DynamicUser");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(ignore_sigpipe,            "IgnoreSIGPIPE");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(lock_personality,          "LockPersonality");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(memory_deny_write_execute, "MemoryDenyWriteExecute");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(no_new_privileges,         "NoNewPrivileges");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(private_network,           "PrivateNetwork");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(remove_ipc,                "RemoveIPC");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(root_ephemeral,            "RootEphemeral");
+
+/* The stdio types that require a companion setting: the file based ones need a path (StandardInputFile=,
+ * StandardOutputFile=, …) and StandardInput=data needs the payload (StandardInputData=). The Varlink
+ * interface has no way to pass either yet, and without them the executor cannot set them up (it would assert
+ * on the missing path, and silently fall back to /dev/null on the missing payload), hence refuse them for
+ * now. For the output types exec_output_is_file() expresses the same. */
+static bool exec_input_needs_companion(ExecInput i) {
+        return IN_SET(i, EXEC_INPUT_FILE, EXEC_INPUT_DATA);
+}
+
+/* Generate an apply fn for an exec-context enum field: copy the parsed value to ExecContext and
+ * write the corresponding "Name=value" line. A negative parsed value means the field was absent, values
+ * for which refused_fn() returns true are rejected as invalid.
+ * Mirrors D-Bus BUS_DEFINE_SET_TRANSIENT_PARSE. */
+#define DEFINE_APPLY_EXEC_ENUM(field, JsonName, to_string_fn, refused_fn) \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (p->field < 0)                                       \
+                        return 0;                                       \
+                if (refused_fn(p->field))                               \
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), \
+                                               JsonName "=%s is not supported via Varlink.", to_string_fn(p->field)); \
+                c->field = p->field;                                    \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
+                                    JsonName "=%s", to_string_fn(p->field)); \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_ENUM(std_error,  "StandardError",  exec_output_to_string, exec_output_is_file);
+DEFINE_APPLY_EXEC_ENUM(std_input,  "StandardInput",  exec_input_to_string,  exec_input_needs_companion);
+DEFINE_APPLY_EXEC_ENUM(std_output, "StandardOutput", exec_output_to_string, exec_output_is_file);
+
+/* Generate an apply fn for an exec-context absolute-path string: validate via path_is_absolute(),
+ * copy into ExecContext, write "Name=<path>". Mirrors D-Bus bus_set_transient_path. */
+#define DEFINE_APPLY_EXEC_ABSOLUTE_PATH(field, JsonName)                \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                int r;                                                  \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (!p->field)                                          \
+                        return 0;                                       \
+                if (!path_is_absolute(p->field))                        \
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), \
+                                               JsonName ": expects an absolute path"); \
+                r = free_and_strdup(&c->field, p->field);               \
+                if (r < 0)                                              \
+                        return r;                                       \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
+                                    JsonName "=%s", p->field);          \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(ipc_namespace_path,     "IPCNamespacePath");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(network_namespace_path, "NetworkNamespacePath");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_directory,         "RootDirectory");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_image,             "RootImage");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_mstack,            "RootMStack");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_verity,            "RootVerity");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(tty_path,               "TTYPath");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(user_namespace_path,    "UserNamespacePath");
+
+/* RootHashPath and RootHashSignaturePath need custom apply fns: the corresponding unit-file
+ * directive is "RootHash="/"RootHashSignature=" (not the JSON name), and setting the path form
+ * must clear the byte-buffer (iovec) form to match the D-Bus semantics. */
+static int apply_exec_root_hash_path(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->root_hash_path)
+                return 0;
+
+        if (!path_is_absolute(p->root_hash_path))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "RootHashPath: expects an absolute path");
+
+        r = free_and_strdup(&c->root_hash_path, p->root_hash_path);
+        if (r < 0)
+                return r;
+        iovec_done(&c->root_hash);
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHash",
+                            "RootHash=%s", p->root_hash_path);
+        return 0;
+}
+
+static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->root_hash_sig_path)
+                return 0;
+
+        if (!path_is_absolute(p->root_hash_sig_path))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "RootHashSignaturePath: expects an absolute path");
+
+        r = free_and_strdup(&c->root_hash_sig_path, p->root_hash_sig_path);
+        if (r < 0)
+                return r;
+        iovec_done(&c->root_hash_sig);
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHashSignature",
+                            "RootHashSignature=%s", p->root_hash_sig_path);
+        return 0;
+}
+
+/* The IDL enums use the Varlink spelling ("read_only"), while the *_from_string() parsers
+ * expect the unit-file spelling ("read-only"); JSON_DISPATCH_ENUM_DEFINE bridges that by
+ * retrying with dashes on a miss. */
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home, ProtectHome, protect_home_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp, PrivateTmp, private_tmp_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users, PrivateUsers, private_users_from_string);
+
+/* For the sandbox knobs typed as yes/no strings in the IDL (PrivateNetwork), matching
+ * JSON_BUILD_PAIR_YES_NO on the runtime-context side, so a JSON boolean is not valid here. */
+static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        r = parse_boolean(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "Value of JSON field '%s' is not a boolean string: %s",
+                                strna(name), sd_json_variant_string(variant));
+
+        *b = r;
+        return 0;
+}
+
+/* The sandbox enums accept every value their parser accepts, as over D-Bus. */
+static bool exec_enum_refuse_nothing(int value) {
+        return false;
+}
+
+DEFINE_APPLY_EXEC_ENUM(protect_system, "ProtectSystem", protect_system_to_string, exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(protect_home,   "ProtectHome",   protect_home_to_string,   exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_tmp,    "PrivateTmp",    private_tmp_to_string,    exec_enum_refuse_nothing);
+DEFINE_APPLY_EXEC_ENUM(private_users,  "PrivateUsers",  private_users_to_string,  exec_enum_refuse_nothing);
+
+/* Per-property descriptor for fields of the Exec context.
+ *
+ *   json_name     - JSON key inside the Exec object (e.g. "Nice").
+ *   err_field     - Qualified field name used for varlink error replies (e.g. "Exec.Nice").
+ *   json_type     - Expected JSON type for sd_json_dispatch_full().
+ *   dispatch      - Parses the JSON value into TransientExecContextParameters.
+ *   parse_offset  - offsetof() into TransientExecContextParameters; 0 if dispatch writes via &p directly.
+ *   json_flags    - Per-field flags forwarded to sd_json_dispatch_full().
+ *   apply         - Writes the parsed value to ExecContext. Returns 0 on success (whether or not
+ *                   the property was set), <0 on error. -EINVAL is mapped to err_field by the
+ *                   central loop.
+ *   tristate      - If true, the int at parse_offset is initialized to -1 (absent sentinel) by
+ *                   transient_exec_context_parameters_init(). Used for tristate bools and enum
+ *                   fields (both treat negative as absent). Defaults to false.
+ */
+typedef struct TransientExecProperty {
+        const char *json_name;
+        const char *err_field;
+        sd_json_variant_type_t json_type;
+        sd_json_dispatch_callback_t dispatch;
+        size_t parse_offset;
+        sd_json_dispatch_flags_t json_flags;
+        int (*apply)(Unit *u, ExecContext *c, TransientExecContextParameters *p);
+        bool tristate;
+} TransientExecProperty;
+
+/* Property descriptors for the Exec object. Ordered to match src/shared/varlink-io.systemd.Unit.c so related
+ * fields (e.g. User/Group) stay close. JSON keys match the D-Bus property names. */
+#define EXEC_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
+        { json, "Exec." json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+
+/* Tristate-bool property: parsed via sd_json_dispatch_tristate into an int (-1 = absent).
+ * Sets .tristate=true so transient_exec_context_parameters_init() seeds the int to -1 before
+ * dispatch. */
+#define EXEC_PROPERTY_TRISTATE_BOOL(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,         \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
+/* String property: dispatched into a const char* field and applied via the matching
+ * DEFINE_APPLY_EXEC_STRING() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
+ * json_dispatch_const_user_group_name with SD_JSON_RELAX). */
+#define EXEC_PROPERTY_STRING(json, field, dispatch_fn, json_flags)                         \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
+          offsetof(TransientExecContextParameters, field), json_flags, apply_exec_##field }
+
+/* Absolute-path string property: parsed via sd_json_dispatch_const_string + path_is_absolute(). */
+#define EXEC_PROPERTY_ABSOLUTE_PATH(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,      \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
+
+/* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
+ * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
+ * matching DEFINE_APPLY_EXEC_ENUM fn treats any negative value as unset. */
+#define EXEC_PROPERTY_ENUM(json, field, dispatch_fn)                                       \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
+/* Yes/no-string property: a tristate bool whose IDL type is string, see
+ * dispatch_transient_yes_no_string(). */
+#define EXEC_PROPERTY_YES_NO_STRING(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,   \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
+static const TransientExecProperty exec_properties[] = {
+        EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootImage",              root_image),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootMStack",             root_mstack),
+        EXEC_PROPERTY_TRISTATE_BOOL("RootEphemeral",          root_ephemeral),
+        EXEC_PROPERTY              ("RootHashPath",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_path),                0,             apply_exec_root_hash_path),
+        EXEC_PROPERTY              ("RootHashSignaturePath",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_sig_path),            0,             apply_exec_root_hash_sig_path),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootVerity",             root_verity),
+        EXEC_PROPERTY_STRING       ("User",                   user,  json_dispatch_const_user_group_name, SD_JSON_RELAX),
+        EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
+        EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
+        EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
+        EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
+        EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
+        EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
+        EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
+        EXEC_PROPERTY              ("Nice",                   SD_JSON_VARIANT_INTEGER,       dispatch_transient_nice,                     0,                                                                       0,             apply_exec_nice),
+        EXEC_PROPERTY_ENUM         ("ProtectSystem",          protect_system, dispatch_protect_system),
+        EXEC_PROPERTY_ENUM         ("ProtectHome",            protect_home,   dispatch_protect_home),
+        EXEC_PROPERTY_ENUM         ("PrivateTmp",             private_tmp,    dispatch_private_tmp),
+        EXEC_PROPERTY_YES_NO_STRING("PrivateNetwork",         private_network),
+        EXEC_PROPERTY_ABSOLUTE_PATH("NetworkNamespacePath",   network_namespace_path),
+        EXEC_PROPERTY_ABSOLUTE_PATH("IPCNamespacePath",       ipc_namespace_path),
+        EXEC_PROPERTY_ENUM         ("PrivateUsers",           private_users,  dispatch_private_users),
+        EXEC_PROPERTY_ABSOLUTE_PATH("UserNamespacePath",      user_namespace_path),
+        EXEC_PROPERTY_TRISTATE_BOOL("LockPersonality",        lock_personality),
+        EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
+        EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
+        EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
+        EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
+        EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
+        EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
+        EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
+        EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
+        EXEC_PROPERTY_ABSOLUTE_PATH("TTYPath",                tty_path),
+        EXEC_PROPERTY              ("SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                                       0,             apply_exec_set_credential),
+        EXEC_PROPERTY              ("SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0,                                                                       0,             apply_exec_set_credential_encrypted),
+};
+#undef EXEC_PROPERTY
+#undef EXEC_PROPERTY_TRISTATE_BOOL
+#undef EXEC_PROPERTY_STRING
+#undef EXEC_PROPERTY_ABSOLUTE_PATH
+#undef EXEC_PROPERTY_ENUM
+#undef EXEC_PROPERTY_YES_NO_STRING
+
+/* Tristate-bool and enum fields default to -1 (= absent). Default-zeroed slots would look
+ * "explicitly set" to the apply path. Initialize all tristate fields here so adding a new such property only
+ * requires a new exec_properties[] row, never a fresh designated initializer at the call site.
+ * The .tristate descriptor flag drives the loop -- mirrors the .cleanup hook used on the Service
+ * side, and avoids fragile dispatch-function-pointer equality checks. */
+static void transient_exec_context_parameters_init(TransientExecContextParameters *p) {
+        assert(p);
+
+        /* The enum fields are seeded through an int pointer below, hence make sure they really are that
+         * wide (their dispatchers write them through their own type) */
+        assert_cc(sizeof(ExecInput) == sizeof(int));
+        assert_cc(sizeof(ExecOutput) == sizeof(int));
+        assert_cc(sizeof(ProtectSystem) == sizeof(int));
+        assert_cc(sizeof(ProtectHome) == sizeof(int));
+        assert_cc(sizeof(PrivateTmp) == sizeof(int));
+        assert_cc(sizeof(PrivateUsers) == sizeof(int));
+
+        FOREACH_ELEMENT(prop, exec_properties)
+                if (prop->tristate)
+                        *(int*) ((uint8_t*) p + prop->parse_offset) = -1;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TransientExecContextParameters*, transient_exec_context_parameters_free);
+
+int transient_exec_context_dispatch(
+                sd_json_variant *variant,
+                TransientExecContextParameters **ret,
+                const char **reterr_field) {
+
+        /* Build dispatch table only once, its constant. */
+        static sd_json_dispatch_field exec_dispatch[ELEMENTSOF(exec_properties) + 1] = {};
+        static bool exec_dispatch_set = false;
+
+        int r;
+
+        assert(ret);
+
+        if (!exec_dispatch_set) {
+                FOREACH_ELEMENT(prop, exec_properties)
+                        exec_dispatch[prop - exec_properties] = (sd_json_dispatch_field) {
+                                .name = prop->json_name,
+                                .type = prop->json_type,
+                                .callback = prop->dispatch,
+                                .offset = prop->parse_offset,
+                                .flags = prop->json_flags,
+                        };
+                exec_dispatch_set = true;
+        }
+
+        _cleanup_(transient_exec_context_parameters_freep) TransientExecContextParameters *p = NULL;
+        p = new0(TransientExecContextParameters, 1);
+        if (!p)
+                return -ENOMEM;
+
+        transient_exec_context_parameters_init(p);
+
+        r = sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(p);
+        return r;
+}
+
+int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p, const char **reterr_field) {
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(p);
+
+        FOREACH_ELEMENT(prop, exec_properties) {
+                r = prop->apply(u, c, p);
+                if (r < 0) {
+                        if (reterr_field)
+                                *reterr_field = r == -EINVAL ? prop->err_field : NULL;
+                        return r;
+                }
+        }
+
+        return 0;
 }
