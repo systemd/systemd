@@ -400,6 +400,33 @@ static int unit_active_state_build_json(const MetricFamily *mf, sd_varlink *vl, 
         return 0;
 }
 
+static int unit_sub_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* ignore aliases */
+                if (key != unit->id)
+                        continue;
+
+                r = metric_build_send_string(
+                                mf,
+                                vl,
+                                unit->id,
+                                unit_sub_state_to_string(unit),
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int unit_load_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Unit *unit;
@@ -684,6 +711,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Per unit metric: load state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = unit_load_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitSubState",
+                .description = "Per unit metric: type-specific sub state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = unit_sub_state_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByLoadStateTotal",
