@@ -13,6 +13,7 @@ fi
 
 cleanup() {
     set +e
+    rm -rf "${NSS_DIR:-}"
     userdel -r test-74-userdbctl
     groupdel test-74-userdbctl
 }
@@ -93,3 +94,20 @@ systemctl stop "$UNIT"
 # Probe specific user records
 echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
 echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -
+
+# $SYSTEMD_NSS_SERVER_SIDE_NSS=1 makes nss-systemd resolve users via systemd-userdbd's NSS backend. Hide the
+# test user from nss-files in the sandbox. systemd-userdbd runs outside of the sandbox and still finds the
+# user in the real /etc/passwd.
+NSS_DIR="$(mktemp -d)"
+grep -v '^test-74-userdbctl:' /etc/passwd >"$NSS_DIR/passwd"
+printf 'passwd: files systemd\ngroup: files systemd\n' >"$NSS_DIR/nsswitch.conf"
+TEST_UID="$(userdbctl -j user test-74-userdbctl | jq .uid)"
+SANDBOX=(-q --wait --pipe -p BindReadOnlyPaths="$NSS_DIR/passwd:/etc/passwd $NSS_DIR/nsswitch.conf:/etc/nsswitch.conf")
+
+assert_rc 2 systemd-run "${SANDBOX[@]}" getent passwd test-74-userdbctl
+assert_rc 2 systemd-run "${SANDBOX[@]}" getent passwd "$TEST_UID"
+(! systemd-run "${SANDBOX[@]}" getent passwd | grep '^test-74-userdbctl:' >/dev/null)
+
+systemd-run "${SANDBOX[@]}" -E SYSTEMD_NSS_SERVER_SIDE_NSS=1 getent passwd test-74-userdbctl
+systemd-run "${SANDBOX[@]}" -E SYSTEMD_NSS_SERVER_SIDE_NSS=1 getent passwd "$TEST_UID"
+systemd-run "${SANDBOX[@]}" -E SYSTEMD_NSS_SERVER_SIDE_NSS=1 getent passwd | grep '^test-74-userdbctl:' >/dev/null
