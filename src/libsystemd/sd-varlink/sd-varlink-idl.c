@@ -24,6 +24,7 @@ enum {
         COLOR_MARKS,         /* [], ->, ?, … */
         COLOR_RESET,
         COLOR_COMMENT,
+        COLOR_EXPERIMENTAL,  /* the experimental marker comment */
         _COLOR_MAX,
 };
 
@@ -79,6 +80,31 @@ static int varlink_idl_format_comment(
         }
 
         return 0;
+}
+
+/* The varlink IDL has no syntax for annotations, hence experimental interfaces, symbols and fields are
+ * marked with a comment line, placed immediately before the item. The parser recognizes the line and turns
+ * it back into SD_VARLINK_EXPERIMENTAL. Consider this part of the API (i.e. don't change it). */
+#define VARLINK_IDL_EXPERIMENTAL_MARKER "[Experimental]"
+
+static void varlink_idl_format_experimental(
+                FILE *f,
+                uint64_t flags,
+                const char *indent,
+                const char *const colors[static _COLOR_MAX]) {
+
+        assert(f);
+        assert(colors);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_EXPERIMENTAL))
+                return;
+
+        /* The marker contains no whitespace, hence is never line broken, so no need to honour cols */
+        fputs(strempty(indent), f);
+        fputs(colors[COLOR_EXPERIMENTAL], f);
+        fputs("# " VARLINK_IDL_EXPERIMENTAL_MARKER, f);
+        fputs(colors[COLOR_RESET], f);
+        fputs("\n", f);
 }
 
 static int varlink_idl_format_comment_fields(
@@ -167,6 +193,8 @@ static int varlink_idl_format_enum_values(
                         if (r < 0)
                                 return r;
                 }
+
+                varlink_idl_format_experimental(f, field->field_flags, indent2, colors);
 
                 fputs(indent2, f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -335,6 +363,8 @@ static int varlink_idl_format_all_fields(
                                 return r;
                 }
 
+                varlink_idl_format_experimental(f, field->field_flags, indent2, colors);
+
                 r = varlink_idl_format_field(f, field, indent2, colors, cols);
                 if (r < 0)
                         return r;
@@ -364,6 +394,8 @@ static int varlink_idl_format_symbol(
         switch (symbol->symbol_type) {
 
         case SD_VARLINK_ENUM_TYPE:
+                varlink_idl_format_experimental(f, symbol->symbol_flags, /* indent= */ NULL, colors);
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("type ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -374,6 +406,8 @@ static int varlink_idl_format_symbol(
                 break;
 
         case SD_VARLINK_STRUCT_TYPE:
+                varlink_idl_format_experimental(f, symbol->symbol_flags, /* indent= */ NULL, colors);
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("type ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -417,6 +451,10 @@ static int varlink_idl_format_symbol(
                                 return r;
                 }
 
+                /* Output this last, i.e. after the 'more' and 'upgrade' comments, since the parser turns
+                 * those into regular comments, and we want to keep the output stable across a roundtrip. */
+                varlink_idl_format_experimental(f, symbol->symbol_flags, /* indent= */ NULL, colors);
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("method ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -435,6 +473,8 @@ static int varlink_idl_format_symbol(
                 break;
 
         case SD_VARLINK_ERROR:
+                varlink_idl_format_experimental(f, symbol->symbol_flags, /* indent= */ NULL, colors);
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("error ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -512,25 +552,27 @@ static int varlink_idl_format_all_symbols(
 
 _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface, sd_varlink_idl_format_flags_t flags, size_t cols) {
         static const char* const color_table[_COLOR_MAX] = {
-                [COLOR_SYMBOL_TYPE] = ANSI_HIGHLIGHT_GREEN,
-                [COLOR_FIELD_TYPE]  = ANSI_HIGHLIGHT_BLUE,
-                [COLOR_IDENTIFIER]  = ANSI_NORMAL,
-                [COLOR_MARKS]       = ANSI_HIGHLIGHT_MAGENTA,
-                [COLOR_RESET]       = ANSI_NORMAL,
-                [COLOR_COMMENT]     = ANSI_GREY,
+                [COLOR_SYMBOL_TYPE]  = ANSI_HIGHLIGHT_GREEN,
+                [COLOR_FIELD_TYPE]   = ANSI_HIGHLIGHT_BLUE,
+                [COLOR_IDENTIFIER]   = ANSI_NORMAL,
+                [COLOR_MARKS]        = ANSI_HIGHLIGHT_MAGENTA,
+                [COLOR_RESET]        = ANSI_NORMAL,
+                [COLOR_COMMENT]      = ANSI_GREY,
+                [COLOR_EXPERIMENTAL] = ANSI_BRIGHT_YELLOW,
         };
 
         static const char* const color_16_table[_COLOR_MAX] = {
-                [COLOR_SYMBOL_TYPE] = ANSI_HIGHLIGHT_GREEN,
-                [COLOR_FIELD_TYPE]  = ANSI_HIGHLIGHT_BLUE,
-                [COLOR_IDENTIFIER]  = ANSI_NORMAL,
-                [COLOR_MARKS]       = ANSI_HIGHLIGHT_MAGENTA,
-                [COLOR_RESET]       = ANSI_NORMAL,
-                [COLOR_COMMENT]     = ANSI_BRIGHT_BLACK,
+                [COLOR_SYMBOL_TYPE]  = ANSI_HIGHLIGHT_GREEN,
+                [COLOR_FIELD_TYPE]   = ANSI_HIGHLIGHT_BLUE,
+                [COLOR_IDENTIFIER]   = ANSI_NORMAL,
+                [COLOR_MARKS]        = ANSI_HIGHLIGHT_MAGENTA,
+                [COLOR_RESET]        = ANSI_NORMAL,
+                [COLOR_COMMENT]      = ANSI_BRIGHT_BLACK,
+                [COLOR_EXPERIMENTAL] = ANSI_BRIGHT_YELLOW,
         };
 
         static const char* const color_off[_COLOR_MAX] = {
-                "", "", "", "", "", "",
+                "", "", "", "", "", "", "",
         };
 
         int r;
@@ -549,6 +591,8 @@ _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface,
         r = varlink_idl_format_all_symbols(f, interface, _SD_VARLINK_INTERFACE_COMMENT, colors, cols);
         if (r < 0)
                 return r;
+
+        varlink_idl_format_experimental(f, interface->interface_flags, /* indent= */ NULL, colors);
 
         fputs(colors[COLOR_SYMBOL_TYPE], f);
         fputs("interface ", f);
@@ -964,6 +1008,7 @@ static int varlink_idl_subparse_struct_or_enum(
         } state = STATE_OPEN;
         _cleanup_free_ char *field_name = NULL;
         const char *allowed_delimiters = "(", *allowed_chars = NULL;
+        bool experimental = false; /* Did we see the experimental marker for the next field? */
         int r;
 
         assert(p);
@@ -1015,6 +1060,11 @@ static int varlink_idl_subparse_struct_or_enum(
                                 if (r < 0)
                                         return r;
 
+                                if (streq(comment, VARLINK_IDL_EXPERIMENTAL_MARKER)) {
+                                        experimental = true;
+                                        break;
+                                }
+
                                 r = varlink_symbol_realloc(symbol, *n_fields + 1);
                                 if (r < 0)
                                         return r;
@@ -1024,9 +1074,24 @@ static int varlink_idl_subparse_struct_or_enum(
                                         .name = TAKE_PTR(comment),
                                         .field_type = _SD_VARLINK_FIELD_COMMENT,
                                 };
-                        } else if (streq(token, ")"))
+                        } else if (streq(token, ")")) {
+                                if (experimental) {
+                                        /* Not followed by a field, hence keep it as the comment it is */
+                                        r = varlink_symbol_realloc(symbol, *n_fields + 1);
+                                        if (r < 0)
+                                                return r;
+
+                                        sd_varlink_field *field = (*symbol)->fields + (*n_fields)++;
+                                        *field = (sd_varlink_field) {
+                                                .name = strdup(VARLINK_IDL_EXPERIMENTAL_MARKER),
+                                                .field_type = _SD_VARLINK_FIELD_COMMENT,
+                                        };
+                                        if (!field->name)
+                                                return -ENOMEM;
+                                }
+
                                 state = STATE_DONE;
-                        else {
+                        } else {
                                 field_name = TAKE_PTR(token);
                                 state = STATE_COLON;
                                 allowed_delimiters = ":,)";
@@ -1057,8 +1122,10 @@ static int varlink_idl_subparse_struct_or_enum(
                                 *field = (sd_varlink_field) {
                                         .name = TAKE_PTR(field_name),
                                         .field_type = _SD_VARLINK_FIELD_TYPE_INVALID,
+                                        .field_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0,
                                         .field_direction = direction,
                                 };
+                                experimental = false;
 
                                 r = varlink_idl_subparse_field_type(p, line, column, field, depth);
                                 if (r < 0)
@@ -1084,7 +1151,9 @@ static int varlink_idl_subparse_struct_or_enum(
                                 *field = (sd_varlink_field) {
                                         .name = TAKE_PTR(field_name),
                                         .field_type = SD_VARLINK_ENUM_VALUE,
+                                        .field_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0,
                                 };
+                                experimental = false;
 
                                 if (streq(token, ",")) {
                                         state = STATE_NAME;
@@ -1198,6 +1267,7 @@ _public_ int sd_varlink_idl_parse(
         size_t n_symbols = 0, n_fields = 1;
         unsigned _line = 0, _column = 1;
         const char **p = &text;
+        bool experimental = false; /* Did we see the experimental marker for the next item? */
         int r;
 
         if (!reterr_line)
@@ -1230,6 +1300,11 @@ _public_ int sd_varlink_idl_parse(
                                 if (r < 0)
                                         return r;
 
+                                if (streq(comment, VARLINK_IDL_EXPERIMENTAL_MARKER)) {
+                                        experimental = true;
+                                        break;
+                                }
+
                                 r = varlink_interface_realloc(&interface, n_symbols + 1);
                                 if (r < 0)
                                         return r;
@@ -1260,6 +1335,8 @@ _public_ int sd_varlink_idl_parse(
 
                         assert(!interface->name);
                         interface->name = TAKE_PTR(token);
+                        interface->interface_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        experimental = false;
 
                         state = STATE_PRE_SYMBOL;
                         allowed_delimiters = "#";
@@ -1268,6 +1345,25 @@ _public_ int sd_varlink_idl_parse(
 
                 case STATE_PRE_SYMBOL:
                         if (!token) {
+                                if (experimental) {
+                                        /* Not followed by a symbol, hence keep it as the comment it is */
+                                        r = varlink_interface_realloc(&interface, n_symbols + 1);
+                                        if (r < 0)
+                                                return r;
+
+                                        assert(!symbol);
+                                        r = varlink_symbol_realloc(&symbol, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        symbol->symbol_type = _SD_VARLINK_SYMBOL_COMMENT;
+                                        symbol->name = strdup(VARLINK_IDL_EXPERIMENTAL_MARKER);
+                                        if (!symbol->name)
+                                                return -ENOMEM;
+
+                                        interface->symbols[n_symbols++] = TAKE_PTR(symbol);
+                                }
+
                                 state = STATE_DONE;
                                 break;
                         }
@@ -1278,6 +1374,11 @@ _public_ int sd_varlink_idl_parse(
                                 r = varlink_idl_subparse_comment(&text, reterr_line, reterr_column, &comment);
                                 if (r < 0)
                                         return r;
+
+                                if (streq(comment, VARLINK_IDL_EXPERIMENTAL_MARKER)) {
+                                        experimental = true;
+                                        break;
+                                }
 
                                 r = varlink_interface_realloc(&interface, n_symbols + 1);
                                 if (r < 0)
@@ -1319,6 +1420,8 @@ _public_ int sd_varlink_idl_parse(
 
                         symbol->symbol_type = SD_VARLINK_METHOD;
                         symbol->name = TAKE_PTR(token);
+                        symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_INPUT, 0);
                         if (r < 0)
@@ -1364,6 +1467,8 @@ _public_ int sd_varlink_idl_parse(
 
                         symbol->symbol_type = _SD_VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be field in by varlink_idl_subparse_struct_or_enum() */
                         symbol->name = TAKE_PTR(token);
+                        symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
                         if (r < 0)
@@ -1392,6 +1497,8 @@ _public_ int sd_varlink_idl_parse(
 
                         symbol->symbol_type = SD_VARLINK_ERROR;
                         symbol->name = TAKE_PTR(token);
+                        symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
                         if (r < 0)
