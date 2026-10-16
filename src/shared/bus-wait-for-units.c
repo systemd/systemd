@@ -16,8 +16,20 @@
 
 typedef struct WaitForItem {
         BusWaitForUnits *parent;
-
         BusWaitForUnitsFlags flags;
+
+        /* Set if we saw a UnitRemoved signal for this unit while the service manager was reloading, and
+         * haven't verified yet whether it came back after the reload finished. */
+        bool removed;
+
+        /* Set if we should query the unit's properties again once the service manager finished reloading,
+         * because we might have missed state changes in the meantime. */
+        bool requery;
+
+        /* Set while the PropertiesChanged match installation resp. the GetAll() query are in progress, see
+         * BusWaitForUnits.n_pending */
+        bool pending_match;
+        bool pending_query;
 
         char *name;
         char *bus_path;
@@ -39,19 +51,6 @@ typedef struct WaitForItem {
         char *clean_result;
         char *live_mount_result;
 
-        /* Set if we saw a UnitRemoved signal for this unit while the service manager was reloading, and
-         * haven't verified yet whether it came back after the reload finished. */
-        bool removed:1;
-
-        /* Set if we should query the unit's properties again once the service manager finished reloading,
-         * because we might have missed state changes in the meantime. */
-        bool requery:1;
-
-        /* Set while the PropertiesChanged match installation resp. the GetAll() query are in progress, see
-         * BusWaitForUnits.n_pending */
-        bool pending_match:1;
-        bool pending_query:1;
-
         UnitResult result;
 } WaitForItem;
 
@@ -65,17 +64,19 @@ typedef struct BusWaitForUnits {
 
         Hashmap *items;
 
-        BusWaitForUnitsState state;
-        bool has_failed:1;
-        bool subscribed:1;  /* We successfully called Subscribe(), hence we should Unsubscribe() when done */
-        bool reloading:1;   /* The service manager is currently reloading/reexecuting */
-        bool ready:1;       /* All asynchronous setup operations completed, and the ready callback was invoked */
-        bool setup_failed:1; /* Installing a signal match or Subscribe() failed, hence we cannot guarantee to notice all state changes */
-
         /* Number of asynchronous setup operations (signal match installations, Subscribe(), initial GetAll()
          * queries) that are still in progress. Once this drops to zero we consider ourselves fully set up,
          * i.e. we'll get told about any relevant change from then on, and invoke the ready callback. */
         unsigned n_pending;
+
+        BusWaitForUnitsState state;
+        bool has_failed;
+        bool subscribed;   /* We successfully called Subscribe(), hence we should Unsubscribe() when done */
+        bool reloading;    /* The service manager is currently reloading/reexecuting */
+        bool ready;        /* All asynchronous setup operations completed, and the ready callback was invoked */
+        bool setup_failed; /* Installing a signal match or Subscribe() failed, hence we cannot guarantee to
+                            * notice all state changes */
+
         bus_wait_for_units_ready_callback_t ready_callback;
         void *ready_userdata;
 } BusWaitForUnits;
