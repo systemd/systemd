@@ -652,6 +652,89 @@ void varlink_job_send_removed_signal(Job *j) {
         j->varlink = sd_varlink_unref(j->varlink);
 }
 
+typedef struct VarlinkJobClient {
+        sd_varlink *link;
+        bool notify_job_changes;
+        bool notify_unit_changes;
+} VarlinkJobClient;
+
+static VarlinkJobClient* varlink_job_client_free(VarlinkJobClient *w) {
+        if (!w)
+                return NULL;
+
+        sd_varlink_unref(w->link);
+        return mfree(w);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkJobClient*, varlink_job_client_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                varlink_job_client_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                VarlinkJobClient, varlink_job_client_free);
+
+void varlink_job_stash_client(Job *j) {
+        int r;
+
+        assert(j);
+        assert(j->manager);
+
+        /* The connection outlives the reload but the job doesn't, hence keep it by job id for job_coldplug().
+         * Unlike bus names this can't go through the serialization stream. */
+        if (!j->varlink)
+                return;
+
+        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w = new(VarlinkJobClient, 1);
+        if (!w) {
+                log_oom_warning();
+                return;
+        }
+
+        *w = (VarlinkJobClient) {
+                .link = sd_varlink_ref(j->varlink),
+                .notify_job_changes = j->varlink_notify_job_changes,
+                .notify_unit_changes = j->unit->varlink_unit_change == j->varlink,
+        };
+
+        r = hashmap_ensure_put(&j->manager->deserialized_varlink_job_clients, &varlink_job_client_hash_ops, UINT32_TO_PTR(j->id), w);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to stash varlink client of job %" PRIu32 ", ignoring: %m", j->id);
+                return;
+        }
+
+        TAKE_PTR(w);
+}
+
+void varlink_job_coldplug_client(Job *j) {
+        assert(j);
+        assert(j->manager);
+        assert(j->unit);
+
+        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w =
+                hashmap_remove(j->manager->deserialized_varlink_job_clients, UINT32_TO_PTR(j->id));
+        if (!w)
+                return;
+
+        assert(!j->varlink);
+
+        j->varlink = sd_varlink_ref(w->link);
+        j->varlink_notify_job_changes = w->notify_job_changes;
+
+        if (w->notify_unit_changes && !j->unit->varlink_unit_change)
+                j->unit->varlink_unit_change = sd_varlink_ref(w->link);
+}
+
+void varlink_job_drop_deserialized_client(Manager *m, sd_varlink *link) {
+        VarlinkJobClient *w;
+        void *id;
+
+        assert(m);
+        assert(link);
+
+        HASHMAP_FOREACH_KEY(w, id, m->deserialized_varlink_job_clients)
+                if (w->link == link)
+                        varlink_job_client_free(hashmap_remove(m->deserialized_varlink_job_clients, id));
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
