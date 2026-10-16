@@ -1786,7 +1786,7 @@ static int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                r = journal_file_data_payload(f, o, p, NULL, 0, 0, &d, &rsize);
+                r = journal_file_data_payload(f, o, p, /* field= */ NULL, /* field_length= */ 0, &d, &rsize);
                 if (r < 0)
                         return r;
                 assert(r > 0); /* journal_file_data_payload() always returns > 0 if no field is provided. */
@@ -2054,7 +2054,6 @@ static int maybe_decompress_payload(
                 Compression compression,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2128,7 +2127,6 @@ int journal_file_data_payload(
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2155,8 +2153,9 @@ int journal_file_data_payload(
         if (c < 0)
                 return -EPROTONOSUPPORT;
 
-        return maybe_decompress_payload(f, journal_file_data_payload_field(f, o), size, c, field,
-                                        field_length, data_threshold, ret_data, ret_size);
+        return maybe_decompress_payload(
+                        f, journal_file_data_payload_field(f, o), size, c, field, field_length,
+                        ret_data, ret_size);
 }
 
 int journal_file_data_payload_pinned(
@@ -2164,7 +2163,6 @@ int journal_file_data_payload_pinned(
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2182,7 +2180,9 @@ int journal_file_data_payload_pinned(
         if (r < 0)
                 return r;
 
-        return journal_file_data_payload(f, o, offset, field, field_length, data_threshold, ret_data, ret_size);
+        return journal_file_data_payload(
+                        f, o, offset, field, field_length,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
@@ -2220,7 +2220,6 @@ int journal_file_entry_field_payload(
                 uint64_t i,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2241,7 +2240,6 @@ int journal_file_entry_field_payload(
                         /* o= */ NULL,
                         journal_file_entry_item_object_offset(f, o, i),
                         field, field_length,
-                        data_threshold,
                         ret_data, ret_size);
 }
 
@@ -4721,7 +4719,6 @@ int journal_file_copy_entry(
                 r = journal_file_entry_field_payload(
                                 from, o, p, i,
                                 /* field= */ NULL, /* field_length= */ 0,
-                                /* data_threshold= */ 0,
                                 &data, &l);
                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
