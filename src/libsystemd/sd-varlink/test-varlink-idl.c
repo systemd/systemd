@@ -303,6 +303,130 @@ TEST(experimental) {
         ASSERT_OK(varlink_idl_consistent(&vl_interface_xyz_experimental, LOG_ERR));
 }
 
+static bool symbol_is_experimental(const sd_varlink_interface *iface, const char *name) {
+        return FLAGS_SET(ASSERT_PTR(varlink_idl_find_symbol(iface, _SD_VARLINK_SYMBOL_TYPE_INVALID, name))->symbol_flags,
+                         SD_VARLINK_EXPERIMENTAL);
+}
+
+static bool field_is_experimental(const sd_varlink_interface *iface, const char *symbol, const char *field) {
+        const sd_varlink_symbol *s = ASSERT_PTR(varlink_idl_find_symbol(iface, _SD_VARLINK_SYMBOL_TYPE_INVALID, symbol));
+        return FLAGS_SET(ASSERT_PTR(varlink_idl_find_field(s, field))->field_flags, SD_VARLINK_EXPERIMENTAL);
+}
+
+TEST(experimental_roundtrip) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free_ char *text = NULL;
+        const sd_varlink_symbol *symbol;
+
+        ASSERT_OK(sd_varlink_idl_format(&vl_interface_xyz_experimental, &text));
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+
+        ASSERT_TRUE(FLAGS_SET(parsed->interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalEnumTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalStructTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalMethodTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalErrorTest"));
+        ASSERT_FALSE(field_is_experimental(parsed, "ExperimentalEnumTest", "foo"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalEnumTest", "bar"));
+        ASSERT_FALSE(field_is_experimental(parsed, "ExperimentalStructTest", "x"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalStructTest", "y"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalMethodTest", "e"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalMethodTest", "s"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalErrorTest", "x"));
+
+        /* Other flags of an experimental field must survive the roundtrip too */
+        symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_STRUCT_TYPE, "ExperimentalStructTest"));
+        ASSERT_EQ((uint64_t) ASSERT_PTR(varlink_idl_find_field(symbol, "y"))->field_flags,
+                  (uint64_t) (SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY|SD_VARLINK_EXPERIMENTAL));
+}
+
+TEST(experimental_parse) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        const sd_varlink_symbol *foo, *method;
+        const sd_varlink_field *b;
+        size_t n_markers = 0;
+
+        static const char text[] =
+                "# Some interface\n"
+                "# [Experimental]\n"
+                "interface xyz.parse\n"
+                "\n"
+                "# [Experimental]\n"
+                "# A comment between marker and symbol\n"
+                "type Foo (\n"
+                "\t# [Experimental]\n"
+                "\ta: ?int,\n"
+                "\tb: (\n"
+                "\t\t# [Experimental]\n"
+                "\t\tc: string\n"
+                "\t)\n"
+                ")\n"
+                "\n"
+                "# This mentions [Experimental] but is not a marker\n"
+                "type Bar (\n"
+                "\t# [experimental]\n"
+                "\tx,\n"
+                "\t# [Experimental]\n"
+                "\ty\n"
+                ")\n"
+                "\n"
+                "method Baz(\n"
+                "\t# [Experimental]\n"
+                "\tz: ?Bar\n"
+                ") -> ()\n";
+
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+
+        ASSERT_TRUE(FLAGS_SET(parsed->interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "Foo"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "b"));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Bar"));
+        ASSERT_FALSE(field_is_experimental(parsed, "Bar", "x"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Bar", "y"));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Baz"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Baz", "z"));
+
+        /* Anonymous nested struct */
+        foo = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_STRUCT_TYPE, "Foo"));
+        b = ASSERT_PTR(varlink_idl_find_field(foo, "b"));
+        ASSERT_TRUE(FLAGS_SET(ASSERT_PTR(varlink_idl_find_field(ASSERT_PTR(b->symbol), "c"))->field_flags, SD_VARLINK_EXPERIMENTAL));
+
+        /* The markers are turned into flags rather than kept as comments, hence each is output once */
+        ASSERT_OK(sd_varlink_idl_format(parsed, &formatted));
+        for (const char *m = formatted; (m = strstr(m, "# [Experimental]\n")); m++)
+                n_markers++;
+        ASSERT_EQ(n_markers, 6U);
+        ASSERT_NOT_NULL(strstr(formatted, "# [experimental]\n"));
+
+        /* A marker that is not followed by an item is accepted, but dropped */
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse("interface xyz.parse\n"
+                                       "type Foo (a: int)\n"
+                                       "# [Experimental]\n", NULL, NULL, &parsed));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Foo"));
+        ASSERT_NULL(parsed->symbols[1]);
+
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse("interface xyz.parse\n"
+                                       "method Foo(\n"
+                                       "\t# [Experimental]\n"
+                                       ") -> (a: int)\n", NULL, NULL, &parsed));
+        method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Foo"));
+        ASSERT_FALSE(FLAGS_SET(method->symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_EQ(method->fields[1].field_type, _SD_VARLINK_FIELD_TYPE_END_MARKER);
+
+        /* … and in particular doesn't end up marking the first output field when formatted and parsed again */
+        formatted = mfree(formatted);
+        ASSERT_OK(sd_varlink_idl_format(parsed, &formatted));
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse(formatted, NULL, NULL, &parsed));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_OK(varlink_idl_consistent(parsed, LOG_DEBUG));
+}
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
                 BadFlagsStructTest,
                 SD_VARLINK_SUPPORTS_MORE,
