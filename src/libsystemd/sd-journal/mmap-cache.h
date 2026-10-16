@@ -20,6 +20,7 @@ typedef enum MMapCacheCategory {
         MMAP_CACHE_CATEGORY_INDEX            = OBJECT_INDEX,
         MMAP_CACHE_CATEGORY_HEADER, /* for reading file header */
         MMAP_CACHE_CATEGORY_PIN,    /* for temporary pinning a object */
+        MMAP_CACHE_CATEGORY_PREFETCH, /* for looking ahead without moving the windows of the other categories */
         _MMAP_CACHE_CATEGORY_MAX,
         _MMAP_CACHE_CATEGORY_INVALID         = -EINVAL,
 } MMapCacheCategory;
@@ -52,6 +53,7 @@ int mmap_cache_fd_pin(
 
 int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret);
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
+void mmap_cache_fd_set_random(MMapFileDescriptor *f, bool b);
 MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f);
 
 void mmap_cache_stats_log_debug(MMapCache *m);
