@@ -193,12 +193,16 @@
             "partitionUuid": "41f9ce04-c827-4b74-a981-c669f93eb4dc",
             "luksUuid": "e63581ba-79fb-4226-b9de-1888393f7573",
             "fileSystemUuid": "758e88c8-5851-4a2a-b88f-e7474279c111",
+            "thinPoolUuid": "HOMED-POOL-test",
+            "thinDeviceId": 42,
             "uid": 60001,
             "gid": 60001,
             "storage": "luks",
             "fileSystemType": "ext4",
             "luksCipher": "aes",
             "luksCipherMode": "xts-plain64",
+            "luksKeyType": "hw-wrapped",
+            "luksIntegrity": "hmac(sha256)",
             "luksVolumeKeySize": 64
         }
     },
