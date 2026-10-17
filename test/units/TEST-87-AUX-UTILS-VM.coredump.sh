@@ -155,6 +155,7 @@ SYSTEMD_LOG_LEVEL=debug coredumpctl
 coredumpctl --help
 coredumpctl --version
 coredumpctl --no-pager --no-legend
+coredumpctl --no-pager --no-legend --full
 coredumpctl --all
 coredumpctl -1
 coredumpctl -n 1
@@ -175,6 +176,7 @@ rm -f /tmp/coredumpctl.out
 
 coredumpctl info
 coredumpctl info "$CORE_TEST_BIN"
+coredumpctl info "$CORE_TEST_BIN" --full
 coredumpctl info /foo /bar/ /baz "$CORE_TEST_BIN"
 coredumpctl info "${CORE_TEST_BIN##*/}"
 coredumpctl info foo bar baz "${CORE_TEST_BIN##*/}"

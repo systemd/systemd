@@ -13,6 +13,7 @@ extern char **arg_file;
 extern sd_json_format_flags_t arg_json_format_flags;
 extern PagerFlags arg_pager_flags;
 extern bool arg_legend;
+extern bool arg_full;
 extern size_t arg_rows_max;
 extern const char *arg_output;
 extern bool arg_reverse;
