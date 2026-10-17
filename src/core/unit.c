@@ -1817,6 +1817,7 @@ static bool unit_test_condition(Unit *u) {
                 u->condition_result = condition_test_list(
                                 u->conditions,
                                 env,
+                                u->manager->runtime_scope,
                                 condition_type_to_string,
                                 log_unit_internal,
                                 u) > 0;
@@ -1841,6 +1842,7 @@ static bool unit_test_assert(Unit *u) {
                 u->assert_result = condition_test_list(
                                 u->asserts,
                                 env,
+                                u->manager->runtime_scope,
                                 assert_type_to_string,
                                 log_unit_internal,
                                 u) > 0;

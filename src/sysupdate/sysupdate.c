@@ -3305,7 +3305,7 @@ static int context_component_is_suggested(Context *c) {
         if (!c->component_suggest_on) /* no condition → false */
                 return false;
 
-        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return condition_test_list(c->component_suggest_on, environ, RUNTIME_SCOPE_SYSTEM, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }
 
 VERB_NOARG(verb_components, "components",
