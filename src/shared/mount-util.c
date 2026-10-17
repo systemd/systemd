@@ -45,7 +45,12 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         int n = 0, r;
 
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
-         * keep unmounting them until they are gone. */
+         * keep unmounting them until they are gone.
+         *
+         * Each pass unmounts everything it can from a single snapshot of the mount table, and we only
+         * re-parse the table for another pass if the previous one made progress. Entries that went away
+         * in the meantime simply fail to be unmounted, which we ignore, and mounts that could not be
+         * unmounted yet (e.g. because a child of theirs was still around) are retried on the next pass. */
 
         f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
         if (!f)
@@ -76,9 +81,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
 
                         if (prefix && !path_startswith(path, prefix)) {
-                                // FIXME: This is extremely noisy, we're probably doing something very wrong
-                                // to trigger this so often, needs more investigation.
-                                // log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
+                                log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
                                 continue;
                         }
 
@@ -102,8 +105,6 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
                         again = true;
                         n++;
-
-                        break;
                 }
 
                 if (!again)
