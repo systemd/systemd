@@ -452,6 +452,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (!table)
                 return log_oom();
 
+        if (arg_full)
+                table_set_width(table, 0);
+
         if (f.fields[COREDUMP_FIELD_COMM])
                 r = table_add_string_fieldf_full(
                                 table, "PID", TABLE_STRING_WITH_ANSI, "%s%s%s (%s)",
