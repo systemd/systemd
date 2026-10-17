@@ -27,6 +27,7 @@
 
 import glob
 import os
+import re
 import string
 import sys
 
@@ -77,6 +78,9 @@ from functools import lru_cache
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
+# A '#' starts a trailing comment only if it is preceded by whitespace and followed by whitespace,
+# another '#' or the end of the line, see hwdb(7). Any other '#' is part of the match or value.
+TRAILING_COMMENT_RE = re.compile(r'\s+#(?=[\s#]|$).*')
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
@@ -141,9 +145,7 @@ def hwdb_grammar():
 
     propertyline = (
         White(' ', exact=1).suppress()
-        + Combine(
-            UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&')) - Optional(pythonStyleComment)
-        )
+        + Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&#')))
         + EOL
     )
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
@@ -302,11 +304,18 @@ def convert_properties(group):
     return matches, props
 
 
+def strip_trailing_comments(text):
+    return ''.join(
+        line if line.lstrip().startswith('#') else TRAILING_COMMENT_RE.sub('', line)
+        for line in text.splitlines(keepends=True)
+    )
+
+
 def parse(fname):
     grammar = hwdb_grammar()
     try:
         with open(fname, encoding='UTF-8') as f:
-            parsed = grammar.parseFile(f)
+            parsed = grammar.parseString(strip_trailing_comments(f.read()))
     except ParseBaseException as e:
         error('Cannot parse {}: {}', fname, e)
         return []
@@ -394,7 +403,7 @@ def check_properties(groups):
         seen_props = {}
         for prop in props:
             # print('--', prop)
-            prop = prop.partition('#')[0].rstrip()
+            prop = prop.rstrip()
             try:
                 parsed = grammar.parseString(prop)
             except ParseBaseException:
