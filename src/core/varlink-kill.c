@@ -7,6 +7,7 @@
 #include "kill.h"
 #include "signal-util.h"
 #include "unit.h"
+#include "varlink-common.h"
 #include "varlink-kill.h"
 
 /* Read side of the Kill context for List. */
@@ -88,10 +89,6 @@ int transient_kill_context_apply_properties(Unit *u, KillContext *k, TransientKi
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "KillMode", "KillMode=%s", kill_mode_to_string(p->kill_mode));
         }
 
-        if (p->send_sighup >= 0) {
-                k->send_sighup = p->send_sighup;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SendSIGHUP", "SendSIGHUP=%s", yes_no(p->send_sighup));
-        }
-
+        varlink_apply_tristate_bool(u, "SendSIGHUP", &k->send_sighup, p->send_sighup, UNIT_RUNTIME|UNIT_PRIVATE);
         return 0;
 }

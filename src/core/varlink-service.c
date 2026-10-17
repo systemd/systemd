@@ -440,10 +440,8 @@ int transient_service_apply_properties(Service *s, TransientServiceParameters *s
                 s->exec_context.stdio_as_fds = true;
         }
 
-        if (sp->remain_after_exit >= 0) {
-                s->remain_after_exit = sp->remain_after_exit;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "RemainAfterExit", "RemainAfterExit=%s", yes_no(sp->remain_after_exit));
-        }
+        varlink_apply_tristate_bool(u, "RemainAfterExit", &s->remain_after_exit, sp->remain_after_exit,
+                                   UNIT_RUNTIME|UNIT_PRIVATE);
 
         for (ServiceExecCommand cmd = 0; cmd < _SERVICE_EXEC_COMMAND_MAX; cmd++) {
                 const char *name = service_exec_command_to_string(cmd);

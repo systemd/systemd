@@ -14,7 +14,6 @@
 #include "percent-util.h"
 #include "set.h"
 #include "special.h"
-#include "string-util.h"
 #include "time-util.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
@@ -1015,34 +1014,27 @@ DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_max,       "StartupMemoryMax", 
 DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_swap_max,  "StartupMemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
 DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_zswap_max, "StartupMemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
 
-/* Generate an apply fn for a cgroup accounting tristate bool. Same shape as
- * DEFINE_APPLY_EXEC_TRISTATE_BOOL in varlink-unit.c, plus the cgroup mask invalidation. */
-#define DEFINE_APPLY_CGROUP_TRISTATE_BOOL(field, JsonName, mask)            \
-        static int apply_cgroup_##field(                                    \
-                        Unit *u,                                            \
-                        CGroupContext *c,                                   \
-                        TransientCGroupContextParameters *p) {              \
-                                                                            \
-                assert(u);                                                  \
-                assert(c);                                                  \
-                assert(p);                                                  \
-                                                                            \
-                if (p->field < 0)                                           \
-                        return 0;                                           \
-                                                                            \
-                c->field = p->field;                                        \
-                unit_invalidate_cgroup(u, mask);                            \
-                                                                            \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
-                                    JsonName "=%s", yes_no(p->field));      \
-                                                                            \
-                return 0;                                                   \
+/* Accounting changes also require the affected controller to be reapplied. */
+#define DEFINE_APPLY_CGROUP_TRISTATE_BOOL(field, JsonName, mask)                                                \
+        int apply_cgroup_##field(                                                                               \
+                        Unit *u,                                                                                \
+                        CGroupContext *c,                                                                       \
+                        TransientCGroupContextParameters *p) {                                                  \
+                assert(c);                                                                                      \
+                assert(p);                                                                                      \
+                                                                                                                \
+                if (p->field < 0)                                                                               \
+                        return 0;                                                                               \
+                                                                                                                \
+                varlink_apply_tristate_bool(u, (JsonName), &c->field, p->field, UNIT_RUNTIME|UNIT_PRIVATE);     \
+                unit_invalidate_cgroup(u, (mask));                                                              \
+                return 0;                                                                                       \
         }
 
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(io_accounting,          "IOAccounting",         CGROUP_MASK_IO);
+static DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY);
+static DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY);
+static DEFINE_APPLY_CGROUP_TRISTATE_BOOL(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS);
+static DEFINE_APPLY_CGROUP_TRISTATE_BOOL(io_accounting,          "IOAccounting",         CGROUP_MASK_IO);
 
 /* Parse wrapper flipping <field>_set, as DEFINE_TRANSIENT_EXEC_SETTABLE in varlink-unit.c. An
  * explicit null is treated as absent (the IDL fields are nullable, and the output side emits null
