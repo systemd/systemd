@@ -39,6 +39,329 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
+#if HAVE_LIBMOUNT
+/* Enumerating mounts through /proc/self/mountinfo makes the kernel compute the propagation fields for
+ * every line, which walks each mount's whole peer group; inside a service's mount namespace that is
+ * O(mounts x peers) per read. The kernel-backed table from libmount_parse_kernel() skips those fields,
+ * which is the entire speedup. Both paths produce libmnt_fs objects, so only the table's origin
+ * differs. */
+
+typedef struct MountSnapshotEntry {
+        char *path;
+        char *fstype;
+        unsigned long flags;
+} MountSnapshotEntry;
+
+static void mount_snapshot_entry_done(MountSnapshotEntry *e) {
+        assert(e);
+
+        e->path = mfree(e->path);
+        e->fstype = mfree(e->fstype);
+}
+
+static DEFINE_ARRAY_FREE_FUNC(mount_snapshot_entry_array_free, MountSnapshotEntry, mount_snapshot_entry_done);
+
+typedef struct MountSnapshot {
+        MountSnapshotEntry *entries;
+        size_t n;
+} MountSnapshot;
+
+static void mount_snapshot_done(MountSnapshot *s) {
+        assert(s);
+
+        mount_snapshot_entry_array_free(s->entries, s->n);
+        s->entries = NULL;
+        s->n = 0;
+}
+
+/* Reads a mount's flags the way the mountinfo table reports them.
+ *
+ * Returns -ENODATA when the options string is not available at all, which on a kernel-built table
+ * means the per-mount statmount() fetch failed; the mountinfo parse always fills the string in.
+ * That case must not read as "no flags set": these flags are what the remount paths preserve
+ * across a remount, so flags misread as 0 would strip nosuid/nodev/noexec from the mount.
+ *
+ * libmount's statmount() path spells strict atime out as "strictatime", while mountinfo expresses
+ * it by omitting any atime option, so the same mount yields MS_STRICTATIME through one table and
+ * nothing through the other. That is deliberate on libmount's side, so mask the bit off here and
+ * the flags no longer depend on which libmount we happened to dlopen. The mountinfo path never
+ * sets it, so this costs that path nothing. */
+static int mount_fs_flags(struct libmnt_fs *fs, unsigned long *ret) {
+        unsigned long flags = 0;
+        const char *opts;
+        int r;
+
+        assert(fs);
+        assert(ret);
+
+        opts = sym_mnt_fs_get_vfs_options(fs);
+        if (!opts)
+                return -ENODATA;
+
+        r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
+        if (r < 0)
+                return r;
+
+        *ret = flags & ~MS_STRICTATIME;
+        return 0;
+}
+
+/* Collects the mount point of every entry in 'table', plus the filesystem type when 'mask'
+ * includes STATMOUNT_FS_TYPE and the per-mount flags when it includes STATMOUNT_MNT_BASIC. The
+ * table is whatever the caller built: from listmount()/statmount(), or from parsing
+ * /proc/self/mountinfo.
+ *
+ * Returns -ENODATA if any entry cannot be read in full, which on a kernel-built table means that
+ * entry's statmount() failed: the mount may have been unmounted between listmount() and
+ * statmount(), but listmount() and statmount() also apply their permission and allocation checks
+ * differently, so a live mount can fail too. Neither dropping the entry nor reading its flags as 0
+ * is safe, because both make an incomplete enumeration look like a complete one: a caller applying
+ * ProtectSystem= would report success over a submount it never remounted. The caller re-reads the
+ * whole snapshot from mountinfo instead, which renders every field of every line in one pass and
+ * so cannot be partially readable. */
+static int mount_snapshot_from_table(
+                struct libmnt_table *table,
+                struct libmnt_iter *iter,
+                uint64_t mask,
+                MountSnapshot *ret) {
+
+        MountSnapshotEntry *list = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(table);
+        assert(iter);
+        assert(ret);
+
+        CLEANUP_ARRAY(list, n, mount_snapshot_entry_array_free);
+
+        for (;;) {
+                _cleanup_free_ char *p = NULL, *t = NULL;
+                const char *path, *type = NULL;
+                unsigned long flags = 0;
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get next entry from mount table: %m");
+
+                path = sym_mnt_fs_get_target(fs);
+                if (isempty(path))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "Failed to read the mount point of mount %" PRIu64 ".",
+                                               sym_mnt_fs_get_uniq_id ? sym_mnt_fs_get_uniq_id(fs) : (uint64_t) sym_mnt_fs_get_id(fs));
+
+                if (FLAGS_SET(mask, STATMOUNT_FS_TYPE)) {
+                        type = sym_mnt_fs_get_fstype(fs);
+                        if (!type)
+                                /* The callers that request types pick which mounts to remount by
+                                 * them, so an entry with a silently missing type would drop out
+                                 * of their set the same way a missing entry would. */
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                                       "Failed to read the filesystem type of '%s'.", path);
+                }
+
+                if (FLAGS_SET(mask, STATMOUNT_MNT_BASIC)) {
+                        r = mount_fs_flags(fs, &flags);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read the mount flags of '%s': %m", path);
+                }
+
+                if (!GREEDY_REALLOC(list, n + 1))
+                        return -ENOMEM;
+
+                r = strdup_to(&p, path);
+                if (r < 0)
+                        return r;
+
+                r = strdup_to(&t, type);   /* NULL type stays NULL */
+                if (r < 0)
+                        return r;
+
+                list[n++] = (MountSnapshotEntry) {
+                        .path = TAKE_PTR(p),
+                        .fstype = TAKE_PTR(t),
+                        .flags = flags,
+                };
+        }
+
+        *ret = (MountSnapshot) {
+                .entries = TAKE_PTR(list),
+                .n = n,
+        };
+        return 0;
+}
+
+/* Builds the mount table through one backend, iterated in 'direction' order: from
+ * listmount()/statmount() with 'mask' when 'from_kernel', from parsing 'proc_self_mountinfo'
+ * otherwise. */
+static int mount_table_build(
+                bool from_kernel,
+                FILE *proc_self_mountinfo,
+                uint64_t mask,
+                int direction,
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+
+        assert(from_kernel || proc_self_mountinfo);
+        assert(ret_table);
+        assert(ret_iter);
+
+        if (from_kernel)
+                return libmount_parse_kernel(mask, direction, ret_table, ret_iter);
+
+        rewind(proc_self_mountinfo);
+        return libmount_parse_full("/proc/self/mountinfo", proc_self_mountinfo, direction, ret_table, ret_iter);
+}
+
+/* Builds the mount table through one backend and collects the snapshot from it. */
+static int mount_snapshot_acquire_one(
+                bool from_kernel,
+                FILE *proc_self_mountinfo,
+                uint64_t mask,
+                int direction,
+                MountSnapshot *ret) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        assert(ret);
+
+        r = mount_table_build(from_kernel, proc_self_mountinfo, mask, direction, &table, &iter);
+        if (r < 0)
+                return r;
+
+        return mount_snapshot_from_table(table, iter, mask, ret);
+}
+
+/* Snapshots the mount table, preferring listmount()/statmount() and falling back to
+ * /proc/self/mountinfo. Any failure of the fast path falls back, not just the unavailability
+ * errnos: an unexpected errno from a per-mount fetch must not be the thing that aborts namespace
+ * setup, and an enumeration that could only be read in part (-ENODATA) must not be handed on as if
+ * it were whole.
+ *
+ * 'proc_self_mountinfo' may be NULL, since the kernel path has no use for /proc at all, e.g.
+ * because /proc is masked or already unmounted; then there is nothing to fall back to and the
+ * kernel path's error is returned. */
+static int mount_snapshot_acquire(FILE *proc_self_mountinfo, uint64_t mask, int direction, MountSnapshot *ret) {
+        int r;
+
+        assert(ret);
+
+        r = mount_snapshot_acquire_one(/* from_kernel= */ true, NULL, mask, direction, ret);
+        if (r >= 0)
+                return 0;
+        if (r != -EOPNOTSUPP)
+                log_debug_errno(r, "listmount() enumeration failed%s: %m",
+                                proc_self_mountinfo ? ", falling back to mountinfo" : "");
+        if (!proc_self_mountinfo)
+                return r;
+
+        r = mount_snapshot_acquire_one(/* from_kernel= */ false, proc_self_mountinfo, mask, direction, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate mounts through /proc/self/mountinfo: %m");
+
+        return 0;
+}
+
+/* Looks one mount point's flags up through one backend. Returns -ESRCH when the table has no such
+ * mount, which the caller must not confuse with "not a mount point": a kernel-built table also
+ * lacks an entry whose statmount() failed. */
+static int mount_flags_by_path_one(
+                bool from_kernel,
+                FILE *proc_self_mountinfo,
+                const char *path,
+                unsigned long *ret) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        struct libmnt_fs *fs;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* The flags and the mount point are all this reads; no filesystem type. */
+        r = mount_table_build(from_kernel, proc_self_mountinfo,
+                              STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT,
+                              MNT_ITER_FORWARD, &table, &iter);
+        if (r < 0)
+                return r;
+
+        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        if (!fs)
+                return -ESRCH;
+
+        return mount_fs_flags(fs, ret);
+}
+
+/* Look up the current mount flags of exactly one mount point, preferring the kernel-backed table for the
+ * same reason as above: parsing all of /proc/self/mountinfo to find one entry is disproportionately
+ * expensive, and this function runs once per mount entry during namespace setup.
+ *
+ * Returns -EINVAL if 'path' exists but is not a mount point, matching what the mountinfo path has
+ * always returned there, so the caller keeps its existing handling of that case. A mount missing
+ * from the kernel table is not proof of that on its own, since the entry's statmount() may have
+ * failed, so the mountinfo table settles it; when there is no mountinfo stream at all, a
+ * kernel-table miss on a path that exists is all the answer there is. */
+static int mount_flags_by_path(FILE *proc_self_mountinfo, const char *path, unsigned long *ret) {
+        int q, r;
+
+        assert(path);
+        assert(ret);
+
+        r = mount_flags_by_path_one(/* from_kernel= */ true, NULL, path, ret);
+        if (r >= 0)
+                return 0;
+        if (!IN_SET(r, -EOPNOTSUPP, -ESRCH, -ENODATA))
+                log_debug_errno(r, "listmount() lookup of '%s' failed%s: %m",
+                                path, proc_self_mountinfo ? ", falling back to mountinfo" : "");
+
+        if (proc_self_mountinfo) {
+                r = mount_flags_by_path_one(/* from_kernel= */ false, proc_self_mountinfo, path, ret);
+                if (r >= 0)
+                        return 0;
+        }
+
+        /* Neither lookup succeeded. A missing path is -ENOENT to the caller no matter which
+         * backend failed or why, including when none was available at all (a libmount without
+         * statmount() support and no mountinfo stream): namespace.c drops a mount marked
+         * ignorable on -ENOENT and fails namespace setup on anything else. A path that does
+         * exist propagates the backend's own error, and -EINVAL is reserved for one that exists
+         * while no table lists it. */
+        q = access_nofollow(path, F_OK);
+        if (q < 0)
+                return q;
+        if (r != -ESRCH)
+                return r;
+
+        return -EINVAL; /* Exists, and not a mount point we recognize */
+}
+
+#endif /* HAVE_LIBMOUNT */
+
+FILE* mount_open_proc_self_mountinfo(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Opens /proc/self/mountinfo for the mount table functions in this file. Returns NULL if it
+         * cannot be opened, which is not fatal on its own: those functions enumerate through
+         * listmount()/statmount() where that is available, and only their fallback reads the file.
+         * Callers pin it early because /proc can be masked or unmounted by the very operation they
+         * are about to perform. */
+
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &f);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open /proc/self/mountinfo, relying on listmount(): %m");
+                return NULL;
+        }
+
+        return TAKE_PTR(f);
+}
+
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
 #if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *f = NULL;
@@ -47,33 +370,22 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
          * keep unmounting them until they are gone. */
 
-        f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
-        if (!f)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        f = mount_open_proc_self_mountinfo(); /* Pin the file, in case we unmount /proc/ as part of the logic here */
 
         for (;;) {
-                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_(mount_snapshot_done) MountSnapshot snapshot = {};
                 bool again = false;
 
-                r = libmount_parse_full("/proc/self/mountinfo", f, MNT_ITER_BACKWARD, &table, &iter);
+                /* Walking the table backwards reaches every mount before the mount it was made
+                 * on: children before parents, the top of an overmount stack before what it
+                 * hides. Only the mount point is used below. */
+                r = mount_snapshot_acquire(f, STATMOUNT_MNT_POINT, MNT_ITER_BACKWARD, &snapshot);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                        return log_debug_errno(r, "Failed to enumerate mounts: %m");
 
-                for (;;) {
+                FOREACH_ARRAY(e, snapshot.entries, snapshot.n) {
                         bool shall_keep = false;
-                        struct libmnt_fs *fs;
-                        const char *path;
-
-                        r = sym_mnt_table_next_fs(table, iter, &fs);
-                        if (r == 1)
-                                break;
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
-
-                        path = sym_mnt_fs_get_target(fs);
-                        if (!path)
-                                continue;
+                        const char *path = e->path;
 
                         if (prefix && !path_startswith(path, prefix)) {
                                 // FIXME: This is extremely noisy, we're probably doing something very wrong
@@ -108,8 +420,6 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
                 if (!again)
                         break;
-
-                rewind(f);
         }
 
         return n;
@@ -208,18 +518,10 @@ int bind_remount_recursive_with_mountinfo(
         }
 
 #if HAVE_LIBMOUNT
-        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
+        bool made_top_mount = false;
         int r;
-
-        if (!proc_self_mountinfo) {
-                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
-                if (r < 0)
-                        return r;
-
-                proc_self_mountinfo = proc_self_mountinfo_opened;
-        }
 
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
          * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
@@ -236,41 +538,28 @@ int bind_remount_recursive_with_mountinfo(
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
 
         for (;;) {
-                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_(mount_snapshot_done) MountSnapshot snapshot = {};
                 _cleanup_hashmap_free_ Hashmap *todo = NULL;
                 bool top_autofs = false;
 
                 if (n_tries++ >= 32) /* Let's not retry this loop forever */
                         return -EBUSY;
 
-                rewind(proc_self_mountinfo);
-
-                r = libmount_parse_mountinfo(proc_self_mountinfo, &table, &iter);
+                /* The fields the loop below reads: the mount point, the filesystem type for the
+                 * autofs check, and the flags to reapply. */
+                r = mount_snapshot_acquire(proc_self_mountinfo,
+                                           STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE,
+                                           MNT_ITER_FORWARD, &snapshot);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                        return log_debug_errno(r, "Failed to enumerate mounts: %m");
 
-                for (;;) {
+                FOREACH_ARRAY(e, snapshot.entries, snapshot.n) {
                         _cleanup_free_ char *d = NULL;
-                        const char *path, *type, *opts;
-                        unsigned long flags = 0;
-                        struct libmnt_fs *fs;
-
-                        r = sym_mnt_table_next_fs(table, iter, &fs);
-                        if (r == 1) /* EOF */
-                                break;
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
-
-                        path = sym_mnt_fs_get_target(fs);
-                        if (!path)
-                                continue;
+                        const char *path = e->path;
+                        const char *type = e->fstype;   /* non-NULL: the snapshot was taken with STATMOUNT_FS_TYPE */
+                        unsigned long flags = e->flags;
 
                         if (!path_startswith(path, prefix))
-                                continue;
-
-                        type = sym_mnt_fs_get_fstype(fs);
-                        if (!type)
                                 continue;
 
                         /* Let's ignore autofs mounts. If they aren't triggered yet, we want to avoid
@@ -307,13 +596,6 @@ int bind_remount_recursive_with_mountinfo(
                                         continue;
                         }
 
-                        opts = sym_mnt_fs_get_vfs_options(fs);
-                        if (opts) {
-                                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
-                                if (r < 0)
-                                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
-                        }
-
                         d = strdup(path);
                         if (!d)
                                 return -ENOMEM;
@@ -324,6 +606,10 @@ int bind_remount_recursive_with_mountinfo(
                                  * it means a mount point is overmounted, and libmount returns the "bottom" (or
                                  * older one) first, but we want to reapply the flags from the "top" (or newer
                                  * one). See: https://github.com/systemd/systemd/issues/20032
+                                 * This does not depend on which backend built the table: every kernel with
+                                 * listmount() also serves /proc/self/mountinfo from the same mount rbtree, in
+                                 * the same unique-mount-ID order (fs/namespace.c, m_next() and listmnt_next()
+                                 * both step through it with rb_next()).
                                  * Note that this shouldn't really fail, as we were just told that the key
                                  * exists, and it's an update so we want 'd' to be freed immediately. */
                                 r = hashmap_update(todo, d, ULONG_TO_PTR(flags));
@@ -339,10 +625,19 @@ int bind_remount_recursive_with_mountinfo(
                 if (!set_contains(done, prefix) &&
                     !(top_autofs || hashmap_contains(todo, prefix))) {
 
+                        /* A mount we made has to show up in the next snapshot. If it does not, some
+                         * enumeration is at fault, and mounting again would just stack another bind
+                         * mount on the same path every pass until the retry counter runs out. */
+                        if (made_top_mount)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                                       "Made '%s' a mount, but it has not appeared in the mount table.", prefix);
+
                         /* The prefix directory itself is not yet a mount, make it one. */
                         r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
                         if (r < 0)
                                 return r;
+
+                        made_top_mount = true;
 
                         /* Immediately rescan, so that we pick up the new mount's flags */
                         continue;
@@ -416,6 +711,14 @@ int bind_remount_recursive_with_mountinfo(
 #endif
 }
 
+int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list) {
+        /* Opens the mountinfo fallback itself; a NULL stream handed to the function above means "no
+         * fallback available", which callers like namespace.c use after pinning the file early. */
+        _cleanup_fclose_ FILE *proc_self_mountinfo = mount_open_proc_self_mountinfo();
+
+        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, proc_self_mountinfo);
+}
+
 int bind_remount_one_with_mountinfo(
                 const char *path,
                 unsigned long new_flags,
@@ -423,7 +726,6 @@ int bind_remount_one_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         assert(path);
-        assert(proc_self_mountinfo);
 
         if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && !skip_mount_set_attr) {
                 /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
@@ -443,41 +745,12 @@ int bind_remount_one_with_mountinfo(
         }
 
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         unsigned long flags = 0;
-        struct libmnt_fs *fs;
-        const char *opts;
         int r;
 
-        rewind(proc_self_mountinfo);
-
-        r = dlopen_libmount(LOG_DEBUG);
+        r = mount_flags_by_path(proc_self_mountinfo, path, &flags);
         if (r < 0)
                 return r;
-
-        table = sym_mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = sym_mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
-        if (r < 0)
-                return r;
-
-        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (!fs) {
-                r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
-                if (r < 0)
-                        return r;
-
-                return -EINVAL; /* Not a mount point we recognize */
-        }
-
-        opts = sym_mnt_fs_get_vfs_options(fs);
-        if (opts) {
-                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
-                if (r < 0)
-                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
-        }
 
         r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
         if (r < 0) {
@@ -500,9 +773,7 @@ int bind_remount_one_with_mountinfo(
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        proc_self_mountinfo = mount_open_proc_self_mountinfo();
 
         return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
 }
