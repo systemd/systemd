@@ -276,6 +276,11 @@ static int manager_process_entry(
                 if (r <= 0)
                         goto finish;
 
+                /* Rate limit before forwarding, so a flooding service cannot overwhelm the
+                 * syslog/kmsg/console/wall consumers while journald's own storage stays limited. */
+                if (!manager_message_ratelimit_allowed(m, context, priority))
+                        goto finish;
+
                 if (m->config.forward_to_syslog)
                         manager_forward_syslog(m, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
@@ -289,7 +294,7 @@ static int manager_process_entry(
                         manager_forward_wall(m, priority, identifier, message, ucred);
         }
 
-        manager_dispatch_message(m, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
+        manager_dispatch_message(m, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid, /* check_ratelimit= */ false);
 
 finish:
         for (j = 0; j < n; j++)  {
