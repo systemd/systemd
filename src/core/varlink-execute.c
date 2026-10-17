@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "securebits-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "unit.h"
@@ -1381,29 +1382,16 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
                                   __VA_ARGS__ __VA_OPT__(,) UNIT_RUNTIME|UNIT_PRIVATE);      \
         }
 
-/* Generate an apply fn for an exec-context string field: copy the parsed value to ExecContext and
- * write the corresponding "Name=value" line, skipping if the caller didn't set the field.
- * Used where the parsed value is NULL or already validated by the dispatch callback. */
-#define DEFINE_APPLY_EXEC_STRING(field, JsonName)                       \
-        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                if (!p->field)                                          \
-                        return 0;                                       \
-                                                                        \
-                r = free_and_strdup(&c->field, p->field);               \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
-                                    JsonName "=%s", p->field);          \
-                return 0;                                               \
-        }
-
-DEFINE_APPLY_EXEC_STRING(user,  "User");
-DEFINE_APPLY_EXEC_STRING(group, "Group");
+static DEFINE_APPLY_EXEC(user,                   "User",                 varlink_apply_string_escaped);
+static DEFINE_APPLY_EXEC(group,                  "Group",                varlink_apply_string_escaped);
+static DEFINE_APPLY_EXEC(ipc_namespace_path,     "IPCNamespacePath",     varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(network_namespace_path, "NetworkNamespacePath", varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(root_directory,         "RootDirectory",        varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(root_image,             "RootImage",            varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(root_mstack,            "RootMStack",           varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(root_verity,            "RootVerity",           varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(tty_path,               "TTYPath",              varlink_apply_absolute_path);
+static DEFINE_APPLY_EXEC(user_namespace_path,    "UserNamespacePath",    varlink_apply_absolute_path);
 
 static DEFINE_APPLY_EXEC(dynamic_user,              "DynamicUser",            varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(ignore_sigpipe,            "IgnoreSIGPIPE",          varlink_apply_tristate_bool);
@@ -1448,35 +1436,6 @@ DEFINE_APPLY_EXEC_ENUM(std_error,  "StandardError",  exec_output_to_string, exec
 DEFINE_APPLY_EXEC_ENUM(std_input,  "StandardInput",  exec_input_to_string,  exec_input_needs_companion);
 DEFINE_APPLY_EXEC_ENUM(std_output, "StandardOutput", exec_output_to_string, exec_output_is_file);
 
-/* Generate an apply fn for an exec-context absolute-path string: validate via path_is_absolute(),
- * copy into ExecContext, write "Name=<path>". Mirrors D-Bus bus_set_transient_path. */
-#define DEFINE_APPLY_EXEC_ABSOLUTE_PATH(field, JsonName)                \
-        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
-                int r;                                                  \
-                assert(c);                                              \
-                assert(p);                                              \
-                if (!p->field)                                          \
-                        return 0;                                       \
-                if (!path_is_absolute(p->field))                        \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), \
-                                               JsonName ": expects an absolute path"); \
-                r = free_and_strdup(&c->field, p->field);               \
-                if (r < 0)                                              \
-                        return r;                                       \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
-                                    JsonName "=%s", p->field);          \
-                return 0;                                               \
-        }
-
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(ipc_namespace_path,     "IPCNamespacePath");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(network_namespace_path, "NetworkNamespacePath");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_directory,         "RootDirectory");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_image,             "RootImage");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_mstack,            "RootMStack");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_verity,            "RootVerity");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(tty_path,               "TTYPath");
-DEFINE_APPLY_EXEC_ABSOLUTE_PATH(user_namespace_path,    "UserNamespacePath");
-
 /* RootHashPath and RootHashSignaturePath need custom apply fns: the corresponding unit-file
  * directive is "RootHash="/"RootHashSignature=" (not the JSON name), and setting the path form
  * must clear the byte-buffer (iovec) form to match the D-Bus semantics. */
@@ -1486,21 +1445,11 @@ static int apply_exec_root_hash_path(Unit *u, ExecContext *c, TransientExecConte
         assert(c);
         assert(p);
 
-        if (!p->root_hash_path)
-                return 0;
-
-        if (!path_is_absolute(p->root_hash_path))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "RootHashPath: expects an absolute path");
-
-        r = free_and_strdup(&c->root_hash_path, p->root_hash_path);
-        if (r < 0)
-                return r;
-        iovec_done(&c->root_hash);
-
-        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHash",
-                            "RootHash=%s", p->root_hash_path);
-        return 0;
+        r = varlink_apply_absolute_path(u, "RootHash", &c->root_hash_path, p->root_hash_path,
+                                       UNIT_RUNTIME|UNIT_PRIVATE);
+        if (r > 0)
+                iovec_done(&c->root_hash);
+        return r;
 }
 
 static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
@@ -1509,21 +1458,11 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
         assert(c);
         assert(p);
 
-        if (!p->root_hash_sig_path)
-                return 0;
-
-        if (!path_is_absolute(p->root_hash_sig_path))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "RootHashSignaturePath: expects an absolute path");
-
-        r = free_and_strdup(&c->root_hash_sig_path, p->root_hash_sig_path);
-        if (r < 0)
-                return r;
-        iovec_done(&c->root_hash_sig);
-
-        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHashSignature",
-                            "RootHashSignature=%s", p->root_hash_sig_path);
-        return 0;
+        r = varlink_apply_absolute_path(u, "RootHashSignature", &c->root_hash_sig_path, p->root_hash_sig_path,
+                                       UNIT_RUNTIME|UNIT_PRIVATE);
+        if (r > 0)
+                iovec_done(&c->root_hash_sig);
+        return r;
 }
 
 /* The IDL enums use the Varlink spelling ("read_only"), while the *_from_string() parsers
@@ -1610,7 +1549,7 @@ typedef struct TransientExecProperty {
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 /* String property: dispatched into a const char* field and applied via the matching
- * DEFINE_APPLY_EXEC_STRING() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
+ * DEFINE_APPLY_EXEC() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
  * json_dispatch_const_user_group_name with SD_JSON_RELAX). */
 #define EXEC_PROPERTY_STRING(json, field, dispatch_fn, json_flags)                         \
         { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
