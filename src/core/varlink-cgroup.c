@@ -14,7 +14,6 @@
 #include "percent-util.h"
 #include "set.h"
 #include "special.h"
-#include "string-util.h"
 #include "time-util.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
@@ -848,6 +847,20 @@ static int apply_cgroup_tasks_max_scale(Unit *u, CGroupContext *c, TransientCGro
         return 0;
 }
 
+#define DEFINE_APPLY_CGROUP(field, JsonName, mask, apply_fn, ...)                                  \
+        int apply_cgroup_##field(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) { \
+                assert(c);                                                                         \
+                assert(p);                                                                         \
+                                                                                                   \
+                int r;                                                                             \
+                r = (apply_fn)(u, (JsonName), &c->field, p->field,                                 \
+                               __VA_ARGS__ __VA_OPT__(,) UNIT_RUNTIME|UNIT_PRIVATE);               \
+                if (r > 0)                                                                         \
+                        unit_invalidate_cgroup(u, (mask));                                         \
+                                                                                                   \
+                return r;                                                                          \
+        }
+
 /* Weight apply fn; CPU weights additionally accept "idle" (= 0), matching the D-Bus setters. */
 #define DEFINE_APPLY_CGROUP_WEIGHT(field, JsonName, mask, allow_idle)                                      \
         static int apply_cgroup_##field(                                                                   \
@@ -1015,34 +1028,11 @@ DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_max,       "StartupMemoryMax", 
 DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_swap_max,  "StartupMemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
 DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_zswap_max, "StartupMemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
 
-/* Generate an apply fn for a cgroup accounting tristate bool. Same shape as
- * DEFINE_APPLY_EXEC_TRISTATE_BOOL in varlink-unit.c, plus the cgroup mask invalidation. */
-#define DEFINE_APPLY_CGROUP_TRISTATE_BOOL(field, JsonName, mask)            \
-        static int apply_cgroup_##field(                                    \
-                        Unit *u,                                            \
-                        CGroupContext *c,                                   \
-                        TransientCGroupContextParameters *p) {              \
-                                                                            \
-                assert(u);                                                  \
-                assert(c);                                                  \
-                assert(p);                                                  \
-                                                                            \
-                if (p->field < 0)                                           \
-                        return 0;                                           \
-                                                                            \
-                c->field = p->field;                                        \
-                unit_invalidate_cgroup(u, mask);                            \
-                                                                            \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
-                                    JsonName "=%s", yes_no(p->field));      \
-                                                                            \
-                return 0;                                                   \
-        }
-
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(io_accounting,          "IOAccounting",         CGROUP_MASK_IO);
+/* Accounting changes also require the affected controller to be reapplied. */
+static DEFINE_APPLY_CGROUP(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY, varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY, varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS,   varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(io_accounting,          "IOAccounting",         CGROUP_MASK_IO,     varlink_apply_tristate_bool);
 
 /* Parse wrapper flipping <field>_set, as DEFINE_TRANSIENT_EXEC_SETTABLE in varlink-unit.c. An
  * explicit null is treated as absent (the IDL fields are nullable, and the output side emits null
