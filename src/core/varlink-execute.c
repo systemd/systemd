@@ -1291,30 +1291,16 @@ static int apply_exec_set_credential_encrypted(Unit *u, ExecContext *c, Transien
 }
 
 static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
-        _cleanup_free_ char *joined = NULL;
-        int r;
-
+        assert(c);
         assert(p);
-
-        if (!p->supplementary_groups)
-                return 0;
 
         STRV_FOREACH(g, p->supplementary_groups)
                 if (!valid_user_group_name(*g, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid supplementary group name: %s", *g);
 
-        r = strv_extend_strv(&c->supplementary_groups, p->supplementary_groups, /* filter_duplicates= */ true);
-        if (r < 0)
-                return r;
-
-        joined = strv_join(p->supplementary_groups, " ");
-        if (!joined)
-                return -ENOMEM;
-
-        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "SupplementaryGroups",
-                            "SupplementaryGroups=%s", joined);
-        return 0;
+        return varlink_apply_strv_escaped(u, "SupplementaryGroups", &c->supplementary_groups,
+                                         p->supplementary_groups, UNIT_RUNTIME|UNIT_PRIVATE);
 }
 
 static int apply_exec_umask(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
