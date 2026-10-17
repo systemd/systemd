@@ -393,16 +393,24 @@ int is_our_namespace(int fd, NamespaceType type) {
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
 
         r = fd_is_namespace(fd, type);
-        if (r < 0)
+        /* Before Linux 6.3, nsfs ioctls lack a compat handler for 32-bit userspace on 64-bit kernels.
+         * We can still recognize our own namespace by inode, but cannot verify the type of other namespaces. */
+        if (r < 0 && r != -ENOTTY)
                 return r;
         if (r == 0) /* Not a namespace or not of the right type? */
                 return -EUCLEAN;
+
+        bool type_verified = r > 0;
 
         _cleanup_close_ int our_ns = namespace_open_by_type(type);
         if (our_ns < 0)
                 return our_ns;
 
-        return fd_inode_same(fd, our_ns);
+        r = fd_inode_same(fd, our_ns);
+        if (r == 0 && !type_verified)
+                return -ENOTTY;
+
+        return r;
 }
 
 int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {

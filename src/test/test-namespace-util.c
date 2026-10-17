@@ -14,6 +14,29 @@
 #include "socket-util.h"
 #include "tests.h"
 
+TEST(is_our_namespace) {
+        _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
+        _cleanup_close_ int mntns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/mnt", O_RDONLY|O_CLOEXEC));
+        _cleanup_close_ int fd = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        int r;
+
+        ASSERT_OK_POSITIVE(is_our_namespace(userns_fd, NAMESPACE_USER));
+        ASSERT_OK_POSITIVE(is_our_namespace(mntns_fd, NAMESPACE_MOUNT));
+        ASSERT_ERROR(is_our_namespace(fd, NAMESPACE_USER), EUCLEAN);
+
+        int invalid_fd = fd;
+        fd = safe_close(fd);
+        ASSERT_ERROR(is_our_namespace(invalid_fd, NAMESPACE_USER), EBADF);
+
+        r = fd_is_namespace(userns_fd, NAMESPACE_USER);
+        if (r != -ENOTTY)
+                ASSERT_OK_POSITIVE(r);
+
+        int expected_errno = r == -ENOTTY ? ENOTTY : EUCLEAN;
+        ASSERT_ERROR(is_our_namespace(userns_fd, NAMESPACE_MOUNT), expected_errno);
+        ASSERT_ERROR(is_our_namespace(mntns_fd, NAMESPACE_USER), expected_errno);
+}
+
 TEST(namespace_enter) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
