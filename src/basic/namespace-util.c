@@ -23,6 +23,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "uid-range.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -376,8 +377,28 @@ int fd_is_namespace(int fd, NamespaceType type) {
                 return true;
 
         int clone_flag = ioctl(fd, NS_GET_NSTYPE);
-        if (clone_flag < 0)
-                return -errno;
+        if (clone_flag < 0) {
+                if (errno != ENOTTY)
+                        return -errno;
+
+                // FIXME: This compatibility code path shall be removed once kernel 6.3
+                //        becomes the new minimal baseline
+                /* Before Linux 6.3, nsfs ioctls lack 32-bit compat support on 64-bit kernels.
+                 * The nsfs link name also identifies the type, e.g. "mnt:[4026531841]". */
+                _cleanup_free_ char *path = NULL;
+                r = fd_get_path(fd, &path);
+                if (r < 0)
+                        return r;
+
+                for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++) {
+                        const char *p = startswith(path, namespace_info[t].proc_name);
+                        if (p && startswith(p, ":["))
+                                return t == type;
+                }
+
+                /* Bind-mounted namespaces expose their mount path instead of the nsfs link name. */
+                return -ENOTTY;
+        }
 
         NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
         if (found_type < 0)
@@ -393,16 +414,24 @@ int is_our_namespace(int fd, NamespaceType type) {
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
 
         r = fd_is_namespace(fd, type);
-        if (r < 0)
+        /* If neither the ioctl nor the nsfs link name identifies the type, we can still recognize our own
+         * namespace by inode. */
+        if (r < 0 && r != -ENOTTY)
                 return r;
         if (r == 0) /* Not a namespace or not of the right type? */
                 return -EUCLEAN;
+
+        bool type_verified = r > 0;
 
         _cleanup_close_ int our_ns = namespace_open_by_type(type);
         if (our_ns < 0)
                 return our_ns;
 
-        return fd_inode_same(fd, our_ns);
+        r = fd_inode_same(fd, our_ns);
+        if (r == 0 && !type_verified)
+                return -ENOTTY;
+
+        return r;
 }
 
 int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
