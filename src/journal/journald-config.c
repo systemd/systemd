@@ -371,6 +371,11 @@ static void manager_reload_config(Manager *m) {
 int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
+        if (m->exit) {
+                log_debug("Skipping reloading, as we are exiting.");
+                return 0;
+        }
+
         (void) notify_reloading();
 
         _cleanup_(journal_config_done) JournalConfig old = TAKE_STRUCT(m->config);
