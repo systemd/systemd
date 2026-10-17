@@ -703,7 +703,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_no_hostname = true;
                         break;
 
-                OPTION('l', "full", NULL, /* help= */ NULL):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 
