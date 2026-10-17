@@ -2667,6 +2667,15 @@ ReorderHeader=no
         self.networkctl_check_unit('wg98', '25-wireguard-23-peers', '25-wireguard-23-peers')
         self.networkctl_check_unit('wg97', '25-wireguard-no-peer', '25-wireguard-no-peer')
 
+        # WireGuard links should honor both IPv6 link-local settings.
+        self.assertEqual(
+            check_output('cat /proc/sys/net/ipv6/conf/wg97/addr_gen_mode').strip(),
+            '3',
+        )
+        output = check_output('ip -6 address show dev wg97')
+        print(output)
+        self.assertRegex(output, r'inet6 fe80::[0-9a-f:]+/64 scope link')
+
         output = check_output('ip -4 address show dev wg99')
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
