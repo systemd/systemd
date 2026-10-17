@@ -351,6 +351,8 @@ typedef struct DescribeParams {
         bool partial;
         bool pending;
         bool obsolete;
+        bool too_new;
+        bool candidate;
         bool protected;
         bool incomplete;
 } DescribeParams;
@@ -388,6 +390,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 { "partial",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, partial),       0 },
                 { "pending",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, pending),       0 },
                 { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "tooNew",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, too_new),       0 },
+                { "candidate",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, candidate),     0 },
                 { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
                 { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
                 { "changelogUrls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
@@ -407,6 +411,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(p.v.flags, UPDATE_PARTIAL, p.partial);
         SET_FLAG(p.v.flags, UPDATE_PENDING, p.pending);
         SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
+        SET_FLAG(p.v.flags, UPDATE_TOO_NEW, p.too_new);
+        SET_FLAG(p.v.flags, UPDATE_CANDIDATE, p.candidate);
         SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
         SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
 
@@ -451,7 +457,7 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
                            TABLE_STRING,    version_link ?: v.version,
                            TABLE_SET_COLOR, color,
                            TABLE_SET_URL,   strv_isempty(v.changelog) ? NULL : v.changelog[0],
-                           TABLE_STRING,    update_set_flags_to_string(v.flags),
+                           TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(v.flags),
                            TABLE_SET_COLOR, color);
         if (r < 0)
                 return table_log_add_error(r);
@@ -572,7 +578,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                ansi_normal(),
                v.version,
                color,
-               update_set_flags_to_string(v.flags),
+               FORMAT_UPDATE_SET_FLAGS(v.flags),
                ansi_normal());
 
         STRV_FOREACH(url, v.changelog) {
