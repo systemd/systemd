@@ -33,6 +33,9 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (!t)
                         return log_oom();
 
+                if (arg_full)
+                        table_set_width(t, 0);
+
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(1), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(2), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
