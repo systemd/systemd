@@ -469,9 +469,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The mount destination path"),
                 SD_VARLINK_DEFINE_FIELD(destination, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether a missing source path should be ignored"),
-                SD_VARLINK_DEFINE_FIELD(ignoreEnoent, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(ignoreEnoent, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Mount options"),
-                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 MountImage,
