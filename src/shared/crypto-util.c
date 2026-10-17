@@ -38,13 +38,16 @@ struct OpenSSLAskPasswordUI {
 };
 
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
+DLSYM_PROTOTYPE(ASN1_BIT_STRING_get_bit) = NULL;
 DLSYM_PROTOTYPE(ASN1_BIT_STRING_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_BMPSTRING_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_BMPSTRING_new) = NULL;
 DLSYM_PROTOTYPE(ASN1_IA5STRING_it) = NULL;
 static DLSYM_PROTOTYPE(ASN1_INTEGER_dup) = NULL;
-static DLSYM_PROTOTYPE(ASN1_INTEGER_free) = NULL;
-static DLSYM_PROTOTYPE(ASN1_INTEGER_set) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_free) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_get) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_new) = NULL;
+DLSYM_PROTOTYPE(ASN1_INTEGER_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_OBJECT_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_OCTET_STRING_free) = NULL;
 DLSYM_PROTOTYPE(ASN1_OCTET_STRING_it) = NULL;
@@ -220,6 +223,7 @@ DLSYM_PROTOTYPE(EVP_sha384) = NULL;
 DLSYM_PROTOTYPE(EVP_sha512) = NULL;
 DLSYM_PROTOTYPE(HMAC) = NULL;
 DLSYM_PROTOTYPE(OBJ_nid2obj) = NULL;
+DLSYM_PROTOTYPE(OBJ_obj2nid) = NULL;
 DLSYM_PROTOTYPE(OBJ_nid2sn) = NULL;
 DLSYM_PROTOTYPE(OBJ_sn2nid) = NULL;
 DLSYM_PROTOTYPE(OBJ_txt2obj) = NULL;
@@ -260,6 +264,7 @@ DLSYM_PROTOTYPE(PEM_write) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_write_X509) = NULL;
+DLSYM_PROTOTYPE(PEM_write_bio_PKCS7) = NULL;
 DLSYM_PROTOTYPE(PKCS5_PBKDF2_HMAC) = NULL;
 DLSYM_PROTOTYPE(PKCS7_ATTR_SIGN_it) = NULL;
 DLSYM_PROTOTYPE(PKCS7_SIGNER_INFO_free) = NULL;
@@ -284,8 +289,38 @@ static DLSYM_PROTOTYPE(PKCS7_set_type) = NULL;
 DLSYM_PROTOTYPE(PKCS7_sign) = NULL;
 DLSYM_PROTOTYPE(PKCS7_verify) = NULL;
 DLSYM_PROTOTYPE(SHA512) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_free) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_get_algo) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_get_msg) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_new) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_algo) = NULL;
+DLSYM_PROTOTYPE(TS_MSG_IMPRINT_set_msg) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_free) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_get_cert_req) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_get_msg_imprint) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_get_nonce) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_get_version) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_to_TS_VERIFY_CTX) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_new) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_cert_req) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_msg_imprint) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_nonce) = NULL;
+DLSYM_PROTOTYPE(TS_REQ_set_version) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_free) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_status_info) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_token) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_tst_info) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_verify_response) = NULL;
+DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_failure_info) = NULL;
+DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_status) = NULL;
+DLSYM_PROTOTYPE(TS_STATUS_INFO_get0_text) = NULL;
+DLSYM_PROTOTYPE(TS_TST_INFO_get_nonce) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_free) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_set_flags) = NULL;
 DLSYM_PROTOTYPE(X509_ALGOR_free) = NULL;
-static DLSYM_PROTOTYPE(X509_ALGOR_set0) = NULL;
+DLSYM_PROTOTYPE(X509_ALGOR_get0) = NULL;
+DLSYM_PROTOTYPE(X509_ALGOR_new) = NULL;
+DLSYM_PROTOTYPE(X509_ALGOR_set0) = NULL;
 DLSYM_PROTOTYPE(X509_ATTRIBUTE_free) = NULL;
 DLSYM_PROTOTYPE(X509_NAME_free) = NULL;
 DLSYM_PROTOTYPE(X509_NAME_oneline) = NULL;
@@ -306,12 +341,15 @@ DLSYM_PROTOTYPE(d2i_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(d2i_ECPKParameters) = NULL;
 DLSYM_PROTOTYPE(d2i_PKCS7) = NULL;
 DLSYM_PROTOTYPE(d2i_PUBKEY) = NULL;
+DLSYM_PROTOTYPE(d2i_TS_REQ) = NULL;
+DLSYM_PROTOTYPE(d2i_TS_RESP) = NULL;
 DLSYM_PROTOTYPE(d2i_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_ASN1_INTEGER) = NULL;
 DLSYM_PROTOTYPE(i2d_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7_fp) = NULL;
 DLSYM_PROTOTYPE(i2d_PUBKEY) = NULL;
+DLSYM_PROTOTYPE(i2d_TS_REQ) = NULL;
 static DLSYM_PROTOTYPE(i2d_PublicKey) = NULL;
 DLSYM_PROTOTYPE(i2d_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_X509_NAME) = NULL;
@@ -365,12 +403,15 @@ int dlopen_libcrypto(int log_level) {
                         soname,
                         LOG_DEBUG,
                         DLSYM_ARG(ASN1_ANY_it),
+                        DLSYM_ARG(ASN1_BIT_STRING_get_bit),
                         DLSYM_ARG(ASN1_BIT_STRING_it),
                         DLSYM_ARG(ASN1_BMPSTRING_it),
                         DLSYM_ARG(ASN1_BMPSTRING_new),
                         DLSYM_ARG(ASN1_IA5STRING_it),
                         DLSYM_ARG(ASN1_INTEGER_dup),
                         DLSYM_ARG(ASN1_INTEGER_free),
+                        DLSYM_ARG(ASN1_INTEGER_get),
+                        DLSYM_ARG(ASN1_INTEGER_new),
                         DLSYM_ARG(ASN1_INTEGER_set),
                         DLSYM_ARG(ASN1_OBJECT_it),
                         DLSYM_ARG(ASN1_OCTET_STRING_free),
@@ -547,6 +588,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_sha512),
                         DLSYM_ARG(HMAC),
                         DLSYM_ARG(OBJ_nid2obj),
+                        DLSYM_ARG(OBJ_obj2nid),
                         DLSYM_ARG(OBJ_nid2sn),
                         DLSYM_ARG(OBJ_sn2nid),
                         DLSYM_ARG(OBJ_txt2obj),
@@ -585,6 +627,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(PEM_write_PUBKEY),
                         DLSYM_ARG(PEM_write_PrivateKey),
                         DLSYM_ARG(PEM_write_X509),
+                        DLSYM_ARG(PEM_write_bio_PKCS7),
                         DLSYM_ARG(PKCS5_PBKDF2_HMAC),
                         DLSYM_ARG(PKCS7_ATTR_SIGN_it),
                         DLSYM_ARG(PKCS7_SIGNER_INFO_free),
@@ -609,7 +652,37 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(PKCS7_sign),
                         DLSYM_ARG(PKCS7_verify),
                         DLSYM_ARG(SHA512),
+                        DLSYM_ARG(TS_MSG_IMPRINT_free),
+                        DLSYM_ARG(TS_MSG_IMPRINT_get_algo),
+                        DLSYM_ARG(TS_MSG_IMPRINT_get_msg),
+                        DLSYM_ARG(TS_MSG_IMPRINT_new),
+                        DLSYM_ARG(TS_MSG_IMPRINT_set_algo),
+                        DLSYM_ARG(TS_MSG_IMPRINT_set_msg),
+                        DLSYM_ARG(TS_REQ_free),
+                        DLSYM_ARG(TS_REQ_get_cert_req),
+                        DLSYM_ARG(TS_REQ_get_msg_imprint),
+                        DLSYM_ARG(TS_REQ_get_nonce),
+                        DLSYM_ARG(TS_REQ_get_version),
+                        DLSYM_ARG(TS_REQ_to_TS_VERIFY_CTX),
+                        DLSYM_ARG(TS_REQ_new),
+                        DLSYM_ARG(TS_REQ_set_cert_req),
+                        DLSYM_ARG(TS_REQ_set_msg_imprint),
+                        DLSYM_ARG(TS_REQ_set_nonce),
+                        DLSYM_ARG(TS_REQ_set_version),
+                        DLSYM_ARG(TS_RESP_free),
+                        DLSYM_ARG(TS_RESP_get_status_info),
+                        DLSYM_ARG(TS_RESP_get_token),
+                        DLSYM_ARG(TS_RESP_get_tst_info),
+                        DLSYM_ARG(TS_RESP_verify_response),
+                        DLSYM_ARG(TS_STATUS_INFO_get0_failure_info),
+                        DLSYM_ARG(TS_STATUS_INFO_get0_status),
+                        DLSYM_ARG(TS_STATUS_INFO_get0_text),
+                        DLSYM_ARG(TS_TST_INFO_get_nonce),
+                        DLSYM_ARG(TS_VERIFY_CTX_free),
+                        DLSYM_ARG(TS_VERIFY_CTX_set_flags),
                         DLSYM_ARG(X509_ALGOR_free),
+                        DLSYM_ARG(X509_ALGOR_get0),
+                        DLSYM_ARG(X509_ALGOR_new),
                         DLSYM_ARG(X509_ALGOR_set0),
                         DLSYM_ARG(X509_ATTRIBUTE_free),
                         DLSYM_ARG(X509_NAME_free),
@@ -631,12 +704,15 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(d2i_ECPKParameters),
                         DLSYM_ARG(d2i_PKCS7),
                         DLSYM_ARG(d2i_PUBKEY),
+                        DLSYM_ARG(d2i_TS_REQ),
+                        DLSYM_ARG(d2i_TS_RESP),
                         DLSYM_ARG(d2i_X509),
                         DLSYM_ARG(i2d_ASN1_INTEGER),
                         DLSYM_ARG(i2d_ECDSA_SIG),
                         DLSYM_ARG(i2d_PKCS7),
                         DLSYM_ARG(i2d_PKCS7_fp),
                         DLSYM_ARG(i2d_PUBKEY),
+                        DLSYM_ARG(i2d_TS_REQ),
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
                         DLSYM_ARG(i2d_X509_NAME));

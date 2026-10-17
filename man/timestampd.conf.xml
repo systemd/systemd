@@ -1,0 +1,99 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="timestampd.conf" conditional='ENABLE_TIMESTAMPD'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>timestampd.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>timestampd.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>timestampd.conf</refname>
+    <refname>timestampd.conf.d</refname>
+    <refpurpose>Time-stamp acquisition service configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/timestampd.conf</filename></member>
+      <member><filename>/run/systemd/timestampd.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/timestampd.conf</filename></member>
+      <member><filename>/usr/lib/systemd/timestampd.conf</filename></member>
+      <member><filename>/etc/systemd/timestampd.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/timestampd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/timestampd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/timestampd.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the Time-Stamp Authority contacted by
+    <citerefentry><refentrytitle>systemd-timestampd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are available in the <literal>[Timestamp]</literal> section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Authority=</varname></term>
+
+        <listitem><para>The default Time-Stamp Authority to contact. Must be a URL with an
+        <literal>http://</literal>, <literal>https://</literal> or <literal>tcp://</literal> scheme; the
+        scheme selects the RFC 3161 transport to use. For the <literal>tcp://</literal> scheme a port may be
+        specified (<literal>tcp://host:port</literal>); if omitted, port 318 is used. A Varlink caller may
+        override this per request. If unset and no authority is supplied by the caller, requests will fail.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DataSizeMax=</varname></term>
+
+        <listitem><para>The maximum amount of data that will be digested on behalf of a client that passes
+        a file descriptor rather than a precomputed digest. Defaults to 1G. Takes a size in bytes, optionally
+        suffixed with the usual K, M, G and T units (to the base of 1024), or
+        <literal>infinity</literal> to impose no limit. Digesting happens synchronously, so this bounds how
+        long a single client can keep the service from answering other clients.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ConnectionTimeoutSec=</varname></term>
+
+        <listitem><para>The maximum time to wait for the authority to respond to a request. Defaults to
+        90 seconds. Takes a value in seconds or one of the other time units understood by
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-timestampd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
