@@ -614,15 +614,27 @@ static crypto_device *get_crypto_device(const char *uuid) {
         return d;
 }
 
-static bool warn_uuid_invalid(const char *uuid, const char *key) {
-        assert(key);
+static int parse_uuid_or_warn(const char *uuid, const char *key, char **ret) {
+        int r;
+        sd_id128_t id;
+        _cleanup_free_ char *canonical = NULL;
 
-        if (!id128_is_valid(uuid)) {
+        assert(uuid);
+        assert(key);
+        assert(ret);
+
+        r = sd_id128_from_string(uuid, &id);
+        if (r < 0) {
                 log_warning("Failed to parse %s= kernel command line switch. UUID is invalid, ignoring.", key);
-                return true;
+                return 0;
         }
 
-        return false;
+        canonical = strdup(SD_ID128_TO_UUID_STRING(id));
+        if (!canonical)
+                return log_oom();
+
+        *ret = TAKE_PTR(canonical);
+        return 1;
 }
 
 static int filter_header_device(const char *options,
@@ -682,15 +694,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         arg_read_crypttab = r;
 
         } else if (streq(key, "luks.uuid")) {
+                const char *unprefixed_uuid;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                d = get_crypto_device(startswith(value, "luks-") ?: value);
+                unprefixed_uuid = startswith(value, "luks-") ?: value;
+                arg_allow_list = true;
+
+                r = parse_uuid_or_warn(unprefixed_uuid, key, &uuid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+
+                d = get_crypto_device(uuid);
                 if (!d)
                         return log_oom();
 
-                d->create = arg_allow_list = true;
+                d->create = true;
 
         } else if (streq(key, "luks.options")) {
                 _cleanup_free_ char *headerdev = NULL, *filtered_headerdev_options = NULL;
@@ -702,10 +724,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r != 2)
                         return free_and_strdup_warn(&arg_default_options, value);
 
-                if (warn_uuid_invalid(uuid, key))
+                _cleanup_free_ char *canonical_uuid = NULL;
+                r = parse_uuid_or_warn(uuid, key, &canonical_uuid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
 
-                d = get_crypto_device(uuid);
+                d = get_crypto_device(canonical_uuid);
                 if (!d)
                         return log_oom();
 
@@ -731,10 +757,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!uuid)
                         return log_oom();
 
-                if (warn_uuid_invalid(uuid, key))
+                _cleanup_free_ char *canonical_uuid = NULL;
+                r = parse_uuid_or_warn(uuid, key, &canonical_uuid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
 
-                d = get_crypto_device(uuid);
+                d = get_crypto_device(canonical_uuid);
                 if (!d)
                         return log_oom();
 
@@ -762,10 +792,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!uuid)
                         return log_oom();
 
-                if (warn_uuid_invalid(uuid, key))
+                _cleanup_free_ char *canonical_uuid = NULL;
+                r = parse_uuid_or_warn(uuid, key, &canonical_uuid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
 
-                d = get_crypto_device(uuid);
+                d = get_crypto_device(canonical_uuid);
                 if (!d)
                         return log_oom();
 
@@ -781,11 +815,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
-                        d = get_crypto_device(uuid);
+                        _cleanup_free_ char *canonical_uuid = NULL;
+
+                        arg_allow_list = true;
+
+                        r = parse_uuid_or_warn(uuid, key, &canonical_uuid);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return 0;
+
+                        d = get_crypto_device(canonical_uuid);
                         if (!d)
                                 return log_oom();
 
-                        d->create = arg_allow_list = true;
+                        d->create = true;
 
                         free_and_replace(d->name, uuid_value);
                 } else
