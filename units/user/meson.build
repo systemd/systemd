@@ -51,6 +51,11 @@ units = [
         { 'file' : 'sockets.target' },
         { 'file' : 'sound.target' },
         {
+          'file' : 'systemd-appd.service.in',
+          'conditions' : ['ENABLE_APPD'],
+          'symlinks' : ['graphical-session.target.wants/'],
+        },
+        {
           'file' : 'systemd-ask-password.socket',
           'symlinks' : ['sockets.target.wants/']
         },
@@ -135,3 +140,8 @@ foreach unit : units
                 endforeach
         endif
 endforeach
+
+install_data('app-.service.d/10-defaults.conf',
+             install_dir: userunitdir + '/app-.service.d')
+install_data('app-.scope.d/10-defaults.conf',
+             install_dir: userunitdir + '/app-.scope.d')

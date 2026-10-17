@@ -1667,6 +1667,7 @@ conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-
 
 foreach tuple : [
                 ['analyze'],
+                ['appd'],
                 ['backlight'],
                 ['binfmt'],
                 ['compat-mutable-uid-boundaries'],
@@ -2190,6 +2191,7 @@ subdir('src/udev')
 
 subdir('src/ac-power')
 subdir('src/analyze')
+subdir('src/app')
 subdir('src/ask-password')
 subdir('src/backlight')
 subdir('src/battery-check')
