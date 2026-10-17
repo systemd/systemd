@@ -13,6 +13,7 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "cgroup-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -626,6 +627,44 @@ static int machine_watch_cgroup(Machine *m) {
         r = sd_event_add_inotify(m->manager->event, &m->cgroup_empty_event_source, p, IN_MODIFY, machine_dispatch_cgroup_empty, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch %s events: %m", p);
+
+        return 0;
+}
+
+int machine_determine_unit(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(m->manager);
+
+        /* Find the unit the leader runs in, as known to the service manager we talk to: in the per-user
+         * instance that is the user's service manager, so skip the user@UID.service prefix. If the leader
+         * runs in a subgroup of the unit (e.g. the "payload" subgroup of systemd-nspawn@.service), also
+         * remember the subgroup and the cgroup path, so that we can watch it. */
+
+        switch (m->manager->runtime_scope) {
+
+        case RUNTIME_SCOPE_USER:
+                r = cg_pidref_get_user_unit_full(&m->leader, &m->unit, &m->subgroup);
+                break;
+
+        case RUNTIME_SCOPE_SYSTEM:
+                r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine unit of process " PID_FMT ": %m", m->leader.pid);
+
+        if (!empty_or_root(m->subgroup)) {
+                /* If this is not a top-level cgroup, then we need the cgroup path to be able to watch when
+                 * it empties */
+                r = cg_pidref_get_path(&m->leader, &m->cgroup);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine cgroup of process " PID_FMT ": %m", m->leader.pid);
+        }
 
         return 0;
 }
