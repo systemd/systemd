@@ -8,13 +8,57 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-file-util.h"
+#include "journal-segmented.h"
+#include "journal-segmented-internal.h"
 #include "journal-verify.h"
 #include "mmap-cache.h"
+#include "siphash24.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
+#include "unaligned.h"
 
 #define ENTRIES_MAX 256U
+
+/* Almost every mutation of a segmented file breaks a checksum, and readers refuse an object with a wrong
+ * checksum before they parse anything else in it. Recalculating the checksums and the hashes of uncompressed
+ * payloads lets mutations reach the code behind the checksum checks. */
+static void fix_checksums(uint8_t *p, size_t size) {
+        Header *h = (Header*) p;
+        uint64_t offset;
+
+        if (size < sizeof(Header))
+                return;
+
+        offset = le64toh(h->header_size);
+
+        while (offset <= size && size - offset >= sizeof(ObjectHeader)) {
+                ObjectHeader *o = (ObjectHeader*) (p + offset);
+                uint64_t sz = le64toh(o->size), checked = segmented_checked_size(o);
+
+                if (sz < sizeof(ObjectHeader) || sz > size - offset || sz < checked)
+                        break;
+
+                if (o->type == OBJECT_DATA && (o->flags & _OBJECT_COMPRESSED_MASK) == 0)
+                        unaligned_write_le64(
+                                        p + offset + offsetof(SegmentedDataObject, hash),
+                                        siphash24(p + offset + checked, sz - checked, h->file_id.bytes));
+
+                if (o->type == OBJECT_INDEX)
+                        unaligned_write_le32(
+                                        p + offset + offsetof(IndexObject, payload_checksum),
+                                        segmented_payload_checksum(h->file_id, p + offset + checked, sz - checked));
+
+                o->checksum = htole32(segmented_checksum_with_file_id(h->file_id, offset, o, checked));
+
+                if (ALIGN64(sz) < sz)
+                        break;
+                offset += ALIGN64(sz);
+        }
+}
 
 static void make_file(char *name, const uint8_t *data, size_t size) {
         _cleanup_close_ int fd = -EBADF;
@@ -125,9 +169,55 @@ static void verify_journal(MMapCache *m, const char *name) {
         (void) journal_file_close(f);
 }
 
+static void write_journal(MMapCache *m, const char *name) {
+        static const sd_id128_t boot_id = SD_ID128_MAKE(f0,0d,f0,0d,f0,0d,f0,0d,f0,0d,f0,0d,f0,0d,f0,0d);
+        JournalFile *f = NULL;
+
+        /* Open the existing file for writing, like journald does after a restart. */
+
+        if (journal_file_open(-EBADF, name, O_RDWR, 0, 0, UINT64_MAX, NULL, m, NULL, &f) < 0)
+                return;
+
+        for (unsigned i = 0; i < 3; i++) {
+                dual_timestamp ts = {
+                        .realtime = le64toh(f->header->tail_entry_realtime) + 1,
+                        .monotonic = le64toh(f->header->tail_entry_monotonic) + 1,
+                };
+                struct iovec iovec[] = {
+                        IOVEC_MAKE_STRING("MESSAGE=fuzz"),
+                        IOVEC_MAKE_STRING("_TRANSPORT=journal"),
+                        IOVEC_MAKE_STRING("_UID=0"),
+                        IOVEC_MAKE_STRING(i == 0 ? "NUMBER=0" : "NUMBER=1"),
+                };
+
+                if (journal_file_append_entry(f, &ts, &boot_id, iovec, ELEMENTSOF(iovec), NULL, NULL, NULL, NULL) < 0)
+                        break;
+
+                if (i == 1)
+                        (void) segmented_checkpoint(f);
+        }
+
+        (void) journal_file_set_offline(f, /* wait= */ true);
+
+        /* journal_file_archive() also renames the file. Setting f->archive archives the file without
+         * renaming it. */
+        f->archive = true;
+        (void) journal_file_set_offline(f, /* wait= */ true);
+
+        (void) journal_file_offline_close(f);
+}
+
+static void test_file(MMapCache *m, const uint8_t *data, size_t size) {
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journal-file.XXXXXX";
+
+        make_file(name, data, size);
+        read_journal(name);
+        verify_journal(m, name);
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journal-file.XXXXXX";
+        _cleanup_free_ uint8_t *fixed = NULL;
 
         if (outside_size_range(size, sizeof(Header), 1024 * 1024))
                 return 0;
@@ -136,7 +226,20 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(m = mmap_cache_new());
 
-        make_file(name, data, size);
+        test_file(m, data, size);
+
+        if (!FLAGS_SET(le32toh(((const Header*) data)->incompatible_flags), HEADER_INCOMPATIBLE_SEGMENTED))
+                return 0;
+
+        assert_se(fixed = memdup(data, size));
+        fix_checksums(fixed, size);
+        test_file(m, fixed, size);
+
+        /* Append entries to a copy of the recalculated input, then read and verify the result. */
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journal-file.XXXXXX";
+
+        make_file(name, fixed, size);
+        write_journal(m, name);
         read_journal(name);
         verify_journal(m, name);
 

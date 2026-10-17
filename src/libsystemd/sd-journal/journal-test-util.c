@@ -4,11 +4,13 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "journal-test-util.h"
 #include "random-util.h"
 #include "siphash24.h"
+#include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -73,6 +75,41 @@ JournalFile* journal_test_open(MMapCache *m, const char *name, int flags, uint64
         return f;
 }
 
+void journal_test_refresh(JournalFile *f) {
+        assert(f);
+
+        /* Readers see the entries of a segmented file as of its last refresh. Classic files need none. */
+        journal_file_request_refresh(f);
+        ASSERT_OK(journal_file_refresh(f, USEC_INFINITY));
+}
+
+bool journal_test_segmented(void) {
+        return getenv_bool("SYSTEMD_JOURNAL_SEGMENTED") > 0;
+}
+
+int journal_test_main(int argc, char *argv[], int log_level, int (*intro)(void), const TestFunc *start, const TestFunc *end) {
+        int r;
+
+        test_prepare(argc, argv, log_level);
+
+        r = intro ? intro() : EXIT_SUCCESS;
+        if (r != EXIT_SUCCESS)
+                return r;
+
+        FOREACH_STRING(segmented, "0", "1") {
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", segmented, /* overwrite= */ true));
+                log_info("/* %s files */", streq(segmented, "1") ? "Segmented" : "Classic");
+
+                r = run_test_table(start, end);
+                if (r != EXIT_SUCCESS)
+                        break;
+        }
+
+        static_destruct();
+
+        return r < 0 ? EXIT_FAILURE : r;
+}
+
 void model_append(JournalFile *f, Model *model, usec_t realtime, usec_t monotonic, sd_id128_t boot_id, char **fields) {
         _cleanup_free_ struct iovec *iovec = NULL;
         dual_timestamp ts = {
@@ -106,7 +143,7 @@ void model_append(JournalFile *f, Model *model, usec_t realtime, usec_t monotoni
         model->n_entries++;
 }
 
-void model_append_generated(JournalFile *f, Model *model, uint64_t i) {
+void model_append_generated_at(JournalFile *f, Model *model, uint64_t i, usec_t realtime_base) {
         _cleanup_strv_free_ char **fields = NULL;
         unsigned service = i % 7 == 0 ? 3 : (i / 5) % 4;
 
@@ -122,7 +159,7 @@ void model_append_generated(JournalFile *f, Model *model, uint64_t i) {
         ASSERT_OK(strv_extendf(&fields, "_UID=%u", service == 0 ? 1000U : 0U));
         ASSERT_OK(strv_extendf(&fields, "_COMM=service%u", service));
         ASSERT_OK(strv_extendf(&fields, "_SYSTEMD_UNIT=service%u.service", service));
-        ASSERT_OK(strv_extendf(&fields, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64, MODEL_REALTIME_BASE + i * 10 - 3));
+        ASSERT_OK(strv_extendf(&fields, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64, realtime_base + i * 10 - 3));
         ASSERT_OK(strv_extendf(&fields, "_BOOT_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(MODEL_BOOT_A)));
         ASSERT_OK(strv_extend(&fields, "_HOSTNAME=test"));
 
@@ -138,7 +175,7 @@ void model_append_generated(JournalFile *f, Model *model, uint64_t i) {
                 ASSERT_OK(strv_extendf(&fields, "RANDOM=%s", large));
         }
 
-        model_append(f, model, MODEL_REALTIME_BASE + i * 10, 5000 + i * 10, MODEL_BOOT_A, fields);
+        model_append(f, model, realtime_base + i * 10, 5000 + i * 10, MODEL_BOOT_A, fields);
 }
 
 void model_assert_entry(JournalFile *f, Object *o, uint64_t offset, const Model *model, size_t i) {
@@ -191,14 +228,14 @@ static int seek_next(JournalFile *f, const char *match, direction_t direction, O
 void model_assert_file(JournalFile *f, const Model *model) {
         static const char * const matches[] = {
                 NULL,
-                "_SYSTEMD_UNIT=service3.service",
+                "_SYSTEMD_UNIT=service3.service",       /* in a context */
                 "_UID=1000",
                 "PRIORITY=5",                            /* frequent */
                 "NUMBER=77",                             /* once */
                 "NUMBER=100000000",                      /* never */
-                "MESSAGE=This is message 3 of 17",
+                "MESSAGE=This is message 3 of 17",       /* not indexed */
                 "MESSAGE=This is message 170 of 17",
-                "_SOURCE_REALTIME_TIMESTAMP=1000697",
+                "_SOURCE_REALTIME_TIMESTAMP=1000697",    /* inline */
                 "_HOSTNAME=test",                        /* all */
                 "NOSUCHFIELD=1",
         };

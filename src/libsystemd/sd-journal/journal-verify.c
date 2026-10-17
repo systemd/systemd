@@ -9,11 +9,17 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hash-funcs.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-segmented-internal.h"
 #include "journal-verify.h"
 #include "log.h"
+#include "memory-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "sort-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -988,6 +994,789 @@ static int verify_tag(JournalFile *f, VerifyTagState *s, uint64_t p, Object **o)
         return 0;
 }
 
+typedef struct VerifyData {
+        uint64_t offset;
+        uint64_t hash;
+        uint64_t hash2;
+        uint64_t field_hash;
+} VerifyData;
+
+typedef struct VerifyValue {
+        uint64_t hash;
+        uint64_t hash2;
+        uint64_t data_offset;
+        PostingEncoder postings;
+} VerifyValue;
+
+static VerifyValue* verify_value_free(VerifyValue *value) {
+        if (!value)
+                return NULL;
+
+        posting_encoder_done(&value->postings);
+        return mfree(value);
+}
+
+static void verify_value_hash_func(const VerifyValue *value, struct siphash *state) {
+        siphash24_compress_typesafe(value->hash, state);
+        siphash24_compress_typesafe(value->hash2, state);
+}
+
+static int verify_value_compare_func(const VerifyValue *a, const VerifyValue *b) {
+        int r;
+
+        r = CMP(a->hash, b->hash);
+        if (r != 0)
+                return r;
+
+        return CMP(a->hash2, b->hash2);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                verify_value_hash_ops,
+                VerifyValue,
+                verify_value_hash_func,
+                verify_value_compare_func,
+                verify_value_free);
+
+typedef struct VerifyField {
+        uint64_t hash;
+        uint32_t flags;
+        uint32_t n_values;
+        bool seen;              /* in the field table of the index */
+        size_t name_size;
+        char name[];
+} VerifyField;
+
+typedef struct VerifyDataCache {
+        VerifyField *field;
+        VerifyValue *value;
+        unsigned generation;
+} VerifyDataCache;
+
+typedef struct VerifyState {
+        JournalFile *f;
+        uint64_t file_size;
+
+        VerifyData *data;
+        size_t n_data;
+
+        uint32_t *contexts;     /* offsets, ascending */
+        size_t n_contexts;
+
+        uint32_t *entries;      /* offsets, ascending */
+        size_t n_entries;
+
+        SegmentedIndex *live;
+        size_t n_live;
+
+        uint64_t *superseded;   /* offsets of live indexes that an index of the whole log replaced */
+        size_t n_superseded;
+
+        Header state;           /* what the log says about the file up to the current position */
+
+        VerifyTagState tag;
+
+        /* Lookups during a rebuild, cached per data object, since entries refer to the same data objects
+         * over and over. Allocated once, a rebuild invalidates them by bumping the generation. */
+        VerifyDataCache *cache;
+        unsigned generation;
+} VerifyState;
+
+static void verify_state_done(VerifyState *v) {
+        free(v->data);
+        free(v->contexts);
+        free(v->entries);
+        free(v->live);
+        free(v->superseded);
+        free(v->cache);
+}
+
+static int index_offset_compare(const SegmentedIndex *a, const SegmentedIndex *b) {
+        return CMP(a->offset, b->offset);
+}
+
+static int verify_data_compare(const VerifyData *a, const VerifyData *b) {
+        return CMP(a->offset, b->offset);
+}
+
+static const VerifyData* verify_data_find(const VerifyState *v, uint64_t offset) {
+        return typesafe_bsearch(&(VerifyData) { .offset = offset }, v->data, v->n_data, verify_data_compare);
+}
+
+static bool offset_in_array(const uint32_t *array, size_t n, uint64_t offset) {
+        if (offset > UINT32_MAX)
+                return false;
+
+        return typesafe_bsearch(&(uint32_t) { offset }, array, n, cmp_unsigned);
+}
+
+static int verify_segmented_data(VerifyState *v, Object *o, uint64_t p) {
+        JournalFile *f = v->f;
+        const void *payload;
+        size_t size;
+        const char *eq;
+        Compression c;
+        int r;
+
+        r = verify_compression(f, o, p);
+        if (r < 0)
+                return r;
+
+        c = COMPRESSION_FROM_OBJECT(o);
+
+        r = journal_file_data_payload(f, o, p, NULL, 0, 0, &payload, &size);
+        if (r < 0) {
+                error_errno(p, r, "%s decompression failed: %m", compression_to_string(c));
+                return r;
+        }
+
+        if (journal_file_hash_data(f, payload, size) != le64toh(o->segmented_data.hash)) {
+                error(p, "Data object has wrong hash");
+                return -EBADMSG;
+        }
+
+        eq = memchr(payload, '=', size);
+        if (!eq || !journal_field_valid(payload, eq - (const char*) payload, /* allow_protected= */ true)) {
+                error(p, "Data object has invalid field name");
+                return -EBADMSG;
+        }
+
+        if (!GREEDY_REALLOC(v->data, v->n_data + 1))
+                return -ENOMEM;
+
+        v->data[v->n_data++] = (VerifyData) {
+                .offset = p,
+                .hash = le64toh(o->segmented_data.hash),
+                .hash2 = segmented_hash2(f, payload, size),
+                .field_hash = journal_file_hash_data(f, payload, eq - (const char*) payload),
+        };
+        return 0;
+}
+
+static int verify_segmented_entry(VerifyState *v, Object *o, uint64_t p) {
+        uint64_t n = le16toh(o->object.aux);
+        int r;
+
+        r = verify_tag_add_entry(&v->tag, JOURNAL_HEADER_SEALED(v->f->header), p, le64toh(o->entry.realtime));
+        if (r < 0)
+                return r;
+
+        if (v->n_entries > 0) {
+                if (le64toh(o->entry.seqnum) <= le64toh(v->state.tail_entry_seqnum)) {
+                        error(p, "Entry seqnum out of sequence");
+                        return -EBADMSG;
+                }
+
+                if (sd_id128_equal(o->entry.boot_id, v->state.tail_entry_boot_id) &&
+                    le64toh(o->entry.monotonic) < le64toh(v->state.tail_entry_monotonic)) {
+                        error(p, "Entry monotonic timestamp out of sequence");
+                        return -EBADMSG;
+                }
+        }
+
+        for (uint64_t i = 0; i < n; i++) {
+                uint64_t item = le32toh(o->entry.items.compact[i].object_offset),
+                         q = item & ~(uint64_t) _ENTRY_ITEM_TYPE_MASK;
+                bool good;
+
+                switch (item & _ENTRY_ITEM_TYPE_MASK) {
+
+                case ENTRY_ITEM_DATA:
+                        good = verify_data_find(v, q);
+                        break;
+
+                case ENTRY_ITEM_CONTEXT:
+                        good = offset_in_array(v->contexts, v->n_contexts, q);
+                        break;
+
+                case ENTRY_ITEM_INLINE: {
+                        const InlineData *d = (const InlineData*) ((const uint8_t*) o + q);
+                        const char *eq = memchr(d->payload, '=', le32toh(d->size));
+
+                        good = eq && journal_field_valid((const char*) d->payload, eq - (const char*) d->payload, /* allow_protected= */ true);
+                        break;
+                }
+
+                default:
+                        good = false;
+                }
+
+                if (!good) {
+                        error(p, "Entry item %" PRIu64 " does not refer to a valid object", i);
+                        return -EBADMSG;
+                }
+        }
+
+        if (!GREEDY_REALLOC(v->entries, v->n_entries + 1))
+                return -ENOMEM;
+
+        v->entries[v->n_entries++] = p;
+
+        segmented_header_add_entry(&v->state, p, le64toh(o->entry.seqnum), le64toh(o->entry.realtime),
+                                     le64toh(o->entry.monotonic), o->entry.boot_id);
+        return 0;
+}
+
+static bool verify_segmented_index_fits(VerifyState *v, const SegmentedIndex *i) {
+        const SegmentedIndex *newest = v->n_live > 0 ? v->live + v->n_live - 1 : NULL;
+        uint64_t header_size = le64toh(v->f->header->header_size);
+
+        if (i->n_entries != v->n_entries)
+                return false;
+
+        return segmented_index_place(i, header_size,
+                                     newest ? newest->offset : header_size,
+                                     newest ? newest->n_entries : 0) != SEGMENTED_INDEX_UNFIT;
+}
+
+static int verify_field_get(
+                JournalFile *f,
+                Hashmap **fields,
+                uint64_t hash,
+                uint64_t data_offset,
+                const void *payload,
+                size_t size,
+                VerifyField **ret) {
+
+        VerifyField *field;
+        const char *eq;
+        int r;
+
+        assert(fields);
+        assert(ret);
+
+        field = hashmap_get(*fields, &hash);
+        if (field) {
+                *ret = field;
+                return 0;
+        }
+
+        if (!payload) {
+                r = journal_file_data_payload(f, NULL, data_offset, NULL, 0, 0, &payload, &size);
+                if (r < 0)
+                        return r;
+        }
+
+        eq = memchr(payload, '=', size);
+        assert(eq);
+
+        field = malloc(offsetof(VerifyField, name) + (eq - (const char*) payload));
+        if (!field)
+                return -ENOMEM;
+
+        *field = (VerifyField) {
+                .hash = hash,
+                .name_size = eq - (const char*) payload,
+        };
+        memcpy(field->name, payload, field->name_size);
+
+        r = hashmap_ensure_put(fields, &uint64_hash_ops_value_free, &field->hash, field);
+        if (r < 0) {
+                free(field);
+                return r;
+        }
+
+        *ret = field;
+        return 0;
+}
+
+static int verify_value_get(Set **values, const VerifyData *d, VerifyField *field, VerifyValue **ret) {
+        VerifyValue *value;
+        int r;
+
+        assert(values);
+        assert(ret);
+
+        value = set_get(*values, &(VerifyValue) { .hash = d->hash, .hash2 = d->hash2 });
+        if (value) {
+                *ret = value;
+                return 0;
+        }
+
+        value = new(VerifyValue, 1);
+        if (!value)
+                return -ENOMEM;
+
+        *value = (VerifyValue) {
+                .hash = d->hash,
+                .hash2 = d->hash2,
+                .data_offset = d->offset,
+        };
+
+        r = set_ensure_consume(values, &verify_value_hash_ops, value);
+        if (r < 0)
+                return r;
+
+        field->n_values++;
+        *ret = value;
+        return 0;
+}
+
+static bool verify_segmented_index_state(const VerifyState *v, const IndexObject *o) {
+        IndexObject expected = {};
+
+        /* Readers take these from the index instead of from the log */
+        index_object_set_state(&expected, &v->state);
+        return memcmp((const uint8_t*) o + offsetof(IndexObject, n_objects),
+                      (const uint8_t*) &expected + offsetof(IndexObject, n_objects),
+                      offsetof(IndexObject, n_index_entries) - offsetof(IndexObject, n_objects)) == 0;
+}
+
+static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uint64_t base) {
+        JournalFile *f = v->f;
+        _cleanup_set_free_ Set *values = NULL;
+        _cleanup_hashmap_free_ Hashmap *fields = NULL;
+        int r;
+
+        /* Rebuilds the index from the log and compares it with the stored one. */
+
+        if (!v->cache) {
+                v->cache = new0(VerifyDataCache, v->n_data);
+                if (!v->cache)
+                        return -ENOMEM;
+        }
+        v->generation++;
+
+        for (size_t k = base; k < v->n_entries && v->entries[k] < i->offset; k++) {
+                const SegmentedField *entry_fields;
+                size_t n_entry_fields;
+                uint64_t ordinal = k - base;
+                Object *o;
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, v->entries[k], &o);
+                if (r < 0)
+                        return r;
+
+                r = segmented_entry_fields(f, o, v->entries[k], &entry_fields, &n_entry_fields);
+                if (r < 0)
+                        return r;
+
+                for (size_t m = 0; m < n_entry_fields; m++) {
+                        VerifyField *field;
+
+                        if (entry_fields[m].type == SEGMENTED_FIELD_INLINE) {
+                                const void *payload;
+                                const char *eq;
+                                size_t size;
+
+                                r = segmented_inline_payload(f, entry_fields[m].offset, NULL, 0, &payload, &size);
+                                if (r < 0)
+                                        return r;
+
+                                eq = memchr(payload, '=', size);
+                                assert(eq);
+
+                                r = verify_field_get(f, &fields, journal_file_hash_data(f, payload, eq - (const char*) payload),
+                                                     0, payload, size, &field);
+                                if (r < 0)
+                                        return r;
+
+                                field->flags |= INDEX_FIELD_INLINE;
+                                continue;
+                        }
+
+                        const VerifyData *d = verify_data_find(v, entry_fields[m].offset);
+                        assert(d);
+                        VerifyDataCache *c = v->cache + (d - v->data);
+
+                        if (c->generation != v->generation) {
+                                *c = (VerifyDataCache) {
+                                        .generation = v->generation,
+                                };
+
+                                r = verify_field_get(f, &fields, d->field_hash, d->offset, NULL, 0, &c->field);
+                                if (r < 0)
+                                        return r;
+
+                                r = verify_value_get(&values, d, c->field, &c->value);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = posting_encoder_add(&c->value->postings, ordinal);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (i->n_fields != hashmap_size(fields)) {
+                error(i->offset, "Index has %" PRIu32 " fields, expected %u", i->n_fields, hashmap_size(fields));
+                return -EBADMSG;
+        }
+
+        uint32_t next_data = 0;
+        uint64_t postings_end = 0;
+        uint64_t previous_hash = 0;
+        for (uint32_t k = 0; k < i->n_fields; k++) {
+                IndexFieldItem item;
+
+                r = segmented_index_field(f, i, k, &item);
+                if (r < 0)
+                        return r;
+
+                VerifyField *field = hashmap_get(fields, &(uint64_t) { le64toh(item.hash) });
+                if (!field || field->seen || le32toh(item.flags) != field->flags) {
+                        error(i->offset, "Index field %" PRIu32 " does not match the log", k);
+                        return -EBADMSG;
+                }
+                field->seen = true;
+
+                const void *name;
+                r = segmented_index_field_name(f, i, &item, &name);
+                if (r < 0)
+                        return r;
+                if (memcmp_nn(name, le32toh(item.name_size), field->name, field->name_size) != 0) {
+                        error(i->offset, "Index field %" PRIu32 " has a name that does not match the log", k);
+                        return -EBADMSG;
+                }
+
+                if (k > 0 && le64toh(item.hash) < previous_hash) {
+                        error(i->offset, "Index field %" PRIu32 " is out of order", k);
+                        return -EBADMSG;
+                }
+                previous_hash = le64toh(item.hash);
+
+                /* The values of each field are contiguous in the data table, in field order. */
+                if (le32toh(item.n_data) != field->n_values || le32toh(item.first_data) != next_data) {
+                        error(i->offset, "Index field %" PRIu32 " has %" PRIu32 " values at %" PRIu32 ", expected %" PRIu32 " at %" PRIu32,
+                              k, le32toh(item.n_data), le32toh(item.first_data), field->n_values, next_data);
+                        return -EBADMSG;
+                }
+
+                IndexDataItem previous;
+                for (uint32_t m = 0; m < le32toh(item.n_data); m++) {
+                        IndexDataItem d;
+
+                        r = segmented_index_data(f, i, next_data + m, &d);
+                        if (r < 0)
+                                return r;
+
+                        if (m > 0 &&
+                            (le64toh(previous.hash) > le64toh(d.hash) ||
+                             (le64toh(previous.hash) == le64toh(d.hash) && le64toh(previous.hash2) >= le64toh(d.hash2)))) {
+                                error(i->offset, "Index value %" PRIu32 " is out of order", next_data + m);
+                                return -EBADMSG;
+                        }
+                        previous = d;
+
+                        /* Posting lists must not overlap, so that indexes can be merged in one pass */
+                        if (le32toh(d.postings_offset) < postings_end) {
+                                error(i->offset, "Index value %" PRIu32 " has a posting list that overlaps the previous one", next_data + m);
+                                return -EBADMSG;
+                        }
+                        postings_end = le32toh(d.postings_offset) + le32toh(d.postings_size);
+                }
+
+                next_data += le32toh(item.n_data);
+        }
+
+        if (next_data != i->n_data_items) {
+                error(i->offset, "Index has %" PRIu32 " values that belong to no field", i->n_data_items - next_data);
+                return -EBADMSG;
+        }
+
+        if (i->n_data_items != set_size(values)) {
+                error(i->offset, "Index has %" PRIu32 " values, expected %u", i->n_data_items, set_size(values));
+                return -EBADMSG;
+        }
+
+        VerifyValue *value;
+        SET_FOREACH(value, values) {
+                _cleanup_free_ void *payload = NULL;
+                PostingDecoder found;
+                IndexFieldItem field;
+                IndexDataItem item;
+                const void *p;
+                size_t size;
+
+                r = journal_file_data_payload(f, NULL, value->data_offset, NULL, 0, 0, &p, &size);
+                if (r < 0)
+                        return r;
+
+                /* The lookup decompresses other payloads into the same buffer */
+                payload = memdup(p, size);
+                if (!payload)
+                        return -ENOMEM;
+
+                r = segmented_index_find_field(f, i, payload, (const char*) memchr(payload, '=', size) - (const char*) payload, &field);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        r = segmented_index_find_data(f, i, &field, payload, size, value->hash, &item);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        error(i->offset, "Index lacks value that is in the log");
+                        return -EBADMSG;
+                }
+
+                r = posting_encoder_finish(&value->postings);
+                if (r < 0)
+                        return r;
+
+                r = segmented_index_postings(f, i, &item, &found);
+                if (r < 0) {
+                        error_errno(i->offset, r, "Index has invalid posting list: %m");
+                        return r;
+                }
+
+                /* The encoder writes each integer in its shortest form and merges runs that touch. A posting
+                 * list that matches the log hence has the same bytes as the expected one. */
+                if (le32toh(item.n_entries) != value->postings.n_postings ||
+                    memcmp_nn(found.p, found.size, value->postings.buffer, value->postings.size) != 0) {
+                        error(i->offset, "Index has posting list that does not match the log");
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+static int verify_segmented(
+                JournalFile *f,
+                usec_t *ret_first_contained,
+                usec_t *ret_last_validated,
+                usec_t *ret_last_contained,
+                bool show_progress) {
+
+        _cleanup_(verify_state_done) VerifyState v = {
+                .f = f,
+                .tag.min_entry_realtime = USEC_INFINITY,
+        };
+        uint64_t p, padding_end;
+        usec_t last_usec = 0;
+        int r;
+
+        r = segmented_verify_header(f);
+        if (r < 0) {
+                error_errno(0, r, "Invalid header: %m");
+                return r;
+        }
+
+        v.file_size = f->last_stat.st_size;
+        v.tag.last_tag_end = le64toh(f->header->header_size);
+        v.state = (Header) {
+                .header_size = f->header->header_size,
+                .tail_entry_seqnum = f->segmented->disk_header->tail_entry_seqnum,
+        };
+
+        for (p = le64toh(f->header->header_size); p < v.file_size; p = padding_end) {
+                uint64_t size = 0, checked;
+                uint8_t type;
+                Object *o;
+
+                if (show_progress)
+                        draw_progress(scale_progress(0x7FFF, p, v.file_size), &last_usec);
+
+                /* Objects are referenced by 32-bit offsets, and readers stop scanning beyond them */
+                if (p > UINT32_MAX) {
+                        error(p, "Object beyond the first 4 GiB of the file");
+                        return -EBADMSG;
+                }
+
+                if (v.file_size - p >= sizeof(ObjectHeader)) {
+                        ObjectHeader *h;
+
+                        r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p, sizeof(ObjectHeader), (void**) &h);
+                        if (r < 0)
+                                return r;
+
+                        size = le64toh(h->size);
+                }
+
+                if (v.file_size - p < sizeof(ObjectHeader) || size > v.file_size - p) {
+                        if (f->segmented->disk_header->state == STATE_ARCHIVED) {
+                                error(p, "Object extends beyond the end of the file");
+                                return -EBADMSG;
+                        }
+
+                        /* A crash or a failed write leaves a partial object at the end of a file that is
+                         * not archived. Readers stop scanning there, hence stop here too. */
+                        warning(p, "File ends with a partial object");
+                        break;
+                }
+
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
+                if (r < 0) {
+                        error_errno(p, r, "Invalid object: %m");
+                        return r;
+                }
+
+                checked = segmented_checked_size(&o->object);
+                if (segmented_checksum(f, p, o, checked) != le32toh(o->object.checksum)) {
+                        error(p, "Object has wrong checksum");
+                        return -EBADMSG;
+                }
+
+                type = o->object.type;
+
+                switch (type) {
+
+                case OBJECT_DATA:
+                        r = verify_segmented_data(&v, o, p);
+                        break;
+
+                case OBJECT_CONTEXT:
+                        for (uint64_t i = 0; i < le16toh(o->object.aux); i++)
+                                if (!verify_data_find(&v, le32toh(o->context.items[i]))) {
+                                        error(p, "Context item %" PRIu64 " does not refer to a data object", i);
+                                        return -EBADMSG;
+                                }
+
+                        if (!GREEDY_REALLOC(v.contexts, v.n_contexts + 1))
+                                return -ENOMEM;
+                        v.contexts[v.n_contexts++] = p;
+                        r = 0;
+                        break;
+
+                case OBJECT_ENTRY:
+                        r = verify_segmented_entry(&v, o, p);
+                        break;
+
+                case OBJECT_TAG:
+                        r = verify_tag(f, &v.tag, p, &o);
+                        break;
+
+                case OBJECT_INDEX: {
+                        SegmentedIndex i;
+
+                        r = segmented_index_parse(f, &o->index, p, &i);
+                        if (r < 0) {
+                                error_errno(p, r, "Invalid index: %m");
+                                return r;
+                        }
+
+                        /* Track the live indexes the way a reader scanning the file would. */
+                        if (verify_segmented_index_fits(&v, &i)) {
+                                r = segmented_index_payload_verify(f, &i);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        /* Readers drop it, and with it the indexes that build on it. */
+                                        warning(p, "Index has wrong payload checksum, not in use");
+                                else {
+                                        r = journal_file_move_to_object(f, OBJECT_INDEX, p, &o);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (!verify_segmented_index_state(&v, &o->index)) {
+                                                error(p, "Index does not match the log before it");
+                                                return -EBADMSG;
+                                        }
+
+                                        if (i.head_offset == le64toh(f->header->header_size)) {
+                                                if (!GREEDY_REALLOC(v.superseded, v.n_superseded + v.n_live))
+                                                        return -ENOMEM;
+                                                FOREACH_ARRAY(l, v.live, v.n_live)
+                                                        v.superseded[v.n_superseded++] = l->offset;
+
+                                                v.n_live = 0;
+                                        }
+
+                                        if (!GREEDY_REALLOC(v.live, v.n_live + 1))
+                                                return -ENOMEM;
+                                        v.live[v.n_live++] = i;
+                                }
+                        } else
+                                warning(p, "Index is not in use");
+
+                        break;
+                }
+
+                default:
+                        error(p, "Object of unknown type %u", o->object.type);
+                        return -EBADMSG;
+                }
+                if (r < 0)
+                        return r;
+
+                segmented_header_add_object(&v.state, type, p, p + ALIGN64(size));
+
+                padding_end = p + ALIGN64(size);
+                if (padding_end > v.file_size) {
+                        if (f->segmented->disk_header->state == STATE_ARCHIVED) {
+                                error(p, "Padding extends beyond the end of the file");
+                                return -EBADMSG;
+                        }
+
+                        /* Readers accept the object, and the next one would start beyond the end */
+                        warning(p, "File ends within the padding of the last object");
+                        break;
+                }
+
+                if (padding_end > p + size) {
+                        uint8_t *q;
+
+                        r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p + size, padding_end - p - size, (void**) &q);
+                        if (r < 0)
+                                return r;
+
+                        if (!memeqzero(q, padding_end - p - size)) {
+                                error(p, "Padding is not zero");
+                                return -EBADMSG;
+                        }
+                }
+        }
+
+        if (show_progress)
+                flush_progress();
+
+        if (!IN_SET(f->segmented->disk_header->state, STATE_OFFLINE, STATE_ARCHIVED)) {
+                error(0, "Header has state %u, expected STATE_OFFLINE or STATE_ARCHIVED", (unsigned) f->segmented->disk_header->state);
+                return -EBADMSG;
+        }
+
+        /* Readers load the index that the header names without checking its payload. The header must
+         * name an index that was live at some point: an index in v.live, or an index in v.superseded that
+         * an index of the whole log replaced. v.live and v.superseded are sorted by offset. */
+        uint64_t synced = le64toh(f->segmented->disk_header->synced_index_offset);
+        if (synced != 0 &&
+            !typesafe_bsearch(&(SegmentedIndex) { .offset = synced }, v.live, v.n_live, index_offset_compare) &&
+            !typesafe_bsearch(&synced, v.superseded, v.n_superseded, uint64_compare_func)) {
+                error(offsetof(Header, synced_index_offset), "Header does not refer to a usable index");
+                return -EBADMSG;
+        }
+
+        FOREACH_ARRAY(i, v.live, v.n_live) {
+                uint64_t base = i->first_ordinal; /* verify_segmented_index_fits() checked it */
+
+                if (show_progress)
+                        draw_progress(scale_progress(0x7FFF, i->offset, v.file_size), &last_usec);
+
+                for (uint32_t k = 0; k < i->n_index_entries; k++) {
+                        uint64_t q;
+
+                        /* Fails on damage instead of falling back to the log like readers do. */
+                        r = segmented_index_entry_offset(f, i, k, &q);
+                        if (r < 0) {
+                                error_errno(i->offset, r, "Invalid entry array: %m");
+                                return r;
+                        }
+
+                        if (base + k >= v.n_entries || v.entries[base + k] != q) {
+                                error(i->offset, "Entry array does not match the log");
+                                return -EBADMSG;
+                        }
+                }
+
+                r = verify_segmented_rebuild(&v, i, base);
+                if (r < 0)
+                        return r;
+        }
+
+        if (show_progress)
+                flush_progress();
+
+        if (ret_first_contained)
+                *ret_first_contained = le64toh(v.state.head_entry_realtime);
+        if (ret_last_validated)
+                *ret_last_validated = v.tag.last_tag_realtime_end;
+        if (ret_last_contained)
+                *ret_last_contained = v.tag.last_entry_realtime;
+
+        return 0;
+}
+
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
@@ -1041,6 +1830,9 @@ int journal_file_verify(
                         r = -EBADMSG;
                         goto fail;
                 }
+
+        if (f->segmented)
+                return verify_segmented(f, ret_first_contained, ret_last_validated, ret_last_contained, show_progress);
 
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {
