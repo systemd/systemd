@@ -1372,6 +1372,15 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
         return 0;
 }
 
+#define DEFINE_APPLY_EXEC(field, JsonName, apply_fn, ...)                                    \
+        int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                assert(c);                                                                   \
+                assert(p);                                                                   \
+                                                                                             \
+                return (apply_fn)(u, (JsonName), &c->field, p->field,                        \
+                                  __VA_ARGS__ __VA_OPT__(,) UNIT_RUNTIME|UNIT_PRIVATE);      \
+        }
+
 /* Generate an apply fn for an exec-context string field: copy the parsed value to ExecContext and
  * write the corresponding "Name=value" line, skipping if the caller didn't set the field.
  * Used where the parsed value is NULL or already validated by the dispatch callback. */
@@ -1396,31 +1405,16 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
 DEFINE_APPLY_EXEC_STRING(user,  "User");
 DEFINE_APPLY_EXEC_STRING(group, "Group");
 
-/* Generate an apply fn for an exec-context tristate bool: copy the parsed value to ExecContext and
- * write the corresponding "Name=yes/no" line, skipping if the caller didn't set the field.
- * Used for the sandbox bool batch where parse and apply are entirely mechanical. */
-#define DEFINE_APPLY_EXEC_TRISTATE_BOOL(field, JsonName)                \
-        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
-                assert(c);                                              \
-                assert(p);                                              \
-                if (p->field < 0)                                       \
-                        return 0;                                       \
-                c->field = p->field;                                    \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
-                                    JsonName "=%s", yes_no(p->field));  \
-                return 0;                                               \
-        }
-
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(dynamic_user,              "DynamicUser");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(ignore_sigpipe,            "IgnoreSIGPIPE");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(lock_personality,          "LockPersonality");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(memory_deny_write_execute, "MemoryDenyWriteExecute");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(no_new_privileges,         "NoNewPrivileges");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(private_network,           "PrivateNetwork");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(remove_ipc,                "RemoveIPC");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
-DEFINE_APPLY_EXEC_TRISTATE_BOOL(root_ephemeral,            "RootEphemeral");
+static DEFINE_APPLY_EXEC(dynamic_user,              "DynamicUser",            varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(ignore_sigpipe,            "IgnoreSIGPIPE",          varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(lock_personality,          "LockPersonality",        varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(memory_deny_write_execute, "MemoryDenyWriteExecute", varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(no_new_privileges,         "NoNewPrivileges",        varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(private_network,           "PrivateNetwork",         varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(remove_ipc,                "RemoveIPC",              varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(restrict_realtime,         "RestrictRealtime",       varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(restrict_suid_sgid,        "RestrictSUIDSGID",       varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(root_ephemeral,            "RootEphemeral",          varlink_apply_tristate_bool);
 
 /* The stdio types that require a companion setting: the file based ones need a path (StandardInputFile=,
  * StandardOutputFile=, …) and StandardInput=data needs the payload (StandardInputData=). The Varlink
