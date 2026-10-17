@@ -21,6 +21,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -1515,6 +1516,20 @@ static int execute_dir_client_fiber(void *arg) {
                                      a->reply_count), (ssize_t) a->n_servers);
         ASSERT_EQ(*a->reply_count, a->n_servers);
 
+        /* Sockets that have a live listener must be counted as contacted, not as offline. */
+        _cleanup_strv_free_ char **offline = NULL;
+        ASSERT_OK_EQ(varlink_execute_directory_full(
+                                     a->tmpdir,
+                                     "io.test.ExecDirPing",
+                                     /* parameters= */ NULL,
+                                     /* more= */ false,
+                                     /* timeout_usec= */ USEC_INFINITY,
+                                     execute_dir_reply,
+                                     a->reply_count,
+                                     &offline), (ssize_t) a->n_servers);
+        ASSERT_TRUE(strv_isempty(offline));
+        ASSERT_EQ(*a->reply_count, 2 * a->n_servers);
+
         /* Calling the helper against a non-existent directory must fail. */
         _cleanup_free_ char *nope = NULL;
         ASSERT_OK(asprintf(&nope, "%s/does-not-exist", a->tmpdir));
@@ -1540,6 +1555,33 @@ static int execute_dir_client_fiber(void *arg) {
                                        /* timeout_usec= */ USEC_INFINITY,
                                        execute_dir_reply,
                                        a->reply_count));
+        ASSERT_EQ(*a->reply_count, count_before);
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_isempty(offline));
+
+        /* A socket inode nobody listens on must not be counted as contacted, but as offline. */
+        _cleanup_free_ char *dead = ASSERT_PTR(path_join(empty, "dead"));
+        ASSERT_OK_ERRNO(mknod(dead, S_IFSOCK|0600, 0));
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_equal(offline, STRV_MAKE("dead")));
         ASSERT_EQ(*a->reply_count, count_before);
 
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
