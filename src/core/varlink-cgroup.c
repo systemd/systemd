@@ -707,64 +707,37 @@ static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextP
         return 0;
 }
 
-static int apply_cgroup_cpu_quota_per_sec_usec(
-                Unit *u,
-                CGroupContext *c,
-                TransientCGroupContextParameters *p) {
-
-        assert(u);
-        assert(c);
+static int apply_cpu_quota(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert(name);
         assert(p);
 
-        if (!p->cpu_quota_per_sec_usec_set)
-                return 0;
+        if (value == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s= value out of range.", name);
 
-        usec_t v = p->cpu_quota_per_sec_usec;
-        if (v <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "CPUQuotaPerSecUSec= value out of range.");
-
-        c->cpu_quota_per_sec_usec = v;
+        *p = value;
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt)
                 crt->warned_clamping_cpu_quota_period = false;
-        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
-        if (v == USEC_INFINITY)
-                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuota", "CPUQuota=");
+        if (value == USEC_INFINITY)
+                unit_write_settingf(u, flags, name, "%s=", name);
         else
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuota",
-                                    "CPUQuota=" USEC_FMT ".%02" PRI_USEC "%%",
-                                    v / 10000, (v % 10000) / 100);
-
-        return 0;
+                unit_write_settingf(u, flags, name, "%s=" USEC_FMT ".%02" PRI_USEC "%%",
+                                    name, value / 10000, (value % 10000) / 100);
+        return 1;
 }
 
-static int apply_cgroup_cpu_quota_period_usec(
-                Unit *u,
-                CGroupContext *c,
-                TransientCGroupContextParameters *p) {
+static int apply_cpu_quota_period(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        int r;
 
-        assert(u);
-        assert(c);
-        assert(p);
+        r = varlink_apply_usec_empty_on_infinity(u, name, p, value, flags);
+        if (r > 0) {
+                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                if (crt)
+                        crt->warned_clamping_cpu_quota_period = false;
+        }
 
-        if (!p->cpu_quota_period_usec_set)
-                return 0;
-
-        c->cpu_quota_period_usec = p->cpu_quota_period_usec;
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (crt)
-                crt->warned_clamping_cpu_quota_period = false;
-        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
-
-        if (c->cpu_quota_period_usec == USEC_INFINITY)
-                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
-        else
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuotaPeriodSec",
-                                    "CPUQuotaPeriodSec=%s",
-                                    FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1));
-
-        return 0;
+        return r;
 }
 
 static int apply_cgroup_tasks_max(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
@@ -904,16 +877,18 @@ static int apply_weight_idle(Unit *u, const char *name, uint64_t *p, uint64_t va
                 return r;                                                                          \
         }
 
-static DEFINE_APPLY_CGROUP_SET(cpu_weight,         "CPUWeight",        CGROUP_MASK_CPU,    apply_weight_idle);
-static DEFINE_APPLY_CGROUP_SET(startup_cpu_weight, "StartupCPUWeight", CGROUP_MASK_CPU,    apply_weight_idle);
-static DEFINE_APPLY_CGROUP_SET(io_weight,          "IOWeight",         CGROUP_MASK_IO,     apply_weight);
-static DEFINE_APPLY_CGROUP_SET(startup_io_weight,  "StartupIOWeight",  CGROUP_MASK_IO,     apply_weight);
-static DEFINE_APPLY_CGROUP_SET(memory_min,         "MemoryMin",        CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
-static DEFINE_APPLY_CGROUP_SET(memory_low,         "MemoryLow",        CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
-static DEFINE_APPLY_CGROUP_SET(memory_high,        "MemoryHigh",       CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
-static DEFINE_APPLY_CGROUP_SET(memory_max,         "MemoryMax",        CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
-static DEFINE_APPLY_CGROUP_SET(memory_swap_max,    "MemorySwapMax",    CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
-static DEFINE_APPLY_CGROUP_SET(memory_zswap_max,   "MemoryZSwapMax",   CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(cpu_weight,             "CPUWeight",         CGROUP_MASK_CPU,    apply_weight_idle);
+static DEFINE_APPLY_CGROUP_SET(startup_cpu_weight,     "StartupCPUWeight",  CGROUP_MASK_CPU,    apply_weight_idle);
+static DEFINE_APPLY_CGROUP_SET(cpu_quota_per_sec_usec, "CPUQuota",          CGROUP_MASK_CPU,    apply_cpu_quota);
+static DEFINE_APPLY_CGROUP_SET(cpu_quota_period_usec,  "CPUQuotaPeriodSec", CGROUP_MASK_CPU,    apply_cpu_quota_period);
+static DEFINE_APPLY_CGROUP_SET(io_weight,              "IOWeight",          CGROUP_MASK_IO,     apply_weight);
+static DEFINE_APPLY_CGROUP_SET(startup_io_weight,      "StartupIOWeight",   CGROUP_MASK_IO,     apply_weight);
+static DEFINE_APPLY_CGROUP_SET(memory_min,             "MemoryMin",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_low,             "MemoryLow",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_high,            "MemoryHigh",        CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_SET(memory_max,             "MemoryMax",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_SET(memory_swap_max,        "MemorySwapMax",     CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_zswap_max,       "MemoryZSwapMax",    CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
 
 /* Relative memory limit: converted to absolute bytes via physical_memory_scale() like the D-Bus
  * *Scale properties, and written as permyriad percent (which the unit-file parser round-trips). */
