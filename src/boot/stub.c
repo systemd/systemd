@@ -622,12 +622,14 @@ static EFI_STATUS load_addons(
 
                 /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
                  * enforcing compatibility with a specific UKI only */
-                if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
-                                !strneq8(uname,
-                                         (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                                         sections[UNIFIED_SECTION_UNAME].memory_size)) {
-                        log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
-                        continue;
+                if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME)) {
+                        _cleanup_free_ char *addon_uname =
+                                pe_section_to_str8(loaded_addon, sections + UNIFIED_SECTION_UNAME);
+
+                        if (!streq8(uname, addon_uname)) {
+                                log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
+                                continue;
+                        }
                 }
 
                 if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
