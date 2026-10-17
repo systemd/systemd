@@ -61,10 +61,8 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-geoip',
-                'sources' : files(
-                        'report-geoip.c',
-                        'report-geoip-server.c',
-                ),
+                'sources' : files('report-geoip.c'),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : [
                         libcurl_cflags,
                 ],
