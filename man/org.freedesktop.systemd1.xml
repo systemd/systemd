@@ -3128,6 +3128,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -3814,6 +3816,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
+
+    <!--property ControlGroupPreserve is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -4520,6 +4524,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -5438,6 +5444,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -6137,6 +6145,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property DelegateControllers is not documented!-->
 
+    <!--property ControlGroupPreserve is not documented!-->
+
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -6818,6 +6828,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -7564,6 +7576,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -8187,6 +8201,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property DelegateControllers is not documented!-->
 
+    <!--property ControlGroupPreserve is not documented!-->
+
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -8770,6 +8786,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -9638,6 +9656,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -10243,6 +10263,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property DelegateControllers is not documented!-->
 
+    <!--property ControlGroupPreserve is not documented!-->
+
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -10808,6 +10830,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -11531,6 +11555,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -11719,6 +11745,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
+
+    <!--property ControlGroupPreserve is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -11919,6 +11947,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -12143,6 +12173,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b ControlGroupPreserve = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -12343,6 +12375,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
+
+    <!--property ControlGroupPreserve is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -12565,6 +12599,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ControlGroupPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -13013,6 +13049,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>LUOSession</varname> was added in version 262.</para>
       <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -13092,6 +13129,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>XAttrEntryPoint</varname>,
       <varname>XAttrListen</varname>, and
       <varname>XAttrAccept</varname> were added in version 262.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -13163,6 +13201,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -13232,6 +13271,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -13272,6 +13312,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>ActivatingConcurrencyMax</varname> was added in version 262.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -13309,6 +13350,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ControlGroupPreserve</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
