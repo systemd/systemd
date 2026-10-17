@@ -16,11 +16,17 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "libmount-util.h"
-#include "namespace-util.h"
+#include "mkdir.h"
+#include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace.h"
+#include "namespace-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -235,6 +241,96 @@ TEST(protect_kernel_logs) {
                 ASSERT_ERROR_ERRNO(open("/dev/kmsg", O_RDONLY | O_CLOEXEC), EACCES);
 
                 _exit(EXIT_SUCCESS);
+        }
+}
+
+/* The service manager's own MountList is applied by apply_mounts(). If a stack's bind@ entries went up
+ * before that, the two could target the same path, the later one would win, and the stack entry would
+ * silently disappear - the same failure nspawn had with --volatile=. So setup_namespace() passes
+ * MSTACK_DEFER_MOUNT too and attaches them afterwards, via mstack_apply_bind_mounts_late(). This test
+ * pins that ordering: it fails if the deferral is dropped and the entry gets covered again. */
+TEST(mstack_bind_vs_private_tmp) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        int r;
+
+        if (geteuid() > 0)
+                return (void) log_tests_skipped("not root");
+        if (detect_container() > 0)
+                return (void) log_tests_skipped("in container");
+
+        r = dlopen_libmount(LOG_DEBUG);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped("libmount support not compiled in");
+        ASSERT_OK(r);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-mstack-shadow-XXXXXX", &t));
+
+        _cleanup_free_ char *rootdir = path_join(t, "root"),
+                            *bindtmp = path_join(t, "bind@tmp"),
+                            *marker  = path_join(t, "bind@tmp/marker");
+        ASSERT_NOT_NULL(rootdir);
+        ASSERT_NOT_NULL(bindtmp);
+        ASSERT_NOT_NULL(marker);
+
+        ASSERT_OK_ERRNO(mkdir(rootdir, 0755));
+        _cleanup_free_ char *rootusr = path_join(rootdir, "usr"), *roottmp = path_join(rootdir, "tmp");
+        ASSERT_NOT_NULL(rootusr);
+        ASSERT_NOT_NULL(roottmp);
+        ASSERT_OK_ERRNO(mkdir(rootusr, 0755));
+        ASSERT_OK_ERRNO(mkdir(roottmp, 0755));
+        _cleanup_free_ char *rootvartmp = path_join(rootdir, "var/tmp");
+        ASSERT_NOT_NULL(rootvartmp);
+        ASSERT_OK(mkdir_p(rootvartmp, 0755));
+        ASSERT_OK_ERRNO(mkdir(bindtmp, 0755));
+        ASSERT_OK(touch(marker));
+
+        ASSERT_OK(mstack_load(t, -EBADF, &mstack));
+        /* setup_namespace() opens the images itself, see namespace.c's mstack_open_images() call. */
+
+        /* Control first: with nothing mounting over /tmp the entry must be visible, otherwise the case
+         * below would be measuring a broken bind@ rather than a shadowed one. */
+        FOREACH_ELEMENT(private_tmp, ((PrivateTmp[]) { PRIVATE_TMP_NO, PRIVATE_TMP_DISCONNECTED })) {
+                PinnedResource rootfs = {
+                        .directory_fd = -EBADF,
+                        .image_fd = -EBADF,
+                        .mstack_loaded = mstack,
+                };
+                NamespaceParameters p = {
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .rootfs = &rootfs,
+                        /* Both, and a namespace dir: append_private_tmp() only takes the fully
+                         * disconnected path when /tmp/ and /var/tmp/ are both asked for. */
+                        .private_tmp = *private_tmp,
+                        .private_var_tmp = *private_tmp,
+                        .private_namespace_dir = "/run/systemd",
+                };
+
+                r = ASSERT_OK(pidref_safe_fork("(shadow)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+                if (r == 0) {
+                        ASSERT_OK_ZERO(setup_namespace(&p, NULL));
+
+                        /* /var/tmp is covered by PrivateTmp= too and named by no bind@ entry, so
+                         * whether it became a mount shows the private tmpfs still took effect
+                         * underneath the layered bind. */
+                        log_info("PrivateTmp=%s -> bind@tmp %s, /var/tmp %s",
+                                 private_tmp_to_string(*private_tmp),
+                                 access("/tmp/marker", F_OK) >= 0 ? "SURVIVED" : "SHADOWED",
+                                 path_is_mount_point("/var/tmp") > 0 ? "private" : "not a mount");
+
+                        /* The entry has to be there in both cases. With PrivateTmp=no nothing is mounted
+                         * over /tmp at all, so this merely proves the fixture works; with the private
+                         * tmpfs it is the actual regression check. */
+                        ASSERT_OK_ERRNO(access("/tmp/marker", F_OK));
+
+                        /* And the private tmpfs still has to have happened - the bind is layered over
+                         * it, it does not replace it. /var/tmp shows that, being covered by PrivateTmp=
+                         * and named by no bind@ entry. */
+                        if (*private_tmp == PRIVATE_TMP_DISCONNECTED)
+                                ASSERT_OK_POSITIVE(path_is_mount_point("/var/tmp"));
+
+                        _exit(EXIT_SUCCESS);
+                }
         }
 }
 
