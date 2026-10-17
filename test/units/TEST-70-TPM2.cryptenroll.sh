@@ -12,7 +12,13 @@ cryptenroll_wipe_and_check() (
 )
 
 at_exit() {
-    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" /tmp/cryptenroll.out /tmp/password /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
+    cryptsetup close "${VAR_IMAGE_NAME:-}" >/dev/null 2>&1 || :
+    if [[ -n "${VAR_LOOP:-}" ]]; then
+        losetup --detach "$VAR_LOOP" || :
+    fi
+
+    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" "${VAR_IMAGE:-}" /tmp/cryptenroll.out /tmp/password /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
+
     # Ignore if polkit doesn't exist
     systemctl try-reload-or-restart polkit.service || :
 }
@@ -141,6 +147,26 @@ varlinkctl --push-fd=3 call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
 SLOTS=$(varlinkctl call --more "$VL_ADDRESS" io.systemd.CryptEnroll.ListSlots "{\"node\":\"$VL_IMAGE\"}")
 test "$(grep -c '"type":"recovery"' <<<"$SLOTS")" -eq 2
 grep '"type":"password"' <<<"$SLOTS" >/dev/null
+
+VAR_IMAGE="$(mktemp /tmp/systemd-cryptenroll-default-node-XXX.image)"
+VAR_IMAGE_NAME="$(basename "$VAR_IMAGE" .image)"
+truncate -s 20M "$VAR_IMAGE"
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$VAR_IMAGE" /tmp/password
+VAR_LOOP="$(losetup --show --find "$VAR_IMAGE")"
+cryptsetup open --type=luks2 --key-file=/tmp/password "$VAR_LOOP" "$VAR_IMAGE_NAME"
+mkfs.ext4 -q "/dev/mapper/$VAR_IMAGE_NAME"
+
+run_with_enc_var() {
+    unshare --mount --propagation private bash -c "mount -t ext4 \"/dev/mapper/$VAR_IMAGE_NAME\" /var && udevadm wait --settle /dev/mapper/$VAR_IMAGE_NAME && exec $*"
+}
+
+# Enroll password with picking the default node
+run_with_enc_var varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    '"{\"mechanism\":\"password\",\"unlockKeyFile\":\"/tmp/password\",\"password\":\"varlinkpassword\"}"' | grep '"slot":1' >/dev/null
+
+# Enumerate enrolled slots with picking the default node
+SLOTS=$(run_with_enc_var varlinkctl call --more "$VL_ADDRESS" io.systemd.CryptEnroll.ListSlots '"{}"')
+test "$(grep -c '"type":"password"' <<<"$SLOTS")" -eq 2
 
 # Enroll combined with a wipe of the recovery key slot (cf. systemd-cryptenroll --wipe-slot=recovery --password).
 # The recovery key slot just got wiped, so it should be reported back in the (non-empty) wipedSlots output.

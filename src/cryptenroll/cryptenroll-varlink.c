@@ -158,7 +158,7 @@ static int vl_method_enroll(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node",                      SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, node),                          SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "node",                      SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, node),                          SD_JSON_NULLABLE|SD_JSON_STRICT },
                 { "mechanism",                 SD_JSON_VARIANT_STRING,        json_dispatch_enroll_type, offsetof(MethodEnrollParameters, mechanism),                     SD_JSON_MANDATORY },
                 { "unlockPassword",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_password),               SD_JSON_NULLABLE },
                 { "unlockKeyFile",             SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, unlock_keyfile),                SD_JSON_NULLABLE|SD_JSON_STRICT },
@@ -215,7 +215,13 @@ static int vl_method_enroll(
         c.enroll_type = p.mechanism;
         c.unlock_type = _UNLOCK_TYPE_INVALID;
 
-        if (strdup_to(&c.node, p.node) < 0)
+        if (!p.node) {
+                r = determine_default_node(&c.node);
+                if (r == -ENXIO)
+                        return sd_varlink_error_invalid_parameter_name(link, "node");
+                if (r < 0)
+                        return r;
+        } else if (strdup_to(&c.node, p.node) < 0)
                 return -ENOMEM;
 
         if (p.unlock_password) {
@@ -413,7 +419,7 @@ static int vl_method_list_slots(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node", SD_JSON_VARIANT_STRING, json_dispatch_const_path, 0, SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "node", SD_JSON_VARIANT_STRING, json_dispatch_const_path, 0, SD_JSON_NULLABLE|SD_JSON_STRICT },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -445,7 +451,14 @@ static int vl_method_list_slots(
                 return r;
 
         c.interactive = false;
-        if (strdup_to(&c.node, node) < 0)
+
+        if (!node) {
+                r = determine_default_node(&c.node);
+                if (r == -ENXIO)
+                        return sd_varlink_error_invalid_parameter_name(link, "node");
+                if (r < 0)
+                        return r;
+        } else if (strdup_to(&c.node, node) < 0)
                 return -ENOMEM;
 
         r = dlopen_cryptsetup(LOG_DEBUG);
