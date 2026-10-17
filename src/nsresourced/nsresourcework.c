@@ -120,7 +120,7 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json
                         SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                         SD_JSON_BUILD_PAIR_STRING("realName", realname),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                        SD_JSON_BUILD_PAIR_STRING("shell", NOLOGIN),
+                        SD_JSON_BUILD_PAIR_STRING("shell", nologin_shell()),
                         SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
                         SD_JSON_BUILD_PAIR_STRING("disposition", user_disposition_to_string(disposition)));
