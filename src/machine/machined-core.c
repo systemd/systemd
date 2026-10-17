@@ -24,6 +24,7 @@
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret) {
         _cleanup_(pidref_done) PidRef current = PIDREF_NULL;
         Machine *mm = NULL;
+        int r;
 
         assert(m);
         assert(pidref_is_set(pidref));
@@ -35,9 +36,22 @@ int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **re
                 if (mm)
                         break;
 
-                /* Then look for the unit */
+                /* Then look for the unit, in the same manager machine_determine_unit() looked at */
                 _cleanup_free_ char *unit = NULL;
-                if (cg_pidref_get_unit(pidref, &unit) >= 0) {
+                switch (m->runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
+                        r = cg_pidref_get_user_unit(pidref, &unit);
+                        break;
+
+                case RUNTIME_SCOPE_SYSTEM:
+                        r = cg_pidref_get_unit(pidref, &unit);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+                if (r >= 0) {
                         mm = hashmap_get(m->machines_by_unit, unit);
                         if (mm)
                                 break;
