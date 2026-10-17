@@ -8,6 +8,7 @@
 #include "networkctl-link-info.h"
 #include "networkctl-link-info-json.h"
 #include "networkctl-util.h"
+#include "time-util.h"
 
 static int acquire_link_bitrates(LinkInfo *link) {
         int r;
@@ -57,6 +58,75 @@ static int acquire_link_dhcp_client(LinkInfo *link) {
         return sd_dhcp_client_id_set_raw(&link->dhcp_client_id, iov.iov_base, iov.iov_len);
 }
 
+static int acquire_link_dhcp_states(LinkInfo *link) {
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dhcp4_dispatch_table[] = {
+                { "State", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LinkInfo, dhcp4_client_state), 0 },
+                {}
+        }, dhcp6_dispatch_table[] = {
+                { "State", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LinkInfo, dhcp6_client_state), 0 },
+                {}
+        };
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "DHCPv4Client"), &v);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0)
+                (void) sd_json_dispatch(v, dhcp4_dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, link);
+
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "DHCPv6Client"), &v);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0)
+                (void) sd_json_dispatch(v, dhcp6_dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, link);
+
+        return 0;
+}
+
+static int acquire_link_dhcp_lease_timestamps(LinkInfo *link) {
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dhcp4_dispatch_table[] = {
+                { "LeaseTimestampUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, dhcp4_lease_timestamp), 0 },
+                {}
+        }, dhcp6_dispatch_table[] = {
+                { "LeaseTimestampUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, dhcp6_lease_timestamp), 0 },
+                {}
+        };
+
+        link->dhcp4_lease_timestamp = USEC_INFINITY;
+        link->dhcp6_lease_timestamp = USEC_INFINITY;
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "DHCPv4Client", "Lease"), &v);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0)
+                (void) sd_json_dispatch(v, dhcp4_dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, link);
+
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "DHCPv6Client", "Lease"), &v);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0)
+                (void) sd_json_dispatch(v, dhcp6_dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, link);
+
+        /* The timestamps in the JSON data are based on CLOCK_BOOTTIME, but the table display needs
+         * wallclock time. */
+        if (link->dhcp4_lease_timestamp != USEC_INFINITY)
+                link->dhcp4_lease_timestamp = map_clock_usec(link->dhcp4_lease_timestamp, CLOCK_BOOTTIME, CLOCK_REALTIME);
+
+        if (link->dhcp6_lease_timestamp != USEC_INFINITY)
+                link->dhcp6_lease_timestamp = map_clock_usec(link->dhcp6_lease_timestamp, CLOCK_BOOTTIME, CLOCK_REALTIME);
+
+        return 0;
+}
+
 static int acquire_link_dhcp_message(LinkInfo *link) {
         int r;
 
@@ -87,6 +157,8 @@ int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         (void) acquire_link_bitrates(link);
         (void) acquire_link_dhcp_client(link);
         (void) acquire_link_dhcp_message(link);
+        (void) acquire_link_dhcp_states(link);
+        (void) acquire_link_dhcp_lease_timestamps(link);
 
         return 0;
 }

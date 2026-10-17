@@ -6,9 +6,11 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp6-client.h"
 
+#include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"         /* IWYU pragma: keep */
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
+#include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "extract-word.h"
 #include "in-addr-util.h"
@@ -1297,6 +1299,26 @@ static int dhcp6_client_duid_append_json(Link *link, sd_json_variant **v) {
         return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("DUID", data, data_size));
 }
 
+static int dhcp6_client_state_append_json(Link *link, sd_json_variant **v) {
+        int state;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        state = dhcp6_client_get_state(link->dhcp6_client);
+        if (state < 0)
+                return 0;
+
+        const char *s = dhcp6_state_to_string(state);
+        if (!s)
+                return 0;
+
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_STRING("State", s));
+}
+
 static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
@@ -1320,6 +1342,10 @@ static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
                 return r;
 
         r = dhcp6_client_duid_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_state_append_json(link, &w);
         if (r < 0)
                 return r;
 
@@ -1465,6 +1491,26 @@ static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
         return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l));
 }
 
+static int dhcp_client_state_append_json(Link *link, sd_json_variant **v) {
+        int state;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        state = dhcp_client_get_state(link->dhcp_client);
+        if (state < 0)
+                return 0;
+
+        const char *s = dhcp_state_to_string(state);
+        if (!s)
+                return 0;
+
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_STRING("State", s));
+}
+
 static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
@@ -1488,6 +1534,10 @@ static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
                 return r;
 
         r = dhcp_client_id_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp_client_state_append_json(link, &w);
         if (r < 0)
                 return r;
 
