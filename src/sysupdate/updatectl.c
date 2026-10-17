@@ -1066,6 +1066,9 @@ static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 log_debug_errno(r, "Failed to update hashmap: %m");
 
+        if (status != UPDATE_PROGRESS_ACQUIRED)
+                return 0;
+
         /* Renew the JobRemoved notification for the Install() call instead. */
         sd_bus_slot_unref(op->job_finished_slot);
         r = bus_match_signal_async(
