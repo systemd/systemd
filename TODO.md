@@ -127,6 +127,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- vmspawn: pass in a document as credential that carries host ids, signed by
+  the TPM, so that we can determine relationshiops between VMs and bare metal
+  in our mgmt UIs. On COCO use chip ids (amd) instead.
+
 - systemd-report needs an upload queue. After all it records resource usage,
   and it would be useful to collect this data even when networking is not
   available, and upload it once it is. Make this smart, i.e. introduce a
