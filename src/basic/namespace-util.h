@@ -3,6 +3,9 @@
 
 #include "forward.h"
 
+/* Mirrors UID_GID_MAP_MAX_EXTENTS in include/linux/user_namespace.h. */
+#define UID_GID_MAP_MAX_EXTENTS 340U
+
 typedef enum NamespaceType {
         NAMESPACE_CGROUP,
         NAMESPACE_IPC,
