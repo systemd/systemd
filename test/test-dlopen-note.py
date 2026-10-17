@@ -64,6 +64,7 @@ FUNCTION_TO_FEATURE = {
     'dlopen_fdisk': 'fdisk',
     'dlopen_gnutls': 'gnutls',
     'dlopen_idn': 'idn',
+    'dlopen_io_uring': 'liburing',
     'dlopen_libacl': 'acl',
     'dlopen_libapparmor': 'apparmor',
     'dlopen_libarchive': 'archive',

@@ -187,7 +187,6 @@ simple_tests += files(
         'test-procfs-util.c',
         'test-progress-bar.c',
         'test-psi-util.c',
-        'test-qmp-client.c',
         'test-qrcode-util.c',
         'test-ratelimit.c',
         'test-raw-clone.c',
@@ -355,6 +354,7 @@ executables += [
                         libpcre2_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        liburing_cflags,
                         tpm2_cflags,
                 ],
         },
@@ -489,9 +489,14 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-qmp-client.c'),
+                'io_uring' : true,
+        },
+        test_template + {
                 'sources' : files('test-qmp-client-qemu.c'),
                 'import' : ['systemd-vmspawn'],
                 'conditions' : ['ENABLE_VMSPAWN'],
+                'io_uring' : true,
         },
         test_template + {
                 'sources' : files('test-random-util.c'),

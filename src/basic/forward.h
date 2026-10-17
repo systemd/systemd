@@ -38,6 +38,7 @@ struct icmp6_hdr;
 struct in_addr;
 struct in6_addr;
 struct inotify_event;
+struct io_uring_sqe;
 struct iovec;
 struct mount_attr;
 struct msghdr;
