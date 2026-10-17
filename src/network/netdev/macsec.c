@@ -2,11 +2,13 @@
 
 #include <linux/if_arp.h>
 #include <linux/if_macsec.h>
+#include <unistd.h>
 
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -974,6 +976,14 @@ int config_parse_macsec_use_for_encoding(
         return 0;
 }
 
+static bool macsec_key_configured(NetDev *netdev, const SecurityAssociation *sa) {
+        assert(netdev);
+        assert(sa);
+
+        /* In test mode the key file is not read, see macsec_read_key_file(), so having one is enough. */
+        return sa->key_len > 0 || (netdev->manager->test_mode && sa->key_file);
+}
+
 static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
         _cleanup_(erase_and_freep) uint8_t *key = NULL;
         size_t key_len;
@@ -984,6 +994,16 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
 
         if (!sa->key_file)
                 return 0;
+
+        /* See wireguard_read_key_file(): in test mode only check that the file is there and accessible. */
+        if (netdev->manager->test_mode) {
+                r = RET_NERRNO(access(sa->key_file, R_OK));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r,
+                                                      "Failed to access key file '%s', ignoring: %m",
+                                                      sa->key_file);
+                return 0;
+        }
 
         r = read_full_file_full(
                         AT_FDCWD, sa->key_file, UINT64_MAX, MACSEC_KEYID_LEN,
@@ -1071,7 +1091,7 @@ static int macsec_transmit_association_verify(TransmitAssociation *t) {
         if (r < 0)
                 return r;
 
-        if (t->sa.key_len <= 0)
+        if (!macsec_key_configured(netdev, &t->sa))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: MACsec transmit secure association without key configured. "
                                               "Ignoring [MACsecTransmitAssociation] section from line %u",
@@ -1097,7 +1117,7 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
         if (r < 0)
                 return r;
 
-        if (a->sa.key_len <= 0)
+        if (!macsec_key_configured(netdev, &a->sa))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: MACsec receive secure association without key configured. "
                                               "Ignoring [MACsecReceiveAssociation] section from line %u",
