@@ -353,6 +353,43 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SetCredential=</varname></term>
+        <term><varname>LoadCredential=</varname></term>
+
+        <listitem><para>Pass a credential to the container. These settings are equivalent to the
+        <option>--set-credential=</option> and <option>--load-credential=</option> command line switches,
+        and take <replaceable>ID</replaceable>:<replaceable>VALUE</replaceable> and
+        <replaceable>ID</replaceable>:<replaceable>PATH</replaceable> respectively, where
+        <replaceable>PATH</replaceable> is either an absolute path or the name of a credential passed to
+        <command>systemd-nspawn</command> itself. Each may be specified more than once to pass multiple
+        credentials. If the same credential ID is assigned more than once by the same setting, the last
+        assignment takes effect. If the empty string is assigned, the list of credentials set by the
+        respective setting so far is reset. Credentials from the settings file and from the command line are
+        not combined: if any credential is passed on the command line, these settings are ignored, unless
+        <option>--settings=override</option> is used, in which case the credentials from the settings file
+        replace those from the command line. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>As with the settings of the same names in unit files (see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+        if the same credential ID is specified with both settings, <varname>LoadCredential=</varname> takes
+        priority, and <varname>SetCredential=</varname> acts as a fallback if the file does not exist. A
+        credential that is to be inherited from <command>systemd-nspawn</command> itself, i.e. if
+        <replaceable>PATH</replaceable> is a credential name, is skipped if it was not passed. In both of
+        these cases, a missing credential is not considered fatal.</para>
+
+        <para><varname>LoadCredential=</varname> is privileged (see above), as it reads files on the host.
+        For example, the credentials of <filename>systemd-nspawn@.service</filename> may be propagated to
+        the container with <literal>LoadCredential=<replaceable>ID</replaceable>:<replaceable>ID</replaceable></literal>
+        in a settings file in <filename>/etc/systemd/nspawn/</filename>. Do not use
+        <varname>SetCredential=</varname> for secret data, as settings files are usually readable by
+        unprivileged users. Use <varname>LoadCredential=</varname> instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LimitCPU=</varname></term>
         <term><varname>LimitFSIZE=</varname></term>
         <term><varname>LimitDATA=</varname></term>

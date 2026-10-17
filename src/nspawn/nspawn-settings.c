@@ -6,7 +6,10 @@
 #include "capability-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
+#include "escape.h"
 #include "extract-word.h"
+#include "memory-util.h"
 #include "namespace-util.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
@@ -14,6 +17,7 @@
 #include "nspawn-settings.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "set.h"
@@ -142,6 +146,8 @@ Settings* settings_free(Settings *s) {
         free(s->hostname);
         cpu_set_done(&s->cpu_set);
         set_free(s->restrict_address_families);
+        machine_credential_context_done(&s->credentials);
+        strv_free(s->load_credentials);
         strv_free(s->bind_user);
         free(s->bind_user_shell);
 
@@ -1090,6 +1096,135 @@ int config_parse_restrict_address_families(
                            "Failed to parse address family, ignoring: %s", rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_set_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = ASSERT_PTR(data);
+        _cleanup_(erase_and_freep) char *value = NULL;
+        _cleanup_free_ char *id = NULL;
+        const char *p;
+        ssize_t l;
+        int r;
+
+        assert(rvalue);
+
+        /* Don't log the assignment or the data on failure, they might be secret. */
+
+        if (isempty(rvalue)) {
+                machine_credential_context_done(&settings->credentials);
+                settings->credentials = (MachineCredentialContext) {};
+                return 0;
+        }
+
+        r = machine_credential_split(rvalue, &id, &p);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid credential assignment, ignoring.");
+                return 0;
+        }
+
+        if (!credential_name_valid(id)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name is not valid, ignoring: %s", id);
+                return 0;
+        }
+
+        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &value);
+        if (l == -ENOMEM)
+                return log_oom();
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l, "Failed to unescape data of credential '%s', ignoring: %m", id);
+                return 0;
+        }
+
+        /* As in unit files, a later assignment overrides an earlier one for the same credential. */
+        MachineCredential *cred = machine_credential_find(&settings->credentials, id);
+        if (cred) {
+                erase_and_free(cred->data);
+                cred->data = TAKE_PTR(value);
+                cred->size = l;
+                return 0;
+        }
+
+        r = machine_credential_add(&settings->credentials, id, value, l);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_load_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = ASSERT_PTR(data);
+        _cleanup_free_ char *id = NULL, *source = NULL;
+        const char *p;
+        int r;
+
+        assert(rvalue);
+
+        /* The credentials are only loaded once we know that the settings file is trusted, hence only
+         * validate the syntax for now. */
+
+        if (isempty(rvalue)) {
+                settings->load_credentials = strv_free(settings->load_credentials);
+                return 0;
+        }
+
+        r = machine_credential_split(rvalue, &id, &p);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid credential assignment, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!credential_name_valid(id)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name is not valid, ignoring: %s", id);
+                return 0;
+        }
+
+        if (path_is_absolute(p) ? !path_is_normalized(p) : !credential_name_valid(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Credential source is neither a normalized absolute path nor a credential name, ignoring: %s", p);
+                return 0;
+        }
+
+        source = strdup(p);
+        if (!source)
+                return log_oom();
+
+        /* As in unit files, a later assignment overrides an earlier one for the same credential. */
+        STRV_FOREACH_PAIR(i, s, settings->load_credentials)
+                if (streq(*i, id)) {
+                        free_and_replace(*s, source);
+                        return 0;
+                }
+
+        if (strv_consume_pair(&settings->load_credentials, TAKE_PTR(id), TAKE_PTR(source)) < 0)
+                return log_oom();
 
         return 0;
 }
