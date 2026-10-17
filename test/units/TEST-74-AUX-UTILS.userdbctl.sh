@@ -95,6 +95,13 @@ systemctl stop "$UNIT"
 echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
 echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -
 
+# Avoid creating an empty bind mount destination on the host, which would hide openSUSE's fallback
+# /usr/etc/nsswitch.conf and break NSS lookups in subsequent tests.
+NSSWITCH_CONF=/etc/nsswitch.conf
+if [[ ! -e "$NSSWITCH_CONF" && -e /usr/etc/nsswitch.conf ]]; then
+    NSSWITCH_CONF=/usr/etc/nsswitch.conf
+fi
+
 # $SYSTEMD_NSS_SERVER_SIDE_NSS=1 makes nss-systemd resolve users via systemd-userdbd's NSS backend. Hide the
 # test user from nss-files in the sandbox. systemd-userdbd runs outside of the sandbox and still finds the
 # user in the real /etc/passwd.
@@ -102,7 +109,7 @@ NSS_DIR="$(mktemp -d)"
 grep -v '^test-74-userdbctl:' /etc/passwd >"$NSS_DIR/passwd"
 printf 'passwd: files systemd\ngroup: files systemd\n' >"$NSS_DIR/nsswitch.conf"
 TEST_UID="$(userdbctl -j user test-74-userdbctl | jq .uid)"
-SANDBOX=(-q --wait --pipe -p BindReadOnlyPaths="$NSS_DIR/passwd:/etc/passwd $NSS_DIR/nsswitch.conf:/etc/nsswitch.conf")
+SANDBOX=(-q --wait --pipe -p BindReadOnlyPaths="$NSS_DIR/passwd:/etc/passwd $NSS_DIR/nsswitch.conf:$NSSWITCH_CONF")
 
 assert_rc 2 systemd-run "${SANDBOX[@]}" getent passwd test-74-userdbctl
 assert_rc 2 systemd-run "${SANDBOX[@]}" getent passwd "$TEST_UID"
