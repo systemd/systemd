@@ -83,11 +83,33 @@ grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 grep -qE 'DTBDTB' "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
 
+touch \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+56.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-0.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+-3.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+1-2-3.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10+3.conf"
+ln -s /nonexistent "$BOOT_ROOT/loader/entries/the-token-1.1.1+57.conf"
+
 test -f /usr/lib/modules/"$(uname -r)"/vmlinuz && "$kernel_install" inspect
 "$kernel_install" inspect "$D/sources/linux"
 
 "$kernel_install" -v remove 1.1.1
 test ! -e "$entry"
+test ! -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+56.conf"
+test ! -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-0.conf"
+test ! -L "$BOOT_ROOT/loader/entries/the-token-1.1.1+57.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+-3.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+1-2-3.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.10.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.10+3.conf"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
@@ -133,6 +155,19 @@ echo '56' >"$D/sources/tries"
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
 entry="$BOOT_ROOT/loader/entries/the-token-1.1.1+56.conf"
 test -f "$entry"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+-3.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+1-2-3.conf"
+test -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf"
+rm -f \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+-3.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+1-2-3.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.1+3-invalid.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10.conf" \
+    "$BOOT_ROOT/loader/entries/the-token-1.1.10+3.conf"
 grep -qE '^title ' "$entry"
 grep -qE '^version +1.1.1' "$entry"
 grep -qE '^options +opt1 opt2' "$entry"
