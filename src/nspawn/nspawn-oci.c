@@ -13,10 +13,12 @@
 #include "cpu-set-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "extract-word.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "nspawn-mount.h"
 #include "nspawn-oci.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
@@ -2060,6 +2062,79 @@ static int oci_annotations(const char *name, sd_json_variant *v, sd_json_dispatc
         return 0;
 }
 
+static int oci_version_parse(const char *s, unsigned *ret_major, unsigned *ret_minor, unsigned *ret_patch) {
+        _cleanup_free_ char *major = NULL, *minor = NULL, *patch = NULL;
+        const char *p = ASSERT_PTR(s);
+        unsigned a, b, c;
+        int r;
+
+        assert(ret_major);
+        assert(ret_minor);
+        assert(ret_patch);
+
+        r = extract_first_word(&p, &major, ".", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r <= 0)
+                return -EINVAL;
+
+        r = extract_first_word(&p, &minor, ".", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r <= 0)
+                return -EINVAL;
+
+        r = extract_first_word(&p, &patch, ".", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r <= 0 || p)
+                return -EINVAL;
+
+        r = safe_atou_full(major, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &a);
+        if (r < 0)
+                return r;
+
+        r = safe_atou_full(minor, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &b);
+        if (r < 0)
+                return r;
+
+        r = safe_atou_full(patch, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &c);
+        if (r < 0)
+                return r;
+
+        *ret_major = a;
+        *ret_minor = b;
+        *ret_patch = c;
+        return 0;
+}
+
+static int oci_version_check_supported(sd_json_variant *v) {
+        unsigned major, minor, patch;
+        const char *s;
+        int r;
+
+        assert(v);
+
+        s = sd_json_variant_string(v);
+        if (isempty(s))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "OCI bundle version is missing or empty.");
+
+        r = oci_version_parse(s, &major, &minor, &patch);
+        if (r < 0)
+                return log_error_errno(r, "OCI bundle version is malformed: %s", s);
+
+        if (major != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "OCI bundle major version not supported: %s",
+                                       s);
+
+        return 0;
+}
+
 int oci_load(FILE *f, const char *bundle, Settings **ret) {
 
         static const sd_json_dispatch_field table[] = {
@@ -2099,10 +2174,10 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "JSON file '%s' is not an OCI bundle configuration file. Refusing.",
                                        path);
-        if (!streq_ptr(sd_json_variant_string(v), "1.0.0"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "OCI bundle version not supported: %s",
-                                       strna(sd_json_variant_string(v)));
+
+        r = oci_version_check_supported(v);
+        if (r < 0)
+                return r;
 
         // {
         //         _cleanup_free_ char *formatted = NULL;
