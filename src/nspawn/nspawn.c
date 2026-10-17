@@ -2909,8 +2909,8 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 
         if (pidref_is_set(pid))
                 if (pidref_kill(pid, arg_kill_signal) >= 0) {
-                        log_info("Trying to halt container by sending %s to container PID 1. Send SIGTERM again to trigger immediate termination.",
-                                 signal_to_string(si->ssi_signo));
+                        log_info("Trying to halt container by sending %s to container PID 1. Send SIG%s again to trigger immediate termination.",
+                                 signal_to_string(arg_kill_signal), signal_to_string(si->ssi_signo));
                         sd_event_source_set_userdata(s, NULL);
                         sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
                         return 0;
