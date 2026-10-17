@@ -33,3 +33,5 @@ size_t random_pool_size(void);
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit) _nonnull_if_nonzero_(2, 3);
 
 uint64_t random_u64_range(uint64_t max);
+
+bool random_is_rng_device(const char *p);
