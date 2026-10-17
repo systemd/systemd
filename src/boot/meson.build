@@ -81,7 +81,8 @@ efi_conf = configuration_data()
 
 # import several configs from userspace
 foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS',
-                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT',
+                'HAVE_LIBFDT']
         efi_conf.set(name, conf.get(name))
 endforeach
 
@@ -163,11 +164,19 @@ configure_file(
 
 ############################################################
 
+efi_include = include_directories('.')
 efi_includes = [
-        include_directories('.'),
+        efi_include,
         fundamental_include,
         version_include,
 ]
+
+libfdt_efi = []
+if have_libfdt
+        libfdt_efi = declare_dependency(
+                dependencies : libfdt,
+                include_directories : efi_include)
+endif
 
 efi_c_args = [
         '-DSD_BOOT=1',
@@ -414,6 +423,7 @@ foreach archspec : efi_archspecs
                 include_directories : efi_includes,
                 implicit_include_directories : false,
                 c_args : archspec['c_args'],
+                dependencies : libfdt_efi,
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
                 pic : true)
@@ -422,6 +432,7 @@ foreach archspec : efi_archspecs
                 'include_directories' : efi_includes,
                 'implicit_include_directories' : false,
                 'c_args' : archspec['c_args'],
+                'dependencies' : libfdt_efi,
                 'link_args' : archspec['link_args'],
                 'gnu_symbol_visibility' : 'hidden',
                 'override_options' : efi_override_options,
