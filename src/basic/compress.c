@@ -1756,9 +1756,11 @@ static int decompressor_new(Decompressor **ret, Compression type, DecompressFlag
 
 #if HAVE_XZ
         case COMPRESSION_XZ: {
+                uint32_t xz_flags = LZMA_TELL_UNSUPPORTED_CHECK |
+                        (FLAGS_SET(flags, DECOMPRESS_REFUSE_CONCATENATED) ? 0 : LZMA_CONCATENATED);
                 lzma_ret xz_ret = FLAGS_SET(flags, DECOMPRESS_LEGACY_LZMA) ?
-                        sym_lzma_auto_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED) :
-                        sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED);
+                        sym_lzma_auto_decoder(&c->xz, UINT64_MAX, xz_flags) :
+                        sym_lzma_stream_decoder(&c->xz, UINT64_MAX, xz_flags);
                 if (xz_ret != LZMA_OK)
                         return -EIO;
                 break;

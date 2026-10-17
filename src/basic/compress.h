@@ -94,7 +94,8 @@ int decompress_startswith(Compression compression,
 
 int compress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
 typedef enum DecompressFlags {
-        DECOMPRESS_LEGACY_LZMA = 1 << 0, /* With COMPRESSION_XZ, also accept the legacy .lzma format */
+        DECOMPRESS_LEGACY_LZMA         = 1 << 0, /* With COMPRESSION_XZ, also accept the legacy .lzma format */
+        DECOMPRESS_REFUSE_CONCATENATED = 1 << 1, /* With COMPRESSION_XZ, refuse the second and later stream */
 } DecompressFlags;
 
 int decompress_stream_full(Compression type, int fdf, int fdt, uint64_t max_bytes, DecompressFlags flags);
