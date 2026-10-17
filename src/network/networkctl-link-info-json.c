@@ -72,10 +72,30 @@ static int acquire_link_dhcp_message(LinkInfo *link) {
         return dhcp_message_parse_json(v, &link->dhcp_message);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_link_configuring_reason, LinkConfiguringReason, link_configuring_reason_from_string);
+
+static int acquire_link_configuring_reason(LinkInfo *link) {
+        int r;
+
+        assert(link);
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "ConfiguringReason"), &v);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return dispatch_link_configuring_reason("ConfiguringReason", v, /* flags= */ 0,
+                                                &link->configuring_reason);
+}
+
 int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         int r;
 
         assert(link);
+
+        link->configuring_reason = _LINK_CONFIGURING_REASON_INVALID;
 
         if (!vl)
                 return 0;
@@ -87,6 +107,7 @@ int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         (void) acquire_link_bitrates(link);
         (void) acquire_link_dhcp_client(link);
         (void) acquire_link_dhcp_message(link);
+        (void) acquire_link_configuring_reason(link);
 
         return 0;
 }
