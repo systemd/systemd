@@ -640,6 +640,55 @@ EOF
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
+testcase_nspawn_settings_credentials() {
+    local root container
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nspawn-settings-credentials.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    echo "foo bar" >/tmp/cred.path
+
+    # Settings files in /run/systemd/nspawn/ are trusted, hence may load credentials from the host
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+SetCredential=cred.reset:nope
+SetCredential=
+SetCredential=cred.set:hello world
+SetCredential=cred.escaped:a\\nb
+LoadCredential=cred.path:/tmp/cred.path
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    cat >"$root/creds.sh" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+[[ "$CREDENTIALS_DIRECTORY" == /run/host/credentials ]]
+[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]
+[[ "$(</run/host/credentials/cred.escaped)" == $'a\nb' ]]
+[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]
+[[ ! -e /run/host/credentials/cred.reset ]]
+EOF
+    systemd-nspawn --register=no --directory="$root" bash /creds.sh
+
+    # Credentials on the command line take precedence over all credential settings
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec 'test -e /run/host/credentials/cred.cmdline; test ! -e /run/host/credentials/cred.set'
+
+    # A settings file next to the image isn't trusted, so it may not load credentials from the host
+    mv "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   bash -xec 'test -e /run/host/credentials/cred.set; test ! -e /run/host/credentials/cred.path'
+
+    rm -fr "$root" "/var/lib/machines/$container.nspawn" /tmp/cred.path
+}
+
 bind_user_cleanup() {
     userdel --force --remove nspawn-bind-user-1
     userdel --force --remove nspawn-bind-user-2

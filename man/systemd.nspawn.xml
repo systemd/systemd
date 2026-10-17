@@ -353,6 +353,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SetCredential=</varname></term>
+        <term><varname>LoadCredential=</varname></term>
+
+        <listitem><para>Pass a credential to the container. These settings are equivalent to the
+        <option>--set-credential=</option> and <option>--load-credential=</option> command line switches,
+        and take <replaceable>ID</replaceable>:<replaceable>VALUE</replaceable> and
+        <replaceable>ID</replaceable>:<replaceable>PATH</replaceable> respectively, where
+        <replaceable>PATH</replaceable> is either an absolute path or the name of a credential passed to
+        <command>systemd-nspawn</command> itself. Each may be specified more than once to pass multiple
+        credentials. If the empty string is assigned, the list of credentials set by the respective setting
+        so far is reset. If any credential is passed on the command line, these settings are ignored. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
+
+        <para><varname>LoadCredential=</varname> is privileged (see above), as it reads files on the host.
+        For example, the credentials of <filename>systemd-nspawn@.service</filename> may be propagated to
+        the container with <literal>LoadCredential=<replaceable>ID</replaceable>:<replaceable>ID</replaceable></literal>
+        in a settings file in <filename>/etc/systemd/nspawn/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LimitCPU=</varname></term>
         <term><varname>LimitFSIZE=</varname></term>
         <term><varname>LimitDATA=</varname></term>
