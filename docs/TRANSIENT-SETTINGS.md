@@ -451,6 +451,7 @@ Most timer unit settings are available to transient units.
 ✓ DeferReactivation=
 ✓ AccuracySec=
 ✓ RandomizedDelaySec=
+✓ MinIntervalSec=
 ✓ OnActiveSec=
 ✓ OnBootSec=
 ✓ OnStartupSec=

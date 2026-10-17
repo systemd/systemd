@@ -9428,6 +9428,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RandomizedOffsetUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t MinIntervalUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b FixedRandomDelay = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Persistent = ...;
@@ -9458,6 +9460,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
     <!--property RandomizedDelayUSec is not documented!-->
 
     <!--property RandomizedOffsetUSec is not documented!-->
+
+    <!--property MinIntervalUSec is not documented!-->
 
     <!--property FixedRandomDelay is not documented!-->
 
@@ -9504,6 +9508,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
     <variablelist class="dbus-property" generated="True" extra-ref="RandomizedDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RandomizedOffsetUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MinIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FixedRandomDelay"/>
 
@@ -13318,6 +13324,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <title>Timer Objects</title>
       <para><varname>DeferReactivation</varname> was added in version 257.</para>
       <para><varname>RandomizedOffsetUSec</varname> was added in version 258.</para>
+      <para><varname>MinIntervalUSec</varname> was added in version 263.</para>
     </refsect2>
   </refsect1>
 

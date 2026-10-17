@@ -117,6 +117,7 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RandomizedDelayUSec", "t", bus_property_get_usec, offsetof(Timer, random_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RandomizedOffsetUSec", "t", bus_property_get_usec, offsetof(Timer, random_offset_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MinIntervalUSec", "t", bus_property_get_usec, offsetof(Timer, min_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FixedRandomDelay", "b", bus_property_get_bool, offsetof(Timer, fixed_random_delay), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -221,6 +222,9 @@ static int bus_timer_set_transient_property(
 
         if (streq(name, "RandomizedOffsetUSec"))
                 return bus_set_transient_usec(u, name, &t->random_offset_usec, message, flags, reterr_error);
+
+        if (streq(name, "MinIntervalUSec"))
+                return bus_set_transient_usec(u, name, &t->min_interval_usec, message, flags, reterr_error);
 
         if (streq(name, "FixedRandomDelay"))
                 return bus_set_transient_bool(u, name, &t->fixed_random_delay, message, flags, reterr_error);
