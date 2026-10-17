@@ -65,6 +65,7 @@
 #include "image-policy.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
@@ -4754,6 +4755,73 @@ static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
         return 0;
 }
 
+static int merge_settings_credentials(Settings *settings, const char *path) {
+        _cleanup_(machine_credential_context_done) MachineCredentialContext credentials = {};
+        int r;
+
+        assert(settings);
+        assert(path);
+
+        if (settings->credentials.n_credentials == 0 && strv_isempty(settings->load_credentials))
+                return 0;
+
+        /* Only allow LoadCredential= in trusted files */
+        char **load_credentials = settings->load_credentials;
+        if (!arg_settings_trusted && !strv_isempty(load_credentials)) {
+                log_warning("Ignoring LoadCredential= settings, file %s is not trusted.", path);
+                load_credentials = NULL;
+        }
+
+        STRV_FOREACH_PAIR(id, source, load_credentials) {
+                _cleanup_(iovec_done_erase) struct iovec iov = {};
+
+                r = machine_credential_read(*source, &iov);
+                if (r < 0) {
+                        /* As in unit files, a missing credential is not fatal if it would have been
+                         * inherited from our own credentials, or if SetCredential= provides a fallback for
+                         * it. The source is either an absolute path or a credential name. */
+                        bool inherited = !path_is_absolute(*source);
+                        bool fallback = machine_credential_find(&settings->credentials, *id) != NULL;
+                        bool missing = r == -ENOENT || (inherited && r == -ENXIO);
+
+                        if (missing && inherited) {
+                                log_full(fallback ? LOG_DEBUG : LOG_INFO,
+                                         "Credential '%s' was not passed to systemd-nspawn, %s credential '%s'.",
+                                         *source, fallback ? "using SetCredential= fallback for" : "skipping", *id);
+                                continue;
+                        }
+                        if (missing && fallback) {
+                                log_debug_errno(r, "Couldn't read credential '%s' from '%s', using SetCredential= fallback: %m",
+                                                *id, *source);
+                                continue;
+                        }
+
+                        return log_error_errno(r, "Failed to read credential '%s' from '%s': %m", *id, *source);
+                }
+
+                r = machine_credential_add(&credentials, *id, iov.iov_base, iov.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add credential '%s': %m", *id);
+        }
+
+        /* LoadCredential= takes precedence, SetCredential= only acts as fallback. */
+        FOREACH_ARRAY(cred, settings->credentials.credentials, settings->credentials.n_credentials) {
+                if (machine_credential_find(&credentials, cred->id))
+                        continue;
+
+                r = machine_credential_add(&credentials, cred->id, cred->data, cred->size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add credential '%s': %m", cred->id);
+        }
+
+        if (credentials.n_credentials > 0 || !strv_isempty(load_credentials)) {
+                machine_credential_context_done(&arg_credentials);
+                arg_credentials = TAKE_STRUCT(credentials);
+        }
+
+        return 0;
+}
+
 static int merge_settings(Settings *settings, const char *path) {
         int rl;
 
@@ -5097,6 +5165,14 @@ static int merge_settings(Settings *settings, const char *path) {
             (settings->restrict_address_families || settings->restrict_address_families_is_allowlist)) {
                 set_free_and_replace(arg_restrict_address_families, settings->restrict_address_families);
                 arg_restrict_address_families_is_allowlist = settings->restrict_address_families_is_allowlist;
+        }
+
+        if (!FLAGS_SET(arg_settings_mask, SETTING_CREDENTIALS)) {
+                int r;
+
+                r = merge_settings_credentials(settings, path);
+                if (r < 0)
+                        return r;
         }
 
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
@@ -6735,7 +6811,7 @@ static int run(int argc, char *argv[]) {
 
                 r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
                 if (r == -EEXIST) {
-                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential= or SetCredential=, refusing --forward-journal=.");
                         goto finish;
                 }
                 if (r < 0) {
