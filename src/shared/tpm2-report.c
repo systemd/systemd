@@ -27,6 +27,7 @@ void tpm2_report_options_done(Tpm2ReportOptions *opts) {
 static const char* const tpm2_report_component_type_table[_TPM2_REPORT_TYPE_MAX] = {
         [TPM2_REPORT_TYPE_PCR]                     = "pcr",
         [TPM2_REPORT_TYPE_NVPCR]                   = "nvpcr",
+        [TPM2_REPORT_TYPE_KEY_CERTIFICATION]       = "key-certification",
         [TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY] = "capability-tpm-property",
         [TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY]  = "capability-auth-policy",
         [TPM2_REPORT_TYPE_SESSION_AUDIT]           = "session-audit",
@@ -43,6 +44,8 @@ static void tpm2_report_component_done(Tpm2ReportComponent *c) {
         c->nv_public = mfree(c->nv_public);
 
         c->authenticated_data = mfree(c->authenticated_data);
+
+        c->key_public = mfree(c->key_public);
 
         c->property = mfree(c->property);
 
@@ -161,6 +164,8 @@ static int tpm2_generate_report_try(
                 size_t n_tpm_props,
                 const TPM2_HANDLE *auth_policies,
                 size_t n_auth_policies,
+                const Tpm2Handle *certify_key,
+                const TPMT_PUBLIC *certify_key_public,
                 const TPM2B_DATA *external_data,
                 sd_json_variant **ret_event_log,
                 Tpm2ReportComponent **ret_components,
@@ -171,13 +176,14 @@ static int tpm2_generate_report_try(
         assert(c);
         assert(pcrs);
         assert(nv_pcrs);
+        assert(!certify_key == !certify_key_public);
         assert(ret_event_log);
         assert(ret_components);
         assert(ret_n_components);
 
-        /* This generates a PCR quote and a NV certification per NvPCR index, all inside an audit session.
-         * Audit session exclusivity provides evidence that the sequence of attestations reflects a single
-         * and consistent snapshot of the machine's state. */
+        /* This generates a PCR quote, a NV certification per NvPCR index and (optionally) a certification
+         * of a key, all inside an audit session. Audit session exclusivity provides evidence that the
+         * sequence of attestations reflects a single and consistent snapshot of the machine's state. */
 
         /* Read the PCR values first, outside of the audit session. This makes it easier for a verifier
          * to reconstruct the audit digest from the report. We need to make sure that the values read
@@ -302,6 +308,57 @@ static int tpm2_generate_report_try(
                         .authenticated_data = TAKE_PTR(authenticated_data),
                         .attestation = TAKE_PTR(certify_info),
                         .signature = TAKE_PTR(signature),
+                };
+        }
+
+        /* Certify the key, if we have been asked to. The certification proves that the key resides in the
+         * same TPM as the signing key, which allows a verifier to seal secrets to it (as it is the case for
+         * the SRK, which systemd-cryptenroll and systemd-repart accept via --tpm2-device-key=) knowing that
+         * only this TPM can unseal them. The external data is used as qualifying data, so that the
+         * certification is bound to the report even if considered on its own. */
+        if (certify_key) {
+                _cleanup_free_ TPMS_ATTEST *certify_info = NULL;
+                _cleanup_(Esys_Freep) TPMT_SIGNATURE *certify_signature = NULL;
+                r = tpm2_certify(
+                                c,
+                                /* object_session= */ NULL,
+                                /* sign_session= */ NULL,
+                                audit_session,
+                                certify_key,
+                                key,
+                                external_data,
+                                &certify_info,
+                                &certify_signature);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch TPM certification for key");
+
+                if (certify_info->type != TPM2_ST_ATTEST_CERTIFY)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Unexpected key certification attestation tag 0x%" PRIx16, certify_info->type);
+
+                /* Cross-check that the name the TPM certified is the one of the public area we are going
+                 * to report, so that the two cannot go out of sync. */
+                TPM2B_NAME name;
+                r = tpm2_calculate_pubkey_name(certify_key_public, &name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to calculate name of certified key: %m");
+
+                if (memcmp_nn(name.name, name.size,
+                              certify_info->attested.certify.name.name, certify_info->attested.certify.name.size) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Certified key name does not match the public area of the key");
+
+                _cleanup_free_ TPMT_PUBLIC *key_public = newdup(TPMT_PUBLIC, certify_key_public, 1);
+                if (!key_public)
+                        return log_oom_debug();
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_KEY_CERTIFICATION,
+                        .key_public = TAKE_PTR(key_public),
+                        .attestation = TAKE_PTR(certify_info),
+                        .signature = TAKE_PTR(certify_signature),
                 };
         }
 
@@ -440,6 +497,8 @@ int tpm2_generate_report(
                 Tpm2Context *c,
                 const Tpm2ReportOptions *options,
                 const Tpm2Handle *key,
+                const Tpm2Handle *certify_key,
+                const TPMT_PUBLIC *certify_key_public,
                 const TPM2B_DATA *external_data,
                 Tpm2Report **ret) {
 
@@ -448,6 +507,7 @@ int tpm2_generate_report(
 
         assert(c);
         assert(options);
+        assert(!certify_key == !certify_key_public);
 
         log_debug("Generating TPM report.");
 
@@ -553,6 +613,8 @@ int tpm2_generate_report(
                                 nv_pcrs, n_nv_pcrs,
                                 options->tpm_props, options->n_tpm_props,
                                 options->auth_policies, options->n_auth_policies,
+                                certify_key,
+                                certify_key_public,
                                 external_data,
                                 &event_log,
                                 &components, &n_components);

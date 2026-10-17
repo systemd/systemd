@@ -2291,6 +2291,40 @@ TEST(tpm2_attest_info_to_json) {
         _cleanup_free_ char *json2 = NULL;
         ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
         ASSERT_STREQ(json2, "{\"sig_scheme\":{\"scheme\":\"ECDSA\",\"details\":{\"hashAlg\":\"SHA384\"}},\"attest\":{\"magic\":\"VALUE\",\"type\":\"ATTEST_NV\",\"qualifiedSigner\":\"000cf8d4b1e869e68f96f37b3cbe1106fd5566fa2de9ffbe3ab5a7b9a3193e10e35e7072bd7c3d3c4d081c931511e7aa5166\",\"extraData\":\"000b7c88777e5165ac16f59fb7f74c6d54a2f77a2266974d6f811f2d4ee575203667\",\"clockInfo\":{\"clock\":25924398,\"resetCount\":151,\"restartCount\":1,\"safe\":\"YES\"},\"firmwareVersion\":8589934602,\"attested\":{\"indexName\":\"000b743f1f9cf4b7e7f0e4e5d234d72310b4661c2b30d51801c8096e104325ccce9d\",\"offset\":0,\"nvContents\":\"aefb5cd55ce0546baacb0ed96440eb796a0f10091f5c22b3c3b1d207ed338c7e\"}}}");
+
+        /* A TPM2_Certify attestation of a loaded object, e.g. the SRK. */
+        TPMT_SIG_SCHEME scheme3 = {
+                .scheme = TPM2_ALG_ECDSA,
+                .details.ecdsa.hashAlg = TPM2_ALG_SHA256,
+        };
+
+        DEFINE_HEX_PTR(object_name, "000b2b4b1bd1d5c1a8cfe3a2c7cb46bc5ca8a1a7a6bd7a2dc8df31a5b26f6a1b6d44");
+        DEFINE_HEX_PTR(qualified_name, "000b5b6a9d3dd7e7b3bb9f7c7a4e2b1ac6b9a3fd3c2b6f1e8a0d9c7b5a4f3e2d1c0b");
+
+        TPMS_ATTEST attest3 = {
+                .magic = TPM2_GENERATED_VALUE,
+                .type = TPM2_ST_ATTEST_CERTIFY,
+                .qualifiedSigner = TPM2B_NAME_MAKE(signer1, signer1_len),
+                .extraData = TPM2B_DATA_MAKE(extra_data, extra_data_len),
+                .clockInfo = {
+                        .clock = 25924400,
+                        .resetCount = 151,
+                        .restartCount = 1,
+                        .safe = TPM2_YES,
+                },
+                .firmwareVersion = 8589934602,
+                .attested.certify = {
+                        .name = TPM2B_NAME_MAKE(object_name, object_name_len),
+                        .qualifiedName = TPM2B_NAME_MAKE(qualified_name, qualified_name_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v3 = NULL;
+        ASSERT_OK(tpm2_attest_info_to_json(&scheme3, &attest3, &v3));
+
+        _cleanup_free_ char *json3 = NULL;
+        ASSERT_OK(sd_json_variant_format(v3, 0, &json3));
+        ASSERT_STREQ(json3, "{\"sig_scheme\":{\"scheme\":\"ECDSA\",\"details\":{\"hashAlg\":\"SHA256\"}},\"attest\":{\"magic\":\"VALUE\",\"type\":\"ATTEST_CERTIFY\",\"qualifiedSigner\":\"000b8f80817492905f8b4014186c828a5e0191d5146c70e644af0605e2cdd2093bfd\",\"extraData\":\"000b7c88777e5165ac16f59fb7f74c6d54a2f77a2266974d6f811f2d4ee575203667\",\"clockInfo\":{\"clock\":25924400,\"resetCount\":151,\"restartCount\":1,\"safe\":\"YES\"},\"firmwareVersion\":8589934602,\"attested\":{\"name\":\"000b2b4b1bd1d5c1a8cfe3a2c7cb46bc5ca8a1a7a6bd7a2dc8df31a5b26f6a1b6d44\",\"qualifiedName\":\"000b5b6a9d3dd7e7b3bb9f7c7a4e2b1ac6b9a3fd3c2b6f1e8a0d9c7b5a4f3e2d1c0b\"}}}");
 }
 
 TEST(tpm2_tpmt_public_to_json) {
@@ -2370,6 +2404,44 @@ TEST(tpm2_tpmt_public_to_json) {
         _cleanup_free_ char *ecc_json = NULL;
         ASSERT_OK(sd_json_variant_format(eccv, 0, &ecc_json));
         ASSERT_STREQ(ecc_json, "{\"type\":\"ECC\",\"nameAlg\":\"SHA384\",\"objectAttributes\":327922,\"authPolicy\":\"\",\"parameters\":{\"symmetric\":{\"algorithm\":\"NULL\"},\"scheme\":{\"scheme\":\"ECDSA\",\"details\":{\"hashAlg\":\"SHA384\"}},\"curveID\":\"NIST_P384\",\"kdf\":{\"scheme\":\"NULL\"}},\"unique\":{\"x\":\"6381d4a6aebcc46d5968efa80665820ed8b2ea8069e62ddfa28130f7a823620bf44e0779e2b9fe18c9f8b783800e7c2c\",\"y\":\"473fcbe01831c3be463dcc0093a34eb8196e095671bc10e38e0c8fb3ae459c50a408dfe45142fada5fc29bee6580c51e\"}}");
+
+        /* A storage key, as generated from the SRK template: no signing scheme, but a symmetric algorithm. */
+        DEFINE_HEX_PTR(srk_x, "4d3a0f97c5c8a7a1c4e5b1d9f23c7e8a0b6d4f1a2c3e5b7d9f1a3c5e7b9d1f3a");
+        DEFINE_HEX_PTR(srk_y, "9b1c3e5a7d9f1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d");
+
+        TPMT_PUBLIC srk_public = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_NODA |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_DECRYPT,
+                .parameters.eccDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.sym = 128,
+                                .mode.sym = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .curveID = TPM2_ECC_NIST_P256,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+                .unique.ecc = {
+                        .x = TPM2B_ECC_PARAMETER_MAKE(srk_x, srk_x_len),
+                        .y = TPM2B_ECC_PARAMETER_MAKE(srk_y, srk_y_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *srkv = NULL;
+        ASSERT_OK(tpm2_tpmt_public_to_json(&srk_public, &srkv));
+
+        _cleanup_free_ char *srk_json = NULL;
+        ASSERT_OK(sd_json_variant_format(srkv, 0, &srk_json));
+        ASSERT_STREQ(srk_json, "{\"type\":\"ECC\",\"nameAlg\":\"SHA256\",\"objectAttributes\":197746,\"authPolicy\":\"\",\"parameters\":{\"symmetric\":{\"algorithm\":\"AES\",\"keyBits\":128,\"mode\":\"CFB\"},\"scheme\":{\"scheme\":\"NULL\",\"details\":null},\"curveID\":\"NIST_P256\",\"kdf\":{\"scheme\":\"NULL\"}},\"unique\":{\"x\":\"4d3a0f97c5c8a7a1c4e5b1d9f23c7e8a0b6d4f1a2c3e5b7d9f1a3c5e7b9d1f3a\",\"y\":\"9b1c3e5a7d9f1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d\"}}");
 }
 
 TEST(tpm2_tpms_nv_public_to_json) {
@@ -2675,6 +2747,47 @@ static void check_nv_certify(Tpm2Context *c) {
         check_attest_signature(&template, sig);
 }
 
+static void check_certify(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        /* Certify the SRK, which check_get_or_create_srk() made sure exists. */
+        _cleanup_free_ TPM2B_NAME *srk_name = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk = NULL;
+        ASSERT_OK(tpm2_get_or_create_srk(c, NULL, NULL, &srk_name, NULL, &srk));
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        const char *s = "baz";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        _cleanup_free_ TPMS_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_certify(c, NULL, NULL, NULL, srk, key, &data, &certify_info, &sig));
+
+        check_attest_common(certify_info, TPM2_ST_ATTEST_CERTIFY, &data);
+        ASSERT_EQ(memcmp_nn(certify_info->attested.certify.name.name, certify_info->attested.certify.name.size, srk_name->name, srk_name->size), 0);
+
+        check_attest_signature(&template, sig);
+
+        /* Without a signing key the TPM signs with TPM_RH_NULL, i.e. returns the attestation unsigned. */
+        _cleanup_free_ TPMS_ATTEST *unsigned_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *unsigned_sig = NULL;
+        ASSERT_OK(tpm2_certify(c, NULL, NULL, NULL, srk, NULL, &data, &unsigned_info, &unsigned_sig));
+
+        check_attest_common(unsigned_info, TPM2_ST_ATTEST_CERTIFY, &data);
+        ASSERT_EQ(memcmp_nn(unsigned_info->attested.certify.name.name, unsigned_info->attested.certify.name.size, srk_name->name, srk_name->size), 0);
+        ASSERT_NOT_NULL(unsigned_sig);
+        ASSERT_EQ(unsigned_sig->sigAlg, TPM2_ALG_NULL);
+}
+
 static void check_get_session_audit_digest(Tpm2Context *c) {
         assert(c);
 
@@ -2735,6 +2848,7 @@ TEST_RET(tests_which_require_tpm) {
         check_best_attestation_key_template(c);
         check_quote(c);
         check_nv_certify(c);
+        check_certify(c);
         check_get_session_audit_digest(c);
 
 #if HAVE_OPENSSL
