@@ -38,6 +38,7 @@ _arguments \
     '(-r --reverse)'{-r,--reverse}'[Show the newest entries first]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize output]' \
     '(- *)'{-h,--help}'[Show this help]' \
     '(- *)--version[Show package version]' \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \
