@@ -1264,20 +1264,16 @@ static int replace_fail(ReplaceCtx *ctx, int error, const char *error_desc) {
         assert(drive);
 
         /* If the new file node was added, del it; that also drops the fdset's
-         * dup so the new fdset auto-frees. If add-fd succeeded but blockdev-add
-         * never did, an explicit remove-fd is needed instead. */
+         * dup so the new fdset auto-frees. If blockdev-add failed, the remove-fd
+         * pipelined behind it frees the new fdset: we only get here from a QMP
+         * callback, i.e. after vmspawn_qmp_replace_block_device() queued the
+         * whole pipeline, as its synchronous failures don't call us. */
         if (FLAGS_SET(ctx->state, REPLACE_CTX_NEW_BLOCKDEV_ADDED)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
                 if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", ctx->new_file_node_name)) >= 0)
                         (void) qmp_client_invoke(drive->bridge->qmp, /* ret_slot= */ NULL, "blockdev-del",
                                                  QMP_CLIENT_ARGS(args),
                                                  on_qmp_complete, (void*) "replace rollback blockdev-del");
-        } else if (ctx->new_fdset_path) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
-                if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", ctx->new_fdset_id)) >= 0)
-                        (void) qmp_client_invoke(drive->bridge->qmp, /* ret_slot= */ NULL, "remove-fd",
-                                                 QMP_CLIENT_ARGS(args),
-                                                 on_qmp_complete, (void*) "replace rollback remove-fd");
         }
 
         drive->state &= ~BLOCK_DEVICE_STATE_REPLACE_PENDING;
