@@ -98,7 +98,7 @@ echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -
 # Avoid creating an empty bind mount destination on the host, which would hide openSUSE's fallback
 # /usr/etc/nsswitch.conf and break NSS lookups in subsequent tests.
 NSSWITCH_CONF=/etc/nsswitch.conf
-if [[ ! -e "$NSSWITCH_CONF" ]]; then
+if [[ ! -e "$NSSWITCH_CONF" && -e /usr/etc/nsswitch.conf ]]; then
     NSSWITCH_CONF=/usr/etc/nsswitch.conf
 fi
 
