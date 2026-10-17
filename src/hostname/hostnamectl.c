@@ -776,7 +776,7 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                 return 0;
         }
 
-        _cleanup_strv_free_ char **plain = NULL, **add = NULL, **remove = NULL;
+        _cleanup_strv_free_ char **plain = NULL, **add = NULL, **remove = NULL, **remove_prefix = NULL;
         bool prefixed = false, unprefixed = false;
         for (int i = 1; i < argc; i++) {
                 const char *e = argv[i];
@@ -784,7 +784,9 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
 
                 /* The first character of each argument selects the mode for all (colon-separated) tags in
                  * that argument: a leading '+' adds them, a leading '-' removes them, and otherwise the
-                 * argument lists tags to set verbatim. Setting and adding/removing may not be mixed. */
+                 * argument lists tags to set verbatim. Setting and adding/removing may not be mixed. Tags to
+                 * remove may be suffixed with '*', in which case all tags with the specified prefix are
+                 * removed (before the tags to add are added). */
                 if (e[0] == '+') {
                         dest = &add;
                         e++;
@@ -802,6 +804,21 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                         if (dest == &plain && !*dest) {
                                 *dest = new0(char*, 1);
                                 if (!*dest)
+                                        return log_oom();
+                        }
+                } else if (dest == &remove) {
+                        _cleanup_strv_free_ char **l = strv_split(e, ":");
+                        if (!l)
+                                return log_oom();
+
+                        STRV_FOREACH(t, l) {
+                                char *star = endswith(*t, "*");
+                                if (star) {
+                                        *star = 0;
+                                        r = strv_extend(&remove_prefix, *t);
+                                } else
+                                        r = strv_extend(&remove, *t);
+                                if (r < 0)
                                         return log_oom();
                         }
                 } else if (strv_split_and_extend(dest, e, ":", /* filter_duplicates= */ true) < 0)
@@ -829,13 +846,22 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                 if (r < 0)
                         return bus_log_create_error(r);
         } else {
-                /* Prefixes used: incrementally add and/or remove tags. */
+                /* Prefixes used: incrementally add and/or remove tags. Only use the newer EditTags() call if
+                 * we actually need to remove tags by prefix, so that we remain compatible with older
+                 * hostnamed versions otherwise. */
+                strv_sort_uniq(remove_prefix);
                 strv_sort(add);
-                strv_sort(remove);
+                strv_sort_uniq(remove);
 
-                r = bus_message_new_method_call(bus, &m, bus_hostname, "AddAndRemoveTags");
+                r = bus_message_new_method_call(bus, &m, bus_hostname, remove_prefix ? "EditTags" : "AddAndRemoveTags");
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                if (remove_prefix) {
+                        r = sd_bus_message_append_strv(m, remove_prefix);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 r = sd_bus_message_append_strv(m, add);
                 if (r < 0)
@@ -844,11 +870,21 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                 r = sd_bus_message_append_strv(m, remove);
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                if (remove_prefix) {
+                        r = sd_bus_message_append(m, "t", UINT64_C(0));
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
         }
 
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
-        if (r < 0)
+        if (r < 0) {
+                if (remove_prefix && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                        return log_error_errno(r, "Removing tags by prefix is not supported by the hostname service: %s", bus_error_message(&error, r));
+
                 return log_error_errno(r, "Could not set tags: %s", bus_error_message(&error, r));
+        }
 
         return 0;
 }
