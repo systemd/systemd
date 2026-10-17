@@ -31,6 +31,21 @@ CHANGES WITH 263 in spe:
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
 
+        * The file system constraints encoded in the user.validatefs.*
+          extended attributes (as written by systemd-repart's AddValidateFS=
+          setting, which is enabled by default for most file systems) are now
+          also enforced when mounting partitions of disk images, i.e. via
+          systemd-dissect, systemd-nspawn, systemd-sysext, portabled,
+          systemd-mountfsd and RootImage=. Any constraint that is set must be
+          fulfilled: in particular this means that file systems carrying GPT
+          partition label or type constraints may no longer be used as bare
+          file system images without partition table (for example
+          partitions split out of a DDI via systemd-repart --split=yes), and
+          file systems declared for a specific mount point may no longer be
+          used as root file system. Set AddValidateFS=no when building such
+          images, or set $SYSTEMD_DISSECT_VALIDATEFS=0 when using them to
+          restore the previous behaviour.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
