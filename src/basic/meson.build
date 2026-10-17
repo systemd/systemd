@@ -10,6 +10,7 @@ basic_sources = files(
         'argv-util.c',
         'arphrd-util.c',
         'assert-util.c',
+        'async-close.c',
         'audit-util.c',
         'btrfs-util.c',
         'build.c',

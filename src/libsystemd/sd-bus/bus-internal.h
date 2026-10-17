@@ -203,6 +203,10 @@ typedef struct sd_bus {
         RuntimeScope runtime_scope;
 
         int use_memfd;
+        int busexec_error;
+        int busexec_notify_fd;
+        char *busexec_notify_path;
+        char *busexec_notify_dir;
 
         void *rbuffer;
         size_t rbuffer_size;
