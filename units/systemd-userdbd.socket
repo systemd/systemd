@@ -12,6 +12,7 @@ Description=User Database Manager Socket
 Documentation=man:systemd-userdbd.service(8)
 DefaultDependencies=no
 Before=sockets.target
+After=local-fs.target
 
 [Socket]
 ListenStream=/run/systemd/userdb/io.systemd.Multiplexer
