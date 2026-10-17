@@ -425,7 +425,7 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         arg_all = true;
                         break;
 
-                OPTION('l', "full", NULL, "Don't ellipsize unit names on output"):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 

@@ -111,6 +111,9 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 #define OPTION_COMMON_NO_LEGEND                                         \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
 
+#define OPTION_COMMON_FULL                                              \
+        OPTION('l', "full", NULL, "Do not ellipsize output")
+
 #define OPTION_COMMON_LOG_LEVEL                                         \
         OPTION_LONG("log-level", "LEVEL",                               \
                     "Set log level (debug, info, notice, warning, err, crit, alert, emerg)")
