@@ -882,6 +882,14 @@ units = [
           'conditions' : ['ENABLE_REPORT'],
         },
         {
+          'file' : 'systemd-report-tsa@.service.in',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
+        },
+        {
+          'file' : 'systemd-report-tsa.socket',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
+        },
+        {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
         },
@@ -1108,6 +1116,14 @@ units = [
         {
           'file' : 'systemd-userdbd.socket',
           'conditions' : ['ENABLE_USERDB'],
+        },
+        {
+          'file' : 'systemd-timestampd.service.in',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
+        },
+        {
+          'file' : 'systemd-timestampd.socket',
+          'conditions' : ['ENABLE_TIMESTAMPD'],
         },
         {
           'file' : 'systemd-mountfsd.service.in',

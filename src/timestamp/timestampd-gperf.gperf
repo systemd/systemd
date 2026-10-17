@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "timestampd.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name timestampd_gperf_hash
+%define lookup-function-name timestampd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Timestamp.Authority,             config_parse_string, 0, offsetof(Manager, authority)
+Timestamp.ConnectionTimeoutSec,  config_parse_sec,    0, offsetof(Manager, connection_timeout_usec)
+Timestamp.DataSizeMax,           config_parse_iec_uint64_infinity, 0, offsetof(Manager, data_size_max)
