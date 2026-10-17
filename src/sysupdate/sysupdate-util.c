@@ -57,6 +57,38 @@ bool component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
+static int add_component_name(ConfFile *e, const char *suffix, Set **names) {
+        int r;
+
+        assert(e);
+        assert(suffix);
+        assert(names);
+
+        const char *s = startswith(e->filename, "sysupdate.");
+        if (!s)
+                return 0;
+
+        const char *a = endswith(s, suffix);
+        if (!a)
+                return 0;
+
+        if (a == s)
+                return 0;
+
+        _cleanup_free_ char *n = strndup(s, a - s);
+        if (!n)
+                return log_oom();
+
+        if (!component_name_valid(n))
+                return 0;
+
+        r = set_ensure_consume(names, &string_hash_ops_free, TAKE_PTR(n));
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        return 0;
+}
+
 int get_component_list(const char *root, char ***ret) {
         int r;
 
@@ -76,31 +108,32 @@ int get_component_list(const char *root, char ***ret) {
         if (r < 0)
                 return r;
 
+        /* A component is defined by a sysupdate.<name>.d/ directory or a sysupdate.<name>.component file */
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".component",
+                        root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        (const char * const *) CONF_PATHS_STRV(""),
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return r;
+
         _cleanup_set_free_ Set *names = NULL;
 
         FOREACH_ARRAY(i, directories, n_directories) {
-                ConfFile *e = *i;
+                r = add_component_name(*i, ".d", &names);
+                if (r < 0)
+                        return r;
+        }
 
-                const char *s = startswith(e->filename, "sysupdate.");
-                if (!s)
-                        continue;
-
-                const char *a = endswith(s, ".d");
-                if (!a)
-                        continue;
-
-                if (a == s)
-                        continue;
-
-                _cleanup_free_ char *n = strndup(s, a - s);
-                if (!n)
-                        return log_oom();
-
-                if (!component_name_valid(n))
-                        continue;
-
-                r = set_ensure_consume(&names, &string_hash_ops_free, TAKE_PTR(n));
-                if (r < 0 && r != -EEXIST)
+        FOREACH_ARRAY(i, files, n_files) {
+                r = add_component_name(*i, ".component", &names);
+                if (r < 0)
                         return r;
         }
 
