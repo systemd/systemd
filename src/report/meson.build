@@ -74,8 +74,8 @@ executables += [
                 'name' : 'systemd-report-geoip',
                 'sources' : files(
                         'report-geoip.c',
-                        'report-geoip-server.c',
                 ),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : [
                         libcurl_cflags,
                 ],
