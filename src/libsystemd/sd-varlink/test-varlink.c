@@ -1542,6 +1542,34 @@ static int execute_dir_client_fiber(void *arg) {
                                        a->reply_count));
         ASSERT_EQ(*a->reply_count, count_before);
 
+        unsigned n_offline = UINT_MAX;
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &n_offline));
+        ASSERT_EQ(n_offline, 0U);
+
+        /* A socket inode nobody listens on must not be counted as contacted, but as offline. */
+        _cleanup_free_ char *dead = ASSERT_PTR(path_join(empty, "dead"));
+        ASSERT_OK_ERRNO(mknod(dead, S_IFSOCK|0600, 0));
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &n_offline));
+        ASSERT_EQ(n_offline, 1U);
+        ASSERT_EQ(*a->reply_count, count_before);
+
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
         return 0;
 }

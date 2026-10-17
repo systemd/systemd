@@ -245,14 +245,15 @@ static int varlink_finish_idle(Set *s) {
 
 #define VARLINK_EXECUTE_SOCKETS_MAX 255
 
-ssize_t varlink_execute_directory(
+ssize_t varlink_execute_directory_full(
                 const char *path,
                 const char *method,
                 sd_json_variant *parameters,
                 bool more,
                 usec_t timeout_usec,
                 sd_varlink_reply_t reply,
-                void *userdata) {
+                void *userdata,
+                unsigned *ret_n_offline_sockets) {
 
         int r;
 
@@ -262,7 +263,10 @@ ssize_t varlink_execute_directory(
         /* Invokes the specified method on all Varlink sockets in the specified directory. Any reply
          * will be dispatched to the reply callback. Blocks until the last reply has come in.
          *
-         * Returns how many sockets were contacted.
+         * Returns how many sockets were contacted. If ret_n_offline_sockets is non-NULL it is set to the
+         * number of sockets that exist in the directory but could not be contacted (because nobody listens
+         * on them, or because there are too many of them). This allows callers to distinguish "nobody
+         * there" from "somebody there, but not reachable".
          *
          * Usecase for all of this: hook directories, where components can link their sockets into to get
          * notified about certain system events. */
@@ -279,6 +283,7 @@ ssize_t varlink_execute_directory(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(set_freep) Set *links = NULL;
         size_t t = 0;
+        unsigned n_offline = 0;
         FOREACH_ARRAY(dp, dentries->entries, dentries->n_entries) {
                 struct dirent *de = *dp;
 
@@ -290,6 +295,7 @@ ssize_t varlink_execute_directory(
 
                 if (set_size(links) >= VARLINK_EXECUTE_SOCKETS_MAX) {
                         log_debug("Too many sockets (%zu) in directory, skipping '%s'.", t, j);
+                        n_offline++;
                         continue;
                 }
 
@@ -300,6 +306,7 @@ ssize_t varlink_execute_directory(
                 r = connect_unix_path(socket_fd, fd, de->d_name);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to connect to '%s', ignoring: %m", j);
+                        n_offline++;
                         continue;
                 }
 
@@ -376,6 +383,9 @@ ssize_t varlink_execute_directory(
                 if (r < 0)
                         return r;
         }
+
+        if (ret_n_offline_sockets)
+                *ret_n_offline_sockets = n_offline;
 
         return (ssize_t) c;
 }
