@@ -80,6 +80,7 @@ typedef struct TableData {
         bool uppercase:1;           /* Uppercase string on display */
         bool underline:1;
         bool rgap_underline:1;
+        bool skip:1;                /* Used for field cells in vertical tables. When true, the line will not be shown. */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
         const char *rgap_color;     /* The ANSI color to use for the gap right of this cell. Usually used to underline entire rows in a gapless fashion */
@@ -424,6 +425,8 @@ static bool table_data_matches(
                 return false;
         if (d->url)
                 return false;
+        if (d->skip)
+                return false;
 
         k = table_data_size(type, data);
         l = table_data_size(d->type, d->data);
@@ -677,6 +680,21 @@ static TableData *table_get_data(Table *t, TableCell *cell) {
         assert(t->data[i]->n_ref > 0);
 
         return t->data[i];
+}
+
+static int table_set_skip(Table *t, TableCell *cell) {
+        int r;
+
+        assert(t);
+        assert(t->vertical);
+        assert(cell);
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        table_get_data(t, cell)->skip = true;
+        return 0;
 }
 
 int table_set_minimum_width(Table *t, TableCell *cell, size_t minimum_width) {
@@ -933,18 +951,15 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
         return 0;
 }
 
-int table_add_many_internal(Table *t, TableDataType first_type, ...) {
+static int table_add_manyv(Table *t, va_list ap) {
         TableCell *last_cell = NULL;
-        va_list ap;
         int r;
 
         assert(t);
-        assert(first_type >= 0);
-        assert(first_type < _TABLE_DATA_TYPE_MAX);
 
-        va_start(ap, first_type);
-
-        for (TableDataType type = first_type;; type = va_arg(ap, TableDataType)) {
+        for (;;) {
+                TableDataType type = va_arg(ap, TableDataType);
+                _cleanup_free_ char *data_free = NULL;
                 const void *data;
                 union {
                         uint64_t size;
@@ -988,6 +1003,31 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_VERSION:
                         data = va_arg(ap, const char *);
                         break;
+
+                case TABLE_STRING_NON_EMPTY: {
+                        const char *s = va_arg(ap, const char *);
+                        if (isempty(s)) {
+                                r = table_set_skip(t, last_cell);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        data = s;
+                        type = TABLE_STRING;
+                        break;
+                }
+
+                case TABLE_STRINGF:
+                case TABLE_STRINGF_WITH_ANSI: {
+                        const char *format = va_arg(ap, const char *);
+                        r = vasprintf(&data_free, format, ap);
+                        if (r < 0)
+                                return r;
+
+                        data = data_free;
+                        type = type == TABLE_STRINGF ? TABLE_STRING : TABLE_STRING_WITH_ANSI;
+                        break;
+                }
 
                 case TABLE_STRV:
                 case TABLE_STRV_WRAPPED:
@@ -1209,10 +1249,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         const char *c = va_arg(ap, const char*);
 
                         r = table_set_color(t, last_cell, c);
-                        if (r < 0) {
-                                va_end(ap);
+                        if (r < 0)
                                 return r;
-                        }
 
                         r = table_set_rgap_color(t, last_cell, c);
                         goto check;
@@ -1234,10 +1272,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         int u = va_arg(ap, int);
 
                         r = table_set_underline(t, last_cell, u);
-                        if (r < 0) {
-                                va_end(ap);
+                        if (r < 0)
                                 return r;
-                        }
 
                         r = table_set_rgap_underline(t, last_cell, u);
                         goto check;
@@ -1271,7 +1307,6 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
-                        va_end(ap);
                         return 0;
 
                 default:
@@ -1280,11 +1315,20 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 r = table_add_cell(t, &last_cell, type, data);
         check:
-                if (r < 0) {
-                        va_end(ap);
+                if (r < 0)
                         return r;
-                }
         }
+}
+
+int table_add_many_internal(Table *t, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, t);
+        r = table_add_manyv(t, ap);
+        va_end(ap);
+
+        return r;
 }
 
 void table_set_header(Table *t, bool b) {
@@ -2359,6 +2403,9 @@ int table_print_full(Table *t, FILE *f, bool flush) {
                          * hence we don't care for sorted[] during the first pass. */
                         row = t->data + i * t->n_columns;
 
+                        if (row[0]->skip)
+                                continue;
+
                         for (size_t j = 0; j < display_columns; j++) {
                                 TableData *d;
                                 size_t req_width, req_height;
@@ -2568,6 +2615,9 @@ int table_print_full(Table *t, FILE *f, bool flush) {
                         row = t->data + sorted[i];
                 else
                         row = t->data + i * t->n_columns;
+
+                if (row[0]->skip)
+                        continue;
 
                 do {
                         const char *gap_color = NULL, *gap_underline = NULL;
@@ -3199,14 +3249,20 @@ static int table_to_json_vertical(Table *t, sd_json_variant **ret) {
         CLEANUP_ARRAY(elements, n_elements, sd_json_variant_unref_many);
 
         for (size_t i = t->n_columns; i < t->n_cells; i++) {
+                TableData *d = ASSERT_PTR(t->data[i]);
 
                 if (i % t->n_columns == 0) {
+                        if (d->skip) {
+                                i++;
+                                continue;
+                        }
+
                         _cleanup_free_ char *mangled = NULL;
                         const char *n;
 
                         n = table_get_json_field_name(t, i / t->n_columns - 1);
                         if (!n) {
-                                r = table_make_json_field_name(t, ASSERT_PTR(t->data[i]), &mangled);
+                                r = table_make_json_field_name(t, d, &mangled);
                                 if (r < 0)
                                         return r;
 
@@ -3215,7 +3271,7 @@ static int table_to_json_vertical(Table *t, sd_json_variant **ret) {
 
                         r = sd_json_variant_new_string(elements + n_elements, n);
                 } else
-                        r = table_data_to_json(t->data[i], elements + n_elements);
+                        r = table_data_to_json(d, elements + n_elements);
                 if (r < 0)
                         return r;
 
