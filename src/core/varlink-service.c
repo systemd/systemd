@@ -226,6 +226,7 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
+static DEFINE_VARLINK_APPLY_ENUM(service_type, ServiceType, service_type_to_string);
 
 TransientServiceParameters* transient_service_parameters_free(TransientServiceParameters *p) {
         if (!p)
@@ -416,10 +417,7 @@ int transient_service_apply_properties(Service *s, TransientServiceParameters *s
 
         assert(sp);
 
-        if (sp->type >= 0) {
-                s->type = sp->type;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Type", "Type=%s", service_type_to_string(sp->type));
-        }
+        varlink_apply_service_type(u, "Type", &s->type, sp->type, UNIT_RUNTIME|UNIT_PRIVATE);
 
         /* Passed stdio fds, resolved earlier by transient_service_resolve_stdio_fds(): store them on the
          * Service and flag the exec context. Not written as a text setting; fd serialization across

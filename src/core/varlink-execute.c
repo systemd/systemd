@@ -1404,37 +1404,29 @@ static DEFINE_APPLY_EXEC(restrict_realtime,         "RestrictRealtime",       va
 static DEFINE_APPLY_EXEC(restrict_suid_sgid,        "RestrictSUIDSGID",       varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(root_ephemeral,            "RootEphemeral",          varlink_apply_tristate_bool);
 
-/* The stdio types that require a companion setting: the file based ones need a path (StandardInputFile=,
- * StandardOutputFile=, …) and StandardInput=data needs the payload (StandardInputData=). The Varlink
- * interface has no way to pass either yet, and without them the executor cannot set them up (it would assert
- * on the missing path, and silently fall back to /dev/null on the missing payload), hence refuse them for
- * now. For the output types exec_output_is_file() expresses the same. */
-static bool exec_input_needs_companion(ExecInput i) {
-        return IN_SET(i, EXEC_INPUT_FILE, EXEC_INPUT_DATA);
+/* File-based stdio modes need a companion path (StandardInputFile=, StandardOutputFile=, …), and
+ * StandardInput=data needs a payload (StandardInputData=). The executor asserts on a missing path and
+ * falls back to /dev/null for an empty payload, so refuse these modes until Varlink StartTransient
+ * supports their companion settings. exec_output_is_file() covers the corresponding output modes. */
+static bool exec_input_needs_companion(ExecInput value) {
+        return IN_SET(value, EXEC_INPUT_FILE, EXEC_INPUT_DATA);
 }
 
-/* Generate an apply fn for an exec-context enum field: copy the parsed value to ExecContext and
- * write the corresponding "Name=value" line. A negative parsed value means the field was absent, values
- * for which refused_fn() returns true are rejected as invalid.
- * Mirrors D-Bus BUS_DEFINE_SET_TRANSIENT_PARSE. */
-#define DEFINE_APPLY_EXEC_ENUM(field, JsonName, to_string_fn, refused_fn) \
-        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
-                assert(c);                                              \
-                assert(p);                                              \
-                if (p->field < 0)                                       \
-                        return 0;                                       \
-                if (refused_fn(p->field))                               \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), \
-                                               JsonName "=%s is not supported via Varlink.", to_string_fn(p->field)); \
-                c->field = p->field;                                    \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
-                                    JsonName "=%s", to_string_fn(p->field)); \
-                return 0;                                               \
-        }
+static DEFINE_VARLINK_APPLY_ENUM_REFUSE(exec_input,  ExecInput,  exec_input_to_string);
+static DEFINE_VARLINK_APPLY_ENUM_REFUSE(exec_output, ExecOutput, exec_output_to_string);
+/* Refusal callbacks reject otherwise valid enum values that Varlink cannot configure yet. */
+static DEFINE_APPLY_EXEC(std_error,  "StandardError",  varlink_apply_exec_output, exec_output_is_file);
+static DEFINE_APPLY_EXEC(std_input,  "StandardInput",  varlink_apply_exec_input,  exec_input_needs_companion);
+static DEFINE_APPLY_EXEC(std_output, "StandardOutput", varlink_apply_exec_output, exec_output_is_file);
 
-DEFINE_APPLY_EXEC_ENUM(std_error,  "StandardError",  exec_output_to_string, exec_output_is_file);
-DEFINE_APPLY_EXEC_ENUM(std_input,  "StandardInput",  exec_input_to_string,  exec_input_needs_companion);
-DEFINE_APPLY_EXEC_ENUM(std_output, "StandardOutput", exec_output_to_string, exec_output_is_file);
+static DEFINE_VARLINK_APPLY_ENUM(protect_system, ProtectSystem, protect_system_to_string);
+static DEFINE_VARLINK_APPLY_ENUM(protect_home,   ProtectHome,   protect_home_to_string);
+static DEFINE_VARLINK_APPLY_ENUM(private_tmp,    PrivateTmp,    private_tmp_to_string);
+static DEFINE_VARLINK_APPLY_ENUM(private_users,  PrivateUsers,  private_users_to_string);
+static DEFINE_APPLY_EXEC(protect_system, "ProtectSystem", varlink_apply_protect_system);
+static DEFINE_APPLY_EXEC(protect_home,   "ProtectHome",   varlink_apply_protect_home);
+static DEFINE_APPLY_EXEC(private_tmp,    "PrivateTmp",    varlink_apply_private_tmp);
+static DEFINE_APPLY_EXEC(private_users,  "PrivateUsers",  varlink_apply_private_users);
 
 /* RootHashPath and RootHashSignaturePath need custom apply fns: the corresponding unit-file
  * directive is "RootHash="/"RootHashSignature=" (not the JSON name), and setting the path form
@@ -1508,16 +1500,6 @@ static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *v
         return 0;
 }
 
-/* The sandbox enums accept every value their parser accepts, as over D-Bus. */
-static bool exec_enum_refuse_nothing(int value) {
-        return false;
-}
-
-DEFINE_APPLY_EXEC_ENUM(protect_system, "ProtectSystem", protect_system_to_string, exec_enum_refuse_nothing);
-DEFINE_APPLY_EXEC_ENUM(protect_home,   "ProtectHome",   protect_home_to_string,   exec_enum_refuse_nothing);
-DEFINE_APPLY_EXEC_ENUM(private_tmp,    "PrivateTmp",    private_tmp_to_string,    exec_enum_refuse_nothing);
-DEFINE_APPLY_EXEC_ENUM(private_users,  "PrivateUsers",  private_users_to_string,  exec_enum_refuse_nothing);
-
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1570,7 +1552,7 @@ typedef struct TransientExecProperty {
 
 /* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
  * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
- * matching DEFINE_APPLY_EXEC_ENUM fn treats any negative value as unset. */
+ * matching apply function treats any negative value as unset. */
 #define EXEC_PROPERTY_ENUM(json, field, dispatch_fn)                                       \
         { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
