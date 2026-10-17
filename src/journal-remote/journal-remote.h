@@ -46,3 +46,12 @@ int journal_remote_handle_raw_source(
                 RemoteServer *s);
 
 void journal_remote_server_destroy(RemoteServer *s);
+
+typedef enum JournalSplitName {
+        JOURNAL_SPLIT_NAME_FULL,
+        JOURNAL_SPLIT_NAME_COMMON,
+        JOURNAL_SPLIT_NAME_HOST,
+
+        _JOURNAL_SPLIT_NAME_MAX,
+        _JOURNAL_SPLIT_NAME_INVALID = -EINVAL
+} JournalSplitName;
