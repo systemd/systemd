@@ -105,8 +105,8 @@ static void test_non_empty_one(void) {
 
         ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL));
 
-        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, NULL);
-        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, NULL);
+        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
+        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
 
         (void) journal_file_offline_close(f);
 
