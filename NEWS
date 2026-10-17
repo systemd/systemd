@@ -20,12 +20,12 @@ CHANGES WITH 263 in spe:
         * systemd-networkd now updates the hostname sent by the DHCPv4 and
           DHCPv6 clients when the system hostname is changed. Previously, the
           hostname known when the interface was configured was sent until the
-          interface was reconfigured. The DHCPv4 lease is renewed immediately
-          to send the new hostname, while for DHCPv6 the new hostname is sent
-          on the next renewal. Since some DHCP servers provide different
-          settings depending on the hostname sent by the client, the previous
-          behaviour may be restored with the new SendHostnameUpdates=no
-          setting in the [DHCPv4] and [DHCPv6] sections.
+          interface was reconfigured. The DHCPv4 and DHCPv6 leases are renewed
+          immediately to send the new hostname. Since some DHCP servers
+          provide different settings depending on the hostname sent by the
+          client, the previous behaviour may be restored with the new
+          SendHostnameUpdates=no setting in the [DHCPv4] and [DHCPv6]
+          sections.
 
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
@@ -67,6 +67,9 @@ CHANGES WITH 263 in spe:
           clients now follows the system hostname. The new
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
+
+        * "networkctl renew" now renews the DHCPv6 lease too, not only the
+          DHCPv4 lease.
 
         Changes in systemd-sysupdate:
 

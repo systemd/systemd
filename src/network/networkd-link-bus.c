@@ -13,6 +13,7 @@
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-link-bus.h"
@@ -630,6 +631,10 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
                 return 1; /* Polkit will call us back */
 
         r = dhcp4_renew(l);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_renew(l);
         if (r < 0)
                 return r;
 

@@ -1423,6 +1423,20 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         return 0;
 }
 
+int sd_dhcp6_client_send_renew(sd_dhcp6_client *client) {
+        assert_return(client, -EINVAL);
+
+        /* A lease can be renewed only when it is acquired. Otherwise, e.g. in the information request mode,
+         * this does nothing. */
+        if (client->state != DHCP6_STATE_BOUND)
+                return 0;
+
+        /* Same as when T1 expires. */
+        (void) event_source_disable(client->timeout_t1);
+
+        return client_start_transaction(client, DHCP6_STATE_RENEW);
+}
+
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
         if (!client)
                 return false;
