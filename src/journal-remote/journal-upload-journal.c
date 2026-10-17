@@ -432,8 +432,6 @@ int open_journal_for_upload(Uploader *u,
 
         u->journal = j;
 
-        sd_journal_set_data_threshold(j, 0);
-
         if (follow) {
                 fd = sd_journal_get_fd(j);
                 if (fd < 0)

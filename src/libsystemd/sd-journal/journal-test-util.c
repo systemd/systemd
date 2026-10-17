@@ -161,7 +161,7 @@ void model_assert_entry(JournalFile *f, Object *o, uint64_t offset, const Model 
 
                 ASSERT_OK(journal_file_move_to_object(f, OBJECT_ENTRY, offset, &o));
                 ASSERT_OK_POSITIVE(journal_file_entry_field_payload(f, o, offset, k, /* field= */ NULL, /* field_length= */ 0,
-                                                                    /* data_threshold= */ 0, &data, &size));
+                                                                    &data, &size));
                 char *copy = ASSERT_NOT_NULL(strndup(data, size));
                 ASSERT_OK(strv_consume(&fields, copy));
         }

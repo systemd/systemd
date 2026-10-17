@@ -571,12 +571,6 @@ static int output_short(
         assert(previous_display_ts);
         assert(previous_boot_id);
 
-        /* Set the threshold to one bigger than the actual print threshold, so that if the line is actually
-         * longer than what we're willing to print, ellipsization will occur. This way we won't output a
-         * misleading line without any indication of truncation.
-         */
-        (void) sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
-
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
                 if (r < 0)
@@ -802,8 +796,6 @@ static int output_verbose(
         assert(f);
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
         r = get_display_realtime(j, &usec);
         if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Unable to read realtime timestamp from entry, assuming bad or partially written entry: %m");
@@ -928,8 +920,6 @@ static int output_export(
         int r;
 
         assert(j);
-
-        (void) sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_cursor(j, &cursor);
         if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
@@ -1216,8 +1206,6 @@ int journal_entry_to_json(
         assert(j);
         assert(ret);
 
-        (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
-
         r = sd_journal_get_cursor(j, &cursor);
         if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 corrupted_what = "cursor";
@@ -1431,8 +1419,6 @@ static int output_cat(
 
         assert(j);
         assert(f);
-
-        (void) sd_journal_set_data_threshold(j, 0);
 
         if (FLAGS_SET(flags, OUTPUT_COLOR)) {
                 const void *data;
