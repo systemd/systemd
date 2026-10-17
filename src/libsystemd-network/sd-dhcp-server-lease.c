@@ -79,6 +79,17 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         if (r < 0)
                 return r;
 
+        /* The callers have already checked that the static address is not assigned to another host. Hence,
+         * if a bound lease for the static address with another client ID exists, it was acquired by the
+         * same host before it changed its client ID. Drop it, as the address is now assigned with the new
+         * client ID. */
+        if (req->static_lease) {
+                sd_dhcp_server_lease *old =
+                        hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(req->address));
+                if (old && client_id_compare_func(&old->client_id, &req->client_id) != 0)
+                        sd_dhcp_server_lease_unref(old);
+        }
+
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease =
                 hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         if (lease) {
