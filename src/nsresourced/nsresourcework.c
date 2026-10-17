@@ -1538,16 +1538,6 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         lock_fd = safe_close(lock_fd);
 
-        /* Send user namespace and process fd to our manager process, which will watch the process and user namespace */
-        r = sd_pid_notifyf_with_fds(
-                        /* pid= */ 0,
-                        /* unset_environment= */ false,
-                        &userns_fd, 1,
-                        "FDSTORE=1\n"
-                        "FDNAME=userns-" INO_FMT "\n", userns_info->userns_inode);
-        if (r < 0)
-                goto fail;
-
         /* Note, we'll not return UID values from the host, since the child might not run in the same
          * user namespace as us. If they want to know the ranges they should read them off the userns fd, so
          * that they are translated into their PoV */
@@ -1745,16 +1735,6 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 goto fail;
 
-        /* Send user namespace and process fd to our manager process, which will watch the process and user namespace */
-        r = sd_pid_notifyf_with_fds(
-                        /* pid= */ 0,
-                        /* unset_environment= */ false,
-                        &userns_fd, 1,
-                        "FDSTORE=1\n"
-                        "FDNAME=userns-" INO_FMT "\n", userns_info->userns_inode);
-        if (r < 0)
-                goto fail;
-
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_info->name));
 
 fail:
@@ -1870,20 +1850,10 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         return r;
         }
 
-        /* Pin the mount fd */
-        r = sd_pid_notifyf_with_fds(
-                        /* pid= */ 0,
-                        /* unset_environment= */ false,
-                        &mount_fd, 1,
-                        "FDSTORE=1\n"
-                        "FDNAME=userns-" INO_FMT "\n", userns_st.st_ino);
-        if (r < 0)
-                return r;
-
         /* There's no mount allowlist anymore: the BPF-LSM policy decides per operation whether the ID that
          * would be recorded on disk is a transient one, which needs no per-mount knowledge. We keep
-         * accepting and validating the call for the sake of older clients, and keep the mount pinned as
-         * before, but there is nothing left to allowlist. */
+         * accepting and validating the call for the sake of older clients, but there is nothing left to
+         * allowlist. */
 
         if (DEBUG_LOGGING) {
                 if (userns_info->size > 0)
