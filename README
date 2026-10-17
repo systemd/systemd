@@ -69,7 +69,8 @@ REQUIREMENTS:
            still function, but upstream support and testing are limited.
 
         Linux kernel ≥ 5.15 for MPOL_PREFERRED_MANY NUMA policy
-                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL, F_SEAL_EXEC, and tmpfs noswap option
+                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL, F_SEAL_EXEC, tmpfs noswap option,
+                               and nsfs ioctls from 32-bit userspace on 64-bit kernels
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
