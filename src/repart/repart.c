@@ -3202,7 +3202,7 @@ static int partition_read_definition(
 
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "SizeMinBytes= larger than SizeMaxBytes=, refusing.");
+                                  "SizeMinBytes= larger than SizeMaxBytes= after rounding to a multiple of 4096 bytes, refusing.");
 
         if (p->padding_min != UINT64_MAX && p->padding_max != UINT64_MAX && p->padding_min > p->padding_max)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
