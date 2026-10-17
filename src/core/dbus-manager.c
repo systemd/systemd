@@ -49,6 +49,7 @@
 #include "taint.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "version.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -1689,8 +1690,12 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message_dbus);
-        assert(!m->pending_reload_message_vl);
+        /* A reply still pending here belongs to a reload that has already run (the manager loop
+         * exits to perform the reload before it dispatches another request), but whose reply was not
+         * sent yet. Send it now instead of tripping over it. */
+        bus_send_pending_reload_message(m);
+        manager_varlink_send_pending_reload_message(m);
+
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;

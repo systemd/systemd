@@ -10,6 +10,7 @@
 #include "bus-error.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
+#include "dbus.h"
 #include "errno-util.h"
 #include "glyph-util.h"
 #include "json-util.h"
@@ -24,6 +25,7 @@
 #include "taint.h"
 #include "version.h"
 #include "varlink-common.h"
+#include "varlink.h"
 #include "varlink-manager.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -278,8 +280,10 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Instead of sending the reply back right away, we just remember that we need to and then send it
          * after the reload is finished. That way the caller knows when the reload finished. */
 
-        assert(!manager->pending_reload_message_vl);
-        assert(!manager->pending_reload_message_dbus);
+        /* See method_reload(): a reply still pending here belongs to a reload that has already run. */
+        manager_varlink_send_pending_reload_message(manager);
+        bus_send_pending_reload_message(manager);
+
         manager->pending_reload_message_vl = sd_varlink_ref(link);
 
         manager->objective = MANAGER_RELOAD;
