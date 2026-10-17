@@ -11,6 +11,21 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * dm-verity signatures of disk images are now only required if the
+          image policy allows "signed" but not "verity" for the partition,
+          such as RootImagePolicy=root=signed. With the default policies, an
+          image whose signature is missing, malformed or can't be validated
+          is set up with Verity alone. Portable services attached from
+          signed images now pin "verity+signed" instead of "signed", so the
+          service starts even if the host doesn't trust the signing key.
+          Images attached with earlier versions keep the old policy until
+          they are reattached. systemd-veritysetup no longer fails if
+          root-hash-signature=auto finds no signature, and gained a
+          root-hash-signature-required option, which
+          systemd-gpt-auto-generator passes if systemd.image_policy=
+          requires a signature. systemd-mountfsd only shares Verity devices
+          for trusted images.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
