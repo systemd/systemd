@@ -87,6 +87,15 @@ CHANGES WITH 263 in spe:
           this is mostly useful where the value of PCR 11 in the initrd is
           predictable.
 
+        Changes in sd-varlink and varlinkctl:
+
+        * New optional varlink-sftp-root.socket and varlink-sftp-root-ro.socket
+          units expose the local file system via SFTP over an upgraded Varlink
+          connection, read-write and read-only respectively. They are built
+          only with -Dvarlink-sftp=true, and are disabled by default. Note
+          that both run as root so allowing access is equivalent to r/w root
+          access or r/o /etc/shadow access.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
