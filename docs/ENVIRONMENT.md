@@ -928,3 +928,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   notification carries no list of updated resources. This is useful to
   unconditionally trigger follow-up work such as relinking a kernel or
   recomputing a TPM policy.
+
+`systemd-report-geoip`:
+
+* `$SYSTEMD_REPORT_GEOIP_ENDPOINT` – takes an HTTP endpoint
+  URL. Overrides the GeoIP endpoint to use.
