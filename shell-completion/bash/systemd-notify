@@ -1,0 +1,83 @@
+# shellcheck shell=bash
+# systemd-notify(1) completion                    -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_systemd_notify() {
+    local cur prev words cword split
+    local i mode=notify do_exec=false after_separator=false parse_options=true
+    local OPTS='-h --help --version --ready --reloading --stopping --pid= --uid= --status=
+                --booted --no-block --exec --fd= --fdname= --fdstore-wipe --fork -q --quiet'
+
+    _init_completion -s || return
+
+    for ((i=1; i <= cword; i++)); do
+        if $parse_options; then
+            case ${words[i]} in
+                --)
+                    ((i < cword)) && parse_options=false
+                    continue
+                    ;;
+                --uid|--status|--fd|--fdname)
+                    ((i++))
+                    continue
+                    ;;
+                --fork|--booted)
+                    mode=${words[i]#--}
+                    continue
+                    ;;
+                --exec)
+                    do_exec=true
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+            esac
+        fi
+
+        if [[ $mode == fork ]] || $after_separator; then
+            _comp_command_offset "$i"
+            return
+        fi
+
+        if $do_exec; then
+            case ${words[i]} in
+                ';'|'\;'|'";"'|"';'")
+                    after_separator=true
+                    ;;
+            esac
+        fi
+    done
+
+    $parse_options || return
+
+    case $prev in
+        --pid)
+            # Optional arguments must be joined to the option with '='.
+            if $split; then
+                _pids
+                _comp_compgen -a -- -W 'auto parent self'
+                return
+            fi
+            ;;
+        --uid)
+            _comp_compgen -- -u
+            return
+            ;;
+        --status|--fd|--fdname)
+            return
+            ;;
+    esac
+
+    if $split || [[ -n $cur && $cur != -* ]]; then
+        return
+    fi
+
+    _comp_compgen -- -W "$OPTS"
+    if [[ ${#COMPREPLY[@]} -eq 1 && ${COMPREPLY[0]} == *= ]]; then
+        compopt -o nospace
+    fi
+    return 0
+}
+
+complete -F _systemd_notify systemd-notify

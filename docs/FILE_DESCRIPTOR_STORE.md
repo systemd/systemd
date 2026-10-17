@@ -132,7 +132,8 @@ The `systemctl clean --what=fdstore …` command may be used to explicitly clear
 the fdstore of a service. This is only allowed when the service is fully
 deactivated, and is hence primarily useful in case
 `FileDescriptorStorePreserve=yes` is set (because the fdstore is otherwise
-fully closed anyway in this state).
+fully closed anyway in this state). It also removes copies of the stored file
+descriptors propagated to enclosing service managers.
 
 Individual file descriptors may be removed from the fdstore via the
 `sd_notify()` mechanism, by sending an `FDSTOREREMOVE=1` message, accompanied
@@ -143,6 +144,12 @@ manager during initialization of the service whenever an unrecognized fd is
 received, to make the service robust for code updates: if an old version
 uploaded an fd that the new version doesn't recognize anymore it's a good idea to
 close it both in the service and in the fdstore.
+
+The service may also remove all file descriptors from its fdstore by sending
+`FDSTOREWIPE=1` via `sd_notify()`, without specifying any names. This is similar
+to calling the `CleanUnit()` D-Bus method with `fdstore` as parameter, but unlike
+that method it may be used while the service is running. Both operations also
+remove copies propagated to enclosing service managers.
 
 Note that storing a duplicate of an fd in the fdstore means the resource pinned
 by the fd remains pinned even if the service closes its duplicate of the

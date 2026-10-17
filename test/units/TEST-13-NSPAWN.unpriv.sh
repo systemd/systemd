@@ -342,6 +342,7 @@ run0 -u testuser mkdir -p .config/systemd/nspawn/
 run0 -u testuser -i "cat >.config/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
 KillSignal=SIGTERM
+NotifyReady=yes
 EOF"
 
 run0 -u testuser mkdir -p ".config/systemd/user/systemd-nspawn@fdstore.service.d/"
@@ -349,6 +350,8 @@ run0 -u testuser -i "cat >.config/systemd/user/systemd-nspawn@fdstore.service.d/
 [Service]
 FileDescriptorStoreMax=8
 FileDescriptorStorePreserve=on-success
+NotifyAccess=all
+ExecReload=/bin/sh -c 'exec systemd-notify --fd=3 --fdname=nspawn-only 3</dev/null'
 EOF"
 run0 -u testuser systemctl --user daemon-reload
 
@@ -366,6 +369,33 @@ timeout 30s bash -c \
     "until [[ \"\$(systemctl show -P NFileDescriptorStore user@${TESTUSER_UID}.service)\" -ge 2 ]]; do sleep 0.5; done"
 n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
 test "${n_user_at_fds}" -ge 2
+
+# user@ collects all user units' stores. Both units deliberately use the same FDNAME, so cleaning
+# one must remove only its indexed upstream copies, preserving the other unit's entries in user@.
+for name in clean keep; do
+    run0 -u testuser sh -c 'echo "$1" >"/home/testuser/fdstore-$1"' sh "$name"
+    run0 -u testuser systemd-run --user --wait --unit="fdstore-$name.service" \
+        -p Type=oneshot -p FileDescriptorStoreMax=1 -p FileDescriptorStorePreserve=yes \
+        /bin/sh -c 'exec systemd-notify --fd=3 --fdname=stored 3<"$1"' sh "/home/testuser/fdstore-$name"
+    assert_eq "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore "fdstore-$name.service")" 1
+    timeout 30s bash -c \
+        'until systemd-analyze fdstore "$1" --json=short | jq -e --arg path "$2" "any(.[]; .path == \$path)"; do sleep 0.5; done' \
+        _ "user@${TESTUSER_UID}.service" "/home/testuser/fdstore-$name"
+done
+
+for name in clean keep; do
+    run0 -u testuser systemctl --user clean "fdstore-$name.service" --what=fdstore
+    timeout 30s bash -c \
+        'until systemd-analyze fdstore "$1" --json=short | jq -e --arg path "$2" "all(.[]; .path != \$path)"; do sleep 0.5; done' \
+        _ "user@${TESTUSER_UID}.service" "/home/testuser/fdstore-$name"
+
+    if [[ "$name" == clean ]]; then
+        assert_eq "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore fdstore-keep.service)" 1
+        systemd-analyze fdstore "user@${TESTUSER_UID}.service" --json=short |
+            jq -e 'any(.[]; .path == "/home/testuser/fdstore-keep")'
+    fi
+done
+run0 -u testuser rm /home/testuser/fdstore-clean /home/testuser/fdstore-keep
 
 # 3) Stop the nspawn service: payload is gone but FileDescriptorStorePreserve=on-success
 # must keep the fds in the user-side fdstore (and propagated copy in PID 1).
@@ -392,6 +422,37 @@ timeout 30s bash -c \
     "until systemctl is-active 'user@${TESTUSER_UID}.service' >/dev/null; do sleep 0.5; done"
 run0 -u testuser systemctl --user start systemd-nspawn@fdstore.service
 run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
+
+# A payload wipe must remove restored and newly forwarded descriptors without removing unrelated entries.
+run0 -u testuser systemctl --user reload systemd-nspawn@fdstore.service
+assert_eq "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)" 3
+
+timeout 30s bash -o pipefail -c \
+    'until systemd-analyze fdstore "$1" --json=short | jq -e "[.[].path] | contains([\"/memfd:test-fd-a (deleted)\", \"/memfd:test-fd-b (deleted)\"])"; do sleep 0.5; done' \
+    _ "user@${TESTUSER_UID}.service"
+
+for commands in "check wipe" "store wipe" "wipe"; do
+    cat >/home/testuser/.local/state/machines/fdstore/sbin/init <<EOF
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore $commands
+EOF
+    run0 -u testuser systemctl --user restart systemd-nspawn@fdstore.service
+    timeout 30s bash -c \
+        'until [[ "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)" -eq 1 ]]; do sleep 0.5; done'
+    run0 -u testuser systemd-analyze --user fdstore systemd-nspawn@fdstore.service --json=short |
+        jq -e 'length == 1 and .[0].fdname == "nspawn-only"'
+    timeout 30s bash -o pipefail -c \
+        'until systemd-analyze fdstore "$1" --json=short | jq -e "all(.[]; .path != \"/memfd:test-fd-a (deleted)\" and .path != \"/memfd:test-fd-b (deleted)\")"; do sleep 0.5; done' \
+        _ "user@${TESTUSER_UID}.service"
+done
+
+cat >/home/testuser/.local/state/machines/fdstore/sbin/init <<'EOF'
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore store
+EOF
+run0 -u testuser systemctl --user restart systemd-nspawn@fdstore.service
 
 # 7) Failure case: with FileDescriptorStorePreserve=on-success, the fdstore must
 # be dropped once the unit enters the permanent failed state (i.e. once all
