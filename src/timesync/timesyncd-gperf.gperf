@@ -29,3 +29,4 @@ Time.PollIntervalMinSec,             config_parse_sec,     0,               offs
 Time.PollIntervalMaxSec,             config_parse_sec,     0,               offsetof(Manager, poll_interval_max_usec)
 Time.ConnectionRetrySec,             config_parse_sec,     0,               offsetof(Manager, connection_retry_usec)
 Time.SaveIntervalSec,                config_parse_sec,     0,               offsetof(Manager, save_time_interval_usec)
+Time.MaxClockChangeSec,              config_parse_sec,     0,               offsetof(Manager, max_clock_change_usec)
