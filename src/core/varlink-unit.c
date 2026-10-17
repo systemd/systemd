@@ -654,6 +654,7 @@ void varlink_job_send_removed_signal(Job *j) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
+static DEFINE_VARLINK_APPLY_ENUM(collect_mode, CollectMode, collect_mode_to_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
 
 typedef struct StartTransientContextParameters {
@@ -836,10 +837,8 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
         }
 
-        if (p->collect_mode >= 0) {
-                u->collect_mode = p->collect_mode;
-                unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
-        }
+        varlink_apply_enum_collect_mode(u, "CollectMode", &u->collect_mode, p->collect_mode,
+                                        /* refuse= */ NULL, UNIT_RUNTIME);
 
         for (UnitDependency dep_type = 0; dep_type < _UNIT_DEPENDENCY_MAX; dep_type++) {
                 if (!unit_dependency_can_be_transient(dep_type))

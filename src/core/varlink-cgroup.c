@@ -14,7 +14,6 @@
 #include "percent-util.h"
 #include "set.h"
 #include "special.h"
-#include "string-util.h"
 #include "time-util.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
@@ -708,64 +707,37 @@ static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextP
         return 0;
 }
 
-static int apply_cgroup_cpu_quota_per_sec_usec(
-                Unit *u,
-                CGroupContext *c,
-                TransientCGroupContextParameters *p) {
-
-        assert(u);
-        assert(c);
+static int apply_cpu_quota(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert(name);
         assert(p);
 
-        if (!p->cpu_quota_per_sec_usec_set)
-                return 0;
+        if (value == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s= value out of range.", name);
 
-        usec_t v = p->cpu_quota_per_sec_usec;
-        if (v <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "CPUQuotaPerSecUSec= value out of range.");
-
-        c->cpu_quota_per_sec_usec = v;
+        *p = value;
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt)
                 crt->warned_clamping_cpu_quota_period = false;
-        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
-        if (v == USEC_INFINITY)
-                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuota", "CPUQuota=");
+        if (value == USEC_INFINITY)
+                unit_write_settingf(u, flags, name, "%s=", name);
         else
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuota",
-                                    "CPUQuota=" USEC_FMT ".%02" PRI_USEC "%%",
-                                    v / 10000, (v % 10000) / 100);
-
-        return 0;
+                unit_write_settingf(u, flags, name, "%s=" USEC_FMT ".%02" PRI_USEC "%%",
+                                    name, value / 10000, (value % 10000) / 100);
+        return 1;
 }
 
-static int apply_cgroup_cpu_quota_period_usec(
-                Unit *u,
-                CGroupContext *c,
-                TransientCGroupContextParameters *p) {
+static int apply_cpu_quota_period(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        int r;
 
-        assert(u);
-        assert(c);
-        assert(p);
+        r = varlink_apply_usec_empty_on_infinity(u, name, p, value, flags);
+        if (r > 0) {
+                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                if (crt)
+                        crt->warned_clamping_cpu_quota_period = false;
+        }
 
-        if (!p->cpu_quota_period_usec_set)
-                return 0;
-
-        c->cpu_quota_period_usec = p->cpu_quota_period_usec;
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (crt)
-                crt->warned_clamping_cpu_quota_period = false;
-        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
-
-        if (c->cpu_quota_period_usec == USEC_INFINITY)
-                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
-        else
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CPUQuotaPeriodSec",
-                                    "CPUQuotaPeriodSec=%s",
-                                    FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1));
-
-        return 0;
+        return r;
 }
 
 static int apply_cgroup_tasks_max(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
@@ -779,16 +751,13 @@ static int apply_cgroup_tasks_max(Unit *u, CGroupContext *c, TransientCGroupCont
                 return 0;
 
         if (p->tasks_max.scale == 0) {
-                if (p->tasks_max.value < 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TasksMax= value out of range.");
+                int r = varlink_apply_uint64_limit(u, "TasksMax", &c->tasks_max.value, p->tasks_max.value,
+                                                  /* minimum= */ 1, UNIT_RUNTIME|UNIT_PRIVATE);
+                if (r < 0)
+                        return r;
 
-                c->tasks_max = p->tasks_max;
+                c->tasks_max.scale = 0;
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
-
-                if (p->tasks_max.value == CGROUP_LIMIT_MAX)
-                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=infinity");
-                else
-                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "TasksMax", "TasksMax=%" PRIu64, p->tasks_max.value);
 
                 return 0;
         }
@@ -848,201 +817,162 @@ static int apply_cgroup_tasks_max_scale(Unit *u, CGroupContext *c, TransientCGro
         return 0;
 }
 
-/* Weight apply fn; CPU weights additionally accept "idle" (= 0), matching the D-Bus setters. */
-#define DEFINE_APPLY_CGROUP_WEIGHT(field, JsonName, mask, allow_idle)                                      \
-        static int apply_cgroup_##field(                                                                   \
-                        Unit *u,                                                                           \
-                        CGroupContext *c,                                                                  \
-                        TransientCGroupContextParameters *p) {                                             \
-                                                                                                           \
-                uint64_t v;                                                                                \
-                                                                                                           \
-                assert(u);                                                                                 \
-                assert(c);                                                                                 \
-                assert(p);                                                                                 \
-                                                                                                           \
-                if (!p->field##_set)                                                                       \
-                        return 0;                                                                          \
-                                                                                                           \
-                v = p->field;                                                                              \
-                if (!CGROUP_WEIGHT_IS_OK(v) && !(allow_idle && v == CGROUP_WEIGHT_IDLE))                   \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), JsonName "= value out of range."); \
-                                                                                                           \
-                c->field = v;                                                                              \
-                unit_invalidate_cgroup(u, mask);                                                           \
-                                                                                                           \
-                if (v == CGROUP_WEIGHT_INVALID)                                                            \
-                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, JsonName "=");          \
-                else if (v == CGROUP_WEIGHT_IDLE)                                                          \
-                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, JsonName "=idle");      \
-                else                                                                                       \
-                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName,                        \
-                                            JsonName "=%" PRIu64, v);                                      \
-                                                                                                           \
-                return 0;                                                                                  \
+static int apply_weight(Unit *u, const char *name, uint64_t *p, uint64_t value, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        if (!CGROUP_WEIGHT_IS_OK(value))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s= value out of range.", name);
+
+        *p = value;
+        if (value == CGROUP_WEIGHT_INVALID)
+                unit_write_settingf(u, flags, name, "%s=", name);
+        else
+                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, value);
+        return 1;
+}
+
+/* CPU weights additionally accept "idle" (= 0), matching the D-Bus setters. */
+static int apply_weight_idle(Unit *u, const char *name, uint64_t *p, uint64_t value, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        if (value == CGROUP_WEIGHT_IDLE) {
+                *p = value;
+                unit_write_settingf(u, flags, name, "%s=idle", name);
+                return 1;
         }
 
-DEFINE_APPLY_CGROUP_WEIGHT(cpu_weight,         "CPUWeight",        CGROUP_MASK_CPU, /* allow_idle= */ true);
-DEFINE_APPLY_CGROUP_WEIGHT(startup_cpu_weight, "StartupCPUWeight", CGROUP_MASK_CPU, /* allow_idle= */ true);
-DEFINE_APPLY_CGROUP_WEIGHT(io_weight,          "IOWeight",         CGROUP_MASK_IO,  /* allow_idle= */ false);
-DEFINE_APPLY_CGROUP_WEIGHT(startup_io_weight,  "StartupIOWeight",  CGROUP_MASK_IO,  /* allow_idle= */ false);
+        return apply_weight(u, name, p, value, flags);
+}
 
-/* Memory limit apply fn; minimum mirrors the D-Bus bound (1 for MemoryHigh/MemoryMax, 0 else).
- * The bound goes through a local because comparing a uint64_t against a literal 0 trips
- * -Wtype-limits. */
-#define DEFINE_APPLY_CGROUP_LIMIT(field, JsonName, mask, minimum)                                          \
-        static int apply_cgroup_##field(                                                                   \
-                        Unit *u,                                                                           \
-                        CGroupContext *c,                                                                  \
-                        TransientCGroupContextParameters *p) {                                             \
-                                                                                                           \
-                uint64_t v, min = minimum;                                                                 \
-                                                                                                           \
-                assert(u);                                                                                 \
-                assert(c);                                                                                 \
-                assert(p);                                                                                 \
-                                                                                                           \
-                if (!p->field##_set)                                                                       \
-                        return 0;                                                                          \
-                                                                                                           \
-                v = p->field;                                                                              \
-                if (v < min)                                                                               \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), JsonName "= value out of range."); \
-                                                                                                           \
-                c->field = v;                                                                              \
-                unit_invalidate_cgroup(u, mask);                                                           \
-                                                                                                           \
-                if (v == CGROUP_LIMIT_MAX)                                                                 \
-                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, JsonName "=infinity");  \
-                else                                                                                       \
-                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName,                        \
-                                            JsonName "=%" PRIu64, v);                                      \
-                                                                                                           \
-                return 0;                                                                                  \
+#define DEFINE_APPLY_CGROUP(field, JsonName, mask, apply_fn, ...)                                  \
+        int apply_cgroup_##field(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) { \
+                assert(c);                                                                         \
+                assert(p);                                                                         \
+                                                                                                   \
+                int r;                                                                             \
+                r = (apply_fn)(u, (JsonName), &c->field, p->field,                                 \
+                               __VA_ARGS__ __VA_OPT__(,) UNIT_RUNTIME|UNIT_PRIVATE);               \
+                if (r > 0)                                                                         \
+                        unit_invalidate_cgroup(u, (mask));                                         \
+                                                                                                   \
+                return r;                                                                          \
         }
 
-DEFINE_APPLY_CGROUP_LIMIT(memory_min,       "MemoryMin",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT(memory_low,       "MemoryLow",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT(memory_high,      "MemoryHigh",     CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT(memory_max,       "MemoryMax",      CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT(memory_swap_max,  "MemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT(memory_zswap_max, "MemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
+#define DEFINE_APPLY_CGROUP_SET(field, JsonName, mask, apply_fn, ...)                              \
+        int apply_cgroup_##field(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) { \
+                assert(c);                                                                         \
+                assert(p);                                                                         \
+                                                                                                   \
+                if (!p->field##_set)                                                               \
+                        return 0;                                                                  \
+                                                                                                   \
+                int r;                                                                             \
+                r = (apply_fn)(u, (JsonName), &c->field, p->field,                                 \
+                               __VA_ARGS__ __VA_OPT__(,) UNIT_RUNTIME|UNIT_PRIVATE);               \
+                if (r > 0)                                                                         \
+                        unit_invalidate_cgroup(u, (mask));                                         \
+                                                                                                   \
+                return r;                                                                          \
+        }
+
+static DEFINE_APPLY_CGROUP_SET(cpu_weight,             "CPUWeight",         CGROUP_MASK_CPU,    apply_weight_idle);
+static DEFINE_APPLY_CGROUP_SET(startup_cpu_weight,     "StartupCPUWeight",  CGROUP_MASK_CPU,    apply_weight_idle);
+static DEFINE_APPLY_CGROUP_SET(cpu_quota_per_sec_usec, "CPUQuota",          CGROUP_MASK_CPU,    apply_cpu_quota);
+static DEFINE_APPLY_CGROUP_SET(cpu_quota_period_usec,  "CPUQuotaPeriodSec", CGROUP_MASK_CPU,    apply_cpu_quota_period);
+static DEFINE_APPLY_CGROUP_SET(io_weight,              "IOWeight",          CGROUP_MASK_IO,     apply_weight);
+static DEFINE_APPLY_CGROUP_SET(startup_io_weight,      "StartupIOWeight",   CGROUP_MASK_IO,     apply_weight);
+static DEFINE_APPLY_CGROUP_SET(memory_min,             "MemoryMin",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_low,             "MemoryLow",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_high,            "MemoryHigh",        CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_SET(memory_max,             "MemoryMax",         CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_SET(memory_swap_max,        "MemorySwapMax",     CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_SET(memory_zswap_max,       "MemoryZSwapMax",    CGROUP_MASK_MEMORY, varlink_apply_uint64_limit, /* minimum= */ 0);
 
 /* Relative memory limit: converted to absolute bytes via physical_memory_scale() like the D-Bus
  * *Scale properties, and written as permyriad percent (which the unit-file parser round-trips). */
-#define DEFINE_APPLY_CGROUP_LIMIT_SCALE(field, JsonName, mask, minimum)                                         \
-        static int apply_cgroup_##field##_scale(                                                                \
-                        Unit *u,                                                                                \
-                        CGroupContext *c,                                                                       \
-                        TransientCGroupContextParameters *p) {                                                  \
-                                                                                                                \
-                uint64_t v, min = minimum;                                                                      \
-                int permyriad;                                                                                  \
-                                                                                                                \
-                assert(u);                                                                                      \
-                assert(c);                                                                                      \
-                assert(p);                                                                                      \
-                                                                                                                \
-                if (!p->field##_scale_set)                                                                      \
-                        return 0;                                                                               \
-                                                                                                                \
-                if (p->field##_set)                                                                             \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),                                         \
-                                               JsonName "= and " JsonName "Scale= may not be combined.");       \
-                                                                                                                \
-                permyriad = DOUBLE_SCALE_TO_PERMYRIAD(p->field##_scale);                                        \
-                if (permyriad < 0)                                                                              \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), JsonName "Scale= value out of range."); \
-                                                                                                                \
-                v = physical_memory_scale(permyriad, 10000);                                                    \
-                if (v < min || v == UINT64_MAX)                                                                 \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), JsonName "Scale= value out of range."); \
-                                                                                                                \
-                c->field = v;                                                                                   \
-                unit_invalidate_cgroup(u, mask);                                                                \
-                                                                                                                \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName,                                     \
-                                    JsonName "=" PERMYRIAD_AS_PERCENT_FORMAT_STR,                               \
-                                    PERMYRIAD_AS_PERCENT_FORMAT_VAL(permyriad));                                \
-                                                                                                                \
-                return 0;                                                                                       \
-        }
+static int apply_limit_scale(Unit *u, const char *name, uint64_t *p, double value, uint64_t minimum, UnitWriteFlags flags) {
+        uint64_t v;
+        int permyriad;
 
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_min,       "MemoryMin",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_low,       "MemoryLow",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_high,      "MemoryHigh",     CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_max,       "MemoryMax",      CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_swap_max,  "MemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_zswap_max, "MemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
+        assert(name);
+        assert(p);
 
-/* Startup* limits additionally flip the context's <field>_set flag, which gates both the read-side
- * JSON and the STARTUP_MASK fallback logic — mirrors the D-Bus streq branches. */
-#define DEFINE_APPLY_CGROUP_LIMIT_STARTUP(field, JsonName, mask, minimum)                                  \
-        static int apply_cgroup_##field(                                                                   \
-                        Unit *u,                                                                           \
-                        CGroupContext *c,                                                                  \
-                        TransientCGroupContextParameters *p) {                                             \
-                                                                                                           \
-                uint64_t v, min = minimum;                                                                 \
-                                                                                                           \
-                assert(u);                                                                                 \
+        permyriad = DOUBLE_SCALE_TO_PERMYRIAD(value);
+        if (permyriad < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%sScale= value out of range.", name);
+
+        v = physical_memory_scale(permyriad, 10000);
+        if (v < minimum || v == UINT64_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%sScale= value out of range.", name);
+
+        *p = v;
+        unit_write_settingf(u, flags, name, "%s=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                            name, PERMYRIAD_AS_PERCENT_FORMAT_VAL(permyriad));
+        return 1;
+}
+
+#define DEFINE_APPLY_CGROUP_LIMIT_SCALE(field, JsonName, mask, minimum)                                    \
+        int apply_cgroup_##field##_scale(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) { \
                 assert(c);                                                                                 \
                 assert(p);                                                                                 \
                                                                                                            \
-                if (!p->field##_set)                                                                       \
+                if (!p->field##_scale_set)                                                                 \
                         return 0;                                                                          \
                                                                                                            \
-                v = p->field;                                                                              \
-                if (v < min)                                                                               \
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), JsonName "= value out of range."); \
+                if (p->field##_set)                                                                        \
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),                                    \
+                                               JsonName "= and " JsonName "Scale= may not be combined.");  \
                                                                                                            \
-                c->field = v;                                                                              \
-                c->field##_set = true;                                                                     \
-                unit_invalidate_cgroup(u, mask);                                                           \
+                int r;                                                                                     \
+                r = apply_limit_scale(u, (JsonName), &c->field, p->field##_scale,                          \
+                                      (minimum), UNIT_RUNTIME|UNIT_PRIVATE);                               \
+                if (r > 0)                                                                                 \
+                        unit_invalidate_cgroup(u, (mask));                                                 \
                                                                                                            \
-                if (v == CGROUP_LIMIT_MAX)                                                                 \
-                        unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, JsonName "=infinity");  \
-                else                                                                                       \
-                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName,                        \
-                                            JsonName "=%" PRIu64, v);                                      \
-                                                                                                           \
-                return 0;                                                                                  \
+                return r;                                                                                  \
         }
 
-DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_low,       "StartupMemoryLow",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_high,      "StartupMemoryHigh",     CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_max,       "StartupMemoryMax",      CGROUP_MASK_MEMORY, /* minimum= */ 1);
-DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_swap_max,  "StartupMemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
-DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_zswap_max, "StartupMemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_min,       "MemoryMin",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_low,       "MemoryLow",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_high,      "MemoryHigh",     CGROUP_MASK_MEMORY, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_max,       "MemoryMax",      CGROUP_MASK_MEMORY, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_swap_max,  "MemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_SCALE(memory_zswap_max, "MemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
 
-/* Generate an apply fn for a cgroup accounting tristate bool. Same shape as
- * DEFINE_APPLY_EXEC_TRISTATE_BOOL in varlink-unit.c, plus the cgroup mask invalidation. */
-#define DEFINE_APPLY_CGROUP_TRISTATE_BOOL(field, JsonName, mask)            \
-        static int apply_cgroup_##field(                                    \
-                        Unit *u,                                            \
-                        CGroupContext *c,                                   \
-                        TransientCGroupContextParameters *p) {              \
-                                                                            \
-                assert(u);                                                  \
-                assert(c);                                                  \
-                assert(p);                                                  \
-                                                                            \
-                if (p->field < 0)                                           \
-                        return 0;                                           \
-                                                                            \
-                c->field = p->field;                                        \
-                unit_invalidate_cgroup(u, mask);                            \
-                                                                            \
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
-                                    JsonName "=%s", yes_no(p->field));      \
-                                                                            \
-                return 0;                                                   \
+/* Startup* limits additionally flip the context's <field>_set flag, which gates both the read-side
+ * JSON and the STARTUP_MASK fallback logic — mirrors the D-Bus streq branches. */
+#define DEFINE_APPLY_CGROUP_LIMIT_STARTUP(field, JsonName, mask, minimum)                          \
+        int apply_cgroup_##field(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) { \
+                assert(c);                                                                         \
+                assert(p);                                                                         \
+                                                                                                   \
+                if (!p->field##_set)                                                               \
+                        return 0;                                                                  \
+                                                                                                   \
+                int r;                                                                             \
+                r = varlink_apply_uint64_limit(u, (JsonName), &c->field, p->field,                 \
+                                              (minimum), UNIT_RUNTIME|UNIT_PRIVATE);               \
+                if (r > 0) {                                                                       \
+                        c->field##_set = true;                                                     \
+                        unit_invalidate_cgroup(u, (mask));                                         \
+                }                                                                                  \
+                                                                                                   \
+                return r;                                                                          \
         }
 
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS);
-DEFINE_APPLY_CGROUP_TRISTATE_BOOL(io_accounting,          "IOAccounting",         CGROUP_MASK_IO);
+static DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_low,       "StartupMemoryLow",      CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_high,      "StartupMemoryHigh",     CGROUP_MASK_MEMORY, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_max,       "StartupMemoryMax",      CGROUP_MASK_MEMORY, /* minimum= */ 1);
+static DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_swap_max,  "StartupMemorySwapMax",  CGROUP_MASK_MEMORY, /* minimum= */ 0);
+static DEFINE_APPLY_CGROUP_LIMIT_STARTUP(startup_memory_zswap_max, "StartupMemoryZSwapMax", CGROUP_MASK_MEMORY, /* minimum= */ 0);
+
+/* Accounting changes also require the affected controller to be reapplied. */
+static DEFINE_APPLY_CGROUP(memory_accounting,      "MemoryAccounting",     CGROUP_MASK_MEMORY, varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(memory_zswap_writeback, "MemoryZSwapWriteback", CGROUP_MASK_MEMORY, varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS,   varlink_apply_tristate_bool);
+static DEFINE_APPLY_CGROUP(io_accounting,          "IOAccounting",         CGROUP_MASK_IO,     varlink_apply_tristate_bool);
 
 /* Parse wrapper flipping <field>_set, as DEFINE_TRANSIENT_EXEC_SETTABLE in varlink-unit.c. An
  * explicit null is treated as absent (the IDL fields are nullable, and the output side emits null
