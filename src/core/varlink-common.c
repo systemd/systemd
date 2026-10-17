@@ -7,9 +7,14 @@
 #include "cpu-set-util.h"
 #include "execute.h"
 #include "json-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "unit.h"
 #include "varlink-common.h"
 #include "varlink-unit.h"
 
@@ -218,4 +223,106 @@ int exec_command_status_list_build_json(sd_json_variant **ret, const char *name,
 
         *ret = TAKE_PTR(v);
         return 0;
+}
+
+int varlink_apply_tristate_bool(Unit *u, const char *name, bool *p, int value, UnitWriteFlags flags) {
+        assert(u);
+        assert(name);
+        assert(p);
+
+        if (value < 0)
+                return 0;
+
+        *p = value;
+        unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(value));
+        return 1;
+}
+
+int varlink_apply_string(Unit *u, const char *name, char **p, const char *value, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        if (!value)
+                return 0;
+
+        int r;
+        r = free_and_strdup(p, value);
+        if (r < 0)
+                return r;
+
+        unit_write_settingf(u, flags, name, "%s=%s", name, *p);
+        return 1;
+}
+
+int varlink_apply_string_escaped(Unit *u, const char *name, char **p, const char *value, UnitWriteFlags flags) {
+        return varlink_apply_string(u, name, p, value, flags|UNIT_ESCAPE_SPECIFIERS);
+}
+
+int varlink_apply_absolute_path(Unit *u, const char *name, char **p, const char *value, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        if (!value)
+                return 0;
+
+        if (!path_is_absolute(value))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s: expects an absolute path", name);
+
+        return varlink_apply_string_escaped(u, name, p, value, flags);
+}
+
+int varlink_apply_strv(Unit *u, const char *name, char ***p, char **value, UnitWriteFlags flags) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(name);
+        assert(p);
+
+        if (!value)
+                return 0;
+
+        if (strv_isempty(value)) {
+                *p = strv_free(*p);
+                unit_write_settingf(u, flags, name, "%s=", name);
+                return 1;
+        }
+
+        r = strv_extend_strv(p, value, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        joined = strv_join(*p, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        unit_write_settingf(u, flags, name, "%s=%s", name, joined);
+        return 1;
+}
+
+int varlink_apply_strv_escaped(Unit *u, const char *name, char ***p, char **value, UnitWriteFlags flags) {
+        return varlink_apply_strv(u, name, p, value, flags|UNIT_ESCAPE_SPECIFIERS);
+}
+
+int varlink_apply_uint64_limit(Unit *u, const char *name, uint64_t *p, uint64_t value, uint64_t minimum, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        if (value < minimum)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s= value out of range.", name);
+
+        *p = value;
+        if (value == UINT64_MAX)
+                unit_write_settingf(u, flags, name, "%s=infinity", name);
+        else
+                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, value);
+        return 1;
+}
+
+int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert(name);
+        assert(p);
+
+        *p = value;
+        unit_write_settingf(u, flags, name, "%s=%s", name, value == USEC_INFINITY ? "" : FORMAT_TIMESPAN(value, 1));
+        return 1;
 }

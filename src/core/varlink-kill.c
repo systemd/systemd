@@ -7,6 +7,7 @@
 #include "kill.h"
 #include "signal-util.h"
 #include "unit.h"
+#include "varlink-common.h"
 #include "varlink-kill.h"
 
 /* Read side of the Kill context for List. */
@@ -40,6 +41,7 @@ struct TransientKillContextParameters {
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
+static DEFINE_VARLINK_APPLY_ENUM(kill_mode, KillMode, kill_mode_to_string);
 
 TransientKillContextParameters* transient_kill_context_parameters_free(TransientKillContextParameters *p) {
         return mfree(p);
@@ -83,15 +85,8 @@ int transient_kill_context_apply_properties(Unit *u, KillContext *k, TransientKi
         assert(k);
         assert(p);
 
-        if (p->kill_mode >= 0) {
-                k->kill_mode = p->kill_mode;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "KillMode", "KillMode=%s", kill_mode_to_string(p->kill_mode));
-        }
-
-        if (p->send_sighup >= 0) {
-                k->send_sighup = p->send_sighup;
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SendSIGHUP", "SendSIGHUP=%s", yes_no(p->send_sighup));
-        }
-
+        varlink_apply_enum_kill_mode(u, "KillMode", &k->kill_mode, p->kill_mode,
+                                     /* refuse= */ NULL, UNIT_RUNTIME|UNIT_PRIVATE);
+        varlink_apply_tristate_bool(u, "SendSIGHUP", &k->send_sighup, p->send_sighup, UNIT_RUNTIME|UNIT_PRIVATE);
         return 0;
 }
