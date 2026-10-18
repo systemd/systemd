@@ -136,9 +136,59 @@ run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=mana
 
 run0 -u testuser machinectl list-images -a --user
 
+# The same image in Docker's "Image Manifest V2, Schema 2" format, which uses different media types for the
+# same structures, this time with a configuration object
+cat >/var/tmp/pull-oci-test/dockerconfig.json <<EOF
+{"architecture":"amd64","os":"linux","config":{"Cmd":["/sbin/init"]},"rootfs":{"type":"layers","diff_ids":[]}}
+EOF
+DOCKERCONFIG_SHA256="$(sha256sum /var/tmp/pull-oci-test/dockerconfig.json | cut -d' ' -f1)"
+DOCKERCONFIG_SIZE="$(stat -c %s /var/tmp/pull-oci-test/dockerconfig.json)"
+
+mkdir -p /var/tmp/pull-oci-test/v2/ocidocker/manifests
+cat >/var/tmp/pull-oci-test/v2/ocidocker/manifests/latest <<EOF
+{
+        "schemaVersion":2,
+        "mediaType":"application/vnd.docker.distribution.manifest.v2+json",
+        "config":{
+                "mediaType" : "application/vnd.docker.container.image.v1+json",
+                "digest" : "sha256:$DOCKERCONFIG_SHA256",
+                "size" : $DOCKERCONFIG_SIZE
+        },
+        "layers":[
+                {
+                        "mediaType" : "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "digest" : "sha256:$OCIBASIC_SHA256",
+                        "size" : $OCIBASIC_SIZE
+                },
+                {
+                        "mediaType" : "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "digest" : "sha256:$OCILAYER_SHA256",
+                        "size" : $OCILAYER_SIZE
+                }
+        ]
+}
+EOF
+
+jq < /var/tmp/pull-oci-test/v2/ocidocker/manifests/latest
+
+mkdir /var/tmp/pull-oci-test/v2/ocidocker/blobs
+ln -s /var/tmp/pull-oci-test/dockerconfig.json /var/tmp/pull-oci-test/v2/ocidocker/blobs/sha256:"$DOCKERCONFIG_SHA256"
+ln -s /var/tmp/pull-oci-test/ocibasic.tar.gz /var/tmp/pull-oci-test/v2/ocidocker/blobs/sha256:"$OCIBASIC_SHA256"
+ln -s /var/tmp/pull-oci-test/ocilayer.tar.gz /var/tmp/pull-oci-test/v2/ocidocker/blobs/sha256:"$OCILAYER_SHA256"
+
+# Remove the layers left over from the ocicombo pull, so that they are actually downloaded again
+run0 -u testuser machinectl --user remove ocicombo
+run0 -u testuser machinectl --user remove .oci-sha256:"$OCIBASIC_SHA256"
+run0 -u testuser machinectl --user remove .oci-sha256:"$OCILAYER_SHA256"
+
+run0 -u testuser importctl -m --user pull-oci localfile/ocidocker:latest
+
+grep -Fx "Parameters=/sbin/init" /home/testuser/.local/state/machines/ocidocker.nspawn
+run0 -u testuser systemd-nspawn -q --pipe -M ocidocker | grep luftikus >/dev/null
+
 run0 -u testuser machinectl --user remove ocibasic
 run0 -u testuser machinectl --user remove ocilayer
-run0 -u testuser machinectl --user remove ocicombo
+run0 -u testuser machinectl --user remove ocidocker
 run0 -u testuser machinectl --user remove .oci-sha256:"$OCIBASIC_SHA256"
 run0 -u testuser machinectl --user remove .oci-sha256:"$OCILAYER_SHA256"
 
