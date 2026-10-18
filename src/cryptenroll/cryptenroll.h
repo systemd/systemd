@@ -140,3 +140,5 @@ int prepare_luks(const EnrollContext *c, struct crypt_device **ret_cd, struct io
  * was added to. For ENROLL_RECOVERY the generated key is returned via ret_recovery_key (if non-NULL).
  * Defined in cryptenroll.c, shared by the command line and Varlink code paths. */
 int enroll_now(const EnrollContext *c, struct crypt_device *cd, const struct iovec *volume_key, char **ret_recovery_key);
+
+int determine_default_node(char **ret_node);
