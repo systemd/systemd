@@ -3,6 +3,7 @@
 
 #include "forward.h"
 #include "main-func.h"
+#include "verbs.h"
 
 int generator_open_unit_file_full(const char *dir, const char *source, const char *filename, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
 static inline int generator_open_unit_file(const char *dir, const char *source, const char *filename, FILE **ret_file) {
@@ -102,6 +103,25 @@ int generator_enable_remount_fs_service(const char *dir);
 void log_setup_generator(void);
 
 bool generator_soft_rebooted(void);
+
+/* Every generator takes either one directory, used for all three outputs, or the three directories
+ * described in systemd.generator(7). */
+#define GENERATOR_ARGSPEC "NORMAL-DIR [EARLY-DIR LATE-DIR]\0"
+
+typedef int (*generator_main_func_t)(const char *dest, const char *dest_early, const char *dest_late);
+
+/* Parse the common options with _common_parse_argv(), check that one or three directories were
+ * given, and call impl with them (the single directory is passed for all three). The generator must
+ * define a COMMAND() with .argspec = GENERATOR_ARGSPEC and .option_namespace = "common". Returns the
+ * result of impl, 0 if --help, --version, or --introspect-cli was handled, and a negative errno on
+ * error. */
+int _generator_main(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                generator_main_func_t impl);
 
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
