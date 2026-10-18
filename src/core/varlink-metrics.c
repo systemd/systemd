@@ -387,12 +387,17 @@ static int unit_active_state_build_json(const MetricFamily *mf, sd_varlink *vl, 
                 if (key != unit->id)
                         continue;
 
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("sub_state", unit_sub_state_to_string(unit)));
+                if (r < 0)
+                        return r;
+
                 r = metric_build_send_string(
                                 mf,
                                 vl,
                                 unit->id,
                                 unit_active_state_to_string(unit_active_state(unit)),
-                                /* fields= */ NULL);
+                                fields);
                 if (r < 0)
                         return r;
         }
@@ -675,7 +680,7 @@ static const MetricFamily metric_family_table[] = {
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
-                .description = "Per unit metric: active state",
+                .description = "Per unit metric: active state, with the type-specific sub state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = unit_active_state_build_json,
         },

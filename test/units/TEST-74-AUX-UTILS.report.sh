@@ -542,6 +542,11 @@ for phase in GeneratorsStartTimestamp GeneratorsFinishTimestamp \
     [ "$(metric_value "$phase.Monotonic")" -gt 0 ]
 done
 
+# The sub_state field on UnitActiveState is what tells a running unit from one that stayed active after exiting
+unit_sub_state() { echo "$manager_metrics" | jq --seq -r --arg u "$1" 'select(.name == "io.systemd.Manager.UnitActiveState" and .object == $u) | .fields.sub_state'; }
+[ "$(unit_sub_state init.scope)" = running ]
+[ "$(unit_sub_state systemd-tmpfiles-setup.service)" = exited ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
