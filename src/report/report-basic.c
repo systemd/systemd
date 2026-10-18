@@ -39,6 +39,7 @@
 COMMAND(
         "systemd-report-basic\0",
         "Report basic information about the system.",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;
