@@ -5758,7 +5758,7 @@ int mountfsd_mount_directory(
         return mountfsd_mount_directory_fd(vl, directory_fd, userns_fd, flags, ret_mount_fd);
 }
 
-int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd) {
+int mkdir_foreign_at_full(int parent_fd, const char *name, mode_t mode, XOpenFlags xopen_flags, int *ret_directory_fd) {
         int r;
 
         assert(parent_fd >= 0);
@@ -5825,7 +5825,7 @@ int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_dire
                 if (r < 0)
                         report_errno_and_exit(errno_pipe_fds[1], r);
 
-                _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, mode);
+                _cleanup_close_ int fd = open_mkdir_at_full(parent_fd, t, O_CLOEXEC, xopen_flags, mode);
                 if (fd < 0) {
                         log_debug_errno(fd, "Failed to create directory '%s': %m", t);
                         report_errno_and_exit(errno_pipe_fds[1], fd);
@@ -5871,6 +5871,10 @@ int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_dire
         if (ret_directory_fd)
                 *ret_directory_fd = TAKE_FD(directory_fd);
         return 0;
+}
+
+int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd) {
+        return mkdir_foreign_at_full(parent_fd, name, mode, /* xopen_flags= */ 0, ret_directory_fd);
 }
 
 int mkdir_foreign(const char *path, mode_t mode, int *ret_directory_fd) {
