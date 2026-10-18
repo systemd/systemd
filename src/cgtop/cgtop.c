@@ -868,6 +868,41 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int step(Context *c, usec_t t) {
+        int r;
+
+        assert(c);
+
+        if (t >= usec_add(c->last_refresh, arg_delay) || c->immediate_refresh) {
+
+                c->root_children_memory_sum = 0;
+
+                _cleanup_hashmap_free_ Hashmap *previous = TAKE_PTR(c->groups_by_path);
+                c->groups_by_path = hashmap_new(&group_hash_ops);
+                if (!c->groups_by_path)
+                        return log_oom();
+
+                r = refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
+                            &c->root_children_memory_sum, /* ret= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to refresh: %m");
+
+                c->last_refresh = t;
+                c->immediate_refresh = false;
+        }
+
+        display(c);
+
+        if (arg_iterations && c->iteration >= arg_iterations)
+                return 0; /* finished */
+
+        if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
+                fputs("\n", stdout);
+        fflush(stdout);
+
+        return 1;
+}
+
 static const char* counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
@@ -888,32 +923,9 @@ static int loop(Context *c) {
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (t >= usec_add(c->last_refresh, arg_delay) || c->immediate_refresh) {
-
-                        c->root_children_memory_sum = 0;
-
-                        _cleanup_hashmap_free_ Hashmap *previous = TAKE_PTR(c->groups_by_path);
-                        c->groups_by_path = hashmap_new(&group_hash_ops);
-                        if (!c->groups_by_path)
-                                return log_oom();
-
-                        r = refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
-                                    &c->root_children_memory_sum, /* ret= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to refresh: %m");
-
-                        c->last_refresh = t;
-                        c->immediate_refresh = false;
-                }
-
-                display(c);
-
-                if (arg_iterations && c->iteration >= arg_iterations)
-                        return 0;
-
-                if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
-                        fputs("\n", stdout);
-                fflush(stdout);
+                r = step(c, t);
+                if (r <= 0)
+                        return r;
 
                 if (arg_batch)
                         (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
