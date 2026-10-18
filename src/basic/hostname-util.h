@@ -52,5 +52,6 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host);
 #define MACHINE_TAGS_MAX 1024U
 
 bool machine_tag_is_valid(const char *s);
-bool machine_tag_list_is_valid(char **l);
+int machine_tag_list_is_valid(char **l);
 int machine_tags_from_string(const char *s, bool graceful, char ***ret);
+int machine_tags_from_strv(char **l, bool graceful, char ***ret);
