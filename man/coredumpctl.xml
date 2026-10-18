@@ -179,6 +179,17 @@
       <xi:include href="standard-options.xml" xpointer="json" />
 
       <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize the output.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-1</option></term>
 
         <listitem><para>Show information of the most recent core dump only, instead of listing all known core
