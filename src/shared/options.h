@@ -190,9 +190,13 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
         OPTION('N', "resolve-names", "MODE",                            \
                "When to resolve users and groups (early, late, or never)")
 
-/* This is magically mapped to the beginning and end of the section */
-extern const Option __start_SYSTEMD_OPTIONS[];
-extern const Option __stop_SYSTEMD_OPTIONS[];
+/* This is magically mapped to the beginning and end of the section. The linker only defines the
+ * symbols if the binary has such a section, i.e. if it defines at least one option. They are weak so
+ * that a program without options of its own (see common_parse_argv() in verbs.h) still links, with
+ * both resolving to NULL, and hidden so that the references are never bound to the section of
+ * libsystemd-shared instead. */
+extern const Option _weak_ _hidden_ __start_SYSTEMD_OPTIONS[];
+extern const Option _weak_ _hidden_ __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
