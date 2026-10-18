@@ -947,11 +947,13 @@ int _common_parse_argv(
                 const Option options[],
                 const Option options_end[],
                 int argc, char *argv[],
+                size_t min_args, size_t max_args,
                 char ***ret_args) {
 
         assert(argc >= 0);
         assert(argv);
-        assert(ret_args);
+        assert(min_args <= max_args);
+        assert(ret_args || max_args == 0);
 
         /* The COMMAND description must reference the option namespace defined below, otherwise
          * --help and --introspect-cli would not find the options. */
@@ -983,6 +985,15 @@ int _common_parse_argv(
                                         SD_JSON_FORMAT_OFF);
                 }
 
-        *ret_args = option_parser_get_args(&opts);
+        size_t n = option_parser_get_n_args(&opts);
+        if (max_args == 0 && n > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        if (n < min_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
+        if (n > max_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
+
+        if (ret_args)
+                *ret_args = option_parser_get_args(&opts);
         return 1; /* Further action */
 }

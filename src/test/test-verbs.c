@@ -146,16 +146,23 @@ static const Verb common_verbs[] = {
         {}
 };
 
-static void test_common_parse_argv_one(char **argv, int expected, char **expected_args) {
+static void test_common_parse_argv_one(
+                char **argv,
+                size_t min_args,
+                size_t max_args,
+                int expected,
+                char **expected_args) {
+
         _cleanup_free_ char *joined = strv_join(argv, ", ");
-        log_debug("/* %s(%s) */", __func__, joined);
+        log_debug("/* %s(%s, %zu, %zu) */", __func__, joined, min_args, max_args);
 
         char **args = NULL;
         ASSERT_EQ(_common_parse_argv(common_verbs, common_verbs + ELEMENTSOF(common_verbs) - 1,
                                      /* options= */ NULL, /* options_end= */ NULL,
-                                     (int) strv_length(argv), argv, &args),
+                                     (int) strv_length(argv), argv,
+                                     min_args, max_args, max_args > 0 ? &args : NULL),
                   expected);
-        if (expected > 0)
+        if (expected > 0 && max_args > 0)
                 ASSERT_TRUE(strv_equal(args, expected_args));
         else
                 ASSERT_NULL(args);
@@ -164,23 +171,38 @@ static void test_common_parse_argv_one(char **argv, int expected, char **expecte
 TEST(common_parse_argv) {
         /* The common options are defined in libsystemd-shared, hence found even though no options
          * are passed. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help"), 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-h"), 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--version"), 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--introspect-cli"),
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help"), 0, SIZE_MAX, 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-h"), 0, SIZE_MAX, 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--version"), 0, SIZE_MAX, 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--introspect-cli"), 0, SIZE_MAX,
                                    experimental_enabled() ? 0 : -EPERM, NULL);
 
         /* Positional arguments are returned, and "--" is consumed wherever it appears. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 1, STRV_EMPTY);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "x"), 1, STRV_MAKE("alpha", "x"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "alpha"), 1, STRV_MAKE("alpha"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--", "-x"), 1,
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, SIZE_MAX, 1, STRV_EMPTY);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "x"), 0, SIZE_MAX, 1,
+                                   STRV_MAKE("alpha", "x"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "alpha"), 0, SIZE_MAX, 1,
+                                   STRV_MAKE("alpha"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--", "-x"), 0, SIZE_MAX, 1,
                                    STRV_MAKE("alpha", "-x"));
 
         /* Anything else is an unknown option. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--foo"), -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-x"), -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--foo"), -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--foo"), 0, SIZE_MAX, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-x"), 0, SIZE_MAX, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--foo"), 0, SIZE_MAX, -EINVAL, NULL);
+
+        /* The number of positional arguments is checked, but only after the options were handled. */
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, 0, 1, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--"), 0, 0, 1, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x"), 0, 0, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help", "x"), 0, 0, 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 1, 1, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x"), 1, 1, 1, STRV_MAKE("x"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 1, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, 1, 1, STRV_EMPTY);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), 0, 1, 1, STRV_MAKE("-x"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 0, 1, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 2, 1, STRV_MAKE("x", "y"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
