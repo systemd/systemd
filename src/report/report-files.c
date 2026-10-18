@@ -23,6 +23,7 @@ COMMAND(
         "systemd-report-files\0",
         "Report the contents of files as system report metrics.",
         .man_pages = "systemd-report-files@.service(8)\0",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;
