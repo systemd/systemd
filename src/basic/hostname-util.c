@@ -362,9 +362,10 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
 
         if (ret) {
                 _cleanup_strv_free_ char **cleaned = NULL;
+                size_t n = 0;
                 char *v;
                 HASHMAP_FOREACH(v, h) {
-                        r = strv_extend(&cleaned, v);
+                        r = strv_extend_with_size(&cleaned, &n, v);
                         if (r < 0)
                                 return r;
                 }
