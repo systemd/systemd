@@ -5,7 +5,7 @@ set -o pipefail
 
 # Some commands are in $PATH, others are in our private directories.
 # Check the other locations too.
-PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
+PATH=$PATH:/usr/lib/systemd:/usr/lib/systemd/system-generators:/usr/lib/systemd/user-generators:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
@@ -64,16 +64,20 @@ INTROSPECTABLE=(
     systemd-battery-check
     systemd-binfmt
     systemd-bless-boot
+    systemd-bless-boot-generator
     systemd-boot-check-no-failures
     systemd-bsod
     systemd-cat
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-clonesetup-generator
     systemd-confext
     systemd-creds
     systemd-cryptenroll
     systemd-cryptsetup
+    systemd-cryptsetup-generator
+    systemd-debug-generator
     systemd-delta
     systemd-detect-virt
     systemd-dissect
@@ -81,20 +85,27 @@ INTROSPECTABLE=(
     systemd-executor
     systemd-export
     systemd-factory-reset
+    systemd-factory-reset-generator
     systemd-firstboot
+    systemd-getty-generator
+    systemd-gpt-auto-generator
     systemd-growfs
     systemd-hibernate-resume
+    systemd-hibernate-resume-generator
     systemd-homed
     systemd-hostnamed
     systemd-hwdb
     systemd-id128
     systemd-imds
+    systemd-imds-generator
     systemd-imdsd
     systemd-import
     systemd-import-fs
+    systemd-import-generator
     systemd-importd
     systemd-inhibit
     systemd-integritysetup
+    systemd-integritysetup-generator
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
@@ -135,11 +146,13 @@ INTROSPECTABLE=(
     systemd-report-sign-tsm
     systemd-resolved
     systemd-run
+    systemd-run-generator
     systemd-sbsign
     systemd-shutdown
     systemd-sleep
     systemd-socket-activate
     systemd-socket-proxyd
+    systemd-ssh-generator
     systemd-ssh-issue
     systemd-stdio-bridge
     systemd-storage-block
@@ -148,6 +161,7 @@ INTROSPECTABLE=(
     systemd-sysctl
     systemd-sysext
     systemd-sysinstall
+    systemd-system-update-generator
     systemd-sysupdate
     systemd-sysupdated
     systemd-sysusers
@@ -155,6 +169,7 @@ INTROSPECTABLE=(
     systemd-timesyncd
     systemd-tmpfiles
     systemd-tpm2-clear
+    systemd-tpm2-generator
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
     systemd-udevd
@@ -163,8 +178,10 @@ INTROSPECTABLE=(
     systemd-update-helper
     systemd-validatefs
     systemd-veritysetup
+    systemd-veritysetup-generator
     systemd-vmspawn
     systemd-vpick
+    systemd-xdg-autostart-generator
     timedatectl
     udevadm
     updatectl
