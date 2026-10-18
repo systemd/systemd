@@ -123,16 +123,20 @@ int _generator_main(
                 int argc, char *argv[],
                 generator_main_func_t impl);
 
+/* The macro inserts the calling binary's verb section, where its COMMAND is found, and its option
+ * section, see common_parse_argv(). */
+#define generator_main(argc, argv, impl)                                \
+        _generator_main(                                                \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                argc, argv, impl)
+
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging for a generator, parses the common
- * options, and passes the output directories to impl. The macro inserts the calling binary's verb
- * section, where its COMMAND is found, and its option section, see common_parse_argv(). */
+ * options, and passes the output directories to impl. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
         _DEFINE_MAIN_FUNCTION(                                          \
                 log_setup_generator(),                                  \
-                _generator_main(                                        \
-                        __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,    \
-                        __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, \
-                        argc, argv, impl),                              \
+                generator_main(argc, argv, impl),                       \
                 exit_failure_if_negative)
 
 typedef enum GptAutoRoot {
