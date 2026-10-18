@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
@@ -29,6 +30,7 @@
 #include "string-table.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -71,6 +73,17 @@ typedef enum {
         _ORDER_MAX,
         _ORDER_INVALID = -EINVAL,
 } Order;
+
+typedef enum {
+        COLUMN_PATH      = ORDER_PATH,
+        COLUMN_TASKS     = ORDER_TASKS,
+        COLUMN_CPU       = ORDER_CPU,
+        COLUMN_MEMORY    = ORDER_MEMORY,
+        COLUMN_IO_INPUT  = ORDER_IO,
+        COLUMN_IO_OUTPUT = _ORDER_MAX,
+        _COLUMN_MAX,
+        _COLUMN_INVALID  = -EINVAL,
+} Column;
 
 typedef enum {
         CPU_PERCENTAGE,
@@ -195,32 +208,6 @@ static void context_done(Context *c) {
 
         restore_console(c);
 }
-
-static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
-        if (arg_raw) {
-               (void) snprintf(buf, l, USEC_FMT, t);
-               return buf;
-        }
-        return format_timespan(buf, l, t, accuracy);
-}
-
-#define BUFSIZE1 CONST_MAX(FORMAT_TIMESPAN_MAX, DECIMAL_STR_MAX(usec_t))
-#define MAYBE_FORMAT_TIMESPAN(t, accuracy) \
-        maybe_format_timespan((char[BUFSIZE1]){}, BUFSIZE1, t, accuracy)
-
-static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
-        if (!is_valid)
-                return "-";
-        if (arg_raw) {
-                (void) snprintf(buf, l, "%" PRIu64, t);
-                return buf;
-        }
-        return format_bytes(buf, l, t);
-}
-
-#define BUFSIZE2 CONST_MAX(FORMAT_BYTES_MAX, DECIMAL_STR_MAX(uint64_t))
-#define MAYBE_FORMAT_BYTES(is_valid, t) \
-        maybe_format_bytes((char[BUFSIZE2]){}, BUFSIZE2, is_valid, t)
 
 static bool is_root_cgroup(const char *path) {
 
@@ -668,116 +655,154 @@ static int group_compare(Group * const *a, Group * const *b) {
         return path_compare(x->path, y->path);
 }
 
-static void display(Context *c) {
-        Group *g;
-        Group **array;
-        signed path_columns;
-        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3, /* 3 for ellipsize() to work properly */
-                maxpcpu = 6; /* minimum width for "%CPU" header */
+static int table_add_bytes(Table *table, bool is_valid, uint64_t t) {
+        if (!is_valid)
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        if (arg_raw)
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT64, &t);
+
+        return table_add_cell(table, /* ret_cell= */ NULL, TABLE_SIZE, &t);
+}
+
+static int display(Context *c) {
+        int r;
 
         assert(c);
 
-        if (!terminal_is_dumb())
-                fputs(ANSI_HOME_CLEAR, stdout);
+        _cleanup_(table_unrefp) Table *table = table_new(
+                        "CGroup",
+                        arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
+                        arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
+                        "Memory", "Input/s", "Output/s");
+        if (!table)
+                return log_oom();
 
-        array = newa(Group*, hashmap_size(c->groups_by_path));
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
+        if (on_tty())
+                table_set_width(table, columns());
+        else
+                table_set_header(table, false);
+
+        for (Column col = 0; col < _COLUMN_MAX; col++) {
+                TableCell *cell = ASSERT_PTR(table_get_cell(table, 0, col));
+
+                (void) table_set_uppercase(table, cell, false);
+
+                if (col == (Column) arg_order ||
+                    (IN_SET(col, COLUMN_IO_INPUT, COLUMN_IO_OUTPUT) && arg_order == ORDER_IO))
+                        (void) table_set_color(table, cell, ansi_highlight());
+
+                switch (col) {
+                case COLUMN_PATH:
+                        (void) table_set_weight(table, cell, 100000);
+                        (void) table_set_ellipsize_percent(table, cell, 33);
+                        break;
+
+                case COLUMN_TASKS:
+                        (void) table_set_minimum_width(table, cell, 7);
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+
+                case COLUMN_CPU: {
+                        unsigned n_cpus = 16;
+                        (void) cpus_online(&n_cpus);
+                        (void) table_set_minimum_width(table, cell, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+                }
+                case COLUMN_MEMORY:
+                case COLUMN_IO_INPUT:
+                case COLUMN_IO_OUTPUT:
+                        (void) table_set_minimum_width(table, cell, 8);
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        Group **array = newa(Group*, hashmap_size(c->groups_by_path));
+
+        unsigned n = 0;
+        Group *g;
         HASHMAP_FOREACH(g, c->groups_by_path)
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
         typesafe_qsort(array, n, group_compare);
 
-        /* Find the longest names in one run */
-        for (unsigned j = 0; j < n; j++) {
-                maxtcpu = MAX(maxtcpu,
-                              strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
-                maxtpath = MAX(maxtpath,
-                               strlen(array[j]->path));
-        }
-
-        if (arg_cpu_type == CPU_PERCENTAGE) {
-                unsigned n_cpus;
-                if (cpus_online(&n_cpus) >= 0)
-                        maxpcpu = MAX(maxpcpu, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
-        }
-
-        rows = lines();
+        unsigned rows = lines();
         if (rows <= 10)
                 rows = 10;
 
-        if (on_tty()) {
-                const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? (int) maxpcpu : (int) maxtcpu;
-
-                path_columns = columns() - 36 - cpu_len;
-                if (path_columns < 10)
-                        path_columns = 10;
-
-                on = ansi_highlight_underline();
-                off = ansi_underline();
-
-                printf("%s%s%-*s%s %s%7s%s %s%*s%s %s%8s%s %s%8s%s %s%8s%s%s\n",
-                       ansi_underline(),
-                       arg_order == ORDER_PATH ? on : "", path_columns, "CGroup",
-                       arg_order == ORDER_PATH ? off : "",
-                       arg_order == ORDER_TASKS ? on : "",
-                       arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
-                       arg_order == ORDER_TASKS ? off : "",
-                       arg_order == ORDER_CPU ? on : "",
-                       cpu_len,
-                       arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
-                       arg_order == ORDER_CPU ? off : "",
-                       arg_order == ORDER_MEMORY ? on : "", "Memory",
-                       arg_order == ORDER_MEMORY ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Input/s",
-                       arg_order == ORDER_IO ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Output/s",
-                       arg_order == ORDER_IO ? off : "",
-                       ansi_normal());
-        } else
-                path_columns = maxtpath;
-
         for (unsigned j = 0; j < n; j++) {
-                _cleanup_free_ char *ellipsized = NULL;
-                const char *path;
-
                 if (on_tty() && j + 6 > rows)
                         break;
 
                 g = array[j];
 
-                path = empty_to_root(g->path);
-                ellipsized = ellipsize(path, path_columns, 33);
+                _cleanup_free_ char *escaped = utf8_escape_invalid(empty_to_root(g->path));
+                if (!escaped)
+                        return log_oom();
+
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_PATH, escaped);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (g->n_tasks_valid)
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT64, &g->n_tasks);
+                else
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (arg_cpu_type == CPU_PERCENTAGE) {
+                        if (g->cpu_valid)
+                                r = table_add_many(
+                                                table,
+                                                TABLE_DOUBLE, g->cpu_fraction * 100,
+                                                TABLE_SET_DECIMALS, 1);
+                        else
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+                } else
+                        r = table_add_many(
+                                        table,
+                                        arg_raw ? TABLE_UINT64 : TABLE_TIMESPAN,
+                                        g->cpu_usage / NSEC_PER_USEC);
+                if (r < 0)
+                        return table_log_add_error(r);
 
                 if (is_root_cgroup(g->path) && arg_root_memory_system) {
                         g->memory = c->root_children_memory_sum;
                         g->memory_valid = true;
                 }
 
-                printf("%-*s", path_columns, ellipsized ?: path);
+                r = table_add_bytes(table, g->memory_valid, g->memory);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                if (g->n_tasks_valid)
-                        printf(" %7" PRIu64, g->n_tasks);
-                else
-                        fputs("       -", stdout);
+                r = table_add_bytes(table, g->io_valid, g->io_input_bps);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                if (arg_cpu_type == CPU_PERCENTAGE) {
-                        if (g->cpu_valid)
-                                printf(" %*.1f", (int) maxpcpu, g->cpu_fraction*100);
-                        else
-                                printf(" %*s", (int) maxpcpu, "-");
-                } else
-                        printf(" %*s",
-                               (int) maxtcpu,
-                               MAYBE_FORMAT_TIMESPAN((usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
-
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->memory_valid, g->memory));
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->io_valid, g->io_input_bps));
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->io_valid, g->io_output_bps));
-
-                putchar('\n');
+                r = table_add_bytes(table, g->io_valid, g->io_output_bps);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
+
+        if (!terminal_is_dumb())
+                fputs(ANSI_HOME_CLEAR, stdout);
+
+        r = table_print(table);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -940,7 +965,9 @@ static int step(Context *c, usec_t t) {
                 c->immediate_refresh = false;
         }
 
-        display(c);
+        r = display(c);
+        if (r < 0)
+                return r;
 
         if (arg_iterations && c->iteration >= arg_iterations)
                 return 0; /* finished */
