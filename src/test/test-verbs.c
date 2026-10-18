@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "build.h"
 #include "options.h"
 #include "strv.h"
 #include "tests.h"
@@ -129,6 +130,57 @@ TEST(command_print_verb_help) {
         ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
                                            introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
                                            "gamma"));
+}
+
+static const CommandDescription common_command = {
+        .names = "test-verbs\0",
+        .abstract = "Test the parser for the common options.",
+        .man_pages = "systemd(1)\0",
+        .option_namespace = "common",
+};
+
+static const Verb common_verbs[] = {
+        { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &common_command },
+        { .verb = "alpha", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
+          .help = "Alpha verb" },
+        {}
+};
+
+static void test_common_parse_argv_one(char **argv, int expected, char **expected_args) {
+        _cleanup_free_ char *joined = strv_join(argv, ", ");
+        log_debug("/* %s(%s) */", __func__, joined);
+
+        char **args = NULL;
+        ASSERT_EQ(_common_parse_argv(common_verbs, common_verbs + ELEMENTSOF(common_verbs) - 1,
+                                     /* options= */ NULL, /* options_end= */ NULL,
+                                     (int) strv_length(argv), argv, &args),
+                  expected);
+        if (expected > 0)
+                ASSERT_TRUE(strv_equal(args, expected_args));
+        else
+                ASSERT_NULL(args);
+}
+
+TEST(common_parse_argv) {
+        /* The common options are defined in libsystemd-shared, hence found even though no options
+         * are passed. */
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help"), 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-h"), 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--version"), 0, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--introspect-cli"),
+                                   experimental_enabled() ? 0 : -EPERM, NULL);
+
+        /* Positional arguments are returned, and "--" is consumed wherever it appears. */
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 1, STRV_EMPTY);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "x"), 1, STRV_MAKE("alpha", "x"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "alpha"), 1, STRV_MAKE("alpha"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--", "-x"), 1,
+                                   STRV_MAKE("alpha", "-x"));
+
+        /* Anything else is an unknown option. */
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--foo"), -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-x"), -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--foo"), -EINVAL, NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

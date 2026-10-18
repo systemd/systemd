@@ -940,3 +940,49 @@ int _introspect_cli(
 
         return 0;
 }
+
+int _common_parse_argv(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                char ***ret_args) {
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        /* The COMMAND description must reference the option namespace defined below, otherwise
+         * --help and --introspect-cli would not find the options. */
+        const CommandDescription *cmd = NULL;
+        assert_se(_verbs_find_command(verbs, verbs_end, "common", &cmd));
+        assert(streq_ptr(cmd->option_namespace, "common"));
+
+        OptionParser opts = { argc, argv, .namespace = "common" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_NAMESPACE("common"): {}
+
+                OPTION_COMMON_HELP:
+                        return _command_print_help_full(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        cmd->names,
+                                        /* footer_ansi_seq= */ NULL);
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return _introspect_cli(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        SD_JSON_FORMAT_OFF);
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1; /* Further action */
+}
