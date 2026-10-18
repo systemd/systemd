@@ -166,6 +166,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   handed out once an attestation run completed, and might be delivered to the
   node asynchronously.
 
+- ptybroker: maybe dlopen() libtsm and render terminal data locally for the
+  trackBuffer
+
 - acquire a TSA from time stamping server, include it in report
 
 - **report:**

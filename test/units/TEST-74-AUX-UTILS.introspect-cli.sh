@@ -33,6 +33,7 @@ INTROSPECTABLE=(
     oomctl
     portablectl
     poweroff
+    ptyctl
     reboot
     resolvectl
     run0
