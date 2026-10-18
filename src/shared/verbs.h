@@ -202,3 +202,27 @@ int _introspect_cli(
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
                 flags)
+
+/* Parse the command line of a program which has no options of its own, i.e. which accepts only the
+ * common --help, --version, and --introspect-cli. The implementation is defined in libsystemd-shared,
+ * in the "common" option namespace, and the program's COMMAND() must declare
+ * .option_namespace = "common" so that --help and --introspect-cli finds it.
+ *
+ * The positional arguments are returned in *ret_args, typically to be passed to dispatch_verb().
+ * Returns 1 if the program shall continue, 0 if it shall exit immediately (--help, --version, or
+ * --introspect-cli has been handled), and a negative errno on error. */
+int _common_parse_argv(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                char ***ret_args);
+/* The macro inserts the calling binary's verb section, where its COMMAND is found, and its option
+ * section, which is empty (both symbols are NULL) unless the binary also implements other commands
+ * with options of their own. */
+#define common_parse_argv(argc, argv, ret_args)                         \
+        _common_parse_argv(                                             \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                argc, argv, ret_args)
