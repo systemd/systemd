@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "chattr-util.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
@@ -22,6 +23,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sha256.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -462,7 +464,9 @@ static int archive_unpack_special_inode(
                 int parent_fd,
                 const char *filename,
                 const char *path,
-                mode_t filetype) {
+                mode_t filetype,
+                TarFlags flags,
+                int *ret_fd) {
 
         int r;
 
@@ -471,6 +475,7 @@ static int archive_unpack_special_inode(
         assert(parent_fd >= 0);
         assert(filename);
         assert(path);
+        assert(ret_fd);
 
         dev_t major = 0, minor = 0;
         if (IN_SET(filetype, S_IFCHR, S_IFBLK)) {
@@ -479,8 +484,22 @@ static int archive_unpack_special_inode(
         }
 
         r = mknodat_atomic(parent_fd, filename, filetype | 0000, makedev(major, minor));
-        if (r < 0)
+        if (r < 0) {
+                /* Skip character and block devices that we aren't able to create. */
+                if (FLAGS_SET(flags, TAR_SKIP_DEVICE_NODES) &&
+                    IN_SET(filetype, S_IFCHR, S_IFBLK) &&
+                    r == -EPERM) {
+                        log_warning_errno(r,
+                                          "Not permitted to create %s device node '%s' (" DEVNUM_FORMAT_STR "), skipping: %m",
+                                          filetype == S_IFCHR ? "character" : "block",
+                                          path,
+                                          DEVNUM_FORMAT_VAL(makedev(major, minor)));
+                        *ret_fd = -EBADF;
+                        return 0;
+                }
+
                 return log_error_errno(r, "Failed to create special node '%s': %m", path);
+        }
 
         _cleanup_close_ int fd = xopenat(parent_fd, filename, O_PATH|O_NOFOLLOW);
         if (fd < 0)
@@ -494,7 +513,8 @@ static int archive_unpack_special_inode(
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                        "Special node '%s' we just created is of a wrong type: %m", path);
 
-        return TAKE_FD(fd);
+        *ret_fd = TAKE_FD(fd);
+        return 1;
 }
 
 static int archive_entry_pathname_safe(struct archive_entry *entry, const char **ret) {
@@ -811,6 +831,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         };
         n_open_inodes = 1;
 
+        /* Paths of the device nodes we skipped because of TAR_SKIP_DEVICE_NODES, so that we can skip the
+         * hardlinks to them, too. */
+        _cleanup_set_free_ Set *skipped = NULL;
+
         for (;;) {
                 struct archive_entry *entry = NULL;
 
@@ -938,6 +962,17 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                                 SYNTHETIC_ERRNO(EBADMSG),
                                                                 "Invalid hardlink path name '%s' in entry, refusing.", target);
 
+                                        if (set_contains(skipped, target)) {
+                                                log_warning("Hardlink '%s' refers to device node '%s' which was skipped, skipping it too.",
+                                                            j, target);
+
+                                                r = set_ensure_consume(&skipped, &path_hash_ops_free, TAKE_PTR(j));
+                                                if (r < 0)
+                                                        return log_oom();
+
+                                                continue;
+                                        }
+
                                         _cleanup_close_ int target_fd = -EBADF;
                                         r = chaseat(tree_fd, tree_fd, target,
                                                     CHASE_PROHIBIT_SYMLINKS|CHASE_NOFOLLOW,
@@ -1050,9 +1085,17 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 case S_IFBLK:
                                 case S_IFIFO:
                                 case S_IFSOCK:
-                                        fd = archive_unpack_special_inode(a, entry, parent_fd, e, j, filetype);
-                                        if (fd < 0)
-                                                return fd;
+                                        r = archive_unpack_special_inode(a, entry, parent_fd, e, j, filetype, flags, &fd);
+                                        if (r < 0)
+                                                return r;
+                                        if (r == 0) {
+                                                /* NB: the device node was skipped, there's no inode!
+                                                 * Remember its path, in case it is hardlinked later. */
+                                                r = set_ensure_consume(&skipped, &path_hash_ops_free, TAKE_PTR(j));
+                                                if (r < 0)
+                                                        return log_oom();
+                                        }
+
                                         break;
 
                                 default:
