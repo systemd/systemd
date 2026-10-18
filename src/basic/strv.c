@@ -798,23 +798,31 @@ bool strv_is_uniq(char * const *l) {
         return true;
 }
 
-char** strv_remove(char **l, const char *s) {
+static char** strv_remove_full(char **l, const char *s, bool suffix) {
         if (!l)
                 return NULL;
 
         assert(s);
 
-        /* Drops every occurrence of s in the string list, edits in-place. */
+        /* Drops every matching entry in the string list, edits in-place. */
 
         char **f, **t;
         for (f = t = l; *f; f++)
-                if (streq(*f, s))
+                if (suffix ? endswith(*f, s) != NULL : streq(*f, s))
                         free(*f);
                 else
                         *(t++) = *f;
 
         *t = NULL;
         return l;
+}
+
+char** strv_remove(char **l, const char *s) {
+        return strv_remove_full(l, s, /* suffix= */ false);
+}
+
+char** strv_remove_endswith(char **l, const char *s) {
+        return strv_remove_full(l, s, /* suffix= */ true);
 }
 
 char** strv_remove_strv(char **l, char *const*ll) {
