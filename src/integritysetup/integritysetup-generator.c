@@ -13,6 +13,15 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-integritysetup-generator\0",
+        "Generate units for integrity protected block devices.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-integritysetup-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static const char *arg_integritytab = NULL;
