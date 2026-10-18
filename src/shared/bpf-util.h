@@ -73,6 +73,9 @@ extern DLSYM_PROTOTYPE(bpf_token_create);
 extern DLSYM_PROTOTYPE(btf__find_by_name_kind);
 extern DLSYM_PROTOTYPE(btf__free);
 extern DLSYM_PROTOTYPE(btf__load_vmlinux_btf);
+extern DLSYM_PROTOTYPE(btf__type_by_id);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct btf*, sym_btf__free, NULL);
 extern DLSYM_PROTOTYPE(libbpf_set_print);
 extern DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 extern DLSYM_PROTOTYPE(ring_buffer__free);

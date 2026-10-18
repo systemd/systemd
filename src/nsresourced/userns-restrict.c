@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -8,7 +10,6 @@
 #endif
 
 #include "bpf-util.h"
-#include "bpf-link.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "mkdir.h"
@@ -30,6 +31,86 @@
 /* Programs pinned here enforce the mount allowlist policy we used until v261, which is bypassable with a
  * single unshare(). They'd stay attached next to ours, hence get rid of them. */
 #define OBSOLETE_LINK_PREFIX "/sys/fs/bpf/systemd/userns-restrict"
+
+#if HAVE_VMLINUX_H
+static bool inode_hooks_supported(void) {
+        _cleanup_(sym_btf__freep) struct btf *btf = NULL;
+        int idmap_id;
+
+        if (!sym_btf__load_vmlinux_btf || !sym_btf__find_by_name_kind ||
+            !sym_btf__type_by_id || !sym_btf__free)
+                return false;
+
+        btf = sym_btf__load_vmlinux_btf();
+        if (bpf_get_error_translated(btf) < 0)
+                return false;
+
+        idmap_id = sym_btf__find_by_name_kind(btf, "mnt_idmap", BTF_KIND_STRUCT);
+        if (idmap_id <= 0)
+                return false;
+
+        FOREACH_STRING(name,
+                       "bpf_lsm_inode_create",
+                       "bpf_lsm_inode_link",
+                       "bpf_lsm_inode_symlink",
+                       "bpf_lsm_inode_mkdir",
+                       "bpf_lsm_inode_mknod",
+                       "bpf_lsm_inode_setattr") {
+                const struct btf_type *type;
+                int id;
+
+                id = sym_btf__find_by_name_kind(btf, name, BTF_KIND_FUNC);
+                if (id <= 0)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, id);
+                if (!type)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, type->type);
+                if (!type || !btf_is_func_proto(type) || btf_vlen(type) == 0)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, btf_params(type)[0].type);
+                if (!type || !btf_is_ptr(type))
+                        return false;
+
+                /* Kernel 7.4 passes the idmap to the hooks as a const pointer. BTF records the const as a
+                 * separate type between the pointer and struct mnt_idmap. Without skipping it, we would
+                 * fall back to the path hooks on 7.4. */
+                id = type->type;
+                for (;;) {
+                        type = sym_btf__type_by_id(btf, id);
+                        if (!type)
+                                return false;
+                        if (!btf_is_mod(type))
+                                break;
+                        id = type->type;
+                }
+
+                if (id != idmap_id)
+                        return false;
+        }
+
+        return true;
+}
+
+static bool program_enabled(const char *name, bool inode_hooks) {
+        if (streq(name, "userns_restrict_file_ioctl_compat"))
+                return bpf_kernel_has_kfunc("bpf_lsm_file_ioctl_compat");
+
+        if (streq(name, "userns_restrict_path_rename"))
+                return true;
+
+        if (startswith(name, "userns_restrict_inode_"))
+                return inode_hooks;
+
+        if (startswith(name, "userns_restrict_path_") || streq(name, "userns_restrict_sb_kern_mount"))
+                return !inode_hooks;
+
+        return true;
+}
+#endif
 
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
 #if HAVE_VMLINUX_H
@@ -69,11 +150,16 @@ int userns_restrict_install(
         if (!obj)
                 return log_error_errno(errno, "Failed to open userns_restrict BPF object: %m");
 
-        /* Kernels without the compat ioctl hook cannot load a program attached to it. */
-        r = sym_bpf_program__set_autoload(obj->progs.userns_restrict_file_ioctl_compat,
-                                        bpf_kernel_has_kfunc("bpf_lsm_file_ioctl_compat"));
-        if (r < 0)
-                return log_error_errno(r, "Failed to select compat ioctl BPF program: %m");
+        bool inode_hooks = inode_hooks_supported();
+        log_debug("Using %s hooks to restrict user namespace writes.", inode_hooks ? "inode" : "path");
+
+        for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
+                struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
+
+                r = sym_bpf_program__set_autoload(*ps->prog, program_enabled(ps->name, inode_hooks));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to select user namespace restriction BPF program: %m");
+        }
 
         if (pin) {
                 struct bpf_map *map;
@@ -86,8 +172,8 @@ int userns_restrict_install(
                                 log_warning_errno(r, "Failed to create '%s', ignoring: %m", d);
                 }
 
-                map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL);
-                while (map) {
+                for (map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL); map;
+                     map = sym_bpf_object__next_map(obj->obj, map)) {
                         _cleanup_free_ char *fn = NULL;
 
                         fn = path_join(MAP_LINK_PREFIX, sym_bpf_map__name(map));
@@ -97,8 +183,6 @@ int userns_restrict_install(
                         r = sym_bpf_map__set_pin_path(map, fn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set pin path to '%s': %m", fn);
-
-                        map = sym_bpf_object__next_map(obj->obj, map);
                 }
         }
 
@@ -135,35 +219,52 @@ int userns_restrict_install(
 #endif
 }
 
-#if HAVE_VMLINUX_H
-static char** unpin_links_and_free(char **paths) {
-        STRV_FOREACH(p, paths)
-                if (unlink(*p) < 0 && errno != ENOENT)
-                        log_debug_errno(errno, "Failed to unpin '%s', ignoring: %m", *p);
-
-        return strv_free(paths);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(char**, unpin_links_and_free);
-#endif
-
 int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
 
 #if HAVE_VMLINUX_H
+        _cleanup_(rm_rf_physical_and_freep) char *staging = NULL;
         int r;
 
         assert(obj);
 
-        /* If a program fails to attach, the programs attached before it stay attached, because their links
-         * are pinned. The caller then drops its BPF state and no longer reaps dead namespaces from the maps.
-         * Remove the pins created here, so that destroying the object detaches the programs. */
-        _cleanup_(unpin_links_and_freep) char **pinned = NULL;
+        /* Attach every program before we touch the pins. If a program fails to attach, the caller destroys
+         * the object, which detaches the programs attached here. The programs that a previous run pinned
+         * then stay attached and keep enforcing the policy. */
+        for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
+                struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
+                struct bpf_link *link;
+
+                if (sym_bpf_program__fd(*ps->prog) < 0)
+                        continue;
+
+                link = sym_bpf_program__attach(*ps->prog);
+                r = bpf_get_error_translated(link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach LSM BPF program %s: %m", ps->name);
+
+                *ps->link = link;
+                log_debug("userns-restrict BPF-LSM program %s now attached.", ps->name);
+        }
+
+        if (!pin)
+                return 0;
+
+        staging = strdup(PROGRAM_LINK_PREFIX "-new");
+        if (!staging)
+                return log_oom();
+
+        /* A previous run may have exited before removing its staging directory. The active directory
+         * still pins the complete policy, so removing the staging directory cannot remove protection. */
+        r = rm_rf(staging, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove previous LSM attachment staging directory: %m");
+
+        if (mkdir(staging, 0755) < 0)
+                return log_error_errno(errno, "Failed to create LSM attachment staging directory: %m");
 
         for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
-                _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
                 struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
                 _cleanup_free_ char *fn = NULL;
-                bool linked = false;
                 const char *e;
 
                 if (sym_bpf_program__fd(*ps->prog) < 0)
@@ -172,55 +273,21 @@ int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
                 e = startswith(ps->name, "userns_restrict_");
                 assert(e);
 
-                if (pin) {
-                        fn = path_join(PROGRAM_LINK_PREFIX, e);
-                        if (!fn)
-                                return log_oom();
+                fn = path_join(staging, e);
+                if (!fn)
+                        return log_oom();
 
-                        link = sym_bpf_link__open(fn);
-                        r = bpf_get_error_translated(link);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        return log_error_errno(r, "Unable to open pinned program link: %m");
-                                link = NULL;
-                        } else {
-                                linked = true;
-                                log_debug("userns-restrict BPF-LSM program %s already attached.", ps->name);
-                        }
-                }
-
-                if (!link) {
-                        link = sym_bpf_program__attach(*ps->prog);
-                        r = bpf_get_error_translated(link);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to attach LSM BPF program: %m");
-
-                        log_info("userns-restrict BPF-LSM program %s now attached.", ps->name);
-                }
-
-                if (pin && !linked) {
-                        assert(fn);
-
-                        r = sym_bpf_link__pin(link, fn);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to pin LSM attachment: %m");
-
-                        if (strv_extend(&pinned, fn) < 0) {
-                                (void) unlink(fn);
-                                return log_oom();
-                        }
-                }
-
-                *ps->link = TAKE_PTR(link);
+                r = sym_bpf_link__pin(*ps->link, fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pin LSM attachment '%s': %m", fn);
         }
 
-        pinned = strv_free(pinned);
+        /* Replacing individual pins could remove protection if a later pin fails and the caller destroys
+         * the object. The exchange preserves every old pin until the complete replacement is pinned. */
+        if (renameat2(AT_FDCWD, staging, AT_FDCWD, PROGRAM_LINK_PREFIX, RENAME_EXCHANGE) < 0)
+                return log_error_errno(errno, "Failed to replace pinned LSM attachments: %m");
 
-        /* Only now that our own programs enforce the policy, drop the ones the previous version left
-         * pinned. Removing their links detaches them, so doing this any earlier would hand the namespaces
-         * that predate an upgrade a stretch with no policy attached at all. */
-        if (pin)
-                (void) rm_rf(OBSOLETE_LINK_PREFIX, REMOVE_PHYSICAL);
+        (void) rm_rf(OBSOLETE_LINK_PREFIX, REMOVE_PHYSICAL);
 
         return 0;
 #else

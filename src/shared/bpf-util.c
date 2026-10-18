@@ -59,6 +59,7 @@ DLSYM_PROTOTYPE(bpf_token_create) = missing_bpf_token_create;
 DLSYM_PROTOTYPE(btf__find_by_name_kind) = NULL;
 DLSYM_PROTOTYPE(btf__free) = NULL;
 DLSYM_PROTOTYPE(btf__load_vmlinux_btf) = NULL;
+DLSYM_PROTOTYPE(btf__type_by_id) = NULL;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
@@ -151,10 +152,10 @@ int dlopen_bpf(int log_level) {
 
         /* Version-specific symbols: bpf_create_map exists only in libbpf < 1.0; bpf_map_create and
          * bpf_object__next_map only in 0.7+. bpf_token_create only in 1.5+. btf__load_vmlinux_btf only in
-         * 0.5+; its two btf__* companions are older, but keep the whole probe trio optional so a missing
-         * symbol degrades bpf_kernel_has_kfunc() instead of failing dlopen_bpf() entirely. Unresolved
-         * prototypes keep their initializers (NULL, or a fallback returning -ENOSYS for
-         * bpf_token_create). */
+         * 0.5+. The other btf__* symbols are older, but we keep all of them optional. Callers that inspect
+         * the kernel BTF, such as bpf_kernel_has_kfunc() and nsresourced, then report the feature as
+         * missing instead of failing dlopen_bpf() entirely. Unresolved prototypes keep their initializers
+         * (NULL, or a fallback returning -ENOSYS for bpf_token_create). */
         DLSYM_OPTIONAL(bpf_dl, bpf_create_map);
         DLSYM_OPTIONAL(bpf_dl, bpf_map_create);
         DLSYM_OPTIONAL(bpf_dl, bpf_object__next_map);
@@ -162,6 +163,7 @@ int dlopen_bpf(int log_level) {
         DLSYM_OPTIONAL(bpf_dl, btf__find_by_name_kind);
         DLSYM_OPTIONAL(bpf_dl, btf__free);
         DLSYM_OPTIONAL(bpf_dl, btf__load_vmlinux_btf);
+        DLSYM_OPTIONAL(bpf_dl, btf__type_by_id);
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
@@ -190,8 +192,6 @@ int bpf_get_error_translated(const void *ptr) {
                 return r;
         }
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct btf *, sym_btf__free, NULL);
 
 bool bpf_kernel_has_kfunc(const char *name) {
         _cleanup_(sym_btf__freep) struct btf *btf = NULL;
