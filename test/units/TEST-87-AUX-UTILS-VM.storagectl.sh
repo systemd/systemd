@@ -33,6 +33,9 @@ at_exit() {
         rm -fr "$WORK_DIR"
     fi
     rm -fr /var/lib/storage/test-87-storage-*.volume
+    if [[ -n "${USER_STORAGE_DIR:-}" ]]; then
+        rm -fr "$USER_STORAGE_DIR"/test-87-storage-*.volume
+    fi
 }
 trap at_exit EXIT
 
@@ -174,6 +177,38 @@ if mount -t storage "fs:$TESTVOL_DIR" "$MOUNT_DIR"; then
 else
     echo "Directory volume mounting failed (idmapped mounts unsupported?), skipping."
     rm -fr "/var/lib/storage/$TESTVOL_DIR.volume"
+fi
+
+# --- fs provider in user mode: directory volumes ---
+
+# The unprivileged provider creates directory volumes from a user namespace mapping the foreign UID range,
+# which it acquires from nsresourced.
+if [[ -f /usr/lib/systemd/system/systemd-nsresourced.socket ]]; then
+    systemctl start systemd-nsresourced.socket
+    systemctl --user -M testuser@ start systemd-storage-fs.socket
+
+    USER_STORAGE_DIR="$(getent passwd testuser | cut -d: -f6)/.local/state/storage"
+    USER_TESTVOL_DIR="test-87-storage-user-dir-$RANDOM"
+    user_acquire() {
+        # shellcheck disable=SC2016
+        systemd-run -M testuser@ --user --pipe --wait -- \
+            bash -c 'varlinkctl call --exec "$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/fs" \
+                         io.systemd.StorageProvider.Acquire "$1" -- \
+                         bash -c "cat; stat -L -c %u /proc/self/fd/3"' bash "$1"
+    }
+
+    output="$(user_acquire "{\"name\":\"$USER_TESTVOL_DIR\",\"createMode\":\"new\",\"template\":\"directory\"}")"
+    assert_in '"type":"dir"' "$output"
+    [[ "$(tail -n 1 <<<"$output")" == 2147352576 ]]
+    [[ "$(stat -c %u "$USER_STORAGE_DIR/$USER_TESTVOL_DIR.volume/root")" == 2147352576 ]]
+
+    output="$(user_acquire "{\"name\":\"$USER_TESTVOL_DIR\",\"createMode\":\"open\",\"readOnly\":true}")"
+    assert_in '"readOnly":true' "$output"
+    [[ "$(tail -n 1 <<<"$output")" == 2147352576 ]]
+
+    (! user_acquire "{\"name\":\"$USER_TESTVOL_DIR\",\"createMode\":\"new\",\"template\":\"directory\"}")
+
+    rm -fr "${USER_STORAGE_DIR:?}/$USER_TESTVOL_DIR.volume"
 fi
 
 # --- mount.storage: block device via block provider ---
