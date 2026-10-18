@@ -1669,6 +1669,7 @@ const UnitVTable swap_vtable = {
         .sub_state_to_string = swap_sub_state_to_string,
 
         .will_restart = unit_will_restart_default,
+        .keep_cgroup = unit_keep_cgroup_default,
 
         .may_gc = swap_may_gc,
         .is_extrinsic = swap_is_extrinsic,

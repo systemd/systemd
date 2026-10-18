@@ -1276,6 +1276,13 @@ RestartMaxDelaySec=160s</programlisting>
         attached to the metadata (e.g. included in filenames) of the stored file
         descriptors.</para>
 
+        <para>Pages backing stored file descriptors (e.g. those of a memory file descriptor) remain charged
+        to the control group of the process that first touched them. Use
+        <varname>ControlGroupPreserve=yes</varname> (see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+        to keep the service's control group when it goes down, so that they remain accounted to the
+        service.</para>
+
         <para>If this option is set to a non-zero value the <varname>$FDSTORE</varname> environment variable
         will be set for processes invoked for this service. See
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for

@@ -485,6 +485,10 @@ bool unit_may_gc(Unit *u) {
         if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
                 return false; /* ENXIO/EOWNERDEAD means: currently not realized */
 
+        /* Stay around while we keep the cgroup, so that we don't lose track of it */
+        if (unit_keeps_cgroup(u))
+                return false;
+
         if (unit_can_start(u) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
                 return false;
 
@@ -2040,6 +2044,8 @@ int unit_start(Unit *u, ActivationDetails *details) {
                                 return -EAGAIN; /* Try again, keep in queue */
                 }
         }
+
+        unit_prune_replaced_cgroup(u);
 
         /* We don't suppress calls to ->start() here when we are already starting, to allow this request to
          * be used as a "hurry up" call, for example when the unit is in some "auto restart" state where it
@@ -3985,6 +3991,13 @@ bool unit_will_restart_default(Unit *u) {
         assert(u);
 
         return unit_has_job_type(u, JOB_START);
+}
+
+bool unit_keep_cgroup_default(Unit *u) {
+        assert(u);
+
+        CGroupContext *c = unit_get_cgroup_context(u);
+        return c && c->preserve;
 }
 
 bool unit_will_restart(Unit *u) {

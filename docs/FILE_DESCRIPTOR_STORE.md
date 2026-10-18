@@ -151,6 +151,16 @@ way will not receive an automatic `POLLHUP` event anymore if the service code
 issues `close()` on the socket. It must accompany it with an `FDSTOREREMOVE=1`
 notification to the service manager, so that the fd is comprehensively closed.
 
+## Resource Accounting
+
+Pages backing stored file descriptors, for example those of a memfd, remain
+charged to the control group of the process that first touched them, also when
+the next invocation of the service uses them. By default, the service manager
+removes the control group of a service whenever it goes down, including when it
+is restarted, and the pages are then accounted to the containing slice instead
+of the service. To keep them accounted to the service, set
+[`ControlGroupPreserve=yes`](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ControlGroupPreserve=).
+
 ## Access Control
 
 Access to the fds in the file descriptor store is generally restricted to the

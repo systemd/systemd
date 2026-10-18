@@ -2536,6 +2536,7 @@ const UnitVTable mount_vtable = {
         .sub_state_to_string = mount_sub_state_to_string,
 
         .will_restart = unit_will_restart_default,
+        .keep_cgroup = unit_keep_cgroup_default,
 
         .may_gc = mount_may_gc,
         .is_extrinsic = mount_is_extrinsic,

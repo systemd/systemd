@@ -87,6 +87,7 @@ ConditionSecurity=
 ConditionUser=
 ConditionVirtualization=
 Conflicts=
+ControlGroupPreserve=
 DefaultDependencies=
 DefaultInstance=
 DeferAcceptSec=

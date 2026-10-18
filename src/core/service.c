@@ -6729,6 +6729,7 @@ const UnitVTable service_vtable = {
         .sub_state_to_string = service_sub_state_to_string,
 
         .will_restart = service_will_restart,
+        .keep_cgroup = unit_keep_cgroup_default,
 
         .may_gc = service_may_gc,
 

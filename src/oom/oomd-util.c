@@ -605,7 +605,7 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, OomdCGroupContext
                 /* First try killing recursively to ensure all child cgroups can be killed. */
                 r = cg_kill_recursive(c->path, /* sig= */ 0, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL,
                                       /* log_kill= */ NULL, /* userdata= */ NULL);
-                if (r < 0)
+                if (r <= 0)
                         continue;
 
                 ret = 1;
@@ -642,7 +642,7 @@ int oomd_select_by_swap_usage(Hashmap *h, const char *prefix, uint64_t threshold
                 /* First try killing recursively to ensure all child cgroups can be killed. */
                 r = cg_kill_recursive(c->path, /* sig= */ 0, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL,
                                       /* log_kill= */ NULL, /* userdata= */ NULL);
-                if (r < 0)
+                if (r <= 0)
                         continue;
 
                 ret = 1;
