@@ -46,7 +46,6 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "recurse-dir.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "stat-util.h"
@@ -1285,85 +1284,6 @@ int image_discover(
         return 0;
 }
 
-static int unpriv_remove_cb(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        int r, userns_fd = PTR_TO_FD(userdata);
-
-        assert(sx);
-
-        if (event == RECURSE_DIR_ENTER &&
-            S_ISDIR(sx->stx_mode) &&
-            uid_is_foreign(sx->stx_uid)) {
-
-                /* This is owned by the foreign UID range, and a dir, let's remove it via mountfsd userns
-                 * shenanigans. */
-
-                _cleanup_close_ int tree_fd = -EBADF;
-                r = mountfsd_mount_directory_fd(
-                                /* vl= */ NULL,
-                                inode_fd,
-                                userns_fd,
-                                DISSECT_IMAGE_FOREIGN_UID,
-                                &tree_fd);
-                if (r < 0)
-                        return r;
-
-                /* Fork off child that moves into userns and does the copying */
-                r = pidref_safe_fork_full(
-                                "rm-tree",
-                                /* stdio_fds= */ NULL,
-                                (int[]) { userns_fd, tree_fd, }, 2,
-                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
-                                /* ret= */ NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Process that was supposed to remove subtree '%s' failed, ignoring: %m", empty_to_root(path));
-                else if (r == 0) {
-                        /* child */
-
-                        r = namespace_enter(
-                                        /* pidns_fd= */ -EBADF,
-                                        /* mntns_fd= */ -EBADF,
-                                        /* netns_fd= */ -EBADF,
-                                        userns_fd,
-                                        /* root_fd= */ -EBADF);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to join user namespace: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
-                        if (dfd < 0) {
-                                log_error_errno(r, "Failed to reopen tree fd: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to empty '%s' directory in foreign UID mode: %m", empty_to_root(path));
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                /* Don't descent further into this one, and delete it immediately */
-                return RECURSE_DIR_UNLINK_GRACEFUL;
-        }
-
-        /* Everything else try to remove */
-        if (event == RECURSE_DIR_LEAVE)
-                return RECURSE_DIR_UNLINK_GRACEFUL;
-
-        return RECURSE_DIR_CONTINUE;
-}
-
 static int unprivileged_remove(Image *i) {
         int r;
 
@@ -1371,26 +1291,69 @@ static int unprivileged_remove(Image *i) {
 
         /* We want this to work in complex .mstack/ hierarchies, where the main directory (and maybe a .v/
          * directory below or two) might be owned by the user themselves, but some subdirs might be owned by
-         * the foreign UID range. We deal with this by recursively descending down the tree, and removing
-         * foreign-owned ranges via userns shenanigans, and the rest just like that. */
+         * the foreign UID range, and where any of them might have restrictive access modes (e.g. 0700, as
+         * many OCI layers have). We deal with this by joining a user namespace that maps our own UID to root
+         * and the foreign UID range 1:1, in which we have full access to both, and emptying the directory
+         * there. The (then empty) directory itself is removed by the caller. */
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+        /* Open the image before joining the namespace, so that we don't empty the target of a symlink */
+        _cleanup_close_ int tree_fd = open(i->path, O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+        if (tree_fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", i->path);
+
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns_self(
                         /* vl= */ NULL,
                         /* name= */ NULL,
-                        /* size= */ NSRESOURCE_UIDS_64K);
+                        /* map_foreign= */ true);
         if (userns_fd < 0)
-                return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
+                return log_debug_errno(userns_fd, "Failed to allocate user namespace mapping the foreign UID range: %m");
 
-        r = recurse_dir_at(
-                        AT_FDCWD,
-                        i->path,
-                        /* statx_mask= */ STATX_TYPE|STATX_UID,
-                        /* n_depth_max= */ UINT_MAX,
-                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
-                        unpriv_remove_cb,
-                        FD_TO_PTR(userns_fd));
+        /* Fork off child that moves into userns and does the removing */
+        r = pidref_safe_fork_full(
+                        "rm-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, tree_fd, }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Process that was supposed to empty '%s' failed: %m", i->path);
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Only now we may be able to read the directory */
+                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                if (dfd < 0) {
+                        log_error_errno(dfd, "Failed to reopen '%s': %m", i->path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                struct stat st;
+                if (fstat(dfd, &st) < 0) {
+                        log_error_errno(errno, "Failed to stat '%s': %m", i->path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Don't descend into other file systems mounted below the image. No REMOVE_CHMOD: we may
+                 * access everything here anyway, and it would refuse directories we don't own. */
+                r = rm_rf_children(TAKE_FD(dfd), REMOVE_PHYSICAL|REMOVE_SUBVOLUME, &st);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to empty '%s' in foreign UID mode: %m", i->path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
 
         return 0;
 }
