@@ -996,6 +996,14 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnRCA:pnW101SA23T1:*    # W101SA23T1
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# Samsung
+#########################################
+
+sensor:name:dt:samsung,a52q    # Galaxy A52
+sensor:name:dt:samsung,a72q    # Galaxy A72
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
+#########################################
 # Schneider
 #########################################
 
