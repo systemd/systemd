@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <signal.h>
+#include <termios.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -11,6 +13,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -76,6 +79,9 @@ typedef enum {
 } CPUType;
 
 typedef struct Context {
+        sd_event *event;
+        sd_event_source *time_event_source;
+
         char *root;
         Hashmap *groups_by_path;
 
@@ -87,6 +93,9 @@ typedef struct Context {
         unsigned iteration;
         usec_t last_refresh;
         bool immediate_refresh;
+
+        struct termios saved_termios;
+        bool termios_saved;
 } Context;
 
 #define DEFAULT_MAXIMUM_DEPTH 3
@@ -143,8 +152,16 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_fu
 static void context_done(Context *c) {
         assert(c);
 
+        sd_event_source_unref(c->time_event_source);
+        sd_event_unref(c->event);
+
         free(c->root);
         hashmap_free(c->groups_by_path);
+
+        if (c->termios_saved) {
+                (void) tcsetattr(STDIN_FILENO, TCSANOW, &c->saved_termios);
+                c->termios_saved = false;
+        }
 }
 
 static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
@@ -868,10 +885,15 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int step(Context *c, usec_t t) {
+static int step(Context *c) {
+        usec_t t;
         int r;
 
         assert(c);
+
+        r = sd_event_now(c->event, CLOCK_MONOTONIC, &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event time: %m");
 
         if (t >= usec_add(c->last_refresh, arg_delay) || c->immediate_refresh) {
 
@@ -903,6 +925,23 @@ static int step(Context *c, usec_t t) {
         return 1;
 }
 
+static int on_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        r = step(c);
+        if (r <= 0)
+                return sd_event_exit(c->event, r);
+
+        r = sd_event_source_set_time(s, usec_add(c->last_refresh, arg_delay));
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to update time event source: %m"));
+
+        return 0;
+}
+
 static const char* counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
@@ -912,143 +951,193 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-static int loop(Context *c) {
+static int on_stdin(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        char key;
+        ssize_t n = read(fd, &key, 1);
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return sd_event_exit(c->event, log_error_errno(errno, "Failed to read from stdin: %m"));
+        }
+        if (n == 0) { /* EOF */
+                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                return 0;
+        }
+
+        if (on_tty()) { /* TTY: Clear any user keystroke */
+                fputs("\r \r", stdout);
+                fflush(stdout);
+        }
+
+        usec_t t = 0;
+        switch (key) {
+
+        case ' ':
+                c->immediate_refresh = true;
+                break;
+
+        case 'q':
+                fputs("\n", stdout);
+                fflush(stdout);
+                return sd_event_exit(c->event, 0);
+
+        case 'p':
+                arg_order = ORDER_PATH;
+                break;
+
+        case 't':
+                arg_order = ORDER_TASKS;
+                break;
+
+        case 'c':
+                arg_order = ORDER_CPU;
+                break;
+
+        case 'm':
+                arg_order = ORDER_MEMORY;
+                break;
+
+        case 'i':
+                arg_order = ORDER_IO;
+                break;
+
+        case '%':
+                arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
+                break;
+
+        case '/':
+                arg_root_memory_system = !arg_root_memory_system;
+                c->immediate_refresh = true;
+                break;
+
+        case 'k':
+                arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+
+        case 'P':
+                arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+
+        case 'r':
+                if (arg_count == COUNT_PIDS)
+                        fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                else {
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
+                }
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+
+        case '+':
+                arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+                fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+
+        case '-':
+                if (arg_delay <= USEC_PER_MSEC*500)
+                        arg_delay = USEC_PER_MSEC*250;
+                else
+                        arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+
+                fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+
+        case '?':
+        case 'h':
+
+                fprintf(stdout,
+                        "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                        "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                        "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                        "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
+                        ansi_highlight(), ansi_normal());
+                fflush(stdout);
+                t = 3 * USEC_PER_SEC;
+                break;
+
+        default:
+                if (key < ' ')
+                        fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
+                else
+                        fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
+                fflush(stdout);
+                t = USEC_PER_SEC;
+                break;
+        }
+
+        r = sd_event_source_set_time_relative(c->time_event_source, t);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to update time event source: %m"));
+
+        return 0;
+}
+
+static int setup_event(Context *c) {
         int r;
 
         assert(c);
 
-        for (;;) {
-                usec_t t;
-                char key;
+        r = sd_event_new(&c->event);
+        if (r < 0)
+                return r;
 
-                t = now(CLOCK_MONOTONIC);
+        r = sd_event_set_signal_exit(c->event, true);
+        if (r < 0)
+                return r;
 
-                r = step(c, t);
-                if (r <= 0)
-                        return r;
+        r = sd_event_add_time(
+                        c->event,
+                        &c->time_event_source,
+                        CLOCK_MONOTONIC,
+                        /* usec= */ 0,
+                        /* accuracy= */ 0,
+                        on_timer,
+                        c);
+        if (r < 0)
+                return r;
 
-                if (arg_batch)
-                        (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
-                else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
-                        if (r == -ETIMEDOUT)
-                                continue;
+        r = sd_event_source_set_enabled(c->time_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return r;
+
+        if (!arg_batch) {
+                if (tcgetattr(STDIN_FILENO, &c->saved_termios) >= 0) {
+                        struct termios t = c->saved_termios;
+
+                        t.c_lflag &= ~(ICANON|ECHO);
+                        t.c_cc[VMIN] = 1;
+                        t.c_cc[VTIME] = 0;
+
+                        r = RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &t));
                         if (r < 0)
-                                return log_error_errno(r, "Couldn't read key: %m");
+                                return r;
+
+                        c->termios_saved = true;
                 }
 
-                if (on_tty()) { /* TTY: Clear any user keystroke */
-                        fputs("\r \r", stdout);
-                        fflush(stdout);
-                }
-
-                if (arg_batch)
-                        continue;
-
-                switch (key) {
-
-                case ' ':
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'q':
-                        return 0;
-
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
-                        break;
-
-                case '/':
-                        arg_root_memory_system = !arg_root_memory_system;
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'k':
-                        arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'P':
-                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'r':
-                        if (arg_count == COUNT_PIDS)
-                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
-                        else {
-                                arg_recursive = !arg_recursive;
-                                fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
-                        }
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '+':
-                        arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '-':
-                        if (arg_delay <= USEC_PER_MSEC*500)
-                                arg_delay = USEC_PER_MSEC*250;
-                        else
-                                arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '?':
-                case 'h':
-
-                        fprintf(stdout,
-                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
-                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
-                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
-                                ansi_highlight(), ansi_normal());
-                        fflush(stdout);
-                        sleep(3);
-                        break;
-
-                default:
-                        if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
-                        else
-                                fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
-                        fflush(stdout);
-                        sleep(1);
-                }
+                r = sd_event_add_io(c->event, /* ret= */ NULL, STDIN_FILENO, EPOLLIN, on_stdin, c);
+                if (r < 0 && r != -EPERM) /* EPERM: stdin is a regular file or so. */
+                        return r;
         }
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -1084,7 +1173,15 @@ static int run(int argc, char *argv[]) {
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
-        return loop(&c);
+        r = setup_event(&c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event loop: %m");
+
+        r = sd_event_loop(c.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);
