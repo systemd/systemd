@@ -5099,6 +5099,30 @@ static int merge_settings(Settings *settings, const char *path) {
                 arg_restrict_address_families_is_allowlist = settings->restrict_address_families_is_allowlist;
         }
 
+        if (!FLAGS_SET(arg_settings_mask, SETTING_CREDENTIALS)) {
+                int r;
+
+                FOREACH_ARRAY(cred, settings->credentials.credentials, settings->credentials.n_credentials) {
+                        r = machine_credential_add(&arg_credentials, cred->id, cred->data, cred->size);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add credential '%s' from %s: %m", cred->id, path);
+                }
+
+                /* Only allow LoadCredential= in trusted files */
+                if (!strv_isempty(settings->load_credentials)) {
+                        if (!arg_settings_trusted)
+                                log_warning("Ignoring LoadCredential= settings, file %s is not trusted.", path);
+                        else
+                                STRV_FOREACH(i, settings->load_credentials) {
+                                        r = machine_credential_load(&arg_credentials, *i);
+                                        if (r < 0)
+                                                return r;
+                                }
+                }
+        }
+
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
          * don't consult arg_settings_mask for them. */
 
@@ -6699,7 +6723,7 @@ static int run(int argc, char *argv[]) {
 
                 r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
                 if (r == -EEXIST) {
-                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential= or SetCredential=, refusing --forward-journal=.");
                         goto finish;
                 }
                 if (r < 0) {

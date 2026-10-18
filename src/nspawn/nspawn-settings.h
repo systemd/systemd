@@ -7,6 +7,7 @@
 #include "conf-parser-forward.h"
 #include "cpu-set-util.h"
 #include "forward.h"
+#include "machine-credential.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "volatile-util.h"
@@ -193,6 +194,8 @@ typedef struct Settings {
         int suppress_sync;
         Set *restrict_address_families;
         bool restrict_address_families_is_allowlist;
+        MachineCredentialContext credentials;
+        char **load_credentials;
 
         /* [Files] */
         int read_only;
@@ -281,6 +284,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user_shell);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_address_families);
+CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
+CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 
 DECLARE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);
 

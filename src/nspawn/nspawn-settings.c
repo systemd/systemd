@@ -6,6 +6,8 @@
 #include "capability-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "namespace-util.h"
 #include "nspawn-expose-ports.h"
@@ -14,6 +16,7 @@
 #include "nspawn-settings.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "set.h"
@@ -142,6 +145,8 @@ Settings* settings_free(Settings *s) {
         free(s->hostname);
         cpu_set_done(&s->cpu_set);
         set_free(s->restrict_address_families);
+        machine_credential_context_done(&s->credentials);
+        strv_free(s->load_credentials);
         strv_free(s->bind_user);
         free(s->bind_user_shell);
 
@@ -1088,6 +1093,114 @@ int config_parse_restrict_address_families(
                            "Failed to parse address family, ignoring: %s", rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_set_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        MachineCredentialContext *credentials = ASSERT_PTR(data);
+        _cleanup_free_ char *id = NULL, *value = NULL;
+        const char *p = rvalue;
+        ssize_t l;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                machine_credential_context_done(credentials);
+                *credentials = (MachineCredentialContext) {};
+                return 0;
+        }
+
+        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || !p) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid credential, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!credential_name_valid(id)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name is not valid, ignoring: %s", id);
+                return 0;
+        }
+
+        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &value);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l, "Failed to unescape credential data, ignoring: %s", p);
+                return 0;
+        }
+
+        r = machine_credential_add(credentials, id, value, l);
+        if (r == -EEXIST) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Duplicate credential '%s', ignoring.", id);
+                return 0;
+        }
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_load_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***load_credentials = ASSERT_PTR(data);
+        _cleanup_free_ char *id = NULL;
+        const char *p = rvalue;
+        int r;
+
+        assert(rvalue);
+
+        /* The credentials are only loaded once we know that the settings file is trusted, hence only
+         * validate the syntax for now. */
+
+        if (isempty(rvalue)) {
+                *load_credentials = strv_free(*load_credentials);
+                return 0;
+        }
+
+        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || !p) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid credential, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!credential_name_valid(id)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name is not valid, ignoring: %s", id);
+                return 0;
+        }
+
+        if (!(path_is_absolute(p) && path_is_valid(p)) && !credential_name_valid(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Credential source is neither an absolute path nor a credential name, ignoring: %s", p);
+                return 0;
+        }
+
+        if (strv_extend(load_credentials, rvalue) < 0)
+                return log_oom();
 
         return 0;
 }
