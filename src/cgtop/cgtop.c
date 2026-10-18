@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <signal.h>
+#include <termios.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -11,6 +13,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -21,6 +24,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
@@ -76,6 +80,9 @@ typedef enum {
 } CPUType;
 
 typedef struct Context {
+        sd_event *event;
+        sd_event_source *time_event_source;
+
         char *root;
         Hashmap *groups_by_path;
 
@@ -87,6 +94,9 @@ typedef struct Context {
         unsigned iteration;
         usec_t last_refresh;
         bool immediate_refresh;
+
+        struct termios saved_termios;
+        bool termios_saved;
 } Context;
 
 #define DEFAULT_MAXIMUM_DEPTH 3
@@ -140,11 +150,50 @@ static Group *group_free(Group *g) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare, Group, group_free);
 
+static void save_console(Context *c) {
+        assert(c);
+
+        if (c->termios_saved)
+                return;
+
+        if (tcgetattr(STDIN_FILENO, &c->saved_termios) >= 0)
+                c->termios_saved = true;
+}
+
+static int modify_console(Context *c) {
+        assert(c);
+
+        if (!c->termios_saved)
+                return 0;
+
+        struct termios t = c->saved_termios;
+
+        t.c_lflag &= ~(ICANON|ECHO);
+        t.c_cc[VMIN] = 1;
+        t.c_cc[VTIME] = 0;
+
+        return RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &t));
+}
+
+static void restore_console(Context *c) {
+        assert(c);
+
+        if (!c->termios_saved)
+                return;
+
+        (void) tcsetattr(STDIN_FILENO, TCSANOW, &c->saved_termios);
+}
+
 static void context_done(Context *c) {
         assert(c);
 
+        sd_event_source_unref(c->time_event_source);
+        sd_event_unref(c->event);
+
         free(c->root);
         hashmap_free(c->groups_by_path);
+
+        restore_console(c);
 }
 
 static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
@@ -903,6 +952,28 @@ static int step(Context *c, usec_t t) {
         return 1;
 }
 
+static int on_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        usec_t t;
+        r = sd_event_now(c->event, CLOCK_MONOTONIC, &t);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to get event time: %m"));
+
+        r = step(c, t);
+        if (r <= 0)
+                return sd_event_exit(c->event, r);
+
+        r = sd_event_source_set_time(s, usec_add(c->last_refresh, arg_delay));
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to update time event source: %m"));
+
+        return 0;
+}
+
 static const char* counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
@@ -912,143 +983,248 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-static int loop(Context *c) {
+static int update_timer_relative(Context *c, usec_t t) {
         int r;
 
         assert(c);
 
-        for (;;) {
-                usec_t t;
-                char key;
+        r = sd_event_source_set_time_relative(c->time_event_source, t);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to update time event source: %m"));
 
-                t = now(CLOCK_MONOTONIC);
+        return 0;
+}
 
-                r = step(c, t);
-                if (r <= 0)
-                        return r;
+static int on_stdin(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
 
-                if (arg_batch)
-                        (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
-                else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
-                        if (r == -ETIMEDOUT)
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Couldn't read key: %m");
-                }
+        assert(s);
 
-                if (on_tty()) { /* TTY: Clear any user keystroke */
-                        fputs("\r \r", stdout);
-                        fflush(stdout);
-                }
-
-                if (arg_batch)
-                        continue;
-
-                switch (key) {
-
-                case ' ':
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'q':
+        char key;
+        ssize_t n = read(fd, &key, 1);
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
-                        break;
-
-                case '/':
-                        arg_root_memory_system = !arg_root_memory_system;
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'k':
-                        arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'P':
-                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'r':
-                        if (arg_count == COUNT_PIDS)
-                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
-                        else {
-                                arg_recursive = !arg_recursive;
-                                fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
-                        }
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '+':
-                        arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '-':
-                        if (arg_delay <= USEC_PER_MSEC*500)
-                                arg_delay = USEC_PER_MSEC*250;
-                        else
-                                arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '?':
-                case 'h':
-
-                        fprintf(stdout,
-                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
-                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
-                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
-                                ansi_highlight(), ansi_normal());
-                        fflush(stdout);
-                        sleep(3);
-                        break;
-
-                default:
-                        if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
-                        else
-                                fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
-                        fflush(stdout);
-                        sleep(1);
-                }
+                return sd_event_exit(c->event, log_error_errno(errno, "Failed to read from stdin: %m"));
         }
+        if (n == 0) { /* EOF */
+                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                return 0;
+        }
+
+        if (on_tty()) { /* TTY: Clear any user keystroke */
+                fputs("\r \r", stdout);
+                fflush(stdout);
+        }
+
+        switch (key) {
+
+        case ' ':
+                c->immediate_refresh = true;
+                return update_timer_relative(c, 0);
+
+        case 'q':
+                fputs("\n", stdout);
+                fflush(stdout);
+                return sd_event_exit(c->event, 0);
+
+        case 'p':
+                arg_order = ORDER_PATH;
+                return update_timer_relative(c, 0);
+
+        case 't':
+                arg_order = ORDER_TASKS;
+                return update_timer_relative(c, 0);
+
+        case 'c':
+                arg_order = ORDER_CPU;
+                return update_timer_relative(c, 0);
+
+        case 'm':
+                arg_order = ORDER_MEMORY;
+                return update_timer_relative(c, 0);
+
+        case 'i':
+                arg_order = ORDER_IO;
+                return update_timer_relative(c, 0);
+
+        case '%':
+                arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
+                return update_timer_relative(c, 0);
+
+        case '/':
+                arg_root_memory_system = !arg_root_memory_system;
+                c->immediate_refresh = true;
+                return update_timer_relative(c, 0);
+
+        case 'k':
+                arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+
+        case 'P':
+                arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+
+        case 'r':
+                if (arg_count == COUNT_PIDS)
+                        fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                else {
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
+                }
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+
+        case '+':
+                arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+                fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+
+        case '-':
+                if (arg_delay <= USEC_PER_MSEC*500)
+                        arg_delay = USEC_PER_MSEC*250;
+                else
+                        arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+
+                fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+
+        case '?':
+        case 'h':
+
+                fprintf(stdout,
+                        "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                        "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                        "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                        "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
+                        ansi_highlight(), ansi_normal());
+                fflush(stdout);
+                return update_timer_relative(c, 3 * USEC_PER_SEC);
+
+        default:
+                if (key < ' ')
+                        fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
+                else
+                        fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
+                fflush(stdout);
+                return update_timer_relative(c, USEC_PER_SEC);
+        }
+}
+
+static int on_sigwinch(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        assert(si);
+        assert(si->ssi_signo == SIGWINCH);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        return update_timer_relative(c, 0);
+}
+
+static int on_sigtstp(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGTSTP);
+
+        /* restore console setting before raising SIGTSTP */
+        restore_console(c);
+
+        r = sigprocmask_many(SIG_UNBLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Faield to unblock SIGTSTP: %m"));
+
+        if (raise(SIGTSTP) < 0)
+                log_debug_errno(errno, "Failed to raise SIGTSTP, ignoring: %m");
+
+        r = sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Faield to unblock SIGTSTP: %m"));
+
+        return 0;
+}
+
+static int on_sigcont(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGCONT);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        r = modify_console(c);
+        if (r < 0)
+                return sd_event_exit(c->event, log_error_errno(r, "Failed to update terminfo: %m"));
+
+        return update_timer_relative(c, 0);
+}
+
+static int setup_event(Context *c) {
+        int r;
+
+        assert(c);
+
+        r = sd_event_new(&c->event);
+        if (r < 0)
+                return r;
+
+        r = sd_event_set_signal_exit(c->event, true);
+        if (r < 0)
+                return r;
+
+        /* on terminal size change */
+        r = sd_event_add_signal(c->event, /* ret= */ NULL, SIGWINCH | SD_EVENT_SIGNAL_PROCMASK, on_sigwinch, c);
+        if (r < 0)
+                return r;
+
+        /* on Ctrl+z */
+        r = sd_event_add_signal(c->event, /* ret= */ NULL, SIGTSTP | SD_EVENT_SIGNAL_PROCMASK, on_sigtstp, c);
+        if (r < 0)
+                return r;
+
+        /* on continue */
+        r = sd_event_add_signal(c->event, /* ret= */ NULL, SIGCONT | SD_EVENT_SIGNAL_PROCMASK, on_sigcont, c);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_time(
+                        c->event,
+                        &c->time_event_source,
+                        CLOCK_MONOTONIC,
+                        /* usec= */ 0,
+                        /* accuracy= */ 0,
+                        on_timer,
+                        c);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(c->time_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return r;
+
+        if (!arg_batch) {
+                save_console(c);
+
+                r = modify_console(c);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_add_io(c->event, /* ret= */ NULL, STDIN_FILENO, EPOLLIN, on_stdin, c);
+                if (r < 0 && r != -EPERM) /* EPERM: stdin is a regular file or so. */
+                        return r;
+        }
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -1082,12 +1258,17 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("CGroup path: %s", c.root);
 
-        signal(SIGWINCH, columns_lines_cache_reset);
-
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
-        return loop(&c);
+        if (arg_iterations == 1)
+                return step(&c, /* t= */ 0);
+
+        r = setup_event(&c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event loop: %m");
+
+        return sd_event_loop(c.event);
 }
 
 DEFINE_MAIN_FUNCTION(run);
