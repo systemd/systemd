@@ -321,7 +321,7 @@ static int json_dispatch_oci_index_entry(sd_json_variant *v, OciIndexEntry *entr
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(entry->media_type, "application/vnd.oci.image.manifest.v1+json")) {
+        if (!oci_media_type_is_manifest(entry->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest index entry with media type '%s', skipping.", entry->media_type);
                 return 0;
         }
@@ -354,7 +354,8 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
 
         r = pull_job_set_accept(
                         j,
-                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json"));
+                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json",
+                                  "application/vnd.docker.distribution.manifest.v2+json"));
         if (r < 0)
                 return r;
 
@@ -417,7 +418,7 @@ static int oci_pull_process_index(OciPull *i, PullJob *j) {
 
         if (index_data.schema_version != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image index has unsupported schema version %u, refusing.", index_data.schema_version);
-        if (index_data.media_type && !streq(index_data.media_type, "application/vnd.oci.image.index.v1+json"))
+        if (index_data.media_type && !oci_media_type_is_index(index_data.media_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image index has unexpected media type '%s', refusing.", index_data.media_type);
 
         sd_json_variant *m;
@@ -635,10 +636,7 @@ static int json_dispatch_oci_manifest_layer(sd_json_variant *v, OciManifestLayer
         if (r < 0)
                 return r;
 
-        if (!STR_IN_SET(layer->media_type,
-                        "application/vnd.oci.image.layer.v1.tar",
-                        "application/vnd.oci.image.layer.v1.tar+gzip",
-                        "application/vnd.oci.image.layer.v1.tar+zstd")) {
+        if (!oci_media_type_is_layer(layer->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest layer with media type '%s', skipping.", layer->media_type);
                 return 0;
         }
@@ -726,7 +724,7 @@ static int json_dispatch_oci_manifest_config(sd_json_variant *v, OciManifestConf
         if (r < 0)
                 return r;
 
-        if (!STR_IN_SET(config->media_type, "application/vnd.oci.image.config.v1+json")) {
+        if (!oci_media_type_is_config(config->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest config with media type '%s', skipping.", config->media_type);
                 return 0;
         }
@@ -806,7 +804,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
 
         if (manifest_data.schema_version != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image manifest has unsupported schema version %u, refusing.", manifest_data.schema_version);
-        if (manifest_data.media_type && !streq(manifest_data.media_type, "application/vnd.oci.image.manifest.v1+json"))
+        if (manifest_data.media_type && !oci_media_type_is_manifest(manifest_data.media_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image manifest has unexpected media type '%s', refusing.", manifest_data.media_type);
 
         if (manifest_data.config) {
@@ -817,14 +815,15 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
                 r = json_dispatch_oci_manifest_config(manifest_data.config, &config);
                 if (r < 0)
                         return r;
-
-                if (iovec_is_set(&config.data)) {
-                        iovec_done(&i->config);
-                        i->config = TAKE_STRUCT(config.data);
-                } else {
-                        r = oci_pull_fetch_config(i, &config);
-                        if (r < 0)
-                                return r;
+                if (r > 0) { /* r == 0 means: skip */
+                        if (iovec_is_set(&config.data)) {
+                                iovec_done(&i->config);
+                                i->config = TAKE_STRUCT(config.data);
+                        } else {
+                                r = oci_pull_fetch_config(i, &config);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -1508,8 +1507,7 @@ static void oci_pull_job_on_finished_manifest(PullJob *j) {
         /* If we have no content type, let's assume it's a manifest, not an index. This can happen in case we
          * operate with file:// URLs, which in turn is really useful for testing purposes, to mock an OCI
          * registry without having to set up an HTTP service. */
-        if (streq_ptr(j->content_type, "application/vnd.oci.image.manifest.v1+json") ||
-            !j->content_type) {
+        if (oci_media_type_is_manifest(j->content_type) || !j->content_type) {
                 r = oci_pull_process_manifest(i, j);
                 if (r <= 0)
                         goto finish;
@@ -1517,7 +1515,7 @@ static void oci_pull_job_on_finished_manifest(PullJob *j) {
                 return;
         }
 
-        if (streq_ptr(j->content_type, "application/vnd.oci.image.index.v1+json")) {
+        if (oci_media_type_is_index(j->content_type)) {
 
                 if (i->refuse_index) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Already processed an OCI index, refusing to process another one.");
@@ -1587,10 +1585,13 @@ int oci_pull_start(
                         return r;
         }
 
+        /* Accept both OCI and Docker formats */
         r = pull_job_set_accept(
                         i->manifest_job,
                         STRV_MAKE("application/vnd.oci.image.manifest.v1+json",
-                                  "application/vnd.oci.image.index.v1+json"));
+                                  "application/vnd.oci.image.index.v1+json",
+                                  "application/vnd.docker.distribution.manifest.v2+json",
+                                  "application/vnd.docker.distribution.manifest.list.v2+json"));
         if (r < 0)
                 return r;
 
