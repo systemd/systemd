@@ -2,11 +2,14 @@
 
 #include <grp.h>
 #include <sched.h>
+#include <stdio.h>
 #include <sys/eventfd.h>
+#include <sys/fsuid.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bpf-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -22,6 +25,7 @@
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "userns-restrict-skel.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -54,6 +58,8 @@ static int make_idmapped_tmpfs_fsmount(int userns_fd) {
 static struct userns_restrict_bpf *bpf_obj = NULL;
 STATIC_DESTRUCTOR_REGISTER(bpf_obj, userns_restrict_bpf_freep);
 
+static bool inode_hooks = false;
+
 static int intro(void) {
         int r;
 
@@ -64,6 +70,8 @@ static int intro(void) {
                 return log_tests_skipped("Lacking privileges");
         ASSERT_OK(r);
 
+        inode_hooks = sym_bpf_program__fd(bpf_obj->progs.userns_restrict_inode_create) >= 0;
+
         r = userns_restrict_attach(bpf_obj, /* pin= */ false);
         if (ERRNO_IS_NOT_SUPPORTED(r))
                 return log_tests_skipped("LSM-BPF programs cannot be attached");
@@ -72,7 +80,26 @@ static int intro(void) {
         return 0;
 }
 
+/* nsresourced removes the map entries of a user namespace when the namespace dies. The tests don't run
+ * nsresourced, so they remove the entries themselves. Otherwise a later namespace can get the same inode
+ * number, and the BPF programs treat it as managed. The setgroups() check then stops at that namespace
+ * and never reaches a parent with a deny entry. */
+static void unregister_userns(uint64_t *inode) {
+        if (*inode != 0)
+                (void) userns_restrict_reset_by_inode(bpf_obj, *inode);
+}
+
+static uint64_t register_userns(int userns_fd) {
+        struct stat st;
+
+        ASSERT_OK_ERRNO(fstat(userns_fd, &st));
+        ASSERT_OK(userns_restrict_register_by_inode(bpf_obj, st.st_ino));
+
+        return st.st_ino;
+}
+
 TEST(userns_restrict) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
         _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF,
                              idmapped_tmpfs = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
@@ -85,7 +112,14 @@ TEST(userns_restrict) {
         ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
 
         host_fd1 = ASSERT_OK_ERRNO(open(t, O_DIRECTORY|O_CLOEXEC));
+        safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "source", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0600)));
+        ASSERT_OK_ERRNO(fchownat(host_fd1, "source", CONTAINER_UID_MIN, CONTAINER_UID_MIN, 0));
+        ASSERT_OK_ERRNO(mkdirat(host_fd1, "empty", 0700));
+        ASSERT_OK_ERRNO(fchownat(host_fd1, "empty", CONTAINER_UID_MIN, CONTAINER_UID_MIN, 0));
         host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
+
+        /* The client renames this file with RENAME_WHITEOUT below. It can't create the file itself. */
+        safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "white", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0644)));
 
         _cleanup_free_ char *idmap = NULL;
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
@@ -93,11 +127,11 @@ TEST(userns_restrict) {
 
         idmapped_tmpfs = ASSERT_OK(make_idmapped_tmpfs_fsmount(userns_fd));
 
-        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+        registered = register_userns(userns_fd);
 
         r = ASSERT_OK(pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
-                _cleanup_close_ int private_tmpfs = -EBADF;
+                _cleanup_close_ int private_tmpfs = -EBADF, tmpfile = -EBADF, tmpfile1 = -EBADF, tmpfile2 = -EBADF;
 
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
                 ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
@@ -110,25 +144,56 @@ TEST(userns_restrict) {
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "xxx", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "test2", 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdirat(host_tmpfs, "xxx2", 0666), EPERM);
+                ASSERT_ERROR_ERRNO(symlinkat("target", host_fd1, "symlink"), EPERM);
+                ASSERT_ERROR_ERRNO(mkfifoat(host_fd1, "fifo", 0600), EPERM);
+                ASSERT_ERROR_ERRNO(linkat(host_fd1, "source", host_fd1, "link", 0), EPERM);
+
+                ASSERT_OK_ERRNO(renameat(host_fd1, "source", host_fd1, "renamed"));
+                ASSERT_OK_ERRNO(unlinkat(host_fd1, "renamed", 0));
+                ASSERT_OK_ERRNO(unlinkat(host_fd1, "empty", AT_REMOVEDIR));
+
+                if (inode_hooks) {
+                        /* A linkable O_TMPFILE is refused like a named file. So is the whiteout that
+                         * RENAME_WHITEOUT leaves behind, which is owned by our transient ID too. */
+                        ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600), EPERM);
+                        ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600), EPERM);
+                        ASSERT_ERROR_ERRNO(renameat2(host_fd1, "white", host_fd1, "white2", RENAME_WHITEOUT), EPERM);
+                } else {
+                        /* O_TMPFILE creates no directory entry. The path policy checks ownership when
+                         * linkat() adds a name. */
+                        tmpfile = ASSERT_OK_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600));
+                        ASSERT_ERROR_ERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(tmpfile), host_tmpfs, "tmpfile", AT_SYMLINK_FOLLOW), EPERM);
+                }
+
+                /* O_EXCL makes an O_TMPFILE unlinkable, so tmpfile(3) keeps working. */
+                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0600)));
+
+                ASSERT_OK_ERRNO(fchmod(host_fd1, 0700));
 
                 /* But this mount created locally should be fine */
                 safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "yyy", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
                 ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "yyy2", 0666));
+                ASSERT_OK_ERRNO(symlinkat("yyy", private_tmpfs, "symlink"));
+                ASSERT_OK_ERRNO(mkfifoat(private_tmpfs, "fifo", 0600));
+                ASSERT_OK_ERRNO(linkat(private_tmpfs, "yyy", private_tmpfs, "link", 0));
+                tmpfile1 = ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600));
+                ASSERT_OK_ERRNO(linkat(tmpfile1, "", private_tmpfs, "ccc", AT_EMPTY_PATH));
+                ASSERT_OK_ERRNO(renameat2(private_tmpfs, "ccc", private_tmpfs, "ccc2", RENAME_WHITEOUT));
 
                 /* And so should the idmapped host mount: it translates our transient UID to UID 0 before
                  * anything reaches the disk */
                 safe_close(ASSERT_OK_ERRNO(openat(idmapped_tmpfs, "zzz", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
                 ASSERT_OK_ERRNO(mkdirat(idmapped_tmpfs, "zzz2", 0666));
+                ASSERT_OK_ERRNO(symlinkat("zzz", idmapped_tmpfs, "symlink"));
+                ASSERT_OK_ERRNO(mkfifoat(idmapped_tmpfs, "fifo", 0600));
+                ASSERT_OK_ERRNO(linkat(idmapped_tmpfs, "zzz", idmapped_tmpfs, "link", 0));
+                tmpfile2 = ASSERT_OK_ERRNO(openat(idmapped_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600));
+                ASSERT_OK_ERRNO(linkat(tmpfile2, "", idmapped_tmpfs, "ddd", AT_EMPTY_PATH));
+                ASSERT_OK_ERRNO(renameat2(idmapped_tmpfs, "ddd", idmapped_tmpfs, "ddd2", RENAME_WHITEOUT));
 
-                /* chown() is subject to the same policy. Unlike the creation hooks it is handed the ID that
-                 * ends up on disk, so it needs no idmap arithmetic of its own. Setting a group the inode
-                 * already has still reaches the hook, before the change is applied. Giving the host
-                 * directory (which outlives us) our transient GID would leave something recyclable behind,
-                 * hence is refused... */
+                /* Giving the host directory our transient GID would persist ownership after the namespace exits. */
                 ASSERT_ERROR_ERRNO(fchownat(host_fd1, "", GID_INVALID, 0, AT_EMPTY_PATH), EPERM);
 
-                /* ...while the same chown() is fine on the file system that dies with us, and on the
-                 * idmapped mount where our transient GID is translated to 0 before it reaches the disk. */
                 ASSERT_OK_ERRNO(fchownat(private_tmpfs, "yyy", GID_INVALID, 0, 0));
                 ASSERT_OK_ERRNO(fchownat(idmapped_tmpfs, "zzz", GID_INVALID, 0, 0));
 
@@ -148,6 +213,8 @@ TEST(userns_restrict) {
                 ASSERT_ERROR_ERRNO(mkdir(p2, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_fd1, "newns3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newns4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                if (inode_hooks)
+                        ASSERT_ERROR_ERRNO(open(t, O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
 
                 /* And chown() through the clone must stay refused too, not just inode creation. */
                 ASSERT_ERROR_ERRNO(fchownat(AT_FDCWD, t, GID_INVALID, 0, 0), EPERM);
@@ -163,6 +230,8 @@ TEST(userns_restrict) {
                 ASSERT_ERROR_ERRNO(mkdir(p4, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_fd1, "newuser3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newuser4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                if (inode_hooks)
+                        ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
 
                 /* …while what was legitimately writable before stays writable */
                 safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "aaa", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
@@ -174,7 +243,107 @@ TEST(userns_restrict) {
         ASSERT_OK(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG));
 }
 
+TEST(userns_restrict_link_owner) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
+        _cleanup_close_ int userns_fd = -EBADF, host_tmpfs = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *idmap = NULL;
+        int r;
+
+        if (!inode_hooks)
+                return (void) log_tests_skipped("Inode LSM hooks with mount idmaps are not supported");
+
+        host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
+
+        /* The client links this file below. The file is owned by the client's transient ID, and its mode
+         * keeps fs.protected_hardlinks=1 from refusing the link before the BPF-LSM runs. */
+        safe_close(ASSERT_OK_ERRNO(openat(host_tmpfs, "file", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0666)));
+        ASSERT_OK_ERRNO(fchmodat(host_tmpfs, "file", 0666, 0));
+        ASSERT_OK_ERRNO(fchownat(host_tmpfs, "file", CONTAINER_UID_MIN, CONTAINER_UID_MIN, 0));
+
+        /* ID 1 maps to a foreign ID, which is not transient. The client switches its fsuid and fsgid to it
+         * before it adds the link. */
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1\n1 "UID_FMT" 1", CONTAINER_UID_MIN, FOREIGN_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        registered = register_userns(userns_fd);
+
+        r = ASSERT_OK(pidref_safe_fork("(test-link)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+
+                /* A linkable O_TMPFILE would be owned by our transient ID, and any task that gets the file
+                 * descriptor could link it. */
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0600), EPERM);
+
+                (void) setfsgid(1);
+                (void) setfsuid(1);
+                ASSERT_EQ(setfsuid(UID_INVALID), 1);
+
+                /* The file is owned by our transient ID, no matter which fsuid adds the link. */
+                ASSERT_ERROR_ERRNO(linkat(host_tmpfs, "file", host_tmpfs, "link", 0), EPERM);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-link)", &pidref, WAIT_LOG));
+}
+
+TEST(userns_restrict_idmap_to_transient) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
+        _cleanup_close_ int userns_fd = -EBADF, idmap_fd = -EBADF, mntfd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *idmap = NULL;
+        int r;
+
+        userns_fd = ASSERT_OK(userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true));
+        ASSERT_OK(asprintf(&idmap, UID_FMT" 0 1", CONTAINER_UID_MIN));
+        idmap_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        mntfd = ASSERT_OK(make_tmpfs_fsmount());
+        ASSERT_OK_ERRNO(fchownat(mntfd, "", CONTAINER_UID_MIN, CONTAINER_UID_MIN, AT_EMPTY_PATH));
+        ASSERT_OK_ERRNO(mount_setattr(mntfd, "", AT_EMPTY_PATH,
+                                      &(struct mount_attr) {
+                                              .attr_set = MOUNT_ATTR_IDMAP,
+                                              .userns_fd = idmap_fd,
+                                      }, sizeof(struct mount_attr)));
+
+        registered = register_userns(userns_fd);
+        r = ASSERT_OK(pidref_safe_fork("(test-idmap)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                ASSERT_ERROR_ERRNO(openat(mntfd, "file", O_CREAT|O_WRONLY|O_CLOEXEC, 0600), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(mntfd, "dir", 0700), EPERM);
+                ASSERT_ERROR_ERRNO(fchownat(mntfd, "", UID_INVALID, 0, AT_EMPTY_PATH), EPERM);
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-idmap)", &pidref, WAIT_LOG));
+}
+
+static void assert_overlay_unwritable(const char *target, unsigned long flags, const char *options) {
+        _cleanup_close_ int fd = -EBADF;
+
+        if (!inode_hooks) {
+                ASSERT_ERROR_ERRNO(mount("overlay", target, "overlay", flags, options), EPERM);
+                return;
+        }
+
+        /* OverlayFS mounts read-only if an inode hook denies creating its work directory. */
+        if (mount("overlay", target, "overlay", flags, options) < 0) {
+                ASSERT_EQ(errno, EPERM);
+                return;
+        }
+
+        fd = ASSERT_OK_ERRNO(open(target, O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_ERROR_ERRNO(openat(fd, "file", O_CREAT|O_RDWR|O_CLOEXEC, 0600), EROFS);
+
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(umount(target));
+}
+
 TEST(userns_restrict_overlayfs) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
         _cleanup_close_ int userns_fd = -EBADF, idmapped_upper = -EBADF, bad_userns_fd = -EBADF,
                              bad_upper = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL, *th = NULL, *ti = NULL, *tb = NULL;
@@ -183,21 +352,13 @@ TEST(userns_restrict_overlayfs) {
                             *hmerged = NULL;
         int r;
 
-        /* overlay writes land on its upper layer via vfs_create(), which the path-based hooks never see, so
-         * a transient-owned inode could persist there. The policy judges the upper at mount time. An upper
-         * is allowed when it dies with the namespace (a tmpfs the client set up) or is idmapped to map the
-         * transient range away; it is refused when it outlives the namespace and records the transient range
-         * on disk (a plain init-owned upper, or one idmapped so the transient range still reaches its disk).
-         * We also check that an overlay mounted read-only but with such an upper is refused, since it could
-         * otherwise be remounted read-write afterwards without re-entering the hook. */
-
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
 
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
         userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
 
-        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+        registered = register_userns(userns_fd);
 
         /* Set up the layer dirs for the refuse case on the init-owned file system backing our temporary dir,
          * i.e. one that outlives the user namespace. This has to happen here as root: the managed client
@@ -301,20 +462,18 @@ TEST(userns_restrict_overlayfs) {
 
                 ASSERT_OK_ERRNO(umount(merged));
 
-                /* The same writable overlay, but with its upper on the init-owned host file system that
-                 * outlives our user namespace: the policy must refuse it. Overlayfs sets the upper up via
-                 * vfs_mkdir()/vfs_create(), reaching only the inode hooks, so nothing blocks it before
-                 * sb_kern_mount runs, and the kernel itself permits the mount (verified without the BPF-LSM
-                 * loaded) — hence the EPERM here is sb_kern_mount refusing it. */
                 _cleanup_free_ char *bad_opts = NULL;
                 ASSERT_NOT_NULL(bad_opts = strjoin("lowerdir=", hlower, ",upperdir=", hupper,
                                                    ",workdir=", hwork));
-                ASSERT_ERROR_ERRNO(mount("overlay", hmerged, "overlay", /* mountflags= */ 0, bad_opts), EPERM);
+                assert_overlay_unwritable(hmerged, /* flags= */ 0, bad_opts);
+                assert_overlay_unwritable(hmerged, MS_RDONLY, bad_opts);
 
-                /* The same persistent upper, but mounted read-only, must be refused too: it still has an
-                 * upper, so allowing it on the strength of the (mutable) read-only flag would let the client
-                 * remount it read-write afterwards, which does not re-enter this hook. */
-                ASSERT_ERROR_ERRNO(mount("overlay", hmerged, "overlay", MS_RDONLY, bad_opts), EPERM);
+                if (inode_hooks) {
+                        _cleanup_free_ char *p = NULL;
+
+                        ASSERT_NOT_NULL(p = path_join(hwork, "work"));
+                        ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
+                }
 
                 /* Then the idmapped upper: its superblock outlives us, but its idmapping maps our
                  * transient range away, so nothing recyclable reaches its disk and the mount is allowed
@@ -328,17 +487,16 @@ TEST(userns_restrict_overlayfs) {
                 ASSERT_NOT_NULL(idmapped_opts = strjoin("lowerdir=", lower, ",upperdir=", iupper,
                                                         ",workdir=", iwork));
                 ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", /* mountflags= */ 0, idmapped_opts));
+                safe_close(ASSERT_OK_ERRNO(open(f, O_RDWR|O_CREAT|O_CLOEXEC, 0600)));
+                ASSERT_OK_ERRNO(fchownat(AT_FDCWD, f, UID_INVALID, 0, 0));
                 ASSERT_OK_ERRNO(umount(merged));
 
-                /* Finally the idmapped upper whose idmapping does NOT map our transient range away (it
-                 * records it on disk unchanged): the mount reaches sb_kern_mount, whose idmap check must
-                 * refuse it. */
                 _cleanup_free_ char *bupper = NULL, *bwork = NULL, *bad_idmapped_opts = NULL;
                 ASSERT_NOT_NULL(bupper = path_join(tb, "upper"));
                 ASSERT_NOT_NULL(bwork = path_join(tb, "work"));
                 ASSERT_NOT_NULL(bad_idmapped_opts = strjoin("lowerdir=", lower, ",upperdir=", bupper,
                                                             ",workdir=", bwork));
-                ASSERT_ERROR_ERRNO(mount("overlay", merged, "overlay", /* mountflags= */ 0, bad_idmapped_opts), EPERM);
+                assert_overlay_unwritable(merged, /* flags= */ 0, bad_idmapped_opts);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -351,7 +509,64 @@ TEST(userns_restrict_overlayfs) {
         (void) umount(tb);
 }
 
+TEST(userns_restrict_overlayfs_identity) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
+        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *lower = NULL, *upper = NULL, *work = NULL, *merged = NULL, *options = NULL;
+        int r;
+
+        if (!inode_hooks)
+                return (void) log_tests_skipped("Inode LSM hooks with mount idmaps are not supported");
+
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
+        ASSERT_NOT_NULL(lower = path_join(t, "lower"));
+        ASSERT_NOT_NULL(upper = path_join(t, "upper"));
+        ASSERT_NOT_NULL(work = path_join(t, "work"));
+        ASSERT_NOT_NULL(merged = path_join(t, "merged"));
+        ASSERT_OK_ERRNO(mkdir(lower, 0755));
+        ASSERT_OK_ERRNO(mkdir(upper, 0755));
+        ASSERT_OK_ERRNO(mkdir(work, 0755));
+        ASSERT_OK_ERRNO(mkdir(merged, 0755));
+        ASSERT_NOT_NULL(options = strjoin("lowerdir=", lower, ",upperdir=", upper, ",workdir=", work));
+
+        userns_fd = ASSERT_OK(userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true));
+        registered = register_userns(userns_fd);
+
+        r = ASSERT_OK(pidref_safe_fork("(test-ovl-id)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                _cleanup_close_ int fd = -EBADF;
+
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
+                ASSERT_OK_ERRNO(mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE|MS_REC, /* data= */ NULL));
+
+                r = mount("overlay", merged, "overlay", /* mountflags= */ 0, options);
+                if (r < 0 && errno != EPERM) {
+                        log_tests_skipped_errno(errno, "OverlayFS upper is not supported");
+                        _exit(EXIT_SUCCESS);
+                }
+
+                ASSERT_OK_ERRNO(r);
+                fd = ASSERT_OK_ERRNO(open(merged, O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+                safe_close(ASSERT_OK_ERRNO(openat(fd, "file", O_CREAT|O_RDWR|O_CLOEXEC, 0600)));
+                ASSERT_OK_ERRNO(mkdirat(fd, "dir", 0700));
+                ASSERT_OK_ERRNO(symlinkat("file", fd, "symlink"));
+                ASSERT_OK_ERRNO(mkfifoat(fd, "fifo", 0600));
+                ASSERT_OK_ERRNO(linkat(fd, "file", fd, "link", 0));
+                ASSERT_OK_ERRNO(fchownat(fd, "file", 0, 0, 0));
+
+                fd = safe_close(fd);
+                ASSERT_OK_ERRNO(umount(merged));
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-ovl-id)", &pidref, WAIT_LOG));
+}
+
 TEST(userns_restrict_cgroupfs) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
         _cleanup_close_ int userns_fd = -EBADF, undelegated_fd = -EBADF, delegated_fd = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *cg = NULL, *undelegated = NULL, *delegated = NULL, *idmap = NULL;
@@ -388,7 +603,7 @@ TEST(userns_restrict_cgroupfs) {
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
         userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
 
-        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+        registered = register_userns(userns_fd);
 
         r = ASSERT_OK(pidref_safe_fork("(test-cgroup)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
@@ -432,6 +647,7 @@ static void write_child_mappings(PidRef *child, int parent_userns_fd) {
 }
 
 TEST(setgroups_deny) {
+        _cleanup_(unregister_userns) uint64_t registered_deny = 0, registered_allow = 0;
         _cleanup_close_ int deny_userns_fd = -EBADF, allow_userns_fd = -EBADF,
                              afd = -EBADF, bfd = -EBADF;
         int r;
@@ -444,13 +660,13 @@ TEST(setgroups_deny) {
          * denial specifically. */
         deny_userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ false));
 
-        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, deny_userns_fd));
+        registered_deny = register_userns(deny_userns_fd);
         ASSERT_OK(userns_restrict_setgroups_deny_by_fd(bpf_obj, deny_userns_fd));
 
         /* Create a userns that is managed but does NOT have setgroups() denied */
         allow_userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ false));
 
-        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, allow_userns_fd));
+        registered_allow = register_userns(allow_userns_fd);
 
         afd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
         bfd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
