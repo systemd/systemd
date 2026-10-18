@@ -25,6 +25,9 @@ for order in path tasks cpu memory io; do
 done
 systemd-cgtop -p -t -c -m -i
 
+systemd-cgtop -b -n 3 -d 1ms
+printf 'ptcmi%%/kPr+-?xq' | timeout 60 systemd-cgtop -n 0 -d 1ms
+
 (! systemd-cgtop --cpu=foo)
 (! systemd-cgtop --order=foo)
 (! systemd-cgtop --depth=-1)
