@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "build.h"
+#include "generator.h"
 #include "options.h"
 #include "strv.h"
 #include "tests.h"
@@ -203,6 +204,57 @@ TEST(common_parse_argv) {
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), 0, 1, 1, STRV_MAKE("-x"));
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 0, 1, -EINVAL, NULL);
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 2, 1, STRV_MAKE("x", "y"));
+}
+
+static const char *generator_dirs[3];
+
+static int test_generator_impl(const char *dest, const char *dest_early, const char *dest_late) {
+        generator_dirs[0] = dest;
+        generator_dirs[1] = dest_early;
+        generator_dirs[2] = dest_late;
+        return 42;
+}
+
+static void test_generator_main_one(
+                char **argv,
+                int expected,
+                const char *dest,
+                const char *dest_early,
+                const char *dest_late) {
+
+        _cleanup_free_ char *joined = strv_join(argv, ", ");
+        log_debug("/* %s(%s) */", __func__, joined);
+
+        zero(generator_dirs);
+        ASSERT_EQ(_generator_main(common_verbs, common_verbs + ELEMENTSOF(common_verbs) - 1,
+                                  /* options= */ NULL, /* options_end= */ NULL,
+                                  (int) strv_length(argv), argv,
+                                  test_generator_impl),
+                  expected);
+        ASSERT_STREQ(generator_dirs[0], dest);
+        ASSERT_STREQ(generator_dirs[1], dest_early);
+        ASSERT_STREQ(generator_dirs[2], dest_late);
+}
+
+TEST(generator_main) {
+        /* One directory is used for all three outputs, three are passed through. */
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a"), 42, "/a", "/a", "/a");
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b", "/c"), 42, "/a", "/b", "/c");
+        test_generator_main_one(STRV_MAKE("test-verbs", "--", "/a"), 42, "/a", "/a", "/a");
+
+        /* Any other count is rejected before the implementation is called. */
+        test_generator_main_one(STRV_MAKE("test-verbs"), -EINVAL, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b"), -EINVAL, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b", "/c", "/d"), -EINVAL, NULL, NULL, NULL);
+
+        /* The common options are handled, and win over the count check. */
+        test_generator_main_one(STRV_MAKE("test-verbs", "--help"), 0, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "-h"), 0, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--version"), 0, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--introspect-cli"),
+                                experimental_enabled() ? 0 : -EPERM, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--help", "/a", "/b"), 0, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--foo", "/a"), -EINVAL, NULL, NULL, NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
