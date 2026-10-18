@@ -75,6 +75,20 @@ typedef enum {
         _CPU_INVALID = -EINVAL,
 } CPUType;
 
+typedef struct Context {
+        char *root;
+        Hashmap *groups_by_path;
+
+        /* Running sum of memory.current across depth-1 children, filled in by
+         * process() during the refresh() walk and consumed by display() for
+         * the root row when arg_root_memory_mode == ROOT_MEMORY_CGROUP. */
+        uint64_t root_children_memory_sum;
+
+        unsigned iteration;
+        usec_t last_refresh;
+        bool immediate_refresh;
+} Context;
+
 #define DEFAULT_MAXIMUM_DEPTH 3
 
 static unsigned arg_depth = DEFAULT_MAXIMUM_DEPTH;
@@ -125,6 +139,13 @@ static Group *group_free(Group *g) {
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare, Group, group_free);
+
+static void context_done(Context *c) {
+        assert(c);
+
+        free(c->root);
+        hashmap_free(c->groups_by_path);
+}
 
 static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         if (arg_raw) {
@@ -598,21 +619,21 @@ static int group_compare(Group * const *a, Group * const *b) {
         return path_compare(x->path, y->path);
 }
 
-static void display(Hashmap *a, uint64_t root_children_memory_sum) {
+static void display(Context *c) {
         Group *g;
         Group **array;
         signed path_columns;
         unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3, /* 3 for ellipsize() to work properly */
                 maxpcpu = 6; /* minimum width for "%CPU" header */
 
-        assert(a);
+        assert(c);
 
         if (!terminal_is_dumb())
                 fputs(ANSI_HOME_CLEAR, stdout);
 
-        array = newa(Group*, hashmap_size(a));
+        array = newa(Group*, hashmap_size(c->groups_by_path));
 
-        HASHMAP_FOREACH(g, a)
+        HASHMAP_FOREACH(g, c->groups_by_path)
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
@@ -681,7 +702,7 @@ static void display(Hashmap *a, uint64_t root_children_memory_sum) {
                 ellipsized = ellipsize(path, path_columns, 33);
 
                 if (is_root_cgroup(g->path) && arg_root_memory_system) {
-                        g->memory = root_children_memory_sum;
+                        g->memory = c->root_children_memory_sum;
                         g->memory_valid = true;
                 }
 
@@ -856,21 +877,10 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-static int loop(const char *root) {
-        _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
-        unsigned iteration = 0;
-        usec_t last_refresh = 0;
-        bool immediate_refresh = false;
-        /* Running sum of memory.current across depth-1 children, filled in by
-         * process() during the refresh() walk and consumed by display() for
-         * the root row when arg_root_memory_mode == ROOT_MEMORY_CGROUP. */
-        uint64_t root_children_memory_sum = 0;
+static int loop(Context *c) {
         int r;
 
-        a = hashmap_new(&group_hash_ops);
-        b = hashmap_new(&group_hash_ops);
-        if (!a || !b)
-                return log_oom();
+        assert(c);
 
         for (;;) {
                 usec_t t;
@@ -878,25 +888,27 @@ static int loop(const char *root) {
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
+                if (t >= usec_add(c->last_refresh, arg_delay) || c->immediate_refresh) {
 
-                        root_children_memory_sum = 0;
+                        c->root_children_memory_sum = 0;
 
-                        r = refresh(root, a, b, iteration++, /* depth= */ 0,
-                                    &root_children_memory_sum, /* ret= */ NULL);
+                        _cleanup_hashmap_free_ Hashmap *previous = TAKE_PTR(c->groups_by_path);
+                        c->groups_by_path = hashmap_new(&group_hash_ops);
+                        if (!c->groups_by_path)
+                                return log_oom();
+
+                        r = refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
+                                    &c->root_children_memory_sum, /* ret= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 
-                        hashmap_clear(b);
-                        SWAP_TWO(a, b);
-
-                        last_refresh = t;
-                        immediate_refresh = false;
+                        c->last_refresh = t;
+                        c->immediate_refresh = false;
                 }
 
-                display(b, root_children_memory_sum);
+                display(c);
 
-                if (arg_iterations && iteration >= arg_iterations)
+                if (arg_iterations && c->iteration >= arg_iterations)
                         return 0;
 
                 if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
@@ -904,9 +916,9 @@ static int loop(const char *root) {
                 fflush(stdout);
 
                 if (arg_batch)
-                        (void) usleep_safe(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
+                        (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
                 else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
+                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0)
@@ -924,7 +936,7 @@ static int loop(const char *root) {
                 switch (key) {
 
                 case ' ':
-                        immediate_refresh = true;
+                        c->immediate_refresh = true;
                         break;
 
                 case 'q':
@@ -956,7 +968,7 @@ static int loop(const char *root) {
 
                 case '/':
                         arg_root_memory_system = !arg_root_memory_system;
-                        immediate_refresh = true;
+                        c->immediate_refresh = true;
                         break;
 
                 case 'k':
@@ -1028,7 +1040,6 @@ static int loop(const char *root) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_free_ char *root = NULL;
         CGroupMask mask;
         int r;
 
@@ -1050,17 +1061,18 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
-        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
+        _cleanup_(context_done) Context c = {};
+        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &c.root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
-        log_debug("CGroup path: %s", root);
+        log_debug("CGroup path: %s", c.root);
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
-        return loop(root);
+        return loop(&c);
 }
 
 DEFINE_MAIN_FUNCTION(run);
