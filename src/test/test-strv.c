@@ -497,6 +497,45 @@ TEST(strv_overlap) {
         assert_se(!strv_overlap((char **)input_table, (char**)input_table_unique));
 }
 
+TEST(strv_remove) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = ASSERT_PTR(strv_new("one", "someone", "one", "two", "one"));
+
+        ASSERT_PTR_EQ(strv_remove(l, "one"), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("someone", "two")));
+}
+
+TEST(strv_remove_endswith) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        ASSERT_NULL(strv_remove_endswith(/* l= */ NULL, ".service"));
+        ASSERT_NULL(strv_remove_endswith(/* l= */ NULL, ""));
+
+        l = ASSERT_PTR(strv_new("one.service", "two.service", "three.socket", "one.service",
+                               "service", "", "four.SERVICE", "five.service.d", ".service"));
+
+        ASSERT_PTR_EQ(strv_remove_endswith(l, ".service"), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("three.socket", "service", "", "four.SERVICE", "five.service.d")));
+
+        FOREACH_STRING(s, ".target", "prefix-five.service.d") {
+                ASSERT_PTR_EQ(strv_remove_endswith(l, s), l);
+                ASSERT_TRUE(strv_equal(l, STRV_MAKE("three.socket", "service", "", "four.SERVICE", "five.service.d")));
+        }
+
+        ASSERT_PTR_EQ(strv_remove_endswith(l, ""), l);
+        ASSERT_TRUE(strv_isempty(l));
+
+        FOREACH_STRING(s, ".service", "") {
+                ASSERT_PTR_EQ(strv_remove_endswith(l, s), l);
+                ASSERT_TRUE(strv_isempty(l));
+        }
+
+        ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one.service", "two.service", "one.service"), false));
+        ASSERT_PTR_EQ(strv_remove_endswith(l, ".service"), l);
+        ASSERT_TRUE(strv_isempty(l));
+}
+
 TEST(strv_remove_strv) {
         _cleanup_strv_free_ char **l = NULL;
 
