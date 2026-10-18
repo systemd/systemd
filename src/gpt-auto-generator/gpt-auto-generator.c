@@ -34,7 +34,16 @@
 #include "strv.h"
 #include "time-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-gpt-auto-generator\0",
+        "Discover and mount partitions based on GPT partition type UUIDs.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-gpt-auto-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum MountPointFlags {
         MOUNT_RW         = 1 << 0,
