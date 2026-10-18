@@ -56,4 +56,28 @@ TEST(oci_ref_parse) {
         ASSERT_OK(oci_ref_parse("quay.io:443/fedora/fedora:latest", NULL, NULL, NULL));
 }
 
+TEST(oci_media_type) {
+        ASSERT_TRUE(oci_media_type_is_index("application/vnd.oci.image.index.v1+json"));
+        ASSERT_TRUE(oci_media_type_is_index("application/vnd.docker.distribution.manifest.list.v2+json"));
+        ASSERT_FALSE(oci_media_type_is_index("application/vnd.oci.image.manifest.v1+json"));
+        ASSERT_FALSE(oci_media_type_is_index(NULL));
+
+        ASSERT_TRUE(oci_media_type_is_manifest("application/vnd.oci.image.manifest.v1+json"));
+        ASSERT_TRUE(oci_media_type_is_manifest("application/vnd.docker.distribution.manifest.v2+json"));
+        ASSERT_FALSE(oci_media_type_is_manifest("application/vnd.docker.distribution.manifest.v1+prettyjws"));
+        ASSERT_FALSE(oci_media_type_is_manifest("application/vnd.oci.image.index.v1+json"));
+        ASSERT_FALSE(oci_media_type_is_manifest(NULL));
+
+        ASSERT_TRUE(oci_media_type_is_config("application/vnd.oci.image.config.v1+json"));
+        ASSERT_TRUE(oci_media_type_is_config("application/vnd.docker.container.image.v1+json"));
+        ASSERT_FALSE(oci_media_type_is_config("application/json"));
+
+        ASSERT_TRUE(oci_media_type_is_layer("application/vnd.oci.image.layer.v1.tar"));
+        ASSERT_TRUE(oci_media_type_is_layer("application/vnd.oci.image.layer.v1.tar+gzip"));
+        ASSERT_TRUE(oci_media_type_is_layer("application/vnd.oci.image.layer.v1.tar+zstd"));
+        ASSERT_TRUE(oci_media_type_is_layer("application/vnd.docker.image.rootfs.diff.tar.gzip"));
+        ASSERT_FALSE(oci_media_type_is_layer("application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"));
+        ASSERT_FALSE(oci_media_type_is_layer("application/vnd.oci.image.layer.nondistributable.v1.tar+gzip"));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
