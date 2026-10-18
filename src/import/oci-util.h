@@ -23,6 +23,11 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
 
 char* oci_digest_string(const struct iovec *iovec);
 
+bool oci_media_type_is_index(const char *t);
+bool oci_media_type_is_manifest(const char *t);
+bool oci_media_type_is_config(const char *t);
+bool oci_media_type_is_layer(const char *t);
+
 int oci_make_manifest_url(const char *protocol, const char *repository, const char *image, const char *tag, char **ret);
 int oci_make_blob_url(const char *protocol, const char *repository, const char *image, const struct iovec *digest, char **ret);
 
