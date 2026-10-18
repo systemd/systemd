@@ -208,7 +208,9 @@ int _introspect_cli(
  * in the "common" option namespace, and the program's COMMAND() must declare
  * .option_namespace = "common" so that --help and --introspect-cli finds it.
  *
- * The positional arguments are returned in *ret_args, typically to be passed to dispatch_verb().
+ * The number of positional arguments is checked against min_args and max_args, and the arguments are
+ * returned in *ret_args, typically to be passed to dispatch_verb(). ret_args may be NULL if max_args is 0.
+ *
  * Returns 1 if the program shall continue, 0 if it shall exit immediately (--help, --version, or
  * --introspect-cli has been handled), and a negative errno on error. */
 int _common_parse_argv(
@@ -217,12 +219,16 @@ int _common_parse_argv(
                 const Option options[],
                 const Option options_end[],
                 int argc, char *argv[],
+                size_t min_args, size_t max_args,
                 char ***ret_args);
 /* The macro inserts the calling binary's verb section, where its COMMAND is found, and its option
  * section, which is empty (both symbols are NULL) unless the binary also implements other commands
  * with options of their own. */
-#define common_parse_argv(argc, argv, ret_args)                         \
+#define common_parse_argv_full(argc, argv, min_args, max_args, ret_args) \
         _common_parse_argv(                                             \
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
-                argc, argv, ret_args)
+                argc, argv, min_args, max_args, ret_args)
+/* For programs which dispatch verbs, and hence check the number of arguments themselves. */
+#define common_parse_argv(argc, argv, ret_args)                         \
+        common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ SIZE_MAX, ret_args)
