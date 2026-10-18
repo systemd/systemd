@@ -161,6 +161,8 @@ option('www-target', type : 'string',
 # Enablement and installation of components
 option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
+option('appd', type : 'boolean',
+       description : 'install systemd-appd')
 option('backlight', type : 'boolean',
        description : 'install systemd-backlight')
 option('binfmt', type : 'boolean',

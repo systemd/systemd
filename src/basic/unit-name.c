@@ -940,3 +940,62 @@ bool unit_name_prefix_equal(const char *a, const char *b) {
 
         return memcmp_nn(a, p - a, b, q - b) == 0;
 }
+
+int unit_name_to_app_id(const char *name, char **ret) {
+        /* Parses the app ID unit naming scheme from DESKTOP_ENVIRONMENTS.md:
+         *
+         * app[-<launcher>]-<ApplicationID>[@<RANDOM>].service
+         * app[-<launcher>]-<ApplicationID>-<RANDOM>.scope
+         */
+
+        assert(name);
+        assert(ret);
+
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -EINVAL;
+
+        UnitType type = unit_name_to_type(name);
+        if (!IN_SET(type, UNIT_SERVICE, UNIT_SCOPE))
+                return -EINVAL;
+
+        _cleanup_free_ char *dup = strdup(name);
+        if (!dup)
+                return -ENOMEM;
+        char *n = dup;
+
+        char *end = strchr(n, '@');
+        if (end && type != UNIT_SERVICE)
+                return -EINVAL;
+        if (!end)
+                end = strrchr(n, '.');
+        assert_se(end);
+        *end = '\0';
+
+        n = startswith(n, "app-");
+        if (!n)
+                return -EINVAL;
+
+        char *first_sep = strchr(n, '-');
+        if (type == UNIT_SCOPE) {
+                if (!first_sep)
+                        return -EINVAL; /* Missing required -<RANDOM> */
+
+                char *last_sep = strrchr(n, '-');
+                assert(last_sep);
+
+                if (first_sep == last_sep) /* There's no <launcher>- */
+                        first_sep = NULL;
+
+                *last_sep = '\0';
+        }
+        if (first_sep)
+                n = first_sep + 1;
+
+        if (strchr(n, '-') != NULL)
+                return -EINVAL;
+
+        if (isempty(n))
+                return -EINVAL;
+
+        return unit_name_unescape(n, ret);
+}
