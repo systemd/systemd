@@ -87,6 +87,7 @@ INTROSPECTABLE=(
     systemd-factory-reset
     systemd-factory-reset-generator
     systemd-firstboot
+    systemd-fstab-generator
     systemd-getty-generator
     systemd-gpt-auto-generator
     systemd-growfs
@@ -161,6 +162,7 @@ INTROSPECTABLE=(
     systemd-sysctl
     systemd-sysext
     systemd-sysinstall
+    systemd-sysroot-fstab-check
     systemd-system-update-generator
     systemd-sysupdate
     systemd-sysupdated

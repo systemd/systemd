@@ -39,6 +39,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
 #include "volatile-util.h"
 
@@ -92,6 +93,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_mounts, arg_n_mounts, mount_array_free);
+
+COMMAND(
+        "systemd-fstab-generator\0",
+        "Generate mount, swap, and automount units from /etc/fstab.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-fstab-generator(8)\0",
+        .option_namespace = "common",
+);
+COMMAND(
+        "systemd-sysroot-fstab-check\0",
+        "Optionally call daemon-reload based on contents of /sysroot/etc/fstab.",
+        .man_pages = "systemd-fstab-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static void mount_done(Mount *m) {
         assert(m);
@@ -1685,13 +1700,12 @@ static int determine_usr(void) {
         return determine_device(&arg_usr_what, NULL, &arg_usr_options, arg_usr_hash, "usr");
 }
 
-/* If arg_sysroot_check is false, run as generator in the usual fashion.
- * If it is true, check /sysroot/etc/fstab for any units that we'd want to mount
- * in the initrd, and call daemon-reload. We will get reinvoked as a generator,
- * with /sysroot/etc/fstab available, and then we can write additional units based
- * on that file. */
-static int run_generator(void) {
+/* Run as generator in the usual fashion. Executed when arg_sysroot_check is false. */
+static int generator_impl(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
+
+        arg_dest = dest;
+        arg_dest_late = dest_late;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -1699,15 +1713,6 @@ static int run_generator(void) {
 
         (void) determine_root();
         (void) determine_usr();
-
-        if (arg_sysroot_check) {
-                r = parse_fstab(/* prefix_sysroot= */ true);
-                if (r == 0)
-                        log_debug("Nothing interesting found, not doing daemon-reload.");
-                if (r > 0)
-                        r = do_daemon_reload();
-                return r;
-        }
 
         r = 0;
 
@@ -1743,6 +1748,37 @@ static int run_generator(void) {
         return r;
 }
 
+/* Check /sysroot/etc/fstab for any units that we'd want to mount in the initrd, and call
+ * daemon-reload. We will get reinvoked as a generator, with /sysroot/etc/fstab available,
+ * and then we can write additional units based on that file. */
+static int run_check(int argc, char **argv) {
+        int r;
+
+        log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
+
+        if (!in_initrd())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program is only useful in the initrd.");
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        (void) determine_root();
+        (void) determine_usr();
+
+        r = parse_fstab(/* prefix_sysroot= */ true);
+        if (r == 0)
+                log_debug("Nothing interesting found, not doing daemon-reload.");
+        if (r > 0)
+                r = do_daemon_reload();
+        return r;
+}
+
 static int run(int argc, char **argv) {
         LIBCRYPTO_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
@@ -1750,30 +1786,13 @@ static int run(int argc, char **argv) {
         TPM2_NOTE(suggested);
 
         arg_sysroot_check = invoked_as(argv, "systemd-sysroot-fstab-check");
+        if (arg_sysroot_check)
+                /* Run in systemd-sysroot-fstab-check mode */
+                return run_check(argc, argv);
 
-        if (arg_sysroot_check) {
-                /* Run as in systemd-sysroot-fstab-check mode */
-                log_setup();
-
-                if (strv_length(argv) > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program takes no arguments.");
-                if (!in_initrd())
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program is only useful in the initrd.");
-        } else {
-                /* Run in generator mode */
-                log_setup_generator();
-
-                if (!IN_SET(strv_length(argv), 2, 4))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program takes one or three arguments.");
-
-                arg_dest = ASSERT_PTR(argv[1]);
-                arg_dest_late = ASSERT_PTR(argv[argc > 3 ? 3 : 1]);
-        }
-
-        return run_generator();
+        /* Run in generator mode */
+        log_setup_generator();
+        return generator_main(argc, argv, generator_impl);
 }
 
 DEFINE_MAIN_FUNCTION(run);
