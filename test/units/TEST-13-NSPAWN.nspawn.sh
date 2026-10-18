@@ -1562,6 +1562,16 @@ testcase_unpriv_dir() {
 
     assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
     assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network bash -c 'echo foobar')" "foobar"
+
+    # The OS tree checks must also work if the foreign-owned root directory isn't accessible to the
+    # unprivileged user, both for /usr/ (non-boot) and os-release (--boot)
+    chmod 0700 "$root"
+    assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network bash -c 'echo foobar')" "foobar"
+    run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network --boot
+    rm -f "$root/etc/os-release" "$root/usr/lib/os-release"
+    (! run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network --boot)
+    run0 --pipe -u testuser --setenv=SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0 \
+        systemd-nspawn --pipe --register=no -D "$root" --private-network --boot
     chown root:root "$root/.."
 
     rm -rf "$root"
