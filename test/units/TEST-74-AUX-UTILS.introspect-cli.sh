@@ -151,6 +151,7 @@ INTROSPECTABLE=(
     systemd-report-sign-tpm2
     systemd-report-sign-tsm
     systemd-resolved
+    systemd-rfkill
     systemd-run
     systemd-run-generator
     systemd-sbsign
