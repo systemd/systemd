@@ -159,10 +159,10 @@ testcase_exec_properties() {
     # Exec.WorkingDirectory and Exec.Environment
     defer_transient_cleanup varlink-transient-exec.service
     result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-        '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false},"Environment":["FOO=bar","BAZ=qux"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+        '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false},"Environment":["FOO=old","BAZ=qux","FOO=bar"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
     echo "$result" | jq -e '.context.Exec.WorkingDirectory.path == "/tmp"'
-    echo "$result" | jq -e '.context.Exec.Environment | index("FOO=bar") != null'
-    echo "$result" | jq -e '.context.Exec.Environment | index("BAZ=qux") != null'
+    # Later assignments should override earlier ones, leaving one entry per environment variable.
+    echo "$result" | jq -e '.context.Exec.Environment | sort == ["BAZ=qux", "FOO=bar"]'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-exec.service; do sleep 0.5; done'
     systemctl show -P WorkingDirectory varlink-transient-exec.service | grep '^/tmp$' >/dev/null
     systemctl show -P Environment varlink-transient-exec.service | grep 'FOO=bar' >/dev/null
