@@ -91,73 +91,72 @@ static int set_show_status(const char *value) {
         return 0;
 }
 
+/* Muting is refcounted, so that several clients can hold it at the same time: the outputs are muted when
+ * the first client asks for it, and restored when the last one goes away. */
 typedef struct Context {
-        bool mute_pid1;
-        bool mute_kernel;
+        unsigned n_muted_pid1;
+        unsigned n_muted_kernel;
 
-        bool muted_pid1;
         int saved_kernel;
-
-        sd_varlink *link;
 } Context;
 
-static int mute_pid1(Context *c) {
+/* Per Varlink connection: what this client holds a reference on. */
+typedef struct Request {
+        bool muted_pid1;
+        bool muted_kernel;
+
+        /* sd-varlink fails a method call which neither got a final reply nor had its connection referenced
+         * by the callback. This keeps the call open until the client disconnects. */
+        sd_varlink *link;
+} Request;
+
+/* Returns > 0 if a reference was taken, 0 if muting is disabled. */
+static int mute_pid1(Context *c, bool enable) {
         int r;
 
         assert(c);
 
-        if (!c->mute_pid1) {
+        if (!enable) {
                 log_debug("Muting of PID 1 status console output disabled.");
-                c->muted_pid1 = false;
                 return 0;
         }
 
-        r = set_show_status("no");
-        if (r < 0)
-                return r;
+        if (c->n_muted_pid1 == 0) {
+                r = set_show_status("no");
+                if (r < 0)
+                        return r;
 
-        log_debug("Successfully muted PID 1 status console output.");
+                log_debug("Successfully muted PID 1 status console output.");
+        }
 
-        c->muted_pid1 = true;
-        return 0;
+        c->n_muted_pid1++;
+        return 1;
 }
 
 static int unmute_pid1(Context *c) {
         int r;
 
         assert(c);
+        assert(c->n_muted_pid1 > 0);
 
-        if (!c->muted_pid1) {
-                if (c->mute_pid1)
-                        log_debug("Not restoring PID 1 status console output level.");
+        if (--c->n_muted_pid1 > 0)
                 return 0;
-        }
 
         r = set_show_status("");
         if (r < 0)
                 return r;
 
         log_debug("Successfully unmuted PID 1 status console output.");
-        c->muted_pid1 = false;
         return 0;
 }
 
-static int mute_kernel(Context *c) {
+static int mute_kernel_now(Context *c) {
         int r;
 
         assert(c);
 
-        if (!c->mute_kernel) {
-                log_debug("Muting of kernel printk() console output disabled.");
-                c->saved_kernel = -1;
-                return 0;
-        }
-
         if (detect_container() > 0) {
                 log_debug("Skipping muting of printk() console output, because running in a container.");
-
-                c->mute_kernel = false;
-                c->saved_kernel = -1;
                 return 0;
         }
 
@@ -180,14 +179,13 @@ static int mute_kernel(Context *c) {
         return 0;
 }
 
-static int unmute_kernel(Context *c) {
+static int unmute_kernel_now(Context *c) {
         int r;
 
         assert(c);
 
         if (c->saved_kernel < 0) {
-                if (c->mute_kernel)
-                        log_debug("Not restoring kernel printk() console output level.");
+                log_debug("Not restoring kernel printk() console output level.");
                 return 0;
         }
 
@@ -209,20 +207,52 @@ static int unmute_kernel(Context *c) {
         return 0;
 }
 
+/* Returns > 0 if a reference was taken, 0 if muting is disabled. */
+static int mute_kernel(Context *c, bool enable) {
+        int r;
+
+        assert(c);
+
+        if (!enable) {
+                log_debug("Muting of kernel printk() console output disabled.");
+                return 0;
+        }
+
+        if (c->n_muted_kernel == 0) {
+                r = mute_kernel_now(c);
+                if (r < 0)
+                        return r;
+        }
+
+        c->n_muted_kernel++;
+        return 1;
+}
+
+static int unmute_kernel(Context *c) {
+        assert(c);
+        assert(c->n_muted_kernel > 0);
+
+        if (--c->n_muted_kernel > 0)
+                return 0;
+
+        return unmute_kernel_now(c);
+}
+
 static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
         assert(link);
 
-        Context *c = sd_varlink_get_userdata(link);
-        if (!c)
+        _cleanup_free_ Request *req = sd_varlink_set_userdata(link, NULL);
+        if (!req)
                 return;
 
-        (void) unmute_pid1(c);
-        (void) unmute_kernel(c);
+        if (req->muted_pid1)
+                (void) unmute_pid1(c);
+        if (req->muted_kernel)
+                (void) unmute_kernel(c);
 
-        (void) sd_varlink_set_userdata(c->link, NULL);
-        sd_varlink_flush_close_unref(c->link);
-
-        free(c);
+        sd_varlink_flush_close_unref(req->link);
 }
 
 static int vl_method_mute(
@@ -231,48 +261,60 @@ static int vl_method_mute(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
+        struct {
+                bool pid1;
+                bool kernel;
+        } p = {
+                .pid1 = true,
+                .kernel = true,
+        };
         int r;
 
         assert(link);
         assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
+        Context *c = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
         /* Refuse multiple requests per connection. */
         if (sd_varlink_get_userdata(link))
                 return -EBUSY;
 
-        _cleanup_free_ Context *nc = new(Context, 1);
-        if (!nc)
-                return -ENOMEM;
-
-        *nc = (Context) {
-                .mute_pid1 = true,
-                .mute_kernel = true,
-                .saved_kernel = -1,
-        };
-
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "kernel", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Context, mute_kernel), 0 },
-                { "pid1",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Context, mute_pid1),   0 },
+                { "kernel", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(p, kernel), 0 },
+                { "pid1",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(p, pid1),   0 },
                 {}
         };
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, nc);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        r = sd_varlink_server_bind_disconnect(sd_varlink_get_server(link), vl_on_disconnect);
+        Request *req = new(Request, 1);
+        if (!req)
+                return -ENOMEM;
+
+        *req = (Request) {
+                .link = sd_varlink_ref(link),
+        };
+
+        /* The Request object is now owned by the link, and released by the disconnect handler */
+        (void) sd_varlink_set_userdata(link, req);
+
+        r = mute_pid1(c, p.pid1);
         if (r < 0)
                 return r;
+        req->muted_pid1 = r > 0;
 
-        (void) sd_varlink_set_userdata(link, nc);
-        nc->link = sd_varlink_ref(link);
-        Context *c = TAKE_PTR(nc); /* the Context object is now managed by the disconnect handler, not us anymore */
-
-        r = 0;
-        RET_GATHER(r, mute_pid1(c));
-        RET_GATHER(r, mute_kernel(c));
-        if (r < 0)
+        r = mute_kernel(c, p.kernel);
+        if (r < 0) {
+                /* Don't keep a failed request's PID 1 mute around until the client disconnects. */
+                if (req->muted_pid1) {
+                        (void) unmute_pid1(c);
+                        req->muted_pid1 = false;
+                }
                 return r;
+        }
+        req->muted_kernel = r > 0;
 
         /* Let client know we are muted now. We use sd_varlink_notify() here (rather than sd_varlink_reply())
          * because we want to keep the method call open, as we want that the lifetime of the
@@ -286,6 +328,9 @@ static int vl_method_mute(
 
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        Context c = {
+                .saved_kernel = -1,
+        };
         int r;
 
         /* Invocation as Varlink service */
@@ -296,7 +341,7 @@ static int vl_server(void) {
                         SD_VARLINK_SERVER_MYSELF_ONLY |
                         SD_VARLINK_SERVER_HANDLE_SIGINT |
                         SD_VARLINK_SERVER_HANDLE_SIGTERM,
-                        /* userdata= */ NULL);
+                        &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
@@ -309,6 +354,10 @@ static int vl_server(void) {
                         "io.systemd.MuteConsole.Mute", vl_method_mute);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_bind_disconnect(varlink_server, vl_on_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink disconnect handler: %m");
 
         r = sd_varlink_server_loop_auto(varlink_server);
         if (r < 0)
@@ -333,8 +382,6 @@ static int run(int argc, char* argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not asked to mute anything, refusing.");
 
         Context c = {
-                .mute_pid1 = arg_mute_pid1,
-                .mute_kernel = arg_mute_kernel,
                 .saved_kernel = -1,
         };
 
@@ -347,8 +394,8 @@ static int run(int argc, char* argv[]) {
         (void) sd_event_set_signal_exit(event, true);
 
         int ret = 0;
-        RET_GATHER(ret, mute_pid1(&c));
-        RET_GATHER(ret, mute_kernel(&c));
+        RET_GATHER(ret, mute_pid1(&c, arg_mute_pid1));
+        RET_GATHER(ret, mute_kernel(&c, arg_mute_kernel));
 
         /* Now tell service manager we are ready to go */
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
@@ -362,8 +409,10 @@ static int run(int argc, char* argv[]) {
         if (r < 0)
                 RET_GATHER(ret, log_error_errno(r, "Failed to run event loop: %m"));
 
-        RET_GATHER(ret, unmute_pid1(&c));
-        RET_GATHER(ret, unmute_kernel(&c));
+        if (c.n_muted_pid1 > 0)
+                RET_GATHER(ret, unmute_pid1(&c));
+        if (c.n_muted_kernel > 0)
+                RET_GATHER(ret, unmute_kernel(&c));
 
         return ret;
 }
