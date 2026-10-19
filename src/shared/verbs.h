@@ -250,3 +250,19 @@ int _common_parse_argv(
 /* For programs which dispatch verbs, and hence check the number of arguments themselves. */
 #define common_parse_argv(argc, argv, ret_args)                         \
         common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ SIZE_MAX, ret_args)
+
+/* For a program which hands its command line on to another program, like a login shell: the common
+ * options are handled as by common_parse_argv() if the command line consists of nothing else, and 0
+ * or a negative errno is returned. Otherwise, including unknown options and "--", the arguments are
+ * left untouched and 1 is returned without a message. */
+int _common_parse_argv_passthrough(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[]);
+#define common_parse_argv_passthrough(argc, argv)                       \
+        _common_parse_argv_passthrough(                                 \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                argc, argv)

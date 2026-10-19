@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -1063,4 +1064,44 @@ int _common_parse_argv(
         if (ret_args)
                 *ret_args = option_parser_get_args(&opts);
         return 1; /* Further action */
+}
+
+int _common_parse_argv_passthrough(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[]) {
+
+        assert(argc >= 0);
+        assert(argv);
+
+        /* Find out whether the command line consists of nothing but common options with a quiet dry run on
+         * a copy, since the parser reorders argv and complains about unknown options. */
+        _cleanup_free_ char **copy = newdup(char*, argv, argc + 1);
+        if (!copy)
+                return log_oom();
+
+        OptionParser opts = { argc, copy, .namespace = "common", .log_level_shift = LOG_DEBUG - LOG_ERR };
+        bool refused = false;
+
+        for (;;) {
+                int c = option_parse(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, &opts);
+                if (c == 0)
+                        break;
+                if (c == -EPERM) {
+                        /* An experimental common option which this build refuses. Report that below, like
+                         * any other program does, rather than passing the option on. */
+                        refused = true;
+                        break;
+                }
+                if (c < 0)
+                        return 1; /* Not a common option, the program passes the command line on. */
+        }
+
+        if (!refused && option_parser_get_n_args(&opts) > 0)
+                return 1; /* Positional arguments are passed on too. */
+
+        return _common_parse_argv(verbs, verbs_end, options, options_end, argc, argv, OPTION_PARSER_NORMAL,
+                                  /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
 }
