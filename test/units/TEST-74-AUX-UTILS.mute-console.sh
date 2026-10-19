@@ -81,7 +81,41 @@ unset PID
 # Stopping the service while a client holds the mute must unmute. This also disconnects the client.
 PID="$(systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{}')"
 wait_printk_level 0
-systemctl stop "systemd-mute-console*.service"
+systemctl stop systemd-mute-console.service
 wait_printk_level 4
 timeout 10 tail --pid="$PID" -f /dev/null
 unset PID
+
+# Muting is refcounted: a second client gets an immediate response while the first one still holds
+# the mute, and output is only unmuted when the last client disconnects. Nothing gets queued, as
+# pending jobs block boot completion.
+PID_A="$(systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{}')"
+PID_B="$(timeout 10 systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{}')"
+wait_printk_level 0
+[[ -z "$(systemctl list-jobs --no-legend systemd-mute-console.service)" ]]
+kill "$PID_A"
+sleep .5
+wait_printk_level 0
+kill "$PID_B"
+wait_printk_level 4
+unset PID_A PID_B
+
+# Each client only mutes what was requested: kernel output is unmuted once the last client that muted it
+# disconnects, even while another client still holds the PID 1 mute.
+PID_A="$(systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{"kernel":false}')"
+PID_B="$(systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{}')"
+wait_printk_level 0
+kill "$PID_B"
+wait_printk_level 4
+kill "$PID_A"
+timeout 10 tail --pid="$PID_A" -f /dev/null
+systemctl is-active systemd-mute-console.service
+unset PID_A PID_B
+
+# Bursts of short connections must not run into the service's start rate limit, which would fail the socket.
+systemctl stop systemd-mute-console.service
+for _ in {1..10}; do
+    varlinkctl introspect /run/systemd/io.systemd.MuteConsole >/dev/null
+done
+systemctl is-active systemd-mute-console.socket
+systemctl is-active systemd-mute-console.service
