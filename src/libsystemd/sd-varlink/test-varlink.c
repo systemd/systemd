@@ -1902,4 +1902,166 @@ TEST(add_connection_failure_cleanup) {
         ASSERT_EQ(c, 1U); /* The disconnect callback is called when the connection is closed. */
 }
 
+typedef struct PinnedReplyTest {
+        sd_event *event;
+        int fd;
+        int n;
+        int input_fd, output_fd;
+} PinnedReplyTest;
+
+/* The reply callbacks below check that every reply is one to the asynchronous call, not the reply still
+ * pinned from the preceding synchronous call, i.e. the one from call_pinned(). */
+
+static int reply_pinned_invoke(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        PinnedReplyTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(parameters, "sum")), 3);
+        ASSERT_FALSE(FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES));
+        t->n++;
+
+        return 0;
+}
+
+static int reply_pinned_observe(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        PinnedReplyTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(parameters, "sum")), 1 + 2 * t->n);
+        ASSERT_EQ(FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES), t->n < 5);
+        t->n++;
+
+        return 0;
+}
+
+static int reply_pinned_upgrade(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        PinnedReplyTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        ASSERT_NULL(sd_json_variant_by_key(parameters, "sum"));
+        t->n++;
+
+        return 0;
+}
+
+static int upgrade_pinned(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        PinnedReplyTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_EQ(t->n, 1);
+        t->input_fd = input_fd;
+        t->output_fd = output_fd;
+
+        return 0;
+}
+
+static void call_pinned(sd_varlink *c) {
+        sd_json_variant *o = NULL;
+        const char *error_id = NULL;
+
+        /* This leaves the reply pinned in the connection object */
+        ASSERT_OK(sd_varlink_callbo(c, "io.test.DoSomething", &o, &error_id,
+                                    SD_JSON_BUILD_PAIR_INTEGER("a", 7),
+                                    SD_JSON_BUILD_PAIR_INTEGER("b", 22)));
+        ASSERT_NULL(error_id);
+        ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(o, "sum")), 29);
+}
+
+static void process_pinned(sd_varlink *c, const int *n, int until) {
+        int r;
+
+        while (*n < until) {
+                r = ASSERT_OK(sd_varlink_process(c));
+                if (r > 0)
+                        continue;
+
+                ASSERT_OK(sd_varlink_wait(c, USEC_INFINITY));
+        }
+}
+
+static int pinned_reply_fiber(void *userdata) {
+        PinnedReplyTest *t = ASSERT_PTR(userdata);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        static const char msg[] = "Hello!";
+        char buf[64] = {};
+        ssize_t n;
+        int r;
+
+        ASSERT_OK(sd_varlink_connect_fd(&c, TAKE_FD(t->fd)));
+        sd_varlink_set_userdata(c, t);
+
+        call_pinned(c);
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_invoke));
+        ASSERT_OK(sd_varlink_invokebo(c, "io.test.DoSomething",
+                                      SD_JSON_BUILD_PAIR_INTEGER("a", 1),
+                                      SD_JSON_BUILD_PAIR_INTEGER("b", 2)));
+        process_pinned(c, &t->n, 1);
+
+        call_pinned(c);
+        t->n = 0;
+        ASSERT_OK(sd_varlink_bind_reply(c, NULL));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_observe));
+        ASSERT_OK(sd_varlink_observebo(c, "io.test.DoSomethingMore",
+                                       SD_JSON_BUILD_PAIR_INTEGER("a", 1),
+                                       SD_JSON_BUILD_PAIR_INTEGER("b", 2)));
+        process_pinned(c, &t->n, 6);
+
+        /* The upgrade callback stores the fds in t, hence wait for them instead of the reply */
+        call_pinned(c);
+        t->n = 0;
+        ASSERT_OK(sd_varlink_bind_reply(c, NULL));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_upgrade));
+        ASSERT_OK(sd_varlink_bind_upgrade(c, upgrade_pinned));
+        ASSERT_OK(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL));
+        while (t->input_fd < 0) {
+                r = ASSERT_OK(sd_varlink_process(c));
+                if (r > 0)
+                        continue;
+
+                ASSERT_OK(sd_varlink_wait(c, USEC_INFINITY));
+        }
+        input_fd = TAKE_FD(t->input_fd);
+        output_fd = TAKE_FD(t->output_fd);
+
+        /* Same exchange as in upgrade_client_fiber(), to verify we are in sync with the server */
+        ASSERT_OK(loop_write(output_fd, msg, strlen(msg)));
+        ASSERT_OK_ERRNO(shutdown(output_fd, SHUT_WR));
+
+        n = ASSERT_OK(loop_read(input_fd, buf, strlen(msg), /* do_poll= */ true));
+        ASSERT_EQ((size_t) n, strlen(msg));
+        ASSERT_STREQ(buf, "!olleH");
+
+        return sd_event_exit(t->event, EXIT_SUCCESS);
+}
+
+TEST(async_call_after_pinned_reply) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        PinnedReplyTest t = {};
+        int connfd[2];
+
+        ASSERT_OK(sd_event_default(&e));
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        t = (PinnedReplyTest) {
+                .event = e,
+                .fd = connfd[1],
+                .input_fd = -EBADF,
+                .output_fd = -EBADF,
+        };
+
+        ASSERT_OK(sd_fiber_new(e, "client", pinned_reply_fiber, &t, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK(sd_future_result(f));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
