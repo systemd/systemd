@@ -39,7 +39,7 @@ char* setup_fake_runtime_dir(void) {
         char *t;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/fake-xdg-runtime-XXXXXX", &t));
-        ASSERT_OK(setenv("XDG_RUNTIME_DIR", t, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("XDG_RUNTIME_DIR", t, /* overwrite= */ true));
         return t;
 }
 
@@ -63,8 +63,13 @@ static void load_testdata_env(void) {
                 return;
         }
 
-        STRV_FOREACH_PAIR(k, v, pairs)
-                ASSERT_OK(setenv(*k, *v, /* overwrite= */ false));
+        STRV_FOREACH_PAIR(k, v, pairs) {
+                _cleanup_free_ char *p = NULL;
+
+                /* systemd-runtest.env contains paths relative to the directory that contains it. */
+                ASSERT_NOT_NULL(p = path_make_absolute(*v, d));
+                ASSERT_OK_ERRNO(setenv(*k, p, /* overwrite= */ false));
+        }
 }
 
 int get_testdata_dir(const char *suffix, char **ret) {

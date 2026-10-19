@@ -2049,12 +2049,16 @@ endif
 
 #####################################################################
 
+# Every test executable has systemd-runtest.env as a link dependency, so ninja relinks every test when
+# the file changes. Absolute paths in the file would change whenever the build directory moves. The paths
+# are therefore relative to the build directory. tests.c and test-sysusers.sh resolve them against the
+# directory that contains the file.
 runtest_env = custom_target(
         output : 'systemd-runtest.env',
         command : ['printf',
                    'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
-                   meson.project_source_root() / 'test',
-                   meson.project_build_root() / 'catalog'],
+                   relative_source_path / 'test',
+                   'catalog'],
         capture: true,
         depends : catalogs,
         build_by_default : true)
