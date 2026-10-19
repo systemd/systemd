@@ -502,16 +502,21 @@ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
 
 int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ sd_lldp_neighbor **neighbors = NULL;
+        size_t n_neighbors = 0;
         int r;
 
         assert(lldp_rx);
         assert(ret);
 
-        sd_lldp_neighbor *n;
-        HASHMAP_FOREACH(n, lldp_rx->neighbor_by_id) {
+        r = hashmap_dump_sorted(lldp_rx->neighbor_by_id, (void***) &neighbors, &n_neighbors);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(n, neighbors, n_neighbors) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = lldp_neighbor_build_json(n, &w);
+                r = lldp_neighbor_build_json(*n, &w);
                 if (r < 0)
                         return r;
 

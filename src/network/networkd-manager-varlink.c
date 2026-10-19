@@ -127,24 +127,32 @@ static int manager_build_lldp_neighbors_by_interface_json(Manager *manager, Link
                 r = link_append_lldp_neighbors(link, v, &array);
                 if (r < 0)
                         return r;
-        } else
-                HASHMAP_FOREACH(link, manager->links_by_index) {
+        } else {
+                _cleanup_free_ Link **links = NULL;
+                size_t n_links = 0;
+
+                r = hashmap_dump_sorted(manager->links_by_index, (void***) &links, &n_links);
+                if (r < 0)
+                        return r;
+
+                FOREACH_ARRAY(l, links, n_links) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        if (!link->lldp_rx)
+                        if (!(*l)->lldp_rx)
                                 continue;
 
-                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
+                        r = lldp_rx_build_neighbors_json((*l)->lldp_rx, &v);
                         if (r < 0)
                                 return r;
 
                         if (sd_json_variant_is_blank_array(v))
                                 continue;
 
-                        r = link_append_lldp_neighbors(link, v, &array);
+                        r = link_append_lldp_neighbors(*l, v, &array);
                         if (r < 0)
                                 return r;
                 }
+        }
 
         if (!array) {
                 r = sd_json_variant_new_array(&array, /* array= */ NULL, /* n= */ 0);
