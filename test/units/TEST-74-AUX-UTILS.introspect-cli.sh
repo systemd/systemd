@@ -119,6 +119,7 @@ INTROSPECTABLE=(
     systemd-logind
     systemd-machine-id-setup
     systemd-machined
+    systemd-makefs
     systemd-measure
     systemd-modules-load
     systemd-mount
