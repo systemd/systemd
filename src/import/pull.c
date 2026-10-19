@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
@@ -34,11 +35,14 @@ static char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
+static Compression arg_compression = _COMPRESSION_INVALID;
 static struct iovec arg_checksum = {};
+static struct iovec arg_decoded_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
+STATIC_DESTRUCTOR_REGISTER(arg_decoded_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
 COMMAND(
@@ -170,9 +174,11 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         pull,
                         url,
                         normalized,
+                        arg_compression,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
-                        &arg_checksum);
+                        &arg_checksum,
+                        &arg_decoded_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -240,9 +246,11 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_offset,
                         arg_size_max,
+                        arg_compression,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
-                        &arg_checksum);
+                        &arg_checksum,
+                        &arg_decoded_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -381,6 +389,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
+                OPTION_LONG("verify-decoded", "SHA256",
+                            "Verify the decoded (i.e. decompressed) image against the specified SHA256 hash"):
+                        r = import_parse_sha256_argument("--verify-decoded=", opts.arg, &arg_decoded_checksum);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 OPTION_LONG("settings", "BOOL", "Download settings file with image"):
                         r = parse_boolean_argument("--settings=", opts.arg, NULL);
                         if (r < 0)
@@ -478,6 +494,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_offset = u;
                         break;
                 }
+
+                OPTION_LONG("compression", "ALGORITHM",
+                            "Compression algorithm of the downloaded data, one of: 'auto', 'none', 'gzip', 'xz', 'zstd', 'bzip2', 'lz4'"):
+                        r = parse_compression_argument("--compression=", opts.arg, &arg_compression);
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 OPTION_LONG("size-max", "BYTES", "Maximum number of bytes to write to destination"): {
                         uint64_t u;

@@ -693,9 +693,11 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
@@ -738,6 +740,8 @@ int tar_pull_start(
 
         p->tar_job->on_finished = tar_pull_job_on_finished;
         p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
+        p->tar_job->compression = compression;
+        import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->tar_job->expected_checksum))
