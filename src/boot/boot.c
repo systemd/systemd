@@ -43,6 +43,9 @@
 /* Safety margin, refuse larger extra files (this is not load bearing, only a safety net for robustness reasons). */
 #define EXTRA_SIZE_MAX (1024U * 1024U * 1536U)
 
+/* Number of distinct entries of a group sharing a sort key from which on they get collapsed in a submenu */
+#define SUBMENU_MIN_ENTRIES 3U
+
 /* Magic string for recognizing our own binaries */
 #define SD_MAGIC "#### LoaderInfo: systemd-boot " GIT_VERSION " ####"
 DECLARE_NOALLOC_SECTION(".sdmagic", SD_MAGIC);
@@ -134,6 +137,7 @@ typedef struct BootEntry {
         char16_t *current_name;
         char16_t *next_name;
         unsigned profile;
+        bool is_submenu; /* Synthetic "More" entry that opens a submenu, never a real entry */
 } BootEntry;
 
 typedef struct {
@@ -202,8 +206,8 @@ enum {
 };
 
 
-static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
-        assert(config);
+static size_t entry_lookup_key(BootEntry *const *entries, size_t n_entries, size_t start, char16_t key) {
+        assert(entries);
 
         if (key == 0)
                 return IDX_INVALID;
@@ -211,18 +215,18 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
                 size_t i = key - '0';
-                if (i > config->n_entries)
-                        i = config->n_entries;
+                if (i > n_entries)
+                        i = n_entries;
                 return i-1;
         }
 
         /* find matching key in boot entries */
-        for (size_t i = start; i < config->n_entries; i++)
-                if (config->entries[i]->key == key)
+        for (size_t i = start; i < n_entries; i++)
+                if (entries[i]->key == key)
                         return i;
 
         for (size_t i = 0; i < start; i++)
-                if (config->entries[i]->key == key)
+                if (entries[i]->key == key)
                         return i;
 
         return IDX_INVALID;
@@ -490,6 +494,380 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
         return call_reboot_system(entry, root_dir, parent_image);
 }
 
+static BootEntry* boot_entry_free(BootEntry *entry);
+
+/* Whether the entry belongs to the group identified by the given sort key and machine ID. Groups are per
+ * sort key and machine ID, and streq16() matches NULL only against NULL, so entries without a machine ID
+ * form a group of their own. */
+static bool entry_in_group(const BootEntry *entry, const char16_t *sort_key, const char16_t *machine_id) {
+        assert(entry);
+
+        return streq16(entry->sort_key, sort_key) && streq16(entry->machine_id, machine_id);
+}
+
+/* Find the "More" submenu entry of the given group among the entries of a menu view, or IDX_INVALID if
+ * that group is not currently collapsed into a submenu there. */
+static size_t entry_lookup_submenu(
+                BootEntry *const *entries,
+                size_t n_entries,
+                const char16_t *sort_key,
+                const char16_t *machine_id) {
+
+        assert(entries);
+        assert(sort_key);
+
+        for (size_t i = 0; i < n_entries; i++)
+                if (entries[i]->is_submenu && entry_in_group(entries[i], sort_key, machine_id))
+                        return i;
+
+        return IDX_INVALID;
+}
+
+static void entries_free_submenus(BootEntry **entries, size_t n_entries) {
+        assert(entries);
+
+        for (size_t i = 0; i < n_entries; i++) {
+                if (entries[i]->is_submenu)
+                        boot_entry_free(entries[i]);
+                entries[i] = NULL;
+        }
+}
+
+/* Reset the transient per-menu-view entry list built by config_calculate_top_entries() or
+ * menu_open_submenu(), freeing any "More" submenu entries and resetting the default indexes those
+ * functions recompute on every (re)build. ret_idx_default is nullable, as submenu views have no
+ * top-level default index of their own. */
+static void entries_free_submenus_and_reset_defaults(
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t *ret_idx_default,
+                size_t *ret_idx_default_efivar) {
+
+        assert(entries);
+        assert(n_entries);
+        assert(ret_idx_default_efivar);
+
+        entries_free_submenus(entries, *n_entries);
+        *n_entries = 0;
+        *ret_idx_default_efivar = IDX_INVALID;
+        if (ret_idx_default)
+                *ret_idx_default = IDX_INVALID;
+}
+
+/* Append the config entry at index idx to the output list, recording its output position if it is the
+ * (efivar or config) default. */
+static void config_add_menu_entry(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t idx,
+                size_t *idx_default,
+                size_t *idx_default_efivar) {
+
+        assert(config);
+        assert(entries);
+        assert(n_entries);
+        assert(idx_default_efivar);
+        assert(idx < config->n_entries);
+
+        if (config->idx_default_efivar == idx)
+                *idx_default_efivar = *n_entries;
+        if (idx_default && config->idx_default == idx)
+                *idx_default = *n_entries;
+        entries[(*n_entries)++] = config->entries[idx];
+}
+
+/* Whether the config entry at the given index exists and belongs to the given group. Safe to call with
+ * IDX_INVALID, hence usable on the possibly unset default indexes. */
+static bool config_idx_in_group(
+                const Config *config,
+                size_t idx,
+                const char16_t *sort_key,
+                const char16_t *machine_id) {
+
+        assert(config);
+
+        return idx < config->n_entries && entry_in_group(config->entries[idx], sort_key, machine_id);
+}
+
+/* Whether the group has three or more distinct entries, and hence gets collapsed behind a submenu.
+ * Entries without a sort key are never grouped. All profiles of a multi-profile UKI share their sort key
+ * and ID without profile, so they only count once. */
+static bool config_is_grouped(const Config *config, const char16_t *sort_key, const char16_t *machine_id) {
+        size_t n = 0;
+
+        assert(config);
+
+        if (!sort_key)
+                return false;
+
+        for (size_t i = 0; i < config->n_entries && n < SUBMENU_MIN_ENTRIES; i++) {
+                const BootEntry *entry = config->entries[i];
+
+                if (!entry_in_group(entry, sort_key, machine_id))
+                        continue;
+
+                /* Only count the first entry of each distinct ID */
+                const char16_t *id = entry->id_without_profile ?: entry->id;
+                bool seen = false;
+                for (size_t j = 0; j < i && !seen; j++) {
+                        const BootEntry *other = config->entries[j];
+
+                        seen = entry_in_group(other, sort_key, machine_id) &&
+                                        streq16(other->id_without_profile ?: other->id, id);
+                }
+                if (!seen)
+                        n++;
+        }
+
+        return n >= SUBMENU_MIN_ENTRIES;
+}
+
+/* Return the config index of the entry standing for the given group in the top-level menu: the one
+ * preferred via the EFI variable if it belongs to the group, else the entry selected by default for this
+ * boot if it does, else the group's first (newest) entry. */
+static size_t config_group_representative(
+                const Config *config,
+                const char16_t *sort_key,
+                const char16_t *machine_id) {
+
+        assert(config);
+
+        if (config_idx_in_group(config, config->idx_default_efivar, sort_key, machine_id))
+                return config->idx_default_efivar;
+        if (config_idx_in_group(config, config->idx_default, sort_key, machine_id))
+                return config->idx_default;
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (entry_in_group(config->entries[i], sort_key, machine_id))
+                        return i;
+
+        assert_not_reached();
+}
+
+/* Find the row of the given entry in a menu view, or IDX_INVALID if it is not part of it. */
+static size_t entry_lookup_row(BootEntry *const *entries, size_t n_entries, const BootEntry *entry) {
+        assert(entries);
+
+        for (size_t i = 0; i < n_entries; i++)
+                if (entries[i] == entry)
+                        return i;
+
+        return IDX_INVALID;
+}
+
+/* Build the top level menu, collapsing each group of three or more entries sharing a sort key and machine
+ * ID behind a single representative entry plus a "More" submenu entry, which is always placed directly
+ * below its representative.
+ *
+ * Note that group members are not necessarily adjacent: boot_entry_compare() orders entries with no tries
+ * left to the very end of the list, before it ever looks at the sort key. A group used by both healthy and
+ * exhausted entries is thus split in two runs, which we still want to treat as one group. Hence group
+ * members are looked up across the whole list. */
+static void config_calculate_top_entries(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t *ret_idx_default,
+                size_t *ret_idx_default_efivar) {
+
+        assert(config);
+        assert(config->entries);
+        assert(entries);
+        assert(n_entries);
+        assert(ret_idx_default_efivar);
+
+        entries_free_submenus_and_reset_defaults(
+                        entries, n_entries, ret_idx_default, ret_idx_default_efivar);
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                char16_t *sort_key = config->entries[i]->sort_key;
+                char16_t *machine_id = config->entries[i]->machine_id;
+
+                /* Already collapsed into the group emitted for its first member: its submenu entry is
+                 * already in the output list, no need to recount the group all over again. */
+                if (sort_key &&
+                    entry_lookup_submenu(entries, *n_entries, sort_key, machine_id) != IDX_INVALID)
+                        continue;
+
+                /* One or two entries are not worth a submenu, show them as they are */
+                if (!config_is_grouped(config, sort_key, machine_id)) {
+                        config_add_menu_entry(
+                                        config, entries, n_entries, i,
+                                        ret_idx_default, ret_idx_default_efivar);
+                        continue;
+                }
+
+                size_t idx_representative = config_group_representative(config, sort_key, machine_id);
+                bool default_in_group = config_idx_in_group(
+                                config, config->idx_default, sort_key, machine_id);
+
+                size_t row_representative = *n_entries;
+                config_add_menu_entry(
+                                config, entries, n_entries, idx_representative,
+                                ret_idx_default, ret_idx_default_efivar);
+
+                /* The config default may now be collapsed behind this representative, so the initial
+                 * highlight falls on the group's row instead. */
+                if (ret_idx_default && default_in_group)
+                        *ret_idx_default = row_representative;
+
+                /* Allocate the "More" submenu entry, freed again by entries_free_submenus(). It is labelled
+                 * after the representative's displayed title (title_show is generated before the menu runs),
+                 * and since it is recreated on every rebuild, the label follows the representative. */
+                const BootEntry *representative = config->entries[idx_representative];
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .title_show = xasprintf(
+                                        "More (%ls) >",
+                                        representative->title_show),
+                        .sort_key = xstrdup16(sort_key),
+                        .machine_id = xstrdup16(machine_id),
+                        .is_submenu = true,
+                };
+                entries[(*n_entries)++] = entry;
+        }
+}
+
+/* Leave the open submenu, if any, and show the top-level menu again. Returns the position of the
+ * submenu entry of the submenu that was left, or IDX_INVALID if no submenu was open. */
+static size_t menu_close_submenu(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t *submenu_top_idx,
+                size_t *idx_default_efivar) {
+
+        assert(config);
+        assert(entries);
+        assert(n_entries);
+        assert(idx_default_efivar);
+        assert(submenu_top_idx);
+
+        size_t top_idx = *submenu_top_idx;
+        if (top_idx == IDX_INVALID)
+                return IDX_INVALID;
+
+        config_calculate_top_entries(
+                        config, entries, n_entries, /* ret_idx_default= */ NULL, idx_default_efivar);
+        *submenu_top_idx = IDX_INVALID;
+        return top_idx;
+}
+
+/* Rebuild the top-level menu after the preferred or default entry changed, as that can change which entry
+ * represents its group. Returns the row the highlighted entry is shown at now. */
+static size_t menu_refresh_top_entries(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                const BootEntry *highlighted,
+                size_t *ret_idx_default_efivar) {
+
+        assert(config);
+        assert(entries);
+        assert(n_entries);
+        assert(ret_idx_default_efivar);
+        assert(highlighted);
+
+        config_calculate_top_entries(
+                        config, entries, n_entries, /* ret_idx_default= */ NULL, ret_idx_default_efivar);
+
+        /* The highlighted entry may have been collapsed behind its group's representative by now, in which
+         * case the group's submenu entry stands in for it. Only grouped entries can go missing, and those
+         * always have a sort key. */
+        size_t idx = entry_lookup_row(entries, *n_entries, highlighted);
+        if (idx == IDX_INVALID)
+                idx = entry_lookup_submenu(
+                                entries, *n_entries, highlighted->sort_key, highlighted->machine_id);
+        assert(idx != IDX_INVALID);
+
+        return idx;
+}
+
+/* Show the submenu of the group with the given sort key and machine ID, i.e. every entry belonging to it.
+ * Must be called with the top-level menu shown. The group must be given by a real entry, as submenu entries
+ * are freed when the entry list is rebuilt. */
+static void menu_open_submenu(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t *submenu_top_idx,
+                const char16_t *sort_key,
+                const char16_t *machine_id,
+                size_t *idx_default_efivar) {
+
+        assert(config);
+        assert(entries);
+        assert(n_entries);
+        assert(idx_default_efivar);
+        assert(submenu_top_idx);
+        assert(sort_key);
+
+        assert(*submenu_top_idx == IDX_INVALID);
+
+        *submenu_top_idx = entry_lookup_submenu(entries, *n_entries, sort_key, machine_id);
+        assert(*submenu_top_idx != IDX_INVALID);
+
+        entries_free_submenus_and_reset_defaults(
+                        entries, n_entries, /* ret_idx_default= */ NULL, idx_default_efivar);
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (entry_in_group(config->entries[i], sort_key, machine_id))
+                        config_add_menu_entry(
+                                        config, entries, n_entries, i,
+                                        /* idx_default= */ NULL, idx_default_efivar);
+}
+
+/* Return the real entry a menu row stands for: the row's own entry, or for a "More" submenu entry the real
+ * entry right above it, i.e. the representative of its group. Unlike the submenu entry, the latter
+ * survives rebuilding the entry list and may be booted. */
+static BootEntry* entry_resolve_submenu(BootEntry *const *entries, size_t idx) {
+        assert(entries);
+
+        if (!entries[idx]->is_submenu)
+                return entries[idx];
+
+        assert(idx > 0);
+        return entries[idx - 1];
+}
+
+/* Show the row of the given real entry, leaving the open submenu and opening the one of the entry's group
+ * as needed. Returns the row of the entry in the resulting view. */
+static size_t menu_reveal_entry(
+                Config *config,
+                BootEntry **entries,
+                size_t *n_entries,
+                size_t *submenu_top_idx,
+                const BootEntry *entry,
+                size_t *idx_default_efivar) {
+
+        assert(config);
+        assert(entries);
+        assert(n_entries);
+        assert(submenu_top_idx);
+        assert(entry);
+        assert(idx_default_efivar);
+
+        /* Prefer a row the current view already shows, then the top-level view (which shows ungrouped
+         * entries and group representatives), and only then open the submenu of the entry's group. */
+        size_t idx = entry_lookup_row(entries, *n_entries, entry);
+        if (idx != IDX_INVALID)
+                return idx;
+
+        (void) menu_close_submenu(config, entries, n_entries, submenu_top_idx, idx_default_efivar);
+
+        idx = entry_lookup_row(entries, *n_entries, entry);
+        if (idx == IDX_INVALID) {
+                /* Not shown at top level, so it must be in a group. */
+                menu_open_submenu(
+                                config, entries, n_entries, submenu_top_idx,
+                                entry->sort_key, entry->machine_id, idx_default_efivar);
+                idx = entry_lookup_row(entries, *n_entries, entry);
+        }
+        assert(idx != IDX_INVALID);
+
+        return idx;
+}
+
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
@@ -500,8 +878,8 @@ static bool menu_run(
 
         EFI_STATUS err;
         size_t visible_max = 0;
-        size_t idx_highlight = config->idx_default, idx_highlight_prev = 0;
-        size_t idx, idx_first = 0, idx_last = 0;
+        size_t idx_highlight = IDX_INVALID, idx_highlight_prev = 0;
+        size_t idx_first = 0, idx_last = 0;
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
@@ -511,6 +889,14 @@ static bool menu_run(
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+        BootEntry **entries = NULL;
+        size_t n_entries = 0;
+        size_t idx_default_efivar = IDX_INVALID;
+        /* Position of the "More" submenu entry in the top-level menu whose submenu we are currently in,
+         * IDX_INVALID while we are in the top level menu itself. Rebuilding the entry list never moves a
+         * group's submenu entry, since that depends only on which config entries are group-firsts, not on
+         * which one is currently picked as the representative, so this stays valid across rebuilds. */
+        size_t submenu_top_idx = IDX_INVALID;
 
         enum {
                 ACTION_CONTINUE,        /* Continue with loop over user input */
@@ -536,6 +922,9 @@ static bool menu_run(
                 log_error_status(err, "Error switching console mode: %m");
         }
 
+        entries = xnew(BootEntry *, config->n_entries);
+        config_calculate_top_entries(config, entries, &n_entries, &idx_highlight, &idx_default_efivar);
+
         size_t line_width = 0, entry_padding = 3;
         while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
                 uint64_t key;
@@ -550,39 +939,40 @@ static bool menu_run(
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->n_entries <= visible_max || idx_highlight <= visible_max / 2)
+                        if (n_entries <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->n_entries - (visible_max / 2))
-                                idx_first = config->n_entries - visible_max;
+                        else if (idx_highlight >= n_entries - (visible_max / 2))
+                                idx_first = n_entries - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
                         line_width = 0;
-                        for (size_t i = 0; i < config->n_entries; i++)
-                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                        for (size_t i = 0; i < n_entries; i++)
+                                line_width = MAX(line_width, strlen16(entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->n_entries < visible_max)
-                                y_start = ((visible_max - config->n_entries) / 2) + 1;
+                        if (n_entries < visible_max)
+                                y_start = ((visible_max - n_entries) / 2) + 1;
                         else
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->n_entries) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, n_entries) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
 
                         /* menu entries title lines */
-                        lines = xnew(char16_t *, config->n_entries + 1);
+                        lines = xnew(char16_t *, n_entries + 1);
 
-                        for (size_t i = 0; i < config->n_entries; i++) {
-                                size_t width = line_width - MIN(strlen16(config->entries[i]->title_show), line_width);
+                        for (size_t i = 0; i < n_entries; i++) {
+                                size_t width = line_width -
+                                               MIN(strlen16(entries[i]->title_show), line_width);
                                 size_t padding = width / 2;
                                 bool odd = width % 2;
 
@@ -590,7 +980,7 @@ static bool menu_run(
                                 padding = MAX((size_t) 2, padding);
 
                                 size_t print_width = MIN(
-                                                strlen16(config->entries[i]->title_show),
+                                                strlen16(entries[i]->title_show),
                                                 line_width - padding * 2);
 
                                 assert((padding + 1) <= INT_MAX);
@@ -599,10 +989,10 @@ static bool menu_run(
                                 lines[i] = xasprintf(
                                                 "%*ls%.*ls%*ls",
                                                 (int) padding, u"",
-                                                (int) print_width, config->entries[i]->title_show,
+                                                (int) print_width, entries[i]->title_show,
                                                 odd ? (int) (padding + 1) : (int) padding, u"");
                         }
-                        lines[config->n_entries] = NULL;
+                        lines[n_entries] = NULL;
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -624,26 +1014,27 @@ static bool menu_run(
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
+                        for (size_t i = idx_first; i <= idx_last && i < n_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
                                          i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
-                                if (i == config->idx_default_efivar)
+                                if (i == idx_default_efivar)
                                         print_at(x_start,
                                                  y_start + i - idx_first,
                                                  i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                                  unicode_supported() ? u" ►" : u"=>");
                         }
                         refresh = false;
+                        highlight = false;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
-                        if (idx_highlight_prev == config->idx_default_efivar)
+                        if (idx_highlight_prev == idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight_prev - idx_first,
                                          COLOR_ENTRY,
                                          unicode_supported() ? u" ►" : u"=>");
-                        if (idx_highlight == config->idx_default_efivar)
+                        if (idx_highlight == idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight - idx_first,
                                          COLOR_HIGHLIGHT,
@@ -654,6 +1045,17 @@ static bool menu_run(
                 if (timeout_remain > 0) {
                         free(status);
                         status = xasprintf("Boot in %"PRIu64"s.", timeout_remain);
+                }
+
+                /* Tell which group an open submenu belongs to, unless there is something else to say. The
+                 * status is freed on every keystroke, and only ever set here while it is NULL. */
+                if (!status && submenu_top_idx != IDX_INVALID) {
+                        const BootEntry *representative = config->entries[config_group_representative(
+                                        config, entries[0]->sort_key, entries[0]->machine_id)];
+
+                        status = xasprintf(
+                                        "%ls: press Left/Del/Esc to go back",
+                                        representative->title_show);
                 }
 
                 if (status) {
@@ -731,7 +1133,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_VOLUME_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->n_entries-1)
+                        if (idx_highlight < n_entries-1)
                                 idx_highlight++;
                         break;
 
@@ -745,9 +1147,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->n_entries-1) {
+                        if (idx_highlight < n_entries-1) {
                                 refresh = true;
-                                idx_highlight = config->n_entries-1;
+                                idx_highlight = n_entries-1;
                         }
                         break;
 
@@ -760,8 +1162,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->n_entries-1)
-                                idx_highlight = config->n_entries-1;
+                        if (idx_highlight > n_entries-1)
+                                idx_highlight = n_entries-1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
@@ -770,7 +1172,22 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                 case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
-                        action = ACTION_RUN;
+                        if (entries[idx_highlight]->is_submenu) {
+                                /* Take the group from the representative right above the submenu entry,
+                                 * rather than from the submenu entry itself: the former is a real config
+                                 * entry, the latter is freed as soon as we rebuild the entry list. */
+                                BootEntry *representative = entry_resolve_submenu(entries, idx_highlight);
+                                menu_open_submenu(
+                                                config, entries, &n_entries, &submenu_top_idx,
+                                                representative->sort_key, representative->machine_id,
+                                                &idx_default_efivar);
+
+                                /* Keep the entry that stood for the group highlighted. */
+                                idx_highlight = entry_lookup_row(entries, n_entries, representative);
+                                assert(idx_highlight != IDX_INVALID);
+                                new_mode = true;
+                        } else
+                                action = ACTION_RUN;
                         break;
 
                 case KEYPRESS(0, SCAN_F1, 0):
@@ -789,37 +1206,73 @@ static bool menu_run(
 
                 /* Set/unset the preferred entry */
                 case KEYPRESS(0, 0, 'd'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        if (entries[idx_highlight]->is_submenu) {
+                                status = xstrdup16(u"Cannot set a submenu as preferred entry.");
+                                break;
+                        }
+
+                        if (idx_default_efivar != idx_highlight) {
+                                size_t idx_config = entry_lookup_row(
+                                                config->entries, config->n_entries, entries[idx_highlight]);
+                                assert(idx_config != IDX_INVALID);
+
                                 free(config->entry_preferred_efivar);
-                                config->entry_preferred_efivar = xstrdup16(config->entries[idx_highlight]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->entry_preferred_efivar = xstrdup16(entries[idx_highlight]->id);
+                                config->idx_default_efivar = idx_config;
+                                idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Preferred boot entry selected.");
                         } else {
                                 config->entry_preferred_efivar = mfree(config->entry_preferred_efivar);
                                 config->idx_default_efivar = IDX_INVALID;
+                                idx_default_efivar = IDX_INVALID;
                                 status = xstrdup16(u"Preferred boot entry cleared.");
                         }
                         config->entry_default_efivar = mfree(config->entry_default_efivar);
                         config->use_saved_entry_efivar = false;
                         config->use_saved_entry_preferred_efivar = false;
+
+                        if (submenu_top_idx == IDX_INVALID) {
+                                idx_highlight = menu_refresh_top_entries(
+                                                config, entries, &n_entries,
+                                                entries[idx_highlight], &idx_default_efivar);
+                                new_mode = true;
+                        }
                         refresh = true;
                         break;
 
                 /* Set/unset the default entry */
                 case KEYPRESS(0, 0, 'D'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        if (entries[idx_highlight]->is_submenu) {
+                                status = xstrdup16(u"Cannot set a submenu as default.");
+                                break;
+                        }
+
+                        if (idx_default_efivar != idx_highlight) {
+                                size_t idx_config = entry_lookup_row(
+                                                config->entries, config->n_entries, entries[idx_highlight]);
+                                assert(idx_config != IDX_INVALID);
+
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->entry_default_efivar = xstrdup16(entries[idx_highlight]->id);
+                                config->idx_default_efivar = idx_config;
+                                idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
                                 config->idx_default_efivar = IDX_INVALID;
+                                idx_default_efivar = IDX_INVALID;
                                 status = xstrdup16(u"Default boot entry cleared.");
                         }
                         config->entry_preferred_efivar = mfree(config->entry_preferred_efivar);
                         config->use_saved_entry_efivar = false;
                         config->use_saved_entry_preferred_efivar = false;
+
+                        if (submenu_top_idx == IDX_INVALID) {
+                                idx_highlight = menu_refresh_top_entries(
+                                                config, entries, &n_entries,
+                                                entries[idx_highlight], &idx_default_efivar);
+                                new_mode = true;
+                        }
                         refresh = true;
                         break;
 
@@ -837,7 +1290,8 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx_highlight]->type)) {
+                            entries[idx_highlight]->is_submenu ||
+                            !LOADER_TYPE_ALLOW_EDITOR(entries[idx_highlight]->type)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -845,9 +1299,9 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx_highlight]->type) &&
+                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(entries[idx_highlight]->type) &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options) {
+                            entries[idx_highlight]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
                                 break;
                         }
@@ -858,13 +1312,13 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                        if (line_edit(&entries[idx_highlight]->options, x_max - 2, y_status))
                                 action = ACTION_RUN;
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
                          * binary. */
-                        config->entries[idx_highlight]->options_implied = false;
+                        entries[idx_highlight]->options_implied = false;
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -918,12 +1372,26 @@ static bool menu_run(
                         new_mode = true;
                         break;
 
+                case KEYPRESS(0, SCAN_LEFT, 0):   /* Leaves an open submenu, does nothing in the top-level menu. */
+                case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2, but leaves an open submenu first. */
+                case KEYPRESS(0, SCAN_ESC, 0):    /* HP. Same as F2, but leaves an open submenu first. */
+                        if (submenu_top_idx != IDX_INVALID) {
+                                idx_highlight = menu_close_submenu(
+                                                config, entries, &n_entries,
+                                                &submenu_top_idx, &idx_default_efivar);
+                                new_mode = true;
+                                break;
+                        }
+
+                        if (key == KEYPRESS(0, SCAN_LEFT, 0))
+                                break;
+
+                        _fallthrough_;
+
                 case KEYPRESS(0, 0, 'f'):
                 case KEYPRESS(0, 0, 'F'):
                 case KEYPRESS(0, SCAN_F2, 0):     /* Most vendors. */
                 case KEYPRESS(0, SCAN_F10, 0):    /* HP and Lenovo. */
-                case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
-                case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                                 action = ACTION_FIRMWARE_SETUP;
                                 /* Let's make sure the user really wants to do this. */
@@ -941,13 +1409,43 @@ static bool menu_run(
                         action = ACTION_REBOOT;
                         break;
 
-                default:
-                        /* jump with a hotkey directly to a matching entry */
-                        idx = entry_lookup_key(config, idx_highlight+1, KEYCHAR(key));
-                        if (idx == IDX_INVALID)
+                default: {
+                        char16_t hotkey = KEYCHAR(key);
+
+                        if (hotkey == 0)
                                 break;
-                        idx_highlight = idx;
+
+                        /* Number keys select a row of the current view. */
+                        if (hotkey >= '1' && hotkey <= '9') {
+                                idx_highlight = entry_lookup_key(entries, n_entries, /* start= */ 0, hotkey);
+                                refresh = true;
+                                break;
+                        }
+
+                        /* Any other hotkey steps through all config entries, whether currently collapsed in
+                         * a group or not, starting after the highlighted one. For a submenu entry, start
+                         * after its representative, the real entry right above it. */
+                        size_t config_highlight = entry_lookup_row(
+                                        config->entries, config->n_entries,
+                                        entry_resolve_submenu(entries, idx_highlight));
+                        assert(config_highlight != IDX_INVALID);
+
+                        size_t idx_match = entry_lookup_key(
+                                        config->entries, config->n_entries, config_highlight + 1, hotkey);
+                        if (idx_match == IDX_INVALID)
+                                break;
+
+                        /* Whenever the match is not in the current view, the view changes. */
+                        BootEntry *match = config->entries[idx_match];
+                        if (entry_lookup_row(entries, n_entries, match) == IDX_INVALID)
+                                new_mode = true;
+
+                        idx_highlight = menu_reveal_entry(
+                                        config, entries, &n_entries, &submenu_top_idx, match,
+                                        &idx_default_efivar);
                         refresh = true;
+                        break;
+                }
                 }
 
                 if (idx_highlight > idx_last) {
@@ -1019,7 +1517,12 @@ static bool menu_run(
                 break;
         }
 
-        *chosen_entry = config->entries[idx_highlight];
+        /* A "More" submenu entry must never be booted, but it can still be the highlighted row when
+         * we bail out on a console read error. Boot the group's representative instead, i.e. the real entry
+         * right above the submenu entry, which is what the group shows itself as. */
+        *chosen_entry = entry_resolve_submenu(entries, idx_highlight);
+        entries_free_submenus(entries, n_entries);
+        entries = mfree(entries);
         clear_screen(COLOR_NORMAL);
         return action == ACTION_RUN;
 }
@@ -3480,7 +3983,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 err = console_key_read(&key, 100 * 1000);
                 if (err == EFI_SUCCESS) {
                         /* find matching key in boot entries */
-                        size_t idx = entry_lookup_key(&config, config.idx_default, KEYCHAR(key));
+                        size_t idx = entry_lookup_key(
+                                        config.entries, config.n_entries, config.idx_default, KEYCHAR(key));
                         if (idx != IDX_INVALID)
                                 config.idx_default = idx;
                         else

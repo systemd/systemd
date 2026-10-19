@@ -98,6 +98,32 @@
 
       <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
       in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+
+      <listitem><para>Boot entries that have the same <varname>sort-key</varname> and the same
+      <varname>machine-id</varname> are grouped if the group has three or more distinct entries. Entries
+      without a <varname>sort-key</varname> are never grouped. Entries without a
+      <varname>machine-id</varname> only match other entries without one, hence they form separate groups
+      from entries that have one. All profiles of the same UKI count as a single entry towards the
+      threshold, but each profile is still listed in the submenu of its group.</para>
+
+      <para>The menu shows a single representative entry for each group, followed by a
+      <literal>More (<replaceable>title</replaceable>) &gt;</literal> row that opens a submenu listing all
+      entries of the group. The title in the row is that of the representative entry, as displayed in the
+      menu. The representative is the first of the following that belongs to the group:</para>
+
+      <orderedlist>
+        <listitem><para>The entry marked as default or preferred via the EFI variables, for example with
+        <keycap>d</keycap> or <keycap>D</keycap>.</para></listitem>
+
+        <listitem><para>The entry selected to boot by default for this boot, as determined by the
+        configuration.</para></listitem>
+
+        <listitem><para>The newest entry.</para></listitem>
+      </orderedlist>
+
+      <para>Entries without boot counting tries left remain part of their group.</para>
+
+      <xi:include href="version-info.xml" xpointer="v263"/></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -140,9 +166,19 @@
       <varlistentry>
         <term><keycap>↵</keycap> (Enter)</term>
         <term><keycap>→</keycap> (Right)</term>
-        <listitem><para>Boot selected entry</para>
+        <listitem><para>Boot the selected entry, or enter the selected submenu</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>Del</keycap></term>
+        <term><keycap>Esc</keycap></term>
+        <listitem><para>Go back to the entry list from a submenu. In the entry list itself, <keycap>←</keycap>
+        (Left) does nothing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -230,7 +266,9 @@
 
         <para>For compatibility with the keybindings of several firmware implementations this operation
         may also be reached with <keycap>F2</keycap>, <keycap>F10</keycap>, <keycap>Del</keycap> and
-        <keycap>Esc</keycap>.</para>
+        <keycap>Esc</keycap>. Note that <keycap>Del</keycap> and <keycap>Esc</keycap> only do this in the
+        entry list: while a submenu is open they leave the submenu instead, like <keycap>←</keycap> (Left)
+        does.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -292,7 +330,10 @@
         <term><keycap>7</keycap></term>
         <term><keycap>8</keycap></term>
         <term><keycap>9</keycap></term>
-        <listitem><para>Boot entry number 1 … 9</para>
+        <listitem><para>In the boot menu, select row number 1 … 9 of the list currently shown (the top-level list
+        or an open submenu), counting a <literal>More (<replaceable>title</replaceable>) &gt;</literal> row as
+        a row. Before the menu is shown (while it is hidden), the digit instead immediately boots the n-th
+        boot entry overall, ignoring any submenu grouping.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
