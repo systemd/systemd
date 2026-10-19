@@ -1160,7 +1160,7 @@ manpages = [
  ['systemd-mstack', '1', ['mount.mstack'], ''],
  ['systemd-mute-console',
   '1',
-  ['systemd-mute-console.socket', 'systemd-mute-console@.service'],
+  ['systemd-mute-console.service', 'systemd-mute-console.socket'],
   ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
  ['systemd-networkd-wait-online.service',

@@ -153,11 +153,7 @@ units = [
           'file' : 'systemd-mute-console.socket',
           'symlinks' : ['sockets.target.wants/']
         },
-        { 'file' : 'systemd-mute-console@.service' },
-        {
-          'file' : 'system-systemd-mute-console.slice',
-          'name' : 'system-systemd\\x2dmute\\x2dconsole.slice',
-        },
+        { 'file' : 'systemd-mute-console.service' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
