@@ -2120,7 +2120,6 @@ test_template = executable_template + {
 
 test_additional_kwargs = {
         'c_args' : test_cflags,
-        'link_depends' : runtest_env,
 }
 
 fuzz_template = executable_template + {
@@ -2611,7 +2610,8 @@ foreach dict : executables
                              env : test_env,
                              timeout : dict.get('timeout', 30),
                              suite : suite,
-                             is_parallel : dict.get('parallel', true))
+                             is_parallel : dict.get('parallel', true),
+                             depends : runtest_env)
                 endif
         endif
 
