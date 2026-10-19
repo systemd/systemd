@@ -66,6 +66,15 @@ MULTI_OUTPUT="$(varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_N
 grep "hello-from-varlink-test-1" >/dev/null <<<"$MULTI_OUTPUT"
 grep "hello-from-varlink-test-2" >/dev/null <<<"$MULTI_OUTPUT"
 
+# the seek from the tail used to step over the oldest entry when fewer than limit matched
+EXPECTED_ENTRIES="$(journalctl -u "$UNIT_NAME_1" -o json | wc -l)"
+EXPECTED_FIRST_CURSOR="$(journalctl -u "$UNIT_NAME_1" -o json | head -n1 | jq -r .__CURSOR)"
+ALL_OUTPUT="$(varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\"], \"limit\": 1000}")"
+test "$(wc -l <<<"$ALL_OUTPUT")" -eq "$EXPECTED_ENTRIES"
+test "$(head -n1 <<<"$ALL_OUTPUT" | tr -d '\036' | jq -r .entry.__CURSOR)" = "$EXPECTED_FIRST_CURSOR"
+test "$(varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\"], \"limit\": 1}" | tr -d '\036' | jq -r .entry.__CURSOR)" = \
+     "$(journalctl -u "$UNIT_NAME_1" -o json -n1 | jq -r .__CURSOR)"
+
 # check priority filter: priority 4 (warning) should include our warning message
 varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-warning" >/dev/null
 # check priority filter: priority 3 (error) should NOT include our warning (priority 4)
@@ -83,12 +92,15 @@ varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-war
 # follow mode: after the backlog the call stays open and new entries are streamed
 FOLLOW_OUT="$(mktemp)"
 FOLLOW_UNIT_OUT="$(mktemp)"
+FOLLOW_BACKLOG_OUT=""
 FOLLOW_PID=""
 FOLLOW_UNIT_PID=""
+FOLLOW_BACKLOG_PID=""
 cleanup_follow() {
     [[ -n "$FOLLOW_PID" ]] && kill "$FOLLOW_PID" 2>/dev/null || :
     [[ -n "$FOLLOW_UNIT_PID" ]] && kill "$FOLLOW_UNIT_PID" 2>/dev/null || :
-    rm -f "$FOLLOW_OUT" "$FOLLOW_UNIT_OUT"
+    [[ -n "$FOLLOW_BACKLOG_PID" ]] && kill "$FOLLOW_BACKLOG_PID" 2>/dev/null || :
+    rm -f "$FOLLOW_OUT" "$FOLLOW_UNIT_OUT" "$FOLLOW_BACKLOG_OUT"
 }
 trap cleanup_follow EXIT
 
@@ -112,6 +124,16 @@ echo "varlink-follow-live-2" | systemd-cat -t "$TAG"
 journalctl --sync
 timeout 30 bash -c "until grep -q varlink-follow-live-2 '$FOLLOW_OUT'; do sleep .5; done"
 kill -0 "$FOLLOW_PID"
+
+# the follow backlog takes the same seek
+FOLLOW_BACKLOG_OUT="$(mktemp)"
+varlinkctl call -E "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries \
+    "{\"follow\": true, \"limit\": 1000, \"units\": [\"$UNIT_NAME_1\"]}" >"$FOLLOW_BACKLOG_OUT" &
+FOLLOW_BACKLOG_PID=$!
+timeout 30 bash -c "until [[ \$(wc -l <'$FOLLOW_BACKLOG_OUT') -ge $EXPECTED_ENTRIES ]]; do sleep .5; done"
+test "$(head -n1 "$FOLLOW_BACKLOG_OUT" | tr -d '\036' | jq -r .entry.__CURSOR)" = "$EXPECTED_FIRST_CURSOR"
+kill "$FOLLOW_BACKLOG_PID"
+FOLLOW_BACKLOG_PID=""
 
 # follow composes with filters, and an empty backlog does not complete the call
 FOLLOW_UNIT="test-journalctl-varlink-follow-$RANDOM.service"
