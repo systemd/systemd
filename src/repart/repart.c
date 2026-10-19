@@ -105,6 +105,9 @@
 /* To do LUKS2 offline encryption, we need to keep some extra free space at the end of the partition. */
 #define LUKS2_METADATA_KEEP_FREE (LUKS2_METADATA_SIZE*2ULL)
 
+/* The LUKS2 binary header reserves 48 bytes for the label, including the trailing NUL byte */
+#define LUKS2_LABEL_MAX 47U
+
 /* LUKS2 default volume key size (no integrity). */
 #define VOLUME_KEY_SIZE (512ULL/8ULL)
 
@@ -1957,6 +1960,45 @@ static int config_parse_label(
         return 0;
 }
 
+static int config_parse_volume_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char **label = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        /* Like config_parse_label(), but for the LUKS2 superblock label, which is limited in bytes, not
+         * UTF-16 code units. Again, the empty label is a valid one. */
+
+        r = specifier_printf(rvalue, LUKS2_LABEL_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, or result too long for LUKS2 superblock, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!string_is_safe(resolved, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Volume label not valid UTF-8 or contains control characters, ignoring: \"%s\" (from \"%s\")",
+                           resolved, rvalue);
+                return 0;
+        }
+
+        free_and_replace(*label, resolved);
+        return 0;
+}
+
 static int config_parse_weight(
                 const char *unit,
                 const char *filename,
@@ -3109,7 +3151,7 @@ static int partition_read_definition(
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
                 { "Partition", "Label",                    config_parse_label,             0,                                  &p->new_label               },
-                { "Partition", "VolumeLabel",              config_parse_label,             0,                                  &p->new_volume_label        },
+                { "Partition", "VolumeLabel",              config_parse_volume_label,      0,                                  &p->new_volume_label        },
                 { "Partition", "UUID",                     config_parse_uuid,              0,                                  p                           },
                 { "Partition", "Priority",                 config_parse_int32,             0,                                  &p->priority                },
                 { "Partition", "Weight",                   config_parse_weight,            0,                                  &p->weight                  },
@@ -4434,20 +4476,31 @@ static int volume_label(const Partition *p, char **ret) {
         assert(p);
         assert(ret);
 
-        if (p->new_volume_label)
-                return strdup_to(ret, p->new_volume_label);
+        if (p->new_volume_label) {
+                if (strdup_to(ret, p->new_volume_label) < 0)
+                        return log_oom();
+
+                return 0;
+        }
 
         const char *e = partition_label(p);
         if (!e)
-                return -ENODATA;
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Partition has no label, cannot generate volume label.");
 
         /* Let's prefix "luks-" for the label string used for LUKS superblocks. We do this so that the
          * /dev/disk/by-label/ symlink to the LUKS volume and the file system inside it do not clash */
-        char *j = strjoin("luks-", e);
+        _cleanup_free_ char *j = strjoin("luks-", e);
         if (!j)
-                return -ENOMEM;
+                return log_oom();
 
-        *ret = j;
+        /* GPT labels are limited in UTF-16 code units, hence a label with multibyte characters might be
+         * longer in UTF-8 than what fits into the LUKS2 superblock. */
+        if (strlen(j) > LUKS2_LABEL_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ENAMETOOLONG),
+                                       "Volume label '%s' derived from partition label exceeds LUKS2 limit of %u bytes, please set VolumeLabel= explicitly.",
+                                       j, LUKS2_LABEL_MAX);
+
+        *ret = TAKE_PTR(j);
         return 0;
 }
 
@@ -5663,7 +5716,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         _cleanup_free_ char *vl = NULL;
         r = volume_label(p, &vl);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate volume label: %m");
+                return r;
 
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
