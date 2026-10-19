@@ -44,3 +44,11 @@ display. This is critical for diagnosing build and test failures.
 ## Integration Tests
 
 - Never use `grep -q` in pipelines; use `grep >/dev/null` instead (avoids `SIGPIPE`)
+
+## Domain specific guidance
+
+### Varlink API reviews
+
+- Before reviewing changes that affect a Varlink API, read [docs/VARLINK.md](docs/VARLINK.md) in full.
+  Use it as the source of review criteria for the affected interface definitions and implementations,
+  respecting its requirements, recommendations, and exceptions.
