@@ -912,142 +912,149 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
+static int on_key(Context *c, char key) {
+        assert(c);
+
+        /* Returns 0 if the user asked us to quit, and > 0 otherwise. */
+
+        if (on_tty()) { /* TTY: Clear any user keystroke */
+                fputs("\r \r", stdout);
+                fflush(stdout);
+        }
+
+        switch (key) {
+
+        case ' ':
+                c->immediate_refresh = true;
+                break;
+
+        case 'q':
+                return 0;
+
+        case 'p':
+                arg_order = ORDER_PATH;
+                break;
+
+        case 't':
+                arg_order = ORDER_TASKS;
+                break;
+
+        case 'c':
+                arg_order = ORDER_CPU;
+                break;
+
+        case 'm':
+                arg_order = ORDER_MEMORY;
+                break;
+
+        case 'i':
+                arg_order = ORDER_IO;
+                break;
+
+        case '%':
+                arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
+                break;
+
+        case '/':
+                arg_root_memory_system = !arg_root_memory_system;
+                c->immediate_refresh = true;
+                break;
+
+        case 'k':
+                arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                sleep(1);
+                break;
+
+        case 'P':
+                arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                fprintf(stdout, "\nCounting: %s.", counting_what());
+                fflush(stdout);
+                sleep(1);
+                break;
+
+        case 'r':
+                if (arg_count == COUNT_PIDS)
+                        fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                else {
+                        arg_recursive = !arg_recursive;
+                        fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
+                }
+                fflush(stdout);
+                sleep(1);
+                break;
+
+        case '+':
+                arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+                fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                sleep(1);
+                break;
+
+        case '-':
+                if (arg_delay <= USEC_PER_MSEC*500)
+                        arg_delay = USEC_PER_MSEC*250;
+                else
+                        arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+
+                fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                fflush(stdout);
+                sleep(1);
+                break;
+
+        case '?':
+        case 'h':
+
+                fprintf(stdout,
+                        "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                        "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                        "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                        "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
+                        ansi_highlight(), ansi_normal());
+                fflush(stdout);
+                sleep(3);
+                break;
+
+        default:
+                if (key < ' ')
+                        fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
+                else
+                        fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
+                fflush(stdout);
+                sleep(1);
+        }
+
+        return 1;
+}
+
 static int loop(Context *c) {
         int r;
 
         assert(c);
 
         for (;;) {
-                usec_t t;
-                char key;
-
-                t = now(CLOCK_MONOTONIC);
+                usec_t t = now(CLOCK_MONOTONIC);
 
                 r = step(c, t);
                 if (r <= 0)
                         return r;
 
-                if (arg_batch)
+                if (arg_batch) {
                         (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
-                else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
-                        if (r == -ETIMEDOUT)
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Couldn't read key: %m");
-                }
-
-                if (on_tty()) { /* TTY: Clear any user keystroke */
-                        fputs("\r \r", stdout);
-                        fflush(stdout);
-                }
-
-                if (arg_batch)
                         continue;
-
-                switch (key) {
-
-                case ' ':
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'q':
-                        return 0;
-
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
-                        break;
-
-                case '/':
-                        arg_root_memory_system = !arg_root_memory_system;
-                        c->immediate_refresh = true;
-                        break;
-
-                case 'k':
-                        arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'P':
-                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'r':
-                        if (arg_count == COUNT_PIDS)
-                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
-                        else {
-                                arg_recursive = !arg_recursive;
-                                fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
-                        }
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '+':
-                        arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '-':
-                        if (arg_delay <= USEC_PER_MSEC*500)
-                                arg_delay = USEC_PER_MSEC*250;
-                        else
-                                arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '?':
-                case 'h':
-
-                        fprintf(stdout,
-                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
-                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
-                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
-                                ansi_highlight(), ansi_normal());
-                        fflush(stdout);
-                        sleep(3);
-                        break;
-
-                default:
-                        if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
-                        else
-                                fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
-                        fflush(stdout);
-                        sleep(1);
                 }
+
+                char key;
+                r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
+                if (r == -ETIMEDOUT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Couldn't read key: %m");
+
+                r = on_key(c, key);
+                if (r <= 0)
+                        return r;
         }
 }
 
