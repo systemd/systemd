@@ -51,7 +51,14 @@
 #include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-homework\0",
+        "Perform operations on home directories on behalf of systemd-homed.",
+        .option_namespace = "common",
+);
 
 /* Make sure a bad password always results in a 3s delay, no matter what */
 #define BAD_PASSWORD_DELAY_USEC (3 * USEC_PER_SEC)
@@ -1998,38 +2005,35 @@ static int home_unlock(UserRecord *h) {
         return 1;
 }
 
-static int run(int argc, char *argv[]) {
-        _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
+typedef struct Context {
+        UserRecord *home;
+        UserRecord *new_home;
+} Context;
+
+static void context_done(Context *c) {
+        assert(c);
+
+        c->home = user_record_unref(c->home);
+        c->new_home = user_record_unref(c->new_home);
+}
+
+/* Read the user record to operate on from the specified file, or from stdin if path is NULL, along with
+ * the blobs the daemon passed as file descriptors. */
+static int load_record(const char *path, UserRecord **ret_home, Hashmap **ret_blobs) {
+        _cleanup_(user_record_unrefp) UserRecord *home = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
-        const char *json_path = NULL, *blob_filename;
+        const char *json_path, *blob_filename;
         FILE *json_file;
-        usec_t start;
         sd_json_variant *fdmap, *blob_fd_variant;
         int r;
 
-        LIBBLKID_NOTE(recommended);
-        LIBCRYPT_NOTE(recommended);
-        LIBCRYPTO_NOTE(recommended);
-        LIBCRYPTSETUP_NOTE(recommended);
-        LIBFDISK_NOTE(recommended);
-        LIBFIDO2_NOTE(suggested);
-        LIBMOUNT_NOTE(recommended);
-        LIBP11KIT_NOTE(suggested);
-        LIBSELINUX_NOTE(recommended);
+        assert(ret_home);
+        assert(ret_blobs);
 
-        start = now(CLOCK_MONOTONIC);
-
-        log_setup();
-
-        umask(0022);
-
-        if (argc < 2 || argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes one or two arguments.");
-
-        if (argc > 2) {
-                json_path = argv[2];
+        if (path) {
+                json_path = path;
 
                 opened_file = fopen(json_path, "re");
                 if (!opened_file)
@@ -2096,6 +2100,60 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        *ret_home = TAKE_PTR(home);
+        *ret_blobs = TAKE_PTR(blobs);
+        return 0;
+}
+
+typedef enum HomeworkOperation {
+        HOMEWORK_ACTIVATE,
+        HOMEWORK_DEACTIVATE,
+        HOMEWORK_DEACTIVATE_FORCE,
+        HOMEWORK_CREATE,
+        HOMEWORK_REMOVE,
+        HOMEWORK_UPDATE,
+        HOMEWORK_RESIZE,
+        HOMEWORK_PASSWD,
+        HOMEWORK_INSPECT,
+        HOMEWORK_LOCK,
+        HOMEWORK_UNLOCK,
+        _HOMEWORK_OPERATION_MAX,
+} HomeworkOperation;
+
+VERB_FULL(verb_operation, "activate", "[FILE]\0", 1, 2, 0, HOMEWORK_ACTIVATE,
+          "Activate a home directory");
+VERB_FULL(verb_operation, "deactivate", "[FILE]\0", 1, 2, 0, HOMEWORK_DEACTIVATE,
+          "Deactivate a home directory");
+VERB_FULL(verb_operation, "deactivate-force", "[FILE]\0", 1, 2, 0, HOMEWORK_DEACTIVATE_FORCE,
+          "Deactivate a home directory forcibly");
+VERB_FULL(verb_operation, "create", "[FILE]\0", 1, 2, 0, HOMEWORK_CREATE,
+          "Create a home directory");
+VERB_FULL(verb_operation, "remove", "[FILE]\0", 1, 2, 0, HOMEWORK_REMOVE,
+          "Remove a home directory");
+VERB_FULL(verb_operation, "update", "[FILE]\0", 1, 2, 0, HOMEWORK_UPDATE,
+          "Update a home directory");
+VERB_FULL(verb_operation, "resize", "[FILE]\0", 1, 2, 0, HOMEWORK_RESIZE,
+          "Resize a home directory");
+VERB_FULL(verb_operation, "passwd", "[FILE]\0", 1, 2, 0, HOMEWORK_PASSWD,
+          "Change the password of a home directory");
+VERB_FULL(verb_operation, "inspect", "[FILE]\0", 1, 2, 0, HOMEWORK_INSPECT,
+          "Inspect a home directory");
+VERB_FULL(verb_operation, "lock", "[FILE]\0", 1, 2, 0, HOMEWORK_LOCK,
+          "Lock a home directory");
+VERB_FULL(verb_operation, "unlock", "[FILE]\0", 1, 2, 0, HOMEWORK_UNLOCK,
+          "Unlock a home directory");
+static int verb_operation(int argc, char *argv[], uintptr_t data, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        HomeworkOperation operation = data;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        int r;
+
+        assert(operation >= 0 && operation < _HOMEWORK_OPERATION_MAX);
+
+        r = load_record(argc > 1 ? argv[1] : NULL, &c->home, &blobs);
+        if (r < 0)
+                return r;
+
         /* Well known return values of these operations, that systemd-homed knows and converts to proper D-Bus errors:
          *
          * EMSGSIZE        → file systems of this type cannot be shrunk
@@ -2125,31 +2183,64 @@ static int run(int argc, char *argv[]) {
          * ENETUNREACH     → backing storage is currently not (image is ENOENT, or AF_UNIX socket to connect to is ENOENT)
          */
 
-        if (streq(argv[1], "activate"))
-                r = home_activate(home, &new_home);
-        else if (streq(argv[1], "deactivate"))
-                r = home_deactivate(home, false);
-        else if (streq(argv[1], "deactivate-force"))
-                r = home_deactivate(home, true);
-        else if (streq(argv[1], "create"))
-                r = home_create(home, blobs, &new_home);
-        else if (streq(argv[1], "remove"))
-                r = home_remove(home);
-        else if (streq(argv[1], "update"))
-                r = home_update(home, blobs, &new_home);
-        else if (streq(argv[1], "resize"))
-                r = home_resize(home, &new_home);
-        else if (streq(argv[1], "passwd"))
-                r = home_passwd(home, &new_home);
-        else if (streq(argv[1], "inspect"))
-                r = home_inspect(home, &new_home);
-        else if (streq(argv[1], "lock"))
-                r = home_lock(home);
-        else if (streq(argv[1], "unlock"))
-                r = home_unlock(home);
-        else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
-        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && !strv_isempty(home->password) ) { /* There were passwords specified but they were incorrect */
+        switch (operation) {
+
+        case HOMEWORK_ACTIVATE:
+                return home_activate(c->home, &c->new_home);
+        case HOMEWORK_DEACTIVATE:
+                return home_deactivate(c->home, /* force= */ false);
+        case HOMEWORK_DEACTIVATE_FORCE:
+                return home_deactivate(c->home, /* force= */ true);
+        case HOMEWORK_CREATE:
+                return home_create(c->home, blobs, &c->new_home);
+        case HOMEWORK_REMOVE:
+                return home_remove(c->home);
+        case HOMEWORK_UPDATE:
+                return home_update(c->home, blobs, &c->new_home);
+        case HOMEWORK_RESIZE:
+                return home_resize(c->home, &c->new_home);
+        case HOMEWORK_PASSWD:
+                return home_passwd(c->home, &c->new_home);
+        case HOMEWORK_INSPECT:
+                return home_inspect(c->home, &c->new_home);
+        case HOMEWORK_LOCK:
+                return home_lock(c->home);
+        case HOMEWORK_UNLOCK:
+                return home_unlock(c->home);
+        default:
+                assert_not_reached();
+        }
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_done) Context c = {};
+        usec_t start;
+        int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBFDISK_NOTE(recommended);
+        LIBFIDO2_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBP11KIT_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
+
+        start = now(CLOCK_MONOTONIC);
+
+        log_setup();
+
+        umask(0022);
+
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        r = dispatch_verb(args, &c);
+        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && c.home && !strv_isempty(c.home->password)) {
+                /* There were passwords specified but they were incorrect */
                 usec_t end, n, d;
 
                 /* Make sure bad password replies always take at least 3s, and if longer multiples of 3s, so
@@ -2172,8 +2263,8 @@ static int run(int argc, char *argv[]) {
         /* We always pass the new record back, regardless if it changed or not. This allows our caller to
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
-        if (new_home)
-                sd_json_variant_dump(new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
+        if (c.new_home)
+                sd_json_variant_dump(c.new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         return 0;
 }
