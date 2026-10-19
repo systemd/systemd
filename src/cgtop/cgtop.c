@@ -1164,7 +1164,14 @@ static int run(int argc, char *argv[]) {
         if (arg_iterations == 1)
                 return step(&c, /* t= */ 0);
 
-        return loop(&c);
+        r = loop(&c);
+
+        if (on_tty()) {
+                fputs("\n", stdout);
+                fflush(stdout);
+        }
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
