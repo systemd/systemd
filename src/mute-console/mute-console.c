@@ -12,8 +12,10 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "constants.h"
 #include "daemon-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -98,7 +100,17 @@ typedef struct Context {
         unsigned n_muted_kernel;
 
         int saved_kernel;
+
+        /* Varlink service only, see vl_server() */
+        bool exit_when_idle;
+        sd_event_source *idle_event_source;
 } Context;
+
+static void context_done(Context *c) {
+        assert(c);
+
+        c->idle_event_source = sd_event_source_disable_unref(c->idle_event_source);
+}
 
 /* Per Varlink connection: what this client holds a reference on. */
 typedef struct Request {
@@ -238,21 +250,56 @@ static int unmute_kernel(Context *c) {
         return unmute_kernel_now(c);
 }
 
+static int on_idle_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        sd_varlink_server *server = ASSERT_PTR(userdata);
+
+        /* A client might have connected in the meantime; its disconnect re-arms the timer. */
+        if (sd_varlink_server_current_connections(server) > 0)
+                return 0;
+
+        log_debug("No clients for %s, exiting.", FORMAT_TIMESPAN(DEFAULT_EXIT_USEC, USEC_PER_SEC));
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int arm_idle_timer(Context *c, sd_varlink_server *server) {
+        assert(c);
+        assert(server);
+
+        return event_reset_time_relative(
+                        sd_varlink_server_get_event(server),
+                        &c->idle_event_source,
+                        CLOCK_MONOTONIC,
+                        DEFAULT_EXIT_USEC,
+                        /* accuracy= */ 0,
+                        on_idle_timeout,
+                        server,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "idle-timeout",
+                        /* force_reset= */ true);
+}
+
 static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
+        int r;
 
+        assert(server);
         assert(link);
 
         _cleanup_free_ Request *req = sd_varlink_set_userdata(link, NULL);
-        if (!req)
-                return;
+        if (req) {
+                if (req->muted_pid1)
+                        (void) unmute_pid1(c);
+                if (req->muted_kernel)
+                        (void) unmute_kernel(c);
 
-        if (req->muted_pid1)
-                (void) unmute_pid1(c);
-        if (req->muted_kernel)
-                (void) unmute_kernel(c);
+                sd_varlink_flush_close_unref(req->link);
+        }
 
-        sd_varlink_flush_close_unref(req->link);
+        if (c->exit_when_idle && sd_varlink_server_current_connections(server) == 0) {
+                r = arm_idle_timer(c, server);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to arm idle timer, not exiting on idle: %m");
+        }
 }
 
 static int vl_method_mute(
@@ -327,8 +374,9 @@ static int vl_method_mute(
 }
 
 static int vl_server(void) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-        Context c = {
+        _cleanup_(context_done) Context c = {
                 .saved_kernel = -1,
         };
         int r;
@@ -338,9 +386,7 @@ static int vl_server(void) {
         r = varlink_server_new(
                         &varlink_server,
                         SD_VARLINK_SERVER_ROOT_ONLY |
-                        SD_VARLINK_SERVER_MYSELF_ONLY |
-                        SD_VARLINK_SERVER_HANDLE_SIGINT |
-                        SD_VARLINK_SERVER_HANDLE_SIGTERM,
+                        SD_VARLINK_SERVER_MYSELF_ONLY,
                         &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -359,7 +405,35 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink disconnect handler: %m");
 
-        r = sd_varlink_server_loop_auto(varlink_server);
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_set_signal_exit(event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SIGINT/SIGTERM handling: %m");
+
+        r = sd_varlink_server_attach_event(varlink_server, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
+
+        r = sd_varlink_server_listen_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+
+        if (sd_varlink_server_current_connections(varlink_server) > 0)
+                /* Single connection (e.g. when varlinkctl runs the binary directly): exit once it closes. */
+                r = sd_varlink_server_set_exit_on_idle(varlink_server, true);
+        else {
+                /* Activated with listening socket: idle timeout. Exiting right away would run into start
+                 * rate limits with connection bursts. */
+                c.exit_when_idle = true;
+                r = arm_idle_timer(&c, varlink_server);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up exit on idle: %m");
+
+        r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run Varlink event loop: %m");
 
