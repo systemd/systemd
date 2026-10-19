@@ -21,6 +21,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -1281,6 +1282,142 @@ TEST(upgrade) {
         ASSERT_OK(sd_future_result(f));
 }
 
+typedef struct AsyncUpgradeTest {
+        sd_event *event;
+        bool got_reply, got_upgrade, echo_done, got_error;
+        int input_fd, output_fd;
+} AsyncUpgradeTest;
+
+static int async_upgrade_echo_fiber(void *arg) {
+        AsyncUpgradeTest *t = ASSERT_PTR(arg);
+
+        /* Same exchange as in upgrade_client_fiber(), over the fds donated to the upgrade callback */
+        static const char msg[] = "Hello!";
+        ASSERT_OK(loop_write(t->output_fd, msg, strlen(msg)));
+        ASSERT_OK_ERRNO(shutdown(t->output_fd, SHUT_WR));
+
+        char buf[64] = {};
+        ssize_t n = ASSERT_OK(loop_read(t->input_fd, buf, strlen(msg), /* do_poll= */ true));
+        ASSERT_EQ((size_t) n, strlen(msg));
+        ASSERT_STREQ(buf, "!olleH");
+
+        t->input_fd = safe_close(t->input_fd);
+        t->output_fd = safe_close(t->output_fd);
+        t->echo_done = true;
+
+        ASSERT_OK(sd_event_exit(t->event, EXIT_SUCCESS));
+        return 0;
+}
+
+static int async_upgrade_on_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_FALSE(t->got_upgrade); /* the reply callback must run before the upgrade callback */
+        ASSERT_NULL(error_id);
+        ASSERT_FALSE(FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR));
+        t->got_reply = true;
+        return 0;
+}
+
+static int async_upgrade_on_upgrade(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_TRUE(t->got_reply);
+        ASSERT_GE(input_fd, 0);
+        ASSERT_GE(output_fd, 0);
+        ASSERT_NE(input_fd, output_fd);
+        ASSERT_FALSE(sd_varlink_is_connected(link));
+
+        t->got_upgrade = true;
+        t->input_fd = input_fd;
+        t->output_fd = output_fd;
+
+        /* The raw I/O blocks, hence do it in a fiber so that the server can make progress */
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(t->event, "async-upgrade-echo", async_upgrade_echo_fiber, t, &f));
+        ASSERT_OK(sd_fiber_set_floating(f, true));
+        return 0;
+}
+
+static int async_upgrade_on_error_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND);
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR));
+        t->got_error = true;
+        return 0;
+}
+
+static int async_upgrade_on_unexpected_upgrade(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        safe_close(input_fd);
+        safe_close(output_fd);
+        assert_not_reached();
+}
+
+TEST(upgrade_async) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        const char *sp;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
+        sp = strjoina(tmpdir, "/socket");
+
+        ASSERT_OK(sd_event_new(&e));
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
+        ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-server"));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        /* First a client whose upgrade request is answered with an error: the connection must stay usable */
+        AsyncUpgradeTest t2 = { .event = e, .input_fd = -EBADF, .output_fd = -EBADF };
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c2 = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c2, sp));
+        ASSERT_OK(sd_varlink_set_description(c2, "async-upgrade-error-client"));
+        ASSERT_OK(sd_varlink_attach_event(c2, e, 0));
+        sd_varlink_set_userdata(c2, &t2);
+        ASSERT_OK(sd_varlink_bind_reply(c2, async_upgrade_on_error_reply));
+        ASSERT_OK(sd_varlink_bind_upgrade(c2, async_upgrade_on_unexpected_upgrade));
+        ASSERT_OK(sd_varlink_invoke_and_upgrade(c2, "io.test.NoSuchMethod", /* parameters= */ NULL));
+
+        while (!t2.got_error)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        ASSERT_TRUE(sd_varlink_is_connected(c2));
+        ASSERT_OK_POSITIVE(sd_varlink_is_idle(c2));
+
+        /* After the refused upgrade regular calls work again */
+        t2.got_error = false;
+        ASSERT_OK(sd_varlink_invoke(c2, "io.test.NoSuchMethod", /* parameters= */ NULL));
+        while (!t2.got_error)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        ASSERT_TRUE(sd_varlink_is_connected(c2));
+
+        /* Now a client driven entirely by the event loop whose upgrade is accepted */
+        AsyncUpgradeTest t = { .event = e, .input_fd = -EBADF, .output_fd = -EBADF };
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c, sp));
+        ASSERT_OK(sd_varlink_set_description(c, "async-upgrade-client"));
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        sd_varlink_set_userdata(c, &t);
+        ASSERT_OK(sd_varlink_bind_reply(c, async_upgrade_on_reply));
+        ASSERT_OK(sd_varlink_bind_upgrade(c, async_upgrade_on_upgrade));
+        ASSERT_OK(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL));
+
+        /* No other calls may be pipelined behind an upgrade request */
+        ASSERT_ERROR(sd_varlink_invoke(c, "io.test.Upgrade", /* parameters= */ NULL), EBUSY);
+        ASSERT_ERROR(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL), EBUSY);
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_TRUE(t.got_reply);
+        ASSERT_TRUE(t.got_upgrade);
+        ASSERT_TRUE(t.echo_done);
+        ASSERT_FALSE(sd_varlink_is_connected(c));
+}
+
 static int upgrade_pipelining_client_fiber(void *arg) {
         union sockaddr_union sa = {};
         _cleanup_close_ int fd = -EBADF;
@@ -1515,6 +1652,20 @@ static int execute_dir_client_fiber(void *arg) {
                                      a->reply_count), (ssize_t) a->n_servers);
         ASSERT_EQ(*a->reply_count, a->n_servers);
 
+        /* Sockets that have a live listener must be counted as contacted, not as offline. */
+        _cleanup_strv_free_ char **offline = NULL;
+        ASSERT_OK_EQ(varlink_execute_directory_full(
+                                     a->tmpdir,
+                                     "io.test.ExecDirPing",
+                                     /* parameters= */ NULL,
+                                     /* more= */ false,
+                                     /* timeout_usec= */ USEC_INFINITY,
+                                     execute_dir_reply,
+                                     a->reply_count,
+                                     &offline), (ssize_t) a->n_servers);
+        ASSERT_TRUE(strv_isempty(offline));
+        ASSERT_EQ(*a->reply_count, 2 * a->n_servers);
+
         /* Calling the helper against a non-existent directory must fail. */
         _cleanup_free_ char *nope = NULL;
         ASSERT_OK(asprintf(&nope, "%s/does-not-exist", a->tmpdir));
@@ -1540,6 +1691,33 @@ static int execute_dir_client_fiber(void *arg) {
                                        /* timeout_usec= */ USEC_INFINITY,
                                        execute_dir_reply,
                                        a->reply_count));
+        ASSERT_EQ(*a->reply_count, count_before);
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_isempty(offline));
+
+        /* A socket inode nobody listens on must not be counted as contacted, but as offline. */
+        _cleanup_free_ char *dead = ASSERT_PTR(path_join(empty, "dead"));
+        ASSERT_OK_ERRNO(mknod(dead, S_IFSOCK|0600, 0));
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_equal(offline, STRV_MAKE("dead")));
         ASSERT_EQ(*a->reply_count, count_before);
 
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
