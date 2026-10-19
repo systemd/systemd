@@ -22,6 +22,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "seccomp-util.h"
 #include "securebits-util.h"
 #include "set.h"
 #include "strv.h"
@@ -1003,6 +1004,13 @@ typedef struct TransientSetCredential {
         struct iovec value;
 } TransientSetCredential;
 
+typedef struct TransientBindPath {
+        const char *source;
+        const char *destination;
+        bool ignore_enoent;
+        bool recursive;
+} TransientBindPath;
+
 struct TransientExecContextParameters {
         bool working_directory_set;
         TransientWorkingDirectory working_directory;
@@ -1059,6 +1067,16 @@ struct TransientExecContextParameters {
         ProtectHome protect_home;
         PrivateTmp private_tmp;
         PrivateUsers private_users;
+        /* BindPaths=/BindReadOnlyPaths=; the path strings point into the request variant. */
+        TransientBindPath *bind_paths;
+        size_t n_bind_paths;
+        TransientBindPath *bind_ro_paths;
+        size_t n_bind_ro_paths;
+        bool capability_bounding_set_set;
+        char **capability_bounding_set;
+        bool syscall_filter_set;
+        bool syscall_allow_list;
+        char **syscall_filter;
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input, ExecInput, exec_input_from_string);
@@ -1098,6 +1116,10 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
         strv_free(p->supplementary_groups);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
+        free(p->bind_paths);
+        free(p->bind_ro_paths);
+        strv_free(p->capability_bounding_set);
+        strv_free(p->syscall_filter);
 
         return mfree(p);
 }
@@ -1198,6 +1220,117 @@ static int dispatch_transient_set_credential_encrypted(const char *name, sd_json
         p->set_credentials_encrypted_set = true;
         return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted);
 }
+
+/* BindPaths=/BindReadOnlyPaths=: array of { source, destination, ignoreEnoent, options }, the
+ * shape the runtime context emits. The only defined options are "rbind"/"norbind"; the default
+ * is "rbind", matching the unit-file syntax. */
+static int dispatch_transient_bind_path_array(
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                TransientBindPath **ret_items,
+                size_t *ret_n) {
+
+        typedef struct BindPathParameters {
+                const char *source;
+                const char *destination;
+                bool ignore_enoent;
+                char **options;
+        } BindPathParameters;
+
+        static const sd_json_dispatch_field item_dispatch[] = {
+                { "source",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(BindPathParameters, source),        SD_JSON_MANDATORY },
+                { "destination",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(BindPathParameters, destination),   SD_JSON_MANDATORY },
+                { "ignoreEnoent", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(BindPathParameters, ignore_enoent), SD_JSON_NULLABLE  },
+                { "options",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,         offsetof(BindPathParameters, options),       SD_JSON_NULLABLE  },
+                {}
+        };
+
+        _cleanup_free_ TransientBindPath *items = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret_items);
+        assert(ret_n);
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        size_t n_items = sd_json_variant_elements(variant);
+        if (n_items == 0)
+                return 0;
+
+        items = new0(TransientBindPath, n_items);
+        if (!items)
+                return -ENOMEM;
+
+        for (; n < n_items; n++) {
+                _cleanup_strv_free_ char **options = NULL;
+                BindPathParameters q = {};
+                bool recursive = true;
+
+                r = sd_json_dispatch(sd_json_variant_by_index(variant, n), item_dispatch, /* flags= */ 0, &q);
+                options = q.options; /* take ownership first, a failed dispatch may already have set it */
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(o, options) {
+                        if (streq(*o, "rbind"))
+                                recursive = true;
+                        else if (streq(*o, "norbind"))
+                                recursive = false;
+                        else
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                                "Unknown bind mount option: %s", *o);
+                }
+
+                items[n] = (TransientBindPath) {
+                        .source = q.source,
+                        .destination = q.destination,
+                        .ignore_enoent = q.ignore_enoent,
+                        .recursive = recursive,
+                };
+        }
+
+        *ret_n = n;
+        *ret_items = TAKE_PTR(items);
+        return 0;
+}
+
+static int dispatch_transient_bind_paths(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+
+        if (streq(name, "BindReadOnlyPaths"))
+                return dispatch_transient_bind_path_array(variant, flags, &p->bind_ro_paths, &p->n_bind_ro_paths);
+        return dispatch_transient_bind_path_array(variant, flags, &p->bind_paths, &p->n_bind_paths);
+}
+
+static int dispatch_transient_capability_bounding_set(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        p->capability_bounding_set_set = true;
+        return sd_json_dispatch_strv(name, variant, flags, &p->capability_bounding_set);
+}
+
+#if HAVE_SECCOMP
+static int dispatch_transient_system_call_filter(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field filter_dispatch[] = {
+                { "isAllowList", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientExecContextParameters, syscall_allow_list), SD_JSON_MANDATORY },
+                { "systemCalls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(TransientExecContextParameters, syscall_filter),     SD_JSON_MANDATORY },
+                {}
+        };
+
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        p->syscall_filter_set = true;
+        return sd_json_dispatch(variant, filter_dispatch, /* flags= */ 0, p);
+}
+#endif
 
 static int transient_apply_set_credentials(
                 Unit *u,
@@ -1577,6 +1710,159 @@ DEFINE_APPLY_EXEC_ENUM(protect_home,   "ProtectHome",   protect_home_to_string, 
 DEFINE_APPLY_EXEC_ENUM(private_tmp,    "PrivateTmp",    private_tmp_to_string,    exec_enum_refuse_nothing);
 DEFINE_APPLY_EXEC_ENUM(private_users,  "PrivateUsers",  private_users_to_string,  exec_enum_refuse_nothing);
 
+/* Mirrors the D-Bus BindPaths=/BindReadOnlyPaths= transient plumbing: append to the bind
+ * mount list (bind_mount_add() copies) and write one unit-file line per entry. */
+static int apply_exec_bind_path_array(
+                Unit *u,
+                ExecContext *c,
+                const char *json_name,
+                const TransientBindPath *items,
+                size_t n,
+                bool read_only) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+
+        FOREACH_ARRAY(i, items, n) {
+                if (!path_is_absolute(i->source))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: source path is not absolute: %s", json_name, i->source);
+                if (!path_is_absolute(i->destination))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: destination path is not absolute: %s", json_name, i->destination);
+
+                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                   &(BindMount) {
+                                           .source = (char*) i->source,
+                                           .destination = (char*) i->destination,
+                                           .read_only = read_only,
+                                           .recursive = i->recursive,
+                                           .ignore_enoent = i->ignore_enoent,
+                                   });
+                if (r < 0)
+                        return r;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, json_name,
+                                    "%s=%s%s:%s:%s",
+                                    json_name,
+                                    i->ignore_enoent ? "-" : "",
+                                    i->source,
+                                    i->destination,
+                                    i->recursive ? "rbind" : "norbind");
+        }
+
+        return 0;
+}
+
+static int apply_exec_bind_paths(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        return apply_exec_bind_path_array(u, c, "BindPaths", p->bind_paths, p->n_bind_paths, /* read_only= */ false);
+}
+
+static int apply_exec_bind_ro_paths(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        return apply_exec_bind_path_array(u, c, "BindReadOnlyPaths", p->bind_ro_paths, p->n_bind_ro_paths, /* read_only= */ true);
+}
+
+static int apply_exec_capability_bounding_set(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *formatted = NULL;
+        uint64_t set = 0;
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->capability_bounding_set_set)
+                return 0;
+
+        /* One capability per array element, as the read side emits them. Parsing each element on its
+         * own keeps a whitespace-separated list out of a single element. */
+        STRV_FOREACH(s, p->capability_bounding_set) {
+                r = capability_from_name(*s);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "CapabilityBoundingSet: unknown capability: %s", *s);
+
+                set |= UINT64_C(1) << r;
+        }
+
+        c->capability_bounding_set = set;
+
+        r = capability_set_to_string(set, &formatted);
+        if (r < 0)
+                return r;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "CapabilityBoundingSet",
+                            "CapabilityBoundingSet=%s", formatted);
+        return 0;
+}
+
+#if HAVE_SECCOMP
+/* Mirrors the D-Bus SystemCallFilter= transient plumbing: an allow list is seeded with
+ * @default, deny-list entries may carry an errno ("name:errno"), allow-list entries may not. */
+static int apply_exec_syscall_filter(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(c);
+        assert(p);
+
+        /* A new unit has no filter to reset, so an empty list means no filter at all. */
+        if (!p->syscall_filter_set || strv_isempty(p->syscall_filter))
+                return 0;
+
+        if (!c->syscall_filter) {
+                c->syscall_filter = hashmap_new(NULL);
+                if (!c->syscall_filter)
+                        return -ENOMEM;
+
+                c->syscall_allow_list = p->syscall_allow_list;
+
+                if (c->syscall_allow_list) {
+                        r = seccomp_parse_syscall_filter("@default",
+                                                         /* errno_num= */ -1,
+                                                         c->syscall_filter,
+                                                         SECCOMP_PARSE_PERMISSIVE | SECCOMP_PARSE_ALLOW_LIST,
+                                                         u->id,
+                                                         /* filename= */ NULL, /* line= */ 0);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        STRV_FOREACH(s, p->syscall_filter) {
+                _cleanup_free_ char *n = NULL;
+                int e;
+
+                r = parse_syscall_and_errno(*s, &n, &e);
+                if (r < 0)
+                        return r;
+
+                if (p->syscall_allow_list && e >= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "SystemCallFilter: errno on allow-list entry '%s'", *s);
+
+                r = seccomp_parse_syscall_filter(n,
+                                                 e,
+                                                 c->syscall_filter,
+                                                 SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
+                                                 (p->syscall_allow_list ? SECCOMP_PARSE_ALLOW_LIST : SECCOMP_PARSE_INVERT),
+                                                 u->id,
+                                                 /* filename= */ NULL, /* line= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        joined = strv_join(p->syscall_filter, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SystemCallFilter",
+                            "SystemCallFilter=%s%s", p->syscall_allow_list ? "" : "~", joined);
+        return 0;
+}
+#endif
+
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1649,10 +1935,13 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("RootHashPath",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_path),                0,             apply_exec_root_hash_path),
         EXEC_PROPERTY              ("RootHashSignaturePath",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_sig_path),            0,             apply_exec_root_hash_sig_path),
         EXEC_PROPERTY_ABSOLUTE_PATH("RootVerity",             root_verity),
+        EXEC_PROPERTY              ("BindPaths",              SD_JSON_VARIANT_ARRAY,         dispatch_transient_bind_paths,               0,                                                                       SD_JSON_NULLABLE, apply_exec_bind_paths),
+        EXEC_PROPERTY              ("BindReadOnlyPaths",      SD_JSON_VARIANT_ARRAY,         dispatch_transient_bind_paths,               0,                                                                       SD_JSON_NULLABLE, apply_exec_bind_ro_paths),
         EXEC_PROPERTY_STRING       ("User",                   user,  json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
         EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
+        EXEC_PROPERTY              ("CapabilityBoundingSet",  SD_JSON_VARIANT_ARRAY,         dispatch_transient_capability_bounding_set,  0,                                                                       SD_JSON_NULLABLE, apply_exec_capability_bounding_set),
         EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
         EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
         EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
@@ -1671,6 +1960,9 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
+#if HAVE_SECCOMP
+        EXEC_PROPERTY              ("SystemCallFilter",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_system_call_filter,       0,                                                                       SD_JSON_NULLABLE, apply_exec_syscall_filter),
+#endif
         EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
