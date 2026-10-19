@@ -1064,8 +1064,6 @@ struct TransientExecContextParameters {
         char *bad_field; /* Field path for error propagation. */
 };
 
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input, ExecInput, exec_input_from_string);
-
 static ExecOutput exec_output_from_string_harder(const char *s) {
         ExecOutput o;
 
@@ -1085,7 +1083,6 @@ static ExecOutput exec_output_from_string_harder(const char *s) {
         return _EXEC_OUTPUT_INVALID;
 }
 
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string_harder);
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
         FOREACH_ARRAY(item, items, n)
@@ -1137,27 +1134,10 @@ static int dispatch_transient_working_directory(const char *name, sd_json_varian
         return r;
 }
 
-/* Generate a parse wrapper that flips TransientExecContextParameters.<field>_set and delegates the
- * actual value parse to the named primitive dispatcher. For fields where the JSON value type alone
- * cannot distinguish "absent" from "explicitly set to the default" (int 0, empty strv, etc.). */
-#define DEFINE_TRANSIENT_EXEC_SETTABLE(field, primitive_dispatch)           \
-        static int dispatch_transient_##field(                              \
-                        const char *name,                                   \
-                        sd_json_variant *variant,                           \
-                        sd_json_dispatch_flags_t flags,                     \
-                        void *userdata) {                                   \
-                TransientExecContextParameters *p = ASSERT_PTR(userdata);   \
-                p->field##_set = true;                                      \
-                return primitive_dispatch(name, variant, flags, &p->field); \
-        }
-
-DEFINE_TRANSIENT_EXEC_SETTABLE(environment,      sd_json_dispatch_strv);
-DEFINE_TRANSIENT_EXEC_SETTABLE(nice,             sd_json_dispatch_int32);
-DEFINE_TRANSIENT_EXEC_SETTABLE(oom_score_adjust, sd_json_dispatch_int32);
-DEFINE_TRANSIENT_EXEC_SETTABLE(umask,            sd_json_dispatch_uint32);
-
 static int dispatch_transient_set_credential_array(
+                const char *name,
                 sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
                 TransientSetCredential **ret_items,
                 size_t *ret_n,
                 char **reterr_bad_field) {
@@ -1205,17 +1185,22 @@ static int dispatch_transient_set_credential_array(
         return 0;
 }
 
-static int dispatch_transient_set_credential(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        TransientExecContextParameters *p = ASSERT_PTR(userdata);
-        p->set_credentials_set = true;
-        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials, &p->bad_field);
-}
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output,    ExecOutput,    exec_output_from_string_harder);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input,     ExecInput,     exec_input_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home,   ProtectHome,   protect_home_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp,    PrivateTmp,    private_tmp_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users,  PrivateUsers,  private_users_from_string);
 
-static int dispatch_transient_set_credential_encrypted(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        TransientExecContextParameters *p = ASSERT_PTR(userdata);
-        p->set_credentials_encrypted_set = true;
-        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted, &p->bad_field);
-}
+#define DEFINE_DISPATCH_EXEC_SETTABLE(field, dispatch, ...) \
+        DEFINE_VARLINK_DISPATCH_SETTABLE(field, TransientExecContextParameters, dispatch __VA_OPT__(,) __VA_ARGS__)
+
+static DEFINE_DISPATCH_EXEC_SETTABLE(environment,               sd_json_dispatch_strv);
+static DEFINE_DISPATCH_EXEC_SETTABLE(nice,                      sd_json_dispatch_int32);
+static DEFINE_DISPATCH_EXEC_SETTABLE(oom_score_adjust,          sd_json_dispatch_int32);
+static DEFINE_DISPATCH_EXEC_SETTABLE(umask,                     sd_json_dispatch_uint32);
+static DEFINE_DISPATCH_EXEC_SETTABLE(set_credentials,           dispatch_transient_set_credential_array, &p->n_set_credentials, &p->bad_field);
+static DEFINE_DISPATCH_EXEC_SETTABLE(set_credentials_encrypted, dispatch_transient_set_credential_array, &p->n_set_credentials_encrypted, &p->bad_field);
 
 static int transient_apply_set_credentials(
                 Unit *u,
@@ -1294,7 +1279,7 @@ static int apply_exec_oom_score_adjust(Unit *u, ExecContext *c, TransientExecCon
         return 0;
 }
 
-static int apply_exec_set_credential(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+static int apply_exec_set_credentials(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
         assert(p);
 
         if (!p->set_credentials_set)
@@ -1303,7 +1288,7 @@ static int apply_exec_set_credential(Unit *u, ExecContext *c, TransientExecConte
                                                /* encrypted= */ false, &p->bad_field);
 }
 
-static int apply_exec_set_credential_encrypted(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+static int apply_exec_set_credentials_encrypted(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
         assert(p);
 
         if (!p->set_credentials_encrypted_set)
@@ -1471,14 +1456,6 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
         return r;
 }
 
-/* The IDL enums use the Varlink spelling ("read_only"), while the *_from_string() parsers
- * expect the unit-file spelling ("read-only"); JSON_DISPATCH_ENUM_DEFINE bridges that by
- * retrying with dashes on a miss. */
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_system, ProtectSystem, protect_system_from_string);
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home, ProtectHome, protect_home_from_string);
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp, PrivateTmp, private_tmp_from_string);
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users, PrivateUsers, private_users_from_string);
-
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1541,10 +1518,10 @@ typedef struct TransientExecProperty {
         { json, type, dispatch_fn, 0, SD_JSON_NULLABLE, apply_fn }
 
 #define EXEC_PROPERTY_SETTABLE(json, field, type) \
-        EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_transient_##field, apply_exec_##field)
+        EXEC_PROPERTY_SETTABLE_FULL(json, type, varlink_dispatch_settable_##field, apply_exec_##field)
 
 #define EXEC_PROPERTY_SETTABLE_APPLY(json, field, type) \
-        EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_transient_##field, varlink_apply_settable_##field)
+        EXEC_PROPERTY_SETTABLE_FULL(json, type, varlink_dispatch_settable_##field, varlink_apply_settable_##field)
 
 /* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
  * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
@@ -1595,8 +1572,8 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
         EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
         EXEC_PROPERTY_STRING       ("TTYPath",                tty_path),
-        EXEC_PROPERTY_SETTABLE     ("SetCredential",          set_credential,            SD_JSON_VARIANT_ARRAY),
-        EXEC_PROPERTY_SETTABLE     ("SetCredentialEncrypted", set_credential_encrypted,  SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE     ("SetCredential",          set_credentials,           SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE     ("SetCredentialEncrypted", set_credentials_encrypted, SD_JSON_VARIANT_ARRAY),
 };
 #undef EXEC_PROPERTY_FULL
 #undef EXEC_PROPERTY
