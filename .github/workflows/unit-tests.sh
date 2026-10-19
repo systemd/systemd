@@ -9,6 +9,7 @@ ADDITIONAL_DEPS=(
     expect
     fdisk
     jekyll
+    jq
     linux-tools-generic
     python3-libevdev
     python3-pip

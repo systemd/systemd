@@ -143,6 +143,37 @@ endif
 
 ############################################################
 
+if want_tests != 'false'
+        # ukify is a Python script and the mount helpers implement the mount(8) interface, so they
+        # cannot be introspected. systemd does not list its init alias among its names, and the
+        # .standalone variants would not find their own name in the output either.
+        introspect_cli_exclude = [
+                'ukify',
+                'mount.ddi',
+                'mount.mstack',
+                'mount.storage',
+                'init',
+        ]
+
+        introspect_cli_programs = []
+        foreach exec : install_programs
+                name = fs.name(exec.full_path())
+                if name in introspect_cli_exclude or name.endswith('.standalone')
+                        continue
+                endif
+                introspect_cli_programs += exec
+        endforeach
+
+        test('test-introspect-cli',
+             files('test-introspect-cli.sh'),
+             args : introspect_cli_programs,
+             depends : introspect_cli_programs,
+             suite : 'dist',
+             timeout : 300)
+endif
+
+############################################################
+
 if install_tests
         install_data('run-unit-tests.py',
                      install_mode : 'rwxr-xr-x',
