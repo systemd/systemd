@@ -144,6 +144,7 @@ INTROSPECTABLE=(
     systemd-random-seed
     systemd-remount-fs
     systemd-repart
+    systemd-reply-password
     systemd-report
     systemd-report-basic
     systemd-report-cgroup
