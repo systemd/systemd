@@ -173,6 +173,7 @@ INTROSPECTABLE=(
     systemd-sysupdate
     systemd-sysupdated
     systemd-sysusers
+    systemd-time-wait-sync
     systemd-timedated
     systemd-timesyncd
     systemd-tmpfiles
