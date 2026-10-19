@@ -1152,10 +1152,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 if (!c)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
-                bad_field = NULL;
-                r = transient_exec_context_apply_properties(u, c, p.context.exec, &bad_field);
-                if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Exec");
+                r = transient_exec_context_apply_properties(u, c, p.context.exec, &child_bad_field);
+                if (r == -EINVAL) {
+                        varlink_propagate_bad_field("context.Exec", child_bad_field, &bad_field_path);
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field_path);
+                }
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }

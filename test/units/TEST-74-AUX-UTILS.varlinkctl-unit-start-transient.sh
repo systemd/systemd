@@ -258,12 +258,12 @@ testcase_exec_properties() {
     defer_transient_cleanup varlink-transient-bad-wd.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-wd.service","Exec":{"WorkingDirectory":{"path":"relative/path","missingOK":false}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.WorkingDirectory"
+        "context.Exec.WorkingDirectory.path"
     # Malformed environment entry (not KEY=VALUE)
     defer_transient_cleanup varlink-transient-bad-env.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.Environment"
+        "context.Exec.Environment"
     # Invalid User= name is rejected at JSON dispatch time as a parameter error
     defer_transient_cleanup varlink-transient-bad-user.service
     expect_invalid_parameter \
@@ -273,17 +273,17 @@ testcase_exec_properties() {
     defer_transient_cleanup varlink-transient-bad-nice.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.Nice"
+        "context.Exec.Nice"
     # Out-of-range OOMScoreAdjust= value is rejected
     defer_transient_cleanup varlink-transient-bad-oom.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-oom.service","Exec":{"OOMScoreAdjust":9999},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.OOMScoreAdjust"
+        "context.Exec.OOMScoreAdjust"
     # Relative RootDirectory path is rejected
     defer_transient_cleanup varlink-transient-bad-rd.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-rd.service","Exec":{"RootDirectory":"relative/path"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.RootDirectory"
+        "context.Exec.RootDirectory"
     # Note that an unparsable enum value (e.g. StandardOutput=bogus) is rejected by the Varlink IDL
     # validation layer before the JSON dispatch even runs, hence there's no point in testing pid1's
     # dispatch-level enum handling here — and doing so would trip post.sh's "didn't pass validation"
@@ -292,7 +292,7 @@ testcase_exec_properties() {
     defer_transient_cleanup varlink-transient-bad-ttypath.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-ttypath.service","Exec":{"TTYPath":"relative/tty"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.TTYPath"
+        "context.Exec.TTYPath"
 
     # The file based stdio types need a companion path, and StandardInput=data a companion payload, neither of
     # which can be passed yet, hence they are rejected
@@ -300,17 +300,17 @@ testcase_exec_properties() {
         defer_transient_cleanup "varlink-transient-bad-stdout-$t.service"
         expect_invalid_parameter \
             "{\"context\":{\"ID\":\"varlink-transient-bad-stdout-$t.service\",\"Exec\":{\"StandardOutput\":\"$t\"},\"Service\":{\"Type\":\"oneshot\",\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}" \
-            "Exec.StandardOutput"
+            "context.Exec.StandardOutput"
     done
     defer_transient_cleanup varlink-transient-bad-stderr.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-stderr.service","Exec":{"StandardError":"file"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.StandardError"
+        "context.Exec.StandardError"
     for t in file data; do
         defer_transient_cleanup "varlink-transient-bad-stdin-$t.service"
         expect_invalid_parameter \
             "{\"context\":{\"ID\":\"varlink-transient-bad-stdin-$t.service\",\"Exec\":{\"StandardInput\":\"$t\"},\"Service\":{\"Type\":\"oneshot\",\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}" \
-            "Exec.StandardInput"
+            "context.Exec.StandardInput"
     done
 
     # Unknown field in Exec is rejected as PropertyNotSupported
@@ -541,7 +541,7 @@ testcase_credentials() {
     defer_transient_cleanup varlink-transient-bad-cred-id.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-cred-id.service","Exec":{"SetCredential":[{"id":"bad/id","value":"YWJj"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "Exec.SetCredential"
+        "context.Exec.SetCredential.id"
     # Invalid base64 value for credential (rejected at JSON dispatch time as a parameter error)
     defer_transient_cleanup varlink-transient-bad-cred-value.service
     expect_invalid_parameter \
@@ -876,6 +876,30 @@ testcase_dispatch_error_paths() {
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-tasks-bad-weight.service","CGroup":{"TasksMax":{"value":16},"CPUWeight":-1}}}' \
         "context.CGroup.CPUWeight"
+}
+
+testcase_exec_apply_error_paths() {
+    setup
+
+    local field unit
+
+    for field in SetCredential SetCredentialEncrypted; do
+        unit="varlink-transient-invalid-${field}.service"
+        defer_transient_cleanup "$unit"
+        expect_invalid_parameter \
+            '{"context":{"ID":"'"$unit"'","Exec":{"'"$field"'":[{"id":"first","value":"YWJj"},{"id":"bad/id","value":"YWJj"}]}}}' \
+            "context.Exec.$field.id"
+    done
+
+    defer_transient_cleanup varlink-transient-wd-conflict.service
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-wd-conflict.service","Exec":{"WorkingDirectory":{"path":"/tmp","home":true}}}}' \
+        "context.Exec.WorkingDirectory"
+
+    defer_transient_cleanup varlink-transient-wd-bad-nice.service
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-wd-bad-nice.service","Exec":{"WorkingDirectory":{"path":"/tmp"},"Nice":100}}}' \
+        "context.Exec.Nice"
 }
 
 testcase_validation() {
