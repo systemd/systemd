@@ -111,6 +111,7 @@ INTROSPECTABLE=(
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
+    systemd-journald
     systemd-keyutil
     systemd-localed
     systemd-logind
