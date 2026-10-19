@@ -108,13 +108,13 @@ static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_va
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v)));
 }
 
-static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, Manager *manager) {
+static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
         Link *link = NULL;
         int r;
 
         assert(vlink);
-        assert(manager);
 
         r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
         if (r != 0)
