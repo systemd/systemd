@@ -791,14 +791,17 @@ int raw_pull_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
         assert(p);
         assert(url);
+        assert(compression < _COMPRESSION_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -839,6 +842,8 @@ int raw_pull_start(
 
         p->raw_job->on_finished = raw_pull_job_on_finished;
         p->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
+        p->raw_job->compression = compression;
+        import_digest_init(&p->raw_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->raw_job->expected_checksum))
@@ -864,7 +869,9 @@ int raw_pull_start(
                 p->raw_job->offset = p->offset = offset;
         p->raw_job->zero_fill = FLAGS_SET(flags, IMPORT_ZERO_FILL);
 
-        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
+        /* A previously downloaded image is neither keyed by the compression algorithm nor was it
+         * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
+        if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_REG, ".raw-", ".raw", &p->raw_job->old_etags);
                 if (r < 0)
                         return r;
