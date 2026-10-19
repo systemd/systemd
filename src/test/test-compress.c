@@ -810,6 +810,53 @@ TEST(compressor_decompressor_push_api) {
         ASSERT_NULL(d);
 }
 
+TEST(decompressor_force) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (!compression_supported(c))
+                        continue;
+
+                log_info("/* testing decompressor_force() with %s */", compression_to_string(c));
+
+                _cleanup_free_ void *compressed = NULL, *finish_buf = NULL;
+                size_t compressed_size = 0, compressed_alloc = 0, finish_size = 0, finish_alloc = 0;
+                _cleanup_free_ void *full_compressed = NULL;
+                size_t total_compressed;
+
+                if (c == COMPRESSION_NONE) {
+                        full_compressed = memdup(text, sizeof(text));
+                        ASSERT_NOT_NULL(full_compressed);
+                        total_compressed = sizeof(text);
+                } else {
+                        _cleanup_(compressor_freep) Compressor *compressor = NULL;
+
+                        ASSERT_OK(compressor_new(&compressor, c));
+                        ASSERT_OK(compressor_start(compressor, text, sizeof(text), &compressed, &compressed_size, &compressed_alloc));
+                        ASSERT_OK(compressor_finish(compressor, &finish_buf, &finish_size, &finish_alloc));
+
+                        total_compressed = compressed_size + finish_size;
+                        full_compressed = malloc(total_compressed);
+                        ASSERT_NOT_NULL(full_compressed);
+                        memcpy(full_compressed, compressed, compressed_size);
+                        if (finish_size > 0)
+                                memcpy((uint8_t*) full_compressed + compressed_size, finish_buf, finish_size);
+                }
+
+                /* Set up some other decompressor first, to check that it gets replaced */
+                _cleanup_(compressor_freep) Decompressor *decompressor = NULL;
+                ASSERT_OK(decompressor_force_off(&decompressor));
+                ASSERT_OK(decompressor_force(&decompressor, c));
+                ASSERT_EQ(compressor_type(decompressor), c);
+
+                struct decompressor_test_data result = {};
+                ASSERT_OK(decompressor_push(decompressor, full_compressed, total_compressed, test_decompressor_callback, &result));
+                ASSERT_OK(decompressor_push(decompressor, /* data= */ NULL, /* size= */ 0, test_decompressor_callback, &result));
+
+                ASSERT_EQ(result.size, sizeof(text));
+                ASSERT_EQ(memcmp(result.buf, text, sizeof(text)), 0);
+                free(result.buf);
+        }
+}
+
 TEST(decompressor_push_output_buffer_boundary) {
         size_t src_size = 2 * COMPRESS_PIPE_BUFFER_SIZE;
         _cleanup_free_ uint8_t *src = ASSERT_PTR(malloc(src_size));

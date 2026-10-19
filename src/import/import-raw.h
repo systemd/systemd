@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "compress.h"
 #include "import-common.h"
 
 typedef struct RawImport RawImport;
@@ -12,4 +13,4 @@ RawImport* raw_import_unref(RawImport *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
-int raw_import_start(RawImport *i, int fd, const char *local, uint64_t offset, uint64_t size_max, ImportFlags flags);
+int raw_import_start(RawImport *i, int fd, const char *local, uint64_t offset, uint64_t size_max, Compression compression, const struct iovec *decoded_checksum, ImportFlags flags);

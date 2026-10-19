@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "compress.h"
 #include "import-common.h"
 
 typedef struct TarImport TarImport;
@@ -12,4 +13,4 @@ TarImport* tar_import_unref(TarImport *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
 
-int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags);
+int tar_import_start(TarImport *i, int fd, const char *local, Compression compression, const struct iovec *decoded_checksum, ImportFlags flags);
