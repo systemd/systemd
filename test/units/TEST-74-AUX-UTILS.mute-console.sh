@@ -77,3 +77,11 @@ wait_printk_level 0
 kill "$PID"
 wait_printk_level 4
 unset PID
+
+# Stopping the service while a client holds the mute must unmute. This also disconnects the client.
+PID="$(systemd-notify --fork -- varlinkctl call -E /run/systemd/io.systemd.MuteConsole io.systemd.MuteConsole.Mute '{}')"
+wait_printk_level 0
+systemctl stop "systemd-mute-console*.service"
+wait_printk_level 4
+timeout 10 tail --pid="$PID" -f /dev/null
+unset PID
