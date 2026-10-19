@@ -153,9 +153,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysupdate: add health check logic, revert updates if fail
 
-- sysupdate: add flag field for features and components, to require a restart
-  of the update loop once they have been updated.
-
 - confext/sysext: add policy file concept: json files that encode for relevant
   confext/sysext ddis rules when to enable them, i.e. version checks. also use
   it for the garbage collector
@@ -256,13 +253,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   sequences of this type, so that every step of the way we get the right
   behaviour.
 
-- implement "varlinkctl trace" or so, that watches socket traffic on a group of
-  processes (select by pid, select by cgroup, select by all machine), and shows
-  traffic of all sockets marked via the new varlink socket xattrs. Use BPF for
-  all of that of course.
-
-- add tooling for generating dictionary-based hostnames
-
 - do not pull dbus daemon/broker anymore, instead lazy activate it. Given how
   the Varlinkifcation has progressed various non-desktop usescase might not
   need D-Bus running at all anymore.
@@ -272,14 +262,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   multiple tables from the same tool we want to separate things with a title,
   hence we might as well associate the title with the table itself, and
   streamline a few things.
-
-- sysupdate: offer reading transfer files/components/features optionally from
-  some JSON fragment rather than transfer files, so that we can update it
-  independently from any DDI, and it needs no activation cycle. Why? so that
-  making additional transfers/components/features available can be done without
-  reloading confext/sysext, and out-band with other configuration changes.
-
-- sysupdate: go through all components, and update them all, one by one.
 
 - pcrextend: we probably should measure /etc/machine-info during boot somehow
 
@@ -344,7 +326,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - **systemd-sysinstall:**
   - read installation definition from json file
-  - polkit support in sysinstall
   - sysinstall: permit driving installer via credentials
   - add --offline=no mode where we talk to socket based services rather than forking off
   - if a user doesn't pick a locale during boot into installer, don't ask again after install, because we suppressed credential propagation
@@ -569,9 +550,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   that we create the dir in question when the service is started. Example:
 
   ReadWritePaths=:/var/lib/foobar
-
-- add some service that makes an atomic snapshot of PCR state and event log up
-  to that point available, possibly even with quote by the TPM.
 
 - add some special mode to LogsDirectory=/StateDirectory=… that allows
   declaring these directories without necessarily pulling in deps for them, or
