@@ -193,6 +193,7 @@ INTROSPECTABLE=(
     systemd-update-helper
     systemd-userdbd
     systemd-validatefs
+    systemd-vconsole-setup
     systemd-veritysetup
     systemd-veritysetup-generator
     systemd-vmspawn
