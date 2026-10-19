@@ -442,7 +442,6 @@ libshared_deps = [libacl_cflags,
 
 libshared_sym = files('libshared.sym')
 libshared_sym_path = relative_source_path / 'src/shared/libshared.sym'
-libshared_build_dir = meson.current_build_dir()
 
 libshared_static = static_library(
         libshared_name,

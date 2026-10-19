@@ -20,10 +20,7 @@ xsltproc_flags = [
         '--stringparam', 'man.copyright.section.enabled', '0',
         '--stringparam', 'systemd.version', '@0@'.format(meson.project_version()),
         '--path',
-        '@0@:@1@:@2@:@3@'.format(meson.current_build_dir(),
-                                 meson.current_source_dir(),
-                                 libshared_build_dir,
-                                 libcore_build_dir)]
+        ':'.join(['man', relative_source_path / 'man', 'src/shared', 'src/core'])]
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
