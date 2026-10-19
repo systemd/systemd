@@ -1222,7 +1222,8 @@ static int transient_apply_set_credentials(
                 ExecContext *c,
                 const TransientSetCredential *items,
                 size_t n_items,
-                bool encrypted) {
+                bool encrypted,
+                char **reterr_bad_field) {
 
         int r;
 
@@ -1234,8 +1235,10 @@ static int transient_apply_set_credentials(
 
                 r = exec_context_apply_set_credential(u, c, item->id, item->value.iov_base, item->value.iov_len,
                                                      encrypted, UNIT_RUNTIME|UNIT_PRIVATE, &err);
-                if (r == -EINVAL)
+                if (r == -EINVAL) {
+                        varlink_propagate_bad_field("id", /* child_bad_field= */ NULL, reterr_bad_field);
                         return log_debug_errno(r, "%s: %s", err, item->id);
+                }
                 if (r < 0)
                         return r;
         }
@@ -1253,7 +1256,7 @@ static int apply_exec_environment(Unit *u, ExecContext *c, TransientExecContextP
 
         r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
         if (IN_SET(r, -E2BIG, -EINVAL))
-                /* Convert E2BIG into EINVAL so the central loop maps it to Exec.Environment. */
+                /* Convert E2BIG into EINVAL so the caller reports an invalid parameter. */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        r == -E2BIG ? "Too many environment assignments." : "Invalid Environment list.");
         return r;
@@ -1296,7 +1299,8 @@ static int apply_exec_set_credential(Unit *u, ExecContext *c, TransientExecConte
 
         if (!p->set_credentials_set)
                 return 0;
-        return transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials, /* encrypted= */ false);
+        return transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials,
+                                               /* encrypted= */ false, &p->bad_field);
 }
 
 static int apply_exec_set_credential_encrypted(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
@@ -1304,7 +1308,8 @@ static int apply_exec_set_credential_encrypted(Unit *u, ExecContext *c, Transien
 
         if (!p->set_credentials_encrypted_set)
                 return 0;
-        return transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted, /* encrypted= */ true);
+        return transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted,
+                                               /* encrypted= */ true, &p->bad_field);
 }
 
 static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
@@ -1354,15 +1359,19 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
                                        "WorkingDirectory: must specify either 'home' or 'path'");
 
         if (!wd->home) {
-                if (!path_is_absolute(wd->path))
+                if (!path_is_absolute(wd->path)) {
+                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "WorkingDirectory: expects an absolute path");
+                }
                 r = path_simplify_alloc(wd->path, &simplified);
                 if (r < 0)
                         return r;
-                if (!path_is_normalized(simplified))
+                if (!path_is_normalized(simplified)) {
+                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "WorkingDirectory: expects a normalized path");
+                }
         }
 
         free_and_replace(c->working_directory, simplified);
@@ -1499,21 +1508,18 @@ static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *v
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
- *   err_field     - Qualified field name used for varlink error replies (e.g. "Exec.Nice").
  *   json_type     - Expected JSON type for sd_json_dispatch_full().
  *   dispatch      - Parses the JSON value into TransientExecContextParameters.
  *   parse_offset  - offsetof() into TransientExecContextParameters; 0 if dispatch writes via &p directly.
  *   json_flags    - Per-field flags forwarded to sd_json_dispatch_full().
  *   apply         - Writes the parsed value to ExecContext. Returns 0 on success (whether or not
- *                   the property was set), <0 on error. -EINVAL is mapped to err_field by the
- *                   central loop.
+ *                   the property was set), <0 on error. The central loop prefixes EINVAL errors with json_name.
  *   tristate      - If true, the int at parse_offset is initialized to -1 (absent sentinel) by
  *                   transient_exec_context_parameters_init(). Used for tristate bools and enum
  *                   fields (both treat negative as absent). Defaults to false.
  */
 typedef struct TransientExecProperty {
         const char *json_name;
-        const char *err_field;
         sd_json_variant_type_t json_type;
         sd_json_dispatch_callback_t dispatch;
         size_t parse_offset;
@@ -1525,38 +1531,38 @@ typedef struct TransientExecProperty {
 /* Property descriptors for the Exec object. Ordered to match src/shared/varlink-io.systemd.Unit.c so related
  * fields (e.g. User/Group) stay close. JSON keys match the D-Bus property names. */
 #define EXEC_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
-        { json, "Exec." json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+        { json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
 
 /* Tristate-bool property: parsed via sd_json_dispatch_tristate into an int (-1 = absent).
  * Sets .tristate=true so transient_exec_context_parameters_init() seeds the int to -1 before
  * dispatch. */
 #define EXEC_PROPERTY_TRISTATE_BOOL(json, field)                                          \
-        { json, "Exec." json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,         \
+        { json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,                       \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 /* String property: dispatched into a const char* field and applied via the matching
  * DEFINE_APPLY_EXEC() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
  * json_dispatch_const_user_group_name with SD_JSON_RELAX). */
 #define EXEC_PROPERTY_STRING(json, field, dispatch_fn, json_flags)                         \
-        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
+        { json, SD_JSON_VARIANT_STRING, dispatch_fn,                                       \
           offsetof(TransientExecContextParameters, field), json_flags, apply_exec_##field }
 
 /* Absolute-path string property: parsed via sd_json_dispatch_const_string + path_is_absolute(). */
 #define EXEC_PROPERTY_ABSOLUTE_PATH(json, field)                                          \
-        { json, "Exec." json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,      \
+        { json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,                    \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
 
 /* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
  * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
  * matching apply function treats any negative value as unset. */
 #define EXEC_PROPERTY_ENUM(json, field, dispatch_fn)                                       \
-        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
+        { json, SD_JSON_VARIANT_STRING, dispatch_fn,                                       \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 /* Yes/no-string property: a tristate bool whose IDL type is string, see
  * dispatch_transient_yes_no_string(). */
 #define EXEC_PROPERTY_YES_NO_STRING(json, field)                                          \
-        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,   \
+        { json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,                 \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 static const TransientExecProperty exec_properties[] = {
@@ -1673,7 +1679,7 @@ int transient_exec_context_dispatch(
         return r;
 }
 
-int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p, const char **reterr_bad_field) {
+int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p, char **reterr_bad_field) {
         int r;
 
         assert(u);
@@ -1682,11 +1688,10 @@ int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientEx
 
         FOREACH_ELEMENT(prop, exec_properties) {
                 r = prop->apply(u, c, p);
-                if (r < 0) {
-                        if (reterr_bad_field)
-                                *reterr_bad_field = r == -EINVAL ? prop->err_field : NULL;
+                if (r == -EINVAL)
+                        return varlink_propagate_bad_field_errno(r, prop->json_name, p->bad_field, reterr_bad_field);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
