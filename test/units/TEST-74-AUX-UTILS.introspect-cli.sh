@@ -97,6 +97,7 @@ INTROSPECTABLE=(
     systemd-hibernate-resume
     systemd-hibernate-resume-generator
     systemd-homed
+    systemd-homework
     systemd-hostnamed
     systemd-hwdb
     systemd-id128
