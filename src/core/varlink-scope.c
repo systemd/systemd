@@ -86,7 +86,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientScopeParameters*, transient_scope_parameter
 int transient_scope_dispatch(
                 sd_json_variant *variant,
                 TransientScopeParameters **ret,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field scope_dispatch[] = {
                 { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,      offsetof(TransientScopeParameters, oom_policy),              0 },
@@ -97,6 +97,7 @@ int transient_scope_dispatch(
                 {}
         };
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -110,9 +111,12 @@ int transient_scope_dispatch(
                 .oom_policy = _OOM_POLICY_INVALID,
         };
 
-        r = sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;

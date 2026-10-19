@@ -546,7 +546,7 @@ testcase_credentials() {
     defer_transient_cleanup varlink-transient-bad-cred-value.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "context.Exec.SetCredential"
+        "context.Exec.SetCredential.value"
 }
 
 testcase_file_descriptors() {
@@ -827,6 +827,8 @@ testcase_cgroup_tasks_max_pair() {
 testcase_dispatch_error_paths() {
     setup
 
+    local field
+
     expect_invalid_parameter \
         '{"context":{"ID":"bad/unit.service"}}' \
         "context.ID"
@@ -836,8 +838,44 @@ testcase_dispatch_error_paths() {
         "context.Exec"
 
     expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-null-wd.service","Exec":{"WorkingDirectory":null}}}' \
+        "context.Exec.WorkingDirectory"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-null-wd-path.service","Exec":{"WorkingDirectory":{"path":null}}}}' \
+        "context.Exec.WorkingDirectory.path"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-wd-bad-user.service","Exec":{"WorkingDirectory":{"path":"/tmp"},"User":"bad/user"}}}' \
+        "context.Exec.User"
+
+    expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-dependency.service","Exec":{"User":"root"},"Requires":["bad/unit.service"]}}' \
         "context.Requires"
+
+    for field in SetCredential SetCredentialEncrypted; do
+        expect_invalid_parameter \
+            '{"context":{"ID":"varlink-transient-bad-credential-array.service","Exec":{"'"$field"'":[{"id":"first","value":"YWJj"},{"id":"second","value":"!!!not_base64!!!"}]}}}' \
+            "context.Exec.$field.value"
+    done
+
+    for field in ExecCondition ExecStartPre ExecStart ExecStartPost ExecReload ExecReloadPost ExecStop ExecStopPost; do
+        expect_invalid_parameter \
+            '{"context":{"ID":"varlink-transient-bad-command-array.service","Service":{"'"$field"'":[{"path":"/bin/true"},{"path":"/bin/true","arguments":["/bin/true"],"ignoreFailure":null}]}}}' \
+            "context.Service.$field.ignoreFailure"
+    done
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-tasks-value.service","CGroup":{"TasksMax":{"value":-1}}}}' \
+        "context.CGroup.TasksMax.value"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-tasks-scale.service","CGroup":{"TasksMax":{"value":1,"scale":-1}}}}' \
+        "context.CGroup.TasksMax.scale"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-tasks-bad-weight.service","CGroup":{"TasksMax":{"value":16},"CPUWeight":-1}}}' \
+        "context.CGroup.CPUWeight"
 }
 
 testcase_validation() {

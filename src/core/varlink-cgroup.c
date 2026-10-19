@@ -1034,15 +1034,18 @@ static int dispatch_transient_cgroup_tasks_max(
         /* UINT64_MAX stands for "no scale supplied": sd_json_dispatch_uint64() maps null to it, so a
          * missing and a null member need no separate handling. No producer uses it as a denominator. */
         CGroupTasksMax tasks_max = { .scale = UINT64_MAX };
+        const char *bad_field = NULL;
         int r;
 
         if (sd_json_variant_is_null(variant))
                 return 0;
 
-        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &tasks_max,
-                                  /* reterr_bad_field= */ NULL);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &tasks_max, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
                 return r;
+        }
 
         if (tasks_max.scale == UINT64_MAX)
                 tasks_max.scale = 0;
@@ -1150,11 +1153,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientCGroupContextParameters*, transient_cgroup_
 int transient_cgroup_context_dispatch(
                 sd_json_variant *variant,
                 TransientCGroupContextParameters **ret,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field cgroup_dispatch[ELEMENTSOF(cgroup_properties) + 1] = {};
         static bool cgroup_dispatch_set = false;
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -1180,9 +1184,12 @@ int transient_cgroup_context_dispatch(
 
         transient_cgroup_context_parameters_init(p);
 
-        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;
