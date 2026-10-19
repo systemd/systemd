@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-efi_config_h_dir = meson.current_build_dir()
 efi_addon = []
 
 libefitest = static_library(

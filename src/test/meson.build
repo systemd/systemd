@@ -506,7 +506,7 @@ executables += [
         test_template + {
                 'sources' : files('test-sbat.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
-                'c_args' : f'-I@efi_config_h_dir@',
+                'c_args' : '-Isrc/boot',
         },
         test_template + {
                 'sources' : files('test-seccomp.c'),
