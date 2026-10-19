@@ -50,9 +50,10 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_ERROR(
                 NoChange);
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_PCRLock,
                 "io.systemd.PCRLock",
+                SD_VARLINK_EXPERIMENTAL,
                 &vl_method_ReadEventLog,
                 SD_VARLINK_SYMBOL_COMMENT("A single variant of a .pcrlock component, i.e. one alternative the component may take, backed by a specific .pcrlock file."),
                 &vl_type_ComponentVariant,
