@@ -46,6 +46,14 @@ typedef struct ManifestContext {
         /* Track how many inodes we skipped because not representable in this manifest format */
         uint64_t n_skipped;
 
+        /* Track how many times we omitted some metadata of an inode we did serialize, because we couldn't
+         * read it or it is not representable in this manifest format */
+        uint64_t n_metadata_omitted;
+
+        /* Set once the top-level inode is covered by the manifest (for formats that do not list the
+         * top-level inode itself, once we enumerated it) */
+        bool top_level_covered;
+
         /* Hardlink database fields (only UAPI.16) */
         int db_fd;
         char *db_path;
