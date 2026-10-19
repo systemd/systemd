@@ -2902,6 +2902,9 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
         }
 }
 
+/* The service manager refuses READY=1 after STOPPING=1, so we must not report readiness anymore then. */
+static bool notified_stopping = false;
+
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         PidRef *pid = userdata;
 
@@ -2913,6 +2916,7 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
                                  signal_to_string(arg_kill_signal), signal_to_string(si->ssi_signo));
                         sd_event_source_set_userdata(s, NULL);
                         sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
+                        notified_stopping = true;
                         return 0;
                 }
 
@@ -2947,6 +2951,38 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, vo
         }
 
         return 0;
+}
+
+static int on_child_locked_down(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        PidRef *pid = ASSERT_PTR(userdata);
+        char c;
+        ssize_t l;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        /* The inner child sends us one byte once it is fully set up and locked down. If it dies before, we
+         * get EOF instead, and on_sigchld() takes care of the rest. */
+        l = recv(fd, &c, sizeof(c), MSG_DONTWAIT);
+        if (l < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return log_error_errno(errno, "Failed to read from inner child: %m");
+        }
+        if (l > 0 && !notified_stopping) {
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "STATUS=Container started.\n"
+                                  "X_NSPAWN_LEADER_PID=" PID_FMT, pid->pid);
+                if (!arg_notify_ready) {
+                        r = sd_notify(/* unset_environment= */ false, "READY=1\n");
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+                }
+        }
+
+        return sd_event_source_set_enabled(s, SD_EVENT_OFF);
 }
 
 static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -3396,8 +3432,12 @@ static int inner_child(
                         return r;
         }
 
-        /* Wait until we are cgroup-ified, so that we can mount the right cgroup path writable */
-        if (!barrier_place_and_sync(barrier)) /* #4 */
+        /* Tell the parent that our procfs and sysfs are mounted. */
+        (void) barrier_place(barrier); /* #4 */
+
+        /* Wait until we are cgroup-ified, so that we can mount the right cgroup path writable, and until the
+         * fully visible procfs and sysfs are gone, before we run any code from the image. */
+        if (!barrier_place_and_sync(barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
                                        "Parent died too early");
 
@@ -3616,9 +3656,10 @@ static int inner_child(
         if (!env_use)
                 return log_oom();
 
-        /* Let the parent know that we are ready and wait until the parent is ready with the setup, too... */
-        if (!barrier_place_and_sync(barrier)) /* #5 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
+        /* Tell the parent that we are fully set up and locked down, so that it can report readiness. Note
+         * that we use write() here, as the seccomp filter might not allow sendto(). */
+        if (write(fd_inner_socket, &(const char) { 'x' }, 1) < 0)
+                return log_error_errno(errno, "Failed to notify parent: %m");
 
         /* Note, this should be done this late (💣 and not moved earlier! 💣), so that all namespacing
          * changes are already in effect by now, so that any resolved paths here definitely reference
@@ -4398,8 +4439,9 @@ static int outer_child(
                         /* In order to mount procfs and sysfs in an unprivileged container the kernel
                          * requires that a fully visible instance is already present in the target mount
                          * namespace. Mount one here so the inner child can mount its own instances. Later
-                         * we umount the temporary instances created here before we actually exec the
-                         * payload. Since the rootfs is shared the umount will propagate into the container.
+                         * we umount the temporary instances created here before the inner child runs any
+                         * code from the image. Since the rootfs is shared the umount will propagate into the
+                         * container.
                          * Note, the inner child wouldn't be able to unmount the instances on its own since
                          * it doesn't own the originating mount namespace. IOW, the outer child needs to do
                          * this. */
@@ -4691,7 +4733,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (status)
                 (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Container running: %s", status);
 
-        if (strv_contains(tags, "READY=1")) {
+        if (strv_contains(tags, "READY=1") && !notified_stopping) {
                 r = sd_notify(/* unset_environment= */ false, "READY=1\n");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
@@ -5288,19 +5330,6 @@ static int run_container(
         if (r < 0)
                 return r;
 
-        if (arg_userns_mode == USER_NAMESPACE_PICK) {
-                /* When we shall pick the UID/GID range, let's first lock /etc/passwd, so that we can safely
-                 * check with getpwuid() if the specific user already exists. Note that /etc might be
-                 * read-only, in which case this will fail with EROFS. But that's really OK, as in that case we
-                 * can be reasonably sure that no users are going to be added. Note that getpwuid() checks are
-                 * really just an extra safety net. We kinda assume that the UID range we allocate from is
-                 * really ours. */
-
-                etc_passwd_lock = take_etc_passwd_lock(NULL);
-                if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS)
-                        return log_error_errno(etc_passwd_lock, "Failed to take /etc/passwd lock: %m");
-        }
-
         r = barrier_create(&barrier);
         if (r < 0)
                 return log_error_errno(r, "Cannot initialize IPC barrier: %m");
@@ -5435,6 +5464,18 @@ static int run_container(
                         /* If we are supposed to pick the UID shift, let's try to use the shift read from the
                          * image, but if that's already in use, pick a new one, and report back to the child,
                          * which one we now picked. */
+
+                        /* Let's first lock /etc/passwd, so that we can safely check with getpwuid() if
+                         * the specific user already exists. Note that /etc might be read-only, in which
+                         * case this will fail with EROFS. But that's really OK, as in that case we can be
+                         * reasonably sure that no users are going to be added. Note that getpwuid() checks
+                         * are really just an extra safety net. We kinda assume that the UID range we
+                         * allocate from is really ours. We take the lock only after forking, so that our
+                         * children don't inherit it. */
+                        etc_passwd_lock = take_etc_passwd_lock(NULL);
+                        if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS)
+                                return log_error_errno(etc_passwd_lock,
+                                                       "Failed to take /etc/passwd lock: %m");
 
                         r = uid_shift_pick(&arg_uid_shift, &uid_shift_lock);
                         if (r < 0)
@@ -5704,9 +5745,22 @@ static int run_container(
                         return r;
         }
 
-        /* Notify the child that the parent is ready with all its setup (including cgroup-ification), and
-         * that the child can now hand over control to the code to run inside the container. */
-        (void) barrier_place(&barrier); /* #4 */
+        /* Wait until the child mounted its own procfs and sysfs, and take the fully visible instances away
+         * before the child runs any code from the image. */
+        if (!barrier_place_and_sync(&barrier)) /* #4 */
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
+
+        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
+                r = wipe_fully_visible_api_fs(mntns_fd);
+                if (r < 0)
+                        return r;
+                mntns_fd = safe_close(mntns_fd);
+        }
+
+        /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service
+         * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. Do so before the
+         * child runs any code from the image, which might never finish. */
+        etc_passwd_lock = safe_close(etc_passwd_lock);
 
         /* Block SIGCHLD here, before notifying child.
          * process_pty() will handle it with the other signals. */
@@ -5716,6 +5770,10 @@ static int run_container(
         r = default_signals(SIGCHLD);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset SIGCHLD: %m");
+
+        /* Notify the child that the parent is ready with all its setup (including cgroup-ification), and
+         * that the child can now hand over control to the code to run inside the container. */
+        (void) barrier_place(&barrier); /* #5 */
 
         r = sd_event_new(&event);
         if (r < 0)
@@ -5738,36 +5796,6 @@ static int run_container(
         r = setup_notify_parent(event, notify_socket, pid, &notify_event_source);
         if (r < 0)
                 return r;
-
-        /* Wait that the child is completely ready now, and has mounted their own copies of procfs and so on,
-         * before we take the fully visible instances away. */
-        if (!barrier_sync(&barrier)) /* #5.1 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
-
-        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
-                r = wipe_fully_visible_api_fs(mntns_fd);
-                if (r < 0)
-                        return r;
-                mntns_fd = safe_close(mntns_fd);
-        }
-
-        /* And now let the child know that we completed removing the procfs instances, and it can start the
-         * payload. */
-        if (!barrier_place(&barrier)) /* #5.2 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
-
-        /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service
-         * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
-        etc_passwd_lock = safe_close(etc_passwd_lock);
-
-        (void) sd_notifyf(/* unset_environment= */ false,
-                          "STATUS=Container started.\n"
-                          "X_NSPAWN_LEADER_PID=" PID_FMT, pid->pid);
-        if (!arg_notify_ready) {
-                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
-        }
 
         /* All operations that might need Polkit authorizations (i.e. userns registration, mounts, and
          * machine registration are complete now, get rid of the agent again, so that we retain exclusive
@@ -5871,11 +5899,24 @@ static int run_container(
                 *master = TAKE_FD(fd);
         }
 
-        fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
+        /* Report readiness once the child tells us that it is locked down. Handle that before anything the
+         * payload sends us or its exit. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *locked_down_event_source = NULL;
+        r = sd_event_add_io(event, &locked_down_event_source, fd_inner_socket_pair[0], EPOLLIN,
+                            on_child_locked_down, pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate inner child event source: %m");
+
+        (void) sd_event_source_set_description(locked_down_event_source, "nspawn-locked-down");
+        (void) sd_event_source_set_priority(locked_down_event_source, SD_EVENT_PRIORITY_IMPORTANT);
 
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
+
+        /* The loop might have ended before we processed that the child is locked down. */
+        if (sd_event_source_get_enabled(locked_down_event_source, /* ret= */ NULL) > 0)
+                (void) on_child_locked_down(locked_down_event_source, fd_inner_socket_pair[0], EPOLLIN, pid);
 
         /* Kill if it is not dead yet anyway */
         if (scope_allocated)
