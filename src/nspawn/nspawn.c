@@ -3880,6 +3880,48 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
+static int verify_directory_os_tree(const char *root) {
+        _cleanup_free_ char *p = NULL, *shown = NULL;
+        int r;
+
+        assert(root);
+        assert(arg_directory);
+
+        if (arg_start_mode == START_BOOT) {
+                int check_os_release;
+
+                p = path_join(root, arg_pivot_root_new);
+                shown = path_join(arg_directory, arg_pivot_root_new);
+                if (!p || !shown)
+                        return log_oom();
+
+                check_os_release = getenv_bool("SYSTEMD_NSPAWN_CHECK_OS_RELEASE");
+                if (check_os_release < 0 && check_os_release != -ENXIO)
+                        return log_error_errno(check_os_release, "Failed to parse $SYSTEMD_NSPAWN_CHECK_OS_RELEASE: %m");
+
+                r = path_is_os_tree(p);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine if %s looks like an OS root directory: %m", shown);
+                if (r == 0 && check_os_release == 0)
+                        log_debug("Directory %s is missing an os-release file, continuing anyway.", shown);
+                else if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", shown);
+        } else {
+                p = path_join(root, arg_pivot_root_new, "/usr/");
+                if (!p)
+                        return log_oom();
+
+                r = access_nofollow(p, F_OK);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine if %s looks like it has an OS tree (i.e. whether /usr/ exists): %m", arg_directory);
+        }
+
+        return 0;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3949,6 +3991,11 @@ static int outer_child(
 
                 mount_fd = safe_close(mount_fd);
                 log_debug("Successfully attached root directory to '%s'.", directory);
+
+                /* Unprivileged nspawn: now that the OS tree is mounted, perform the check */
+                r = verify_directory_os_tree(directory);
+                if (r < 0)
+                        return r;
 
         } else if (dissected_image) {
                 assert(!arg_directory);
@@ -6340,56 +6387,12 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
-                if (arg_start_mode == START_BOOT) {
-                        _cleanup_free_ char *b = NULL;
-                        const char *p;
-                        int check_os_release, is_os_tree;
-
-                        if (arg_pivot_root_new) {
-                                b = path_join(arg_directory, arg_pivot_root_new);
-                                if (!b) {
-                                        r = log_oom();
-                                        goto finish;
-                                }
-
-                                p = b;
-                        } else
-                                p = arg_directory;
-
-                        check_os_release = getenv_bool("SYSTEMD_NSPAWN_CHECK_OS_RELEASE");
-                        if (check_os_release < 0 && check_os_release != -ENXIO) {
-                                r = log_error_errno(check_os_release, "Failed to parse $SYSTEMD_NSPAWN_CHECK_OS_RELEASE: %m");
+                /* Privileged nspawn: verify the OS tree now. Unprivileged nspawn needs to wait until after
+                 * the directory is mounted to handle restrictive permissions on the OS tree. */
+                if (userns_fd < 0) {
+                        r = verify_directory_os_tree(arg_directory);
+                        if (r < 0)
                                 goto finish;
-                        }
-
-                        is_os_tree = path_is_os_tree(p);
-                        if (is_os_tree == 0 && check_os_release == 0)
-                                log_debug("Directory %s is missing an os-release file, continuing anyway.", p);
-                        else if (is_os_tree <= 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", p);
-                                goto finish;
-                        }
-                } else {
-                        _cleanup_free_ char *p = NULL;
-
-                        if (arg_pivot_root_new)
-                                p = path_join(arg_directory, arg_pivot_root_new, "/usr/");
-                        else
-                                p = path_join(arg_directory, "/usr/");
-                        if (!p) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        r = access_nofollow(p, F_OK);
-                        if (r == -ENOENT) {
-                                log_error_errno(r, "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
-                                goto finish;
-                        } else if (r < 0) {
-                                log_error_errno(r, "Unable to determine if %s looks like it has an OS tree (i.e. whether /usr/ exists): %m", arg_directory);
-                                goto finish;
-                        }
                 }
 
                 if (userns_fd >= 0) {
