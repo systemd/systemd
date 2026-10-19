@@ -652,19 +652,20 @@ ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 # If -Dxxx-path option is found, use that. Otherwise, use the default from the
 # middle column; a full path is used directly, a relative path is converted to
 # /usr/bin/foo or /usr/sbin/foo, depending on whether split-bin is enabled.
-progs = [['quotaon',    'quotaon'              ],
-         ['quotacheck', 'quotacheck'           ],
-         ['kmod',       '/usr/bin/kmod'        ],
-         ['kexec',      'kexec'                ],
-         ['sulogin',    'sulogin'              ],
-         ['swapon',     'swapon'               ],
-         ['swapoff',    'swapoff'              ],
-         ['agetty',     'agetty'               ],
-         ['mount',      '/usr/bin/mount',      'MOUNT_PATH'],
-         ['umount',     '/usr/bin/umount',     'UMOUNT_PATH'],
-         ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],
-         ['setfont',    '/usr/bin/setfont',    'KBD_SETFONT'],
-         ['nologin',    'nologin',             ],
+progs = [['quotaon',     'quotaon'                           ],
+         ['quotacheck',  'quotacheck'                        ],
+         ['kmod',        '/usr/bin/kmod'                     ],
+         ['kexec',       'kexec'                             ],
+         ['sulogin',     'sulogin'                           ],
+         ['swapon',      'swapon'                            ],
+         ['swapoff',     'swapoff'                           ],
+         ['agetty',      'agetty'                            ],
+         ['mount',       '/usr/bin/mount',                   'MOUNT_PATH'],
+         ['umount',      '/usr/bin/umount',                  'UMOUNT_PATH'],
+         ['loadkeys',    '/usr/bin/loadkeys',                'KBD_LOADKEYS'],
+         ['setfont',     '/usr/bin/setfont',                 'KBD_SETFONT'],
+         ['nologin',     'nologin'                           ],
+         ['sftp-server', '/usr/libexec/openssh/sftp-server', 'SFTP_SERVER'],
         ]
 foreach prog : progs
         path = get_option(prog[0] + '-path')
@@ -1711,6 +1712,7 @@ foreach tuple : [
                 ['utmp',            get_option('libc') != 'musl', 'musl does not support it'],
                 ['userdb'],
                 ['varlink-monitord'],
+                ['varlink-sftp'],
                 ['vconsole'],
                 ['xdg-autostart'],
         ]
