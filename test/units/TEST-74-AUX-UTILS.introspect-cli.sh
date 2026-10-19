@@ -194,6 +194,7 @@ INTROSPECTABLE=(
     systemd-umount
     systemd-update-done
     systemd-update-helper
+    systemd-user-runtime-dir
     systemd-userdbd
     systemd-validatefs
     systemd-vconsole-setup
