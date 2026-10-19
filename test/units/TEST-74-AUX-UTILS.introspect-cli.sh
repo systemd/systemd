@@ -180,6 +180,7 @@ INTROSPECTABLE=(
     systemd-tpm2-clear
     systemd-tpm2-generator
     systemd-tpm2-setup
+    systemd-tpm2-swtpm
     systemd-tty-ask-password-agent
     systemd-udevd
     systemd-umount
