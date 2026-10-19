@@ -674,9 +674,9 @@ int xdg_autostart_service_generate_unit(
                 if (!e_only_show_in || !e_not_show_in)
                         return log_oom();
 
-                /* Just assume the values are reasonably sane */
+                /* The values are escaped, and "--" makes sure they are never taken as options. */
                 fprintf(f,
-                        "ExecCondition=" LIBEXECDIR "/systemd-xdg-autostart-condition \"%s\" \"%s\"\n",
+                        "ExecCondition=" LIBEXECDIR "/systemd-xdg-autostart-condition -- \"%s\" \"%s\"\n",
                         e_only_show_in,
                         e_not_show_in);
         }

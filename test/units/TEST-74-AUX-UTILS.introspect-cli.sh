@@ -205,6 +205,7 @@ INTROSPECTABLE=(
     systemd-vmspawn
     systemd-volatile-root
     systemd-vpick
+    systemd-xdg-autostart-condition
     systemd-xdg-autostart-generator
     timedatectl
     udevadm
