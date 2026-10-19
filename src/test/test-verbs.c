@@ -250,7 +250,7 @@ static void test_common_parse_argv_multicall_one(const char *invoked_as, const c
         /* The help output is the only way to see which command was selected, so capture stdout. */
         _cleanup_close_ int fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR);
         ASSERT_OK(fd);
-        _cleanup_close_ int saved_stdout = dup(STDOUT_FILENO);
+        _cleanup_close_ int saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
         ASSERT_OK_ERRNO(saved_stdout);
         ASSERT_OK_ERRNO(fflush(stdout));
         ASSERT_OK_ERRNO(dup2(fd, STDOUT_FILENO));
