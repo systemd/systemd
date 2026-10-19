@@ -331,6 +331,45 @@ TEST(common_parse_argv_multicall) {
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_INVOKED_AS"));
 }
 
+static void test_common_parse_argv_passthrough_one(char **argv, int expected) {
+        _cleanup_free_ char *joined = strv_join(argv, ", ");
+        log_debug("/* %s(%s) */", __func__, joined);
+
+        _cleanup_strv_free_ char **copy = strv_copy(argv);
+        ASSERT_NOT_NULL(copy);
+
+        ASSERT_EQ(_common_parse_argv_passthrough(common_verbs, common_verbs + ELEMENTSOF(common_verbs) - 1,
+                                                 /* options= */ NULL, /* options_end= */ NULL,
+                                                 (int) strv_length(argv), argv),
+                  expected);
+
+        /* A command line which is passed on must be unchanged. */
+        if (expected > 0)
+                ASSERT_TRUE(strv_equal(argv, copy));
+}
+
+TEST(common_parse_argv_passthrough) {
+        /* Nothing but common options is handled. */
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help"), 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "-h"), 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--version"), 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help", "--version"), 0);
+
+        /* Abbreviations work, and an option which this build refuses is reported, not passed on. */
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--intro"),
+                                               experimental_enabled() ? 0 : -EPERM);
+
+        /* Everything else is left alone. */
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "-c", "true"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "true", "-c"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "-i"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--norc"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help", "x"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--", "x"), 1);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--"), 1);
+}
+
 static const char *generator_dirs[3];
 
 static int test_generator_impl(const char *dest, const char *dest_early, const char *dest_late) {
