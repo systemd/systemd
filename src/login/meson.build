@@ -96,13 +96,13 @@ modules += [
                 'name' : 'pam_systemd',
                 'conditions' : ['HAVE_PAM'],
                 'sources' : files('pam_systemd.c'),
-                'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
+                'version-script' : 'src/login/pam_systemd.sym',
         },
         pam_template + {
                 'name' : 'pam_systemd_loadkey',
                 'conditions' : ['HAVE_PAM'],
                 'sources' : files('pam_systemd_loadkey.c'),
-                'version-script' : meson.current_source_dir() / 'pam_systemd_loadkey.sym',
+                'version-script' : 'src/login/pam_systemd_loadkey.sym',
         },
 ]
 
