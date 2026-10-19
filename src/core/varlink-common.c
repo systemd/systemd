@@ -303,6 +303,8 @@ int varlink_apply_strv(Unit *u, const char *name, char ***p, char **value, UnitW
         assert(name);
         assert(p);
 
+        /* NULL means absent; an allocated empty vector explicitly clears all configured entries.
+         * varlink_dispatch_strv_preserve_empty() preserves this distinction when parsing JSON. */
         if (!value)
                 return 0;
 
@@ -343,11 +345,49 @@ int varlink_apply_uint64_limit(Unit *u, const char *name, uint64_t *p, uint64_t 
         return 1;
 }
 
-int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+static inline void assert_usec_name(const char *name) {
         assert(name);
+        assert(endswith(name, "Sec"));
+        assert(!endswith(name, "USec"));
+}
+
+int varlink_apply_usec_per_msec(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert_usec_name(name);
+        assert(p);
+
+        *p = value;
+        unit_write_settingf(u, flags, name, "%s=%s", name, FORMAT_TIMESPAN(value, USEC_PER_MSEC));
+        return 1;
+}
+
+int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert_usec_name(name);
         assert(p);
 
         *p = value;
         unit_write_settingf(u, flags, name, "%s=%s", name, value == USEC_INFINITY ? "" : FORMAT_TIMESPAN(value, 1));
         return 1;
+}
+
+int varlink_dispatch_strv_preserve_empty(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        char ***p = ASSERT_PTR(userdata);
+
+        assert(name);
+        assert(variant);
+
+        if (sd_json_variant_is_array(variant) && sd_json_variant_elements(variant) == 0) {
+                char **empty = new0(char*, 1);
+                if (!empty)
+                        return -ENOMEM;
+
+                strv_free_and_replace(*p, empty);
+                return 0;
+        }
+
+        return sd_json_dispatch_strv(name, variant, flags, p);
 }
