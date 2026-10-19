@@ -1381,6 +1381,40 @@ static int add_vsock_credential(int vsock_fd) {
         return machine_credential_add(&arg_credentials, "vmm.notify_socket", value, SIZE_MAX);
 }
 
+static int append_credential(const char *id, const char *data) {
+        int r;
+
+        assert(id);
+        assert(data);
+
+        MachineCredential *existing = machine_credential_find(&arg_credentials, id);
+        if (!existing) {
+                r = machine_credential_add(&arg_credentials, id, data, SIZE_MAX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add %s credential: %m", id);
+
+                return 0;
+        }
+
+        if (existing->size >= INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Existing %s credential is too large (%zu bytes).",
+                                       id, existing->size);
+
+        _cleanup_free_ char *combined = NULL;
+        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
+                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, data);
+        else
+                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, data);
+        if (r < 0)
+                return log_oom();
+
+        free_and_replace_full(existing->data, combined, erase_and_free);
+        existing->size = r;
+
+        return 0;
+}
+
 static int cmdline_add_kernel_cmdline(char ***cmdline, int smbios_dir_fd, const char *smbios_dir) {
         int r;
 
@@ -3527,7 +3561,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ char *fstab_extra = NULL;
+        _cleanup_free_ char *fstab_extra = NULL, *fstab_extra_initrd = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
@@ -3568,8 +3602,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_target)
                         return log_oom();
 
-                if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
+                /* switch-root moves the initrd's /run onto /sysroot/run. The moved /run hides any mount that
+                 * the initrd placed below /sysroot/run. We therefore mount targets below /run at /run in the
+                 * initrd. switch-root then moves the mount together with /run. fstab-generator reads
+                 * fstab.extra.initrd only in the initrd. The fstab.extra entry without x-initrd.mount mounts
+                 * the target when the VM boots without an initrd. */
+                bool below_run = !isempty(path_startswith_full(m->target, "/run", PATH_STARTSWITH_REFUSE_DOT_DOT));
+
+                if (below_run &&
+                    strextendf(&fstab_extra_initrd, "%s %s virtiofs %s\n",
                                id, escaped_target, m->read_only ? "ro" : "rw") < 0)
+                        return log_oom();
+
+                if (strextendf(&fstab_extra, "%s %s virtiofs %s%s\n",
+                               id, escaped_target, m->read_only ? "ro" : "rw",
+                               below_run ? "" : ",x-initrd.mount") < 0)
                         return log_oom();
 
                 if (!GREEDY_REALLOC(config.virtiofs.entries, config.virtiofs.n_entries + 1))
@@ -3583,31 +3630,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (fstab_extra) {
-                /* If the user already specified a fstab.extra credential, combine it with ours */
-                MachineCredential *existing = machine_credential_find(&arg_credentials, "fstab.extra");
-                if (existing) {
-                        _cleanup_free_ char *combined = NULL;
+                r = append_credential("fstab.extra", fstab_extra);
+                if (r < 0)
+                        return r;
+        }
 
-                        if (existing->size >= INT_MAX)
-                                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                                       "Existing fstab.extra credential is too large (%zu bytes).",
-                                                       existing->size);
-
-                        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
-                                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
-                        else
-                                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, fstab_extra);
-                        if (r < 0)
-                                return log_oom();
-
-                        erase_and_free(existing->data);
-                        existing->data = TAKE_PTR(combined);
-                        existing->size = r;
-                } else {
-                        r = machine_credential_add(&arg_credentials, "fstab.extra", fstab_extra, SIZE_MAX);
-                        if (r < 0)
-                                return r;
-                }
+        if (fstab_extra_initrd) {
+                r = append_credential("fstab.extra.initrd", fstab_extra_initrd);
+                if (r < 0)
+                        return r;
         }
 
         _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
