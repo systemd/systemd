@@ -2905,6 +2905,11 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
 /* The service manager refuses READY=1 after STOPPING=1, so we must not report readiness anymore then. */
 static bool notified_stopping = false;
 
+/* Until the inner child is locked down, code from the image that it runs (e.g. getent for --user=) can
+ * impersonate it, so we ignore notification messages until then. Whatever such code queued that we only
+ * read afterwards is no different from what the payload itself could send. */
+static bool child_locked_down = false;
+
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         PidRef *pid = userdata;
 
@@ -2971,7 +2976,8 @@ static int on_child_locked_down(sd_event_source *s, int fd, uint32_t revents, vo
 
                 return log_error_errno(errno, "Failed to read from inner child: %m");
         }
-        if (l > 0 && !notified_stopping) {
+        child_locked_down = l > 0;
+        if (child_locked_down && !notified_stopping) {
                 (void) sd_notifyf(/* unset_environment= */ false,
                                   "STATUS=Container started.\n"
                                   "X_NSPAWN_LEADER_PID=" PID_FMT, pid->pid);
@@ -4713,6 +4719,11 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (r < 0)
                 return r;
 
+        if (!child_locked_down) {
+                log_debug("Received notify message before the payload was locked down. Ignoring.");
+                return 0;
+        }
+
         if (!pidref_equal(&sender_pid, inner_child_pid)) {
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
@@ -5793,6 +5804,7 @@ static int run_container(
                         return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
 
+        child_locked_down = false;
         r = setup_notify_parent(event, notify_socket, pid, &notify_event_source);
         if (r < 0)
                 return r;

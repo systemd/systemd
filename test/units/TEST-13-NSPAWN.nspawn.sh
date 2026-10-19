@@ -1699,14 +1699,19 @@ testcase_ready_after_lockdown() {
     trap 'touch "$root/getent-continue"; systemctl stop "$unit_name" || :; rm -fr "$root"' RETURN ERR
 
     # nspawn resolves --uid= with the image's getent before it locks down the payload. As getent might never
-    # finish, nspawn must not report readiness yet, but it must still be possible to stop it. With a user
-    # namespace, the fully visible procfs and sysfs instances must be gone and the host's /etc/passwd lock
-    # must be released by then.
+    # finish, nspawn must not report readiness yet, not even when getent impersonates the payload to report
+    # it, but it must still be possible to stop it. With a user namespace, the fully visible procfs and sysfs
+    # instances must be gone and the host's /etc/passwd lock must be released by then.
     cat >"$root/bin/getent" <<\EOF
 #!/usr/bin/env bash
 
 if [[ -e /run/host/proc || -e /run/host/sys ]]; then
     : >/fully-visible-api-fs
+fi
+
+# logger can send with the credentials of PID 1, but prefixes the message with a syslog header
+if command -v logger >/dev/null; then
+    logger --socket=/run/host/notify --id=1 $'x\nREADY=1'
 fi
 
 : >/getent-running
