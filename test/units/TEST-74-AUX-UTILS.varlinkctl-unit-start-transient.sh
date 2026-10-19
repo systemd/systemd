@@ -602,7 +602,7 @@ testcase_scope() {
     defer_transient_cleanup varlink-transient-badpid.scope
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-badpid.scope","Scope":{"PIDs":[{"pid": 1}]}}}' \
-        "Scope.PIDs"
+        "context.Scope.PIDs"
 }
 
 testcase_dependencies() {

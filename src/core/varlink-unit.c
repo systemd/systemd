@@ -1204,10 +1204,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         Scope *scope = SCOPE(u);
         if (scope) {
-                bad_field = NULL;
-                r = transient_scope_apply_properties(scope, p.context.scope, link, &bad_field, &bus_error);
-                if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Scope");
+                r = transient_scope_apply_properties(scope, p.context.scope, link, &child_bad_field, &bus_error);
+                if (r == -EINVAL) {
+                        varlink_propagate_bad_field("context.Scope", child_bad_field, &bad_field_path);
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field_path);
+                }
                 if (r < 0)
                         return varlink_reply_bus_error(link, r, &bus_error);
         } else if (p.context.scope)
