@@ -604,7 +604,10 @@ static int vl_method_mount_image(
                                                 polkit_untrusted_action,
                                                 polkit_details,
                                                 /* good_user= */ UID_INVALID,
-                                                /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                /* The image cannot be authenticated, so we don't pass
+                                                 * POLKIT_DEFAULT_ALLOW. If polkit refuses, we reply with
+                                                 * the image policy error below. */
+                                                POLKIT_DONT_REPLY,
                                                 polkit_registry,
                                                 /* ret_admin= */ NULL);
                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
@@ -691,7 +694,10 @@ static int vl_method_mount_image(
                                                  polkit_untrusted_action,
                                                  polkit_details,
                                                  /* good_user= */ UID_INVALID,
-                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                 /* The image cannot be authenticated, so we don't pass
+                                                  * POLKIT_DEFAULT_ALLOW. If polkit refuses, we reply with
+                                                  * the image policy error below. */
+                                                 POLKIT_DONT_REPLY,
                                                  polkit_registry,
                                                  /* ret_admin= */ NULL);
                                  if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
