@@ -12,19 +12,22 @@ set -o pipefail
 # The TPM2 backend signs each report with every signing key it has been
 # provisioned with (generating a default one if it has none), returning one
 # signature record per key. Each record carries a set of signed TPM attestations
-# (a PCR quote, one NV certification per NvPCR, and a session audit digest), a
-# set of unsigned TPM capability readings (a few TPM properties and the hierarchy
-# auth policies), together with the signing key's public area, the optional
-# voucher for it and the pcrlock event log. The public area, the attestations, the
-# capabilities and the signatures are all serialized as TCG TSS2 JSON. For each
-# attestation we rebuild the public key, re-marshal the TPMS_ATTEST that was
-# signed, and verify the signature using the embedded Python helper below. The
-# helper also cross-checks the parallel PEM encodings (publicKeyPEM and
-# signaturePEM) against the JSON encodings. The PCR values that accompany the
-# quote are read outside of the audit session, so the helper re-digests them in
-# the order given by the quoted PCR selection and checks the result against the
-# attested pcrDigest. We also confirm the report digest is carried in the extraData
-# field of the session audit attestation.
+# (a PCR quote, one NV certification per NvPCR, a certification of the SRK and a
+# session audit digest), a set of unsigned TPM capability readings (a few TPM
+# properties and the hierarchy auth policies), together with the signing key's
+# public area, the optional voucher for it and the pcrlock event log. The public
+# area, the attestations, the capabilities and the signatures are all serialized
+# as TCG TSS2 JSON. For each attestation we rebuild the public key, re-marshal the
+# TPMS_ATTEST that was signed, and verify the signature using the embedded Python
+# helper below. The helper also cross-checks the parallel PEM encodings
+# (publicKeyPEM and signaturePEM) against the JSON encodings. The PCR values that
+# accompany the quote are read outside of the audit session, so the helper
+# re-digests them in the order given by the quoted PCR selection and checks the
+# result against the attested pcrDigest. We also confirm the report digest is
+# carried in the extraData field of the session audit attestation. The certified
+# SRK is cross-checked against the TPM with tpm2-tools, and the public area
+# carried in the report is then marshalled and used to seal a LUKS2 keyslot to
+# the TPM without talking to it, which the TPM must unlock.
 #
 # The capability components carry no signature of their own. They are bound to the
 # report by the session audit digest, which covers every command issued inside
@@ -62,6 +65,9 @@ WORK="$(mktemp -d)"
 # Where the backend keeps its keys and its cached key contexts.
 KEY_DIR="/var/lib/systemd/report.sign.tpm2"
 CONTEXT_DIR="/run/systemd/report.sign.tpm2"
+
+# The persistent handle the backend keeps the certified SRK at.
+SRK_HANDLE=0x81000001
 
 # Remove all keys, cached key contexts and vouchers, so each test starts fresh.
 reset_state() {
@@ -101,6 +107,7 @@ at_exit() {
     systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
     rm -rf /run/systemd/system/systemd-report-sign-tpm2.socket.d /run/systemd/system/systemd-pcrlock.socket.d
     systemctl daemon-reload
+    systemd-cryptsetup detach srk-sealing 2>/dev/null
     rm -rf "$WORK"
 }
 trap at_exit EXIT
@@ -159,9 +166,15 @@ PUB_ALG_ID = {"RSA": 0x0001, "ECC": 0x0023}
 CURVE_ID = {"NIST_P192": 0x0001, "NIST_P224": 0x0002, "NIST_P256": 0x0003,
             "NIST_P384": 0x0004, "NIST_P521": 0x0005, "BN_P256": 0x0010,
             "BN_P638": 0x0011, "SM2_P256": 0x0020}
-ST_ATTEST = {"ATTEST_NV": 0x8014, "ATTEST_SESSION_AUDIT": 0x8016, "ATTEST_QUOTE": 0x8018}
+ST_ATTEST = {"ATTEST_NV": 0x8014, "ATTEST_SESSION_AUDIT": 0x8016, "ATTEST_CERTIFY": 0x8017,
+             "ATTEST_QUOTE": 0x8018}
+SYM_ALG_ID = {"AES": 0x0006, "NULL": 0x0010}
+SYM_MODE_ID = {"CTR": 0x0040, "OFB": 0x0041, "CBC": 0x0042, "CFB": 0x0043, "ECB": 0x0044}
 TPM_PT_ID = {"PERMANENT": 0x00000200, "MAX_AUTH_FAIL": 0x0000020f,
              "LOCKOUT_INTERVAL": 0x00000210, "LOCKOUT_RECOVERY": 0x00000211}
+TPMA_OBJECT = {"FIXEDTPM": 0x00000002, "FIXEDPARENT": 0x00000010, "SENSITIVEDATAORIGIN": 0x00000020,
+               "USERWITHAUTH": 0x00000040, "ADMINWITHPOLICY": 0x00000080, "RESTRICTED": 0x00010000,
+               "DECRYPT": 0x00020000}
 
 # Derived rather than typed out a second time, so the two directions can't drift apart.
 HASH_ALG_NAME = {v: k for k, v in HASH_ALG_ID.items()}
@@ -169,6 +182,7 @@ HASH_ALG_NAME = {v: k for k, v in HASH_ALG_ID.items()}
 TPM_GENERATED = 0xff544347
 ALG_NULL = 0x0010
 ST_NO_SESSIONS = 0x8001
+CC_CERTIFY = 0x00000148
 CC_QUOTE = 0x00000158
 CC_GET_CAPABILITY = 0x0000017a
 CC_NV_CERTIFY = 0x00000184
@@ -196,9 +210,10 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-from tpm2_ids import (ALG_NULL, CAP_AUTH_POLICIES, CAP_TPM_PROPERTIES, CC_GET_CAPABILITY,
-                      CC_NV_CERTIFY, CC_QUOTE, CURVE_ID, HASH_ALG_ID, PUB_ALG_ID,
-                      SIG_ALG_ID, ST_ATTEST, TPM_GENERATED, TPM_PT_ID)
+from tpm2_ids import (ALG_NULL, CAP_AUTH_POLICIES, CAP_TPM_PROPERTIES, CC_CERTIFY,
+                      CC_GET_CAPABILITY, CC_NV_CERTIFY, CC_QUOTE, CURVE_ID, HASH_ALG_ID,
+                      PUB_ALG_ID, SIG_ALG_ID, ST_ATTEST, SYM_ALG_ID, SYM_MODE_ID,
+                      TPM_GENERATED, TPM_PT_ID, TPMA_OBJECT)
 
 HASHES = {"SHA1": hashes.SHA1, "SHA256": hashes.SHA256,
           "SHA384": hashes.SHA384, "SHA512": hashes.SHA512}
@@ -302,6 +317,9 @@ def marshal_tpms_attest(att):
     elif t == "ATTEST_SESSION_AUDIT":
         out += marshal_u8(1 if a["exclusiveSession"] == "YES" else 0)
         out += marshal_hex_tpm2b(a["sessionDigest"])
+    elif t == "ATTEST_CERTIFY":
+        out += marshal_hex_tpm2b(a["name"])
+        out += marshal_hex_tpm2b(a["qualifiedName"])
     else:
         sys.exit(f"unsupported attest type {t}")
     return out
@@ -344,7 +362,11 @@ def marshal_tpmt_public(pub):
 
     # .parameters
     parms = pub["parameters"]
-    out += marshal_u16(ALG_NULL)                              # .parameters.symmetric.algorithm = TPM_ALG_NULL
+    sym = parms.get("symmetric", {"algorithm": "NULL"})      # .parameters.symmetric (TPMT_SYM_DEF_OBJECT)
+    out += marshal_u16(SYM_ALG_ID[sym["algorithm"]])
+    if sym["algorithm"] != "NULL":                            # storage keys carry a symmetric algorithm
+        out += marshal_u16(sym["keyBits"] & 0xffff)
+        out += marshal_u16(SYM_MODE_ID[sym["mode"]])
     out += marshal_u16(SIG_ALG_ID[parms["scheme"]["scheme"]])
     if parms["scheme"]["scheme"] != "NULL":
         out += marshal_u16(HASH_ALG_ID[parms["scheme"]["details"]["hashAlg"]])
@@ -541,6 +563,35 @@ def check_auth_policy(i, comp):
     check_capability_common(i, comp)
 
 
+def check_key_certification(i, comp):
+    """Check the properties of the key-certification component."""
+    pub = comp["keyPublic"]
+    att = comp["attestInfo"]["attest"]
+
+    # The signer certifies whatever sits at the SRK handle and leaves judging it
+    # to the verifier. Only a non-duplicable storage key generated inside the TPM
+    # proves that secrets sealed to it can be unsealed by this TPM alone, and
+    # only one without adminWithPolicy can have been certified with a password
+    # session.
+    required = (TPMA_OBJECT["FIXEDTPM"] | TPMA_OBJECT["FIXEDPARENT"] | TPMA_OBJECT["SENSITIVEDATAORIGIN"] |
+                TPMA_OBJECT["USERWITHAUTH"] | TPMA_OBJECT["RESTRICTED"] | TPMA_OBJECT["DECRYPT"])
+    if pub["objectAttributes"] & required != required:
+        sys.exit(f"component {i}: keyPublic lacks the attributes of a storage key")
+    if pub["objectAttributes"] & TPMA_OBJECT["ADMINWITHPOLICY"]:
+        sys.exit(f"component {i}: keyPublic has adminWithPolicy set")
+
+    # The certified name must be the name of the public area carried in the
+    # component, so the two cannot be substituted independently.
+    name = digest_bytes_and_marshal_tpmt_ha(pub["nameAlg"], marshal_tpmt_public(pub))
+    if name != bytes.fromhex(att["attested"]["name"]):
+        sys.exit(f"component {i}: keyPublic Name does not match attested name")
+
+    # Like the quote, the certification carries no qualifying data: the audit
+    # session binds it to the report.
+    if att["extraData"] != "":
+        sys.exit(f"component {i}: key certification carries unexpected extraData")
+
+
 def check_session_audit(alg, doc, key_name):
     """Check the properties of the session-audit component."""
     digest = b"\x00" * HASHES[alg]().digest_size # Starting audit digest
@@ -568,6 +619,15 @@ def check_session_audit(alg, doc, key_name):
             cp += marshal_u16(ALG_NULL)                     # inScheme.scheme
             cp += marshal_u16(comp["nvPublic"]["dataSize"]) # size
             cp += marshal_u16(0)                            # offset
+            rp = marshal_attestation_rp(comp)
+        elif t == "key-certification":
+            att = comp["attestInfo"]["attest"]
+            cc = CC_CERTIFY
+            pub = comp["keyPublic"]
+            obj_name = digest_bytes_and_marshal_tpmt_ha(pub["nameAlg"], marshal_tpmt_public(pub))
+            names = obj_name + key_name                     # objectHandle, signHandle
+            cp = marshal_hex_tpm2b(att["extraData"])        # qualifyingData
+            cp += marshal_u16(ALG_NULL)                     # inScheme.scheme
             rp = marshal_attestation_rp(comp)
         elif t == "capability-tpm-property":
             prop = tpm_pt_id(comp["tpmProperty"]["property"])
@@ -678,6 +738,8 @@ def main():
             check_pcr(i, comp)
         elif comp["type"] == "nvpcr":
             check_nvpcr(i, comp)
+        elif comp["type"] == "key-certification":
+            check_key_certification(i, comp)
         elif comp["type"] == "capability-tpm-property":
             check_tpm_property(i, comp)
         elif comp["type"] == "capability-auth-policy":
@@ -883,7 +945,7 @@ verify_tpm2_sig() {
     mapfile -t comp_types <"$WORK/component-types"
     [ "${#comp_types[@]}" -eq "$n_components" ]
 
-    local saw_pcr=0 saw_audit=0 n_nvpcr=0 i type comp name auth expected_nvpcr
+    local saw_pcr=0 saw_audit=0 saw_keycert=0 n_nvpcr=0 i type comp name auth expected_nvpcr
     local prop value handle alg policy_digest expected_alg expected_digest
     local -a seen_props=() seen_policies=()
     for i in "${!comp_types[@]}"; do
@@ -921,6 +983,15 @@ verify_tpm2_sig() {
                 auth="$(jq -r '.authenticatedData' <<<"$comp")"
                 [ "$(jq -r '.name' <<<"$auth")" = "$name" ]
                 [ "$(jq -r '.priority' <<<"$auth")" = "$(jq -r '.priority' <<<"$expected_nvpcr")" ]
+                ;;
+            key-certification)
+                saw_keycert=1
+
+                # The backend certifies the SRK. The Python helper above checks
+                # that the public area agrees with the certified name, so it
+                # suffices to compare the certified name with what the TPM
+                # reports for the SRK.
+                [ "$(jq -r '.attestInfo.attest.attested.name' <<<"$comp")" = "$(tpm2_readpublic -c "$SRK_HANDLE" | sed -n 's/^name: //p')" ]
                 ;;
             capability-tpm-property)
                 prop="$(jq -r '.tpmProperty.property' <<<"$comp")"
@@ -966,6 +1037,7 @@ verify_tpm2_sig() {
     # Make sure we saw the expected components.
     [ "$saw_pcr" -eq 1 ]
     [ "$saw_audit" -eq 1 ]
+    [ "$saw_keycert" -eq 1 ]
     [ "$n_nvpcr" -eq "$expected_nvpcrs" ]
     diff <(printf '%s\n' "${expected_props[@]}" | sort) <(printf '%s\n' "${seen_props[@]}" | sort) >&2
     diff <(printf '%s\n' "${expected_policies[@]}" | sort) <(printf '%s\n' "${seen_policies[@]}" | sort) >&2
@@ -1014,7 +1086,45 @@ test_default_key() {
 }
 test_default_key
 
-# 2) With several signing keys provisioned, the report is signed with each of
+# 2) The SRK public area carried in the report, marshalled into a TPM2B_PUBLIC,
+#    is what systemd-cryptenroll accepts via --tpm2-device-key=. Sealing a LUKS2
+#    keyslot to it needs no access to the TPM, but only this TPM can unlock the
+#    volume afterwards. This is what lets the verifier of a report encrypt data
+#    for the reporting system.
+test_srk_sealing() {
+    local image="$WORK/srk-sealing.img" key="$WORK/srk-sealing.key" srk_pub="$WORK/srk.pub" digest
+    local -a sig_files
+
+    # Take the SRK public area from a freshly generated and verified report.
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+    [ "${#sig_files[@]}" -ge 1 ]
+    verify_tpm2_sig "${sig_files[0]}" "$digest" >/dev/null
+    jq -c '.data.components[] | select(.type == "key-certification") | .keyPublic' "${sig_files[0]}" | python3 "$VERIFY" make-template | base64 -d >"$srk_pub"
+    test -s "$srk_pub"
+
+    truncate -s 32M "$image"
+    dd if=/dev/urandom of="$key" bs=32 count=1 status=none
+    chmod 0600 "$key"
+    cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$image" "$key"
+
+    # Bind to nothing but the SRK: without the explicit empty options cryptenroll
+    # would pick up a PCR signing public key or a pcrlock policy present on the
+    # host, and unlocking would then depend on the boot state rather than on the
+    # SRK alone.
+    systemd-cryptenroll --unlock-key-file="$key" --tpm2-device-key="$srk_pub" --tpm2-pcrs= --tpm2-public-key= --tpm2-pcrlock= "$image"
+    cryptsetup token export --token-id 0 "$image" | jq -e '.tpm2_pubkey == null and .tpm2_pcrlock_nv == null' >/dev/null
+
+    systemd-cryptsetup attach srk-sealing "$image" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach srk-sealing
+
+    rm -f "$image" "$key"
+
+    echo "OK: SRK sealing test"
+}
+test_srk_sealing
+
+# 3) With several signing keys provisioned, the report is signed with each of
 #    them, and each key has its own cached key context and its own voucher.
 test_multiple_keys() {
     local digest sig pub voucher ctx_before pub_p256="" pub_p384=""
@@ -1097,7 +1207,7 @@ test_multiple_keys() {
 }
 test_multiple_keys
 
-# 3) A voucher for the default key with no matching key must not cause a default
+# 4) A voucher for the default key with no matching key must not cause a default
 #    key to be generated. A voucher certifies the key it was issued for, but is
 #    paired to it by file name alone, so a generated key would end up shipping a
 #    voucher that certifies a different key.
