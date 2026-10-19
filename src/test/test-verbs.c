@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "sd-json.h"
 
 #include "build.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "generator.h"
 #include "options.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "verbs.h"
 
 static int noop_dispatcher(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -204,6 +212,93 @@ TEST(common_parse_argv) {
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), 0, 1, 1, STRV_MAKE("-x"));
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 0, 1, -EINVAL, NULL);
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 2, 1, STRV_MAKE("x", "y"));
+}
+
+static const CommandDescription multicall_command = {
+        .names = "other-program\0",
+        .abstract = "The other program of a multicall binary.",
+        .man_pages = "systemd(1)\0",
+        .option_namespace = "common",
+};
+
+static const CommandDescription foreign_command = {
+        .names = "foreign-program\0",
+        .abstract = "The program of a multicall binary which parses its own options.",
+        .man_pages = "systemd(1)\0",
+        /* .option_namespace unset, like a program with an OptionParser of its own. */
+};
+
+/* Two commands in the same namespace, the one named like the test binary listed second, after a
+ * command outside of the namespace. */
+static const Verb multicall_verbs[] = {
+        { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &foreign_command },
+        { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &multicall_command },
+        { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &common_command },
+        {}
+};
+
+static void test_common_parse_argv_multicall_one(const char *invoked_as, const char *expected_abstract) {
+        int r;
+
+        log_debug("/* %s(%s) */", __func__, strna(invoked_as));
+
+        if (invoked_as)
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_INVOKED_AS", invoked_as, /* overwrite= */ true));
+        else
+                ASSERT_OK_ERRNO(unsetenv("SYSTEMD_INVOKED_AS"));
+
+        /* The help output is the only way to see which command was selected, so capture stdout. */
+        _cleanup_close_ int fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR);
+        ASSERT_OK(fd);
+        _cleanup_close_ int saved_stdout = dup(STDOUT_FILENO);
+        ASSERT_OK_ERRNO(saved_stdout);
+        ASSERT_OK_ERRNO(fflush(stdout));
+        ASSERT_OK_ERRNO(dup2(fd, STDOUT_FILENO));
+
+        r = _common_parse_argv(multicall_verbs, multicall_verbs + ELEMENTSOF(multicall_verbs) - 1,
+                               /* options= */ NULL, /* options_end= */ NULL,
+                               2, STRV_MAKE("test-verbs", "--help"),
+                               /* min_args= */ 0, /* max_args= */ 0,
+                               /* ret_args= */ NULL);
+
+        ASSERT_OK_ERRNO(fflush(stdout));
+        ASSERT_OK_ERRNO(dup2(saved_stdout, STDOUT_FILENO));
+        ASSERT_EQ(r, 0);
+
+        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
+        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "r");
+        ASSERT_NOT_NULL(f);
+        _cleanup_free_ char *output = NULL;
+        ASSERT_OK(read_full_stream(f, &output, /* ret_size= */ NULL));
+        ASSERT_NOT_NULL(strstr(output, expected_abstract));
+}
+
+TEST(common_parse_argv_multicall) {
+        /* The command named like the program is described, regardless of the order in the section. */
+        test_common_parse_argv_multicall_one(NULL, "Test the parser for the common options.");
+        test_common_parse_argv_multicall_one("other-program", "The other program of a multicall binary.");
+        test_common_parse_argv_multicall_one("/usr/bin/other-program",
+                                             "The other program of a multicall binary.");
+
+        /* A name which contains the command name is accepted, like invoked_as() does, and wins over
+         * the position in the section. */
+        test_common_parse_argv_multicall_one("other-program.real",
+                                             "The other program of a multicall binary.");
+        test_common_parse_argv_multicall_one("/usr/lib/other-program-wrapper",
+                                             "The other program of a multicall binary.");
+        test_common_parse_argv_multicall_one("test-verbs.standalone",
+                                             "Test the parser for the common options.");
+
+        /* For any other name, the first command in the namespace is the fallback. */
+        test_common_parse_argv_multicall_one("unknown-name", "The other program of a multicall binary.");
+
+        /* A command outside of the namespace is never selected, even if named like the program: its
+         * options are not the ones being parsed. */
+        test_common_parse_argv_multicall_one("foreign-program", "The other program of a multicall binary.");
+        test_common_parse_argv_multicall_one("foreign-program.real",
+                                             "The other program of a multicall binary.");
+
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_INVOKED_AS"));
 }
 
 static const char *generator_dirs[3];

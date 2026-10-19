@@ -73,6 +73,75 @@ static bool verb_is_metadata(const Verb *verb) {
                 FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
 }
 
+static const char* invoked_name(void) {
+        /* The name the program was invoked as, i.e. the alias in case of a multicall binary.
+         * $SYSTEMD_INVOKED_AS overrides argv[0], as in invoked_as(). */
+        return empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
+                ?: program_invocation_short_name;
+}
+
+static const Verb* find_invoked_command_in_namespace(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                bool exact,
+                const CommandDescription **ret_cmd) {
+
+        /* Find a command in the namespace named like the program, or with a name contained in the
+         * program name if !exact. */
+
+        const char *invoked = invoked_name();
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        continue;
+
+                const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
+                if (!streq_ptr(cmd->option_namespace, option_namespace))
+                        continue;
+
+                NULSTR_FOREACH(name, cmd->names)
+                        if (exact ? streq(invoked, name) : !!strstr(invoked, name)) {
+                                if (ret_cmd)
+                                        *ret_cmd = cmd;
+                                return verb;
+                        }
+        }
+
+        return NULL;
+}
+
+const Verb* _verbs_find_invoked_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                const CommandDescription **ret_cmd) {
+
+        /* In a multicall binary several commands may share the option namespace, so prefer the one
+         * named like the program. Otherwise accept a command whose name is contained in the program
+         * name, e.g. "systemd-sysroot-fstab-check.real": this is how invoked_as() matches when a
+         * multicall binary picks its mode, so the help describes the mode that runs. Fall back to the
+         * first command in the namespace.
+         *
+         * Only commands in the namespace are considered, since the caller parses the options of that
+         * namespace. A command named like the program but with its own options, e.g. homectl when
+         * the fallback shell runs with $SYSTEMD_INVOKED_AS=homectl, is skipped. */
+
+        const Verb *v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ true, ret_cmd);
+        if (v)
+                return v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ false, ret_cmd);
+        if (v)
+                return v;
+
+        return _verbs_find_command(verbs, verbs_end, option_namespace, ret_cmd);
+}
+
 const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name) {
         assert(verbs);
         assert(verbs_end > verbs);
@@ -523,14 +592,10 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
 static void help_cmdline(const char *arguments) {
         assert(arguments);
 
-        const char *progname =
-                empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
-                ?: program_invocation_short_name;
-
         printf("%s>%s %s %s\n",
                ansi_grey(),
                ansi_normal(),
-               progname,
+               invoked_name(),
                arguments);
 }
 
@@ -958,7 +1023,7 @@ int _common_parse_argv(
         /* The COMMAND description must reference the option namespace defined below, otherwise
          * --help and --introspect-cli would not find the options. */
         const CommandDescription *cmd = NULL;
-        assert_se(_verbs_find_command(verbs, verbs_end, "common", &cmd));
+        assert_se(_verbs_find_invoked_command(verbs, verbs_end, "common", &cmd));
         assert(streq_ptr(cmd->option_namespace, "common"));
 
         OptionParser opts = { argc, argv, .namespace = "common" };
