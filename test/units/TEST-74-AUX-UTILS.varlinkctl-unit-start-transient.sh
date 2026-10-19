@@ -107,7 +107,7 @@ testcase_basic() {
     defer_transient_cleanup varlink-transient-badpath.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' \
-        "Service.ExecStart"
+        "context.Service.ExecStart.path"
 
     # Service field declared in the IDL but not yet settable at creation is rejected as PropertyNotSupported,
     # and the offending sub-property is identified
@@ -444,13 +444,13 @@ testcase_exec_commands_invalid() {
         defer_transient_cleanup "$unit"
         expect_invalid_parameter \
             '{"context":{"ID":"'"$unit"'","Service":{"Type":"oneshot","'"$field"'":[{"path":"relative/path"}]}}}' \
-            "Service.$field"
+            "context.Service.$field.path"
 
         unit="varlink-transient-invalid-flags-${field}.service"
         defer_transient_cleanup "$unit"
         expect_invalid_parameter \
             '{"context":{"ID":"'"$unit"'","Service":{"Type":"oneshot","'"$field"'":[{"path":"/bin/true","privileged":true,"noSetuid":true}]}}}' \
-            "Service.$field"
+            "context.Service.$field"
     done
 }
 
@@ -520,7 +520,7 @@ testcase_exec_flags() {
     defer_transient_cleanup varlink-transient-badflags.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-badflags.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true","privileged":true,"noSetuid":true}]}}}' \
-        "Service.ExecStart"
+        "context.Service.ExecStart"
 }
 
 testcase_credentials() {
@@ -551,6 +551,15 @@ testcase_credentials() {
 
 testcase_file_descriptors() {
     setup
+
+    local field
+
+    defer_transient_cleanup varlink-transient-missing-fd.service
+    for field in StandardInputFileDescriptor StandardOutputFileDescriptor StandardErrorFileDescriptor; do
+        expect_invalid_parameter \
+            '{"context":{"ID":"varlink-transient-missing-fd.service","Service":{"'"$field"'":0}}}' \
+            "context.Service.$field"
+    done
 
     # Service.Standard{Output,Error}FileDescriptor: connect passed fds (by push order)
     # to the unit's stdout/stderr; regular files, so output can be checked after exit.

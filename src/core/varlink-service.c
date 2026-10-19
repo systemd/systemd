@@ -380,7 +380,7 @@ static int transient_service_resolve_one_stdio_fd(
 
 /* Resolve stdio fd indices to fds attached to the method call. Ownership of the resolved fds lands in
  * the parameters and is released by transient_service_parameters_free(). */
-int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParameters *sp, const char **reterr_bad_field) {
+int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParameters *sp, char **reterr_bad_field) {
         int r;
 
         assert(link);
@@ -389,41 +389,22 @@ int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParame
                 return 0;
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stdin_fd_index, O_RDONLY, &sp->stdin_fd);
-        if (r < 0) {
-                if (reterr_bad_field)
-                        *reterr_bad_field = "Service.StandardInputFileDescriptor";
-                return r;
-        }
+        if (r < 0)
+                return varlink_propagate_bad_field_errno(r, "StandardInputFileDescriptor", /* child_bad_field= */ NULL, reterr_bad_field);
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stdout_fd_index, O_WRONLY, &sp->stdout_fd);
-        if (r < 0) {
-                if (reterr_bad_field)
-                        *reterr_bad_field = "Service.StandardOutputFileDescriptor";
-                return r;
-        }
+        if (r < 0)
+                return varlink_propagate_bad_field_errno(r, "StandardOutputFileDescriptor", /* child_bad_field= */ NULL, reterr_bad_field);
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stderr_fd_index, O_WRONLY, &sp->stderr_fd);
-        if (r < 0) {
-                if (reterr_bad_field)
-                        *reterr_bad_field = "Service.StandardErrorFileDescriptor";
-                return r;
-        }
+        if (r < 0)
+                return varlink_propagate_bad_field_errno(r, "StandardErrorFileDescriptor", /* child_bad_field= */ NULL, reterr_bad_field);
 
         return 0;
 }
 
 /* Consumes command argument vectors and stdio fds from sp as they are applied, including on failure. */
-int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_bad_field) {
-        static const char* const exec_fields[_SERVICE_EXEC_COMMAND_MAX] = {
-                [SERVICE_EXEC_CONDITION]   = "Service.ExecCondition",
-                [SERVICE_EXEC_START_PRE]   = "Service.ExecStartPre",
-                [SERVICE_EXEC_START]       = "Service.ExecStart",
-                [SERVICE_EXEC_START_POST]  = "Service.ExecStartPost",
-                [SERVICE_EXEC_RELOAD]      = "Service.ExecReload",
-                [SERVICE_EXEC_RELOAD_POST] = "Service.ExecReloadPost",
-                [SERVICE_EXEC_STOP]        = "Service.ExecStop",
-                [SERVICE_EXEC_STOP_POST]   = "Service.ExecStopPost",
-        };
+int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, char **reterr_bad_field) {
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
 
@@ -462,15 +443,13 @@ int transient_service_apply_properties(Service *s, TransientServiceParameters *s
                         ExecCommandFlags command_flags;
 
                         if (item->privileged && item->no_setuid) {
-                                if (reterr_bad_field)
-                                        *reterr_bad_field = exec_fields[cmd];
+                                varlink_propagate_bad_field(name, /* child_bad_field= */ NULL, reterr_bad_field);
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "%s 'privileged' and 'noSetuid' flags may not be combined.", name);
                         }
 
                         if (!item->via_shell && !filename_or_absolute_path_is_valid(item->path)) {
-                                if (reterr_bad_field)
-                                        *reterr_bad_field = exec_fields[cmd];
+                                varlink_propagate_bad_field(name, "path", reterr_bad_field);
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid %s path: %s", name, item->path);
                         }
 
