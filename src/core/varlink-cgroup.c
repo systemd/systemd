@@ -1069,7 +1069,6 @@ DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_zswap_max_scale, sd_json_dispatch_double
  * seeded to -1 by transient_cgroup_context_parameters_init(). */
 typedef struct TransientCGroupProperty {
         const char *json_name;
-        const char *err_field;
         sd_json_variant_type_t json_type;
         sd_json_dispatch_callback_t dispatch;
         size_t parse_offset;
@@ -1079,16 +1078,16 @@ typedef struct TransientCGroupProperty {
 } TransientCGroupProperty;
 
 #define CGROUP_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
-        { json, "CGroup." json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+        { json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
 
 /* For fields whose DEFINE_TRANSIENT_CGROUP_SETTABLE* dispatcher already checks the JSON type
  * (uint64 and double alike). */
 #define CGROUP_PROPERTY_NUMERIC(json, field)                             \
-        { json, "CGroup." json, _SD_JSON_VARIANT_TYPE_INVALID,           \
+        { json, _SD_JSON_VARIANT_TYPE_INVALID,                           \
           dispatch_transient_cgroup_##field, 0, 0, apply_cgroup_##field }
 
-#define CGROUP_PROPERTY_TRISTATE_BOOL(json, field)                       \
-        { json, "CGroup." json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, \
+#define CGROUP_PROPERTY_TRISTATE_BOOL(json, field)                  \
+        { json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, \
           offsetof(TransientCGroupContextParameters, field), 0, apply_cgroup_##field, true }
 
 static const TransientCGroupProperty cgroup_properties[] = {
@@ -1200,7 +1199,7 @@ int transient_cgroup_context_apply_properties(
                 Unit *u,
                 CGroupContext *c,
                 TransientCGroupContextParameters *p,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         int r;
 
@@ -1210,11 +1209,10 @@ int transient_cgroup_context_apply_properties(
 
         FOREACH_ELEMENT(prop, cgroup_properties) {
                 r = prop->apply(u, c, p);
-                if (r < 0) {
-                        if (reterr_bad_field)
-                                *reterr_bad_field = r == -EINVAL ? prop->err_field : NULL;
+                if (r == -EINVAL)
+                        return varlink_propagate_bad_field_errno(r, prop->json_name, p->bad_field, reterr_bad_field);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
