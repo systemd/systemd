@@ -626,6 +626,12 @@ testcase_dependencies() {
         '{"context":{"ID":"varlink-invalid-dependency.service","Requires":["invalid@.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' \
         "context.Requires"
 
+    # The name passes dispatch validation, but slice units cannot be instantiated.
+    defer_transient_cleanup varlink-invalid-dependency-instance.service
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-invalid-dependency-instance.service","Requires":["varlink-dependency@invalid.slice"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' \
+        "context.Requires"
+
     # Non-transient dependency types are rejected as PropertyNotSupported
     defer_transient_cleanup varlink-non-transient-dependency.service
     non_transient_dep=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \

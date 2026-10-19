@@ -805,7 +805,7 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         return r;
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_bad_field) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, char **reterr_bad_field) {
         int r;
 
         assert(u);
@@ -828,11 +828,8 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 const char *dep_type_name = unit_dependency_to_string(dep_type);
                 STRV_FOREACH(dep, p->dependencies[dep_type]) {
                         r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
-                        if (r < 0) {
-                                if (reterr_bad_field)
-                                        *reterr_bad_field = dep_type_name;
-                                return r;
-                        }
+                        if (r < 0)
+                                return varlink_propagate_bad_field_errno(r, dep_type_name, /* child_bad_field= */ NULL, reterr_bad_field);
 
                         _cleanup_free_ char *label = strjoin(dep_type_name, "-", *dep);
                         if (!label)
@@ -1146,10 +1143,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        bad_field = NULL;
-        r = transient_unit_apply_properties(u, &p.context, &bad_field);
+        r = transient_unit_apply_properties(u, &p.context, &child_bad_field);
         if (r == -EINVAL)
-                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "context");
+                return varlink_error_unit_invalid_parameter(link, "context", child_bad_field);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
