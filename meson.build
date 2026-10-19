@@ -1847,7 +1847,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2_py, config_h]
+jinja2_cmdline = [python, meson_render_jinja2_py, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -3076,7 +3076,7 @@ if not meson.is_cross_build()
                 output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
-                command : [dbus_exporter_py, '@OUTPUT@', dbus_programs])
+                command : [python, dbus_exporter_py, '@OUTPUT@', dbus_programs])
 endif
 
 custom_target(
@@ -3084,8 +3084,9 @@ custom_target(
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [meson_extract_unit_files_py,
-                   meson.project_build_root()])
+        command : [python,
+                   meson_extract_unit_files_py,
+                   '.'])
 
 #####################################################################
 

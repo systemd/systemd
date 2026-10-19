@@ -32,22 +32,24 @@ test_libsystemd_sym_c = custom_target(
                  systemd_headers,
                  libsystemd_sources],
         output : 'test-libsystemd-sym.c',
-        command : [generate_sym_test_py,
+        command : [python,
+                   generate_sym_test_py,
                    '@INPUT0@',
-                   libsystemd_dir_path,
+                   relative_source_path / 'src/libsystemd',
                    systemd_headers],
         capture : true,
         build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
         input : [libudev_sym,
-                 libudev_h_path,
+                 libudev_h,
                  libudev_sources],
         output : 'test-libudev-sym.c',
-        command : [generate_sym_test_py,
+        command : [python,
+                   generate_sym_test_py,
                    '@INPUT0@',
-                   libudev_dir_path,
-                   libudev_h_path],
+                   relative_source_path / 'src/libudev',
+                   '@INPUT1@'],
         capture : true,
         build_by_default : want_tests != 'false')
 

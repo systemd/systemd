@@ -293,7 +293,8 @@ endif
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
         output : 'syscall-list.inc',
-        command : [files('generate-syscall-list.py'),
+        command : [python,
+                   files('generate-syscall-list.py'),
                    '@INPUT@'],
         capture : true)
 
@@ -330,7 +331,7 @@ ip_protocol_list_txt = custom_target(
 gperf_file = custom_target(
         input : ip_protocol_list_txt,
         output : 'ip-protocol-from-name.gperf',
-        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
+        command : [python, generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
 target1 = custom_target(
@@ -381,7 +382,8 @@ dns_type_list_txt = custom_target(
 gperf_file = custom_target(
         input : dns_type_list_txt,
         output : 'dns_type-from-name.gperf',
-        command : [files('generate-dns_type-gperf.py'),
+        command : [python,
+                   files('generate-dns_type-gperf.py'),
                    'dns_type',
                    'DNS_TYPE_',
                    '@INPUT@'],

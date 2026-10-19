@@ -12,7 +12,7 @@ directives = [['fuzz-network-parser', 'directives.network', networkd_network_gpe
 foreach tuple : directives
         directive = custom_target(
                 output: tuple[1],
-                command: [generate_directives_py, tuple[2]],
+                command: [python, generate_directives_py, tuple[2]],
                 capture: true)
 
         dict = { 'directives' : [directive] }
@@ -26,7 +26,7 @@ foreach section : ['Automount', 'Mount', 'Path', 'Scope', 'Service', 'Slice', 'S
         name = f'directives.@unit_type@'
         unit_directives += custom_target(
                 output: name,
-                command: [generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],
+                command: [python, generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],
                 capture: true)
 endforeach
 dict = { 'directives' : unit_directives }

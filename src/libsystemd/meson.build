@@ -161,8 +161,6 @@ libsystemd_static = static_library(
                         userspace],
         build_by_default : false)
 
-libsystemd_dir_path = meson.current_source_dir()
-
 libsystemd_sym = files('libsystemd.sym')
 libsystemd_sym_path = relative_source_path / 'src/libsystemd/libsystemd.sym'
 
