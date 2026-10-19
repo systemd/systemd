@@ -1127,10 +1127,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
          * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */
-        bad_field = NULL;
-        r = transient_service_resolve_stdio_fds(link, p.context.service, &bad_field);
-        if (IN_SET(r, -ENXIO, -EPROTOTYPE, -EBADFD, -EISDIR)) /* bad index or unsuitable fd */
-                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
+        r = transient_service_resolve_stdio_fds(link, p.context.service, &child_bad_field);
+        if (IN_SET(r, -ENXIO, -EPROTOTYPE, -EBADFD, -EISDIR)) { /* bad index or unsuitable fd */
+                varlink_propagate_bad_field("context.Service", child_bad_field, &bad_field_path);
+                return sd_varlink_error_invalid_parameter_name(link, bad_field_path);
+        }
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -1191,10 +1192,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         /* Apply service-specific properties from context.Service */
         Service *service = SERVICE(u);
         if (service && p.context.service) {
-                bad_field = NULL;
-                r = transient_service_apply_properties(service, p.context.service, &bad_field);
-                if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
+                r = transient_service_apply_properties(service, p.context.service, &child_bad_field);
+                if (r == -EINVAL) {
+                        varlink_propagate_bad_field("context.Service", child_bad_field, &bad_field_path);
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field_path);
+                }
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service)
