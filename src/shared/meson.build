@@ -293,7 +293,8 @@ endif
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
         output : 'syscall-list.inc',
-        command : [files('generate-syscall-list.py'),
+        command : [python,
+                   files('generate-syscall-list.py'),
                    '@INPUT@'],
         capture : true)
 
@@ -330,7 +331,7 @@ ip_protocol_list_txt = custom_target(
 gperf_file = custom_target(
         input : ip_protocol_list_txt,
         output : 'ip-protocol-from-name.gperf',
-        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
+        command : [python, generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
 target1 = custom_target(
@@ -381,7 +382,8 @@ dns_type_list_txt = custom_target(
 gperf_file = custom_target(
         input : dns_type_list_txt,
         output : 'dns_type-from-name.gperf',
-        command : [files('generate-dns_type-gperf.py'),
+        command : [python,
+                   files('generate-dns_type-gperf.py'),
                    'dns_type',
                    'DNS_TYPE_',
                    '@INPUT@'],
@@ -440,8 +442,8 @@ libshared_deps = [libacl_cflags,
                   libzstd_cflags,
                   tpm2_cflags]
 
-libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
-libshared_build_dir = meson.current_build_dir()
+libshared_sym = files('libshared.sym')
+libshared_sym_path = relative_source_path / 'src/shared/libshared.sym'
 
 libshared_static = static_library(
         libshared_name,
@@ -460,7 +462,7 @@ libshared = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
+        link_depends : libshared_sym,
         link_whole : [libc_wrapper_static,
                       libshared_static,
                       libbasic_static,

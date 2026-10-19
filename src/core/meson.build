@@ -164,7 +164,6 @@ man_page_depends += bpf_delegate_xml
 
 generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
 libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
-libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 core_includes = [include_directories('.'), includes]
 
@@ -194,7 +193,7 @@ libcore = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
+        link_depends : libshared_sym,
         link_whole: libcore_static,
         link_with : libshared,
         install : true,

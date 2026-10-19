@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-efi_config_h_dir = meson.current_build_dir()
 efi_addon = []
 
 libefitest = static_library(
@@ -31,8 +30,9 @@ if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
                 input : ['hwids/test/device1.json', 'hwids/test/device2.json', 'hwids/test/device3.json', 'hwids/test/device4.json'],
                 output : 'test-hwids-section.c',
-                command : [files('generate-hwids-section.py'),
-                           meson.current_source_dir()/'hwids/test'],
+                command : [python,
+                           files('generate-hwids-section.py'),
+                           relative_source_path / 'src/boot/hwids/test'],
                 capture : true,
                 build_by_default : want_tests != 'false')
         install_subdir('hwids',
@@ -470,6 +470,7 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_dir : bootlibdir,
                 install_tag : 'systemd-boot',
                 command : [
+                        pyelftools,
                         elf2efi_py,
                         f'--version-major=@project_major_version@',
                         f'--version-minor=@project_minor_version@',
