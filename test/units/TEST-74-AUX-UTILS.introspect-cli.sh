@@ -182,6 +182,7 @@ INTROSPECTABLE=(
     systemd-umount
     systemd-update-done
     systemd-update-helper
+    systemd-userdbd
     systemd-validatefs
     systemd-veritysetup
     systemd-veritysetup-generator
