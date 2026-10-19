@@ -89,6 +89,7 @@ INTROSPECTABLE=(
     systemd-factory-reset
     systemd-factory-reset-generator
     systemd-firstboot
+    systemd-fsck
     systemd-fstab-generator
     systemd-getty-generator
     systemd-gpt-auto-generator
