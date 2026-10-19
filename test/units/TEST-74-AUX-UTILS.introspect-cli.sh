@@ -167,6 +167,7 @@ INTROSPECTABLE=(
     systemd-socket-proxyd
     systemd-ssh-generator
     systemd-ssh-issue
+    systemd-ssh-proxy
     systemd-stdio-bridge
     systemd-storage-block
     systemd-storage-fs
