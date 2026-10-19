@@ -1126,8 +1126,15 @@ static int dispatch_transient_working_directory(const char *name, sd_json_varian
         };
 
         TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        const char *bad_field = NULL;
+        int r;
+
         p->working_directory_set = true;
-        return sd_json_dispatch(variant, dispatch, flags, &p->working_directory);
+
+        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, flags, &p->working_directory, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 /* Generate a parse wrapper that flips TransientExecContextParameters.<field>_set and delegates the
@@ -1152,7 +1159,8 @@ DEFINE_TRANSIENT_EXEC_SETTABLE(umask,            sd_json_dispatch_uint32);
 static int dispatch_transient_set_credential_array(
                 sd_json_variant *variant,
                 TransientSetCredential **ret_items,
-                size_t *ret_n) {
+                size_t *ret_n,
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field item_dispatch[] = {
                 { "id",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientSetCredential, id),    SD_JSON_MANDATORY },
@@ -1179,11 +1187,18 @@ static int dispatch_transient_set_credential_array(
         items = new0(TransientSetCredential, n_items);
         if (!items)
                 return -ENOMEM;
+        n = n_items;
 
-        for (; n < n_items; n++) {
-                r = sd_json_dispatch(sd_json_variant_by_index(variant, n), item_dispatch, /* flags= */ 0, &items[n]);
-                if (r < 0)
+        for (size_t i = 0; i < n; i++) {
+                const char *bad_field = NULL;
+
+                r = sd_json_dispatch_full(sd_json_variant_by_index(variant, i), item_dispatch,
+                                          /* bad= */ NULL, /* flags= */ 0, &items[i], &bad_field);
+                if (r < 0) {
+                        if (bad_field)
+                                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, reterr_bad_field);
                         return r;
+                }
         }
 
         *ret_n = n;
@@ -1194,13 +1209,13 @@ static int dispatch_transient_set_credential_array(
 static int dispatch_transient_set_credential(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         TransientExecContextParameters *p = ASSERT_PTR(userdata);
         p->set_credentials_set = true;
-        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials);
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials, &p->bad_field);
 }
 
 static int dispatch_transient_set_credential_encrypted(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         TransientExecContextParameters *p = ASSERT_PTR(userdata);
         p->set_credentials_encrypted_set = true;
-        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted);
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted, &p->bad_field);
 }
 
 static int transient_apply_set_credentials(
@@ -1618,12 +1633,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientExecContextParameters*, transient_exec_cont
 int transient_exec_context_dispatch(
                 sd_json_variant *variant,
                 TransientExecContextParameters **ret,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         /* Build dispatch table only once, its constant. */
         static sd_json_dispatch_field exec_dispatch[ELEMENTSOF(exec_properties) + 1] = {};
         static bool exec_dispatch_set = false;
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -1647,9 +1663,12 @@ int transient_exec_context_dispatch(
 
         transient_exec_context_parameters_init(p);
 
-        r = sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_propagate_bad_field_errno(r, bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;

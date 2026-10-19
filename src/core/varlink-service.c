@@ -280,10 +280,15 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
 
         for (size_t i = 0; i < n; i++) {
                 sd_json_variant *element = sd_json_variant_by_index(variant, i);
+                const char *bad_field = NULL;
 
-                r = sd_json_dispatch(element, exec_command_dispatch, /* flags= */ 0, &p->exec_commands[c][i]);
-                if (r < 0)
+                r = sd_json_dispatch_full(element, exec_command_dispatch, /* bad= */ NULL, /* flags= */ 0,
+                                          &p->exec_commands[c][i], &bad_field);
+                if (r < 0) {
+                        if (bad_field)
+                                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
                         return r;
+                }
         }
 
         return 0;
@@ -294,7 +299,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientServiceParameters*, transient_service_param
 int transient_service_dispatch(
                 sd_json_variant *variant,
                 TransientServiceParameters **ret,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field service_dispatch[] = {
                 { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
@@ -313,6 +318,7 @@ int transient_service_dispatch(
                 {}
         };
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -333,9 +339,12 @@ int transient_service_dispatch(
                 .stderr_fd = -EBADF,
         };
 
-        r = sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_propagate_bad_field_errno(r, bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;

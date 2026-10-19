@@ -58,7 +58,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientKillContextParameters*, transient_kill_cont
 int transient_kill_context_dispatch(
                 sd_json_variant *variant,
                 TransientKillContextParameters **ret,
-                const char **reterr_bad_field) {
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field kill_dispatch[] = {
                 { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   0 },
@@ -66,6 +66,7 @@ int transient_kill_context_dispatch(
                 {}
         };
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -80,9 +81,12 @@ int transient_kill_context_dispatch(
                 .send_sighup = -1,
         };
 
-        r = sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_propagate_bad_field_errno(r, bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;

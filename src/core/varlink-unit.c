@@ -719,13 +719,7 @@ static void start_transient_parameters_init(StartTransientParameters *p) {
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
-
-        r = transient_cgroup_context_dispatch(variant, &p->cgroup, &bad_field);
-        if (r < 0 && bad_field)
-                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_field);
 }
 
 static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -747,46 +741,22 @@ static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_js
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
-
-        r = transient_service_dispatch(variant, &p->service, &bad_field);
-        if (r < 0 && bad_field)
-                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        return transient_service_dispatch(variant, &p->service, &p->bad_field);
 }
 
 static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
-
-        r = transient_scope_dispatch(variant, &p->scope, &bad_field);
-        if (r < 0 && bad_field)
-                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        return transient_scope_dispatch(variant, &p->scope, &p->bad_field);
 }
 
 static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
-
-        r = transient_kill_context_dispatch(variant, &p->kill, &bad_field);
-        if (r < 0 && bad_field)
-                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        return transient_kill_context_dispatch(variant, &p->kill, &p->bad_field);
 }
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
-
-        r = transient_exec_context_dispatch(variant, &p->exec, &bad_field);
-        if (r < 0 && bad_field)
-                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        return transient_exec_context_dispatch(variant, &p->exec, &p->bad_field);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
