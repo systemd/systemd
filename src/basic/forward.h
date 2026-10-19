@@ -114,6 +114,7 @@ typedef enum UnitDependency UnitDependency;
 typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
+typedef enum XOpenFlags XOpenFlags;
 
 typedef struct Fiber Fiber;
 typedef struct FiberOps FiberOps;
