@@ -21,7 +21,7 @@
 
 COMMAND(
         "systemd-report-netstat\0",
-        "Report network interface statistics metrics.",
+        "Report network interface statistics.",
         .man_pages = "systemd-report-netstat@.service(8)\0",
 );
 

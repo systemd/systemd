@@ -38,7 +38,7 @@
 
 COMMAND(
         "systemd-report-basic\0",
-        "Generate a report describing the current system.",
+        "Report basic information about the system.",
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;

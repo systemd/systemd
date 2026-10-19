@@ -19,7 +19,7 @@
 
 COMMAND(
         "systemd-report-hwmon\0",
-        "Report hwmon sensor metrics.",
+        "Report hardware monitoring sensor metrics.",
         .man_pages = "systemd-report-hwmon@.service(8)\0",
 );
 
