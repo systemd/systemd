@@ -620,7 +620,7 @@ static int vl_method_mount_image(
                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
                                                 polkit_registry,
                                                 /* ret_admin= */ NULL);
-                                if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                if (r <= 0 && (!ERRNO_IS_NEG_PRIVILEGE(r) || sd_varlink_wants_reply(link) <= 0))
                                         return r;
                                 if (r > 0) {
                                         /* Try again, now that we know the client has enough privileges. */
@@ -707,7 +707,7 @@ static int vl_method_mount_image(
                                                  /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
                                                  polkit_registry,
                                                  /* ret_admin= */ NULL);
-                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                 if (r <= 0 && (!ERRNO_IS_NEG_PRIVILEGE(r) || sd_varlink_wants_reply(link) <= 0))
                                          return r;
                                  if (r > 0) {
                                          /* Try again, now that we know the client has enough privileges. */
