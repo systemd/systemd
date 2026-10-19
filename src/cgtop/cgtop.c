@@ -1087,6 +1087,9 @@ static int run(int argc, char *argv[]) {
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
+        if (arg_iterations == 1)
+                return step(&c, /* t= */ 0);
+
         return loop(&c);
 }
 
