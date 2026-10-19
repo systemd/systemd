@@ -16,6 +16,7 @@
 
 import base64
 import glob
+import io
 import json
 import os
 import pathlib
@@ -85,6 +86,49 @@ def test_round_up():
     assert ukify.round_up(4095) == 4096
     assert ukify.round_up(4096) == 4096
     assert ukify.round_up(4097) == 8192
+
+
+@pytest.mark.parametrize('zboot', [False, True])
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zstd_frames(tmp_path, zboot, frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    compressed = zstd.compress(payload[:1000])
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    if zboot:
+        header = bytearray(32)
+        struct.pack_into('<II', header, 8, len(header), len(compressed))
+        header[0x18:0x1D] = b'zstd\0'
+        # The kernel build appends a size word outside the declared compressed payload.
+        result = ukify.get_zboot_kernel(io.BytesIO(header + compressed + struct.pack('<I', len(payload))))
+    else:
+        path = tmp_path / 'kernel.zst'
+        path.write_bytes(compressed)
+        result = ukify.maybe_decompress(path)
+
+    assert result == payload
+
+
+@pytest.mark.parametrize('zboot', [False, True])
+def test_zstd_incomplete_frame(tmp_path, zboot):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first') + zstd.compress(b'second')[:-1]
+    with pytest.raises(zstd.ZstdError):
+        if zboot:
+            header = bytearray(32)
+            struct.pack_into('<II', header, 8, len(header), len(compressed))
+            header[0x18:0x1D] = b'zstd\0'
+            ukify.get_zboot_kernel(io.BytesIO(header + compressed))
+        else:
+            path = tmp_path / 'kernel.zst'
+            path.write_bytes(compressed)
+            ukify.maybe_decompress(path)
 
 
 def test_namespace_creation():
