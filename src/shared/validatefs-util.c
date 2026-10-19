@@ -72,12 +72,11 @@ int validate_fields_read(int fd, int log_level, ValidateFields *ret) {
                         return log_full_errno(log_level, r, "Failed to read 'user.validatefs.gpt_label' xattr: %m");
         } else {
                 STRV_FOREACH(i, l)
-                        if (!utf8_is_valid(*i) ||
-                            string_has_cc(*i, /* ok= */ NULL))
+                        if (!gpt_label_is_valid(*i))
                                 return log_full_errno(
                                                 log_level,
                                                 SYNTHETIC_ERRNO(EINVAL),
-                                                "Extended attribute 'user.validatefs.gpt_label' contains invalid characters, refusing: %s", *i);
+                                                "Extended attribute 'user.validatefs.gpt_label' contains invalid GPT label, refusing: %s", *i);
 
                 f.gpt_label = TAKE_PTR(l);
         }

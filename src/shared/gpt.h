@@ -72,7 +72,6 @@ typedef struct GptPartitionType {
 
 extern const GptPartitionType gpt_partition_type_table[];
 
-int gpt_partition_label_valid(const char *s);
 bool gpt_label_is_valid(const char *s) _pure_;
 
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id);
