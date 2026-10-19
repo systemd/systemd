@@ -9,7 +9,6 @@ offline_passwd_c = files('offline-passwd.c')
 executables += [
         executable_template + {
                 'name' : 'systemd-tmpfiles',
-                'public' : true,
                 'export' : files('tmpfiles.c') +
                             offline_passwd_c,
                 'dependencies' : [

@@ -11,7 +11,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'storagectl',
-                'public' : true,
                 'sources' : files('storagectl.c'),
                 'symlinks' : [
                         { 'name' : 'mount.storage', 'install_dir' : sbindir },

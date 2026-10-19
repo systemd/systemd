@@ -56,7 +56,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'loginctl',
-                'public' : true,
                 'sources' : loginctl_sources,
                 'dependencies' : [
                         liblz4_cflags,
@@ -66,7 +65,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'systemd-inhibit',
-                'public' : true,
                 'sources' : files('inhibit.c'),
         },
         libexec_template + {

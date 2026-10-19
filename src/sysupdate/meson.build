@@ -28,7 +28,6 @@ systemd_updatectl_sources = files(
 executables += [
         libexec_template + {
                 'name' : 'systemd-sysupdate',
-                'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdate_sources,
                 'export' : systemd_sysupdate_export_sources,
@@ -45,7 +44,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'updatectl',
-                'public' : true,
                 'sources' : systemd_updatectl_sources,
                 'import' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],

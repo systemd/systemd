@@ -15,7 +15,6 @@ executables += [
                         libopenssl_cflags,
                         tpm2_cflags,
                 ],
-                'public' : true,
         },
 ]
 

@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-ac-power',
-                'public' : true,
                 'sources' : files('ac-power.c'),
         },
 ]

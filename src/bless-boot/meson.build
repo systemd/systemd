@@ -3,7 +3,6 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-bless-boot',
-                'public' : true,
                 'conditions' : [
                         'HAVE_BLKID',
                         'ENABLE_BOOTLOADER',
