@@ -170,6 +170,7 @@ INTROSPECTABLE=(
     systemd-storage-block
     systemd-storage-fs
     systemd-storagetm
+    systemd-sulogin-shell
     systemd-sysctl
     systemd-sysext
     systemd-sysinstall
