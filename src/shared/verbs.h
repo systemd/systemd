@@ -221,6 +221,11 @@ int _introspect_cli(
  * The number of positional arguments is checked against min_args and max_args, and the arguments are
  * returned in *ret_args, typically to be passed to dispatch_verb(). ret_args may be NULL if max_args is 0.
  *
+ * mode is the OptionParser mode: a program whose positional arguments are data which may start
+ * with a dash should use OPTION_PARSER_STOP_AT_FIRST_NONOPTION, so that only options before the
+ * first positional argument are recognized. (The glibc parser calls this "posixly correct" and
+ * it can be enabled by setting POSIXLY_CORRECT=1 or prefixing the option string with "+".)
+ *
  * Returns 1 if the program shall continue, 0 if it shall exit immediately (--help, --version, or
  * --introspect-cli has been handled), and a negative errno on error. */
 int _common_parse_argv(
@@ -229,16 +234,19 @@ int _common_parse_argv(
                 const Option options[],
                 const Option options_end[],
                 int argc, char *argv[],
+                OptionParserMode mode,
                 size_t min_args, size_t max_args,
                 char ***ret_args);
-/* The macro inserts the calling binary's verb section, where its COMMAND is found, and its option
+/* The macros insert the calling binary's verb section, where its COMMAND is found, and its option
  * section, which is empty (both symbols are NULL) unless the binary also implements other commands
  * with options of their own. */
-#define common_parse_argv_full(argc, argv, min_args, max_args, ret_args) \
+#define common_parse_argv_mode(argc, argv, mode, min_args, max_args, ret_args) \
         _common_parse_argv(                                             \
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
-                argc, argv, min_args, max_args, ret_args)
+                argc, argv, mode, min_args, max_args, ret_args)
+#define common_parse_argv_full(argc, argv, min_args, max_args, ret_args) \
+        common_parse_argv_mode(argc, argv, OPTION_PARSER_NORMAL, min_args, max_args, ret_args)
 /* For programs which dispatch verbs, and hence check the number of arguments themselves. */
 #define common_parse_argv(argc, argv, ret_args)                         \
         common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ SIZE_MAX, ret_args)

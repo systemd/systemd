@@ -1012,11 +1012,13 @@ int _common_parse_argv(
                 const Option options[],
                 const Option options_end[],
                 int argc, char *argv[],
+                OptionParserMode mode,
                 size_t min_args, size_t max_args,
                 char ***ret_args) {
 
         assert(argc >= 0);
         assert(argv);
+        assert(mode >= 0 && mode < _OPTION_PARSER_MODE_MAX);
         assert(min_args <= max_args);
         assert(ret_args || max_args == 0);
 
@@ -1026,7 +1028,7 @@ int _common_parse_argv(
         assert_se(_verbs_find_invoked_command(verbs, verbs_end, "common", &cmd));
         assert(streq_ptr(cmd->option_namespace, "common"));
 
-        OptionParser opts = { argc, argv, .namespace = "common" };
+        OptionParser opts = { argc, argv, mode, .namespace = "common" };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {

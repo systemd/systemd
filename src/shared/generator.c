@@ -1116,6 +1116,7 @@ int _generator_main(
 
         char **args = NULL;
         r = _common_parse_argv(verbs, verbs_end, options, options_end, argc, argv,
+                               OPTION_PARSER_NORMAL,
                                /* min_args= */ 0, /* max_args= */ SIZE_MAX, &args);
         if (r <= 0)
                 return r;
