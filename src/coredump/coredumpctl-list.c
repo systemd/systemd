@@ -25,17 +25,20 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         if (!verb_is_info && !arg_field) {
-                t = table_new("time", "pid", "uid", "gid", "sig", "corefile", "exe", "size");
+                t = table_new("id", "time", "pid", "uid", "gid", "sig", "corefile", "exe", "size");
                 if (!t)
                         return log_oom();
 
                 if (arg_full)
                         table_set_width(t, 0);
 
+                (void) table_set_ellipsize_percent(t, TABLE_HEADER_CELL(1), 100);
+
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(1), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(2), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
-                (void) table_set_align_percent(t, TABLE_HEADER_CELL(7), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(4), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(8), 100);
 
                 table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
         } else if (!sd_json_format_enabled(arg_json_format_flags))
