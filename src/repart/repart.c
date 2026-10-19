@@ -3981,7 +3981,6 @@ static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
-        _cleanup_free_ char *disk_uuid_string = NULL;
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -4166,12 +4165,11 @@ static int context_load_partition_table(Context *context) {
                 goto add_initial_free_area;
         }
 
-        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_string);
+        r = fdisk_get_disklabel_id_as_id128(c, &disk_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
-        r = id128_from_string_nonzero(disk_uuid_string, &disk_uuid);
-        if (r == -ENXIO) {
+        if (sd_id128_is_null(disk_uuid)) {
                 r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
@@ -4179,8 +4177,7 @@ static int context_load_partition_table(Context *context) {
                 r = sym_fdisk_set_disklabel_id(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
+        }
 
         r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
