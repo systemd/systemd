@@ -5,7 +5,7 @@ set -o pipefail
 
 # Some commands are in $PATH, others are in our private directories.
 # Check the other locations too.
-PATH=$PATH:/usr/lib/systemd:/usr/lib/systemd/system-generators:/usr/lib/systemd/user-generators:/usr/lib/udev
+PATH=$PATH:/usr/lib/systemd:/usr/lib/systemd/system-generators:/usr/lib/systemd/user-generators:/usr/lib/systemd/user-environment-generators:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
@@ -26,6 +26,7 @@ JQ_SPEC_KEYS='"mediaType", "commands", "type", "id", "names", "versions", "featu
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    30-systemd-environment-d-generator
     ata_id
     bootctl
     busctl
