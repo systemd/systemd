@@ -718,48 +718,48 @@ testcase_cgroup() {
     defer_transient_cleanup varlink-transient-bad-weight.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-weight.service","CGroup":{"CPUWeight":123456},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.CPUWeight"
+        "context.CGroup.CPUWeight"
     # IOWeight=0 is rejected, only the CPU weights accept idle
     defer_transient_cleanup varlink-transient-bad-ioweight.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-ioweight.service","CGroup":{"IOWeight":0},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.IOWeight"
+        "context.CGroup.IOWeight"
     # MemoryMax=0 is rejected (minimum 1, matching the D-Bus setter)
     defer_transient_cleanup varlink-transient-bad-memmax.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-memmax.service","CGroup":{"MemoryMax":0},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.MemoryMax"
+        "context.CGroup.MemoryMax"
     # A scaled TasksMax above 100% is rejected
     defer_transient_cleanup varlink-transient-bad-taskspair.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-taskspair.service","CGroup":{"TasksMax":{"value":2,"scale":1}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.TasksMax"
+        "context.CGroup.TasksMax"
     # So is a denominator past UINT32_MAX: system_tasks_max_scale() would overflow and resolve
     # to no limit at all, while the fragment still recorded a percentage
     defer_transient_cleanup varlink-transient-bad-tasksdenom.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-tasksdenom.service","CGroup":{"TasksMax":{"value":5000000000000,"scale":10000000000000}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.TasksMax"
+        "context.CGroup.TasksMax"
     # Out-of-range TasksMaxScale= (>= 100%) is rejected
     defer_transient_cleanup varlink-transient-bad-tasksscale.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-tasksscale.service","CGroup":{"TasksMaxScale":1.5},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.TasksMaxScale"
+        "context.CGroup.TasksMaxScale"
     # Absolute and relative forms of the same limit may not be combined
     defer_transient_cleanup varlink-transient-bad-taskscombo.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-taskscombo.service","CGroup":{"TasksMax":{"value":16},"TasksMaxScale":0.5},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.TasksMaxScale"
+        "context.CGroup.TasksMaxScale"
     # Zero MemoryMaxScale= is rejected
     defer_transient_cleanup varlink-transient-bad-memscale.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-memscale.service","CGroup":{"MemoryMaxScale":0.0},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.MemoryMaxScale"
+        "context.CGroup.MemoryMaxScale"
     # Slice= pointing at a non-slice unit is rejected
     defer_transient_cleanup varlink-transient-bad-slice.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-slice.service","CGroup":{"Slice":"not-a-slice.service"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "CGroup.Slice"
+        "context.CGroup.Slice"
     # CGroup field declared in the IDL but not yet settable at creation is rejected as
     # PropertyNotSupported, and the offending sub-property is identified
     defer_transient_cleanup varlink-transient-unknown-cgroup.service

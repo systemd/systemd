@@ -1079,6 +1079,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
+        _cleanup_free_ char *child_bad_field = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
         Unit *u;
@@ -1185,10 +1186,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 if (!cc)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
-                bad_field = NULL;
-                r = transient_cgroup_context_apply_properties(u, cc, p.context.cgroup, &bad_field);
+                r = transient_cgroup_context_apply_properties(u, cc, p.context.cgroup, &child_bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "CGroup");
+                        return varlink_error_unit_invalid_parameter(link, "context.CGroup", child_bad_field);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }
