@@ -3902,39 +3902,6 @@ static int context_read_definitions(Context *context) {
         return 0;
 }
 
-static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
-        _cleanup_free_ char *ids = NULL;
-        int r;
-
-        if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
-                return -EINVAL;
-
-        ids = new(char, SD_ID128_UUID_STRING_MAX);
-        if (!ids)
-                return -ENOMEM;
-
-        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(ids);
-        return 0;
-}
-
-static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id) {
-        int r;
-
-        r = sym_fdisk_set_ask(c, fdisk_ask_cb, &id);
-        if (r < 0)
-                return r;
-
-        r = sym_fdisk_set_disklabel_id(c);
-        if (r < 0)
-                return r;
-
-        return sym_fdisk_set_ask(c, NULL, NULL);
-}
-
 static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         union {
                 uint8_t md[SHA256_DIGEST_SIZE];
@@ -4158,7 +4125,7 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = fdisk_set_disklabel_id_by_uuid(c, disk_uuid);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
 
