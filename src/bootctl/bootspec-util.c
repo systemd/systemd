@@ -12,7 +12,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 
 int boot_config_load_and_select(
                 BootConfig *config,
@@ -79,7 +78,8 @@ int boot_entry_make_commit_filename(
         if (!strextend(&filename, ".conf"))
                 return -ENOMEM;
 
-        if (!filename_is_valid(filename) || string_has_cc(filename, /* ok= */ NULL) || !utf8_is_valid(filename))
+        /* Entries are placed on the ESP, i.e. VFAT, which refuses quotes, backslashes and globs */
+        if (!string_is_safe(filename, STRING_FILENAME))
                 return -EINVAL;
 
         *ret = TAKE_PTR(filename);

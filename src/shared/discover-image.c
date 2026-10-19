@@ -1340,7 +1340,7 @@ static int unpriv_remove_cb(
 
                         _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
                         if (dfd < 0) {
-                                log_error_errno(r, "Failed to reopen tree fd: %m");
+                                log_error_errno(dfd, "Failed to reopen tree fd: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
