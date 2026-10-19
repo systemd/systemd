@@ -8,6 +8,14 @@
 #include "log.h"
 #include "main-func.h"
 #include "mountfsd-manager.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-mountfsd\0",
+        "Mount disk image file systems for unprivileged clients.",
+        .man_pages = "systemd-mountfsd.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int run(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
@@ -18,8 +26,9 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         r = manager_new(&m);
         if (r < 0)
