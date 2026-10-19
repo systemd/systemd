@@ -1504,8 +1504,11 @@ typedef struct TransientExecProperty {
 
 /* Property descriptors for the Exec object. Ordered to match src/shared/varlink-io.systemd.Unit.c so related
  * fields (e.g. User/Group) stay close. JSON keys match the D-Bus property names. */
-#define EXEC_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
+#define EXEC_PROPERTY_FULL(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
         { json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+
+#define EXEC_PROPERTY(json, field, type) \
+        EXEC_PROPERTY_FULL(json, type, dispatch_transient_##field, 0, 0, apply_exec_##field)
 
 /* Tristate-bool property: parsed via sd_json_dispatch_tristate into an int (-1 = absent).
  * Sets .tristate=true so transient_exec_context_parameters_init() seeds the int to -1 before
@@ -1515,16 +1518,33 @@ typedef struct TransientExecProperty {
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 /* String property: dispatched into a const char* field and applied via the matching
- * DEFINE_APPLY_EXEC() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
- * json_dispatch_const_user_group_name with SD_JSON_RELAX). */
-#define EXEC_PROPERTY_STRING(json, field, dispatch_fn, json_flags)                         \
-        { json, SD_JSON_VARIANT_STRING, dispatch_fn,                                       \
-          offsetof(TransientExecContextParameters, field), json_flags, apply_exec_##field }
-
-/* Absolute-path string property: parsed via sd_json_dispatch_const_string + path_is_absolute(). */
-#define EXEC_PROPERTY_ABSOLUTE_PATH(json, field)                                          \
-        { json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,                    \
+ * DEFINE_APPLY_EXEC() function. */
+#define EXEC_PROPERTY_STRING(json, field)                                                  \
+        { json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,                     \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
+
+#define EXEC_PROPERTY_FILENAME(json, field)                                                \
+        { json, SD_JSON_VARIANT_STRING, json_dispatch_const_filename,                     \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
+
+#define EXEC_PROPERTY_USER_GROUP(json, field)                                              \
+        { json, SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name,               \
+          offsetof(TransientExecContextParameters, field), SD_JSON_RELAX, apply_exec_##field }
+
+/* Preserve [] so apply can distinguish an explicit reset from an absent setting. */
+#define EXEC_PROPERTY_STRV(json, field)                                                 \
+        { json, SD_JSON_VARIANT_ARRAY, varlink_dispatch_strv_preserve_empty,            \
+          offsetof(TransientExecContextParameters, field), SD_JSON_NULLABLE, apply_exec_##field }
+
+/* Settable dispatchers update both the value and its _set flag in the parameter structure. */
+#define EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_fn, apply_fn)                  \
+        { json, type, dispatch_fn, 0, SD_JSON_NULLABLE, apply_fn }
+
+#define EXEC_PROPERTY_SETTABLE(json, field, type) \
+        EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_transient_##field, apply_exec_##field)
+
+#define EXEC_PROPERTY_SETTABLE_APPLY(json, field, type) \
+        EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_transient_##field, varlink_apply_settable_##field)
 
 /* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
  * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
@@ -1539,49 +1559,55 @@ typedef struct TransientExecProperty {
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 static const TransientExecProperty exec_properties[] = {
-        EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
-        EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
-        EXEC_PROPERTY_ABSOLUTE_PATH("RootImage",              root_image),
-        EXEC_PROPERTY_ABSOLUTE_PATH("RootMStack",             root_mstack),
+        EXEC_PROPERTY_FULL         ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
+        EXEC_PROPERTY_STRING       ("RootDirectory",          root_directory),
+        EXEC_PROPERTY_STRING       ("RootImage",              root_image),
+        EXEC_PROPERTY_STRING       ("RootMStack",             root_mstack),
         EXEC_PROPERTY_TRISTATE_BOOL("RootEphemeral",          root_ephemeral),
-        EXEC_PROPERTY              ("RootHashPath",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_path),                0,             apply_exec_root_hash_path),
-        EXEC_PROPERTY              ("RootHashSignaturePath",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_sig_path),            0,             apply_exec_root_hash_sig_path),
-        EXEC_PROPERTY_ABSOLUTE_PATH("RootVerity",             root_verity),
-        EXEC_PROPERTY_STRING       ("User",                   user,                          json_dispatch_const_user_group_name,         SD_JSON_RELAX),
-        EXEC_PROPERTY_STRING       ("Group",                  group,                         json_dispatch_const_user_group_name,         SD_JSON_RELAX),
+        EXEC_PROPERTY_STRING       ("RootHashPath",           root_hash_path),
+        EXEC_PROPERTY_STRING       ("RootHashSignaturePath",  root_hash_sig_path),
+        EXEC_PROPERTY_STRING       ("RootVerity",             root_verity),
+        EXEC_PROPERTY_USER_GROUP   ("User",                   user),
+        EXEC_PROPERTY_USER_GROUP   ("Group",                  group),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
-        EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
-        EXEC_PROPERTY_STRING       ("PAMName",                pam_name,                      json_dispatch_const_filename,                0),
+        EXEC_PROPERTY_STRV         ("SupplementaryGroups",    supplementary_groups),
+        EXEC_PROPERTY_FILENAME     ("PAMName",                pam_name),
         EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
-        EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
-        EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
+        EXEC_PROPERTY_SETTABLE     ("UMask",                  umask,                     SD_JSON_VARIANT_INTEGER),
+        EXEC_PROPERTY_SETTABLE     ("OOMScoreAdjust",         oom_score_adjust,          SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
-        EXEC_PROPERTY              ("Nice",                   SD_JSON_VARIANT_INTEGER,       dispatch_transient_nice,                     0,                                                                       0,             apply_exec_nice),
+        EXEC_PROPERTY_SETTABLE     ("Nice",                   nice,                      SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_ENUM         ("ProtectSystem",          protect_system, dispatch_protect_system),
         EXEC_PROPERTY_ENUM         ("ProtectHome",            protect_home,   dispatch_protect_home),
         EXEC_PROPERTY_ENUM         ("PrivateTmp",             private_tmp,    dispatch_private_tmp),
         EXEC_PROPERTY_YES_NO_STRING("PrivateNetwork",         private_network),
-        EXEC_PROPERTY_ABSOLUTE_PATH("NetworkNamespacePath",   network_namespace_path),
-        EXEC_PROPERTY_ABSOLUTE_PATH("IPCNamespacePath",       ipc_namespace_path),
+        EXEC_PROPERTY_STRING       ("NetworkNamespacePath",   network_namespace_path),
+        EXEC_PROPERTY_STRING       ("IPCNamespacePath",       ipc_namespace_path),
         EXEC_PROPERTY_ENUM         ("PrivateUsers",           private_users,  dispatch_private_users),
-        EXEC_PROPERTY_ABSOLUTE_PATH("UserNamespacePath",      user_namespace_path),
+        EXEC_PROPERTY_STRING       ("UserNamespacePath",      user_namespace_path),
         EXEC_PROPERTY_TRISTATE_BOOL("LockPersonality",        lock_personality),
         EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
-        EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
+        EXEC_PROPERTY_SETTABLE     ("Environment",            environment,               _SD_JSON_VARIANT_TYPE_INVALID),
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
         EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
-        EXEC_PROPERTY_ABSOLUTE_PATH("TTYPath",                tty_path),
-        EXEC_PROPERTY              ("SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                                       0,             apply_exec_set_credential),
-        EXEC_PROPERTY              ("SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0,                                                                       0,             apply_exec_set_credential_encrypted),
+        EXEC_PROPERTY_STRING       ("TTYPath",                tty_path),
+        EXEC_PROPERTY_SETTABLE     ("SetCredential",          set_credential,            SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE     ("SetCredentialEncrypted", set_credential_encrypted,  SD_JSON_VARIANT_ARRAY),
 };
+#undef EXEC_PROPERTY_FULL
 #undef EXEC_PROPERTY
 #undef EXEC_PROPERTY_TRISTATE_BOOL
 #undef EXEC_PROPERTY_STRING
-#undef EXEC_PROPERTY_ABSOLUTE_PATH
+#undef EXEC_PROPERTY_FILENAME
+#undef EXEC_PROPERTY_USER_GROUP
+#undef EXEC_PROPERTY_STRV
+#undef EXEC_PROPERTY_SETTABLE_FULL
+#undef EXEC_PROPERTY_SETTABLE
+#undef EXEC_PROPERTY_SETTABLE_APPLY
 #undef EXEC_PROPERTY_ENUM
 #undef EXEC_PROPERTY_YES_NO_STRING
 
