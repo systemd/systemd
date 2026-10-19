@@ -17,8 +17,10 @@ systemd_sysupdate_sources = files(
 systemd_sysupdate_export_sources = files(
         'sysupdate-component.c',
         'sysupdate-config.c',
+        'sysupdate-host.c',
         'sysupdate-update-set-flags.c',
         'sysupdate-util.c',
+        'sysupdate-xattr-match.c',
 )
 
 systemd_updatectl_sources = files(
@@ -52,6 +54,11 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-sysupdate-util.c'),
+                'import' : ['systemd-sysupdate'],
+                'conditions' : ['ENABLE_SYSUPDATE'],
+        },
+        test_template + {
+                'sources' : files('test-sysupdate-xattr-match.c'),
                 'import' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATE'],
         },

@@ -607,6 +607,128 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchXAttrHostname=</varname></term>
+        <term><varname>MatchXAttrMachineID=</varname></term>
+        <term><varname>MatchXAttrMachineTags=</varname></term>
+        <term><varname>MatchXAttrImageID=</varname></term>
+        <term><varname>MatchXAttrImageVersion=</varname></term>
+        <term><varname>MatchXAttrOSID=</varname></term>
+        <term><varname>MatchXAttrOSVersionID=</varname></term>
+
+        <listitem><para>Take boolean arguments, default to off. If enabled, instances may be restricted to
+        specific systems via extended attributes in the <literal>user</literal> namespace. Each setting
+        enables checking of one extended attribute against a property of the system that is being updated
+        (i.e. the system specified with <option>--root=</option>/<option>--image=</option>, if used):</para>
+
+        <table>
+          <title>Extended attributes checked</title>
+          <tgroup cols='3'>
+            <colspec colname='setting' />
+            <colspec colname='xattr' />
+            <colspec colname='property' />
+            <thead>
+              <row>
+                <entry>Setting</entry>
+                <entry>Extended attribute</entry>
+                <entry>Matched against</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><varname>MatchXAttrHostname=</varname></entry>
+                <entry><literal>user.match_hostname</literal></entry>
+                <entry>The hostname, as configured in <filename>/etc/hostname</filename> if operating on a
+                root directory or image, the current hostname otherwise.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrMachineID=</varname></entry>
+                <entry><literal>user.match_machine_id</literal></entry>
+                <entry>The machine ID, see
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                formatted as 32 lowercase hexadecimal characters.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrMachineTags=</varname></entry>
+                <entry><literal>user.match_machine_tags</literal></entry>
+                <entry>The machine tags, see <varname>TAGS=</varname> in
+                <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrImageID=</varname></entry>
+                <entry><literal>user.match_image_id</literal></entry>
+                <entry><varname>IMAGE_ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrImageVersion=</varname></entry>
+                <entry><literal>user.match_image_version</literal></entry>
+                <entry><varname>IMAGE_VERSION=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrOSID=</varname></entry>
+                <entry><literal>user.match_os_id</literal></entry>
+                <entry><varname>ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><varname>MatchXAttrOSVersionID=</varname></entry>
+                <entry><literal>user.match_os_version_id</literal></entry>
+                <entry><varname>VERSION_ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Each extended attribute contains a list of entries, separated by NUL bytes. A value without
+        any NUL byte is a list with a single entry. For all extended attributes but the two version ones,
+        each entry is a shell-style glob pattern (see
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
+        and the instance matches if <emphasis>any</emphasis> of the entries matches the system property.
+        For <literal>user.match_machine_tags</literal> the instance matches if any entry matches any of the
+        machine's tags. For <literal>user.match_image_version</literal> and
+        <literal>user.match_os_version_id</literal> each entry is a version comparison expression, i.e. a
+        version prefixed with one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
+        <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>
+        (or a glob pattern, optionally prefixed with <literal>$=</literal> or <literal>!$=</literal>), the
+        same syntax <varname>ConditionVersion=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        accepts, and the instance matches if <emphasis>all</emphasis> of the expressions hold.</para>
+
+        <para>An instance that does not carry the extended attribute is not restricted by it. If the system
+        property is not set (for example, if <filename>/etc/os-release</filename> carries no
+        <varname>IMAGE_ID=</varname>), an instance that carries the extended attribute does not match. An
+        instance whose extended attribute cannot be parsed does not match either. If multiple of these
+        settings are enabled, instances must match all extended attributes they carry. Instances that do not
+        match are ignored, as if they did not exist. The system properties are only read once an instance
+        actually carries one of the enabled extended attributes.</para>
+
+        <para>For sources, the extended attributes are taken from the
+        <literal>extendedAttributes</literal> field of the file objects in UAPI.16 manifests (see
+        <varname>ManifestFormat=</varname>), as well as from the files and directories in the file system,
+        for local sources. For targets they are read from the installed files and directories. When an
+        instance is installed from a source with a UAPI.16 manifest, the <literal>user</literal> extended
+        attributes listed in the manifest are applied to the file or directory created, so that they also
+        apply to the installed instance later on. This is done on a best-effort basis: if the file system
+        does not support extended attributes, or they cannot be set for other reasons, the instance is
+        installed without them. Partitions do not carry
+        extended attributes, hence for partition targets only the source side is checked.</para>
+
+        <para>Example: the extended attribute of an instance suitable for any system running Fedora 41 or
+        newer (but older than 50) may be set with:</para>
+
+        <programlisting># setfattr -n user.match_os_version_id -v '0x3e3d3431003c353000' foo_7.raw</programlisting>
+
+        <para>(This sets the NUL separated list <literal>&gt;=41</literal>, <literal>&lt;50</literal>.)
+        Combined with <literal>user.match_os_id</literal> set to <literal>fedora</literal>, and
+        <varname>MatchXAttrOSID=yes</varname> and <varname>MatchXAttrOSVersionID=yes</varname> in the
+        transfer file, only Fedora systems of a suitable version will consider the instance.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
