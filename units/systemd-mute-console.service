@@ -8,9 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Console Output Muting Service Slice
+Description=Console Output Muting Service
 Documentation=man:systemd-mute-console(1)
+Requires=systemd-mute-console.socket
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
 
-[Slice]
-# Serialize requests to mute the console.
-ConcurrencySoftMax=1
+[Service]
+ExecStart=systemd-mute-console
