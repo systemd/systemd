@@ -120,6 +120,7 @@ INTROSPECTABLE=(
     systemd-measure
     systemd-modules-load
     systemd-mount
+    systemd-mountfsd
     systemd-mstack
     systemd-mute-console
     systemd-network-generator
