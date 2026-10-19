@@ -155,7 +155,8 @@ static const Verb common_verbs[] = {
         {}
 };
 
-static void test_common_parse_argv_one(
+static void test_common_parse_argv_mode_one(
+                OptionParserMode mode,
                 char **argv,
                 size_t min_args,
                 size_t max_args,
@@ -163,18 +164,28 @@ static void test_common_parse_argv_one(
                 char **expected_args) {
 
         _cleanup_free_ char *joined = strv_join(argv, ", ");
-        log_debug("/* %s(%s, %zu, %zu) */", __func__, joined, min_args, max_args);
+        log_debug("/* %s(%i, %s, %zu, %zu) */", __func__, (int) mode, joined, min_args, max_args);
 
         char **args = NULL;
         ASSERT_EQ(_common_parse_argv(common_verbs, common_verbs + ELEMENTSOF(common_verbs) - 1,
                                      /* options= */ NULL, /* options_end= */ NULL,
                                      (int) strv_length(argv), argv,
-                                     min_args, max_args, max_args > 0 ? &args : NULL),
+                                     mode, min_args, max_args, max_args > 0 ? &args : NULL),
                   expected);
         if (expected > 0 && max_args > 0)
                 ASSERT_TRUE(strv_equal(args, expected_args));
         else
                 ASSERT_NULL(args);
+}
+
+static void test_common_parse_argv_one(
+                char **argv,
+                size_t min_args,
+                size_t max_args,
+                int expected,
+                char **expected_args) {
+        test_common_parse_argv_mode_one(OPTION_PARSER_NORMAL, argv, min_args, max_args,
+                                        expected, expected_args);
 }
 
 TEST(common_parse_argv) {
@@ -212,6 +223,24 @@ TEST(common_parse_argv) {
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), 0, 1, 1, STRV_MAKE("-x"));
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 0, 1, -EINVAL, NULL);
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 2, 1, STRV_MAKE("x", "y"));
+
+        /* With OPTION_PARSER_STOP_AT_FIRST_NONOPTION, everything from the first positional argument on
+         * is data, even if it looks like an option or "--". */
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "--help", "x"), 0, SIZE_MAX, 0, NULL);
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "-x", "y"), 0, SIZE_MAX, -EINVAL, NULL);
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "--", "-x", "y"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("-x", "y"));
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "x", "--help"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("x", "--help"));
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "x", "--", "-y"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("x", "--", "-y"));
+        test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                        STRV_MAKE("test-verbs", "x", "--help"), 1, 1, -EINVAL, NULL);
 }
 
 static const CommandDescription multicall_command = {
@@ -258,6 +287,7 @@ static void test_common_parse_argv_multicall_one(const char *invoked_as, const c
         r = _common_parse_argv(multicall_verbs, multicall_verbs + ELEMENTSOF(multicall_verbs) - 1,
                                /* options= */ NULL, /* options_end= */ NULL,
                                2, STRV_MAKE("test-verbs", "--help"),
+                               OPTION_PARSER_NORMAL,
                                /* min_args= */ 0, /* max_args= */ 0,
                                /* ret_args= */ NULL);
 
