@@ -34,10 +34,13 @@ if "$BINARY" --help 2>&1 1>/dev/null | grep .; then
     exit 3
 fi
 
-# error output to stderr
-if ! ("$BINARY" --no-such-parameter 2>&1 1>/dev/null || :) | grep . >/dev/null; then
-    echo "$(basename "$BINARY") with an unknown parameter does not print to stderr"
-    exit 4
+# systemd-home-fallback-shell passes unknown params to the shell
+if ! [[ "$(basename "$BINARY")" = "systemd-home-fallback-shell" ]]; then
+    # error output to stderr
+    if ! ("$BINARY" --no-such-parameter 2>&1 1>/dev/null || :) | grep . >/dev/null; then
+        echo "$(basename "$BINARY") with an unknown parameter does not print to stderr"
+        exit 4
+    fi
 fi
 
 # sysvinit compat aliases treat -h as "halt"

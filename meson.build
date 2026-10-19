@@ -2907,7 +2907,6 @@ check_help_exclude = [
         'mount.ddi',      # mount helpers implement the mount(8) interface
         'mount.mstack',
         'mount.storage',
-        'systemd-home-fallback-shell',   # login shell which talks to systemd-homed first
 ]
 
 foreach exec : install_programs
