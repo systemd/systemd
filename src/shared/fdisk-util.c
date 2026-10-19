@@ -201,6 +201,22 @@ int fdisk_new_context_at(
         return 0;
 }
 
+int fdisk_get_disklabel_id_as_id128(struct fdisk_context *c, sd_id128_t *ret) {
+        _cleanup_free_ char *ids = NULL;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        r = sym_fdisk_get_disklabel_id(c, &ids);
+        if (r < 0)
+                return r;
+        if (!ids)
+                return -ENXIO;
+
+        return sd_id128_from_string(ids, ret);
+}
+
 int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret) {
         const char *ids;
 
