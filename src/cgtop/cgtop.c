@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <poll.h>
 #include <signal.h>
+#include <termios.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -11,6 +15,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -22,6 +27,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -90,6 +96,9 @@ typedef enum {
 } CPUType;
 
 typedef struct Context {
+        sd_future *fiber;
+        sd_event_source *signal_sources[3]; /* SIGWINCH, SIGTSTP, SIGCONT */
+
         char *root;
         Hashmap *groups_by_path;
 
@@ -106,6 +115,11 @@ typedef struct Context {
         usec_t message_lifetime;
 
         usec_t next_display;
+
+        int poll_fd;
+
+        struct termios saved_termios;
+        bool termios_saved;
 } Context;
 
 #define DEFAULT_MAXIMUM_DEPTH 3
@@ -159,8 +173,45 @@ static Group *group_free(Group *g) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare, Group, group_free);
 
+static void save_console(Context *c) {
+        assert(c);
+
+        if (c->termios_saved)
+                return;
+
+        if (tcgetattr(STDIN_FILENO, &c->saved_termios) >= 0)
+                c->termios_saved = true;
+}
+
+static int modify_console(Context *c) {
+        assert(c);
+
+        if (!c->termios_saved)
+                return 0;
+
+        struct termios t = c->saved_termios;
+        termios_disable_echo(&t);
+        return RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &t));
+}
+
+static void restore_console(Context *c) {
+        assert(c);
+
+        if (!c->termios_saved)
+                return;
+
+        (void) tcsetattr(STDIN_FILENO, TCSANOW, &c->saved_termios);
+}
+
 static void context_done(Context *c) {
         assert(c);
+
+        restore_console(c);
+
+        /* We live on the stack of the main fiber, but the event loop is not ours: it is the default one,
+         * which outlives us. Make sure that no handler can be invoked with a dangling pointer to us. */
+        FOREACH_ELEMENT(s, c->signal_sources)
+                *s = sd_event_source_disable_unref(*s);
 
         free(c->root);
         hashmap_free(c->groups_by_path);
@@ -952,6 +1003,73 @@ static int step(Context *c, usec_t t) {
         return 1;
 }
 
+static int redisplay(Context *c) {
+        assert(c);
+
+        c->next_display = 0;
+
+        /* Only for the event source handlers below, which don't run on a fiber: the main fiber is suspended
+         * in sd_fiber_ppoll() at this point, wake it up so that it looks at next_display again. The fiber
+         * sees -EBUSY for such an unrelated wakeup. If it is not suspended (anymore), it looks at
+         * next_display before it suspends the next time anyway, so a lost wakeup costs nothing. */
+        return sd_fiber_resume(c->fiber, 0);
+}
+
+static int on_sigwinch(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        assert(si);
+        assert(si->ssi_signo == SIGWINCH);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        return redisplay(c);
+}
+
+static int on_sigtstp(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGTSTP);
+
+        /* restore console setting before raising SIGTSTP */
+        restore_console(c);
+
+        r = sigprocmask_many(SIG_UNBLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to unblock SIGTSTP: %m"));
+
+        if (raise(SIGTSTP) < 0)
+                log_debug_errno(errno, "Failed to raise SIGTSTP, ignoring: %m");
+
+        r = sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to block SIGTSTP: %m"));
+
+        r = modify_console(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to update terminfo: %m"));
+
+        return redisplay(c);
+}
+
+static int on_sigcont(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGCONT);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        r = modify_console(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to update terminfo: %m"));
+
+        return redisplay(c);
+}
+
 static const char* counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
@@ -1107,22 +1225,86 @@ static int loop(Context *c) {
                         t = now(CLOCK_MONOTONIC);
                 }
 
-                if (arg_batch) {
-                        (void) usleep_safe(usec_sub_unsigned(c->next_display, t));
-                        continue;
-                }
+                /* This waits for a key or for the next redraw, whichever comes first. A negative fd is
+                 * ignored by poll(), which is how we deal with batch mode and EOF on stdin. */
+                struct timespec ts;
+                r = sd_fiber_ppoll(
+                                &(struct pollfd) {
+                                        .fd = c->poll_fd,
+                                        .events = POLLIN,
+                                },
+                                /* n_fds= */ 1,
+                                timespec_store(&ts, MAX(usec_sub_unsigned(c->next_display, t), 1u)),
+                                /* sigmask= */ NULL);
+                if (r == -EBUSY)
+                        continue; /* A signal handler called redisplay(). */
+                if (r == -ECANCELED)
+                        return r; /* SIGINT or SIGTERM */
+                if (r < 0)
+                        return log_error_errno(r, "sd_fiber_ppoll() failed: %m");
+                if (r == 0)
+                        continue; /* Time to redraw. */
+
+                /* The fd is ready, hence this does not block. We deliberately don't use sd_fiber_read()
+                 * here, which would flip O_NONBLOCK on the terminal, which is shared with the shell. */
+
+                assert(c->poll_fd >= 0);
 
                 char key;
-                r = read_one_char(stdin, &key, usec_sub_unsigned(c->next_display, t), /* echo= */ false, /* need_nl= */ NULL);
-                if (r == -ETIMEDOUT)
+                ssize_t n = read(c->poll_fd, &key, 1);
+                if (n < 0) {
+                        if (ERRNO_IS_TRANSIENT(errno))
+                                continue;
+
+                        return log_error_errno(errno, "Failed to read from stdin: %m");
+                }
+                if (n == 0) { /* EOF */
+                        c->poll_fd = -EBADF;
                         continue;
-                if (r < 0)
-                        return log_error_errno(r, "Couldn't read key: %m");
+                }
 
                 r = on_key(c, key);
                 if (r <= 0)
                         return r;
         }
+}
+
+static int setup_loop(Context *c) {
+        sd_event *e = ASSERT_PTR(sd_fiber_get_event());
+        int r;
+
+        assert(c);
+
+        c->fiber = sd_fiber_get_current();
+
+        r = sd_event_set_signal_exit(e, true);
+        if (r < 0)
+                return r;
+
+        /* on terminal size change */
+        r = sd_event_add_signal(e, &c->signal_sources[0], SIGWINCH | SD_EVENT_SIGNAL_PROCMASK, on_sigwinch, c);
+        if (r < 0)
+                return r;
+
+        /* on Ctrl+z */
+        r = sd_event_add_signal(e, &c->signal_sources[1], SIGTSTP | SD_EVENT_SIGNAL_PROCMASK, on_sigtstp, c);
+        if (r < 0)
+                return r;
+
+        /* on continue */
+        r = sd_event_add_signal(e, &c->signal_sources[2], SIGCONT | SD_EVENT_SIGNAL_PROCMASK, on_sigcont, c);
+        if (r < 0)
+                return r;
+
+        if (c->poll_fd >= 0) {
+                save_console(c);
+
+                r = modify_console(c);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -1149,6 +1331,7 @@ static int run(int argc, char *argv[]) {
 
         _cleanup_(context_done) Context c = {
                 .immediate_refresh = true,
+                .poll_fd = arg_batch ? -EBADF : STDIN_FILENO,
         };
 
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &c.root);
@@ -1156,13 +1339,15 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("CGroup path: %s", c.root);
 
-        signal(SIGWINCH, columns_lines_cache_reset);
-
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
         if (arg_iterations == 1)
                 return step(&c, /* t= */ 0);
+
+        r = setup_loop(&c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event loop: %m");
 
         r = loop(&c);
 
@@ -1174,4 +1359,4 @@ static int run(int argc, char *argv[]) {
         return r;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_FIBER(run);
