@@ -196,6 +196,7 @@ INTROSPECTABLE=(
     systemd-veritysetup
     systemd-veritysetup-generator
     systemd-vmspawn
+    systemd-volatile-root
     systemd-vpick
     systemd-xdg-autostart-generator
     timedatectl
