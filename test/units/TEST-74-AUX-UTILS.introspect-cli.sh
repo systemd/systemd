@@ -128,6 +128,7 @@ INTROSPECTABLE=(
     systemd-networkd-wait-online
     systemd-notify
     systemd-nspawn
+    systemd-nsresourced
     systemd-oomd
     systemd-path
     systemd-pcrextend
