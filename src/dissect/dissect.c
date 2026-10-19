@@ -1399,12 +1399,15 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
                 if (r < 0)
                         return r;
 
+                uint64_t n_failed = mc.n_skipped - mc.n_skipped_expected;
                 if (mc.n_skipped_expected > 0)
                         log_info("%" PRIu64 " entries skipped, as the manifest format does not list inodes of their type.", mc.n_skipped_expected);
-                if (mc.n_skipped > mc.n_skipped_expected) {
-                        log_error("%" PRIu64 " entries skipped, as they were not representable in the manifest.", mc.n_skipped - mc.n_skipped_expected);
+                if (n_failed > 0)
+                        log_error("%" PRIu64 " entries skipped, as they could not be read or were not representable in the manifest.", n_failed);
+                if (mc.n_metadata_omitted > 0)
+                        log_error("%" PRIu64 " metadata fields omitted, as they could not be read or were not representable in the manifest.", mc.n_metadata_omitted);
+                if (n_failed > 0 || mc.n_metadata_omitted > 0)
                         return -EUCLEAN;
-                }
 
                 return 0;
         }
