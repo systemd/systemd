@@ -134,6 +134,15 @@ const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], cons
 #define verbs_find_command(name, ret_cmd)                               \
         _verbs_find_command(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name, ret_cmd)
 
+/* Find the command of the program as invoked (honouring $SYSTEMD_INVOKED_AS) among the commands in
+ * the given option namespace: the one named like the program, else one whose name is contained in
+ * the program name, as invoked_as() matches, else the first command in the namespace. */
+const Verb* _verbs_find_invoked_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                const CommandDescription **ret_cmd);
+
 const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name);
 #define verbs_find_verb(name) \
         _verbs_find_verb(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name)
@@ -207,6 +216,7 @@ int _introspect_cli(
  * common --help, --version, and --introspect-cli. The implementation is defined in libsystemd-shared,
  * in the "common" option namespace, and the program's COMMAND() must declare
  * .option_namespace = "common" so that --help and --introspect-cli finds it.
+ * In a multicall binary with several such commands, the one matching the invoked name is described.
  *
  * The number of positional arguments is checked against min_args and max_args, and the arguments are
  * returned in *ret_args, typically to be passed to dispatch_verb(). ret_args may be NULL if max_args is 0.
