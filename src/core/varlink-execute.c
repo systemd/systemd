@@ -1195,7 +1195,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users,  PrivateUsers,  private
 #define DEFINE_DISPATCH_EXEC_SETTABLE(field, dispatch, ...) \
         DEFINE_VARLINK_DISPATCH_SETTABLE(field, TransientExecContextParameters, dispatch __VA_OPT__(,) __VA_ARGS__)
 
-static DEFINE_DISPATCH_EXEC_SETTABLE(environment,               sd_json_dispatch_strv);
+static DEFINE_DISPATCH_EXEC_SETTABLE(environment,               json_dispatch_strv_environment);
 static DEFINE_DISPATCH_EXEC_SETTABLE(nice,                      sd_json_dispatch_int32);
 static DEFINE_DISPATCH_EXEC_SETTABLE(oom_score_adjust,          sd_json_dispatch_int32);
 static DEFINE_DISPATCH_EXEC_SETTABLE(umask,                     sd_json_dispatch_uint32);
@@ -1557,7 +1557,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
-        EXEC_PROPERTY_SETTABLE     ("Environment",            environment,               _SD_JSON_VARIANT_TYPE_INVALID),
+        EXEC_PROPERTY_SETTABLE     ("Environment",            environment,               SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
         EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
