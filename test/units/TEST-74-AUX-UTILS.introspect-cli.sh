@@ -201,6 +201,7 @@ INTROSPECTABLE=(
     systemd-user-runtime-dir
     systemd-user-sessions
     systemd-userdbd
+    systemd-userwork
     systemd-validatefs
     systemd-vconsole-setup
     systemd-veritysetup
