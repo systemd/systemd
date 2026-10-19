@@ -4141,7 +4141,7 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = sym_fdisk_set_disklabel_id(c);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
         }
