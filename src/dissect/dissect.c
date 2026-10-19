@@ -1399,10 +1399,12 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
                 if (r < 0)
                         return r;
 
-                if (mc.n_skipped > 0) {
-                        log_error("%" PRIu64 " entries skipped, as they were not representable in the manifest.", mc.n_skipped);
+                if (mc.n_skipped > 0)
+                        log_error("%" PRIu64 " entries skipped, as they could not be read or were not representable in the manifest.", mc.n_skipped);
+                if (mc.n_metadata_omitted > 0)
+                        log_error("%" PRIu64 " metadata fields omitted, as they could not be read or were not representable in the manifest.", mc.n_metadata_omitted);
+                if (mc.n_skipped > 0 || mc.n_metadata_omitted > 0)
                         return -EUCLEAN;
-                }
 
                 return 0;
         }
