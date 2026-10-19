@@ -36,12 +36,17 @@ fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 fuzz_testsdir = 'test/fuzz'
 
-if git.found() and fs.is_dir(meson.project_source_root() / '.git')
+# In a git worktree, .git is a file that contains the path of the repository. git fails when the
+# repository isn't at the path in .git, for example in a container that only mounts the worktree.
+use_git = git.found() and fs.exists(meson.project_source_root() / '.git')
+if use_git
         out = run_command(env, '-u', 'GIT_WORK_TREE',
                           git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                           'ls-files', ':/@0@/*/*'.format(fuzz_testsdir),
-                          check: true)
-else
+                          check: false)
+        use_git = out.returncode() == 0
+endif
+if not use_git
         out = run_command(sh, '-c', 'cd "@0@"; printf "%s " @1@/*/*'.format(meson.project_source_root(), fuzz_testsdir), check: true)
 endif
 
