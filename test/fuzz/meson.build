@@ -36,7 +36,7 @@ fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 fuzz_testsdir = 'test/fuzz'
 
-if git.found() and fs.is_dir(meson.project_source_root() / '.git')
+if git.found() and fs.exists(meson.project_source_root() / '.git')
         out = run_command(env, '-u', 'GIT_WORK_TREE',
                           git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                           'ls-files', ':/@0@/*/*'.format(fuzz_testsdir),
