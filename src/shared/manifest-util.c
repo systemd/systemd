@@ -190,6 +190,32 @@ int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[stati
         return sha256_fd(fd, /* max_size= */ UINT64_MAX, ret);
 }
 
+static bool manifest_handle_skip_event(ManifestContext *c, RecurseDirEvent event, const char *path) {
+        const char *what;
+        int error;
+
+        assert(c);
+
+        /* recurse_dir() reports inodes it could not open or stat via special events. We cannot serialize
+         * them, hence count them as skipped. Returns true if the event was one of these. */
+
+        if (event >= RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE && event <= RECURSE_DIR_SKIP_OPEN_DIR_ERROR_MAX) {
+                error = event - RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE;
+                what = "open directory";
+        } else if (event >= RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE && event <= RECURSE_DIR_SKIP_OPEN_INODE_ERROR_MAX) {
+                error = event - RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE;
+                what = "open inode";
+        } else if (event >= RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE && event <= RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX) {
+                error = event - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE;
+                what = "stat inode";
+        } else
+                return false;
+
+        log_warning_errno(error, "Failed to %s '%s', skipping: %m", what, strna(path));
+        c->n_skipped++;
+        return true;
+}
+
 static int manifest_list_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -202,6 +228,9 @@ static int manifest_list_item(
         ManifestContext *c = ASSERT_PTR(userdata);
 
         assert(path);
+
+        if (manifest_handle_skip_event(c, event, path))
+                return RECURSE_DIR_CONTINUE;
 
         if (event == RECURSE_DIR_ENTER)
                 fprintf(c->output, "%s%s/%s\n",
@@ -267,6 +296,9 @@ static int manifest_mtree_item(
         int r;
 
         assert(path);
+
+        if (manifest_handle_skip_event(c, event, path))
+                return RECURSE_DIR_CONTINUE;
 
         if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
                 return RECURSE_DIR_CONTINUE;
@@ -336,9 +368,10 @@ static int manifest_mtree_item(
                         uint8_t hash[SHA256_DIGEST_SIZE];
 
                         r = manifest_context_hash_fd(c, inode_fd, hash);
-                        if (r < 0)
+                        if (r < 0) {
                                 log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
-                        else {
+                                c->n_metadata_omitted++;
+                        } else {
                                 _cleanup_free_ char *h = NULL;
 
                                 h = hexmem(hash, SHA256_DIGEST_SIZE);
@@ -357,9 +390,10 @@ static int manifest_mtree_item(
                 _cleanup_free_ char *target = NULL;
 
                 r = readlinkat_malloc(inode_fd, "", &target);
-                if (r < 0)
+                if (r < 0) {
                         log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
-                else {
+                        c->n_metadata_omitted++;
+                } else {
                         _cleanup_free_ char *target_escaped = NULL;
 
                         target_escaped = xescape(target, WHITESPACE COMMENTS GLOB_CHARS);
@@ -388,6 +422,9 @@ static int manifest_mtree_item(
                        sx->stx_mtime.tv_nsec);
 
         fprintf(f, "\n");
+
+        if (!de) /* Only the top-level inode comes without directory entry */
+                c->top_level_covered = true;
 
         return RECURSE_DIR_CONTINUE;
 }
@@ -660,9 +697,10 @@ static int manifest_read_user_xattrs(int inode_fd, Uapi16Xattr **ret, size_t *re
         return 0;
 }
 
-static int manifest_uapi16_xattrs(const char *path, int inode_fd, sd_json_variant **ret) {
+static int manifest_uapi16_xattrs(ManifestContext *c, const char *path, int inode_fd, sd_json_variant **ret) {
         int r;
 
+        assert(c);
         assert(inode_fd >= 0);
         assert(ret);
 
@@ -675,11 +713,13 @@ static int manifest_uapi16_xattrs(const char *path, int inode_fd, sd_json_varian
                 /* A namespace object must list all attributes of the namespace, hence omit it entirely if
                  * we cannot */
                 log_warning("Inode '%s' carries an extended attribute whose name cannot be represented in a UAPI.16 manifest, omitting extended attributes.", empty_to_root(path));
+                c->n_metadata_omitted++;
                 *ret = NULL;
                 return 0;
         }
         if (r < 0) {
                 log_warning_errno(r, "Failed to read extended attributes of '%s', ignoring: %m", empty_to_root(path));
+                c->n_metadata_omitted++;
                 *ret = NULL;
                 return 0;
         }
@@ -705,14 +745,17 @@ static int manifest_uapi16_item(
 
         /* Generates a UAPI.16 Manifest of the directory tree */
 
-        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
-                return RECURSE_DIR_CONTINUE;
-
         /* We ignore this to avoid input-as-output cycles (only on top-level though!) */
         if (path && uapi16_manifest_filename_is_reserved(path)) {
                 log_debug("Skipping directory entry '%s' to avoid recursive manifest generation.", path);
                 return RECURSE_DIR_CONTINUE;
         }
+
+        if (manifest_handle_skip_event(c, event, path))
+                return RECURSE_DIR_CONTINUE;
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
 
         bool is_root = isempty(path);
 
@@ -738,9 +781,10 @@ static int manifest_uapi16_item(
 
                         if (!hash_valid && FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && inode_fd >= 0) {
                                 r = manifest_context_hash_fd(c, inode_fd, hash);
-                                if (r < 0)
+                                if (r < 0) {
                                         log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", empty_to_root(path));
-                                else
+                                        c->n_metadata_omitted++;
+                                } else
                                         hash_valid = true;
                         }
 
@@ -749,9 +793,10 @@ static int manifest_uapi16_item(
                 case S_IFLNK:
                         if (FLAGS_SET(c->fields, MANIFEST_FIELD_SYMLINK) && inode_fd >= 0) {
                                 r = readlinkat_malloc(inode_fd, "", &data);
-                                if (r < 0)
+                                if (r < 0) {
                                         log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", empty_to_root(path));
-                                else {
+                                        c->n_metadata_omitted++;
+                                } else {
                                         size = strlen(data);
                                         have_size = true;
                                 }
@@ -785,7 +830,7 @@ static int manifest_uapi16_item(
             FLAGS_SET(sx->stx_mask, STATX_TYPE) &&
             !S_ISLNK(sx->stx_mode) &&
             inode_fd >= 0) {
-                r = manifest_uapi16_xattrs(path, inode_fd, &jx);
+                r = manifest_uapi16_xattrs(c, path, inode_fd, &jx);
                 if (r < 0)
                         return r;
         }
@@ -818,6 +863,9 @@ static int manifest_uapi16_item(
         r = sd_json_variant_dump(j, c->json_format_flags | SD_JSON_FORMAT_SEQ | SD_JSON_FORMAT_FLUSH, c->output, /* prefix= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write JSON output: %m");
+
+        if (is_root)
+                c->top_level_covered = true;
 
         return RECURSE_DIR_CONTINUE;
 }
@@ -876,6 +924,9 @@ static int manifest_sha256sums_item(
          * consume. Only regular files are listed, like sha256sum would do it. */
 
         assert(path);
+
+        if (manifest_handle_skip_event(c, event, path))
+                return RECURSE_DIR_CONTINUE;
 
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
@@ -981,6 +1032,10 @@ int manifest_make(ManifestContext *c, int dir_fd) {
         r = recurse_dir(dir_fd, path, statx_mask, /* n_depth_max= */ UINT_MAX, flags, item_callback, c);
         if (r < 0)
                 return r;
+
+        /* These formats do not list the top-level inode itself, hence enumerating it is all we can do */
+        if (IN_SET(c->format, MANIFEST_FORMAT_LIST, MANIFEST_FORMAT_SHA256SUMS))
+                c->top_level_covered = true;
 
         if (c->format == MANIFEST_FORMAT_UAPI16) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
