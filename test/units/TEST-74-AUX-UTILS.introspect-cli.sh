@@ -139,6 +139,7 @@ INTROSPECTABLE=(
     systemd-pstore
     systemd-pty-forward
     systemd-pull
+    systemd-quotacheck
     systemd-random-seed
     systemd-remount-fs
     systemd-repart
