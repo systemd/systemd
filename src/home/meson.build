@@ -113,7 +113,7 @@ modules += [
                 'name' : 'pam_systemd_home',
                 'conditions' : ['HAVE_PAM'],
                 'sources' : pam_systemd_home_sources,
-                'version-script' : meson.current_source_dir() / 'pam_systemd_home.sym',
+                'version-script' : 'src/home/pam_systemd_home.sym',
         },
 ]
 

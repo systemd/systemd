@@ -440,7 +440,8 @@ libshared_deps = [libacl_cflags,
                   libzstd_cflags,
                   tpm2_cflags]
 
-libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
+libshared_sym = files('libshared.sym')
+libshared_sym_path = relative_source_path / 'src/shared/libshared.sym'
 libshared_build_dir = meson.current_build_dir()
 
 libshared_static = static_library(
@@ -460,7 +461,7 @@ libshared = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
+        link_depends : libshared_sym,
         link_whole : [libc_wrapper_static,
                       libshared_static,
                       libbasic_static,

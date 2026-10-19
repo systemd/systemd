@@ -164,7 +164,7 @@ libsystemd_static = static_library(
 libsystemd_dir_path = meson.current_source_dir()
 
 libsystemd_sym = files('libsystemd.sym')
-libsystemd_sym_path = libsystemd_dir_path / 'libsystemd.sym'
+libsystemd_sym_path = relative_source_path / 'src/libsystemd/libsystemd.sym'
 
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'

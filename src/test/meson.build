@@ -28,24 +28,24 @@ endif
 generate_sym_test_py = files('generate-sym-test.py')
 
 test_libsystemd_sym_c = custom_target(
-        input : [libsystemd_sym_path,
+        input : [libsystemd_sym,
                  systemd_headers,
                  libsystemd_sources],
         output : 'test-libsystemd-sym.c',
         command : [generate_sym_test_py,
-                   libsystemd_sym_path,
+                   '@INPUT0@',
                    libsystemd_dir_path,
                    systemd_headers],
         capture : true,
         build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
-        input : [libudev_sym_path,
+        input : [libudev_sym,
                  libudev_h_path,
                  libudev_sources],
         output : 'test-libudev-sym.c',
         command : [generate_sym_test_py,
-                   libudev_sym_path,
+                   '@INPUT0@',
                    libudev_dir_path,
                    libudev_h_path],
         capture : true,

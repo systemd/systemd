@@ -194,7 +194,7 @@ libcore = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
+        link_depends : libshared_sym,
         link_whole: libcore_static,
         link_with : libshared,
         install : true,

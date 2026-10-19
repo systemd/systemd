@@ -40,6 +40,9 @@ conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : '
 
 fs = import('fs')
 
+# ninja runs a build command again when its command line changes. An absolute path on a command line
+# changes when the source and build directories are reconfigured at a different absolute path. Build
+# commands should therefore refer to the source directory through relative_source_path.
 if meson.version().version_compare('>=1.3.0')
         relative_source_path = fs.relative_to(meson.project_source_root(),
                                               meson.project_build_root())
@@ -2685,11 +2688,11 @@ foreach dict : modules
         kwargs += {
                 'link_args' : [
                         kwargs.get('link_args', []),
-                        '-Wl,--version-script=' + dict.get('version-script'),
+                        '-Wl,--version-script=' + relative_source_path / dict.get('version-script'),
                 ],
                 'link_depends' : [
                         kwargs.get('link_depends', []),
-                        dict.get('version-script'),
+                        files(dict.get('version-script')),
                 ],
         }
         foreach key, val : module_additional_kwargs
