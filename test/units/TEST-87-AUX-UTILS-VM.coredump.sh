@@ -199,6 +199,23 @@ coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
 # Check the field is queryable in the journal
 coredumpctl -F COREDUMP_TID
 
+# Test cases for Coredump ID
+LATEST_ID=$(coredumpctl list -1 --json=short "$CORE_TEST_BIN" | jq -r '.[0].id')
+[[ -n "$LATEST_ID" ]]
+[[ "$LATEST_ID" != null ]]
+# Test with explicit COREDUMP_ID= field
+coredumpctl list COREDUMP_ID="$LATEST_ID" | grep "$LATEST_ID" >/dev/null
+coredumpctl info COREDUMP_ID="$LATEST_ID" | grep --fixed-strings "ID: $LATEST_ID" >/dev/null
+coredumpctl info --json=short COREDUMP_ID="$LATEST_ID" | jq -e ".ID == \"$LATEST_ID\""
+coredumpctl info --json=pretty COREDUMP_ID="$LATEST_ID" | jq -e ".ID == \"$LATEST_ID\""
+# Test with bare UUID (without COREDUMP_ID= prefix)
+coredumpctl info "$LATEST_ID" | grep --fixed-strings "ID: $LATEST_ID" >/dev/null
+coredumpctl info --json=short "$LATEST_ID" | jq -e ".ID == \"$LATEST_ID\""
+# Test with dashed UUID format
+LATEST_ID_DASHED="${LATEST_ID:0:8}-${LATEST_ID:8:4}-${LATEST_ID:12:4}-${LATEST_ID:16:4}-${LATEST_ID:20:12}"
+coredumpctl info "$LATEST_ID_DASHED" | grep --fixed-strings "ID: $LATEST_ID" >/dev/null
+coredumpctl info --json=short "$LATEST_ID_DASHED" | jq -e ".ID == \"$LATEST_ID\""
+
 # If COREDUMP_CODE= is present, check that the expected code is SI_USER (0).
 if coredumpctl -F COREDUMP_CODE | grep "^0$" >/dev/null; then
     coredumpctl info "$CORE_TEST_BIN" | grep --fixed-strings "Signal: 5 (TRAP) si_code: SI_USER" >/dev/null
@@ -282,6 +299,13 @@ coredumpctl info COREDUMP_HOSTNAME="mymachine"
 coredumpctl info COREDUMP_TIMESTAMP=1679509902000000
 coredumpctl info COREDUMP_HOSTNAME="youmachine"
 coredumpctl info COREDUMP_DUMPABLE="1"
+# Verify that backtrace entries have COREDUMP_ID set
+coredumpctl info --json=short COREDUMP_TIMESTAMP=1679509900000000 | jq -e '.ID != null'
+coredumpctl info --json=short COREDUMP_TIMESTAMP=1679509901000000 | jq -e '.ID != null'
+coredumpctl info --json=short COREDUMP_TIMESTAMP=1679509902000000 | jq -e '.ID != null'
+# Verify that backtrace entries can be queried by ID
+BACKTRACE_ID=$(coredumpctl list -n 1 --json=short COREDUMP_TIMESTAMP=1679509900000000 | jq -r '.[0].id')
+coredumpctl info "$BACKTRACE_ID" | grep --fixed-strings "ID: $BACKTRACE_ID" >/dev/null
 
 # This used to cause a stack overflow
 systemd-run -t --property CoredumpFilter=all ls /tmp
