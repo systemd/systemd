@@ -1937,29 +1937,18 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
+        /* No length limit here: GPT limits labels in UTF-16 code units, not bytes, which
+         * gpt_label_is_valid() checks below. */
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (!utf8_is_valid(resolved)) {
+        if (!gpt_label_is_valid(resolved)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label not valid UTF-8, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        r = gpt_partition_label_valid(resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to check if string is valid as GPT partition label, ignoring: \"%s\" (from \"%s\")",
-                           resolved, rvalue);
-                return 0;
-        }
-        if (!r) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label too long for GPT table, ignoring: \"%s\" (from \"%s\")",
+                           "Partition label not valid UTF-8, contains control characters, or too long for GPT table, ignoring: \"%s\" (from \"%s\")",
                            resolved, rvalue);
                 return 0;
         }
