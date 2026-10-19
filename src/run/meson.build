@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-run',
-                'public' : true,
                 'sources' : files('run.c', 'run-polkit.c'),
                 'symlinks' : [
                         { 'name' : 'run0' },

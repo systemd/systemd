@@ -2094,7 +2094,7 @@ endif
 #                      of the executable.
 #   'conditions'     : a list of config options that must all be enabled for the
 #                      symlink to be created.
-#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+#   'dbus'           : same meaning as for the executable itself, but for the alias.
 # The symlinks are also created in the build directory, pointing to the executable in
 # the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
@@ -2382,7 +2382,7 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
+                if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
                            'bpf_programs', 'link_args_static', 'symlinks']

@@ -7,7 +7,6 @@ varlinkctl_sources = files(
 executables += [
         executable_template + {
                 'name' : 'varlinkctl',
-                'public' : true,
                 'sources' : varlinkctl_sources,
                 'dependencies' : [
                         libbpf_cflags,

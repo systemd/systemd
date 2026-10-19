@@ -5,7 +5,6 @@ want_kernel_install = conf.get('ENABLE_KERNEL_INSTALL') == 1
 executables += [
         executable_template + {
                 'name' : 'kernel-install',
-                'public' : true,
                 'conditions' : ['ENABLE_KERNEL_INSTALL'],
                 'sources' : files('kernel-install.c'),
         },

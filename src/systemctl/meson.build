@@ -44,7 +44,6 @@ systemctl_export_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemctl',
-                'public' : true,
                 'sources' : systemctl_sources,
                 'export' : systemctl_export_sources,
                 'dependencies' : [

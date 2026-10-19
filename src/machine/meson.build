@@ -30,7 +30,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'machinectl',
-                'public' : true,
                 'sources' : files('machinectl.c'),
                 'dependencies' : [
                         liblz4_cflags,
