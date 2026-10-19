@@ -10,6 +10,7 @@
 #include "build.h"
 #include "copy.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,7 +22,6 @@
 #include "parse-argument.h"
 #include "pe-binary.h"
 #include "pe-writer.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -456,17 +456,9 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
         }
 
-        _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int srcfd = open_seekable_data_fd(AT_FDCWD, argv[1], PE_IMAGE_SIZE_MAX);
         if (srcfd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", argv[1]);
-
-        struct stat st;
-        if (fstat(srcfd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", argv[1]);
-
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
+                return log_error_errno(srcfd, "Failed to open %s: %m", argv[1]);
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
