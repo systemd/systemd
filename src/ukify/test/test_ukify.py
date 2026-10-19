@@ -16,6 +16,7 @@
 
 import base64
 import glob
+import io
 import json
 import os
 import pathlib
@@ -85,6 +86,73 @@ def test_round_up():
     assert ukify.round_up(4095) == 4096
     assert ukify.round_up(4096) == 4096
     assert ukify.round_up(4097) == 8192
+
+
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zstd_frames(tmp_path, frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    assert ukify.maybe_decompress(path) == payload
+
+
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zboot_zstd_frames(frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    # The kernel build appends a size word outside the declared compressed payload.
+    kernel = io.BytesIO(header + compressed + struct.pack('<I', len(payload)))
+    assert ukify.get_zboot_kernel(kernel) == payload
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zstd_invalid_tail(tmp_path, tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.maybe_decompress(path)
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zboot_zstd_invalid_tail(tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    kernel = io.BytesIO(header + compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.get_zboot_kernel(kernel)
 
 
 def test_namespace_creation():
