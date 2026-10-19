@@ -1541,10 +1541,7 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
-                r = gpt_partition_label_valid(formatted_pattern);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine if formatted pattern is suitable as GPT partition label: %s", formatted_pattern);
-                if (!r)
+                if (!gpt_label_is_valid(formatted_pattern))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pattern);
 
                 assert(t->target.partition_type_set);
