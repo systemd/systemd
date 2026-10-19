@@ -22,7 +22,7 @@
     <refname>systemd-coredump@.service</refname>
     <refname>systemd-coredump-register.service</refname>
     <refname>systemd-coredumpd.service</refname>
-    <refpurpose>Acquire, save and process core dumps</refpurpose>
+    <refpurpose>Acquire, save, and process core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

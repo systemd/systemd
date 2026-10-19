@@ -74,6 +74,7 @@ INTROSPECTABLE=(
     systemd-clonesetup
     systemd-clonesetup-generator
     systemd-confext
+    systemd-coredump
     systemd-creds
     systemd-cryptenroll
     systemd-cryptsetup
