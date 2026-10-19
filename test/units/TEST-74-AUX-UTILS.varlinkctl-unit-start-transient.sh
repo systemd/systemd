@@ -115,7 +115,7 @@ testcase_basic() {
     unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
     echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
-    echo "$unsupported_service" | grep "Service.Restart"
+    echo "$unsupported_service" | grep -F "context.Service.Restart"
 }
 
 testcase_notifications() {
@@ -268,7 +268,7 @@ testcase_exec_properties() {
     defer_transient_cleanup varlink-transient-bad-user.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "context"
+        "context.Exec.User"
     # Out-of-range Nice= value is rejected
     defer_transient_cleanup varlink-transient-bad-nice.service
     expect_invalid_parameter \
@@ -318,7 +318,7 @@ testcase_exec_properties() {
     unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"AmbientCapabilities":["cap_net_raw"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
     echo "$unsupported_exec" | grep "io.systemd.Unit.PropertyNotSupported"
-    echo "$unsupported_exec" | grep "Exec.AmbientCapabilities"
+    echo "$unsupported_exec" | grep -F "context.Exec.AmbientCapabilities"
 }
 
 testcase_exec_sandbox() {
@@ -381,7 +381,7 @@ testcase_kill_properties() {
     unsupported_kill=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-unknown-kill.service","Kill":{"KillSignal":"SIGINT"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
     echo "$unsupported_kill" | grep "io.systemd.Unit.PropertyNotSupported"
-    echo "$unsupported_kill" | grep "Kill.KillSignal"
+    echo "$unsupported_kill" | grep -F "context.Kill.KillSignal"
 }
 
 testcase_exec_commands() {
@@ -546,7 +546,7 @@ testcase_credentials() {
     defer_transient_cleanup varlink-transient-bad-cred-value.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-        "context"
+        "context.Exec.SetCredential"
 }
 
 testcase_file_descriptors() {
@@ -615,14 +615,14 @@ testcase_dependencies() {
     defer_transient_cleanup varlink-invalid-dependency.service
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-invalid-dependency.service","Requires":["invalid@.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' \
-        "context"
+        "context.Requires"
 
     # Non-transient dependency types are rejected as PropertyNotSupported
     defer_transient_cleanup varlink-non-transient-dependency.service
     non_transient_dep=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-non-transient-dependency.service","Triggers":["varlink-transient-dependency.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' 2>&1 || true)
     echo "$non_transient_dep" | grep "io.systemd.Unit.PropertyNotSupported"
-    echo "$non_transient_dep" | grep "Triggers"
+    echo "$non_transient_dep" | grep -F "context.Triggers"
 }
 
 testcase_cgroup() {
@@ -766,7 +766,7 @@ testcase_cgroup() {
     unsupported_cgroup=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-unknown-cgroup.service","CGroup":{"DeviceAllow":[]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
     echo "$unsupported_cgroup" | grep "io.systemd.Unit.PropertyNotSupported"
-    echo "$unsupported_cgroup" | grep "CGroup.DeviceAllow"
+    echo "$unsupported_cgroup" | grep -F "context.CGroup.DeviceAllow"
 }
 
 testcase_cgroup_tasks_max_pair() {
@@ -822,6 +822,22 @@ testcase_cgroup_tasks_max_pair() {
     result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-cgroup-fullscale.service","CGroup":{"TasksMax":{"value":10000,"scale":10000}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
     echo "$result" | jq -e '.context.CGroup.TasksMax == {"value":10000,"scale":10000}'
+}
+
+testcase_dispatch_error_paths() {
+    setup
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"bad/unit.service"}}' \
+        "context.ID"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-null-exec.service","Exec":null}}' \
+        "context.Exec"
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dependency.service","Exec":{"User":"root"},"Requires":["bad/unit.service"]}}' \
+        "context.Requires"
 }
 
 testcase_validation() {

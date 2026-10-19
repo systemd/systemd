@@ -830,18 +830,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         /* Don't propagate the caller's flags (in particular SD_JSON_MANDATORY from the outer 'context'
          * field) into the nested dispatch, otherwise every inner field becomes mandatory. */
         r = sd_json_dispatch_full(variant, context_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->context, &bad_field);
-        if (r == -EADDRNOTAVAIL && !isempty(bad_field)) {
-                /* A UnitContext field that exists in the schema but is not settable at creation time: stash
-                 * the name so the caller can map this to io.systemd.Unit.PropertyNotSupported. If the
-                 * unknown field lives inside the nested Exec object, compose a dotted name to identify the
-                 * actual sub-property. */
-                if (!isempty(p->context.bad_field))
-                        p->bad_field = strjoin(bad_field, ".", p->context.bad_field);
-                else
-                        p->bad_field = strdup(bad_field);
-                if (!p->bad_field)
-                        return -ENOMEM;
-        }
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, p->context.bad_field, &p->bad_field);
         return r;
 }
 
@@ -1113,6 +1103,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
+        _cleanup_free_ char *bad_field_path = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
         Unit *u;
@@ -1129,15 +1120,17 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
-                /* An unknown field in 'context' maps to PropertyNotSupported (the field is defined in the
-                 * UnitContext schema but cannot be set at creation time). Anything else is a bad parameter. */
-                if (streq_ptr(bad_field, "context") && r == -EADDRNOTAVAIL && p.bad_field)
-                        return sd_varlink_errorbo(
-                                        link,
-                                        "io.systemd.Unit.PropertyNotSupported",
-                                        SD_JSON_BUILD_PAIR_STRING("property", p.bad_field));
-                if (bad_field)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
+                if (bad_field) {
+                        varlink_propagate_bad_field(bad_field, p.bad_field, &bad_field_path);
+
+                        if (r == -EADDRNOTAVAIL)
+                                return sd_varlink_errorbo(
+                                                link,
+                                                "io.systemd.Unit.PropertyNotSupported",
+                                                SD_JSON_BUILD_PAIR_STRING("property", bad_field_path));
+
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field_path);
+                }
                 return r;
         }
 
