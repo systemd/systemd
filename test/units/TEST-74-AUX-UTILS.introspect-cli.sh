@@ -125,6 +125,7 @@ INTROSPECTABLE=(
     systemd-modules-load
     systemd-mount
     systemd-mountfsd
+    systemd-mountwork
     systemd-mstack
     systemd-mute-console
     systemd-network-generator
