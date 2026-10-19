@@ -49,8 +49,10 @@
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-link-bus.h"
+#include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
+#include "networkd-manager-varlink.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-neighbor-proxy.h"
@@ -249,7 +251,7 @@ static void link_free_engines(Link *link) {
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_6rd_tunnel_name = mfree(link->dhcp4_6rd_tunnel_name);
 
-        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
+        link_lldp_rx_free(link);
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
         link->ipv4acd_by_address = hashmap_free(link->ipv4acd_by_address);
@@ -280,6 +282,13 @@ static Link* link_free(Link *link) {
         link->tclasses = set_free(link->tclasses);
 
         link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
+
+        /* Either link_drop() already notified the subscribers, or the manager is being freed and they will
+         * just see the connection closed. Hence, unref the LLDP receiver directly instead of letting
+         * link_free_engines() call link_lldp_rx_free(), so that the destructor never sends notifications,
+         * whatever order manager_free() releases the subscriptions and the links in. */
+        link->lldp_neighbors_subscriptions = set_free(link->lldp_neighbors_subscriptions);
+        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
 
         link_free_engines(link);
 
@@ -439,7 +448,7 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 server: %m"));
 
-        r = sd_lldp_rx_stop(link->lldp_rx);
+        r = link_lldp_rx_stop(link);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Rx: %m"));
 
@@ -1182,6 +1191,11 @@ static Link *link_drop(Link *link) {
         /* The following must be called at last. */
         hashmap_remove_value(link->manager->links_by_index, INT_TO_PTR(link->ifindex), link);
 
+        /* This must be done after removing the link from links_by_index, so that the other LLDP
+         * neighbors subscribers get a list without it. */
+        link_varlink_drop_lldp_neighbors_subscriptions(link);
+        link_lldp_rx_free(link);
+
         if (notify)
                 manager_notify_hook_filters(link->manager);
 
@@ -1237,7 +1251,7 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         link->dhcp_relay_interface = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface);
         link->dhcp_relay_interface_compat = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface_compat);
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
-        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
+        link_lldp_rx_free(link); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
         /* Even if we do not release DHCP lease or so, reset 'configured' flags. Otherwise, e.g. if
@@ -2802,6 +2816,7 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
 static int link_update(Link *link, sd_netlink_message *message) {
         bool needs_reconfigure = false;
+        bool names_changed = false;
         int r;
 
         assert(link);
@@ -2810,12 +2825,17 @@ static int link_update(Link *link, sd_netlink_message *message) {
         r = link_update_name(link, message);
         if (r < 0)
                 return r;
-        needs_reconfigure = needs_reconfigure || r > 0;
+        names_changed = names_changed || r > 0;
 
         r = link_update_alternative_names(link, message);
         if (r < 0)
                 return r;
-        needs_reconfigure = needs_reconfigure || r > 0;
+        names_changed = names_changed || r > 0;
+
+        if (names_changed) {
+                link_lldp_rx_notify_names_changed(link);
+                needs_reconfigure = true;
+        }
 
         r = link_update_mtu(link, message);
         if (r < 0)

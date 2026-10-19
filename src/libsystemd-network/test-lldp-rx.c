@@ -111,6 +111,7 @@ static void test_receive_basic_packet(sd_event *e) {
         sd_event_run(e, 0);
         assert_se(lldp_rx_handler_calls == 1);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
+        ASSERT_OK_EQ(sd_lldp_rx_get_n_neighbors(lldp_rx), 1);
 
         assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[0], &type, &data, &length) == 0);
         assert_se(type == SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS);
@@ -163,6 +164,7 @@ static void test_receive_incomplete_packet(sd_event *e) {
         sd_event_run(e, 0);
         assert_se(lldp_rx_handler_calls == 0);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 0);
+        ASSERT_OK_EQ(sd_lldp_rx_get_n_neighbors(lldp_rx), 0);
 
         assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
@@ -204,6 +206,7 @@ static void test_receive_oui_packet(sd_event *e) {
         sd_event_run(e, 0);
         assert_se(lldp_rx_handler_calls == 1);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
+        ASSERT_OK_EQ(sd_lldp_rx_get_n_neighbors(lldp_rx), 1);
 
         assert_se(sd_lldp_neighbor_tlv_rewind(neighbors[0]) >= 0);
         assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_CHASSIS_ID) > 0);
@@ -337,6 +340,7 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         assert_se(lldp_rx_handler_calls == 6);
 
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 6);
+        ASSERT_OK_EQ(sd_lldp_rx_get_n_neighbors(lldp_rx), 6);
 
         for (i = 0; i < 6; i++) {
                 assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[i], &type, &data, &length) == 0);
@@ -402,6 +406,7 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
         ASSERT_OK(sd_event_run(e, 0));
         ASSERT_EQ(lldp_rx_handler_calls, 1);
         ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 1);
+        ASSERT_OK_EQ(sd_lldp_rx_get_n_neighbors(lldp_rx), 1);
 
         ASSERT_OK(sd_lldp_neighbor_get_port_vlan_id(neighbors[0], &vlanid));
         ASSERT_EQ(vlanid, 0x1234);
