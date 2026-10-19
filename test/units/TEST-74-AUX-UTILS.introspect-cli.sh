@@ -194,6 +194,7 @@ INTROSPECTABLE=(
     systemd-umount
     systemd-update-done
     systemd-update-helper
+    systemd-update-utmp
     systemd-user-runtime-dir
     systemd-user-sessions
     systemd-userdbd
