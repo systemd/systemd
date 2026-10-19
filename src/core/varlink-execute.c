@@ -1060,6 +1060,8 @@ struct TransientExecContextParameters {
         ProtectHome protect_home;
         PrivateTmp private_tmp;
         PrivateUsers private_users;
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input, ExecInput, exec_input_from_string);
@@ -1099,6 +1101,7 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
         strv_free(p->supplementary_groups);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
+        free(p->bad_field);
 
         return mfree(p);
 }
@@ -1615,7 +1618,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientExecContextParameters*, transient_exec_cont
 int transient_exec_context_dispatch(
                 sd_json_variant *variant,
                 TransientExecContextParameters **ret,
-                const char **reterr_field) {
+                const char **reterr_bad_field) {
 
         /* Build dispatch table only once, its constant. */
         static sd_json_dispatch_field exec_dispatch[ELEMENTSOF(exec_properties) + 1] = {};
@@ -1644,7 +1647,7 @@ int transient_exec_context_dispatch(
 
         transient_exec_context_parameters_init(p);
 
-        r = sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        r = sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
         if (r < 0)
                 return r;
 
@@ -1652,7 +1655,7 @@ int transient_exec_context_dispatch(
         return r;
 }
 
-int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p, const char **reterr_field) {
+int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p, const char **reterr_bad_field) {
         int r;
 
         assert(u);
@@ -1662,8 +1665,8 @@ int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientEx
         FOREACH_ELEMENT(prop, exec_properties) {
                 r = prop->apply(u, c, p);
                 if (r < 0) {
-                        if (reterr_field)
-                                *reterr_field = r == -EINVAL ? prop->err_field : NULL;
+                        if (reterr_bad_field)
+                                *reterr_bad_field = r == -EINVAL ? prop->err_field : NULL;
                         return r;
                 }
         }
