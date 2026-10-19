@@ -33,7 +33,8 @@ Note that the promise of stability applies only after an interface has been part
 
 * **The D-Bus interfaces** of the manager and other daemons.
 
-* **The Varlink interfaces** of the manager and other daemons.
+* **The Varlink interfaces** of the manager and other daemons,
+  except for those parts marked as experimental (see below).
 
 * **The unit configuration file format**.
   Unit files written now will stay compatible with future versions of systemd.
@@ -96,6 +97,11 @@ and existing attributes and methods are never removed.
 
 * **The private shared libraries** like `libsystemd-shared.so` which
   are installed into a private systemd directory.
+
+* **Experimental parts of the Varlink interfaces**,
+  i.e. interfaces, methods, errors, types, fields and enum values
+  marked with a `# [Experimental]` comment in the interface description.
+  See [Varlink](/VARLINK) for details.
 
 
 ## Portability
