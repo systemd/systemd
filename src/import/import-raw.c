@@ -45,7 +45,10 @@ typedef struct RawImport {
         int input_fd;
         int output_fd;
 
+        Compression compression;
         Compressor *compress;
+
+        ImportDigest decoded_digest;
 
         sd_event_source *input_event_source;
 
@@ -116,6 +119,7 @@ int raw_import_new(
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
                 .offset = UINT64_MAX,
+                .compression = _COMPRESSION_INVALID,
                 .size_max = UINT64_MAX,
         };
 
@@ -216,6 +220,10 @@ static int raw_import_finish(RawImport *i) {
 
         assert(i);
         assert(i->output_fd >= 0);
+
+        r = import_digest_verify(&i->decoded_digest);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(i->flags, IMPORT_ZERO_FILL)) {
                 r = import_zero_fill(i->output_fd, i->offset, i->size_max, i->written_uncompressed);
@@ -339,6 +347,10 @@ static int raw_import_try_reflink(RawImport *i) {
         if (compressor_type(i->compress) != COMPRESSION_NONE)
                 return 0;
 
+        /* We need to see the data to verify it */
+        if (i->decoded_digest.enabled)
+                return 0;
+
         if (i->offset != UINT64_MAX || i->size_max != UINT64_MAX)
                 return 0;
 
@@ -385,6 +397,8 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
                                                                      * disk to the max */
                 }
         }
+
+        import_digest_update(&i->decoded_digest, p, sz);
 
         /* Generate sparse file if we created/truncated the file */
         if (S_ISREG(i->output_stat.st_mode) && i->offset == UINT64_MAX) {
@@ -435,7 +449,14 @@ static int raw_import_process(RawImport *i) {
 
         if (!i->compress) {
 
-                if (l == 0) { /* EOF */
+                if (i->compression >= 0) {
+                        /* We were told which algorithm to expect, hence don't guess from the data */
+                        r = decompressor_force(&i->compress, i->compression);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to initialize decompressor: %m");
+                                goto finish;
+                        }
+                } else if (l == 0) { /* EOF */
                         log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
                         decompressor_force_off(&i->compress);
                 } else {
@@ -508,12 +529,15 @@ int raw_import_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
+                Compression compression,
+                const struct iovec *decoded_checksum,
                 ImportFlags flags) {
         int r;
 
         assert(i);
         assert(fd >= 0);
         assert(local);
+        assert(compression < _COMPRESSION_MAX);
         assert(!(flags & ~IMPORT_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
         assert(!FLAGS_SET(flags, IMPORT_ZERO_FILL) || (offset != UINT64_MAX && size_max != UINT64_MAX));
@@ -535,6 +559,8 @@ int raw_import_start(
         i->flags = flags;
         i->offset = offset;
         i->size_max = size_max;
+        i->compression = compression;
+        import_digest_init(&i->decoded_digest, decoded_checksum);
 
         if (fstat(fd, &i->input_stat) < 0)
                 return -errno;

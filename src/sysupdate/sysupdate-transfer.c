@@ -23,6 +23,9 @@
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "json-util.h"
+#include "iovec-util.h"
+#include "memfd-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
@@ -32,6 +35,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
@@ -45,8 +49,10 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
+#include "sysupdate-xattr-match.h"
 #include "time-util.h"
 #include "web-util.h"
+#include "xattr-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
@@ -95,7 +101,9 @@ Transfer* transfer_new(Context *ctx) {
 
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
+                .source.manifest_format = MANIFEST_FORMAT_SHA256SUMS,
                 .target.type = _RESOURCE_TYPE_INVALID,
+                .target.manifest_format = _MANIFEST_FORMAT_INVALID,
                 .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
@@ -372,6 +380,7 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
@@ -394,6 +403,7 @@ static int config_parse_resource_path(
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_manifest_format, manifest_format, ManifestFormat);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
@@ -498,6 +508,43 @@ static int config_parse_partition_flags(
 
         t->partition_flags_set = true;
         return 0;
+}
+
+static int config_parse_resource_manifest_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Transfer *t = ASSERT_PTR(userdata);
+        char **path = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *path = mfree(*path);
+                return 0;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ManifestPath=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* Note that we don't validate the path as URL here, because we want to stay close to
+         * config_parse_resource_path() semantics. */
+
+        return free_and_replace(*path, resolved);
 }
 
 static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
@@ -608,6 +655,21 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                                   "Source path is not a valid HTTP, HTTPS, file, or provider URL: %s", t->source.path);
         }
 
+        if (!IN_SET(t->source.manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Manifest format '%s' not supported for source specifications, refusing.",
+                                  manifest_format_to_string(t->source.manifest_format));
+
+        if (t->source.manifest_path) {
+                if (!RESOURCE_IS_URL(t->source.type))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "ManifestPath= is only support for URL sources: %s", t->source.path);
+
+                if (!http_url_is_valid(t->source.manifest_path) && !file_url_is_valid(t->source.manifest_path))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Manifest path is not a valid HTTP or HTTPS URL: %s", t->source.manifest_path);
+        }
+
         if (strv_isempty(t->source.patterns))
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
@@ -662,35 +724,44 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version             },
-                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0,                    &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,                0,                    &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
-                { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                  },
-                { "Target",      "PartitionZeroFill",       config_parse_tristate,                     0,                    &t->zero_fill               },
-                { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink         },
+                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version                            },
+                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version                            },
+                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions                     },
+                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                                 },
+                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog                              },
+                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream                              },
+                { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                               },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0,                    &t->requisite_features                     },
+                { "Transfer",    "MatchXAttrHostname",      config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_HOSTNAME]      },
+                { "Transfer",    "MatchXAttrMachineID",     config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_MACHINE_ID]    },
+                { "Transfer",    "MatchXAttrMachineTags",   config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_MACHINE_TAGS]  },
+                { "Transfer",    "MatchXAttrImageID",       config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_IMAGE_ID]      },
+                { "Transfer",    "MatchXAttrImageVersion",  config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_IMAGE_VERSION] },
+                { "Transfer",    "MatchXAttrOSID",          config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_OS_ID]         },
+                { "Transfer",    "MatchXAttrOSVersionID",   config_parse_bool,                         0,                    &t->match_xattr[XATTR_MATCH_OS_VERSION_ID] },
+                { "Source",      "Type",                    config_parse_resource_type,                0,                    &t->source.type                            },
+                { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                                 },
+                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to                },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns                        },
+                { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format                 },
+                { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path                   },
+                { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type                            },
+                { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                                 },
+                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to                },
+                { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns                        },
+                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                                 },
+                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                                          },
+                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                                          },
+                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                                },
+                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                                 },
+                { "Target",      "PartitionZeroFill",       config_parse_tristate,                     0,                    &t->zero_fill                              },
+                { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only                              },
+                { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                                   },
+                { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left                             },
+                { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done                             },
+                { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max                          },
+                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary                       },
+                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink                        },
                 {}
         };
 
@@ -939,17 +1010,24 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
          * from, for logging purposes. */
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY },
-                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        SD_JSON_NULLABLE },
-                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        SD_JSON_NULLABLE },
-                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), SD_JSON_NULLABLE },
-                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             SD_JSON_NULLABLE },
-                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          SD_JSON_NULLABLE },
-                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          SD_JSON_NULLABLE },
-                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           SD_JSON_NULLABLE },
-                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), SD_JSON_NULLABLE },
-                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY },
-                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY },
+                { "id",                     SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                                     SD_JSON_MANDATORY },
+                { "minVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),                            SD_JSON_NULLABLE  },
+                { "maxVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),                            SD_JSON_NULLABLE  },
+                { "protectVersion",         SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions),                     SD_JSON_NULLABLE  },
+                { "verify",                 SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),                                 SD_JSON_NULLABLE  },
+                { "changeLog",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),                              SD_JSON_NULLABLE  },
+                { "appStream",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),                              SD_JSON_NULLABLE  },
+                { "features",               SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),                               SD_JSON_NULLABLE  },
+                { "requisiteFeatures",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features),                     SD_JSON_NULLABLE  },
+                { "matchXAttrHostname",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_HOSTNAME]),      SD_JSON_NULLABLE  },
+                { "matchXAttrMachineID",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_MACHINE_ID]),    SD_JSON_NULLABLE  },
+                { "matchXAttrMachineTags",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_MACHINE_TAGS]),  SD_JSON_NULLABLE  },
+                { "matchXAttrImageID",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_IMAGE_ID]),      SD_JSON_NULLABLE  },
+                { "matchXAttrImageVersion", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_IMAGE_VERSION]), SD_JSON_NULLABLE  },
+                { "matchXAttrOSID",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_OS_ID]),         SD_JSON_NULLABLE  },
+                { "matchXAttrOSVersionID",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, match_xattr[XATTR_MATCH_OS_VERSION_ID]), SD_JSON_NULLABLE  },
+                { "source",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                                          SD_JSON_MANDATORY },
+                { "target",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                                          SD_JSON_MANDATORY },
                 {},
         };
 
@@ -968,6 +1046,17 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
                 return log_oom();
 
         return transfer_finalize(t, o, /* line= */ 0, known_features);
+}
+
+unsigned transfer_xattr_match_mask(const Transfer *t) {
+        unsigned mask = 0;
+
+        assert(t);
+
+        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++)
+                SET_FLAG(mask, XATTR_MATCH_MASK(m), t->match_xattr[m]);
+
+        return mask;
 }
 
 int transfer_resolve_paths(
@@ -1416,6 +1505,7 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
 static int run_callout(
                 const char *name,
                 char *cmdline[],
+                int stdin_fd,
                 const Transfer *transfer,
                 const Instance *instance,
                 TransferProgress callback,
@@ -1455,7 +1545,13 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &ctx->pid);
+        /* Optionally connect the helper's stdin to the specified fd, otherwise it inherits ours */
+        r = pidref_safe_fork_full(
+                        ctx->name,
+                        stdin_fd >= 0 ? (int[]) { stdin_fd, STDOUT_FILENO, STDERR_FILENO } : NULL,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|(stdin_fd >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        &ctx->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
         if (r == 0) {
@@ -1584,8 +1680,223 @@ static bool transfer_zero_fill(const Transfer *t) {
         return partition_designator_is_verity_sig(t->target.partition_type.designator);
 }
 
-int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
+static int literal_to_memfd(const struct iovec *data) {
+
+        assert(data);
+
+        /* Places inline data from the manifest in a sealed memory file descriptor, which we can hand to
+         * systemd-import as standard input. */
+
+        _cleanup_close_ int fd = memfd_new_and_seal("sysupdate-literal", data->iov_base, data->iov_len);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to allocate memory file for inline data: %m");
+
+        if (lseek(fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to rewind memory file: %m");
+
+        return TAKE_FD(fd);
+}
+
+static int transfer_acquire_source(
+                Transfer *t,
+                Instance *i,
+                const Uapi16Contents *s,
+                const char *compression,
+                TransferProgress cb,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ char *digest = NULL;
+        _cleanup_close_ int literal_fd = -EBADF;
+        const char *from, *to;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(s);
+        assert(compression);
+        assert(RESOURCE_IS_URL(i->resource->type));
+
+        /* Acquires a URL backed resource instance from one of its sources: either downloads it from the URL,
+         * or takes the literal data the manifest carries. We run everything through systemd-pull or
+         * systemd-import, so that decompression, sparse file handling and sandboxing are the same regardless
+         * of where the data comes from. The compression algorithm is passed down explicitly, so that the
+         * tools strictly decode with what the manifest declares, instead of guessing from the data. */
+
+        bool tar = i->resource->type == RESOURCE_URL_TAR;
+
+        if (s->url) {
+                /* We require the SHA256 sum to be known so that we can validate the download. */
+                if (!iovec_is_set(&s->encoded_sha256))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", s->url);
+
+                digest = hexmem(s->encoded_sha256.iov_base, s->encoded_sha256.iov_len);
+                if (!digest)
+                        return log_oom();
+
+                from = s->url;
+                r = strv_extend_many(
+                                &cmdline,
+                                SYSTEMD_PULL_PATH,
+                                tar ? "tar" : "raw",
+                                "--direct",          /* just download the specified URL, don't download anything else */
+                                "--verify", digest); /* validate by explicit SHA256 sum */
+        } else {
+                struct iovec data = s->literal;
+
+                assert(iovec_is_set(&data));
+
+                /* Literal data: check it against its digest right here, cut out the part that makes up the
+                 * file, and pass it to systemd-import via a memory file descriptor as standard input. */
+
+                if (iovec_is_set(&s->encoded_sha256) &&
+                    memcmp_nn(SHA256_DIRECT(data.iov_base, data.iov_len), SHA256_DIGEST_SIZE,
+                              s->encoded_sha256.iov_base, s->encoded_sha256.iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' does not match its SHA256 digest, refusing.", i->path);
+
+                if (s->encoding) {
+                        /* Encoded data we cannot cut into, and leave decoding to the importer */
+                        if (s->offset != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Inline data of '%s' is encoded and carries more than the file, refusing.", i->path);
+                } else {
+                        if (s->offset > data.iov_len)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' is shorter than the offset of the file in it, refusing.", i->path);
+
+                        data = IOVEC_MAKE((uint8_t*) data.iov_base + s->offset, data.iov_len - s->offset);
+
+                        if (i->metadata.size != UINT64_MAX) {
+                                if (data.iov_len < i->metadata.size)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' is shorter than the file, refusing.", i->path);
+
+                                data.iov_len = i->metadata.size;
+                        }
+
+                        if (i->metadata.sha256sum_set &&
+                            memcmp_nn(SHA256_DIRECT(data.iov_base, data.iov_len), SHA256_DIGEST_SIZE,
+                                      i->metadata.sha256sum, sizeof(i->metadata.sha256sum)) != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' does not match the file's SHA256 digest, refusing.", i->path);
+                }
+
+                literal_fd = literal_to_memfd(&data);
+                if (literal_fd < 0)
+                        return literal_fd;
+
+                from = "-"; /* i.e. read from stdin */
+                r = strv_extend_many(
+                                &cmdline,
+                                SYSTEMD_IMPORT_PATH,
+                                tar ? "tar" : "raw",
+                                "--direct");         /* just copy/unpack the specified file, don't do anything else */
+        }
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "--compression=%s", compression);
+        if (r < 0)
+                return log_oom();
+
+        if (s->encoding && i->metadata.sha256sum_set) {
+                /* The digests checked so far cover the encoded data only, hence let the tool also check the
+                 * decoded data against the file's digest */
+                _cleanup_free_ char *decoded_digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
+                if (!decoded_digest)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "--verify-decoded=%s", decoded_digest);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = strv_extend(&cmdline, t->context->sync ? "--sync=yes" : "--sync=no");
+        if (r < 0)
+                return log_oom();
+
+        if (tar) {
+                assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
+
+                r = strv_extend(&cmdline, t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no");
+                if (r < 0)
+                        return log_oom();
+
+                to = t->temporary_partial_path;
+
+        } else if (t->target.type == RESOURCE_PARTITION) {
+                r = strv_extendf(&cmdline, "--offset=%" PRIu64, t->partition_info.start);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "--size-max=%" PRIu64, t->partition_info.size);
+                if (r < 0)
+                        return log_oom();
+
+                to = t->target.path;
+
+        } else {
+                assert(t->target.type == RESOURCE_REGULAR_FILE);
+                to = t->temporary_partial_path;
+        }
+
+        r = strv_extend_many(&cmdline, from, to);
+        if (r < 0)
+                return log_oom();
+
+        return run_callout(
+                        s->url ? (tar ? "(sd-pull-tar)" : "(sd-pull-raw)") : (tar ? "(sd-import-tar)" : "(sd-import-raw)"),
+                        cmdline,
+                        literal_fd,
+                        t, i, cb, userdata);
+}
+
+static int instance_apply_user_xattrs(Instance *i, const char *path) {
+        int r;
+
+        assert(i);
+        assert(path);
+
+        /* Applies the user extended attributes listed in the manifest to the installed inode, so that they
+         * are retained on the target. This in particular matters for the ones MatchXAttr*= looks at. Failing
+         * to do so is not fatal, the instance is fully usable without them. Returns > 0 if any attribute
+         * was applied. */
+
+        if (i->n_user_xattrs == 0)
+                return 0;
+
+        _cleanup_close_ int fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                log_warning_errno(errno, "Failed to open '%s' to apply extended attributes, ignoring: %m", path);
+                return 0;
+        }
+
+        bool applied = false;
+        FOREACH_ARRAY(x, i->user_xattrs, i->n_user_xattrs) {
+                _cleanup_free_ char *n = strjoin("user.", x->name);
+                if (!n)
+                        return log_oom();
+
+                r = xsetxattr_full(
+                                fd,
+                                /* path= */ NULL,
+                                AT_EMPTY_PATH,
+                                n,
+                                x->value.iov_base,
+                                x->value.iov_len,
+                                /* xattr_flags= */ 0);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        log_notice_errno(r, "File system backing '%s' does not support extended attributes, not applying them: %m", path);
+                        break;
+                }
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set extended attribute '%s' on '%s', ignoring: %m", n, path);
+                        continue;
+                }
+
+                applied = true;
+        }
+
+        return applied;
+}
+
+int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
         Instance *existing;
@@ -1660,18 +1971,6 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
         log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
 
-        if (RESOURCE_IS_URL(i->resource->type)) {
-                /* For URL sources we require the SHA256 sum to be known so that we can validate the
-                 * download. */
-
-                if (!i->metadata.sha256sum_set)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", i->path);
-
-                digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
-                if (!digest)
-                        return log_oom();
-        }
-
         switch (i->resource->type) { /* Source */
 
         case RESOURCE_REGULAR_FILE:
@@ -1693,7 +1992,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_partial_path),
-                                        t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -1711,7 +2010,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
-                                        t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                         break;
 
                 default:
@@ -1735,7 +2034,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                 break;
 
         case RESOURCE_TAR:
@@ -1752,68 +2051,43 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                 break;
 
         case RESOURCE_URL_FILE:
-
-                switch (t->target.type) {
-
-                case RESOURCE_REGULAR_FILE:
-
-                        /* url file → regular file */
-
-                        r = run_callout("(sd-pull-raw)",
-                                       STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_partial_path),
-                                        t, i, cb, userdata);
-                        break;
-
-                case RESOURCE_PARTITION:
-
-                        /* url file → partition */
-
-                        r = run_callout("(sd-pull-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-
-                break;
-
         case RESOURCE_URL_TAR:
-                assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = run_callout("(sd-pull-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_PULL_PATH,
-                                       "tar",
-                                       "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       t->context->sync ? "--sync=yes" : "--sync=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                t, i, cb, userdata);
+                if (i->n_sources == 0) {
+                        /* The manifest lists no sources for the file, hence acquire it by its name relative
+                         * to the source URL. */
+                        Uapi16Contents fallback = UAPI16_CONTENTS_NULL;
+
+                        fallback.url = i->path;
+                        fallback.offset = 0;
+                        if (i->metadata.sha256sum_set)
+                                fallback.encoded_sha256 = IOVEC_MAKE(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
+
+                        /* For SHA256SUMS manifests we know nothing about the compression, hence let the tool
+                         * figure it out, and decompress implicitly. UAPI.16 manifests declare encodings
+                         * explicitly, via "contents", hence a file without it is to be taken as is: its
+                         * digest is the one of the file as stored. */
+                        r = transfer_acquire_source(
+                                        t, i, &fallback,
+                                        i->resource->manifest_format == MANIFEST_FORMAT_UAPI16 ? "none" : "auto",
+                                        cb, userdata);
+                } else
+                        /* The manifest lists one or more alternative sources for the file, try them in order
+                         * until one works out. The manifest declares the encoding of each source, hence
+                         * insist on it (or on none) and don't let the tools guess. */
+                        FOREACH_ARRAY(s, i->sources, i->n_sources) {
+                                r = transfer_acquire_source(t, i, s, s->encoding ?: "none", cb, userdata);
+                                if (r >= 0)
+                                        break;
+
+                                if (s + 1 < i->sources + i->n_sources)
+                                        log_warning_errno(r, "Failed to acquire '%s', trying alternative source: %m", i->path);
+                        }
+
                 break;
 
         default:
@@ -1849,6 +2123,12 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         need_sync = true;
                 }
+
+                r = instance_apply_user_xattrs(i, t->temporary_partial_path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        need_sync = true;
 
                 /* Synchronize */
                 if (t->context->sync && need_sync) {

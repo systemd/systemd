@@ -3,6 +3,7 @@
 
 #include "sysupdate-component.h"
 #include "sysupdate-forward.h"
+#include "sysupdate-host.h"
 #include "sysupdate-target.h"
 
 typedef enum SelectMode {
@@ -54,6 +55,8 @@ typedef struct Context {
         UpdateSet *newest_installed, *candidate;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
+
+        HostProperties host_properties; /* Loaded lazily, for MatchXAttr*= */
 
         int installdb_fd;
 

@@ -50,6 +50,7 @@
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
+#include "sysupdate-xattr-match.h"
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -127,6 +128,8 @@ void context_done(Context *c) {
         c->n_update_sets = 0;
 
         c->web_cache = hashmap_free(c->web_cache);
+
+        host_properties_done(&c->host_properties);
 
         c->installdb_fd = safe_close(c->installdb_fd);
 
@@ -572,7 +575,12 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = transfer_xattr_match_mask(t),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
@@ -583,7 +591,12 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = transfer_xattr_match_mask(t),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
@@ -604,7 +617,12 @@ static int context_load_available_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->source,
                                 c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = transfer_xattr_match_mask(t),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }

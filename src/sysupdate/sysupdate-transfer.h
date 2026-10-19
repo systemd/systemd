@@ -6,6 +6,7 @@
 #include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
+#include "sysupdate-xattr-match.h"
 
 typedef struct Transfer {
         char *id;
@@ -19,6 +20,8 @@ typedef struct Transfer {
         char **features;
         char **requisite_features;
         bool enabled;
+
+        bool match_xattr[_XATTR_MATCH_MAX]; /* Which MatchXAttr*= settings are enabled */
 
         Resource source, target;
 
@@ -67,6 +70,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
 
 int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *features);
 int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hashmap *features);
+
+unsigned transfer_xattr_match_mask(const Transfer *t);
 
 int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 

@@ -15,3 +15,4 @@ typedef struct PartitionInfo PartitionInfo;
 typedef struct Resource Resource;
 typedef struct Transfer Transfer;
 typedef struct UpdateSet UpdateSet;
+typedef struct XAttrMatchFilter XAttrMatchFilter;

@@ -1964,11 +1964,25 @@ int decompressor_detect(Decompressor **decompressor, const void *data, size_t si
         return 1;
 }
 
-int decompressor_force_off(Decompressor **decompressor) {
+int decompressor_force(Decompressor **decompressor, Compression type) {
+        int r;
+
         assert(decompressor);
+        assert(type >= 0 && type < _COMPRESSION_MAX);
+
+        /* Like decompressor_detect(), but uses the specified compression algorithm instead of guessing
+         * from the magic bytes. Replaces any decompressor already set up. */
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         *decompressor = compressor_free(*decompressor);
-        return decompressor_new(decompressor, COMPRESSION_NONE, /* flags= */ 0);
+        return decompressor_new(decompressor, type, /* flags= */ 0);
+}
+
+int decompressor_force_off(Decompressor **decompressor) {
+        return decompressor_force(decompressor, COMPRESSION_NONE);
 }
 
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata) {

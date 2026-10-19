@@ -500,6 +500,42 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--manifest=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Enables generation of <ulink
+        url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File Manifest</ulink> files
+        for partitions configured with <varname>ManifestName=</varname>. If enabled, for each partition that
+        is populated with a file system tree (see <varname>CopyFiles=</varname> and related settings in
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>) a
+        manifest of that tree is written, as
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        would generate it, which may later be used to verify the contents of the partition. The output file
+        name consists of the image file name suffixed with the name configured with
+        <varname>ManifestName=</varname> and a <literal>.Uapi16Manifest</literal> extension, replacing a
+        <literal>.raw</literal> extension of the image file name if there is one. Partitions that are not
+        populated in this invocation (for example because they already exist) get no manifest.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--manifest-gpt=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Enables generation of a UAPI.16 manifest describing the partition table of the image.
+        If enabled, a manifest with one object per partition is written, carrying the partition's GPT type,
+        UUID, label and flags, its size and the SHA256 digest of its contents, and referencing the
+        partition's data by its offset in the image file in the object's <literal>contents</literal> array.
+        Partitions are named like their split artifacts. The output file name is the image file name with a
+        <literal>.Uapi16Manifest</literal> extension, replacing a <literal>.raw</literal> extension if there is
+        one. Such a manifest is suitable for consumption by
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        see <varname>ManifestFormat=</varname> in
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--include-partitions=<replaceable>PARTITIONS</replaceable></option></term>
         <term><option>--exclude-partitions=<replaceable>PARTITIONS</replaceable></option></term>
 

@@ -53,6 +53,7 @@ int compressor_start(Compressor *c, const void *data, size_t size, void **buffer
 int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 
 int decompressor_detect(Decompressor **decompressor, const void *data, size_t size);
+int decompressor_force(Decompressor **decompressor, Compression type);
 int decompressor_force_off(Decompressor **decompressor);
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata);
 

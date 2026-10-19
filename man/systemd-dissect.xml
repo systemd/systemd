@@ -45,6 +45,12 @@
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mtree</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--sha256sums</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--uapi16</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--with</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -263,6 +269,43 @@
         complicates reproducibility.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--sha256sums</option></term>
+
+        <listitem><para>Generates a
+        <citerefentry project='man-pages'><refentrytitle>sha256sum</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        compatible file manifest of the specified disk image or directory, i.e. one line per regular file,
+        consisting of the SHA256 digest of the file contents and the file name. This is the format
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        consumes as <filename>SHA256SUMS</filename> file. Only regular files are listed, all other inode
+        types are skipped, and no inode metadata besides the content digest is included.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uapi16</option></term>
+
+        <listitem><para>Generates a file manifest of the specified disk image or directory, following the
+        <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File
+        Manifest</ulink> specification. The output is a JSON-SEQ sequence as per
+        <ulink url="https://datatracker.ietf.org/doc/html/rfc7464">RFC 7464</ulink>, with one record per
+        directory entry, describing the directory tree along with file types, sizes, ownership and access
+        modes, SHA256 content digests for regular files, and inode tokens to capture hardlink
+        relationships. Like <option>--mtree</option>, this is useful for comparing image contents in detail,
+        but in a structured JSON-based format intended for reproducible artifact descriptions. This is the
+        format <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        consumes as <filename>Uapi16Manifest</filename> file, and that
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        generates and verifies for plain directory trees. Note that some inode metadata (such as extended
+        attributes, file system capabilities, MAC labels,
+        <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        file flags and timestamps) is currently not included in the output. Additional fields might be added
+        in the future.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -564,8 +607,10 @@
       <varlistentry>
         <term><option>--mtree-hash=no</option></term>
 
-        <listitem><para>If combined with <option>--mtree</option>, turns off inclusion of file hashes in the
-        mtree output. This makes the <option>--mtree</option> faster when operating on large images.
+        <listitem><para>If combined with <option>--mtree</option> or <option>--uapi16</option>, turns off
+        inclusion of file hashes in the output. This makes the
+        <option>--mtree</option>/<option>--uapi16</option> invocations faster when operating on large
+        images.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
