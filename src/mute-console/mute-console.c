@@ -65,7 +65,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
-        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_LISTEN|SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
