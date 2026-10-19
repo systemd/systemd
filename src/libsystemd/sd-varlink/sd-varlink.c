@@ -1960,6 +1960,13 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, as it
+         * would otherwise be dispatched as reply to this call. Not any earlier though, as the method call
+         * parameters might be owned by it. If we are already awaiting replies however, the current message
+         * is a reply that has not been dispatched yet, which must be kept. */
+        if (v->state == VARLINK_IDLE_CLIENT)
+                varlink_clear_current(v);
+
         r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
@@ -2012,6 +2019,11 @@ _public_ int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd
                         SD_JSON_BUILD_PAIR_BOOLEAN("upgrade", true));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, as it
+         * would otherwise be dispatched as reply to this call. Not any earlier though, as the method call
+         * parameters might be owned by it. */
+        varlink_clear_current(v);
 
         /* Make sure we don't consume any data of the upgraded protocol that might follow the reply */
         json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
@@ -2068,6 +2080,11 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
                         SD_JSON_BUILD_PAIR_BOOLEAN("more", true));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, as it
+         * would otherwise be dispatched as reply to this call. Not any earlier though, as the method call
+         * parameters might be owned by it. */
+        varlink_clear_current(v);
 
         r = varlink_enqueue(v, m);
         if (r < 0)
