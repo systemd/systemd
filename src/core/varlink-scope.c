@@ -174,7 +174,7 @@ int transient_scope_apply_properties(
                 Scope *s,
                 TransientScopeParameters *sp,
                 sd_varlink *link,
-                const char **reterr_bad_field,
+                char **reterr_bad_field,
                 sd_bus_error *reterr_bus_error) {
 
         Unit *u = UNIT(ASSERT_PTR(s));
@@ -195,11 +195,8 @@ int transient_scope_apply_properties(
                 }
         }
 
-        if (r < 0) {
-                if (reterr_bad_field)
-                        *reterr_bad_field = "Scope.PIDs";
-                return r;
-        }
+        if (r < 0)
+                return varlink_propagate_bad_field_errno(r, "PIDs", /* child_bad_field= */ NULL, reterr_bad_field);
 
         return 0;
 }
