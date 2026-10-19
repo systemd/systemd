@@ -21,6 +21,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
@@ -4917,9 +4918,9 @@ static int acquire_stdin_pe_fd(void) {
 
 static int acquire_pe_fd(const char *path) {
         if (path) {
-                int fd = open(path, O_RDONLY|O_CLOEXEC);
+                int fd = open_seekable_data_fd(path);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+                        return log_error_errno(fd, "Failed to open '%s': %m", path);
 
                 return fd;
         }
