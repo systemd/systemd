@@ -534,7 +534,6 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
                 /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
                  * classified by the policy as an 'unprotected' image and will be refused otherwise. */
                 DISSECT_IMAGE_NO_PARTITION_TABLE |
@@ -561,23 +560,30 @@ static int vl_method_mount_image(
                                 use_trusted_policy,
                                 p.image_policy,
                                 &use_policy);
-                if (r < 0)
+                if (r == -ENAVAIL)
+                        /* The client's image policy and our own one have nothing in common, so no image
+                         * satisfies both. We handle this like a refusal by the image policy, so that we ask
+                         * polkit whether the client may use the policy for trusted images instead. */
+                        r = log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                            "Client image policy doesn't overlap with our image policy.");
+                else if (r < 0)
                         return r;
+                else {
+                        r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                        if (r < 0)
+                                return r;
 
-                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
-                if (r < 0)
-                        return r;
+                        log_debug("Using image policy: %s", ps);
 
-                log_debug("Using image policy: %s", ps);
-
-                r = dissect_loop_device(
-                                loop,
-                                &verity,
-                                p.options,
-                                use_policy,
-                                /* image_filter= */ NULL,
-                                dissect_flags,
-                                &di);
+                        r = dissect_loop_device(
+                                        loop,
+                                        &verity,
+                                        p.options,
+                                        use_policy,
+                                        /* image_filter= */ NULL,
+                                        dissect_flags,
+                                        &di);
+                }
                 if (r == -ENOPKG)
                         return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
@@ -587,7 +593,9 @@ static int vl_method_mount_image(
                 if (r == -ERFKILL) {
                         /* The image policy refused this, let's retry after trying to get PolicyKit */
 
-                        if (!polkit_have_untrusted_action) {
+                        /* If we use the policy for trusted images already, a polkit authorization wouldn't
+                         * change the policy. */
+                        if (!use_trusted_policy) {
                                 log_debug("Denied by image policy. Trying a stronger polkit authentication before continuing.");
                                 r = varlink_verify_polkit_async_full(
                                                 link,
@@ -595,7 +603,10 @@ static int vl_method_mount_image(
                                                 polkit_untrusted_action,
                                                 polkit_details,
                                                 /* good_user= */ UID_INVALID,
-                                                /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                /* The image cannot be authenticated, so we don't pass
+                                                 * POLKIT_DEFAULT_ALLOW. If polkit refuses, we reply with
+                                                 * the image policy error below. */
+                                                POLKIT_DONT_REPLY,
                                                 polkit_registry,
                                                 /* ret_admin= */ NULL);
                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
@@ -646,6 +657,10 @@ static int vl_method_mount_image(
                                 use_trusted_policy,
                                 p.image_policy,
                                 &use_policy);
+                if (r == -ENAVAIL)
+                        /* After polkit allowed the client to mount untrusted images, the client's image
+                         * policy might not overlap with our policy for trusted images. */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
                 if (r < 0)
                         return r;
 
@@ -655,39 +670,56 @@ static int vl_method_mount_image(
 
                 log_debug("Using image policy: %s", ps);
 
+                /* A shared Verity device is reused by anyone who asks for the same root hash, and reusing
+                 * the device doesn't check that the image matches the root hash. A client picks the root
+                 * hash with the partition UUIDs or the signature partition of its image, or passes it to us
+                 * with verityDataFileDescriptor. So we only share devices if the image is in a trusted
+                 * directory and the root hash comes from the image. Otherwise a client could mount the
+                 * contents of any shared Verity device. A polkit authorization for untrusted images doesn't
+                 * enable sharing, because it doesn't authorize access to the devices of other images. */
                 r = dissected_image_decrypt(
                                 di,
                                 /* root= */ NULL,
                                 p.password,
                                 &verity,
                                 use_policy,
-                                dissect_flags);
-                if (r == -EDESTADDRREQ) {
+                                dissect_flags | (p.verity_sharing && image_is_trusted && verity_data_fd < 0 ? DISSECT_IMAGE_VERITY_SHARE : 0));
+                if (IN_SET(r, -EDESTADDRREQ, -ERFKILL)) {
                         /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                         * key chain which we mangle to EDESTADDRREQ. That's great. */
+                         * key chain which we mangle to EDESTADDRREQ. That's great. We get ERFKILL if the
+                         * image policy refuses to use a partition without Verity or without a signature,
+                         * for example because the signature partition is invalid. */
+                        bool key_not_found = r == -EDESTADDRREQ;
 
-                        if (!polkit_have_untrusted_action) {
-                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
+                        if (!use_trusted_policy) {
+                                 log_debug("%s. Trying a stronger polkit authentication before continuing.",
+                                           key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                  r = varlink_verify_polkit_async_full(
                                                  link,
                                                  /* bus= */ NULL,
                                                  polkit_untrusted_action,
                                                  polkit_details,
                                                  /* good_user= */ UID_INVALID,
-                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                 /* The image cannot be authenticated, so we don't pass
+                                                  * POLKIT_DEFAULT_ALLOW. If polkit refuses, we reply with
+                                                  * the image policy error below. */
+                                                 POLKIT_DONT_REPLY,
                                                  polkit_registry,
                                                  /* ret_admin= */ NULL);
                                  if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
                                          return r;
                                  if (r > 0) {
                                          /* Try again, now that we know the client has enough privileges. */
-                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
+                                         log_debug("Retrying after polkit authentication.");
                                          polkit_have_untrusted_action = true;
                                          continue;
                                  }
                          }
 
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                        return sd_varlink_error(
+                                        link,
+                                        key_not_found ? "io.systemd.MountFileSystem.KeyNotFound" : "io.systemd.MountFileSystem.DeniedByImagePolicy",
+                                        NULL);
                 }
                 if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
                                   * under the assumption that some errors are transitional. Which the errors might
@@ -1497,6 +1529,13 @@ static int run(int argc, char *argv[]) {
         TPM2_NOTE(suggested);
 
         log_setup();
+
+        /* dissected_image_decrypt() shares Verity devices if $SYSTEMD_VERITY_SHARING is true, even if we
+         * didn't ask for sharing. We only share devices for trusted images, so the variable may only turn
+         * sharing off. */
+        r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
+        if (r > 0 && unsetenv("SYSTEMD_VERITY_SHARING") < 0)
+                return log_error_errno(errno, "Failed to unset $SYSTEMD_VERITY_SHARING: %m");
 
         m = sd_listen_fds(false);
         if (m < 0)

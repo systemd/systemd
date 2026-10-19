@@ -25,6 +25,7 @@ at_exit() {
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
     rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
+    rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
 }
 
 trap at_exit EXIT
@@ -124,16 +125,18 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
 
-# If the kernel support is present unprivileged user units should be able to use verity images too
+# If the kernel support is present unprivileged user units should be able to use verity images too. mountfsd
+# only shares Verity devices for images in trusted directories, so the devices don't use the root hash as their
+# name.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
-        test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
+        true
 
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
+        true
 
     # Without a signature this should not work, as mountfsd should reject it, even if we explicitly ask to
     # trust it
@@ -141,12 +144,12 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
     # Mount options should not be allowed without elevated privileges
@@ -175,13 +178,13 @@ EOF
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         --property RootImageOptions="root:nosuid" \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && mount | grep -F squashfs | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F squashfs | grep -F nosuid >/dev/null"
 
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
 
     rm -f /etc/polkit-1/rules.d/mountoptions.rules
     systemctl try-reload-or-restart polkit.service
@@ -195,6 +198,38 @@ fi
     --property ExtensionImages=/tmp/app1.raw \
     --property ExtensionImagePolicy=root=verity+signed+unprotected+absent:usr=verity+signed+unprotected+absent \
     true)
+
+# An image with an invalid signature partition passes the untrusted image policy during dissection, but is
+# refused when Verity is set up. mountfsd must ask polkit then too, so that a polkit rule can allow it.
+cp "$MINIMAL_IMAGE.gpt" /var/tmp/test-50-badsig.gpt
+loop="$(losetup --show -P -f /var/tmp/test-50-badsig.gpt)"
+udevadm wait --timeout=60 --settle --initialized=no "${loop}p3"
+printf 'garbage' | udevadm lock --timeout=60 --device="${loop}p3" dd of="${loop}p3" conv=notrunc
+losetup -d "$loop"
+udevadm settle --timeout=60
+(! systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true)
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/untrusted.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+systemctl try-reload-or-restart polkit.service
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true
+# A client policy that doesn't overlap with the policy for untrusted images is handled like a refusal by the
+# image policy, so polkit is asked too.
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    --property RootImagePolicy=root=verity:=unused+absent \
+    true
+rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+systemctl try-reload-or-restart polkit.service
 
 # Install key in keychain
 mkdir -p /run/verity.d

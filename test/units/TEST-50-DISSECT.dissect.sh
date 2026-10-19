@@ -104,6 +104,96 @@ umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
 
+# A signature that can't be validated only prevents activation if the image policy allows "signed" but not
+# "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
+# reports a mismatch instead of failing on the garbage signature. The test image usually contains
+# /usr/lib/verity.d/mkosi.crt, but we install a certificate in /run/verity.d/ to be sure.
+mkdir -p /run/verity.d
+cp /usr/share/mkosi.crt /run/verity.d/test-50-mkosi.crt
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=test-50-unknown \
+            -keyout /tmp/test-50-unknown.key -out /tmp/test-50-unknown.crt
+openssl smime -sign -nocerts -noattr -binary \
+              -in "$MINIMAL_IMAGE.roothash" \
+              -inkey /tmp/test-50-unknown.key \
+              -signer /tmp/test-50-unknown.crt \
+              -outform der \
+              -out /tmp/test-50-unknown.p7s
+head -c 64 /dev/urandom >/tmp/test-50-garbage.p7s
+# The kernel validated the signature of a shared device, so a mount without a signature reuses the device, even if
+# the policy requires a signature.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    mkdir -p /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-validated-mnt
+    SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mount --image-policy=root=signed "$MINIMAL_IMAGE.raw" /tmp/test-50-reuse-mnt
+    test "$(findmnt -n -o SOURCE /tmp/test-50-reuse-mnt)" = "$(findmnt -n -o SOURCE /tmp/test-50-validated-mnt)"
+    systemd-dissect --umount /tmp/test-50-reuse-mnt
+    systemd-dissect --umount /tmp/test-50-validated-mnt
+    rmdir /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+fi
+for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" >/dev/null
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" \
+                                             --image-policy=root=verity+signed >/dev/null
+    # Every signature that no trusted key validates is reported the same way, whether the kernel has no key for
+    # it or rejects it for another reason, for example because it is garbage.
+    (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                                --root-hash-sig="$sig" \
+                                                --image-policy=root=signed 2>&1 >/dev/null) |
+        grep -F "Image lacks recognized signature." >/dev/null
+done
+# A service whose policy requires a signature must not reuse a shared Verity device that was set up without
+# one.
+mkdir -p /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+# If only userspace validates our signature, a device that we set up ourselves wouldn't have a validated
+# signature either, so we reuse the shared device, even if the policy requires a signature.
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+mkdir -p /tmp/test-50-signed-mnt
+for policy in root=verity+signed root=signed; do
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy="$policy" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o SOURCE /tmp/test-50-signed-mnt)" = "$(findmnt -n -o SOURCE /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+done
+rm /run/verity.d/test-50-unknown.crt
+# If the kernel validates our signature, we set up our own device instead.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=verity+signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o SOURCE /tmp/test-50-signed-mnt)" != "$(findmnt -n -o SOURCE /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+fi
+rmdir /tmp/test-50-signed-mnt
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
+# With root-hash-signature-required, systemd-veritysetup only sets up the device if the kernel or userspace
+# validates the signature.
+(! /usr/lib/systemd/systemd-veritysetup attach test-50-required "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" \
+                                        "$MINIMAL_IMAGE_ROOTHASH" \
+                                        root-hash-signature=/tmp/test-50-unknown.p7s,root-hash-signature-required)
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+/usr/lib/systemd/systemd-veritysetup attach test-50-required "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" \
+                                     "$MINIMAL_IMAGE_ROOTHASH" \
+                                     root-hash-signature=/tmp/test-50-unknown.p7s,root-hash-signature-required
+/usr/lib/systemd/systemd-veritysetup detach test-50-required
+rm /run/verity.d/test-50-unknown.crt
+rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
@@ -211,12 +301,43 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=verity:swap=
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
+
+# Without a root hash, Verity can't be set up, so a policy that requires Verity must refuse the image instead
+# of mounting the data partition directly.
+SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" >/dev/null
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=verity >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=signed >/dev/null)
+
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity-sig=unused+absent
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity=unused+absent)
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity=unused+absent)
+
+# A signature partition that can't be parsed is ignored, unless the image policy requires a signature.
+cp "$MINIMAL_IMAGE.gpt" /tmp/test-50-badsig.gpt
+loop="$(losetup --show -P -f /tmp/test-50-badsig.gpt)"
+udevadm wait --timeout=60 --settle --initialized=no "${loop}p3"
+printf 'garbage' | udevadm lock --timeout=60 --device="${loop}p3" dd of="${loop}p3" conv=notrunc
+losetup -d "$loop"
+udevadm settle --timeout=60
+systemd-dissect --mtree /tmp/test-50-badsig.gpt >/dev/null
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" >/dev/null
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=signed >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+# With a root hash, the signature partition is ignored and counts as absent. "verity+signed" allows that.
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=verity+signed >/dev/null
+# Set up a shared Verity device for the same root hash without a signature. A policy that requires a
+# signature must not reuse it.
+mkdir -p /tmp/test-50-badsig-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-badsig-mnt
+(! SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+systemd-dissect --umount /tmp/test-50-badsig-mnt
+rmdir /tmp/test-50-badsig-mnt
+rm /tmp/test-50-badsig.gpt
 
 # Test RootImagePolicy= unit file setting
 systemd-run --wait -P \
@@ -545,6 +666,9 @@ systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -
 # Check dissect shortcut for verity images
 # No verity for the second img (previous test benefits from variations), remove it for the next one
 rm -f "$VDIR/${VBASE}_1.raw"
+# With a signature, the shortcut only reuses a device whose signature the kernel validated, and the kernel can't
+# validate the signature on every host. Hide the signature, so that the shortcut reuses the devices.
+mv "$MINIMAL_IMAGE.roothash.p7s" "$MINIMAL_IMAGE.roothash.p7s.bak"
 cat >/run/systemd/system/testservice-50e-vpick.service <<EOF
 [Service]
 Type=notify
@@ -583,6 +707,7 @@ umount -R /tmp/img
 umount -R /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
+mv "$MINIMAL_IMAGE.roothash.p7s.bak" "$MINIMAL_IMAGE.roothash.p7s"
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -891,7 +1016,10 @@ rm -f /run/systemd/system/testservice-50k.service
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" "$CDIR1" "$CDIR2" "$CIMG1" "$CIMG2" /tmp/vpickminimg /tmp/markers/
 
-# Check dissect shortcut for verity images
+# Check dissect shortcut for verity images. As above, hide the signatures, so that the shortcut reuses the
+# devices.
+mv "$MINIMAL_IMAGE.roothash.p7s" "$MINIMAL_IMAGE.roothash.p7s.bak"
+mv /tmp/app0.roothash.p7s /tmp/app0.roothash.p7s.bak
 cat >/run/systemd/system/testservice-50m.service <<EOF
 [Service]
 Type=notify
@@ -933,6 +1061,8 @@ umount /tmp/img
 umount /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+mv "$MINIMAL_IMAGE.roothash.p7s.bak" "$MINIMAL_IMAGE.roothash.p7s"
+mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
