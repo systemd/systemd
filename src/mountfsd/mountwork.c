@@ -609,6 +609,11 @@ static int vl_method_mount_image(
                                                 /* ret_admin= */ NULL);
                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
                                         return r;
+                                /* If polkit refused, varlink_verify_polkit_async_full() replied with
+                                 * PermissionDenied or InteractiveAuthenticationRequired already. Without
+                                 * polkit support, it doesn't reply. */
+                                if (r < 0 && ENABLE_POLKIT)
+                                        return r;
                                 if (r > 0) {
                                         /* Try again, now that we know the client has enough privileges. */
                                         log_debug("Denied by image policy, retrying after polkit authentication.");
@@ -695,6 +700,11 @@ static int vl_method_mount_image(
                                                  polkit_registry,
                                                  /* ret_admin= */ NULL);
                                  if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                         return r;
+                                 /* If polkit refused, varlink_verify_polkit_async_full() replied with
+                                  * PermissionDenied or InteractiveAuthenticationRequired already. Without
+                                  * polkit support, it doesn't reply. */
+                                 if (r < 0 && ENABLE_POLKIT)
                                          return r;
                                  if (r > 0) {
                                          /* Try again, now that we know the client has enough privileges. */
