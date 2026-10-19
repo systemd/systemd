@@ -48,6 +48,8 @@ struct TransientScopeParameters {
         TransientUSec runtime_rand_extra_usec;
         TransientUSec timeout_stop_usec;
         sd_json_variant *pids;
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_oom_policy, OOMPolicy, oom_policy_from_string);
@@ -58,6 +60,7 @@ TransientScopeParameters* transient_scope_parameters_free(TransientScopeParamete
                 return NULL;
 
         p->pids = sd_json_variant_unref(p->pids);
+        free(p->bad_field);
         return mfree(p);
 }
 
@@ -83,7 +86,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientScopeParameters*, transient_scope_parameter
 int transient_scope_dispatch(
                 sd_json_variant *variant,
                 TransientScopeParameters **ret,
-                const char **reterr_field) {
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field scope_dispatch[] = {
                 { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,      offsetof(TransientScopeParameters, oom_policy),              0 },
@@ -94,6 +97,7 @@ int transient_scope_dispatch(
                 {}
         };
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -107,9 +111,12 @@ int transient_scope_dispatch(
                 .oom_policy = _OOM_POLICY_INVALID,
         };
 
-        r = sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_propagate_bad_field_errno(r, bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;
@@ -167,7 +174,7 @@ int transient_scope_apply_properties(
                 Scope *s,
                 TransientScopeParameters *sp,
                 sd_varlink *link,
-                const char **reterr_field,
+                char **reterr_bad_field,
                 sd_bus_error *reterr_bus_error) {
 
         Unit *u = UNIT(ASSERT_PTR(s));
@@ -189,8 +196,7 @@ int transient_scope_apply_properties(
         }
 
         if (r < 0) {
-                if (reterr_field)
-                        *reterr_field = "Scope.PIDs";
+                varlink_propagate_bad_field("PIDs", /* child_bad_field= */ NULL, reterr_bad_field);
                 return r;
         }
 
