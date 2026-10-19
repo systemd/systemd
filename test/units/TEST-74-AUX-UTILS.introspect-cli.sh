@@ -134,6 +134,7 @@ INTROSPECTABLE=(
     systemd-pcrextend
     systemd-pcrlock
     systemd-portabled
+    systemd-pstore
     systemd-pty-forward
     systemd-pull
     systemd-random-seed
