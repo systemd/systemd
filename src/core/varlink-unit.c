@@ -667,11 +667,6 @@ typedef struct StartTransientContextParameters {
         TransientServiceParameters *service;
         TransientScopeParameters *scope;
         TransientCGroupContextParameters *cgroup;
-        const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
-        const char *bad_kill_field;
-        const char *bad_service_field;
-        const char *bad_scope_field;
-        const char *bad_cgroup_field;
 
         char *bad_field; /* Field path for error propagation. */
 } StartTransientContextParameters;
@@ -724,7 +719,13 @@ static void start_transient_parameters_init(StartTransientParameters *p) {
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
+        const char *bad_field = NULL;
+        int r;
+
+        r = transient_cgroup_context_dispatch(variant, &p->cgroup, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -746,22 +747,46 @@ static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_js
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_service_dispatch(variant, &p->service, &p->bad_service_field);
+        const char *bad_field = NULL;
+        int r;
+
+        r = transient_service_dispatch(variant, &p->service, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_scope_dispatch(variant, &p->scope, &p->bad_scope_field);
+        const char *bad_field = NULL;
+        int r;
+
+        r = transient_scope_dispatch(variant, &p->scope, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_kill_context_dispatch(variant, &p->kill, &p->bad_kill_field);
+        const char *bad_field = NULL;
+        int r;
+
+        r = transient_kill_context_dispatch(variant, &p->kill, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_exec_context_dispatch(variant, &p->exec, &p->bad_exec_field);
+        const char *bad_field = NULL;
+        int r;
+
+        r = transient_exec_context_dispatch(variant, &p->exec, &bad_field);
+        if (r < 0 && bad_field)
+                return varlink_propagate_bad_field_errno(r, bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+        return r;
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -810,16 +835,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                  * the name so the caller can map this to io.systemd.Unit.PropertyNotSupported. If the
                  * unknown field lives inside the nested Exec object, compose a dotted name to identify the
                  * actual sub-property. */
-                if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
-                        p->bad_field = strjoin("Exec.", p->context.bad_exec_field);
-                else if (streq(bad_field, "Kill") && !isempty(p->context.bad_kill_field))
-                        p->bad_field = strjoin("Kill.", p->context.bad_kill_field);
-                else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
-                        p->bad_field = strjoin("Service.", p->context.bad_service_field);
-                else if (streq(bad_field, "Scope") && !isempty(p->context.bad_scope_field))
-                        p->bad_field = strjoin("Scope.", p->context.bad_scope_field);
-                else if (streq(bad_field, "CGroup") && !isempty(p->context.bad_cgroup_field))
-                        p->bad_field = strjoin("CGroup.", p->context.bad_cgroup_field);
+                if (!isempty(p->context.bad_field))
+                        p->bad_field = strjoin(bad_field, ".", p->context.bad_field);
                 else
                         p->bad_field = strdup(bad_field);
                 if (!p->bad_field)
