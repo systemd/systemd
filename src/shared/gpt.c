@@ -386,6 +386,38 @@ int gpt_partition_label_valid(const char *s) {
         return char16_strlen(recoded) <= GPT_LABEL_MAX;
 }
 
+bool gpt_label_is_valid(const char *s) {
+        size_t n = 0;
+
+        /* Checks whether the specified string is suitable as GPT partition label. GPT stores labels as
+         * UTF-16, hence the length limit applies to UTF-16 code units, not characters or bytes. UEFI leaves
+         * it unspecified which characters are permitted, but let's insist on valid UTF-8 and refuse control
+         * characters. */
+
+        if (!s)
+                return false;
+
+        for (const char *p = s; *p;) {
+                char32_t c;
+                int l;
+
+                l = utf8_encoded_valid_unichar_full(p, SIZE_MAX, &c);
+                if (l < 0)
+                        return false;
+
+                if (c < ' ' || (c >= 0x7F && c <= 0x9F)) /* C0 control characters, DEL, C1 control characters */
+                        return false;
+
+                n += c >= 0x10000 ? 2 : 1; /* Characters outside of the BMP require a surrogate pair */
+                if (n > GPT_LABEL_MAX)
+                        return false;
+
+                p += l;
+        }
+
+        return true;
+}
+
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id) {
         const GptPartitionType *pt;
 
