@@ -51,6 +51,8 @@
 #include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "web-util.h"
+#include "xattr-match.h"
+#include "xattr-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
@@ -626,6 +628,11 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                   "Target type '%s' is incompatible with source type '%s', refusing.",
                                   resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
 
+        /* Partitions carry no extended attributes */
+        if (t->target.type == RESOURCE_PARTITION && resource_xattr_match_mask(&t->target) != 0)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchXAttr*= settings in the [Target] section are not supported for partition targets, refusing.");
+
         if (!t->source.path && !t->source.path_auto)
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks Path=.");
@@ -722,37 +729,51 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version             },
-                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0,                    &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,                0,                    &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
-                { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format  },
-                { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path    },
-                { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                  },
-                { "Target",      "PartitionZeroFill",       config_parse_tristate,                     0,                    &t->zero_fill               },
-                { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink         },
+                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version                                   },
+                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version                                   },
+                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions                            },
+                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                                        },
+                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog                                     },
+                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream                                     },
+                { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                                      },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0,                    &t->requisite_features                            },
+                { "Source",      "Type",                    config_parse_resource_type,                0,                    &t->source.type                                   },
+                { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                                        },
+                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to                       },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns                               },
+                { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format                        },
+                { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path                          },
+                { "Source",      "MatchXAttrHostname",      config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_HOSTNAME]      },
+                { "Source",      "MatchXAttrMachineID",     config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_MACHINE_ID]    },
+                { "Source",      "MatchXAttrMachineTags",   config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_MACHINE_TAGS]  },
+                { "Source",      "MatchXAttrImageID",       config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_IMAGE_ID]      },
+                { "Source",      "MatchXAttrImageVersion",  config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_IMAGE_VERSION] },
+                { "Source",      "MatchXAttrOSID",          config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_OS_ID]         },
+                { "Source",      "MatchXAttrOSVersionID",   config_parse_bool,                         0,                    &t->source.match_xattr[XATTR_MATCH_OS_VERSION_ID] },
+                { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type                                   },
+                { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                                        },
+                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to                       },
+                { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns                               },
+                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                                        },
+                { "Target",      "MatchXAttrHostname",      config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_HOSTNAME]      },
+                { "Target",      "MatchXAttrMachineID",     config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_MACHINE_ID]    },
+                { "Target",      "MatchXAttrMachineTags",   config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_MACHINE_TAGS]  },
+                { "Target",      "MatchXAttrImageID",       config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_IMAGE_ID]      },
+                { "Target",      "MatchXAttrImageVersion",  config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_IMAGE_VERSION] },
+                { "Target",      "MatchXAttrOSID",          config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_OS_ID]         },
+                { "Target",      "MatchXAttrOSVersionID",   config_parse_bool,                         0,                    &t->target.match_xattr[XATTR_MATCH_OS_VERSION_ID] },
+                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                                                 },
+                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                                                 },
+                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                                       },
+                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                                        },
+                { "Target",      "PartitionZeroFill",       config_parse_tristate,                     0,                    &t->zero_fill                                     },
+                { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only                                     },
+                { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                                          },
+                { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left                                    },
+                { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done                                    },
+                { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max                                 },
+                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary                              },
+                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink                               },
                 {}
         };
 
@@ -949,12 +970,19 @@ static int dispatch_transfer_source(const char *name, sd_json_variant *variant, 
         Transfer *t = ASSERT_PTR(userdata);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "type",           SD_JSON_VARIANT_STRING, dispatch_resource_type,    offsetof(Transfer, source.type),             SD_JSON_MANDATORY },
-                { "path",           SD_JSON_VARIANT_STRING, dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
-                { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), SD_JSON_NULLABLE },
-                { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
-                { "manifestFormat", SD_JSON_VARIANT_STRING, dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),  SD_JSON_NULLABLE },
-                { "manifestPath",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),    SD_JSON_NULLABLE },
+                { "type",                   SD_JSON_VARIANT_STRING,  dispatch_resource_type,    offsetof(Transfer, source.type),                                   SD_JSON_MANDATORY },
+                { "path",                   SD_JSON_VARIANT_STRING,  dispatch_resource_path,    offsetof(Transfer, source),                                        SD_JSON_MANDATORY },
+                { "pathRelativeTo",         SD_JSON_VARIANT_STRING,  dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to),                       SD_JSON_NULLABLE },
+                { "matchPattern",           SD_JSON_VARIANT_ARRAY,   dispatch_source_patterns,  offsetof(Transfer, source),                                        SD_JSON_MANDATORY },
+                { "manifestFormat",         SD_JSON_VARIANT_STRING,  dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),                        SD_JSON_NULLABLE },
+                { "manifestPath",           SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),                          SD_JSON_NULLABLE },
+                { "matchXAttrHostname",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_HOSTNAME]),      SD_JSON_NULLABLE },
+                { "matchXAttrMachineID",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_MACHINE_ID]),    SD_JSON_NULLABLE },
+                { "matchXAttrMachineTags",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_MACHINE_TAGS]),  SD_JSON_NULLABLE },
+                { "matchXAttrImageID",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_IMAGE_ID]),      SD_JSON_NULLABLE },
+                { "matchXAttrImageVersion", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_IMAGE_VERSION]), SD_JSON_NULLABLE },
+                { "matchXAttrOSID",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_OS_ID]),         SD_JSON_NULLABLE },
+                { "matchXAttrOSVersionID",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Transfer, source.match_xattr[XATTR_MATCH_OS_VERSION_ID]), SD_JSON_NULLABLE },
                 {},
         };
 
@@ -967,23 +995,30 @@ static int dispatch_transfer_target(const char *name, sd_json_variant *variant, 
         Transfer *t = ASSERT_PTR(userdata);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "type",                    SD_JSON_VARIANT_STRING,        dispatch_resource_type,    offsetof(Transfer, target.type),             SD_JSON_NULLABLE },
-                { "path",                    SD_JSON_VARIANT_STRING,        dispatch_resource_path,    offsetof(Transfer, target),                  SD_JSON_MANDATORY },
-                { "pathRelativeTo",          SD_JSON_VARIANT_STRING,        dispatch_path_relative_to, offsetof(Transfer, target.path_relative_to), SD_JSON_NULLABLE },
-                { "matchPattern",            SD_JSON_VARIANT_ARRAY,         dispatch_target_patterns,  offsetof(Transfer, target),                  SD_JSON_NULLABLE },
-                { "matchPartitionType",      SD_JSON_VARIANT_STRING,        dispatch_partition_type,   offsetof(Transfer, target),                  SD_JSON_NULLABLE },
-                { "partitionUUID",           SD_JSON_VARIANT_STRING,        dispatch_partition_uuid,   0,                                           SD_JSON_NULLABLE },
-                { "partitionFlags",          _SD_JSON_VARIANT_TYPE_INVALID, dispatch_partition_flags,  0,                                           0 },
-                { "partitionNoAuto",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, no_auto),                 SD_JSON_NULLABLE },
-                { "partitionGrowFileSystem", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, growfs),                  SD_JSON_NULLABLE },
-                { "partitionZeroFill",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, zero_fill),               SD_JSON_NULLABLE },
-                { "readOnly",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, read_only),               SD_JSON_NULLABLE },
-                { "mode",                    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, offsetof(Transfer, mode),                    0 },
-                { "triesLeft",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_left),              0 },
-                { "triesDone",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_done),              0 },
-                { "instancesMax",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_instances_max,    offsetof(Transfer, instances_max),           0 },
-                { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),        SD_JSON_NULLABLE },
-                { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),         SD_JSON_NULLABLE },
+                { "type",                    SD_JSON_VARIANT_STRING,        dispatch_resource_type,    offsetof(Transfer, target.type),                                   SD_JSON_NULLABLE },
+                { "path",                    SD_JSON_VARIANT_STRING,        dispatch_resource_path,    offsetof(Transfer, target),                                        SD_JSON_MANDATORY },
+                { "pathRelativeTo",          SD_JSON_VARIANT_STRING,        dispatch_path_relative_to, offsetof(Transfer, target.path_relative_to),                       SD_JSON_NULLABLE },
+                { "matchPattern",            SD_JSON_VARIANT_ARRAY,         dispatch_target_patterns,  offsetof(Transfer, target),                                        SD_JSON_NULLABLE },
+                { "matchPartitionType",      SD_JSON_VARIANT_STRING,        dispatch_partition_type,   offsetof(Transfer, target),                                        SD_JSON_NULLABLE },
+                { "partitionUUID",           SD_JSON_VARIANT_STRING,        dispatch_partition_uuid,   0,                                                                 SD_JSON_NULLABLE },
+                { "partitionFlags",          _SD_JSON_VARIANT_TYPE_INVALID, dispatch_partition_flags,  0,                                                                 0 },
+                { "partitionNoAuto",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, no_auto),                                       SD_JSON_NULLABLE },
+                { "partitionGrowFileSystem", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, growfs),                                        SD_JSON_NULLABLE },
+                { "partitionZeroFill",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, zero_fill),                                     SD_JSON_NULLABLE },
+                { "readOnly",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, read_only),                                     SD_JSON_NULLABLE },
+                { "mode",                    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, offsetof(Transfer, mode),                                          0 },
+                { "triesLeft",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_left),                                    0 },
+                { "triesDone",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_done),                                    0 },
+                { "instancesMax",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_instances_max,    offsetof(Transfer, instances_max),                                 0 },
+                { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),                              SD_JSON_NULLABLE },
+                { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),                               SD_JSON_NULLABLE },
+                { "matchXAttrHostname",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_HOSTNAME]),      SD_JSON_NULLABLE },
+                { "matchXAttrMachineID",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_MACHINE_ID]),    SD_JSON_NULLABLE },
+                { "matchXAttrMachineTags",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_MACHINE_TAGS]),  SD_JSON_NULLABLE },
+                { "matchXAttrImageID",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_IMAGE_ID]),      SD_JSON_NULLABLE },
+                { "matchXAttrImageVersion",  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_IMAGE_VERSION]), SD_JSON_NULLABLE },
+                { "matchXAttrOSID",          SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_OS_ID]),         SD_JSON_NULLABLE },
+                { "matchXAttrOSVersionID",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr[XATTR_MATCH_OS_VERSION_ID]), SD_JSON_NULLABLE },
                 {},
         };
 
@@ -1004,17 +1039,17 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
          * from, for logging purposes. */
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY|SD_JSON_STRICT },
-                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        SD_JSON_NULLABLE                 },
-                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        SD_JSON_NULLABLE                 },
-                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), SD_JSON_NULLABLE                 },
-                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             SD_JSON_NULLABLE                 },
-                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          SD_JSON_NULLABLE                 },
-                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          SD_JSON_NULLABLE                 },
-                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           SD_JSON_NULLABLE                 },
-                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), SD_JSON_NULLABLE                 },
-                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY                },
-                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY                },
+                { "id",                     SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                                     SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "minVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),                            SD_JSON_NULLABLE                 },
+                { "maxVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),                            SD_JSON_NULLABLE                 },
+                { "protectVersion",         SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions),                     SD_JSON_NULLABLE                 },
+                { "verify",                 SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),                                 SD_JSON_NULLABLE                 },
+                { "changeLog",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),                              SD_JSON_NULLABLE                 },
+                { "appStream",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),                              SD_JSON_NULLABLE                 },
+                { "features",               SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),                               SD_JSON_NULLABLE                 },
+                { "requisiteFeatures",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features),                     SD_JSON_NULLABLE                 },
+                { "source",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                                          SD_JSON_MANDATORY                },
+                { "target",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                                          SD_JSON_MANDATORY                },
                 {},
         };
 
@@ -1826,6 +1861,55 @@ static int transfer_acquire_source(
                         t, i, cb, userdata);
 }
 
+static int instance_apply_user_xattrs(Instance *i, const char *path) {
+        int r;
+
+        assert(i);
+        assert(path);
+
+        /* Applies the user extended attributes listed in the manifest to the installed inode, so that they
+         * are retained on the target. This in particular matters for the ones MatchXAttr*= looks at. Failing
+         * to do so is not fatal, the instance is fully usable without them. Returns > 0 if any attribute
+         * was applied. */
+
+        if (i->n_user_xattrs == 0)
+                return 0;
+
+        _cleanup_close_ int fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                log_warning_errno(errno, "Failed to open '%s' to apply extended attributes, ignoring: %m", path);
+                return 0;
+        }
+
+        bool applied = false;
+        FOREACH_ARRAY(x, i->user_xattrs, i->n_user_xattrs) {
+                _cleanup_free_ char *n = strjoin("user.", x->name);
+                if (!n)
+                        return log_oom();
+
+                r = xsetxattr_full(
+                                fd,
+                                /* path= */ NULL,
+                                AT_EMPTY_PATH,
+                                n,
+                                x->value.iov_base,
+                                x->value.iov_len,
+                                /* xattr_flags= */ 0);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        log_notice_errno(r, "File system backing '%s' does not support extended attributes, not applying them: %m", path);
+                        break;
+                }
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set extended attribute '%s' on '%s', ignoring: %m", n, path);
+                        continue;
+                }
+
+                applied = true;
+        }
+
+        return applied;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
@@ -2053,6 +2137,12 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         need_sync = true;
                 }
+
+                r = instance_apply_user_xattrs(i, t->temporary_partial_path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        need_sync = true;
 
                 /* Synchronize */
                 if (t->context->sync && need_sync) {

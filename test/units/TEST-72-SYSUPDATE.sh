@@ -1033,7 +1033,6 @@ sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
         "$(stat -c %s "$WORKDIR/uapi16/remote-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")" "$WORKDIR" \
         "$(sha256_of "$WORKDIR/uapi16/remote/remote-v1.bin.gz")"
     printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
-    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
 } >"$WORKDIR/uapi16/manifest/Uapi16Manifest"
 for f in alt remote inline plain; do
     cat >"$CONFIGDIR/01-uapi16-$f.transfer" <<EOF
@@ -1092,6 +1091,86 @@ cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/import-decoded.bin"
 
 rm -f "$CONFIGDIR"/01-uapi16-*.transfer
 rm -rf "$WORKDIR/uapi16"
+
+# Check MatchXAttr*=: instances restricted to other systems via "user.match_…" extended attributes are
+# ignored, both when listed in UAPI.16 manifests and when found on disk, and the extended attributes listed
+# in the manifest are applied to the installed instance.
+XM="$WORKDIR/xattr-match"
+rm -rf "$XM"
+mkdir -p "$XM/definitions" "$XM/definitions-all" "$XM/definitions-target" "$XM/payload" "$XM/manifest/blobs" "$XM/target"
+for v in 1 2 3; do
+    echo "xattr match payload v$v" >"$XM/manifest/blobs/xm-v$v.bin"
+done
+XM_MID="$(cat /etc/machine-id)"
+XM_OSID="$(. /etc/os-release; echo "$ID")"
+XM_OTHER=0123456789abcdef0123456789abcdef
+xm_object() {
+    local v="${1:?}" xattrs=""
+
+    [[ -n "${2:-}" ]] && xattrs=",\"extendedAttributes\":{\"user\":{$2}}"
+    printf '\036{"name":"xm-v%s.bin","size":%s,"sha256":"%s","contents":[{"file":"blobs/xm-v%s.bin"}]%s}\n' \
+        "$v" "$(stat -c %s "$XM/manifest/blobs/xm-v$v.bin")" "$(sha256_of "$XM/manifest/blobs/xm-v$v.bin")" "$v" "$xattrs"
+}
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    # Not restricted in any way
+    xm_object 1
+    # Restricted to two machines, one of which is us, and to our OS. Also carries an unrelated attribute.
+    xm_object 2 "$(printf '"match_machine_id":{"base64":"%s"},"match_os_id":{"text":"%s"},"foo":{"text":"bar"}' \
+        "$(printf '%s\0%s\0' "$XM_OTHER" "$XM_MID" | base64 -w0)" "$XM_OSID")"
+    # Restricted to some other machine
+    xm_object 3 "$(printf '"match_machine_id":{"text":"%s"}' "$XM_OTHER")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$XM/manifest/Uapi16Manifest"
+for d in definitions definitions-all definitions-target; do
+    cat >"$XM/$d/xm.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$XM/payload
+ManifestFormat=uapi16
+ManifestPath=file://$XM/manifest/Uapi16Manifest
+MatchPattern=xm-@v.bin
+
+[Target]
+Type=regular-file
+Path=$XM/target
+MatchPattern=xm-@v.bin
+InstancesMax=1
+EOF
+done
+for d in definitions definitions-target; do
+    cat >>"$XM/$d/xm.transfer" <<EOF
+
+[Source]
+MatchXAttrMachineID=yes
+MatchXAttrOSID=yes
+EOF
+done
+cat >>"$XM/definitions-target/xm.transfer" <<EOF
+
+[Target]
+MatchXAttrMachineID=yes
+EOF
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-all" --verify=no --json=short list | jq -cr '.all') == '["v3","v2","v1"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions" --verify=no --json=short list | jq -cr '.all') == '["v2","v1"]' ]]
+"$SYSUPDATE" --definitions="$XM/definitions" --verify=no update
+cmp "$XM/manifest/blobs/xm-v2.bin" "$XM/target/xm-v2.bin"
+[[ ! -e "$XM/target/xm-v3.bin" ]]
+# The extended attributes from the manifest have been applied
+[[ "$(getfattr --absolute-names --only-values -n user.foo "$XM/target/xm-v2.bin")" == bar ]]
+[[ "$(getfattr --absolute-names --only-values -n user.match_os_id "$XM/target/xm-v2.bin")" == "$XM_OSID" ]]
+cmp <(getfattr --absolute-names --only-values -n user.match_machine_id "$XM/target/xm-v2.bin") <(printf '%s\0%s\0' "$XM_OTHER" "$XM_MID")
+# Installed instances are only filtered if MatchXAttr*= is enabled in the [Target] section too: an installed
+# instance restricted to some other machine is then neither listed nor vacuumed
+echo foreign >"$XM/target/xm-v4.bin"
+setfattr -n user.match_machine_id -v "$XM_OTHER" "$XM/target/xm-v4.bin"
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-all" --verify=no --offline --json=short list | jq -cr '.all') == '["v4","v2"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions" --verify=no --offline --json=short list | jq -cr '.all') == '["v4","v2"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-target" --verify=no --offline --json=short list | jq -cr '.all') == '["v2"]' ]]
+"$SYSUPDATE" --definitions="$XM/definitions-target" --verify=no vacuum
+[[ -e "$XM/target/xm-v2.bin" ]]
+[[ -e "$XM/target/xm-v4.bin" ]]
+rm -rf "$XM"
 
 # Check that malformed manifest hashes are rejected without aborting.
 rm -rf "$WORKDIR/malformed-manifest"

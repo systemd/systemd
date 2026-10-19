@@ -40,6 +40,7 @@
 #include "manifest-util.h"
 #include "uapi16-manifest.h"
 #include "web-util.h"
+#include "xattr-match.h"
 
 void resource_destroy(Resource *rr) {
         assert(rr);
@@ -63,6 +64,17 @@ bool resource_has_glob_directory_pattern(Resource *rr) {
                         return true;
         }
         return false;
+}
+
+unsigned resource_xattr_match_mask(const Resource *rr) {
+        unsigned mask = 0;
+
+        assert(rr);
+
+        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++)
+                SET_FLAG(mask, XATTR_MATCH_MASK(m), rr->match_xattr[m]);
+
+        return mask;
 }
 
 static int resource_add_instance(
@@ -101,7 +113,8 @@ static int resource_load_from_directory_recursive(
                 const char* relpath_for_matching,
                 mode_t m,
                 bool ancestor_is_partial,
-                bool ancestor_is_pending) {
+                bool ancestor_is_pending,
+                const XAttrMatchFilter *filter) {
         int r;
 
         for (;;) {
@@ -206,13 +219,20 @@ static int resource_load_from_directory_recursive(
                                 return log_error_errno(errno, "Failed to open directory %s/%s: %m", rr->path, rel_joined);
                         }
 
-                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
+                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending, filter);
                         if (r < 0)
                                 return r;
                         continue;
                 }
 
                 if (S_ISDIR(st.st_mode) && m != S_IFDIR)
+                        continue;
+
+                /* Skip instances restricted to other systems via extended attributes */
+                r = xattr_match_filter_test_inode(filter, dirfd(d), de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 joined = path_join(rr->path, rel_joined);
@@ -242,7 +262,8 @@ static int resource_load_from_directory_recursive(
 
 static int resource_load_from_directory(
                 Resource *rr,
-                mode_t m) {
+                mode_t m,
+                const XAttrMatchFilter *filter) {
         _cleanup_closedir_ DIR *d = NULL;
 
         assert(rr);
@@ -259,7 +280,15 @@ static int resource_load_from_directory(
                 return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
         }
 
-        return resource_load_from_directory_recursive(rr, d, NULL, NULL, m, false, false);
+        return resource_load_from_directory_recursive(
+                        rr,
+                        d,
+                        /* relpath= */ NULL,
+                        /* relpath_for_matching= */ NULL,
+                        m,
+                        /* ancestor_is_partial= */ false,
+                        /* ancestor_is_pending= */ false,
+                        filter);
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
@@ -787,6 +816,7 @@ static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
 
 typedef struct Uapi16ProcessContext {
         Resource *resource;
+        const XAttrMatchFilter *filter;
 } Uapi16ProcessContext;
 
 static int uapi16_process_object(Uapi16Object *object, size_t index, void *userdata) {
@@ -856,6 +886,11 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         if (!IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY))
                 return 0;
 
+        /* Skip instances restricted to other systems via extended attributes */
+        r = xattr_match_filter_test_uapi16_object(pc->filter, object);
+        if (r <= 0)
+                return r;
+
         _cleanup_free_ char *path = NULL;
         r = import_url_append_component(rr->path, object->name, &path);
         if (r < 0)
@@ -876,12 +911,18 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         instance->n_sources = object->n_contents;
         object->n_contents = 0;
 
+        /* Similar, for the extended attributes to apply when installing */
+        instance->user_xattrs = TAKE_PTR(object->user_xattrs);
+        instance->n_user_xattrs = object->n_user_xattrs;
+        object->n_user_xattrs = 0;
+
         return 0;
 }
 
 static int uapi16_process(
                 Resource *rr,
-                const struct iovec *manifest) {
+                const struct iovec *manifest,
+                const XAttrMatchFilter *filter) {
 
         assert(rr);
         assert(manifest);
@@ -900,13 +941,15 @@ static int uapi16_process(
                         uapi16_process_object,
                         &(Uapi16ProcessContext) {
                                 .resource = rr,
+                                .filter = filter,
                         });
 }
 
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
-                Hashmap **web_cache) {
+                Hashmap **web_cache,
+                const XAttrMatchFilter *filter) {
 
         _cleanup_(iovec_done) struct iovec buf = {};
         struct iovec manifest = {};
@@ -944,7 +987,7 @@ static int resource_load_from_web(
                 break;
 
         case MANIFEST_FORMAT_UAPI16:
-                r = uapi16_process(rr, &manifest);
+                r = uapi16_process(rr, &manifest, filter);
                 break;
 
         default:
@@ -985,7 +1028,7 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache, const XAttrMatchFilter *filter) {
         int r;
 
         assert(rr);
@@ -994,12 +1037,12 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_TAR:
         case RESOURCE_REGULAR_FILE:
-                r = resource_load_from_directory(rr, S_IFREG);
+                r = resource_load_from_directory(rr, S_IFREG, filter);
                 break;
 
         case RESOURCE_DIRECTORY:
         case RESOURCE_SUBVOLUME:
-                r = resource_load_from_directory(rr, S_IFDIR);
+                r = resource_load_from_directory(rr, S_IFDIR, filter);
                 break;
 
         case RESOURCE_PARTITION:
@@ -1008,7 +1051,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache);
+                r = resource_load_from_web(rr, verify, web_cache, filter);
                 break;
 
         default:
