@@ -1312,6 +1312,97 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
     shutil.rmtree(tmp_path)
 
 
+@pytest.mark.parametrize(
+    'options',
+    [
+        ['--pcr-private-key=shared', '--pcr-public-key=shared'],
+        ['--pcr-private-key=shared', '--pcr-public-key=sub/../shared'],
+        ['--secureboot-private-key=shared', '--secureboot-certificate=shared'],
+        [
+            '--pcr-private-key=shared',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=first',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=second',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--secureboot-private-key=shared',
+            '--secureboot-certificate=cert',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=public',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=shared',
+            '--pcr-private-key=pcr',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=public',
+            '--pcr-private-key=private',
+            '--pcr-public-key=public',
+        ],
+    ],
+)
+def test_genkey_conflicting_outputs(tmp_path, monkeypatch, options):
+    (tmp_path / 'sub').mkdir()
+    args = ['ukify', 'genkey', '--config=/dev/null']
+    for option in options:
+        key, path = option.split('=')
+        args.append(f'{key}={tmp_path / path}')
+
+    monkeypatch.setattr(sys, 'argv', args)
+    with pytest.raises(ValueError, match='Conflicting key output path'):
+        ukify.main()
+    assert list(tmp_path.rglob('*')) == [tmp_path / 'sub']
+
+
+@pytest.mark.parametrize('alias', ['', 'sub/..'])
+def test_genkey_repeated_pair(tmp_path, monkeypatch, alias):
+    serialization = pytest.importorskip('cryptography.hazmat.primitives.serialization')
+    (tmp_path / 'sub').mkdir()
+    private, public = tmp_path / 'private.pem', tmp_path / 'public.pem'
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            '--config=/dev/null',
+            f'--pcr-private-key={private}',
+            f'--pcr-public-key={public}',
+            f'--pcr-private-key={tmp_path / alias / "private.pem"}',
+            f'--pcr-public-key={tmp_path / alias / "public.pem"}',
+            '--sign-initrd-pcrs',
+        ]
+    )
+    ukify.check_cert_and_keys_nonexistent(opts)
+
+    generate = ukify.generate_priv_pub_key_pair
+    calls = []
+
+    def generate_once():
+        calls.append(True)
+        return generate()
+
+    monkeypatch.setattr(ukify, 'generate_priv_pub_key_pair', generate_once)
+    ukify.generate_keys(opts)
+
+    assert len(calls) == 1
+    priv = serialization.load_pem_private_key(private.read_bytes(), password=None)
+    pub = serialization.load_pem_public_key(public.read_bytes())
+    assert priv.public_key().public_numbers() == pub.public_numbers()
+
+
 def test_key_cert_generation(tmp_path):
     opts = ukify.parse_args(
         [
