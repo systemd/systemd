@@ -24,6 +24,7 @@
 #include "procfs-util.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
@@ -100,6 +101,11 @@ typedef struct Context {
         unsigned iteration;
         usec_t last_refresh;
         bool immediate_refresh;
+
+        char **message;
+        usec_t message_lifetime;
+
+        usec_t next_display;
 } Context;
 
 #define DEFAULT_MAXIMUM_DEPTH 3
@@ -158,6 +164,7 @@ static void context_done(Context *c) {
 
         free(c->root);
         hashmap_free(c->groups_by_path);
+        strv_free(c->message);
 }
 
 static bool is_root_cgroup(const char *path) {
@@ -691,8 +698,11 @@ static int display(Context *c) {
         if (rows <= 10)
                 rows = 10;
 
+        /* Keep lines for message and table header. */
+        unsigned m = strv_length(c->message) + !strv_isempty(c->message) + on_tty() + 1;
+
         for (unsigned j = 0; j < n; j++) {
-                if (on_tty() && j + 6 > rows)
+                if (on_tty() && j + m >= rows)
                         break;
 
                 g = array[j];
@@ -752,6 +762,11 @@ static int display(Context *c) {
         r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
+
+        STRV_FOREACH(s, c->message) {
+                fputs("\n", stdout);
+                fputs(*s, stdout);
+        }
 
         return 0;
 }
@@ -916,9 +931,16 @@ static int step(Context *c, usec_t t) {
                 c->immediate_refresh = false;
         }
 
+        if (c->message_lifetime > 0 && c->message_lifetime <= t) {
+                c->message = strv_free(c->message);
+                c->message_lifetime = 0;
+        }
+
         r = display(c);
         if (r < 0)
                 return r;
+
+        c->next_display = MIN(usec_add(c->last_refresh, arg_delay), c->message_lifetime ?: USEC_INFINITY);
 
         if (arg_iterations > 0 && c->iteration >= arg_iterations)
                 return 0; /* finished */
@@ -939,7 +961,33 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
+_printf_(3, 4)
+static int set_message(Context *c, usec_t t, const char *format, ...) {
+        _cleanup_free_ char *str = NULL;
+        va_list ap;
+        int r;
+
+        assert(c);
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&str, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_oom();
+
+        char **v = strv_split_newlines(str);
+        if (!v)
+                return log_oom();
+
+        strv_free_and_replace(c->message, v);
+        c->message_lifetime = usec_add(now(CLOCK_MONOTONIC), t);
+        return 0;
+}
+
 static int on_key(Context *c, char key) {
+        int r = 0;
+
         assert(c);
 
         /* Returns 0 if the user asked us to quit, and > 0 otherwise. */
@@ -989,34 +1037,26 @@ static int on_key(Context *c, char key) {
 
         case 'k':
                 arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
-                fprintf(stdout, "\nCounting: %s.", counting_what());
-                fflush(stdout);
-                sleep(1);
+                r = set_message(c, USEC_PER_SEC, "Counting: %s.", counting_what());
                 break;
 
         case 'P':
                 arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
-                fprintf(stdout, "\nCounting: %s.", counting_what());
-                fflush(stdout);
-                sleep(1);
+                r = set_message(c, USEC_PER_SEC, "Counting: %s.", counting_what());
                 break;
 
         case 'r':
                 if (arg_count == COUNT_PIDS)
-                        fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                        r = set_message(c, USEC_PER_SEC, "\aCannot toggle recursive counting, not available in task counting mode.");
                 else {
                         arg_recursive = !arg_recursive;
-                        fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
+                        r = set_message(c, USEC_PER_SEC, "Recursive process counting: %s", yes_no(arg_recursive));
                 }
-                fflush(stdout);
-                sleep(1);
                 break;
 
         case '+':
                 arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-                fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                fflush(stdout);
-                sleep(1);
+                r = set_message(c, USEC_PER_SEC, "Increased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
                 break;
 
         case '-':
@@ -1025,33 +1065,29 @@ static int on_key(Context *c, char key) {
                 else
                         arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
-                fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                fflush(stdout);
-                sleep(1);
+                r = set_message(c, USEC_PER_SEC, "Decreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
                 break;
 
         case '?':
         case 'h':
-
-                fprintf(stdout,
-                        "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
-                        "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
-                        "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                        "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
-                        ansi_highlight(), ansi_normal());
-                fflush(stdout);
-                sleep(3);
+                r = set_message(c, 3 * USEC_PER_SEC,
+                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
+                                ansi_highlight(), ansi_normal());
                 break;
 
         default:
                 if (key < ' ')
-                        fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
+                        r = set_message(c, USEC_PER_SEC, "Unknown key '\\x%x'. Ignoring.", (unsigned) key);
                 else
-                        fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
-                fflush(stdout);
-                sleep(1);
+                        r = set_message(c, USEC_PER_SEC, "Unknown key '%c'. Ignoring.", key);
         }
+        if (r < 0)
+                return r;
 
+        c->next_display = 0;
         return 1;
 }
 
@@ -1063,17 +1099,21 @@ static int loop(Context *c) {
         for (;;) {
                 usec_t t = now(CLOCK_MONOTONIC);
 
-                r = step(c, t);
-                if (r <= 0)
-                        return r;
+                if (t >= c->next_display) {
+                        r = step(c, t);
+                        if (r <= 0)
+                                return r;
+
+                        t = now(CLOCK_MONOTONIC);
+                }
 
                 if (arg_batch) {
-                        (void) usleep_safe(usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay));
+                        (void) usleep_safe(usec_sub_unsigned(c->next_display, t));
                         continue;
                 }
 
                 char key;
-                r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(c->last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
+                r = read_one_char(stdin, &key, usec_sub_unsigned(c->next_display, t), /* echo= */ false, /* need_nl= */ NULL);
                 if (r == -ETIMEDOUT)
                         continue;
                 if (r < 0)
