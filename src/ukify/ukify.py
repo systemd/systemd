@@ -215,7 +215,7 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
         try:
             zstd = try_import('compression.zstd')
             data = f.read(size)
-            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(data))
+            return cast(bytes, zstd.zstd.decompress(data))
         except ValueError:
             zstd = try_import('zstandard')
             data = f.read(size)
@@ -251,7 +251,7 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
     if start.startswith(b'\x28\xb5\x2f\xfd'):
         try:
             zstd = try_import('compression.zstd')
-            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(f.read()))
+            return cast(bytes, zstd.zstd.decompress(f.read()))
         except ValueError:
             zstd = try_import('zstandard')
             return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
