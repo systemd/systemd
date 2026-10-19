@@ -594,7 +594,9 @@ static int vl_method_mount_image(
                 if (r == -ERFKILL) {
                         /* The image policy refused this, let's retry after trying to get PolicyKit */
 
-                        if (!polkit_have_untrusted_action) {
+                        /* If we use the policy for trusted images already, a polkit authorization wouldn't
+                         * change the policy. */
+                        if (!use_trusted_policy) {
                                 log_debug("Denied by image policy. Trying a stronger polkit authentication before continuing.");
                                 r = varlink_verify_polkit_async_full(
                                                 link,
@@ -680,7 +682,7 @@ static int vl_method_mount_image(
                          * for example because the signature partition is invalid. */
                         bool key_not_found = r == -EDESTADDRREQ;
 
-                        if (!polkit_have_untrusted_action) {
+                        if (!use_trusted_policy) {
                                  log_debug("%s. Trying a stronger polkit authentication before continuing.",
                                            key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                  r = varlink_verify_polkit_async_full(
