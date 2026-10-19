@@ -137,6 +137,7 @@ INTROSPECTABLE=(
     systemd-pty-forward
     systemd-pull
     systemd-random-seed
+    systemd-remount-fs
     systemd-repart
     systemd-report
     systemd-report-basic
