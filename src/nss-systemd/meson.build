@@ -8,6 +8,6 @@ modules += [
                         'nss-systemd.c',
                         'userdb-glue.c',
                 ),
-                'version-script' : meson.current_source_dir() / 'nss-systemd.sym',
+                'version-script' : 'src/nss-systemd/nss-systemd.sym',
         },
 ]

@@ -234,7 +234,7 @@ if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = files('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
-        if git.found() and fs.is_dir(meson.project_source_root() / '.git')
+        if git.found() and fs.exists(meson.project_source_root() / '.git')
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
                         git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
