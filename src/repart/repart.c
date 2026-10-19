@@ -105,6 +105,9 @@
 /* To do LUKS2 offline encryption, we need to keep some extra free space at the end of the partition. */
 #define LUKS2_METADATA_KEEP_FREE (LUKS2_METADATA_SIZE*2ULL)
 
+/* The LUKS2 binary header reserves 48 bytes for the label, including the trailing NUL byte */
+#define LUKS2_LABEL_MAX 47U
+
 /* LUKS2 default volume key size (no integrity). */
 #define VOLUME_KEY_SIZE (512ULL/8ULL)
 
@@ -1937,29 +1940,57 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
+        /* No length limit here: GPT limits labels in UTF-16 code units, not bytes, which
+         * gpt_label_is_valid() checks below. */
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (!utf8_is_valid(resolved)) {
+        if (!gpt_label_is_valid(resolved)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label not valid UTF-8, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        r = gpt_partition_label_valid(resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to check if string is valid as GPT partition label, ignoring: \"%s\" (from \"%s\")",
+                           "Partition label not valid UTF-8, contains control characters, or too long for GPT table, ignoring: \"%s\" (from \"%s\")",
                            resolved, rvalue);
                 return 0;
         }
-        if (!r) {
+
+        free_and_replace(*label, resolved);
+        return 0;
+}
+
+static int config_parse_volume_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char **label = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        /* Like config_parse_label(), but for the LUKS2 superblock label, which is limited in bytes, not
+         * UTF-16 code units. Again, the empty label is a valid one. */
+
+        r = specifier_printf(rvalue, LUKS2_LABEL_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, or result too long for LUKS2 superblock, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!string_is_safe(resolved, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label too long for GPT table, ignoring: \"%s\" (from \"%s\")",
+                           "Volume label not valid UTF-8 or contains control characters, ignoring: \"%s\" (from \"%s\")",
                            resolved, rvalue);
                 return 0;
         }
@@ -3120,7 +3151,7 @@ static int partition_read_definition(
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
                 { "Partition", "Label",                    config_parse_label,             0,                                  &p->new_label               },
-                { "Partition", "VolumeLabel",              config_parse_label,             0,                                  &p->new_volume_label        },
+                { "Partition", "VolumeLabel",              config_parse_volume_label,      0,                                  &p->new_volume_label        },
                 { "Partition", "UUID",                     config_parse_uuid,              0,                                  p                           },
                 { "Partition", "Priority",                 config_parse_int32,             0,                                  &p->priority                },
                 { "Partition", "Weight",                   config_parse_weight,            0,                                  &p->weight                  },
@@ -3902,39 +3933,6 @@ static int context_read_definitions(Context *context) {
         return 0;
 }
 
-static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
-        _cleanup_free_ char *ids = NULL;
-        int r;
-
-        if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
-                return -EINVAL;
-
-        ids = new(char, SD_ID128_UUID_STRING_MAX);
-        if (!ids)
-                return -ENOMEM;
-
-        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(ids);
-        return 0;
-}
-
-static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id) {
-        int r;
-
-        r = sym_fdisk_set_ask(c, fdisk_ask_cb, &id);
-        if (r < 0)
-                return r;
-
-        r = sym_fdisk_set_disklabel_id(c);
-        if (r < 0)
-                return r;
-
-        return sym_fdisk_set_ask(c, NULL, NULL);
-}
-
 static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         union {
                 uint8_t md[SHA256_DIGEST_SIZE];
@@ -3981,7 +3979,6 @@ static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
-        _cleanup_free_ char *disk_uuid_string = NULL;
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -4159,28 +4156,26 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = fdisk_set_disklabel_id_by_uuid(c, disk_uuid);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
 
                 goto add_initial_free_area;
         }
 
-        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_string);
+        r = fdisk_get_disklabel_id_as_id128(c, &disk_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
-        r = id128_from_string_nonzero(disk_uuid_string, &disk_uuid);
-        if (r == -ENXIO) {
+        if (sd_id128_is_null(disk_uuid)) {
                 r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = sym_fdisk_set_disklabel_id(c);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
+        }
 
         r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
