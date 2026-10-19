@@ -672,6 +672,8 @@ typedef struct StartTransientContextParameters {
         const char *bad_service_field;
         const char *bad_scope_field;
         const char *bad_cgroup_field;
+
+        char *bad_field; /* Field path for error propagation. */
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
@@ -685,6 +687,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_scope_parameters_free(p->scope);
         transient_kill_context_parameters_free(p->kill);
         transient_cgroup_context_parameters_free(p->cgroup);
+        free(p->bad_field);
 }
 
 static void start_transient_context_parameters_init(StartTransientContextParameters *p) {
@@ -699,13 +702,14 @@ typedef struct StartTransientParameters {
         JobMode mode;
         int notify_job_changes;
         int notify_unit_changes;
-        char *unsupported_property; /* For error reporting on unknown context fields */
+
+        char *bad_field; /* Field path for error propagation. */
 } StartTransientParameters;
 
 static void start_transient_parameters_done(StartTransientParameters *p) {
         assert(p);
         start_transient_context_parameters_done(&p->context);
-        free(p->unsupported_property);
+        free(p->bad_field);
 }
 
 static void start_transient_parameters_init(StartTransientParameters *p) {
@@ -807,24 +811,24 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                  * unknown field lives inside the nested Exec object, compose a dotted name to identify the
                  * actual sub-property. */
                 if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
-                        p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
+                        p->bad_field = strjoin("Exec.", p->context.bad_exec_field);
                 else if (streq(bad_field, "Kill") && !isempty(p->context.bad_kill_field))
-                        p->unsupported_property = strjoin("Kill.", p->context.bad_kill_field);
+                        p->bad_field = strjoin("Kill.", p->context.bad_kill_field);
                 else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
-                        p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
+                        p->bad_field = strjoin("Service.", p->context.bad_service_field);
                 else if (streq(bad_field, "Scope") && !isempty(p->context.bad_scope_field))
-                        p->unsupported_property = strjoin("Scope.", p->context.bad_scope_field);
+                        p->bad_field = strjoin("Scope.", p->context.bad_scope_field);
                 else if (streq(bad_field, "CGroup") && !isempty(p->context.bad_cgroup_field))
-                        p->unsupported_property = strjoin("CGroup.", p->context.bad_cgroup_field);
+                        p->bad_field = strjoin("CGroup.", p->context.bad_cgroup_field);
                 else
-                        p->unsupported_property = strdup(bad_field);
-                if (!p->unsupported_property)
+                        p->bad_field = strdup(bad_field);
+                if (!p->bad_field)
                         return -ENOMEM;
         }
         return r;
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_bad_field) {
         int r;
 
         assert(u);
@@ -848,8 +852,8 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 STRV_FOREACH(dep, p->dependencies[dep_type]) {
                         r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
                         if (r < 0) {
-                                if (reterr_field)
-                                        *reterr_field = dep_type_name;
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = dep_type_name;
                                 return r;
                         }
 
@@ -1110,11 +1114,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0) {
                 /* An unknown field in 'context' maps to PropertyNotSupported (the field is defined in the
                  * UnitContext schema but cannot be set at creation time). Anything else is a bad parameter. */
-                if (streq_ptr(bad_field, "context") && r == -EADDRNOTAVAIL && p.unsupported_property)
+                if (streq_ptr(bad_field, "context") && r == -EADDRNOTAVAIL && p.bad_field)
                         return sd_varlink_errorbo(
                                         link,
                                         "io.systemd.Unit.PropertyNotSupported",
-                                        SD_JSON_BUILD_PAIR_STRING("property", p.unsupported_property));
+                                        SD_JSON_BUILD_PAIR_STRING("property", p.bad_field));
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;

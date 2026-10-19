@@ -218,6 +218,8 @@ struct TransientServiceParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static void transient_exec_command_item_done(TransientExecCommandItem *i) {
@@ -241,6 +243,7 @@ TransientServiceParameters* transient_service_parameters_free(TransientServicePa
         safe_close(p->stdin_fd);
         safe_close(p->stdout_fd);
         safe_close(p->stderr_fd);
+        free(p->bad_field);
         return mfree(p);
 }
 
@@ -291,7 +294,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(TransientServiceParameters*, transient_service_param
 int transient_service_dispatch(
                 sd_json_variant *variant,
                 TransientServiceParameters **ret,
-                const char **reterr_field) {
+                const char **reterr_bad_field) {
 
         static const sd_json_dispatch_field service_dispatch[] = {
                 { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
@@ -330,7 +333,7 @@ int transient_service_dispatch(
                 .stderr_fd = -EBADF,
         };
 
-        r = sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        r = sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
         if (r < 0)
                 return r;
 
@@ -368,7 +371,7 @@ static int transient_service_resolve_one_stdio_fd(
 
 /* Resolve stdio fd indices to fds attached to the method call. Ownership of the resolved fds lands in
  * the parameters and is released by transient_service_parameters_free(). */
-int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParameters *sp, const char **reterr_field) {
+int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParameters *sp, const char **reterr_bad_field) {
         int r;
 
         assert(link);
@@ -378,22 +381,22 @@ int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParame
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stdin_fd_index, O_RDONLY, &sp->stdin_fd);
         if (r < 0) {
-                if (reterr_field)
-                        *reterr_field = "Service.StandardInputFileDescriptor";
+                if (reterr_bad_field)
+                        *reterr_bad_field = "Service.StandardInputFileDescriptor";
                 return r;
         }
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stdout_fd_index, O_WRONLY, &sp->stdout_fd);
         if (r < 0) {
-                if (reterr_field)
-                        *reterr_field = "Service.StandardOutputFileDescriptor";
+                if (reterr_bad_field)
+                        *reterr_bad_field = "Service.StandardOutputFileDescriptor";
                 return r;
         }
 
         r = transient_service_resolve_one_stdio_fd(link, sp->stderr_fd_index, O_WRONLY, &sp->stderr_fd);
         if (r < 0) {
-                if (reterr_field)
-                        *reterr_field = "Service.StandardErrorFileDescriptor";
+                if (reterr_bad_field)
+                        *reterr_bad_field = "Service.StandardErrorFileDescriptor";
                 return r;
         }
 
@@ -401,7 +404,7 @@ int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParame
 }
 
 /* Consumes command argument vectors and stdio fds from sp as they are applied, including on failure. */
-int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_field) {
+int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_bad_field) {
         static const char* const exec_fields[_SERVICE_EXEC_COMMAND_MAX] = {
                 [SERVICE_EXEC_CONDITION]   = "Service.ExecCondition",
                 [SERVICE_EXEC_START_PRE]   = "Service.ExecStartPre",
@@ -450,15 +453,15 @@ int transient_service_apply_properties(Service *s, TransientServiceParameters *s
                         ExecCommandFlags command_flags;
 
                         if (item->privileged && item->no_setuid) {
-                                if (reterr_field)
-                                        *reterr_field = exec_fields[cmd];
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = exec_fields[cmd];
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "%s 'privileged' and 'noSetuid' flags may not be combined.", name);
                         }
 
                         if (!item->via_shell && !filename_or_absolute_path_is_valid(item->path)) {
-                                if (reterr_field)
-                                        *reterr_field = exec_fields[cmd];
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = exec_fields[cmd];
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid %s path: %s", name, item->path);
                         }
 

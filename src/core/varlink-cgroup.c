@@ -670,6 +670,8 @@ struct TransientCGroupContextParameters {
         uint64_t io_weight;
         bool startup_io_weight_set;
         uint64_t startup_io_weight;
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
@@ -1136,13 +1138,19 @@ static void transient_cgroup_context_parameters_init(TransientCGroupContextParam
 }
 
 TransientCGroupContextParameters* transient_cgroup_context_parameters_free(TransientCGroupContextParameters *p) {
+        if (!p)
+                return NULL;
+
+        free(p->bad_field);
         return mfree(p);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TransientCGroupContextParameters*, transient_cgroup_context_parameters_free);
 
 int transient_cgroup_context_dispatch(
                 sd_json_variant *variant,
                 TransientCGroupContextParameters **ret,
-                const char **reterr_field) {
+                const char **reterr_bad_field) {
 
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field cgroup_dispatch[ELEMENTSOF(cgroup_properties) + 1] = {};
@@ -1165,13 +1173,14 @@ int transient_cgroup_context_dispatch(
                 cgroup_dispatch_set = true;
         }
 
-        _cleanup_free_ TransientCGroupContextParameters *p = new(TransientCGroupContextParameters, 1);
+        _cleanup_(transient_cgroup_context_parameters_freep) TransientCGroupContextParameters *p = NULL;
+        p = new(TransientCGroupContextParameters, 1);
         if (!p)
                 return -ENOMEM;
 
         transient_cgroup_context_parameters_init(p);
 
-        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
+        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_bad_field);
         if (r < 0)
                 return r;
 
@@ -1183,7 +1192,7 @@ int transient_cgroup_context_apply_properties(
                 Unit *u,
                 CGroupContext *c,
                 TransientCGroupContextParameters *p,
-                const char **reterr_field) {
+                const char **reterr_bad_field) {
 
         int r;
 
@@ -1194,8 +1203,8 @@ int transient_cgroup_context_apply_properties(
         FOREACH_ELEMENT(prop, cgroup_properties) {
                 r = prop->apply(u, c, p);
                 if (r < 0) {
-                        if (reterr_field)
-                                *reterr_field = r == -EINVAL ? prop->err_field : NULL;
+                        if (reterr_bad_field)
+                                *reterr_bad_field = r == -EINVAL ? prop->err_field : NULL;
                         return r;
                 }
         }
