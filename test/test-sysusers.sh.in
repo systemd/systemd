@@ -4,8 +4,13 @@ set -e
 
 SYSUSERS="${1:-systemd-sysusers}"
 
-# shellcheck disable=SC1090
-[ -e "$(dirname "$0")/../systemd-runtest.env" ] && . "$(dirname "$0")/../systemd-runtest.env"
+RUNTEST_ENV="$(dirname "$0")/../systemd-runtest.env"
+if [ -e "$RUNTEST_ENV" ]; then
+    # shellcheck disable=SC1090
+    . "$RUNTEST_ENV"
+    # systemd-runtest.env contains paths relative to the directory that contains it.
+    [[ "$SYSTEMD_TEST_DATA" == /* ]] || SYSTEMD_TEST_DATA="$(dirname "$RUNTEST_ENV")/$SYSTEMD_TEST_DATA"
+fi
 SYSTEMD_TEST_DATA=${SYSTEMD_TEST_DATA:-@SYSTEMD_TEST_DATA@}
 SOURCE=$SYSTEMD_TEST_DATA/test-sysusers
 
