@@ -1553,7 +1553,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
-                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 
