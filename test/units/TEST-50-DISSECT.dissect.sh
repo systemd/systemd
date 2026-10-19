@@ -164,7 +164,50 @@ systemd-run --wait -P \
             -p RootHashSignature=/tmp/test-50-unknown.p7s \
             -p RootImagePolicy=root=signed+squashfs \
             true
+# If only userspace validates our signature, a device that we set up ourselves wouldn't have a validated
+# signature either, so we reuse the shared device, even if the policy requires a signature.
+mkdir -p /tmp/test-50-signed-mnt
+for policy in root=verity+signed root=signed; do
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy="$policy" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-signed-mnt)" = "$(findmnt -n -o MAJ:MIN /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+done
+loop="$(losetup --find --show --read-only "$MINIMAL_IMAGE.raw")"
+name="${loop##*/}"
+if [ -e "/sys/class/block/$name/diskseq" ]; then
+    name+="-$(cat "/sys/class/block/$name/diskseq")"
+fi
+name+="-verity"
+veritysetup open "$loop" "$name" "$MINIMAL_IMAGE.verity" --root-hash-file "$MINIMAL_IMAGE.roothash"
+mkdir -p /var/tmp/test-50-noshare-mnt
+mount -o ro "/dev/mapper/$name" /var/tmp/test-50-noshare-mnt
+SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$loop" \
+                                      --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                      --verity-data="$MINIMAL_IMAGE.verity" \
+                                      --image-policy=root=verity >/dev/null
+for policy in root=verity+signed root=signed; do
+    (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             --verity-data="$MINIMAL_IMAGE.verity" \
+                                             --image-policy="$policy" >/dev/null)
+done
+dmsetup remove --deferred "$name"
+umount /var/tmp/test-50-noshare-mnt
+rmdir /var/tmp/test-50-noshare-mnt
+losetup --detach "$loop"
 rm /run/verity.d/test-50-unknown.crt
+# If the kernel validates our signature, we set up our own device instead.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=verity+signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-signed-mnt)" != "$(findmnt -n -o MAJ:MIN /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+fi
+rmdir /tmp/test-50-signed-mnt
 systemd-dissect --umount /tmp/test-50-unsigned-mnt
 rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
