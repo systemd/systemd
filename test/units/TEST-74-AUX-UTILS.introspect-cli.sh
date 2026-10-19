@@ -134,6 +134,7 @@ INTROSPECTABLE=(
     systemd-notify
     systemd-nspawn
     systemd-nsresourced
+    systemd-nsresourcework
     systemd-oomd
     systemd-path
     systemd-pcrextend

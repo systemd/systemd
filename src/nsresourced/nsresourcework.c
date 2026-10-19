@@ -55,6 +55,13 @@
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-nsresourcework\0",
+        "Delegate user namespace resources on behalf of systemd-nsresourced.",
+        .option_namespace = "common",
+);
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -2559,6 +2566,12 @@ static int run(int argc, char *argv[]) {
         int m, listen_fd, r;
 
         log_setup();
+
+        /* The daemon passes a dummy argument to reserve space in argv[] for rename_process(), ignore it. */
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
         m = sd_listen_fds(false);
         if (m < 0)
