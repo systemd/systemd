@@ -33,6 +33,15 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-fsck\0",
+        "Check a file system before it is mounted.",
+        .argspec = "[DEVICE]\0",
+        .man_pages = "systemd-fsck@.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum FSCKMode {
         FSCK_AUTO,
@@ -281,9 +290,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program expects one or no arguments.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -298,8 +308,8 @@ static int run(int argc, char *argv[]) {
         if (arg_mode == FSCK_SKIP)
                 return 0;
 
-        if (argc > 1) {
-                dpath = strdup(argv[1]);
+        if (args[0]) {
+                dpath = strdup(args[0]);
                 if (!dpath)
                         return log_oom();
 
