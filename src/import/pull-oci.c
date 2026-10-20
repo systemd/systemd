@@ -375,8 +375,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
         if (r < 0)
                 return r;
 
-        free_and_replace_full(i->manifest_job, j, pull_job_unref);
-        return 0;
+        return free_and_replace_full(i->manifest_job, j, pull_job_unref);
 }
 
 static int oci_pull_process_index(OciPull *i, PullJob *j) {

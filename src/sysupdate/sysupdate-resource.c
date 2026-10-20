@@ -840,11 +840,9 @@ int resource_resolve_path(
                 if (S_ISBLK(st.st_mode) && root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "When using --root= or --image= access to device nodes is prohibited.");
 
-                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode)) {
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
                         /* Not a directory, hence no need to find backing block device for the path */
-                        free_and_replace(rr->path, resolved);
-                        return 0;
-                }
+                        return free_and_replace(rr->path, resolved);
 
                 if (!S_ISDIR(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Target path '%s' does not refer to regular file, directory or block device, refusing.",  rr->path);
@@ -897,8 +895,7 @@ int resource_resolve_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
-                free_and_replace(rr->path, resolved);
-                return 0;
+                return free_and_replace(rr->path, resolved);
         } else
                 return 0; /* Otherwise assume there's nothing to resolve */
 
