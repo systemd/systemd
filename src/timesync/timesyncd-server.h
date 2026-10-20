@@ -5,6 +5,8 @@
 #include "socket-util.h"
 #include "timesyncd-forward.h"
 
+#define DEFAULT_NTP_PORT 123
+
 typedef enum ServerType {
         SERVER_SYSTEM,
         SERVER_FALLBACK,
@@ -29,7 +31,9 @@ struct ServerName {
         bool marked;
 
         ServerType type;
-        char *string;
+        char *string;   /* canonical server specification, including a non-default port */
+        char *host;     /* host name or address without port, as passed to getaddrinfo() */
+        uint16_t port;  /* UDP port to use */
 
         LIST_HEAD(ServerAddress, addresses);
         LIST_FIELDS(ServerName, names);
@@ -41,6 +45,7 @@ static inline int server_address_pretty(ServerAddress *a, char **pretty) {
         return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, true, pretty);
 }
 
-int server_name_new(Manager *m, ServerName **ret, ServerType type,const char *string);
+int server_name_parse(const char *s, char **ret_host, uint16_t *ret_port);
+int server_name_new(Manager *m, ServerName **ret, ServerType type, const char *host, uint16_t port);
 ServerName *server_name_free(ServerName *n);
 void server_name_flush_addresses(ServerName *n);
