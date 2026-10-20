@@ -40,6 +40,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
@@ -50,6 +51,7 @@
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "run-polkit.h"
 #include "runtime-scope.h"
@@ -126,6 +128,11 @@ static char *arg_area = NULL;
 static bool arg_via_shell = false;
 static bool arg_empower = false;
 
+/* The following three are only set indirectly based on argv[0], they have no direct command line switches */
+static char *arg_pam_name = NULL;
+static int arg_ignore_sigpipe = -1;
+static char **arg_log_extra_fields = NULL;
+
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec_user, freep);
@@ -140,6 +147,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_area, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pam_name, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_log_extra_fields, strv_freep);
 
 COMMAND(
         "systemd-run\0",
@@ -1009,34 +1018,38 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 l = strv_copy(args);
                 if (!l)
                         return log_oom();
-        } else if (!arg_via_shell) {
-                const char *e;
+        } else {
+                arg_shell = true;
 
-                arg_default_command = true;
-                e = strv_env_get(arg_environment, "SHELL");
-                if (e) {
-                        arg_exec_path = strdup(e);
-                        if (!arg_exec_path)
-                                return log_oom();
-                } else {
-                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                r = get_shell(&arg_exec_path);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine shell: %m");
-                        } else {
-                                arg_exec_path = strdup("/bin/sh");
+                if (!arg_via_shell) {
+                        const char *e;
+
+                        arg_default_command = true;
+                        e = strv_env_get(arg_environment, "SHELL");
+                        if (e) {
+                                arg_exec_path = strdup(e);
                                 if (!arg_exec_path)
                                         return log_oom();
+                        } else {
+                                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                        r = get_shell(&arg_exec_path);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to determine shell: %m");
+                                } else {
+                                        arg_exec_path = strdup("/bin/sh");
+                                        if (!arg_exec_path)
+                                                return log_oom();
+                                }
+
+                                r = strv_env_assign(&arg_environment, "SHELL", arg_exec_path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set $SHELL environment variable: %m");
                         }
 
-                        r = strv_env_assign(&arg_environment, "SHELL", arg_exec_path);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set $SHELL environment variable: %m");
+                        l = make_login_shell_cmdline(arg_exec_path);
+                        if (!l)
+                                return log_oom();
                 }
-
-                l = make_login_shell_cmdline(arg_exec_path);
-                if (!l)
-                        return log_oom();
         }
 
         if (arg_via_shell) {
@@ -1075,22 +1088,25 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set $SUDO_GID environment variable: %m");
 
-        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_UID=" UID_FMT, getuid()) < 0)
-                return log_oom();
+        r = strv_env_assignf(&arg_log_extra_fields, "ELEVATED_UID", UID_FMT, getuid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_UID log field: %m");
 
-        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_GID=" GID_FMT, getgid()) < 0)
-                return log_oom();
+        r = strv_env_assignf(&arg_log_extra_fields, "ELEVATED_GID", GID_FMT, getgid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_GID log field: %m");
 
-        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_USER=%s", un) < 0)
-                return log_oom();
+        r = strv_env_assign(&arg_log_extra_fields, "ELEVATED_USER", un);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_USER log field: %m");
 
-        if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
-                return log_oom();
+        r = free_and_strdup_warn(&arg_pam_name, "systemd-run0");
+        if (r < 0)
+                return r;
 
         /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
          * that here, since we're primarily invoked in interactive environments where this does matter. */
-        if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
-                return log_oom();
+        arg_ignore_sigpipe = false;
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
                 r = terminal_tint_color(shell_prompt_hue(), &arg_background);
@@ -1273,6 +1289,24 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         r = transient_cgroup_set_properties(m);
         if (r < 0)
                 return r;
+
+        if (!strv_isempty(arg_log_extra_fields)) {
+                r = bus_append_log_extra_fields_strv(m, arg_log_extra_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_pam_name) {
+                r = sd_bus_message_append(m, "(sv)", "PAMName", "s", arg_pam_name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_ignore_sigpipe >= 0) {
+                r = sd_bus_message_append(m, "(sv)", "IgnoreSIGPIPE", "b", arg_ignore_sigpipe);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         if (arg_remain_after_exit) {
                 r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
@@ -1628,6 +1662,11 @@ typedef struct RunContext {
         UnitResult result;
 } RunContext;
 
+#define RUN_CONTEXT_NULL (RunContext) {                 \
+                .pty_fd = -EBADF,                       \
+                .result = UNIT_RESULT_INIT,             \
+        }
+
 static int run_context_update(RunContext *c);
 static int run_context_attach_bus(RunContext *c, sd_bus *bus);
 static void run_context_detach_bus(RunContext *c);
@@ -1763,7 +1802,8 @@ static void run_context_check_done(RunContext *c) {
 
         assert(c);
 
-        if (!STRPTR_IN_SET(c->result.active_state, "inactive", "failed") ||
+        /* Do we have a unit that is not dead yet? Or a job still running? Then we aren't done yet. */
+        if ((c->unit && !STRPTR_IN_SET(c->result.active_state, "inactive", "failed")) ||
             c->start_job ||   /* our start job */
             c->job)           /* any other job */
                 return;
@@ -2344,6 +2384,202 @@ static int log_scope_group_setup_errno(int r, gid_t gid, const char *message) {
         return 0;
 }
 
+static bool ptybroker_compatible(void) {
+        return !arg_scope &&
+                !arg_remain_after_exit &&
+                !arg_no_block &&
+                !arg_remove_timestamp &&
+                !arg_reset_timestamp &&
+                !arg_validate &&
+                !arg_unit &&
+                /* The broker places shells in user.slice on the system manager, and leaves the default
+                 * slice in place on the per-user manager */
+                (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? streq_ptr(arg_slice, SPECIAL_USER_SLICE) : !arg_slice) &&
+                !arg_slice_inherit &&
+                !arg_expand_environment &&
+                arg_send_sighup &&
+                arg_transport == BUS_TRANSPORT_LOCAL &&
+                streq_ptr(arg_service_type, "exec") &&
+                !arg_nice_set &&
+                strv_isempty(arg_property) &&
+                // FIXME: validate arg_stdio, add broker mode
+                arg_stdio == ARG_STDIO_PTY &&
+                !arg_path_property &&
+                !arg_socket_property &&
+                !arg_timer_property &&
+                !arg_verbose &&
+                !arg_root_directory &&
+                arg_shell &&
+                arg_job_mode == JOB_FAIL &&
+                !arg_area &&
+                !arg_empower &&
+                (!arg_pam_name || streq(arg_pam_name, "systemd-run0")) &&
+                arg_ignore_sigpipe <= 0;
+}
+
+static int start_via_ptybroker(void) {
+        int r;
+
+        _cleanup_(run_context_done) RunContext c = RUN_CONTEXT_NULL;
+        r = sd_event_default(&c.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        /* The broker's operations are gated by polkit, hence make sure an authentication agent is around in
+         * case we need to authenticate interactively. */
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = pty_broker_connect(arg_runtime_scope, &vl);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable file descriptor passing on ptybrokerd connection: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
+        r = pty_broker_terminal_settings_to_json(&ts);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build terminal settings: %m");
+
+        /* In --via-shell mode (run0 only) we want the target user's login shell, which is what the broker
+         * does by default if no command line is specified. Otherwise pass the shell we determined (i.e. the
+         * originating user's, or the one explicitly configured via $SHELL) along, and have it executed
+         * directly. */
+        assert(!strv_isempty(arg_cmdline));
+
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_call_and_upgradebo(
+                        vl,
+                        "io.systemd.PTYBroker.AcquirePty",
+                        &reply,
+                        &error_id,
+                        &input_fd,
+                        &output_fd,
+                        SD_JSON_BUILD_PAIR("frontendType", JSON_BUILD_CONST_STRING("null")),
+                        SD_JSON_BUILD_PAIR("backendType", JSON_BUILD_CONST_STRING("shell")),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("user", arg_exec_user),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("group", arg_exec_group),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!arg_working_directory, "workingDirectory",
+                                                     SD_JSON_BUILD_OBJECT(
+                                                                     SD_JSON_BUILD_PAIR_CONDITION(streq_ptr(arg_working_directory, "~"), "home", SD_JSON_BUILD_BOOLEAN(true)),
+                                                                     JSON_BUILD_PAIR_STRING_NON_EMPTY("path", streq_ptr(arg_working_directory, "~") ? NULL : arg_working_directory))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(arg_environment), "environment", SD_JSON_BUILD_STRV(arg_environment)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell, "commandLine", SD_JSON_BUILD_STRV(arg_cmdline)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell, "viaShell", SD_JSON_BUILD_BOOLEAN(false)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell && arg_exec_path, "executable", SD_JSON_BUILD_STRING(arg_exec_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(arg_lightweight >= 0, "lightweight", SD_JSON_BUILD_BOOLEAN(arg_lightweight > 0)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", arg_description),
+                        SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call AcquirePty(): %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "Failed to acquire PTY from ptybrokerd: %s", error_id);
+
+        struct {
+                const char *unit;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "unit", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, unit), 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse AcquirePty() reply: %m");
+
+        r = same_fd(input_fd, output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if input/output file descriptors match: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Input/output file descriptor of monitor connection do not match.");
+
+        c.pty_fd = TAKE_FD(input_fd); /* The monitor fd is a socket, not a pty master, but close enough */
+        output_fd = safe_close(output_fd);
+
+        /* If the broker told us which unit runs the shell, watch it via the bus, just like we watch the
+         * transient unit in the D-Bus code path: that way we can wait for it and propagate its exit status.
+         * Pin it with a reference first, so that it is not cleaned up before we managed to read its
+         * result. If that doesn't work out (e.g. the shell already exited and the unit is gone) fall back to
+         * simply exiting once the monitor connection is dropped. */
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        if (p.unit) {
+                c.unit = strdup(p.unit);
+                if (!c.unit)
+                        return log_oom();
+
+                c.bus_path = unit_dbus_path_from_name(c.unit);
+                if (!c.bus_path)
+                        return log_oom();
+
+                r = connect_bus(&bus);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       c.bus_path,
+                                       "org.freedesktop.systemd1.Unit",
+                                       "Ref",
+                                       &error,
+                                       /* ret_reply= */ NULL,
+                                       /* types= */ NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add reference to unit '%s', assuming it is already gone: %s",
+                                        c.unit, bus_error_message(&error, r));
+                        c.unit = mfree(c.unit);
+                        c.bus_path = mfree(c.bus_path);
+                        bus = sd_bus_flush_close_unref(bus);
+                }
+        }
+
+        if (!c.unit)
+                /* Without a unit to wait for, exit immediately when our pty monitor dies */
+                arg_wait = false;
+
+        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
+        if (arg_exec_user && !terminal_is_dumb()) {
+                r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set OSC context: %m");
+        }
+
+        (void) sd_event_set_signal_exit(c.event, true);
+
+        r = run_context_setup_ptyfwd(&c);
+        if (r < 0)
+                return r;
+
+        if (bus) {
+                r = run_context_attach_bus(&c, bus);
+                if (r < 0)
+                        return r;
+
+                r = run_context_update(&c);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_loop(c.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        /* If we had no unit to watch we have no idea how the shell exited, assume success */
+        if (!c.unit)
+                return EXIT_SUCCESS;
+
+        return unit_result_to_exit_status(&c.result);
+}
+
 static int start_transient_scope(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -2844,6 +3080,11 @@ static int run(int argc, char* argv[]) {
                 if (!arg_description)
                         return log_oom();
         }
+
+        /* We generally prefer activating this session – if compatible – via the ptybroker, since it generates
+         * better PolicyKit requests */
+        if (ptybroker_compatible())
+                return start_via_ptybroker();
 
         r = connect_bus(&bus);
         if (r < 0)
