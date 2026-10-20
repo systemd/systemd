@@ -369,6 +369,12 @@ echo -n c >/etc/credstore/test.creds.third
 # Credential name cannot contain ':'
 echo -n hoge >/etc/credstore/test.creds.hoge:invalid
 
+# Conditions and asserts consider the credential stores, too
+systemd-run -p AssertCredential=test.creds.first -p Type=oneshot true
+systemd-run -p AssertCredential=test.creds.third -p Type=oneshot true
+(! systemd-run -p AssertCredential=!test.creds.first -p Type=oneshot true)
+(! systemd-run -p AssertCredential=test.creds.undefined -p Type=oneshot true)
+
 # Check if credentials with invalid names are not imported.
 systemd-run -p "ImportCredential=test.creds.*" \
             --unit=test-54-ImportCredential.service \
