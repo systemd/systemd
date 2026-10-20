@@ -36,10 +36,13 @@ systemd_journald_export_sources += journald_gperf_c
 generate_audit_type_list = files('generate-audit_type-list.sh')
 generate_audit_type_command = [env, 'bash', generate_audit_type_list, cpp]
 if libaudit.found()
-        generate_audit_type_command += [
-                '-include', 'libaudit.h',
-                '-I' + libaudit.get_variable('includedir'),
-        ]
+        generate_audit_type_command += ['-include', 'libaudit.h']
+        # Skip -I/usr/include: it is redundant, and cross toolchains built with
+        # -Werror=poison-system-directories reject it.
+        libaudit_includedir = libaudit.get_variable('includedir')
+        if libaudit_includedir != '/usr/include'
+                generate_audit_type_command += ['-I' + libaudit_includedir]
+        endif
 endif
 generate_audit_type_command += system_include_args
 
