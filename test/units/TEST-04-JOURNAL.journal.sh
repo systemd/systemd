@@ -199,6 +199,32 @@ journalctl --list-catalog
 [[ "$(journalctl --list-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" -eq 1 ]]
 [[ "$(journalctl --dump-catalog | wc -l)" -gt "$(journalctl --dump-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" ]]
 
+# sd_journal_send() passes an entry to journald as a sealed memfd if the entry doesn't fit into a datagram.
+# The maximum datagram size depends on the socket send buffer of the host. Python sends the memfd directly,
+# so that journald always receives a memfd.
+ID="$(systemd-id128 new)"
+{ echo -n "HUGE="; head -c $((4 * 1024 * 1024)) /dev/zero | tr '\0' x; echo; } >/tmp/expected
+python3 - "$ID" /tmp/expected <<'EOF'
+import fcntl, os, socket, sys
+
+with open(sys.argv[2], "rb") as f:
+    huge = f.read()
+
+fd = os.memfd_create("journal-huge", os.MFD_ALLOW_SEALING)
+with open(fd, "wb", closefd=False) as f:
+    f.write(f"MESSAGE=Huge field attached\nSYSLOG_IDENTIFIER={sys.argv[1]}\n".encode() + huge)
+fcntl.fcntl(fd, fcntl.F_ADD_SEALS,
+            fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE | fcntl.F_SEAL_SEAL)
+
+with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+    sock.connect("/run/systemd/journal/socket")
+    socket.send_fds(sock, [], [fd])
+EOF
+journalctl --sync
+journalctl -b -o export -t "$ID" --output-fields=HUGE | grep -a '^HUGE=' >/tmp/output
+cmp /tmp/expected /tmp/output
+rm -f /tmp/expected /tmp/output
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 
