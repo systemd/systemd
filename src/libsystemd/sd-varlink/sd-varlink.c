@@ -1964,6 +1964,12 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
+        /* If there's still a reply pinned from a previous synchronous call, get rid of it now, as it would
+         * otherwise be dispatched as reply to this call. Note that when we are already awaiting replies,
+         * the current message is an unprocessed reply that must be kept. */
+        if (v->state == VARLINK_IDLE_CLIENT)
+                varlink_clear_current(v);
+
         varlink_set_state(v, VARLINK_AWAITING_REPLY);
         v->n_pending++;
         json_stream_mark_activity(&v->stream);
@@ -2022,6 +2028,10 @@ _public_ int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
         }
 
+        /* If there's still a reply pinned from a previous synchronous call, get rid of it now, as it would
+         * otherwise be dispatched as reply to this call. */
+        varlink_clear_current(v);
+
         varlink_set_state(v, VARLINK_AWAITING_REPLY_UPGRADE);
         v->n_pending++;
         json_stream_mark_activity(&v->stream);
@@ -2072,6 +2082,10 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
         r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        /* If there's still a reply pinned from a previous synchronous call, get rid of it now, as it would
+         * otherwise be dispatched as reply to this call. */
+        varlink_clear_current(v);
 
         varlink_set_state(v, VARLINK_AWAITING_REPLY_MORE);
         v->n_pending++;
