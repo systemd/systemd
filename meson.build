@@ -709,8 +709,12 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
 # The default gperf search leaves most slots of a large hash table empty, and every empty slot takes up space
-# in the binary. More search iterations make the large tables about 25% smaller.
-gperf_cmdline = [gperf, '--multiple-iterations=10']
+# in the binary. More search iterations make the large tables about 25% smaller. With --duplicates, gperf
+# no longer requires a collision-free hash function: the keyword table then holds only the keywords, and a
+# separate lookup table of 8- or 16-bit indices, one per hash slot, maps hash values to entries. An empty
+# slot costs one or two bytes instead of a whole keyword entry, which makes the large tables about four
+# times smaller again.
+gperf_cmdline = [gperf, '--multiple-iterations=10', '--duplicates']
 
 #####################################################################
 
