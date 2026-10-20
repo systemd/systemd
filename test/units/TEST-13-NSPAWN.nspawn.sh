@@ -1003,6 +1003,67 @@ testcase_notification_socket() {
     rm -fr "$root"
 }
 
+testcase_fdstore_wipe() {
+    local root commands n_fds names unit=test-nspawn-fdstore-wipe.service
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
+    create_dummy_container "$root"
+    cat >"$root/entrypoint.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore store
+EOF
+    chmod +x "$root/entrypoint.sh"
+
+    # FD-store wipes must work without access to either manager bus.
+    systemd-run --unit="$unit" -p Type=notify -p NotifyAccess=all -p KillMode=mixed \
+        -p StartLimitIntervalSec=0 \
+        -p 'InaccessiblePaths=-/run/dbus -/run/systemd/private' \
+        -p Delegate=yes -p DelegateSubgroup=supervisor \
+        -p FileDescriptorStoreMax=4 -p FileDescriptorStorePreserve=yes \
+        -p 'ExecReload=/bin/sh -c "exec systemd-notify --fd=3 --fdname=nspawn-only 3</dev/null"' \
+        systemd-nspawn --register=no --keep-unit --directory="$root" \
+        --notify-ready=yes --kill-signal=SIGTERM /entrypoint.sh
+    timeout 30s bash -c \
+        'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 2 ]]; do sleep 0.5; done' _ "$unit"
+
+    systemctl reload "$unit"
+    assert_eq "$(systemctl show "$unit" -P NFileDescriptorStore)" 3
+
+    for commands in "check wipe=missing" "check wipe=" "check wipe=test-fd-a" \
+                    "wipe=test-fd-b" "store wipe=test-fd-" "store wipe=1" "wipe"; do
+        case "$commands" in
+            "check wipe=missing"|"check wipe=")
+                n_fds=3
+                names='["nspawn-only", "payload-test-fd-a", "payload-test-fd-b"]'
+                ;;
+            "check wipe=test-fd-a")
+                n_fds=2
+                names='["nspawn-only", "payload-test-fd-b"]'
+                ;;
+            *)
+                n_fds=1
+                names='["nspawn-only"]'
+                ;;
+        esac
+
+        cat >"$root/entrypoint.sh" <<EOF
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore $commands
+EOF
+        systemctl restart "$unit"
+        timeout 30s bash -c \
+            'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq "$2" ]]; do sleep 0.5; done' _ "$unit" "$n_fds"
+        systemd-analyze fdstore "$unit" --json=short | jq -e --argjson names "$names" '[.[].fdname] | sort == $names'
+        systemctl is-active --quiet "$unit"
+    done
+
+    systemctl stop "$unit"
+    systemctl clean "$unit" --what=fdstore
+    rm -fr "$root"
+}
+
 testcase_os_release() {
     local root entrypoint os_release_source
 

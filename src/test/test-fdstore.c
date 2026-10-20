@@ -2,7 +2,8 @@
 
 /* In 'store' mode pushes a couple of memfds with known content into the supervisor's fd store via FDSTORE=1
  * sd_notify() messages. In 'check' mode reads back the fds passed via LISTEN_FDS and verifies the content
- * matches what was pushed.
+ * matches what was pushed. In 'wipe[=PREFIX]' mode removes all or prefix-matched stored fds.
+ * Multiple modes may be run in sequence.
  *
  * This binary is intentionally linked against libsystemd only so that it can go in the minimal image. */
 
@@ -144,25 +145,48 @@ static int do_check(void) {
         return EXIT_SUCCESS;
 }
 
+static int notify(const char *name, const char *value) {
+        int r;
+
+        r = sd_notifyf(/* unset_environment= */ 0, "%s=%s", name, value);
+        if (r < 0) {
+                errno = -r;
+                fprintf(stderr, "sd_notify(%s=%s) failed: %m\n", name, value);
+                return EXIT_FAILURE;
+        }
+        if (r == 0) {
+                fprintf(stderr, "NOTIFY_SOCKET not set\n");
+                return EXIT_FAILURE;
+        }
+
+        return EXIT_SUCCESS;
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
         if (argc < 2) {
-                fprintf(stderr, "Usage: %s store|check\n", argv[0]);
+                fprintf(stderr, "Usage: %s {store|check|wipe[=PREFIX]}...\n", argv[0]);
                 return EXIT_FAILURE;
         }
 
-        if (strcmp(argv[1], "store") == 0)
-                r = do_store();
-        else if (strcmp(argv[1], "check") == 0)
-                r = do_check();
-        else {
-                fprintf(stderr, "Unknown verb: %s\n", argv[1]);
-                return EXIT_FAILURE;
-        }
+        for (int i = 1; i < argc; i++) {
+                if (strcmp(argv[i], "store") == 0)
+                        r = do_store();
+                else if (strcmp(argv[i], "check") == 0)
+                        r = do_check();
+                else if (strcmp(argv[i], "wipe") == 0)
+                        r = notify("FDSTOREWIPE", "1");
+                else if (strncmp(argv[i], "wipe=", strlen("wipe=")) == 0)
+                        r = notify("FDSTOREWIPE", argv[i] + strlen("wipe="));
+                else {
+                        fprintf(stderr, "Unknown verb: %s\n", argv[i]);
+                        return EXIT_FAILURE;
+                }
 
-        if (r != EXIT_SUCCESS)
-                return r;
+                if (r != EXIT_SUCCESS)
+                        return r;
+        }
 
         /* On success, stay alive so if we are a container payload we keep it running. Install handlers
          * for the signals an outer supervisor may use to terminate us, so we exit cleanly (with status 0)
@@ -173,6 +197,10 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Failed to install signal handlers: %m\n");
                 return EXIT_FAILURE;
         }
+
+        r = notify("READY", "1");
+        if (r != EXIT_SUCCESS)
+                return r;
 
         for (;;)
                 pause();
