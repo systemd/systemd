@@ -651,7 +651,8 @@
           argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
           a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
           second path is the destination in the virtual machine. If the source path is not absolute, it is resolved
-          relative to the current working directory. The <option>--bind-ro=</option> option creates read-only bind mounts.
+          relative to the current working directory. The destination path must be absolute and must not contain
+          <literal>..</literal> components. The <option>--bind-ro=</option> option creates read-only bind mounts.
           Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed colons in either path.
           This option may be specified multiple times for creating multiple independent bind mount points.</para>
 
