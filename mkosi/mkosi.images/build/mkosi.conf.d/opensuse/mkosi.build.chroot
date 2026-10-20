@@ -83,6 +83,7 @@ build() {
     CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)" \
     CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
     CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    RUSTFLAGS="$MKOSI_RUSTFLAGS $RUSTFLAGS" \
     rpmbuild \
         -bb \
         --noprep \
