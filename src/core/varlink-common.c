@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "cpu-set-util.h"
 #include "execute.h"
@@ -46,6 +47,30 @@ int varlink_reply_bus_error(sd_varlink *link, int r, const sd_bus_error *e) {
         if (error_id)
                 return sd_varlink_error(link, error_id, NULL);
         return sd_varlink_error_errno(link, r);
+}
+
+void varlink_propagate_bad_field(const char *bad_field, const char *child_bad_field, char **reterr_bad_field) {
+        assert(bad_field);
+
+        if (!reterr_bad_field)
+                return;
+
+        char *bad_field_path = child_bad_field ?
+                strjoin(bad_field, ".", child_bad_field) :
+                strdup(bad_field);
+
+        free_and_replace(*reterr_bad_field, bad_field_path);
+}
+
+int varlink_propagate_bad_field_errno(int errnum, const char *bad_field, const char *child_bad_field, char **reterr_bad_field) {
+        assert(errnum < 0);
+
+        /* don't allocate more mem if ENOMEM */
+        if (errnum == -ENOMEM)
+                return errnum;
+
+        varlink_propagate_bad_field(bad_field, child_bad_field, reterr_bad_field);
+        return errnum;
 }
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
