@@ -1622,8 +1622,7 @@ static int split_boot_parameters(void) {
                         return log_oom();
         }
 
-        strv_free_and_replace(arg_parameters, kept);
-        return 0;
+        return strv_free_and_replace(arg_parameters, kept);
 }
 
 static int verify_network_interfaces_initialized(void) {

@@ -388,8 +388,6 @@ static int acquire_lookup_dirs(
 }
 
 static int patch_root_prefix(char **p, const char *root_dir) {
-        char *c;
-
         assert(p);
 
         if (!root_dir)
@@ -398,12 +396,11 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         if (!*p)
                 return 0;
 
-        c = path_join(root_dir, *p);
+        char *c = path_join(root_dir, *p);
         if (!c)
                 return -ENOMEM;
 
-        free_and_replace(*p, c);
-        return 0;
+        return free_and_replace(*p, c);
 }
 
 static int patch_root_prefix_strv(char **l, const char *root_dir) {
