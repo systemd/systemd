@@ -3065,17 +3065,19 @@ if spatch.found()
         endforeach
 endif
 
-symbol_analysis_exes = []
-foreach name, exe : executables_by_name
-        symbol_analysis_exes += exe
-endforeach
+if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
+        symbol_analysis_exes = []
+        foreach name, exe : executables_by_name
+                symbol_analysis_exes += exe
+        endforeach
 
-test(
-        'libshared-unused-symbols',
-        find_unused_library_symbols_py,
-        suite : 'unused-symbols',
-        args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
-)
+        test(
+                'libshared-unused-symbols',
+                find_unused_library_symbols_py,
+                suite : 'unused-symbols',
+                args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
+        )
+endif
 
 run_target(
         'check-api-docs',
