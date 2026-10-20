@@ -1914,7 +1914,6 @@ static int make_partition_table(
         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ char *disk_uuid_as_string = NULL;
         uint64_t offset, size, first_lba, start, last_lba, end, fdisk_sector_size;
         sd_id128_t disk_uuid;
         int r;
@@ -1997,13 +1996,9 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
 
-        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_as_string);
+        r = fdisk_get_disklabel_id_as_id128(c, &disk_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine disk label UUID: %m");
-
-        r = sd_id128_from_string(disk_uuid_as_string, &disk_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse disk label UUID: %m");
 
         r = sym_fdisk_get_partition(c, 0, &q);
         if (r < 0)
@@ -2788,7 +2783,6 @@ static int prepare_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
-        _cleanup_free_ char *disk_uuid_as_string = NULL;
         struct fdisk_partition *found = NULL;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -2819,13 +2813,9 @@ static int prepare_resize_partition(
         if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "Disk has no GPT partition table.");
 
-        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_as_string);
+        r = fdisk_get_disklabel_id_as_id128(c, &disk_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire disk UUID: %m");
-
-        r = sd_id128_from_string(disk_uuid_as_string, &disk_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse disk UUID: %m");
 
         r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
@@ -2905,28 +2895,6 @@ static int get_maximum_partition_size(
         return 1;
 }
 
-static int ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *userdata) {
-        char *result;
-
-        assert(c);
-
-        switch (sym_fdisk_ask_get_type(ask)) {
-
-        case FDISK_ASKTYPE_STRING:
-                result = new(char, 37);
-                if (!result)
-                        return log_oom();
-
-                sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) userdata, result));
-                break;
-
-        default:
-                log_debug("Unexpected question from libfdisk, ignoring.");
-        }
-
-        return 0;
-}
-
 static int apply_resize_partition(
                 int fd,
                 sd_id128_t disk_uuids,
@@ -2971,11 +2939,7 @@ static int apply_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to apply partition table: %m");
 
-        r = sym_fdisk_set_ask(c, ask_cb, &disk_uuids);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set libfdisk query function: %m");
-
-        r = sym_fdisk_set_disklabel_id(c);
+        r = fdisk_set_disklabel_id_as_id128(c, disk_uuids);
         if (r < 0)
                 return log_error_errno(r, "Failed to change disklabel ID: %m");
 
