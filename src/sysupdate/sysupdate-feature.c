@@ -10,6 +10,7 @@
 #include "hash-funcs.h"
 #include "json-util.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-config.h"
@@ -191,5 +192,5 @@ int feature_is_suggested(const Feature *f) {
         if (!f->suggest_on) /* no condition → false */
                 return false;
 
-        return condition_test_list(f->suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return condition_test_list(f->suggest_on, environ, RUNTIME_SCOPE_SYSTEM, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }
