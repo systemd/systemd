@@ -14,6 +14,12 @@ typedef enum KernelImageType {
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType);
 
+int inspect_kernel_fd(
+                int fd,
+                KernelImageType *ret_type,
+                char **ret_cmdline,
+                char **ret_uname,
+                char **ret_pretty_name);
 int inspect_kernel_full(
                 int dir_fd,
                 const char *filename,

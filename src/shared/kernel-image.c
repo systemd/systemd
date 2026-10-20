@@ -124,9 +124,8 @@ static int inspect_uki(
         return 0;
 }
 
-int inspect_kernel_full(
-                int dir_fd,
-                const char *filename,
+int inspect_kernel_fd(
+                int fd,
                 KernelImageType *ret_type,
                 char **ret_cmdline,
                 char **ret_uname,
@@ -135,20 +134,15 @@ int inspect_kernel_full(
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         KernelImageType t = KERNEL_IMAGE_TYPE_UNKNOWN;
         _cleanup_free_ PeHeader *pe_header = NULL;
-        _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(wildcard_fd_is_valid(dir_fd));
-
-        fd = xopenat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return log_debug_errno(fd, "Failed to open kernel image file '%s': %m", strna(filename));
+        assert(fd >= 0);
 
         r = pe_load_headers_and_sections(fd, &pe_header, &sections);
         if (r == -EBADMSG) /* not a valid PE file */
                 goto not_uki;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse kernel image file '%s': %m", strna(filename));
+                return log_debug_errno(r, "Failed to parse kernel image file: %m");
 
         if (pe_is_uki(pe_header, sections)) {
                 r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name);
@@ -183,6 +177,25 @@ done:
                 *ret_type = t;
 
         return 0;
+}
+
+int inspect_kernel_full(
+                int dir_fd,
+                const char *filename,
+                KernelImageType *ret_type,
+                char **ret_cmdline,
+                char **ret_uname,
+                char **ret_pretty_name) {
+
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(wildcard_fd_is_valid(dir_fd));
+
+        fd = xopenat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open kernel image file '%s': %m", strna(filename));
+
+        return inspect_kernel_fd(fd, ret_type, ret_cmdline, ret_uname, ret_pretty_name);
 }
 
 /* ZBOOT header layout — see linux/drivers/firmware/efi/libstub/zboot-header.S */
