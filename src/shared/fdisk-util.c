@@ -218,21 +218,20 @@ int fdisk_get_disklabel_id_as_id128(struct fdisk_context *c, sd_id128_t *ret) {
 }
 
 static int disklabel_id_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
-        _cleanup_free_ char *ids = NULL;
+        const sd_id128_t *id128p = ASSERT_PTR(data);
         int r;
 
         assert(ask);
-        assert(data);
 
         /* The only question libfdisk asks from fdisk_set_disklabel_id() is the new UUID string */
         if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
                 return -EINVAL;
 
-        ids = new(char, SD_ID128_UUID_STRING_MAX);
+        _cleanup_free_ char *ids = new(char, SD_ID128_UUID_STRING_MAX);
         if (!ids)
                 return -ENOMEM;
 
-        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
+        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*id128p, ids));
         if (r < 0)
                 return r;
 
