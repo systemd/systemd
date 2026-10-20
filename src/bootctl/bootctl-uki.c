@@ -4,6 +4,8 @@
 
 #include "alloc-util.h"
 #include "bootctl-uki.h"
+#include "data-fd-util.h"
+#include "fd-util.h"
 #include "kernel-image.h"
 #include "log.h"
 
@@ -11,7 +13,11 @@ int verb_kernel_identify(int argc, char *argv[], uintptr_t _data, void *userdata
         KernelImageType t;
         int r;
 
-        r = inspect_kernel(AT_FDCWD, argv[1], &t);
+        _cleanup_close_ int fd = open_seekable_data_fd(argv[1]);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open '%s': %m", argv[1]);
+
+        r = inspect_kernel(fd, /* filename= */ NULL, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to inspect '%s': %m", argv[1]);
 
@@ -24,7 +30,11 @@ int verb_kernel_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
         KernelImageType t;
         int r;
 
-        r = inspect_kernel_full(AT_FDCWD, argv[1], &t, &cmdline, &uname, &pname);
+        _cleanup_close_ int fd = open_seekable_data_fd(argv[1]);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open '%s': %m", argv[1]);
+
+        r = inspect_kernel_full(fd, /* filename= */ NULL, &t, &cmdline, &uname, &pname);
         if (r < 0)
                 return log_error_errno(r, "Failed to inspect '%s': %m", argv[1]);
 

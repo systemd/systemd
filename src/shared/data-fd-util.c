@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -134,6 +135,27 @@ finish:
          * file again */
 
         return fd_reopen(tmp_fd, O_RDONLY|O_CLOEXEC);
+}
+
+int open_seekable_data_fd(const char *path) {
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+
+        assert(path);
+
+        fd = open(path, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* Pipes cannot be read with pread(), and files in /proc/ and /sys/ report a size of zero even though
+         * they contain data. Callers use the size from fstat() to know how much to read. */
+        if (S_ISREG(st.st_mode) && st.st_size > 0)
+                return TAKE_FD(fd);
+
+        return copy_data_fd(fd);
 }
 
 int memfd_clone_fd(int fd, const char *name, int mode) {
