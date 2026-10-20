@@ -5,6 +5,7 @@
 #include "timesyncd-forward.h"
 
 /* NTP protocol, packet header */
+#define DEFAULT_NTP_PORT                123
 #define NTP_LEAP_PLUSSEC                1
 #define NTP_LEAP_MINUSSEC               2
 #define NTP_LEAP_NOTINSYNC              3
