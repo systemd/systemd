@@ -481,12 +481,12 @@ TEST(config_parse_bind_paths) {
                 set_log_syntax_callback(count_syntax_warnings, &n_syntax_warnings);
                 ASSERT_OK(config_parse_bind_paths(NULL, "fake", 1, "section", 1,
                                                   "BindReadOnlyPaths", 0,
-                                                  "  /usr/bin  /usr/lib     /lib64   ",
+                                                  "  /usr/bin  /usr/lib     /lib64   '/foo bar'  /bar\\ baz   ",
                                                   &c, u));
         }
 
         ASSERT_EQ(n_syntax_warnings, 0U);
-        ASSERT_EQ(c.n_bind_mounts, 3U);
+        ASSERT_EQ(c.n_bind_mounts, 5U);
 
         ASSERT_STREQ(c.bind_mounts[0].source, "/usr/bin");
         ASSERT_STREQ(c.bind_mounts[0].destination, "/usr/bin");
@@ -505,6 +505,18 @@ TEST(config_parse_bind_paths) {
         ASSERT_TRUE(c.bind_mounts[2].read_only);
         ASSERT_TRUE(c.bind_mounts[2].recursive);
         ASSERT_FALSE(c.bind_mounts[2].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[3].source, "/foo bar");
+        ASSERT_STREQ(c.bind_mounts[3].destination, "/foo bar");
+        ASSERT_TRUE(c.bind_mounts[3].read_only);
+        ASSERT_TRUE(c.bind_mounts[3].recursive);
+        ASSERT_FALSE(c.bind_mounts[3].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[4].source, "/bar baz");
+        ASSERT_STREQ(c.bind_mounts[4].destination, "/bar baz");
+        ASSERT_TRUE(c.bind_mounts[4].read_only);
+        ASSERT_TRUE(c.bind_mounts[4].recursive);
+        ASSERT_FALSE(c.bind_mounts[4].ignore_enoent);
 
         exec_context_done(&c);
 }
