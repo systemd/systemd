@@ -8,5 +8,5 @@ int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void
 
 typedef struct TransientCGroupContextParameters TransientCGroupContextParameters;
 TransientCGroupContextParameters* transient_cgroup_context_parameters_free(TransientCGroupContextParameters *p);
-int transient_cgroup_context_dispatch(sd_json_variant *variant, TransientCGroupContextParameters **ret, const char **reterr_field);
-int transient_cgroup_context_apply_properties(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p, const char **reterr_field);
+int transient_cgroup_context_dispatch(sd_json_variant *variant, TransientCGroupContextParameters **ret, char **reterr_bad_field);
+int transient_cgroup_context_apply_properties(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p, char **reterr_bad_field);
