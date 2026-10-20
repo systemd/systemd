@@ -5,7 +5,8 @@ SUBSYSTEM!="block", GOTO="block_hwdb_end"
 ENV{DEVTYPE}!="disk", GOTO="block_hwdb_end"
 
 # 60-persistent-storage.rules sets ID_MODEL and ID_REVISION, so this file must
-# sort after it. 90-iocost.rules builds the same lookup key.
+# sort after it. 90-iocost.rules uses the IOCOST_SOLUTIONS property that this
+# file imports from the hwdb.
 ENV{.MODEL}=""
 ENV{ID_MODEL}!="", ENV{.MODEL}="$env{ID_MODEL}"
 ENV{ID_MODEL_FROM_DATABASE}!="", ENV{.MODEL}="$env{ID_MODEL_FROM_DATABASE}"
