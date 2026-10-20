@@ -2023,7 +2023,8 @@ static int pinned_reply_fiber(void *userdata) {
         _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
         static const char msg[] = "Hello!";
         char buf[64] = {};
-        sd_json_variant *p;
+        sd_json_variant *p, *j;
+        const char *error_id;
         int n_invoked = 0, r;
         ssize_t n;
 
@@ -2041,6 +2042,16 @@ static int pinned_reply_fiber(void *userdata) {
         ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_observe));
         ASSERT_OK(sd_varlink_observe(c, "io.test.DoSomethingMore", p));
         process_pinned(c, &t->n, 6);
+
+        /* sd_varlink_collect() drops the pinned reply too, hence pass parameters owned by it here as well */
+        p = call_pinned(c);
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_collect(c, "io.test.DoSomethingMore", p, &j, &error_id));
+        ASSERT_NULL(error_id);
+        ASSERT_EQ(sd_json_variant_elements(j), 6U);
+        for (size_t i = 0; i < 6; i++)
+                ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(sd_json_variant_by_index(j, i), "sum")),
+                          (int64_t) (1 + 2 * i));
 
         /* Pipeline another call after each processing step until the first reply is dispatched. Parsing
          * and dispatching a reply are separate steps, hence one of these calls is made while the first

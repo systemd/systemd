@@ -2404,10 +2404,6 @@ _public_ int sd_varlink_collect_full(
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
 
-        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, so
-         * that we can assign a new reply shortly. */
-        varlink_clear_current(v);
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR_STRING("method", method),
@@ -2415,6 +2411,11 @@ _public_ int sd_varlink_collect_full(
                         SD_JSON_BUILD_PAIR_BOOLEAN("more", true));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, so
+         * that we can assign a new reply shortly. Not any earlier though, as the method call parameters
+         * might be owned by it. */
+        varlink_clear_current(v);
 
         r = varlink_enqueue(v, m);
         if (r < 0)
