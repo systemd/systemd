@@ -1021,6 +1021,7 @@ struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        const char *pam_name;
         /* Absolute-path strings: must validate via path_is_absolute(). */
         const char *ipc_namespace_path;
         const char *network_namespace_path;
@@ -1370,6 +1371,7 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
 
 static DEFINE_APPLY_EXEC(user,                   "User",                 varlink_apply_string_escaped);
 static DEFINE_APPLY_EXEC(group,                  "Group",                varlink_apply_string_escaped);
+static DEFINE_APPLY_EXEC(pam_name,               "PAMName",              varlink_apply_string_escaped);
 static DEFINE_APPLY_EXEC(ipc_namespace_path,     "IPCNamespacePath",     varlink_apply_absolute_path);
 static DEFINE_APPLY_EXEC(network_namespace_path, "NetworkNamespacePath", varlink_apply_absolute_path);
 static DEFINE_APPLY_EXEC(root_directory,         "RootDirectory",        varlink_apply_absolute_path);
@@ -1555,6 +1557,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
         EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
+        EXEC_PROPERTY_STRING       ("PAMName",                pam_name, json_dispatch_const_filename, 0),
         EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
         EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
         EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
