@@ -10,6 +10,7 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
+#include "runtime-scope.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -88,7 +89,7 @@ int component_is_suggested(const Component *c) {
         if (!c->suggest_on) /* no condition → false */
                 return false;
 
-        return condition_test_list(c->suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return condition_test_list(c->suggest_on, environ, RUNTIME_SCOPE_SYSTEM, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }
 
 static const char* const component_success_action_table[_COMPONENT_SUCCESS_ACTION_MAX] = {

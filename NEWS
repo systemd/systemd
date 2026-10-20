@@ -85,6 +85,19 @@ CHANGES WITH 263 in spe:
           images, or set $SYSTEMD_DISSECT_VALIDATEFS=0 when using them to
           restore the previous behaviour.
 
+        * ConditionCredential= and AssertCredential= now also search the
+          credential store directories (/etc/credstore/, /run/credstore/,
+          /usr/lib/credstore/, their .encrypted counterparts, and the XDG
+          counterparts for the per-user service manager), the same way
+          ImportCredential= does. Previously they only checked the credentials
+          passed into the service manager itself. This makes credentials
+          imported by e.g. "systemd-imds --import" usable for conditionalizing
+          units. Units with such conditions may now start (or, with "!", be
+          skipped) because of credential store entries that were not intended
+          as per-boot switches. The same applies to SuggestOnCredential= in
+          systemd-sysupdate. The Credential= match in .network, .netdev, and
+          .link files is unchanged.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
