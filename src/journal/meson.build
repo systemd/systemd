@@ -36,9 +36,17 @@ systemd_journald_export_sources += journald_gperf_c
 generate_audit_type_list = files('generate-audit_type-list.sh')
 generate_audit_type_command = [env, 'bash', generate_audit_type_list, cpp]
 if libaudit.found()
+        # With the freedesktop.org sysroot rules (e.g. PKG_CONFIG_FDO_SYSROOT_RULES=1, as set by
+        # OpenEmbedded), pkg-config does not prepend the sysroot to variables. Do it ourselves.
+        libaudit_includedir = libaudit.get_variable('includedir')
+        libaudit_sysroot = libaudit.get_variable(pkgconfig : 'pc_sysrootdir', default_value : '')
+        if libaudit_sysroot != '' and not libaudit_includedir.startswith(libaudit_sysroot + '/')
+                libaudit_includedir = libaudit_sysroot + libaudit_includedir
+        endif
+
         generate_audit_type_command += [
                 '-include', 'libaudit.h',
-                '-I' + libaudit.get_variable('includedir'),
+                '-I' + libaudit_includedir,
         ]
 endif
 generate_audit_type_command += system_include_args
