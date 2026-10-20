@@ -218,8 +218,7 @@ static int determine_banks(Tpm2Context *c, uint32_t target_pcr_mask) {
         if (r < 0)
                 return log_error_errno(r, "Could not verify pcr banks: %m");
 
-        strv_free_and_replace(arg_banks, l);
-        return 0;
+        return strv_free_and_replace(arg_banks, l);
 }
 
 static int escape_and_truncate_data(const struct iovec *data, char **ret) {
