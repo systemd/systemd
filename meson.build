@@ -3001,13 +3001,19 @@ if meson.version().version_compare('>=1.4.0')
                         inputs += header
                 endif
 
+                suites = ['clang-tidy']
+                parts = fs.relative_to(source.full_path(), meson.project_source_root()).split('/')
+                if parts.length() > 2 and parts[0] == 'src'
+                        suites += 'clang-tidy-@0@'.format(parts[1])
+                endif
+
                 foreach input : inputs
                         if clang_tidy.found()
                                 test(
                                         'clang-tidy-@0@'.format(fs.name(input)),
                                         clang_tidy,
                                         args : ['-p', meson.project_build_root(), input],
-                                        suite : 'clang-tidy',
+                                        suite : suites,
                                         depends : generated_sources,
                                 )
                         endif
