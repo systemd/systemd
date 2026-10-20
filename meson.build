@@ -3001,13 +3001,27 @@ if meson.version().version_compare('>=1.4.0')
                         inputs += header
                 endif
 
+                # Generated sources are in the build directory, which is often build/ below the
+                # source directory. Relative to the source directory, the path of a generated
+                # source starts with build/ instead of src/ and gets no clang-tidy-<directory> suite.
+                root = meson.project_source_root()
+                if source.full_path().startswith(meson.project_build_root() + '/')
+                        root = meson.project_build_root()
+                endif
+
+                suites = ['clang-tidy']
+                parts = fs.relative_to(source.full_path(), root).split('/')
+                if parts.length() > 2 and parts[0] == 'src'
+                        suites += 'clang-tidy-@0@'.format(parts[1])
+                endif
+
                 foreach input : inputs
                         if clang_tidy.found()
                                 test(
                                         'clang-tidy-@0@'.format(fs.name(input)),
                                         clang_tidy,
                                         args : ['-p', meson.project_build_root(), input],
-                                        suite : 'clang-tidy',
+                                        suite : suites,
                                         depends : generated_sources,
                                 )
                         endif
