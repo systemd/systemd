@@ -352,10 +352,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
         if (r < 0)
                 return r;
 
-        r = pull_job_set_accept(
-                        j,
-                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json",
-                                  "application/vnd.docker.distribution.manifest.v2+json"));
+        r = pull_job_set_accept(j, STRV_MAKE(OCI_MEDIA_TYPES_MANIFEST));
         if (r < 0)
                 return r;
 
@@ -1586,12 +1583,8 @@ int oci_pull_start(
         }
 
         /* Accept both OCI and Docker formats */
-        r = pull_job_set_accept(
-                        i->manifest_job,
-                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json",
-                                  "application/vnd.oci.image.index.v1+json",
-                                  "application/vnd.docker.distribution.manifest.v2+json",
-                                  "application/vnd.docker.distribution.manifest.list.v2+json"));
+        r = pull_job_set_accept(i->manifest_job,
+                                STRV_MAKE(OCI_MEDIA_TYPES_INDEX, OCI_MEDIA_TYPES_MANIFEST));
         if (r < 0)
                 return r;
 
