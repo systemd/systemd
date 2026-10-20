@@ -217,6 +217,15 @@
           upper limit. The number of hotplug slots can optionally be specified after a second colon
           and defaults to 1.</para>
 
+          <para>Unless confidential computing is enabled, a virtio-balloon device is attached to the
+          virtual machine. Free page reporting is enabled on it, so memory the guest frees is returned
+          to the host. The guest's memory may be shrunk and grown again at runtime, up to the configured size, via the
+          <function>SetMemory()</function> method of the <literal>io.systemd.MachineInstance</literal> Varlink
+          interface on the machine's control socket. <function>Describe()</function> reports the requested and the
+          current size. Resizing is asynchronous, the guest may follow only partially, and it is permitted to deflate
+          the balloon on its own when it runs out of memory. The requested size persists across guest reboots: a
+          freshly booted guest inflates its balloon to it again.</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
