@@ -188,6 +188,8 @@ static int run(int argc, char * argv[]) {
         };
         int r;
 
+        log_setup();
+
         r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
         if (r <= 0)
                 return r;
