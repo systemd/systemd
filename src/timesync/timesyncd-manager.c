@@ -36,6 +36,7 @@
 #include "resolve-varlink-util.h"
 #include "resolved-def.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -824,7 +825,7 @@ static int manager_resolve_varlink_reply(
                         continue;
                 }
 
-                r = sockaddr_set_in_addr(&sa, entry->family, &entry->in_addr.address, 123);
+                r = sockaddr_set_in_addr(&sa, entry->family, &entry->in_addr.address, m->current_server_name->port);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to convert address for %s, trying next host: %m", m->current_server_name->string);
                         return manager_connect(m);
@@ -888,7 +889,7 @@ static int manager_resolve_varlink(Manager *m) {
         r = sd_varlink_invokebo(
                         link,
                         "io.systemd.Resolve.ResolveHostname",
-                        SD_JSON_BUILD_PAIR_STRING("name", m->current_server_name->string),
+                        SD_JSON_BUILD_PAIR_STRING("name", m->current_server_name->host),
                         SD_JSON_BUILD_PAIR_CONDITION(!socket_ipv6_is_enabled(), "family", SD_JSON_BUILD_INTEGER(AF_INET)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("flags", m->synchronized ? 0 : SD_RESOLVED_NO_VALIDATE));
         if (r < 0)
@@ -1002,13 +1003,17 @@ int manager_connect(Manager *m) {
                  * case it changed. */
                 res_init();
 
+                char port[DECIMAL_STR_MAX(uint16_t)];
+
+                xsprintf(port, "%" PRIu16, m->current_server_name->port);
+
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
                         .ai_socktype = SOCK_DGRAM,
                         .ai_family = socket_ipv6_is_enabled() ? AF_UNSPEC : AF_INET,
                 };
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->host, port, &hints, manager_resolve_handler, NULL, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -1114,26 +1119,30 @@ static bool manager_network_read_link_servers(Manager *m) {
                 n->marked = true;
 
         STRV_FOREACH(i, ntp) {
+                _cleanup_free_ char *host = NULL;
+                uint16_t port;
                 bool found = false;
 
-                r = dns_name_is_valid_or_address(*i);
+                r = server_name_parse(*i, &host, &port);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *i);
+                        if (r == -EINVAL) {
+                                log_error("Invalid NTP server name or address, ignoring: %s", *i);
+                                continue;
+                        }
+
+                        log_error_errno(r, "Failed to parse NTP server name or address '%s': %m", *i);
                         goto clear;
-                } else if (r == 0) {
-                        log_error("Invalid NTP server name or address, ignoring: %s", *i);
-                        continue;
                 }
 
                 LIST_FOREACH(names, n, m->link_servers)
-                        if (streq(n->string, *i)) {
+                        if (streq(n->host, host) && n->port == port) {
                                 n->marked = false;
                                 found = true;
                                 break;
                         }
 
                 if (!found) {
-                        r = server_name_new(m, NULL, SERVER_LINK, *i);
+                        r = server_name_new(m, NULL, SERVER_LINK, host, port);
                         if (r < 0) {
                                 log_oom();
                                 goto clear;
