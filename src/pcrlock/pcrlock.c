@@ -18,9 +18,9 @@
 #include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
-#include "copy.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
@@ -56,7 +56,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "unaligned.h"
@@ -4869,62 +4868,20 @@ static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userda
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
-static int pe_stdin_too_large(void) {
-        return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                               "PE/UKI binary from stdin is larger than the maximum supported size of %s.",
-                               FORMAT_BYTES(PCRLOCK_PE_INPUT_MAX));
-}
-
-static int acquire_stdin_pe_fd(void) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *td;
-        struct stat st;
-        int r;
-
-        if (fstat(STDIN_FILENO, &st) < 0)
-                return log_error_errno(errno, "Failed to stat stdin: %m");
-
-        if (S_ISREG(st.st_mode)) {
-                if ((uint64_t) st.st_size > PCRLOCK_PE_INPUT_MAX)
-                        return pe_stdin_too_large();
-
-                /* Regular stdin is already seekable. Keep it directly to avoid copying large redirected
-                 * PE/UKI files before hashing them. The size check above is a fast-path guard; a file that
-                 * grows concurrently is still hashed stream-wise with bounded memory use. */
-                fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate stdin: %m");
-
-                return TAKE_FD(fd);
-        }
-
-        r = var_tmp_dir(&td);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary directory: %m");
-
-        fd = open_tmpfile_unlinkable(td, O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to create temporary file for PE binary: %m");
-
-        r = copy_bytes(STDIN_FILENO, fd, PCRLOCK_PE_INPUT_MAX + 1, /* copy_flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to copy PE binary from stdin to temporary file: %m");
-        if (r > 0)
-                return pe_stdin_too_large();
-
-        return TAKE_FD(fd);
-}
-
 static int acquire_pe_fd(const char *path) {
-        if (path) {
-                int fd = open(path, O_RDONLY|O_CLOEXEC);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+        int fd;
 
-                return fd;
-        }
+        if (path)
+                fd = open_seekable_data_fd(AT_FDCWD, path, PCRLOCK_PE_INPUT_MAX);
+        else
+                fd = seekable_data_fd(STDIN_FILENO, PCRLOCK_PE_INPUT_MAX);
+        if (fd == -EFBIG)
+                return log_error_errno(fd, "PE/UKI binary %s is larger than the maximum supported size of %s.",
+                                       path ?: "from stdin", FORMAT_BYTES(PCRLOCK_PE_INPUT_MAX));
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", path ?: "stdin");
 
-        return acquire_stdin_pe_fd();
+        return fd;
 }
 
 VERB(verb_lock_pe, "lock-pe", "[BINARY]\0", VERB_ANY, 2, 0,
