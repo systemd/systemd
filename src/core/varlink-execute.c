@@ -1157,16 +1157,14 @@ static int dispatch_transient_set_credential_array(
                 {}
         };
 
-        TransientSetCredential *items = NULL;
-        size_t n = 0;
+        TransientSetCredential *items;
+        size_t n_items;
         int r;
 
         assert(ret_items);
         assert(ret_n);
 
-        CLEANUP_ARRAY(items, n, transient_set_credential_array_free);
-
-        size_t n_items = sd_json_variant_elements(variant);
+        n_items = sd_json_variant_elements(variant);
         if (n_items == 0) {
                 *ret_items = NULL;
                 *ret_n = 0;
@@ -1177,13 +1175,15 @@ static int dispatch_transient_set_credential_array(
         if (!items)
                 return -ENOMEM;
 
-        for (; n < n_items; n++) {
-                r = sd_json_dispatch(sd_json_variant_by_index(variant, n), item_dispatch, /* flags= */ 0, &items[n]);
+        CLEANUP_ARRAY(items, n_items, transient_set_credential_array_free);
+
+        for (size_t i = 0; i < n_items; i++) {
+                r = sd_json_dispatch(sd_json_variant_by_index(variant, i), item_dispatch, /* flags= */ 0, &items[i]);
                 if (r < 0)
                         return r;
         }
 
-        *ret_n = n;
+        *ret_n = n_items;
         *ret_items = TAKE_PTR(items);
         return 0;
 }
