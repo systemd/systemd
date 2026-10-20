@@ -21,17 +21,22 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-report-basic',
                 'public' : true,
-                'sources' : files(
-                        'report-basic.c',
-                        'report-basic-server.c',
-                ),
+                'sources' : files('report-basic.c'),
+                'export' : files('report-server.c'),
+        },
+        # Compile and link the provider example to keep the documented contract checked;
+        # runtime behavior is covered by integration tests of the actual providers.
+        executable_template + {
+                'name' : 'systemd-report-example',
+                'sources' : files('report-example.c'),
+                'import' : ['systemd-report-basic'],
+                'build_by_default' : want_tests != 'false',
+                'install' : 'no',
         },
         libexec_template + {
                 'name' : 'systemd-report-cgroup',
-                'sources' : files(
-                        'report-cgroup.c',
-                        'report-cgroup-server.c',
-                ),
+                'sources' : files('report-cgroup.c'),
+                'import' : ['systemd-report-basic'],
         },
         libexec_template + {
                 'name' : 'systemd-report-diskhealth',
@@ -39,31 +44,25 @@ executables += [
                         'report-diskhealth.c',
                         'report-diskhealth-ata.c',
                         'report-diskhealth-nvme.c',
-                        'report-diskhealth-server.c',
                 ),
+                'import' : ['systemd-report-basic'],
         },
         libexec_template + {
                 'name' : 'systemd-report-diskspace',
-                'sources' : files(
-                        'report-diskspace.c',
-                        'report-diskspace-server.c',
-                ),
+                'sources' : files('report-diskspace.c'),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : libmount_cflags,
                 'conditions' : ['HAVE_LIBMOUNT'],
         },
         libexec_template + {
                 'name' : 'systemd-report-files',
-                'sources' : files(
-                        'report-files.c',
-                        'report-files-server.c',
-                ),
+                'sources' : files('report-files.c'),
+                'import' : ['systemd-report-basic'],
         },
         libexec_template + {
                 'name' : 'systemd-report-geoip',
-                'sources' : files(
-                        'report-geoip.c',
-                        'report-geoip-server.c',
-                ),
+                'sources' : files('report-geoip.c'),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : [
                         libcurl_cflags,
                 ],
@@ -71,31 +70,25 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-hwmon',
-                'sources' : files(
-                        'report-hwmon.c',
-                        'report-hwmon-server.c',
-                ),
+                'sources' : files('report-hwmon.c'),
+                'import' : ['systemd-report-basic'],
         },
         libexec_template + {
                 'name' : 'systemd-report-netstat',
-                'sources' : files(
-                        'report-netstat.c',
-                        'report-netstat-server.c',
-                ),
+                'sources' : files('report-netstat.c'),
+                'import' : ['systemd-report-basic'],
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-plain',
-                'sources' : files(
-                        'report-sign-plain.c',
-                ),
+                'sources' : files('report-sign-plain.c'),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-tpm2',
-                'sources': files(
-                        'report-sign-tpm2.c',
-                ),
+                'sources' : files('report-sign-tpm2.c'),
+                'import' : ['systemd-report-basic'],
                 'dependencies' : [
                         libopenssl_cflags,
                         tpm2_cflags,
@@ -107,9 +100,8 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-tsm',
-                'sources' : files(
-                        'report-sign-tsm.c',
-                ),
+                'sources' : files('report-sign-tsm.c'),
+                'import' : ['systemd-report-basic'],
         },
 ]
 
