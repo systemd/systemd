@@ -736,8 +736,7 @@ static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_js
                 if (!unit_name_is_valid(*unit, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
 
-        strv_free_and_replace(*dest, units);
-        return 0;
+        return strv_free_and_replace(*dest, units);
 }
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {

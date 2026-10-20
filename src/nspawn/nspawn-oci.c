@@ -874,8 +874,7 @@ static int oci_cgroups_path(const char *name, sd_json_variant *v, sd_json_dispat
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Control group path '%s' does not refer to slice unit, refusing.", p);
 
-        free_and_replace(s->slice, slice);
-        return 0;
+        return free_and_replace(s->slice, slice);
 }
 
 static int oci_cgroup_device_type(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {

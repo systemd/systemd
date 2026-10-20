@@ -1956,8 +1956,7 @@ static int config_parse_label(
                 return 0;
         }
 
-        free_and_replace(*label, resolved);
-        return 0;
+        return free_and_replace(*label, resolved);
 }
 
 static int config_parse_volume_label(
@@ -1995,8 +1994,7 @@ static int config_parse_volume_label(
                 return 0;
         }
 
-        free_and_replace(*label, resolved);
-        return 0;
+        return free_and_replace(*label, resolved);
 }
 
 static int config_parse_weight(
