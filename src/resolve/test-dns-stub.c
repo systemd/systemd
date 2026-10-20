@@ -101,7 +101,7 @@ TEST(patch_bypass_reply_packet_truncated) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
         /* An oversized upstream reply (e.g. received via TCP or from the cache) is proxied back to a UDP
-         * client that advertised a 512 byte EDNS0 payload size.
+         * client that advertised a 512-byte EDNS0 payload size. */
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "org"));
 
