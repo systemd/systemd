@@ -10,6 +10,7 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "unit.h"
+#include "varlink-common.h"
 #include "varlink-scope.h"
 #include "varlink-util.h"
 
@@ -50,6 +51,7 @@ struct TransientScopeParameters {
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_oom_policy, OOMPolicy, oom_policy_from_string);
+static DEFINE_VARLINK_APPLY_ENUM(oom_policy, OOMPolicy, oom_policy_to_string);
 
 TransientScopeParameters* transient_scope_parameters_free(TransientScopeParameters *p) {
         if (!p)
@@ -172,11 +174,8 @@ int transient_scope_apply_properties(
         int r = -EINVAL; /* Scope.PIDs is required! */
 
         if (sp) {
-                if (sp->oom_policy != _OOM_POLICY_INVALID) {
-                        s->oom_policy = sp->oom_policy;
-                        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMPolicy", "OOMPolicy=%s", oom_policy_to_string(sp->oom_policy));
-                }
-
+                varlink_apply_enum_oom_policy(u, "OOMPolicy", &s->oom_policy, sp->oom_policy,
+                                              /* refuse= */ NULL, UNIT_RUNTIME|UNIT_PRIVATE);
                 transient_unit_apply_usec(u, "RuntimeMaxUSec", &s->runtime_max_usec, UNIT_PRIVATE, &sp->runtime_max_usec);
                 transient_unit_apply_usec(u, "RuntimeRandomizedExtraUSec", &s->runtime_rand_extra_usec, UNIT_PRIVATE, &sp->runtime_rand_extra_usec);
                 transient_unit_apply_usec(u, "TimeoutStopUSec", &s->timeout_stop_usec, UNIT_PRIVATE, &sp->timeout_stop_usec);

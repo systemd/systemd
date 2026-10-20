@@ -11,6 +11,34 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * ConfigurationDirectory= passed as a transient-unit property over
+          D-Bus now uses the same directory:symlink:flags parser as the other
+          *Directory= settings, allowing the read-only flag with an empty
+          symlink field. Literal colons need an additional level of escaping
+          in the client value. For example, use the shell-quoted argument
+          --property='ConfigurationDirectory=foo\\:bar' for a directory named
+          foo:bar. Unit file syntax and the signature of the plain D-Bus
+          string array property are unchanged.
+
+        * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
+          CacheDirectory= and LogsDirectory= now reset the corresponding
+          directory list instead of being ignored. ConfigurationDirectory=
+          continues to support resetting the list with an empty assignment.
+
+        * Transient *Directory= drop-ins now escape colons and quotes in
+          paths set through either D-Bus signature, preserving the paths
+          when the unit is reloaded.
+
+        * The *DirectorySymlink D-Bus properties now reject source and
+          destination paths equal to or below private/, which is reserved for
+          DynamicUser= directories. Unit files reject these symlink destinations
+          too, matching the existing restriction on source paths.
+
+        * systemctl show now includes directory flags in *DirectorySymlink
+          values. Read-only entries are shown as source:destination:ro instead
+          of source:destination. Unknown flags are shown numerically so newer
+          manager properties can still be displayed.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
@@ -30,6 +58,32 @@ CHANGES WITH 263 in spe:
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
+
+        * systemd-sysext/systemd-confext now match IMAGE_ID= and
+          IMAGE_VERSION= fields from extension-release files against the host
+          os-release. If an extension declares IMAGE_ID= or IMAGE_VERSION=, the
+          host must declare the same field with a matching value, or the
+          extension is rejected. Previously these fields were ignored during
+          validation and could appear in extension-release files as harmless
+          descriptive metadata. Extensions that set IMAGE_ID= or IMAGE_VERSION=
+          without intending them as host constraints should remove these fields
+          or prefix them with SYSEXT_/CONFEXT_ to describe the extension
+          itself.
+
+        * The file system constraints encoded in the user.validatefs.*
+          extended attributes (as written by systemd-repart's AddValidateFS=
+          setting, which is enabled by default for most file systems) are now
+          also enforced when mounting partitions of disk images, i.e. via
+          systemd-dissect, systemd-nspawn, systemd-sysext, portabled,
+          systemd-mountfsd and RootImage=. Any constraint that is set must be
+          fulfilled: in particular this means that file systems carrying GPT
+          partition label or type constraints may no longer be used as bare
+          file system images without partition table (for example
+          partitions split out of a DDI via systemd-repart --split=yes), and
+          file systems declared for a specific mount point may no longer be
+          used as root file system. Set AddValidateFS=no when building such
+          images, or set $SYSTEMD_DISSECT_VALIDATEFS=0 when using them to
+          restore the previous behaviour.
 
         Changes in systemd-udevd:
 
@@ -71,6 +125,16 @@ CHANGES WITH 263 in spe:
           which are measured into PCR 9, change whenever the UKI changes, so
           this is mostly useful where the value of PCR 11 in the initrd is
           predictable.
+
+        Changes in libsystemd:
+
+        * sd-varlink-idl.h gained SD_VARLINK_EXPERIMENTAL, which may be used
+          to mark Varlink interfaces, methods, errors, types, fields and enum
+          values as experimental, together with _FULL variants of the
+          definition macros that take flags. The marker is informational
+          only, calls are not refused. Experimental items are shown with a
+          "# [Experimental]" comment line in the interface description, which
+          sd_varlink_idl_parse() turns back into the flag.
 
 CHANGES WITH 262:
 

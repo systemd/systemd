@@ -119,10 +119,11 @@ static int fiber_allocate_stack(size_t size, void **ret) {
         assert(size > 0 && size % page_size() == 0);
         assert(ret);
 
+        /* Do not pass -EBADF as fd here, otherwise valgrind fails. */
         stack = mmap(/* addr= */ NULL, size,
                      PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
-                     /* fd= */ -EBADF, /* offset= */ 0);
+                     /* fd= */ -1, /* offset= */ 0);
         if (stack == MAP_FAILED)
                 return -errno;
 

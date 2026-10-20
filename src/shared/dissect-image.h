@@ -18,6 +18,7 @@ typedef struct DissectedPartition {
         int partno;                 /* -1 if there was no partition and the images contains a file system directly */
         Architecture architecture;  /* Intended architecture: either native, secondary or unset ARCHITECTURE_INVALID. */
         sd_id128_t uuid;            /* Partition entry UUID as reported by the GPT */
+        sd_id128_t type_uuid;       /* Partition type UUID as reported by the GPT */
         char *fstype;
         char *node;
         char *label;
@@ -84,13 +85,22 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_TPM2_UNLOCK               = 1 << 30, /* If no passphrase is supplied, try unlocking LUKS partitions via a TPM2 token enrolled in the LUKS2 header */
 } DissectImageFlags;
 
+typedef enum PartitionTableType {
+        PARTITION_GPT,
+        PARTITION_MBR,
+        PARTITION_BARE,            /* No partition table, the image contains a file system directly */
+        _PARTITION_TABLE_TYPE_MAX,
+        _PARTITION_TABLE_TYPE_INVALID = -EINVAL,
+} PartitionTableType;
+
 typedef struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
         bool verity_ready:1;       /* verity available, fully specified and usable */
         bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
-        bool single_file_system:1; /* MBR/GPT or single file system */
+
+        PartitionTableType partition_table_type;
 
         LoopDevice *loop;
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
@@ -146,6 +156,8 @@ typedef struct ExtensionReleaseData {
         char *os_release_version_id;
         char *os_release_sysext_level;
         char *os_release_confext_level;
+        char *os_release_image_id;
+        char *os_release_image_version;
         char *os_release_extension_scope;
 } ExtensionReleaseData;
 
@@ -288,6 +300,7 @@ int mountfsd_mount_image(sd_varlink *vl, const char *path, int userns_fd, const 
 int mountfsd_mount_directory_fd(sd_varlink *vl, int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 int mountfsd_mount_directory(sd_varlink *vl, const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 
+int mkdir_foreign_at_full(int parent_fd, const char *name, mode_t mode, XOpenFlags xopen_flags, int *ret_directory_fd);
 int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd);
 int mkdir_foreign(const char *path, mode_t mode, int *ret_directory_fd);
 

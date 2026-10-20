@@ -49,7 +49,7 @@ hwdb_files_test = files(
 if conf.get('ENABLE_HWDB') == 1
         auto_suspend_rules = custom_target(
                 output : '60-autosuspend-chromiumos.hwdb',
-                command : make_autosuspend_rules_py,
+                command : [python, make_autosuspend_rules_py],
                 capture : true,
                 install : true,
                 install_dir: udevhwdbdir,

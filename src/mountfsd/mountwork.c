@@ -773,7 +773,7 @@ static int vl_method_mount_image(
         return sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->single_file_system),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->partition_table_type == PARTITION_BARE),
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
@@ -1330,9 +1330,9 @@ static int vl_method_make_directory(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
-                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
-                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT    },
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY                },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT                   },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };

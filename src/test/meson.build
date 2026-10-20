@@ -28,26 +28,28 @@ endif
 generate_sym_test_py = files('generate-sym-test.py')
 
 test_libsystemd_sym_c = custom_target(
-        input : [libsystemd_sym_path,
+        input : [libsystemd_sym,
                  systemd_headers,
                  libsystemd_sources],
         output : 'test-libsystemd-sym.c',
-        command : [generate_sym_test_py,
-                   libsystemd_sym_path,
-                   libsystemd_dir_path,
+        command : [python,
+                   generate_sym_test_py,
+                   '@INPUT0@',
+                   relative_source_path / 'src/libsystemd',
                    systemd_headers],
         capture : true,
         build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
-        input : [libudev_sym_path,
-                 libudev_h_path,
+        input : [libudev_sym,
+                 libudev_h,
                  libudev_sources],
         output : 'test-libudev-sym.c',
-        command : [generate_sym_test_py,
-                   libudev_sym_path,
-                   libudev_dir_path,
-                   libudev_h_path],
+        command : [python,
+                   generate_sym_test_py,
+                   '@INPUT0@',
+                   relative_source_path / 'src/libudev',
+                   '@INPUT1@'],
         capture : true,
         build_by_default : want_tests != 'false')
 
@@ -232,6 +234,7 @@ simple_tests += files(
         'test-user-record-nss.c',
         'test-user-util.c',
         'test-utf8.c',
+        'test-validatefs-util.c',
         'test-verbs.c',
         'test-vpick.c',
         'test-web-util.c',
@@ -503,7 +506,7 @@ executables += [
         test_template + {
                 'sources' : files('test-sbat.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
-                'c_args' : f'-I@efi_config_h_dir@',
+                'c_args' : '-Isrc/boot',
         },
         test_template + {
                 'sources' : files('test-seccomp.c'),
@@ -631,6 +634,9 @@ executables += [
         core_test_template + {
                 'sources' : files('test-engine.c'),
                 'dependencies' : common_test_dependencies,
+        },
+        core_test_template + {
+                'sources' : files('test-exec-directory.c'),
         },
         core_test_template + {
                 'sources' : files('test-execute.c'),

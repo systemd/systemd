@@ -4,6 +4,9 @@ set -eux
 set -o pipefail
 shopt -s nullglob
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
@@ -183,6 +186,79 @@ netstat_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Network
 
 "$REPORT" describe io.systemd.NetworkStatistics
 "$REPORT" metrics io.systemd.NetworkStatistics
+
+# test io.systemd.DiskHealth Metrics
+diskhealth_tests() {
+    # The disk health socket is conditioned out in containers, since disks belong to the host
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping io.systemd.DiskHealth tests in container."
+        return 0
+    fi
+
+    systemctl start systemd-report-diskhealth.socket
+    varlinkctl info /run/systemd/report/io.systemd.DiskHealth
+    varlinkctl list-methods /run/systemd/report/io.systemd.DiskHealth
+    diskhealth_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.Describe {})"
+    diskhealth_type() { echo "$diskhealth_describe" | jq --seq -r --arg n "io.systemd.DiskHealth.$1" 'select(.name == $n) | .type'; }
+    for name in ATAReallocatedSectors DiskPowerCycles DiskPowerOnHours NVMeMediaErrors; do
+        [[ "$(diskhealth_type "$name")" == counter ]]
+    done
+    for name in ATAOfflineUncorrectable ATAPendingSectors ATASmartStatusFailing DiskLogicalSectorSizeBytes DiskPhysicalSectorSizeBytes DiskSizeBytes \
+                NVMeAvailableSparePercent NVMeCriticalWarning NVMePercentageUsed; do
+        [[ "$(diskhealth_type "$name")" == gauge ]]
+    done
+    for name in DiskModel DiskSerial DiskVendor; do
+        [[ "$(diskhealth_type "$name")" == string ]]
+    done
+
+    diskhealth_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {})"
+    diskhealth_value() { echo "$diskhealth_metrics" | jq --seq -r --arg n "io.systemd.DiskHealth.$1" --arg o "$2" 'select(.name == $n and .object == $o) | .value | tostring'; }
+
+    # Every whole hardware disk with a medium must be reported, with the numbers from sysfs and the strings
+    # from the udev database, and nothing else may be reported.
+    diskhealth_expected=""
+    for dev in /sys/block/*; do
+        devpath="$(udevadm info --query=property --value --property=DEVPATH "$dev" || :)"
+        devname="$(udevadm info --query=property --value --property=DEVNAME "$dev" || :)"
+        initialized="$(udevadm info --query=property --value --property=USEC_INITIALIZED "$dev" || :)"
+        # Hidden NVMe multipath path devices have no device node, and devices not (yet) in the udev database
+        # are skipped by the service
+        [[ -n "$devpath" && -n "$devname" && -n "$initialized" ]] || continue
+        [[ "$devpath" =~ ^/devices/virtual/ && ! "$devpath" =~ ^/devices/virtual/nvme-subsystem/ ]] && continue
+        [[ "$(cat "$dev/size")" -gt 0 ]] || continue
+        diskhealth_expected+="$devname"$'\n'
+
+        [[ "$(diskhealth_value DiskSizeBytes "$devname")" == "$(( $(cat "$dev/size") * 512 ))" ]]
+        [[ "$(diskhealth_value DiskLogicalSectorSizeBytes "$devname")" == "$(cat "$dev/queue/logical_block_size")" ]]
+        [[ "$(diskhealth_value DiskPhysicalSectorSizeBytes "$devname")" == "$(cat "$dev/queue/physical_block_size")" ]]
+
+        model="$(udevadm info --query=property --value --property=ID_MODEL_FROM_DATABASE "$dev")"
+        [[ -n "$model" ]] || model="$(udevadm info --query=property --value --property=ID_MODEL "$dev")"
+        if [[ -n "$model" ]]; then
+            [[ "$(diskhealth_value DiskModel "$devname")" == "$model" ]]
+        fi
+
+        vendor="$(udevadm info --query=property --value --property=ID_VENDOR_FROM_DATABASE "$dev")"
+        [[ -n "$vendor" ]] || vendor="$(udevadm info --query=property --value --property=ID_VENDOR "$dev")"
+        if [[ -n "$vendor" ]]; then
+            [[ "$(diskhealth_value DiskVendor "$devname")" == "$vendor" ]]
+        fi
+
+        serial="$(udevadm info --query=property --value --property=ID_SERIAL_SHORT "$dev")"
+        [[ -n "$serial" ]] || serial="$(udevadm info --query=property --value --property=ID_SERIAL "$dev")"
+        if [[ -n "$serial" ]]; then
+            [[ "$(diskhealth_value DiskSerial "$devname")" == "$serial" ]]
+        else
+            [[ -z "$(diskhealth_value DiskSerial "$devname")" ]]
+        fi
+    done
+    diff <(echo -n "$diskhealth_expected" | sort) <(echo "$diskhealth_metrics" | jq --seq -r '.object' | sort -u)
+
+    "$REPORT" describe io.systemd.DiskHealth
+    "$REPORT" metrics io.systemd.DiskHealth
+}
+
+diskhealth_tests
 
 # test io.systemd.DiskSpace Metrics
 
@@ -466,6 +542,11 @@ for phase in GeneratorsStartTimestamp GeneratorsFinishTimestamp \
     [ "$(metric_value "$phase.Monotonic")" -gt 0 ]
 done
 
+# The sub_state field on UnitActiveState is what tells a running unit from one that stayed active after exiting
+unit_sub_state() { echo "$manager_metrics" | jq --seq -r --arg u "$1" 'select(.name == "io.systemd.Manager.UnitActiveState" and .object == $u) | .fields.sub_state'; }
+[ "$(unit_sub_state init.scope)" = running ]
+[ "$(unit_sub_state systemd-tmpfiles-setup.service)" = exited ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
@@ -595,6 +676,128 @@ files_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io
 rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
 rm -f /run/systemd/report.files/maskedfile /var/lib/systemd/report.files/maskedfile /var/lib/systemd/report.files/dirshadowed
 rmdir /run/systemd/report.files/dirshadowed
+
+# -----------------------------------------------------------------------------
+# Test the systemd-report-geoip@.service metric provider: the geolocation data
+# is downloaded from the configured endpoint (our fake server here), cached, and
+# exposed as io.systemd.GeoIP.* metrics. The provider is only built with libcurl
+# support, so skip if unavailable.
+geoip_cleanup() {
+    set +e
+    systemctl stop systemd-report-geoip.socket fake-geoip-server fake-geoip-server-bogus
+    rm -rf /run/systemd/report-geoip.conf.d
+    rm -f /var/lib/systemd/report-geoip/cache.json
+    set -e
+}
+
+testcase_geoip() {
+    local geoip_metrics geoip_describe family
+
+    if ! systemctl cat systemd-report-geoip.socket &>/dev/null; then
+        echo "systemd-report-geoip.socket is not installed, skipping geoip metrics test."
+        return 0
+    fi
+
+    trap geoip_cleanup RETURN
+
+    systemd-run -p Type=notify --unit=fake-geoip-server "$FAKE_SERVER" --port=8092
+
+    mkdir -p /run/systemd/report-geoip.conf.d
+    cat >/run/systemd/report-geoip.conf.d/99-test.conf <<EOF
+[GeoIP]
+Endpoint=http://localhost:8092/json/
+RefreshSec=1h
+EOF
+    rm -f /var/lib/systemd/report-geoip/cache.json
+
+    systemctl start systemd-report-geoip.socket
+    varlinkctl info /run/systemd/report/io.systemd.GeoIP
+    varlinkctl list-methods /run/systemd/report/io.systemd.GeoIP
+
+    geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
+    geoip_value() { echo "$geoip_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
+    # Numbers are emitted in exponent notation with full precision, and jq preserves (and compares) the
+    # literal, so compare them numerically with a tolerance rather than textually.
+    geoip_number_is() { echo "$geoip_metrics" | jq --seq -r "select(.name == \"$1\") | (.value - $2 | fabs) < 1e-9 | tostring" | grep -wx true >/dev/null; }
+
+    # The address must be reported in normalized form, not as the server sent it.
+    [ "$(geoip_value io.systemd.GeoIP.PublicAddress)" = "2001:db8::1" ]
+    [ "$(geoip_value io.systemd.GeoIP.ASN)" = "AS3320" ]
+    [ "$(geoip_value io.systemd.GeoIP.ASName)" = "Deutsche Telekom AG" ]
+    [ "$(geoip_value io.systemd.GeoIP.ASDomain)" = "telekom.de" ]
+    [ "$(geoip_value io.systemd.GeoIP.ContinentCode)" = "EU" ]
+    [ "$(geoip_value io.systemd.GeoIP.ContinentName)" = "Europe" ]
+    [ "$(geoip_value io.systemd.GeoIP.CountryCode)" = "DE" ]
+    [ "$(geoip_value io.systemd.GeoIP.CountryName)" = "Germany" ]
+    [ "$(geoip_value io.systemd.GeoIP.RegionCode)" = "BE" ]
+    [ "$(geoip_value io.systemd.GeoIP.RegionName)" = "State of Berlin" ]
+    [ "$(geoip_value io.systemd.GeoIP.City)" = "Berlin" ]
+    [ "$(geoip_value io.systemd.GeoIP.ZipCode)" = "10785" ]
+    [ "$(geoip_value io.systemd.GeoIP.Timezone)" = "Europe/Berlin" ]
+    geoip_number_is io.systemd.GeoIP.Latitude 52.5061
+    geoip_number_is io.systemd.GeoIP.Longitude 13.3684
+    # Freshly downloaded: the acquisition timestamp is "now", i.e. not older than a minute.
+    [ "$(geoip_value io.systemd.GeoIP.Timestamp)" -gt "$(( ($(date +%s) - 60) * 1000000 ))" ]
+
+    # The obsolete metro_code field must not be reported.
+    (! echo "$geoip_metrics" | grep -i metro >/dev/null)
+
+    # The answer must have been cached.
+    test -s /var/lib/systemd/report-geoip/cache.json
+    jq . /var/lib/systemd/report-geoip/cache.json
+
+    # Describe must list all sixteen metric families, with the right types.
+    geoip_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.Describe {})"
+    [ "$(echo "$geoip_describe" | jq --seq -r '.name' | grep -c '^io\.systemd\.GeoIP\.')" = 16 ]
+    for family in PublicAddress ASN ASName ASDomain ContinentCode ContinentName CountryCode CountryName \
+                  RegionCode RegionName City ZipCode Timezone; do
+        echo "$geoip_describe" | jq --seq -r "select(.name == \"io.systemd.GeoIP.$family\") | .type" | grep -wx string >/dev/null
+    done
+    for family in Latitude Longitude Timestamp; do
+        echo "$geoip_describe" | jq --seq -r "select(.name == \"io.systemd.GeoIP.$family\") | .type" | grep -wx gauge >/dev/null
+    done
+
+    # With the endpoint gone the (still fresh) cache must be used, and the acquisition timestamp must then
+    # be the cache file's modification time.
+    systemctl stop fake-geoip-server
+    geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
+    [ "$(geoip_value io.systemd.GeoIP.PublicAddress)" = "2001:db8::1" ]
+    [ "$(geoip_value io.systemd.GeoIP.ASN)" = "AS3320" ]
+    [ "$(geoip_value io.systemd.GeoIP.City)" = "Berlin" ]
+    [ "$(( $(geoip_value io.systemd.GeoIP.Timestamp) / 1000000 ))" = "$(stat -c %Y /var/lib/systemd/report-geoip/cache.json)" ]
+
+    # Force a refresh: the download fails, so the stale cache must be used.
+    cat >/run/systemd/report-geoip.conf.d/99-test.conf <<EOF
+[GeoIP]
+Endpoint=http://localhost:8092/json/
+RefreshSec=0
+EOF
+    geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
+    [ "$(geoip_value io.systemd.GeoIP.PublicAddress)" = "2001:db8::1" ]
+    [ "$(geoip_value io.systemd.GeoIP.City)" = "Berlin" ]
+
+    # An endpoint returning something that isn't an IP address: the address must
+    # be skipped, but the other fields still be reported.
+    systemd-run -p Type=notify --unit=fake-geoip-server-bogus \
+        "$FAKE_SERVER" --port=8091 --geoip-address="not an address"
+    cat >/run/systemd/report-geoip.conf.d/99-test.conf <<EOF
+[GeoIP]
+Endpoint=http://localhost:8091/json/
+RefreshSec=0
+EOF
+    geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
+    [ -z "$(geoip_value io.systemd.GeoIP.PublicAddress)" ]
+    [ "$(geoip_value io.systemd.GeoIP.City)" = "Berlin" ]
+    systemctl stop fake-geoip-server-bogus
+
+    # An unreachable endpoint and no cache: nothing is reported, which the metrics helpers signal with
+    # the NoSuchMetric sentinel error (as any source without metrics does).
+    rm -f /var/lib/systemd/report-geoip/cache.json
+    (! varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {} 2>&1) | grep NoSuchMetric >/dev/null
+}
+
+# Only the geoip test is organized as a test case so far, the others still run inline.
+run_testcases
 
 # -----------------------------------------------------------------------------
 # Test report signing through the plain software backend, driven entirely via

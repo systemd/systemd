@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "compress.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "pull-forward.h"
@@ -10,4 +11,4 @@ RawPull* raw_pull_unref(RawPull *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawPull*, raw_pull_unref);
 
-int raw_pull_start(RawPull *p, const char *url, const char *local, uint64_t offset, uint64_t size_max, ImportFlags flags, ImportVerify verify, const struct iovec *checksum);
+int raw_pull_start(RawPull *p, const char *url, const char *local, uint64_t offset, uint64_t size_max, Compression compression, ImportFlags flags, ImportVerify verify, const struct iovec *checksum, const struct iovec *decoded_checksum);

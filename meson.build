@@ -40,6 +40,9 @@ conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : '
 
 fs = import('fs')
 
+# ninja runs a build command again when its command line changes. An absolute path on a command line
+# changes when the source and build directories are reconfigured at a different absolute path. Build
+# commands should therefore refer to the source directory through relative_source_path.
 if meson.version().version_compare('>=1.3.0')
         relative_source_path = fs.relative_to(meson.project_source_root(),
                                               meson.project_build_root())
@@ -779,7 +782,8 @@ endif
 time_epoch = get_option('time-epoch')
 if time_epoch <= 0
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
-        if time_epoch == '' and git.found() and fs.is_dir('.git')
+        # .git is a file instead of a directory in a git worktree.
+        if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
                                          check : false)
@@ -980,6 +984,9 @@ conf.set_quoted('DNS_SERVERS', dns_servers)
 
 ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
+
+geoip_endpoint = get_option('geoip-endpoint')
+conf.set_quoted('GEOIP_ENDPOINT', geoip_endpoint)
 
 default_locale = get_option('default-locale')
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
@@ -1841,7 +1848,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2_py, config_h]
+jinja2_cmdline = [python, meson_render_jinja2_py, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -2043,12 +2050,16 @@ endif
 
 #####################################################################
 
+# Every test executable has systemd-runtest.env as a link dependency, so ninja relinks every test when
+# the file changes. Absolute paths in the file would change whenever the build directory moves. The paths
+# are therefore relative to the build directory. tests.c and test-sysusers.sh resolve them against the
+# directory that contains the file.
 runtest_env = custom_target(
         output : 'systemd-runtest.env',
         command : ['printf',
                    'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
-                   meson.project_source_root() / 'test',
-                   meson.project_build_root() / 'catalog'],
+                   relative_source_path / 'test',
+                   'catalog'],
         capture: true,
         depends : catalogs,
         build_by_default : true)
@@ -2682,11 +2693,11 @@ foreach dict : modules
         kwargs += {
                 'link_args' : [
                         kwargs.get('link_args', []),
-                        '-Wl,--version-script=' + dict.get('version-script'),
+                        '-Wl,--version-script=' + relative_source_path / dict.get('version-script'),
                 ],
                 'link_depends' : [
                         kwargs.get('link_depends', []),
-                        dict.get('version-script'),
+                        files(dict.get('version-script')),
                 ],
         }
         foreach key, val : module_additional_kwargs
@@ -3070,7 +3081,7 @@ if not meson.is_cross_build()
                 output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
-                command : [dbus_exporter_py, '@OUTPUT@', dbus_programs])
+                command : [python, dbus_exporter_py, '@OUTPUT@', dbus_programs])
 endif
 
 custom_target(
@@ -3078,8 +3089,9 @@ custom_target(
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [meson_extract_unit_files_py,
-                   meson.project_build_root()])
+        command : [python,
+                   meson_extract_unit_files_py,
+                   '.'])
 
 #####################################################################
 
@@ -3149,6 +3161,7 @@ summary({
         'default LLMNR mode'                        : default_llmnr,
         'default DNS servers'                       : dns_servers.split(' '),
         'default NTP servers'                       : ntp_servers.split(' '),
+        'default GeoIP endpoint'                    : geoip_endpoint,
         'default net.naming_scheme= value'          : default_net_naming_scheme,
         'default KillUserProcesses= value'          : kill_user_processes,
         'default locale'                            : default_locale,

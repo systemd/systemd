@@ -20,10 +20,7 @@ xsltproc_flags = [
         '--stringparam', 'man.copyright.section.enabled', '0',
         '--stringparam', 'systemd.version', '@0@'.format(meson.project_version()),
         '--path',
-        '@0@:@1@:@2@:@3@'.format(meson.current_build_dir(),
-                                 meson.current_source_dir(),
-                                 libshared_build_dir,
-                                 libcore_build_dir)]
+        ':'.join(['man', relative_source_path / 'man', 'src/shared', 'src/core'])]
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
@@ -123,13 +120,13 @@ systemd_directives_xml = custom_target(
         input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
         depends : man_page_depends,
-        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
+        command : [python, make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
         input : nonindex_xml_files,
         output : 'systemd.index.xml',
-        command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
+        command : [python, make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
 foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', systemd_directives_xml],
                                                   ['systemd.index',      '7', systemd_index_xml]] : []

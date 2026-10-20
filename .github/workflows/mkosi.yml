@@ -95,7 +95,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
+      - uses: systemd/mkosi@131adaca5eb5f1551bc564ae4497ff940890a374
         with:
           # Bootstrapping a Nura tools tree on the Ubuntu host needs apk
           apk: ${{ matrix.distro == 'nura' }}

@@ -2192,4 +2192,118 @@ TEST(json_dispatch_in_addr_data) {
         ASSERT_EQ(data.addr.family, AF_INET6);
 }
 
+TEST(json_seq_extract) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL, *c = NULL;
+        _cleanup_free_ char *s = NULL;
+        sd_json_variant *v;
+
+        ASSERT_OK(sd_json_buildo(&a, SD_JSON_BUILD_PAIR_STRING("foo", "bar")));
+        ASSERT_OK(sd_json_build(&b, SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(4711), SD_JSON_BUILD_BOOLEAN(true))));
+        ASSERT_OK(sd_json_build(&c, SD_JSON_BUILD_STRING("waldo")));
+
+        FOREACH_ARGUMENT(v, a, b, c) {
+                _cleanup_free_ char *f = NULL;
+
+                ASSERT_OK(sd_json_variant_format(v, SD_JSON_FORMAT_SEQ, &f));
+                ASSERT_NOT_NULL(strextend(&s, f));
+        }
+
+        /* Without EOL the last object is incomplete, and must be left in the buffer */
+        const char *p = s;
+        size_t left = strlen(s);
+        FOREACH_ARGUMENT(v, a, b) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;
+
+                ASSERT_OK_POSITIVE(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ false, &x));
+                ASSERT_TRUE(sd_json_variant_equal(x, v));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *y = NULL;
+        ASSERT_OK_ZERO(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ false, &y));
+        ASSERT_NULL(y);
+
+        /* With EOL it is parsed as the final object */
+        ASSERT_OK_POSITIVE(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_TRUE(sd_json_variant_equal(y, c));
+        ASSERT_EQ(left, 0U);
+
+        y = sd_json_variant_unref(y);
+        ASSERT_OK_ZERO(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_NULL(y);
+
+        /* Empty and whitespace-only records are skipped */
+        p = "\x1e\x1e \n\x1e\"foo\"\n\x1e\x1e\t";
+        left = strlen(p);
+        ASSERT_OK_POSITIVE(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_STREQ(sd_json_variant_string(y), "foo");
+        y = sd_json_variant_unref(y);
+        ASSERT_OK_ZERO(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_NULL(y);
+        ASSERT_EQ(left, 0U);
+
+        /* Garbage instead of a record separator is refused */
+        p = "{}";
+        left = strlen(p);
+        ASSERT_ERROR(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y), EBADMSG);
+}
+
+TEST(json_dispatch_unhex_iovec32) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        uint8_t buf[33];
+
+        for (size_t i = 0; i < sizeof(buf); i++)
+                buf[i] = i * 7;
+
+        ASSERT_OK(sd_json_buildo(&j,
+                                 SD_JSON_BUILD_PAIR_HEX("digest", buf, 32),
+                                 SD_JSON_BUILD_PAIR_NULL("null_digest")));
+
+        typedef struct Digests {
+                struct iovec digest;
+                struct iovec null_digest;
+        } Digests;
+
+        static const sd_json_dispatch_field table[] = {
+                { "digest",      SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec32, offsetof(Digests, digest),      0 },
+                { "null_digest", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_unhex_iovec32, offsetof(Digests, null_digest), 0 },
+                {},
+        };
+
+        Digests data = {};
+
+        /* Pre-initialize the null field, to verify it is reset */
+        ASSERT_NOT_NULL(iovec_memdup(&IOVEC_MAKE(buf, 5), &data.null_digest));
+
+        ASSERT_OK(sd_json_dispatch(j, table, /* flags= */ 0, &data));
+        ASSERT_EQ(data.digest.iov_len, 32U);
+        ASSERT_EQ(memcmp(data.digest.iov_base, buf, 32), 0);
+        ASSERT_FALSE(iovec_is_set(&data.null_digest));
+
+        /* Dispatching again replaces the old value */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_buildo(&j, SD_JSON_BUILD_PAIR_HEX("digest", buf + 1, 32)));
+        ASSERT_OK(sd_json_dispatch(j, table, /* flags= */ 0, &data));
+        ASSERT_EQ(data.digest.iov_len, 32U);
+        ASSERT_EQ(memcmp(data.digest.iov_base, buf + 1, 32), 0);
+
+        /* Wrong sizes are refused, and leave the old value in place */
+        size_t n;
+        FOREACH_ARGUMENT(n, 0, 1, 31, 33) {
+                j = sd_json_variant_unref(j);
+                ASSERT_OK(sd_json_buildo(&j, SD_JSON_BUILD_PAIR_HEX("digest", buf, n)));
+                ASSERT_ERROR(sd_json_dispatch(j, table, /* flags= */ 0, &data), EINVAL);
+                ASSERT_EQ(data.digest.iov_len, 32U);
+                ASSERT_EQ(memcmp(data.digest.iov_base, buf + 1, 32), 0);
+        }
+
+        /* Invalid hex strings are refused too */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_buildo(&j, SD_JSON_BUILD_PAIR_STRING("digest", "xyz")));
+        ASSERT_ERROR(sd_json_dispatch(j, table, /* flags= */ 0, &data), EINVAL);
+        ASSERT_EQ(data.digest.iov_len, 32U);
+
+        iovec_done(&data.digest);
+        iovec_done(&data.null_digest);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

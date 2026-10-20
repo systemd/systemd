@@ -1147,7 +1147,7 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Reference '%s' is invalid", remote);
-        } else if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+        } else if (!http_url_is_valid(remote) && !file_url_is_valid(remote) && !provider_url_is_valid(remote))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "URL '%s' is invalid", remote);
 
@@ -1914,7 +1914,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                         return r;
                 if (r == 0)
                         return sd_varlink_error_invalid_parameter_name(link, "remote");
-        } else if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote))
+        } else if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote) && !provider_url_is_valid(p.remote))
                 return sd_varlink_error_invalid_parameter_name(link, "remote");
 
         if (p.local && !image_name_is_valid(p.local))
