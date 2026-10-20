@@ -225,6 +225,12 @@ check_block_io_timeout() {
     udevadm trigger --settle --action=add "$disk"
     (( $(<"$timeout") > 60000 ))
 
+    # 90-iocost.rules uses the IOCOST_SOLUTIONS property that 61-block-hwdb.rules imports from the hwdb.
+    # udevadm test doesn't run "iocost apply", which would fail for a solution that doesn't exist.
+    write_block_hwdb IOCOST_SOLUTIONS=test
+    udevadm test --action=add --json=short "/sys/class/block/${disk##*/}" 2>/dev/null |
+        jq -r '.queuedCommands[].command' | grep "^iocost apply $disk\$" >/dev/null
+
     rm /etc/udev/hwdb.d/99-test-block.hwdb
     systemd-hwdb update
     udevadm control --reload
