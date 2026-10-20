@@ -13,11 +13,25 @@ set -o pipefail
 # not consume send_reloading_done before that happened, otherwise the
 # Reloading(false) signal is lost and clients waiting for it to detect the
 # end of the reexec time out.
+#
+# Replies to Reload() calls must not be held back until then: a second
+# Reload() arriving while the first reply was still pending used to trip an
+# assertion in method_reload()/vl_method_reload_manager() and freeze PID 1.
 
 MONITOR_LOG=/run/TEST-07-PID1-reloading-signal.log
 MONITOR_UNIT=
+DBUS_CGROUP=
+
+bus_signal() {
+    local sig=${1:?}
+
+    [[ -n "$DBUS_CGROUP" ]] || return 0
+    # shellcheck disable=SC2046
+    kill "-$sig" $(cat "$DBUS_CGROUP/cgroup.procs") || :
+}
 
 at_exit() {
+    bus_signal CONT
     [[ -n "$MONITOR_UNIT" ]] && systemctl stop "$MONITOR_UNIT" 2>/dev/null || :
     rm -f "$MONITOR_LOG"
 }
@@ -69,5 +83,41 @@ stop_monitor
 # are re-added only after the asynchronous API bus setup finished.
 start_monitor
 systemctl daemon-reexec
+wait_for_reloading false
+stop_monitor
+
+# Reloads over D-Bus and Varlink must be answered while the reexecuted manager
+# waits for the GetId reply, and Reloading(false) must still follow. Stop the
+# bus daemon with signals, as "systemctl freeze/thaw" go through the bus daemon
+# itself, and continue it well within BUS_AUTH_TIMEOUT (90s), as otherwise the
+# new API bus connection fails.
+time_left() {
+    local t=$((deadline - SECONDS))
+
+    echo $((t > 0 ? t : 1))
+}
+
+start_monitor
+DBUS_CGROUP="/sys/fs/cgroup$(systemctl show -P ControlGroup dbus.service)"
+bus_signal STOP
+systemctl daemon-reexec
+deadline=$((SECONDS + 60))
+
+timeout "$(time_left)" systemctl daemon-reload
+timeout "$(time_left)" varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+
+pids=()
+for _ in 1 2; do
+    timeout "$(time_left)" systemctl daemon-reload &
+    pids+=("$!")
+    timeout "$(time_left)" varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}' &
+    pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+    wait "$pid"
+done
+
+bus_signal CONT
+DBUS_CGROUP=
 wait_for_reloading false
 stop_monitor
