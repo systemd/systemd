@@ -46,8 +46,7 @@ static int deduplicate_kernel_cmdline(char **cmdline) {
         if (!joined)
                 return -ENOMEM;
 
-        free_and_replace(*cmdline, joined);
-        return 0;
+        return free_and_replace(*cmdline, joined);
 }
 
 static int load_kexec_kernel(void) {

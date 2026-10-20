@@ -3077,8 +3077,7 @@ int config_parse_log_namespace(
                 return 0;
         }
 
-        free_and_replace(c->log_namespace, k);
-        return 0;
+        return free_and_replace(c->log_namespace, k);
 }
 
 int config_parse_unit_condition_path(
@@ -5747,8 +5746,7 @@ int config_parse_pid_file(
         if (r < 0)
                 return r;
 
-        free_and_replace(*s, n);
-        return 0;
+        return free_and_replace(*s, n);
 }
 
 int config_parse_exit_status(
