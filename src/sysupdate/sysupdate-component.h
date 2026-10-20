@@ -24,6 +24,7 @@ typedef struct Component {
         char **documentation;
 
         int enabled; /* tristate, unset means enabled */
+        Condition *enable_on;
 
         ComponentSuccessAction success_action;
         ComponentFailureAction failure_action;

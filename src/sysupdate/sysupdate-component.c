@@ -21,6 +21,7 @@ void component_done(Component *c) {
 
         c->description = mfree(c->description);
         c->documentation = strv_free(c->documentation);
+        c->enable_on = condition_free_list(c->enable_on);
         c->suggest_on = condition_free_list(c->suggest_on);
         c->min_version = mfree(c->min_version);
         c->max_version = mfree(c->max_version);
@@ -41,6 +42,17 @@ int component_read_definition(Component *c, const char *name, const char *root) 
                 { "Component", "Description",                config_parse_string,                   0,                             &c->description        },
                 { "Component", "Documentation",              config_parse_url_specifiers_many,      0,                             &c->documentation      },
                 { "Component", "Enabled",                    config_parse_tristate,                 0,                             &c->enabled            },
+                { "Component", "EnableOnArchitecture",       config_parse_condition,                CONDITION_ARCHITECTURE,        &c->enable_on          },
+                { "Component", "EnableOnFirmware",           config_parse_condition,                CONDITION_FIRMWARE,            &c->enable_on          },
+                { "Component", "EnableOnVirtualization",     config_parse_condition,                CONDITION_VIRTUALIZATION,      &c->enable_on          },
+                { "Component", "EnableOnHost",               config_parse_condition,                CONDITION_HOST,                &c->enable_on          },
+                { "Component", "EnableOnFraction",           config_parse_condition,                CONDITION_FRACTION,            &c->enable_on          },
+                { "Component", "EnableOnKernelCommandLine",  config_parse_condition,                CONDITION_KERNEL_COMMAND_LINE, &c->enable_on          },
+                { "Component", "EnableOnVersion",            config_parse_condition,                CONDITION_VERSION,             &c->enable_on          },
+                { "Component", "EnableOnCredential",         config_parse_condition,                CONDITION_CREDENTIAL,          &c->enable_on          },
+                { "Component", "EnableOnSecurity",           config_parse_condition,                CONDITION_SECURITY,            &c->enable_on          },
+                { "Component", "EnableOnOSRelease",          config_parse_condition,                CONDITION_OS_RELEASE,          &c->enable_on          },
+                { "Component", "EnableOnMachineTag",         config_parse_condition,                CONDITION_MACHINE_TAG,         &c->enable_on          },
                 { "Component", "SuccessAction",              config_parse_component_success_action, 0,                             &c->success_action     },
                 { "Component", "FailureAction",              config_parse_component_failure_action, 0,                             &c->failure_action     },
                 { "Component", "Suggest",                    config_parse_tristate,                 0,                             &c->suggest            },
@@ -74,6 +86,12 @@ int component_read_definition(Component *c, const char *name, const char *root) 
                         /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
+
+        r = config_resolve_enabled(c->enabled, c->enable_on, /* default_enabled= */ true, name);
+        if (r < 0)
+                return r;
+
+        c->enabled = r;
 
         /* Returns > 0 if a definition file (or drop-in) was found */
         return !hashmap_isempty(stats_by_path);
