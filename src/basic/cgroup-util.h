@@ -193,6 +193,7 @@ static inline int cg_path_get_user_unit(const char *path, char **ret_unit) {
 int cg_path_get_machine_name(const char *path, char **ret_machine);
 int cg_path_get_slice(const char *path, char **ret_slice);
 int cg_path_get_user_slice(const char *path, char **ret_slice);
+RuntimeScope cg_path_runtime_scope(const char *path);
 
 int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
 int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);

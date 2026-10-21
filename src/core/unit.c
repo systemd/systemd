@@ -1694,6 +1694,24 @@ static int unit_validate_on_termination_job_modes(Unit *u) {
         return 0;
 }
 
+static int unit_validate(Unit *u) {
+        int r;
+
+        assert(u);
+
+        r = unit_validate_on_termination_job_modes(u);
+        if (r < 0)
+                return r;
+
+        if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
+                log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
+
+        if (u->survive_final_kill_signal && !MANAGER_IS_SYSTEM(u->manager))
+                log_unit_warning(u, "SurviveFinalKillSignal= is only supported in the system manager, ignoring.");
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1747,12 +1765,9 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_termination_job_modes(u);
+                r = unit_validate(u);
                 if (r < 0)
                         goto fail;
-
-                if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
-                        log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
