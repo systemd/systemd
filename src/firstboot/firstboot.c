@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -47,6 +49,7 @@
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
+#include "proc-cmdline.h"
 #include "prompt-util.h"
 #include "runtime-scope.h"
 #include "smack-util.h"
@@ -79,6 +82,7 @@ static bool arg_prompt_timezone = false;
 static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
 static bool arg_prompt_root_shell = false;
+static bool arg_prompt_console = false;
 static bool arg_headless = false;
 static bool arg_copy_locale = false;
 static bool arg_copy_keymap = false;
@@ -116,28 +120,185 @@ COMMAND(
 );
 
 static bool welcome_done = false;
+static bool console_prepared = false;
 
-static void print_welcome(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
-        const char *pn, *ac;
+static bool console_is_current(const char *tty) {
+        _cleanup_close_ int fd = -EBADF;
+        unsigned current_device, selected_device;
+
+        assert(tty);
+
+        fd = open_terminal(tty, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return false;
+
+        /* Compare the underlying terminals, including aliases such as /dev/console and /dev/tty0. */
+        return ioctl(STDIN_FILENO, TIOCGDEV, &current_device) >= 0 &&
+                ioctl(fd, TIOCGDEV, &selected_device) >= 0 &&
+                current_device == selected_device;
+}
+
+static int setup_console_terminal(const char *tty) {
+        _cleanup_free_ char *term = NULL;
+        unsigned rows, columns;
         int r;
 
-        assert(rfd >= 0);
+        assert(tty);
+
+        if (in_charset(skip_dev_prefix(tty), ALPHANUMERICAL)) {
+                _cleanup_free_ char *key = strjoin("systemd.tty.term.", skip_dev_prefix(tty));
+                if (!key)
+                        return log_oom();
+
+                r = proc_cmdline_get_key(key, /* flags= */ 0, &term);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+        }
+
+        if (!term)
+                (void) query_term_for_tty(tty, &term);
+        if (term)
+                (void) unsetenv("COLORTERM");
+        else if (setenv("COLORTERM", "truecolor", /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to update COLORTERM: %m");
+        if (setenv("TERM", term ?: FALLBACK_TERM, /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to update TERM: %m");
+        (void) unsetenv("COLUMNS");
+        (void) unsetenv("LINES");
+        reset_terminal_feature_caches();
+
+        /* PID 1 prepared the original terminal. Do the same for the selected one, even with --welcome=no. */
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, TERMINAL_RESET_SWITCH_TO_TEXT);
+
+        r = proc_cmdline_tty_size(tty, &rows, &columns);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read console size for '%s', ignoring: %m", tty);
+        if (r > 0)
+                (void) terminal_set_size_fd(STDOUT_FILENO, tty, rows, columns);
+        else
+                (void) terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+
+        return 0;
+}
+
+static int prepare_console(sd_varlink **mute_console_link, bool require_vc) {
+        _cleanup_strv_free_ char **consoles = NULL;
+        int r;
+
         assert(mute_console_link);
 
+        if (console_prepared)
+                return 0;
+
+        if (arg_prompt_console) {
+                r = get_kernel_consoles(&consoles);
+                if (r < 0) {
+                        if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+                                return log_error_errno(r, "Failed to enumerate consoles: %m");
+                        log_warning_errno(r, "Failed to enumerate consoles, using inherited terminal: %m");
+                }
+        }
+
+        if (require_vc) {
+                bool have_vc = false;
+
+                if (strv_isempty(consoles)) {
+                        _cleanup_free_ char *tty = NULL;
+
+                        if (getttyname_harder(STDOUT_FILENO, &tty) >= 0)
+                                have_vc = tty_is_vc_resolve(tty);
+                } else
+                        STRV_FOREACH(tty, consoles) {
+                                if (!tty_is_vc_resolve(*tty))
+                                        continue;
+
+                                _cleanup_close_ int fd = open_terminal(*tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                                struct termios termios;
+                                if (fd >= 0 && tcgetattr(fd, &termios) >= 0) {
+                                        have_vc = true;
+                                        break;
+                                }
+                        }
+
+                if (!have_vc)
+                        return 0; /* --prompt-keymap-auto has nothing to ask. Don't disturb the splash. */
+        }
+
         /* Needs to be called before mute_console or it will garble the screen */
-        if (arg_welcome)
+        if (arg_welcome || arg_prompt_console)
                 (void) plymouth_hide_splash();
 
         if (!*mute_console_link && arg_mute_console)
                 (void) mute_console(mute_console_link);
 
+        if (!strv_isempty(consoles)) {
+                r = firstboot_select_console(consoles);
+                if (r == -EINTR)
+                        return log_error_errno(r, "Console selection interrupted: %m");
+                if (r < 0)
+                        goto fallback;
+
+                const char *tty = consoles[r];
+                if (console_is_current(tty))
+                        goto finish; /* Keep the terminal environment supplied by PID 1 or the caller. */
+
+                fflush(stdout);
+                fflush(stderr);
+
+                /* A process-group leader started by a shell cannot create a new session. Keep its
+                 * controlling terminal in that case, so that falling back does not lose it. */
+                bool session_leader = getsid(0) == getpid() || setsid() >= 0;
+                if (session_leader)
+                        (void) release_terminal();
+
+                int fd = acquire_terminal(tty, ACQUIRE_TERMINAL_TRY|ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
+                if (fd < 0) {
+                        /* stdio still points to the inherited terminal. Try to reacquire it as well. */
+                        if (session_leader)
+                                (void) terminal_new_session();
+                        r = fd;
+                        goto fallback;
+                }
+
+                r = rearrange_stdio(fd, fd, fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to console '%s': %m", tty);
+
+                r = setup_console_terminal(tty);
+                if (r < 0)
+                        return r;
+        }
+
+finish:
+        console_prepared = true;
+        return 0;
+
+fallback:
+        if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+                return log_error_errno(r, "Failed to prepare console: %m");
+
+        log_warning_errno(r, "Failed to prepare console, using inherited terminal: %m");
+        console_prepared = true;
+        return 0;
+}
+
+static int print_welcome(int rfd, sd_varlink **mute_console_link) {
+        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
+        const char *pn, *ac;
+        int r;
+
+        assert(rfd >= 0);
+
+        r = prepare_console(mute_console_link, /* require_vc= */ false);
+        if (r < 0)
+                return r;
+
         if (!arg_welcome)
-                return;
+                return 0;
 
         if (welcome_done) {
                 putchar('\n'); /* Add some breathing room between multiple prompts */
-                return;
+                return 0;
         }
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
@@ -172,6 +333,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         printf("Please configure the system!\n\n");
 
         welcome_done = true;
+        return 0;
 }
 
 static int should_configure(int dir_fd, const char *filename) {
@@ -318,7 +480,9 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                 if (headless_skips_prompt_for("locale"))
                         return 0;
 
-                print_welcome(rfd, mute_console_link);
+                r = print_welcome(rfd, mute_console_link);
+                if (r < 0)
+                        return r;
 
                 _cleanup_free_ char *prefill = NULL;
                 (void) locale_lang_from_efi(&prefill, LOCALE_REQUIRE_INSTALLED|LOCALE_SUPPRESS_EN_US);
@@ -460,21 +624,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        bool b;
-        if (arg_prompt_keymap_auto) {
-                _cleanup_free_ char *ttyname = NULL;
-
-                r = getttyname_harder(STDOUT_FILENO, &ttyname);
-                if (r < 0) {
-                        log_debug_errno(r, "Cannot determine TTY we are connected, ignoring: %m");
-                        b = false; /* if we can't resolve this, it's probably not a VT */
-                } else {
-                        b = tty_is_vc_resolve(ttyname);
-                        log_debug("Detected connection to local console: %s", yes_no(b));
-                }
-        } else
-                b = arg_prompt_keymap;
-        if (!b) {
+        if (!arg_prompt_keymap && !arg_prompt_keymap_auto) {
                 log_debug("Prompting for keymap was not requested.");
                 return 0;
         }
@@ -488,7 +638,32 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
-        print_welcome(rfd, mute_console_link);
+        if (arg_prompt_keymap_auto) {
+                _cleanup_free_ char *ttyname = NULL;
+
+                if (arg_prompt_console) {
+                        r = prepare_console(mute_console_link, /* require_vc= */ true);
+                        if (r < 0)
+                                return r;
+                        if (!console_prepared)
+                                return 0;
+                }
+
+                r = getttyname_harder(STDOUT_FILENO, &ttyname);
+                if (r < 0) {
+                        log_debug_errno(r, "Cannot determine TTY we are connected, ignoring: %m");
+                        return 0; /* if we can't resolve this, it's probably not a VT */
+                }
+
+                bool b = tty_is_vc_resolve(ttyname);
+                log_debug("Detected connection to local console: %s", yes_no(b));
+                if (!b)
+                        return 0;
+        }
+
+        r = print_welcome(rfd, mute_console_link);
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *prefill = NULL;
         (void) vconsole_keymap_from_efi(&prefill);
@@ -611,7 +786,9 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
 
-        print_welcome(rfd, mute_console_link);
+        r = print_welcome(rfd, mute_console_link);
+        if (r < 0)
+                return r;
 
         return prompt_loop(
                         "Please enter the new timezone name or number",
@@ -723,7 +900,9 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         if (headless_skips_prompt_for("hostname"))
                 return 0;
 
-        print_welcome(rfd, mute_console_link);
+        r = print_welcome(rfd, mute_console_link);
+        if (r < 0)
+                return r;
 
         r = prompt_loop("Please enter the new hostname",
                         GLYPH_LABEL,
@@ -944,7 +1123,9 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         if (headless_skips_prompt_for("root password"))
                 return 0;
 
-        print_welcome(rfd, mute_console_link);
+        r = print_welcome(rfd, mute_console_link);
+        if (r < 0)
+                return r;
 
         msg1 = "Please enter the new root password (empty to skip):";
         msg2 = "Please enter the new root password again:";
@@ -956,7 +1137,8 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
                 _cleanup_free_ char *error = NULL;
 
                 AskPasswordRequest req = {
-                        .tty_fd = -EBADF,
+                        /* /dev/tty may still refer to the caller's terminal rather than the selected console. */
+                        .tty_fd = isatty_safe(STDIN_FILENO) ? STDIN_FILENO : -EBADF,
                         .message = msg1,
                         .until = USEC_INFINITY,
                         .hup_fd = -EBADF,
@@ -1052,7 +1234,9 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         if (headless_skips_prompt_for("root shell"))
                 return 0;
 
-        print_welcome(rfd, mute_console_link);
+        r = print_welcome(rfd, mute_console_link);
+        if (r < 0)
+                return r;
 
         return prompt_loop(
                         "Please enter the new root shell",
@@ -1582,6 +1766,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
                                 arg_prompt_root_password = arg_prompt_root_shell = true;
                         arg_prompt_keymap_auto = false;
+                        break;
+
+                OPTION_LONG("prompt-console", NULL, "Select a console for interactive setup"):
+                        arg_prompt_console = true;
                         break;
 
                 OPTION_LONG("copy-locale", NULL, "Copy locale from host"):
