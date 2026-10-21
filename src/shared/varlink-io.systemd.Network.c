@@ -39,6 +39,17 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(ipv6),
                 SD_VARLINK_DEFINE_ENUM_VALUE(both));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                DHCPv6ClientState,
+                SD_VARLINK_DEFINE_ENUM_VALUE(stopped),
+                SD_VARLINK_DEFINE_ENUM_VALUE(information_request),
+                SD_VARLINK_DEFINE_ENUM_VALUE(solicitation),
+                SD_VARLINK_DEFINE_ENUM_VALUE(request),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bound),
+                SD_VARLINK_DEFINE_ENUM_VALUE(renew),
+                SD_VARLINK_DEFINE_ENUM_VALUE(rebind),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stopping));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 RoutingPolicyRule,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
@@ -374,6 +385,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6Client,
+                SD_VARLINK_FIELD_COMMENT("State of the DHCPv6 client"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(State, DHCPv6ClientState, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 lease information including timestamps and timeouts"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Delegated prefixes received from DHCPv6 server"),
@@ -628,6 +641,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DHCPServerLease,
                 &vl_type_DHCPv6Client,
                 &vl_type_DHCPv6ClientPD,
+                &vl_type_DHCPv6ClientState,
                 &vl_type_DHCPv6ClientVendorOption,
                 &vl_type_DNS,
                 &vl_type_DNSSECNegativeTrustAnchor,

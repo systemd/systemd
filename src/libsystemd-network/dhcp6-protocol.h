@@ -150,7 +150,7 @@ typedef enum DHCP6FQDNFlag {
         DHCP6_FQDN_FLAG_N = 1 << 2,
 } DHCP6FQDNFlag;
 
-DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
+DECLARE_STRING_TABLE_LOOKUP(dhcp6_state, DHCP6State);
 DECLARE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType);
 DECLARE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
 int dhcp6_message_status_to_errno(DHCP6Status s);

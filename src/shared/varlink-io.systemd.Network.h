@@ -25,6 +25,7 @@ extern const sd_varlink_symbol vl_type_Neighbor;
 extern const sd_varlink_symbol vl_type_DHCPLease;
 extern const sd_varlink_symbol vl_type_PrivateOption;
 extern const sd_varlink_symbol vl_type_DHCPv6ClientPD;
+extern const sd_varlink_symbol vl_type_DHCPv6ClientState;
 extern const sd_varlink_symbol vl_type_DHCPv6ClientVendorOption;
 extern const sd_varlink_symbol vl_type_DHCPv6Client;
 extern const sd_varlink_symbol vl_type_DHCPServerLease;
