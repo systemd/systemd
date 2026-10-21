@@ -28,7 +28,7 @@ static int arg_icmp6_type = 0;
 static union in_addr_union arg_dest = IN_ADDR_NULL;
 static uint8_t arg_hop_limit = 0;
 static uint8_t arg_ra_flags = 0;
-static uint8_t arg_preference = false;
+static uint8_t arg_preference = SD_NDISC_PREFERENCE_MEDIUM;
 static usec_t arg_lifetime = 0;
 static usec_t arg_reachable = 0;
 static usec_t arg_retransmit = 0;
@@ -329,7 +329,10 @@ static int send_router_advertisement(int fd) {
         /* The nd_ra_curhoplimit and nd_ra_flags_reserved fields cannot specified with nd_ra_router_lifetime
          * simultaneously in the structured initializer in the above. */
         hdr.nd_ra_curhoplimit = arg_hop_limit;
-        hdr.nd_ra_flags_reserved = arg_ra_flags;
+        /* RFC 4191, Section 2.2: the preference is carried in the flags field. It is set as requested, also
+         * when the lifetime is zero or the reserved value is given, so that receivers can be tested with
+         * such packets. */
+        hdr.nd_ra_flags_reserved = arg_ra_flags | (arg_preference << 3);
 
         return send_icmp6(fd, &hdr.nd_ra_hdr);
 }
