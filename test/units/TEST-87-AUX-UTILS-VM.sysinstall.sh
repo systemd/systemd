@@ -46,6 +46,10 @@ CRED_VALUE_BASE64=$(echo -n "$CRED_VALUE" | base64 -w0)
 
 cleanup() {
     set +e
+
+    # Stop password agent used to provide a passphrase to the systemd-dissect
+    systemctl stop ask-pw-agent.service || :
+
     # Stop the installer first: it might still be writing to the devices and files removed below.
     if [[ -n "${UNIT:-}" ]]; then
         systemctl stop "$UNIT"
@@ -68,6 +72,7 @@ cleanup() {
         systemd-dissect --detach "$TARGETDEV2"
         TARGETDEV2=""
     fi
+
     if [[ -n "${WORKDIR:-}" ]]; then
         rm -rf "$WORKDIR"
         WORKDIR=""
@@ -223,7 +228,8 @@ validate_image() {
     MNT="$WORKDIR/mnt"
     mkdir -p "$MNT"
 
-    systemd-dissect --mount --read-only "$LOOPDEV" "$MNT"
+    # Force passphrase to be read from password agent when needed by disabling stdin
+    systemd-dissect --mount --read-only "$LOOPDEV" "$MNT" </dev/null
     MOUNTED=1
 
     ESP="$MNT/efi"
@@ -293,6 +299,49 @@ testcase_sysinstall_basic() {
         "$WORKDIR/target.img"
 
     validate_image
+}
+
+testcase_sysinstall_basic_encrypted() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    create_fake_os_source_tree
+
+    # Add encryption to root partition
+    cat >>"$DEFS/20-root.conf" <<< "Encrypt=key-file"
+
+    # Run the installer non-interactively against the target image. Also stash a
+    # literal credential ('marker') so we can verify it ends up next to the UKI
+    # and is referenced from the boot loader entry.
+    systemd-sysinstall \
+        --welcome=no \
+        --chrome=no \
+        --confirm=no \
+        --summary=no \
+        --erase=yes \
+        --variables=no \
+        --reboot=no \
+        --mute-console=no \
+        --copy-locale=no \
+        --copy-keymap=no \
+        --copy-timezone=no \
+        --set-credential="marker:$CRED_VALUE" \
+        --kernel="$WORKDIR/testuki.efi" \
+        --definitions="$DEFS" \
+        "$WORKDIR/target.img"
+
+    # Start password agent for systemd-dissect to provide an empty phassphrase to decrpyt the root partition
+    systemd-run -u ask-pw-agent.service -p Environment=SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD="" -p Type=notify systemd-tty-ask-password-agent --watch --console=/dev/console
+
+    validate_image
+
+    # Stop password agent
+    systemctl stop ask-pw-agent.service
 }
 
 testcase_sysinstall_varlink_basic() {
