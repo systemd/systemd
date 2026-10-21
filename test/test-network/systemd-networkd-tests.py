@@ -9705,6 +9705,44 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertGreater(output.count('client provides name: test-hostname-old'), count)
         self.assertNotIn('test-hostname-new', output)
 
+    def test_dhcp6_client_send_system_hostname(self):
+        # Same as test_dhcp_client_send_system_hostname, but for DHCPv6.
+        self.setup_dhcp_client_send_system_hostname('25-dhcp6-client-send-system-hostname.network')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f:]*/128', ipv='-6')
+
+        socket.sethostname('test-hostname-new')
+
+        # The lease time is 2 minutes, hence the new hostname must be sent much earlier than on the
+        # regular renewal.
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if 'client provides name: test-hostname-new' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after hostname change')
+        print(output)
+        self.assertIn('DHCPRENEW(veth-peer)', output)
+        self.assertIn('client provides name: test-hostname-new', output)
+
+    def test_dhcp6_client_renew(self):
+        # "networkctl renew" must renew the DHCPv6 lease too.
+        self.setup_dhcp_client_send_system_hostname('25-dhcp6-client-send-system-hostname.network')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f:]*/128', ipv='-6')
+
+        self.assertNotIn('DHCPRENEW(veth-peer)', read_dnsmasq_log_file())
+        networkctl('renew', 'veth99')
+
+        for _ in range(20):
+            output = read_dnsmasq_log_file()
+            if 'DHCPRENEW(veth-peer)' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after renew')
+        print(output)
+        self.assertIn('DHCPRENEW(veth-peer)', output)
+
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(
             '25-veth.netdev',
