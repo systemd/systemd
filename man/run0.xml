@@ -72,14 +72,16 @@
     core feature of <command>run0</command>. Redirecting terminals must therefore be done with care,
     avoiding giving such control to untrusted programs.</para>
 
-    <para>When <command>run0</command> is invoked locally on a terminal to run an interactive shell (i.e.
-    without an explicit command), and no options are specified that require the transient service unit to be
+    <para>When <command>run0</command> is invoked locally on a terminal to run a command or an interactive
+    shell, and no options are specified that require the transient service unit to be
     set up in a specific way (such as <option>--unit=</option>, <option>--property=</option> or
     <option>--slice=</option>), the session is not created via the service manager APIs directly. Instead,
-    the pseudo TTY and the shell running on it are requested from
+    the pseudo TTY and the command or shell running on it are requested from
     <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     which allocates the pseudo TTY, retains its frontend (i.e. <literal>master</literal>) side and invokes
-    the shell as a transient service unit on its backend. In this mode privileges are authorized via the
+    the command or shell as a transient service unit on its backend. Explicit commands with
+    <option>--via-shell</option> or <option>-i</option>, and descriptions longer than 255 bytes, use the
+    service manager APIs directly instead. In broker mode privileges are authorized via the
     <literal>io.systemd.PTYBroker.acquire-pty-with-shell</literal> polkit action (rather than the
     <literal>org.freedesktop.systemd1.manage-units</literal> action used otherwise), the pseudo TTY of the
     session remains registered with the broker for the lifetime of the session (and may be listed, monitored
