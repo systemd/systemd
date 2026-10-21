@@ -635,6 +635,18 @@ static CacheResult context_process_cache(Context *c) {
         return CACHE_RESULT_MISS;
 }
 
+static int context_fail_cached_key_not_found(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Called when the cache has a negative entry for the current request */
+
+        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
+        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+        return r;
+}
+
 static int context_restart(Context *c) {
         int r;
 
@@ -651,8 +663,10 @@ static int context_restart(Context *c) {
                 context_success(c);
                 return 0;
         }
-        if (cr == CACHE_RESULT_KEY_NOT_FOUND)
-                return context_fail(c, context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found"));
+        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
+                (void) context_fail_cached_key_not_found(c);
+                return 0;
+        }
 
         r = context_acquire_token(c);
         if (r < 0)
@@ -2098,11 +2112,8 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         context_success(c);
                         return 0;
                 }
-                if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
-                        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
-                        return r;
-                }
+                if (cr == CACHE_RESULT_KEY_NOT_FOUND)
+                        return context_fail_cached_key_not_found(c);
 
                 r = context_acquire_token(c);
                 if (r < 0)
