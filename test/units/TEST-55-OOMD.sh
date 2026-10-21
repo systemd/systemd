@@ -168,6 +168,65 @@ testcase_basic_user() {
     loginctl disable-linger testuser
 }
 
+testcase_delegated_child_oom_kill() {
+    # oomd may kill a cgroup below a unit's own cgroup, e.g. one created by a delegated
+    # service holding all of the unit's memory. The kill must still be attributed to the
+    # unit: it must report a managed OOM kill and the oom-kill result, so that Restart=
+    # can react to it.
+    if ! cgroupfs_supports_user_xattrs; then
+        echo "cgroup does not support user xattrs, skipping ${FUNCNAME[0]}"
+        return 0
+    fi
+
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
+    cat >/tmp/TEST-55-OOMD-delegate.sh <<'EOF'
+#!/usr/bin/env bash
+set -eux
+cg=$(cut -d: -f3 /proc/self/cgroup)
+d=/sys/fs/cgroup$cg
+mkdir $d/child
+# Move ourselves into the child cgroup first: domain controllers cannot be enabled on
+# cgroup.subtree_control while the cgroup still has member processes.
+echo 0 >$d/child/cgroup.procs
+# Enable the memory controller for the children of the delegated cgroup; the freshly
+# created child cgroup only gets the memory.* controller files once it is enabled.
+echo +memory >$d/cgroup.subtree_control
+echo 3M >$d/child/memory.high
+exec stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
+EOF
+    chmod +x /tmp/TEST-55-OOMD-delegate.sh
+
+    systemctl start TEST-55-OOMD-testchill.service
+
+    systemd-run --unit=TEST-55-OOMD-testbloat-delegate.service \
+                -p Slice=TEST-55-OOMD-workload.slice \
+                -p Delegate=yes \
+                -p OOMPolicy=continue \
+                /tmp/TEST-55-OOMD-delegate.sh
+
+    # systemd-oomd watches for elevated pressure for 2 seconds before acting.
+    # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+    for _ in {0..59}; do
+        if ! systemctl status TEST-55-OOMD-testbloat-delegate.service; then
+            break
+        fi
+        oomctl
+        sleep 2
+    done
+
+    # testbloat-delegate should be killed by oomd in its child cgroup and the kill must be
+    # attributed to the service itself
+    if systemctl status TEST-55-OOMD-testbloat-delegate.service; then exit 45; fi
+    assert_eq "$(systemctl show TEST-55-OOMD-testbloat-delegate.service -P ManagedOOMKills)" "1"
+    assert_eq "$(systemctl show TEST-55-OOMD-testbloat-delegate.service -P Result)" "oom-kill"
+    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+
+    systemctl stop TEST-55-OOMD-testbloat-delegate.service
+    systemctl stop TEST-55-OOMD-testchill.service
+    systemctl stop TEST-55-OOMD-workload.slice
+}
+
 testcase_preference_avoid() {
     # only run this portion of the test if we can set xattrs
     if ! cgroupfs_supports_user_xattrs; then
