@@ -131,7 +131,7 @@ static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 static const char *arg_machine = NULL;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
@@ -139,6 +139,8 @@ static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
 static bool arg_root_memory_system = false; /* false — default, sum of memory.current over direct children, */
                                             /* true — whole system, /proc/meminfo (MemTotal - MemAvailable) */
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 COMMAND(
         "systemd-cgtop\0",
@@ -954,8 +956,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (n_args > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments.");
-        if (n_args == 1)
-                arg_root = option_parser_get_args(&opts)[0];
+        if (n_args == 1) {
+                r = path_simplify_alloc(option_parser_get_args(&opts)[0], &arg_root);
+                if (r < 0)
+                        return log_oom();
+        }
 
         return 1;
 }
@@ -1331,7 +1336,7 @@ static int run(int argc, char *argv[]) {
                 .poll_fd = arg_batch ? -EBADF : STDIN_FILENO,
         };
 
-        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &c.root);
+        r = show_cgroup_get_path_and_warn(arg_machine, skip_leading_chars(arg_root, "/"), &c.root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("CGroup path: %s", c.root);
