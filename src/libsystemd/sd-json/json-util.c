@@ -985,6 +985,32 @@ int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dis
         return 0;
 }
 
+/* Matches JSON_BUILD_PAIR_YES_NO() for fields represented as strings rather than JSON booleans. */
+int json_dispatch_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        r = parse_boolean(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "Value of JSON field '%s' is not a boolean string: %s",
+                                strna(name), sd_json_variant_string(variant));
+
+        *b = r;
+        return 0;
+}
+
 int json_variant_compare(sd_json_variant *a, sd_json_variant *b) {
         int r;
 
