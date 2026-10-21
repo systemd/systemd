@@ -81,11 +81,11 @@
     (see below).</para>
 
     <para>When invoked as <command>run0</command> (see
-    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>) to run an
-    interactive shell, the transient service unit may — in the common case of a plain local invocation — not
+    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>) to run a command
+    or interactive shell, the transient service unit may — in the common case of a plain local invocation — not
     be created via the service manager APIs directly, but requested from
     <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    which allocates the session's pseudo TTY and invokes the shell on it. See
+    which allocates the session's pseudo TTY and invokes the command or shell on it. See
     <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details on
     this mode and its behavioural differences. This behaviour was added in version 262.</para>
 
