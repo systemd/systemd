@@ -15,6 +15,7 @@
 #include "inotify-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "json-util.h"
 #include "list.h"
 #include "log.h"
 #include "pidref.h"
@@ -26,6 +27,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "varlink-util.h"
 
@@ -107,19 +109,43 @@ static int pseudo_tty_track_buffer_add_line(PseudoTTY *pty, char *line) {
         return 0;
 }
 
-PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
+static void pseudo_tty_close_io(PseudoTTY *pty) {
         int r;
 
-        if (!pty)
-                return NULL;
+        assert(pty);
 
-        /* A pending hang-up is complete once the pty is gone */
+        pty->io_event_source = sd_event_source_disable_unref(pty->io_event_source);
+        pty->backend_inotify_event_source = sd_event_source_disable_unref(pty->backend_inotify_event_source);
+        pty->vhangup_event_source = sd_event_source_disable_unref(pty->vhangup_event_source);
+
+        pty->frontend_fd = safe_close(pty->frontend_fd);
+        pty->backend_fd = safe_close(pty->backend_fd);
+        pty->pin_fd = safe_close(pty->pin_fd);
+        pty->shell_context = sd_json_variant_unref(pty->shell_context);
+
         r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to issue hangup method call replies, ignoring: %m");
+        pty->vhangup_links = set_free(pty->vhangup_links);
 
         while (pty->monitors)
                 pseudo_tty_monitor_free(pty->monitors);
+
+        free_many_charp(pty->track_buffer, pty->track_buffer_allocated_lines);
+        pty->track_buffer = mfree(pty->track_buffer);
+        pty->track_buffer_next_line = pty->track_buffer_allocated_lines = pty->track_buffer_n_bytes = 0;
+
+        iovec_done(&pty->frontend_write_buffer);
+        iovec_done(&pty->frontend_read_buffer);
+}
+
+PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
+        if (!pty)
+                return NULL;
+
+        pseudo_tty_close_watchers(pty);
+        unit_reference_free(pty->unit_reference);
+        pseudo_tty_close_io(pty);
 
         if (pty->in_free_queue) {
                 assert(pty->manager);
@@ -137,25 +163,8 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
 
         terminal_settings_done(&pty->terminal_settings);
 
-        sd_event_source_disable_unref(pty->io_event_source);
-
-        pty->frontend_fd = safe_close(pty->frontend_fd);
-        pty->backend_fd = safe_close(pty->backend_fd);
-        pty->pin_fd = safe_close(pty->pin_fd);
-
         free(pty->backend_path);
         free(pty->unit);
-
-        free_many_charp(pty->track_buffer, pty->track_buffer_allocated_lines);
-        free(pty->track_buffer);
-
-        iovec_done(&pty->frontend_write_buffer);
-        iovec_done(&pty->frontend_read_buffer);
-
-        sd_event_source_disable_unref(pty->backend_inotify_event_source);
-
-        set_free(pty->vhangup_links);
-        sd_event_source_disable_unref(pty->vhangup_event_source);
 
         pidref_done(&pty->owner_pidref);
 
@@ -580,6 +589,9 @@ static int pseudo_tty_process_hangup(PseudoTTY *pty, uint32_t revents) {
 
 static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         assert(pty);
+        assert(pty->state == PSEUDO_TTY_HUNG_UP);
+        assert(set_isempty(pty->watch_links));
+        assert(!pty->starting);
 
         if (pty->in_free_queue)
                 return;
@@ -592,6 +604,90 @@ static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         /* Trigger the deferred drain of the free queue. We don't free right here since we may be called from
          * within one of this PTY's own I/O callbacks. */
         (void) sd_event_source_set_enabled(pty->manager->ptys_free_queue_event_source, SD_EVENT_ONESHOT);
+}
+
+static int pseudo_tty_describe(PseudoTTY *pty, sd_json_variant **ret) {
+        assert(pty);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("name", pty->name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", pty->description),
+                        JSON_BUILD_PAIR_ENUM("frontendType", frontend_type_to_string(pty->frontend_type)),
+                        JSON_BUILD_PAIR_ENUM("backendType", backend_type_to_string(pty->backend_type)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("tag", pty->tag),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("backendPath", pty->backend_path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit),
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("owner", &pty->owner_pidref),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(pty->owner_uid), "ownerUID", SD_JSON_BUILD_UNSIGNED(pty->owner_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(pty->owner_gid), "ownerGID", SD_JSON_BUILD_UNSIGNED(pty->owner_gid)),
+                        JSON_BUILD_PAIR_ENUM("state", pseudo_tty_state_to_string(pty->state)));
+}
+
+int pseudo_tty_reply_description(PseudoTTY *pty, sd_varlink *link, bool more) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *description = NULL;
+        int r;
+
+        assert(pty);
+        assert(link);
+
+        r = pseudo_tty_describe(pty, &description);
+        if (r < 0)
+                return r;
+
+        return more ? sd_varlink_notify(link, description) : sd_varlink_reply(link, description);
+}
+
+int pseudo_tty_notify_watchers(PseudoTTY *pty) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *description = NULL;
+        int r;
+
+        assert(pty);
+
+        if (set_isempty(pty->watch_links))
+                return 0;
+
+        r = pseudo_tty_describe(pty, &description);
+        if (r < 0)
+                return r;
+
+        return varlink_many_notify(pty->watch_links, description);
+}
+
+void pseudo_tty_close(PseudoTTY *pty) {
+        int r;
+
+        assert(pty);
+
+        if (pty->in_free_queue)
+                return;
+
+        if (pty->state != PSEUDO_TTY_HUNG_UP) {
+                pty->state = PSEUDO_TTY_HUNG_UP;
+                pseudo_tty_flush_monitors(pty);
+                pseudo_tty_close_io(pty);
+
+                r = pseudo_tty_notify_watchers(pty);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to notify PTY watchers, disconnecting: %m");
+                        pseudo_tty_close_watchers(pty);
+                }
+        }
+
+        /* Watchers keep the allocation and its unit reference alive, but not terminal I/O. */
+        if (set_isempty(pty->watch_links) && !pty->starting)
+                pseudo_tty_add_to_free_queue(pty);
+}
+
+void pseudo_tty_close_watchers(PseudoTTY *pty) {
+        sd_varlink *link;
+
+        assert(pty);
+
+        while ((link = set_steal_first(pty->watch_links)))
+                sd_varlink_close_unref(link);
+        pty->watch_links = set_free(pty->watch_links);
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -617,11 +713,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         if (r >= 0)
                 r = pseudo_tty_set_events_full(pty, rearm);
         if (r < 0) {
-                pseudo_tty_add_to_free_queue(pty);
-
-                if (pty->io_event_source)
-                        (void) sd_event_source_set_io_events(pty->io_event_source, /* events= */ 0);
-
+                pseudo_tty_close(pty);
                 return r;
         }
 
@@ -636,6 +728,7 @@ int pseudo_tty_new(PseudoTTY **ret) {
                 return -ENOMEM;
 
         *pty = (PseudoTTY) {
+                .state = PSEUDO_TTY_ACQUIRING,
                 .frontend_type = _FRONTEND_TYPE_INVALID,
                 .backend_type = _BACKEND_TYPE_INVALID,
                 .frontend_fd = -EBADF,
@@ -723,7 +816,7 @@ static int backend_node_inotify_callback(sd_event_source *s, const struct inotif
         if (pty->vhangup_event_source)
                 return 0;
 
-        pseudo_tty_add_to_free_queue(pty);
+        pseudo_tty_close(pty);
         return 0;
 }
 
@@ -787,16 +880,8 @@ int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_vari
 
 static int vhangup_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
         PseudoTTY *pty = ASSERT_PTR(userdata);
-        int r;
 
-        r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to issue hangup method call replies, ignoring: %m");
-
-        /* These calls are answered now, make sure we don't answer them again when the pty is freed */
-        pty->vhangup_links = set_free(pty->vhangup_links);
-
-        pseudo_tty_add_to_free_queue(pty);
+        pseudo_tty_close(pty);
         return 0;
 }
 
@@ -886,3 +971,11 @@ static const char* const backend_type_table[_BACKEND_TYPE_MAX] = {
         [BACKEND_SHELL] = "shell",
 };
 DEFINE_STRING_TABLE_LOOKUP(backend_type, BackendType);
+
+static const char* const pseudo_tty_state_table[_PSEUDO_TTY_STATE_MAX] = {
+        [PSEUDO_TTY_ACQUIRING] = "acquiring",
+        [PSEUDO_TTY_PAUSED]    = "paused",
+        [PSEUDO_TTY_RUNNING]   = "running",
+        [PSEUDO_TTY_HUNG_UP]   = "hung-up",
+};
+DEFINE_STRING_TABLE_LOOKUP(pseudo_tty_state, PseudoTTYState);
