@@ -1279,23 +1279,13 @@ static int apply_exec_oom_score_adjust(Unit *u, ExecContext *c, TransientExecCon
         return 0;
 }
 
-static int apply_exec_set_credentials(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
-        assert(p);
+#define DEFINE_APPLY_EXEC_SETTABLE(field, apply, ...) \
+        DEFINE_VARLINK_APPLY_SETTABLE(field, ExecContext, TransientExecContextParameters, apply __VA_OPT__(,) __VA_ARGS__)
 
-        if (!p->set_credentials_set)
-                return 0;
-        return transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials,
-                                               /* encrypted= */ false, &p->bad_field);
-}
-
-static int apply_exec_set_credentials_encrypted(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
-        assert(p);
-
-        if (!p->set_credentials_encrypted_set)
-                return 0;
-        return transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted,
-                                               /* encrypted= */ true, &p->bad_field);
-}
+static DEFINE_APPLY_EXEC_SETTABLE(set_credentials, transient_apply_set_credentials,
+                                 p->n_set_credentials, /* encrypted= */ false, &p->bad_field);
+static DEFINE_APPLY_EXEC_SETTABLE(set_credentials_encrypted, transient_apply_set_credentials,
+                                 p->n_set_credentials_encrypted, /* encrypted= */ true, &p->bad_field);
 
 static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
         assert(c);
@@ -1572,8 +1562,8 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
         EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
         EXEC_PROPERTY_STRING       ("TTYPath",                tty_path),
-        EXEC_PROPERTY_SETTABLE     ("SetCredential",          set_credentials,           SD_JSON_VARIANT_ARRAY),
-        EXEC_PROPERTY_SETTABLE     ("SetCredentialEncrypted", set_credentials_encrypted, SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE_APPLY("SetCredential",          set_credentials,           SD_JSON_VARIANT_ARRAY),
+        EXEC_PROPERTY_SETTABLE_APPLY("SetCredentialEncrypted", set_credentials_encrypted, SD_JSON_VARIANT_ARRAY),
 };
 #undef EXEC_PROPERTY_FULL
 #undef EXEC_PROPERTY
