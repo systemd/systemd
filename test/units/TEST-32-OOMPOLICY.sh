@@ -29,4 +29,55 @@ if test -f /sys/fs/cgroup/system.slice/TEST-32-OOMPOLICY.service/memory.oom.grou
     test "$RESULT" = "oom-kill"
 fi
 
+# A process killed by the kernel OOM killer within the unit's cgroup should also be reported with
+# the 'oom-kill' result when OOMPolicy=continue, so that Restart= can react to it.
+systemd-run --unit=oomtest-continue.service \
+            -p Type=exec -p OOMPolicy=continue -p MemoryAccounting=yes -p MemoryMax=16M \
+            bash -c 's=$(printf "%134217728s" x); echo "${#s}"'
+
+while : ; do
+    STATE="$(systemctl show -P ActiveState oomtest-continue.service)"
+    [ "$STATE" = "failed" ] && break
+    sleep .5
+done
+
+RESULT="$(systemctl show -P Result oomtest-continue.service)"
+test "$RESULT" = "oom-kill"
+
+# Restart=on-oom-kill should restart the service when its processes are killed by an OOM killer...
+systemd-run --unit=oomtest-restart.service \
+            -p Type=exec -p OOMPolicy=continue -p MemoryAccounting=yes -p MemoryMax=16M \
+            -p Restart=on-oom-kill -p RestartSec=1s \
+            bash -c 's=$(printf "%134217728s" x); echo "${#s}"'
+
+NRESTARTS=0
+for _ in $(seq 30) ; do
+    NRESTARTS="$(systemctl show -P NRestarts oomtest-restart.service)"
+    [ "$NRESTARTS" -ge 1 ] && break
+    sleep 1
+done
+test "$NRESTARTS" -ge 1
+
+systemctl stop oomtest-restart.service
+
+# ...but not when it is killed by a signal for other reasons.
+systemd-run --unit=oomtest-norestart.service \
+            -p Type=exec -p OOMPolicy=continue -p MemoryAccounting=yes \
+            -p Restart=on-oom-kill -p RestartSec=1s \
+            sleep infinity
+
+systemctl kill --signal=SIGKILL oomtest-norestart.service
+
+while : ; do
+    STATE="$(systemctl show -P ActiveState oomtest-norestart.service)"
+    [ "$STATE" = "failed" ] && break
+    sleep .5
+done
+
+RESULT="$(systemctl show -P Result oomtest-norestart.service)"
+test "$RESULT" = "signal"
+
+NRESTARTS="$(systemctl show -P NRestarts oomtest-norestart.service)"
+test "$NRESTARTS" = "0"
+
 touch /testok
