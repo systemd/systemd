@@ -2409,7 +2409,8 @@ static bool ptybroker_compatible(void) {
                 !arg_timer_property &&
                 !arg_verbose &&
                 !arg_root_directory &&
-                arg_shell &&
+                (arg_shell || !arg_via_shell) &&
+                (!arg_description || strlen(arg_description) <= PTY_BROKER_DESCRIPTION_MAX) &&
                 arg_job_mode == JOB_FAIL &&
                 !arg_area &&
                 !arg_empower &&
