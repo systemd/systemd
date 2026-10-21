@@ -1074,6 +1074,7 @@
         <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
         System</ulink>, which however continues to be supported.</para>
 
+        <xi:include href="system-only.xml" xpointer="singular"/>
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
