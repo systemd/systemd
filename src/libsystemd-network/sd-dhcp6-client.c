@@ -1426,8 +1426,14 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
 int sd_dhcp6_client_send_renew(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
 
-        /* A lease can be renewed only when it is acquired. Otherwise, e.g. in the information request mode,
-         * this does nothing. */
+        /* In the information request mode, the client is stopped after a reply is received, but the lease
+         * is kept. Let's request the information again without waiting for the information refresh time. */
+        if (client->information_request && client->state == DHCP6_STATE_STOPPED && client->lease) {
+                client->information_request_time_usec = now(CLOCK_MONOTONIC);
+                return client_start_transaction(client, DHCP6_STATE_INFORMATION_REQUEST);
+        }
+
+        /* A lease can be renewed only when it is acquired. Otherwise, this does nothing. */
         if (client->state != DHCP6_STATE_BOUND)
                 return 0;
 
