@@ -60,8 +60,9 @@
       entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
       ignored.</para>
 
-      <para>Every line in the rules file contains at least one key-value pair.
-      Except for empty lines or lines beginning with <literal>#</literal>, which are ignored.
+      <para>Every rule in the rules file contains at least one key-value pair.
+      A rule can span multiple physical lines by ending all but the last line with a backslash
+      (<literal>\</literal>). Empty lines and lines beginning with <literal>#</literal> are ignored.
       There are two kinds of keys: match and assignment.
       If all match keys match against their values, the rule gets applied and the
       assignment keys get the specified values assigned.</para>
