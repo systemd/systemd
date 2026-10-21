@@ -8834,6 +8834,32 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # Check json format
         check_json(networkctl_json('veth99'))
 
+        # "networkctl renew" must request the information again.
+        stop_dnsmasq()
+        start_dnsmasq(
+            '--dhcp-option=108,00:00:02:00',
+            '--dhcp-option=option6:dns-server,[2600::ee]',
+            '--dhcp-option=option6:ntp-server,[2600::fe]',
+            ra_mode='ra-stateless',
+        )
+        networkctl('renew', 'veth99')
+
+        for _ in range(100):
+            output = read_link_state_file('veth99')
+            if 'NTP=2600::fe' in output:
+                break
+            time.sleep(0.2)
+
+        print('## link state file after renew')
+        print(output)
+        self.assertIn('NTP=2600::fe', output)
+        self.assertNotIn('2600::ff', output)
+
+        print('## dnsmasq log after renew')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPINFORMATION-REQUEST(veth-peer)', output)
+
         # solicit mode
         stop_dnsmasq()
         start_dnsmasq(
