@@ -22,6 +22,17 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Invoke a shell on the backend side."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(shell));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                PtyState,
+                SD_VARLINK_FIELD_COMMENT("The name is reserved by WatchPty(), waiting for AcquirePty()."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(reserved),
+                SD_VARLINK_FIELD_COMMENT("AcquirePty() is allocating the PTY and starting its shell service, if any."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(acquiring),
+                SD_VARLINK_FIELD_COMMENT("The PTY is fully set up and available to terminal clients."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(running),
+                SD_VARLINK_FIELD_COMMENT("The PTY has hung up and been released."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(hung_up));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TerminalSettings,
                 SD_VARLINK_FIELD_COMMENT("Terminal type ($TERM)"),
@@ -184,6 +195,42 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Settings for the terminal"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE));
 
+#define VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS                                                                             \
+        SD_VARLINK_FIELD_COMMENT("Name of the PTY allocation"),                                                           \
+        SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),                                                             \
+        SD_VARLINK_FIELD_COMMENT("A descriptive string to identify the pty allocation with (doesn't have to be unique)"), \
+        SD_VARLINK_DEFINE_OUTPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                    \
+        SD_VARLINK_FIELD_COMMENT("The frontend type for this PTY, if allocated"),                                         \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(frontendType, FrontendType, SD_VARLINK_NULLABLE),                                \
+        SD_VARLINK_FIELD_COMMENT("The backend type for this PTY, if allocated"),                                          \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(backendType, BackendType, SD_VARLINK_NULLABLE),                                  \
+        SD_VARLINK_FIELD_COMMENT("The syslog 'tag' to use for this pseudo TTY output when connected to logging"),         \
+        SD_VARLINK_DEFINE_OUTPUT(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                            \
+        SD_VARLINK_FIELD_COMMENT("The backend path for this PTY"),                                                        \
+        SD_VARLINK_DEFINE_OUTPUT(backendPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                    \
+        SD_VARLINK_FIELD_COMMENT("The unit backing the PTY, if known"),                                                   \
+        SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                           \
+        SD_VARLINK_FIELD_COMMENT("The process of the client that allocated or reserved this PTY"),                        \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(owner, ProcessId, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The UID of the client that allocated or reserved this PTY"),                            \
+        SD_VARLINK_DEFINE_OUTPUT(ownerUID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The GID of the client that allocated or reserved this PTY"),                            \
+        SD_VARLINK_DEFINE_OUTPUT(ownerGID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The current lifecycle state of the PTY"),                                               \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(state, PtyState, 0)
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                WatchPty,
+                SD_VARLINK_REQUIRES_MORE,
+
+                SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to watch."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If true and the name is not allocated, reserve it for a subsequent AcquirePty() by the same user. Defaults to false. Reserving a name requires the same authorization as acquiring a PTY without a shell. The reservation is released when the watch connection closes."),
+                SD_VARLINK_DEFINE_INPUT(wait, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
+
+                VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS);
+
 static SD_VARLINK_DEFINE_METHOD(
                 ConfigurePty,
                 SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to reconfigure to."),
@@ -203,26 +250,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
 
-                SD_VARLINK_FIELD_COMMENT("Name of the allocated PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("A descriptive string to identify the pty allocation with (doesn't have to be unique)"),
-                SD_VARLINK_DEFINE_OUTPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The frontend type for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(frontendType, FrontendType, 0),
-                SD_VARLINK_FIELD_COMMENT("The backend type for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(backendType, BackendType, 0),
-                SD_VARLINK_FIELD_COMMENT("The syslog 'tag' to use for this pseudo TTY output when connected to logging"),
-                SD_VARLINK_DEFINE_OUTPUT(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The backend path for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(backendPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The unit backing the PTY if known"),
-                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The process of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(owner, ProcessId, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The UID of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(ownerUID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The GID of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(ownerGID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS);
 
 static SD_VARLINK_DEFINE_METHOD(
                 HangUpPty,
@@ -235,6 +263,7 @@ static SD_VARLINK_DEFINE_ERROR(PtyExists);
 static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
+static SD_VARLINK_DEFINE_ERROR(TooManyWatchers);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PTYBroker,
@@ -246,6 +275,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_EnrollPty,
                 SD_VARLINK_SYMBOL_COMMENT("Monitor frontend side of the pty."),
                 &vl_method_MonitorPty,
+                SD_VARLINK_SYMBOL_COMMENT(
+                                "Watch allocation and hangup changes, returning the same description as ListPty(). "
+                                "The first notification acknowledges the watch. The PTY is freed on hangup, but "
+                                "its shell unit remains referenced until the watch connection closes, so its final "
+                                "state can still be queried. The reference survives service manager reload and "
+                                "reexecution; the watch disconnects if it is lost. For PTYs without a shell unit "
+                                "the call completes on hangup."),
+                &vl_method_WatchPty,
                 SD_VARLINK_SYMBOL_COMMENT("Reconfigure pseudo terminal"),
                 &vl_method_ConfigurePty,
                 SD_VARLINK_SYMBOL_COMMENT("List allocated pseudo-terminals"),
@@ -256,6 +293,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_FrontendType,
                 SD_VARLINK_SYMBOL_COMMENT("What to do with the PTY backend."),
                 &vl_type_BackendType,
+                SD_VARLINK_SYMBOL_COMMENT("The lifecycle state of a reserved or allocated PTY."),
+                &vl_type_PtyState,
                 SD_VARLINK_SYMBOL_COMMENT("Details about terminal settings."),
                 &vl_type_TerminalSettings,
                 SD_VARLINK_SYMBOL_COMMENT("The working directory of the shell."),
@@ -270,5 +309,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_TooManyPtys,
                 SD_VARLINK_SYMBOL_COMMENT("Limit on number of monitors of a PTY reached."),
                 &vl_error_TooManyMonitors,
+                SD_VARLINK_SYMBOL_COMMENT("Limit on number of watchers of a PTY reached."),
+                &vl_error_TooManyWatchers,
                 SD_VARLINK_SYMBOL_COMMENT("Tracking of PTY state not enabled for specified PTY."),
                 &vl_error_TrackingNotEnabled);
