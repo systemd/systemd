@@ -27,6 +27,15 @@ enum BackendType {
         _BACKEND_TYPE_INVALID = -EINVAL,
 };
 
+enum PseudoTTYState {
+        PSEUDO_TTY_RESERVED,  /* Name reserved by WatchPty(), waiting for AcquirePty(). */
+        PSEUDO_TTY_ACQUIRING, /* AcquirePty() is allocating the PTY and starting its shell service, if any. */
+        PSEUDO_TTY_RUNNING,
+        PSEUDO_TTY_HUNG_UP,
+        _PSEUDO_TTY_STATE_MAX,
+        _PSEUDO_TTY_STATE_INVALID = -EINVAL,
+};
+
 struct PseudoTTY {
         Manager *manager;
 
@@ -48,9 +57,14 @@ struct PseudoTTY {
         int pin_fd;      /* O_PATH on backend_fd */
         char *backend_path;
         char *unit;
+        UnitReference *unit_reference;
+        Set *watch_links;
+        PseudoTTYState state;
+        sd_json_variant *acquire_parameters; /* Parameters authorized when reserving this PTY. */
 
-        /* Identity of the client that allocated this PTY */
+        /* Identity of the client that allocated or reserved this PTY */
         PidRef owner_pidref;
+        bool owner_pidref_is_trusted; /* Acquired through SO_PEERPIDFD, not a numeric PID lookup. */
         uid_t owner_uid;
         gid_t owner_gid;
 
@@ -93,6 +107,11 @@ int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_vari
 int pseudo_tty_vhangup(PseudoTTY *pty);
 
 int pseudo_tty_sync_winsize(PseudoTTY *pty);
+void pseudo_tty_close(PseudoTTY *pty);
+int pseudo_tty_reply_description(PseudoTTY *pty, sd_varlink *link, bool more);
+int pseudo_tty_notify_watchers(PseudoTTY *pty);
+void pseudo_tty_close_watchers(PseudoTTY *pty);
 
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);
+DECLARE_STRING_TABLE_LOOKUP(pseudo_tty_state, PseudoTTYState);

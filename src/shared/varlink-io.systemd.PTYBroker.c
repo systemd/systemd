@@ -22,6 +22,17 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Invoke a shell on the backend side."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(shell));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                PtyState,
+                SD_VARLINK_FIELD_COMMENT("The name is reserved by WatchPty(), waiting for AcquirePty()."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(reserved),
+                SD_VARLINK_FIELD_COMMENT("AcquirePty() is allocating the PTY and starting its shell service, if any."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(acquiring),
+                SD_VARLINK_FIELD_COMMENT("The PTY is fully set up and available to terminal clients."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(running),
+                SD_VARLINK_FIELD_COMMENT("The terminal has hung up. Existing watchers keep the allocation referenced, but terminal I/O is closed."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(hung_up));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TerminalSettings,
                 SD_VARLINK_FIELD_COMMENT("Terminal type ($TERM)"),
@@ -44,46 +55,81 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Whether the path to the working directory is allowed to not exist"),
                 SD_VARLINK_DEFINE_FIELD(missingOK, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+#define VARLINK_DEFINE_ACQUIRE_PTY_FIELDS(direction)                                                         \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "What to do with the 'frontend' of the pty, also known as the pty 'master'"),        \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(frontendType, FrontendType, 0),                              \
+        SD_VARLINK_FIELD_COMMENT("What to do with the 'backend' of the pty, also known the pty 'slave'"),    \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(backendType, BackendType, 0),                                \
+        SD_VARLINK_FIELD_COMMENT("A unique name to identify the pty allocation with"),                       \
+        SD_VARLINK_DEFINE_##direction(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                         \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "A descriptive string to identify the pty allocation with (doesn't have to be "      \
+                        "unique)"),                                                                          \
+        SD_VARLINK_DEFINE_##direction(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                  \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "The syslog 'tag' to use for this pseudo TTY output when connected to logging"),     \
+        SD_VARLINK_DEFINE_##direction(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                          \
+        SD_VARLINK_FIELD_COMMENT("For shell backend: user to run the shell as"),                             \
+        SD_VARLINK_DEFINE_##direction(user, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                         \
+        SD_VARLINK_FIELD_COMMENT("For shell backend: group to run the shell as"),                            \
+        SD_VARLINK_DEFINE_##direction(group, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                        \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "For shell backend: initial directory for the shell, either an absolute path or "    \
+                        "the home directory of the user"),                                                   \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(workingDirectory, WorkingDirectory, SD_VARLINK_NULLABLE),    \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "For shell backend: environment variables for the shell, as a list of "              \
+                        "assignments in the usual VAR=VALUE syntax"),                                        \
+        SD_VARLINK_DEFINE_##direction(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY), \
+        SD_VARLINK_FIELD_COMMENT("For shell backend: whether to allocate a 'lightweight' session"),          \
+        SD_VARLINK_DEFINE_##direction(lightweight, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                    \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "For shell backend: command line to invoke as main service process. If unset an "    \
+                        "interactive login shell is invoked."),                                              \
+        SD_VARLINK_DEFINE_##direction(commandLine, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY), \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "For shell backend: whether to invoke the command line via the target user's "       \
+                        "native shell. Defaults to true. If false a command line must be specified, and "    \
+                        "is invoked directly."),                                                             \
+        SD_VARLINK_DEFINE_##direction(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                       \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "For shell backend: absolute path of the binary to execute. Only valid if "          \
+                        "viaShell is false. If unset the first element of the command line is used, "        \
+                        "otherwise the first element of the command line is only passed as argv[0] "         \
+                        "(e.g. to request login shell semantics by prefixing it with a dash)."),             \
+        SD_VARLINK_DEFINE_##direction(executable, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                   \
+        SD_VARLINK_FIELD_COMMENT("Convert the connection into a monitor connection once done"),              \
+        SD_VARLINK_DEFINE_##direction(monitor, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                        \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "If true, hang up the pty once this monitor connection is disconnected. If null "    \
+                        "defaults to false."),                                                               \
+        SD_VARLINK_DEFINE_##direction(hangUpOnDisconnect, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),             \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "If true, a hangup of the backend side of the pty (e.g. because the last "           \
+                        "process having it open closed it, or called vhangup() on it) does not release "     \
+                        "the pty, since the backend might be reopened later. Only valid in combination "     \
+                        "with the monitor and hangUpOnDisconnect flags, as the monitor connection going "    \
+                        "away then defines the lifetime of the pty. If null defaults to false."),            \
+        SD_VARLINK_DEFINE_##direction(ignoreHangup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                   \
+        SD_VARLINK_FIELD_COMMENT(                                                                            \
+                        "If true, track the dimensions of the monitor's terminal via OSC 2811 sequences "    \
+                        "on the monitor stream, and propagate the minimum dimensions of all monitors to "    \
+                        "the pty. Only valid in combination with the monitor flag. If null defaults to "     \
+                        "false."),                                                                           \
+        SD_VARLINK_DEFINE_##direction(osc2811, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                        \
+        SD_VARLINK_FIELD_COMMENT("Initial settings for the terminal"),                                       \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE)
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                AcquirePtyParameters,
+                VARLINK_DEFINE_ACQUIRE_PTY_FIELDS(FIELD));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 AcquirePty,
                 SD_VARLINK_SUPPORTS_UPGRADE,
 
-                SD_VARLINK_FIELD_COMMENT("What to do with the 'frontend' of the pty, also known as the pty 'master'"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(frontendType, FrontendType, 0),
-                SD_VARLINK_FIELD_COMMENT("What to do with the 'backend' of the pty, also known the pty 'slave'"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(backendType, BackendType, 0),
-                SD_VARLINK_FIELD_COMMENT("A unique name to identify the pty allocation with"),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("A descriptive string to identify the pty allocation with (doesn't have to be unique)"),
-                SD_VARLINK_DEFINE_INPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The syslog 'tag' to use for this pseudo TTY output when connected to logging"),
-                SD_VARLINK_DEFINE_INPUT(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: user to run the shell as"),
-                SD_VARLINK_DEFINE_INPUT(user, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: group to run the shell as"),
-                SD_VARLINK_DEFINE_INPUT(group, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: initial directory for the shell, either an absolute path or the home directory of the user"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(workingDirectory, WorkingDirectory, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: environment variables for the shell, as a list of assignments in the usual VAR=VALUE syntax"),
-                SD_VARLINK_DEFINE_INPUT(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: whether to allocate a 'lightweight' session"),
-                SD_VARLINK_DEFINE_INPUT(lightweight, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: command line to invoke as main service process. If unset an interactive login shell is invoked."),
-                SD_VARLINK_DEFINE_INPUT(commandLine, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: whether to invoke the command line via the target user's native shell. Defaults to true. If false a command line must be specified, and is invoked directly."),
-                SD_VARLINK_DEFINE_INPUT(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: absolute path of the binary to execute. Only valid if viaShell is false. If unset the first element of the command line is used, otherwise the first element of the command line is only passed as argv[0] (e.g. to request login shell semantics by prefixing it with a dash)."),
-                SD_VARLINK_DEFINE_INPUT(executable, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Convert the connection into a monitor connection once done"),
-                SD_VARLINK_DEFINE_INPUT(monitor, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, hang up the pty once this monitor connection is disconnected. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(hangUpOnDisconnect, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, a hangup of the backend side of the pty (e.g. because the last process having it open closed it, or called vhangup() on it) does not release the pty, since the backend might be reopened later. Only valid in combination with the monitor and hangUpOnDisconnect flags, as the monitor connection going away then defines the lifetime of the pty. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(ignoreHangup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via OSC 2811 sequences on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(osc2811, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Initial settings for the terminal"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_ACQUIRE_PTY_FIELDS(INPUT),
                 VARLINK_DEFINE_POLKIT_INPUT,
 
                 SD_VARLINK_FIELD_COMMENT("Selected name for the pty allocation"),
@@ -184,6 +230,49 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Settings for the terminal"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE));
 
+#define VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS                                                                             \
+        SD_VARLINK_FIELD_COMMENT("Name of the PTY allocation"),                                                           \
+        SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),                                                             \
+        SD_VARLINK_FIELD_COMMENT("A descriptive string to identify the pty allocation with (doesn't have to be unique)"), \
+        SD_VARLINK_DEFINE_OUTPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                    \
+        SD_VARLINK_FIELD_COMMENT("The frontend type for this PTY, if allocated"),                                         \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(frontendType, FrontendType, SD_VARLINK_NULLABLE),                                \
+        SD_VARLINK_FIELD_COMMENT("The backend type for this PTY, if allocated"),                                          \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(backendType, BackendType, SD_VARLINK_NULLABLE),                                  \
+        SD_VARLINK_FIELD_COMMENT("The syslog 'tag' to use for this pseudo TTY output when connected to logging"),         \
+        SD_VARLINK_DEFINE_OUTPUT(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                            \
+        SD_VARLINK_FIELD_COMMENT("The backend path for this PTY"),                                                        \
+        SD_VARLINK_DEFINE_OUTPUT(backendPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                    \
+        SD_VARLINK_FIELD_COMMENT("The unit backing the PTY, if known"),                                                   \
+        SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                           \
+        SD_VARLINK_FIELD_COMMENT("The process of the client that allocated or reserved this PTY"),                        \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(owner, ProcessId, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The UID of the client that allocated or reserved this PTY"),                            \
+        SD_VARLINK_DEFINE_OUTPUT(ownerUID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The GID of the client that allocated or reserved this PTY"),                            \
+        SD_VARLINK_DEFINE_OUTPUT(ownerGID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                                          \
+        SD_VARLINK_FIELD_COMMENT("The current lifecycle state of the PTY"),                                               \
+        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(state, PtyState, 0)
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                WatchPty,
+                SD_VARLINK_REQUIRES_MORE,
+
+                SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to watch."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If true and the name is not allocated, reserve it for a subsequent AcquirePty() by the same user. Defaults to false. Unless acquireParameters is specified, reserving a name requires the same authorization as acquiring a PTY without a shell. The reservation is released when the watch connection closes."),
+                SD_VARLINK_DEFINE_INPUT(wait, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(
+                                "Parameters of the intended AcquirePty() call, excluding allowInteractiveAuthentication. "
+                                "Only valid when reserving an unused name with wait=true. The inner name may be omitted "
+                                "or must match the name being reserved. Authorize the requested operation, including "
+                                "its shell command if any, before acknowledging the reservation. AcquirePty() may reuse "
+                                "this authorization only for the same verified process, UID, GID and parameters."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(acquireParameters, AcquirePtyParameters, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
+
+                VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS);
+
 static SD_VARLINK_DEFINE_METHOD(
                 ConfigurePty,
                 SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to reconfigure to."),
@@ -203,26 +292,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
 
-                SD_VARLINK_FIELD_COMMENT("Name of the allocated PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("A descriptive string to identify the pty allocation with (doesn't have to be unique)"),
-                SD_VARLINK_DEFINE_OUTPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The frontend type for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(frontendType, FrontendType, 0),
-                SD_VARLINK_FIELD_COMMENT("The backend type for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(backendType, BackendType, 0),
-                SD_VARLINK_FIELD_COMMENT("The syslog 'tag' to use for this pseudo TTY output when connected to logging"),
-                SD_VARLINK_DEFINE_OUTPUT(tag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The backend path for this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(backendPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The unit backing the PTY if known"),
-                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The process of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(owner, ProcessId, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The UID of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(ownerUID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The GID of the client that allocated this PTY"),
-                SD_VARLINK_DEFINE_OUTPUT(ownerGID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_PTY_DESCRIPTION_FIELDS);
 
 static SD_VARLINK_DEFINE_METHOD(
                 HangUpPty,
@@ -235,6 +305,7 @@ static SD_VARLINK_DEFINE_ERROR(PtyExists);
 static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
+static SD_VARLINK_DEFINE_ERROR(TooManyWatchers);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PTYBroker,
@@ -246,6 +317,15 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_EnrollPty,
                 SD_VARLINK_SYMBOL_COMMENT("Monitor frontend side of the pty."),
                 &vl_method_MonitorPty,
+                SD_VARLINK_SYMBOL_COMMENT(
+                                "Watch allocation and hangup changes, returning the same description as ListPty(). "
+                                "The first notification acknowledges the watch. On hangup, terminal I/O closes, "
+                                "but the call remains pending and keeps the PTY allocation and its name referenced. "
+                                "The PTY keeps its shell unit referenced, if any, so its final state can still be "
+                                "queried. The allocation and unit reference are released when the last watch "
+                                "connection closes after hangup. The unit reference survives service manager "
+                                "reload and reexecution; the watch disconnects if it is lost."),
+                &vl_method_WatchPty,
                 SD_VARLINK_SYMBOL_COMMENT("Reconfigure pseudo terminal"),
                 &vl_method_ConfigurePty,
                 SD_VARLINK_SYMBOL_COMMENT("List allocated pseudo-terminals"),
@@ -256,10 +336,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_FrontendType,
                 SD_VARLINK_SYMBOL_COMMENT("What to do with the PTY backend."),
                 &vl_type_BackendType,
+                SD_VARLINK_SYMBOL_COMMENT("The lifecycle state of a reserved or allocated PTY."),
+                &vl_type_PtyState,
                 SD_VARLINK_SYMBOL_COMMENT("Details about terminal settings."),
                 &vl_type_TerminalSettings,
                 SD_VARLINK_SYMBOL_COMMENT("The working directory of the shell."),
                 &vl_type_WorkingDirectory,
+                SD_VARLINK_SYMBOL_COMMENT("Parameters of a PTY acquisition to authorize while reserving its name."),
+                &vl_type_AcquirePtyParameters,
                 SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
                 &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("No PTY by the given name known"),
@@ -270,5 +354,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_TooManyPtys,
                 SD_VARLINK_SYMBOL_COMMENT("Limit on number of monitors of a PTY reached."),
                 &vl_error_TooManyMonitors,
+                SD_VARLINK_SYMBOL_COMMENT("Limit on number of watchers of a PTY reached."),
+                &vl_error_TooManyWatchers,
                 SD_VARLINK_SYMBOL_COMMENT("Tracking of PTY state not enabled for specified PTY."),
                 &vl_error_TrackingNotEnabled);
