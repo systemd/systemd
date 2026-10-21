@@ -140,6 +140,7 @@ int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, s
 int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int dispatch_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 #if __SIZEOF_SIZE_T__ == 8
 #define json_dispatch_size sd_json_dispatch_uint64
