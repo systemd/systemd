@@ -8,6 +8,7 @@ set -o pipefail
 
 at_exit() {
     set +e
+    systemctl start systemd-ptybrokerd.socket
     rm -f /tmp/pty96-run0-*
 }
 
@@ -47,3 +48,17 @@ run0_test() {
 # run0 defaults to --pty-late unless --no-ask-password is specified.
 run0_test ""
 run0_test --pty
+
+# run0 must still work when the broker is not installed or its socket is disabled.
+systemctl stop systemd-ptybrokerd.service systemd-ptybrokerd.socket
+[[ "$(run0 --pty echo -n foo)" == foo ]]
+systemctl start systemd-ptybrokerd.socket
+
+# Descriptions with control characters are incompatible with the broker, but work via D-Bus.
+for command in $'printf foo\nexit 37' $'printf foo; exit 37 # \001'; do
+    rc=0
+    output=$(run0 --pty sh -c "$command") || rc=$?
+    [[ "$rc" == 37 ]]
+    [[ "$output" == foo ]]
+done
+[[ "$(run0 --pty --description=$'tab\tdescription' echo -n foo)" == foo ]]
