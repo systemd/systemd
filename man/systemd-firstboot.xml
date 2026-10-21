@@ -315,7 +315,7 @@
         an additional prompt. If console selection fails, setup continues on the inherited terminal when it
         is usable.</para>
 
-        <para>This option has no effect when
+        <para>This option is enabled by <filename>systemd-firstboot.service</filename>. It has no effect when
         no interactive configuration is needed, for example when all settings are supplied through
         credentials or when running in headless mode.</para>
 
