@@ -8917,6 +8917,12 @@ static int context_write_partition_table(Context *context) {
 
                 log_info("Wiped block device.");
 
+                /* Wiping the partition table does not remove the kernel partition devices, do a rescan now
+                 * to avoid -EBUSY later. */
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0, /* args= */ NULL);
+                if (r < 0 && !IN_SET(r, -ENOTBLK, -ENOTTY))
+                        log_warning_errno(r, "Failed to reread partition table after wiping, ignoring: %m");
+
                 if (arg_discard) {
                         r = context_discard_range(context, 0, context->total);
                         if (r == -EOPNOTSUPP)
