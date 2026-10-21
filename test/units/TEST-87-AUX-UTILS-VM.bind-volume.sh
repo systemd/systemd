@@ -107,9 +107,7 @@ VMSPAWN_PID=$!
 wait_for_machine "$MACHINE" "$VMSPAWN_PID" "$WORKDIR/vmspawn.log"
 echo "Machine '$MACHINE' registered"
 
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE")
 
 varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Describe '{}' \
     | jq -e '.running == true' >/dev/null

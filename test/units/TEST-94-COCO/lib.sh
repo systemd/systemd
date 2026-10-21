@@ -9,7 +9,7 @@ if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     exit 1
 fi
 
-# util.sh (assert_*) lives one level up in the shared units dir.
+# util.sh (assert_*, vmspawn_images_dir) lives one level up in the shared units dir.
 # shellcheck source=test/units/util.sh
 . "$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")/util.sh"
 # shellcheck source=test/units/TEST-94-COCO/fixtures.sh

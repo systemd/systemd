@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-qmp.h"
 #include "vmspawn-varlink.h"
 
@@ -33,17 +34,6 @@ struct VmspawnVarlinkContext {
         Hashmap *subscribed;
 };
 
-/* Translate a QMP async completion into a varlink error reply */
-static int qmp_error_to_varlink(sd_varlink *link, const char *error_desc, int error) {
-        assert(link);
-
-        if (ERRNO_IS_DISCONNECT(error))
-                return sd_varlink_error(link, "io.systemd.MachineInstance.NotConnected", NULL);
-        if (error == -EIO)
-                log_warning("QMP command failed: %s", strna(error_desc));
-        return sd_varlink_error_errno(link, error);
-}
-
 /* Shared async completion for simple QMP commands that return no data.
  * Errors are translated to varlink replies, not propagated through sd_event. */
 static int on_qmp_simple_complete(
@@ -58,7 +48,7 @@ static int on_qmp_simple_complete(
         assert(client);
 
         if (error < 0)
-                (void) qmp_error_to_varlink(link, error_desc, error);
+                (void) vmspawn_qmp_reply_error(link, error_desc, error);
         else
                 (void) sd_varlink_reply(link, NULL);
 
@@ -81,7 +71,7 @@ static int on_qmp_terminate_complete(
         assert(client);
 
         if (error < 0 && !ERRNO_IS_DISCONNECT(error))
-                (void) qmp_error_to_varlink(link, error_desc, error);
+                (void) vmspawn_qmp_reply_error(link, error_desc, error);
         else
                 (void) sd_varlink_reply(link, NULL);
 
@@ -144,13 +134,17 @@ static int on_qmp_describe_complete(
                 void *userdata) {
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *memory_v = NULL;
+        int r;
 
         assert(client);
 
         if (error < 0) {
-                (void) qmp_error_to_varlink(link, error_desc, error);
+                (void) vmspawn_qmp_reply_error(link, error_desc, error);
                 return 0;
         }
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
 
         sd_json_variant *running_v = sd_json_variant_by_key(result, "running");
         sd_json_variant *status_v = sd_json_variant_by_key(result, "status");
@@ -160,10 +154,15 @@ static int on_qmp_describe_complete(
         const char *status = status_v && sd_json_variant_is_string(status_v) ?
                 sd_json_variant_string(status_v) : "unknown";
 
+        r = vmspawn_memory_build_json(bridge->memory, &memory_v);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
         (void) sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR_BOOLEAN("running", running),
-                        SD_JSON_BUILD_PAIR_STRING("status", status));
+                        SD_JSON_BUILD_PAIR_STRING("status", status),
+                        SD_JSON_BUILD_PAIR_VARIANT("memory", memory_v));
 
         return 0;
 }
@@ -299,6 +298,31 @@ static int vl_method_replace_storage(sd_varlink *link, sd_json_variant *paramete
 
         return vmspawn_qmp_replace_block_device(ctx->bridge, link, p.name, TAKE_FD(fd), fd_flags);
         /* Async reply via on_replace_old_blockdev_del_complete or replace_fail. */
+}
+
+static int vl_method_set_memory(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        uint64_t bytes = 0;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "bytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &bytes);
+        if (r != 0)
+                return r;
+
+        r = vmspawn_memory_set_target(ctx->bridge->memory, link, bytes);
+        if (r == -EOPNOTSUPP)
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NotSupported", NULL);
+        if (r == -ERANGE)
+                return sd_varlink_error_invalid_parameter_name(link, "bytes");
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        return 0;
 }
 
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -473,7 +497,8 @@ int vmspawn_varlink_setup(
                         "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events,
                         "io.systemd.MachineInstance.AddStorage",        vl_method_add_storage,
                         "io.systemd.MachineInstance.RemoveStorage",     vl_method_remove_storage,
-                        "io.systemd.MachineInstance.ReplaceStorage",    vl_method_replace_storage);
+                        "io.systemd.MachineInstance.ReplaceStorage",    vl_method_replace_storage,
+                        "io.systemd.MachineInstance.SetMemory",         vl_method_set_memory);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink methods: %m");
 

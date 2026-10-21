@@ -512,6 +512,7 @@ def main() -> None:
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--vm-images', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--nested-vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--coco', default=None, choices=('tdx', 'sev-snp', 'any'))
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
@@ -693,19 +694,34 @@ def main() -> None:
         bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
 
     # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
-    # installed test artifacts. Bind the output directory read-only into the boot-mode container at
-    # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
-    vm_images_args: list[str] = []
-    if args.vm_images and not vm:
+    # installed test artifacts. Make the output directory available at /work/vm-images on request:
+    # bound read-only into the boot-mode container, or shared into the VM as a runtime tree.
+    vm_images_mkosi_args: list[str] = []
+    vm_images_nspawn_args: list[str] = []
+    if args.vm_images:
         output_dir = args.meson_build_dir / 'mkosi.output'
-        if output_dir.exists():
-            vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
-        else:
+        if not output_dir.exists():
             print(
                 f'--vm-images requested but {output_dir} does not exist (images not built?); '
                 f'/work/vm-images will be unavailable and tests depending on it will skip',
                 file=sys.stderr,
             )
+        elif vm:
+            vm_images_mkosi_args = [f'--runtime-tree={os.fspath(output_dir)}:/work/vm-images']
+        else:
+            vm_images_nspawn_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
+
+    # A test that launches a KVM guest of its own runs in the boot-mode container with the host's KVM and
+    # vsock devices bound in. In vm mode the guest would be nested one level deeper than the test VM,
+    # which on CI runners (themselves VMs) never gets going.
+    nested_vm_boot_args: list[str] = []
+    if args.nested_vm:
+        if vm:
+            exit_skip(args.tap, f'{args.name} launches a KVM guest and needs boot mode (root, no --vm), skipping')
+        for dev in ('/dev/kvm', '/dev/vhost-vsock'):
+            if not Path(dev).exists():
+                exit_skip(args.tap, f'{args.name} needs {dev} on the host for its KVM guest, skipping')
+            nested_vm_boot_args += [f'--bind={dev}']
 
     # Coco needs to launch a real (L1) confidential guest, which requires the boot-mode nspawn on
     # a coco-capable bare-metal host. Nested QEMU VM (vm mode) won't work.
@@ -787,6 +803,7 @@ def main() -> None:
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         *test_mkosi_args,
+        *vm_images_mkosi_args,
         'vm' if vm else 'boot',
         *(
             [
@@ -807,7 +824,8 @@ def main() -> None:
                     else []
                 ),
                 *bind_dirs_args,
-                *vm_images_args,
+                *vm_images_nspawn_args,
+                *nested_vm_boot_args,
                 *coco_boot_args,
             ]
             if not vm
