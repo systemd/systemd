@@ -2476,6 +2476,9 @@ static bool service_shall_restart(Service *s, const char **reason) {
         case SERVICE_RESTART_ON_ABORT:
                 return IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP);
 
+        case SERVICE_RESTART_ON_OOM_KILL:
+                return s->result == SERVICE_FAILURE_OOM_KILL;
+
         default:
                 assert_not_reached();
         }
@@ -6552,6 +6555,7 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_ON_ABNORMAL] = "on-abnormal",
         [SERVICE_RESTART_ON_WATCHDOG] = "on-watchdog",
         [SERVICE_RESTART_ON_ABORT]    = "on-abort",
+        [SERVICE_RESTART_ON_OOM_KILL] = "on-oom-kill",
         [SERVICE_RESTART_ALWAYS]      = "always",
 };
 

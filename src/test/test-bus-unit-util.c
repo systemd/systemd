@@ -885,6 +885,7 @@ TEST(service_properties) {
                         "Restart=on-abnormal",
                         "Restart=on-watchdog",
                         "Restart=on-abort",
+                        "Restart=on-oom-kill",
                         "Restart=always",
                         "RestartMode=normal",
                         "RestartMode=direct",
