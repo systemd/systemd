@@ -15,6 +15,7 @@
 #include "log.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -68,8 +69,16 @@ static bool is_in_survivor_cgroup(const PidRef *pid) {
                 log_debug_errno(r,
                                 "Failed to get survive_final_kill_signal xattr of %s, ignoring: %m",
                                 cgroup_path);
+        if (r <= 0)
+                return false;
 
-        return r > 0;
+        RuntimeScope scope = cg_path_runtime_scope(cgroup_path);
+        if (scope == RUNTIME_SCOPE_USER) {
+                log_warning("Process " PID_FMT " sets exclusion xattr but originates from a user session, killing anyway.", pid->pid);
+                return false;
+        }
+
+        return true;
 }
 
 static bool ignore_proc(PidRef *pid, bool warn_rootfs) {
