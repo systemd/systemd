@@ -46,9 +46,7 @@ class Handler(BaseHTTPRequestHandler):
             if Handler.expired_token is None:
                 Handler.expired_token = token
             if token == Handler.expired_token:
-                self.send_response(401)
-                self.send_header('Content-Length', 0)
-                self.end_headers()
+                self.send_error(401)
             else:
                 self.send_text(b'fresh')
         elif self.path == '/userdata':
