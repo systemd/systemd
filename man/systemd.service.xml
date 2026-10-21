@@ -903,7 +903,11 @@ RestartMaxDelaySec=160s</programlisting>
         the process is terminated by a signal (including on core dump, excluding the aforementioned four signals),
         when an operation times out, or when the watchdog timeout is triggered. If set to <option>on-abort</option>,
         the service will be restarted only if the service process exits due to an uncaught signal not specified
-        as a clean exit status. If set to <option>on-watchdog</option>, the service will be restarted
+        as a clean exit status. If set to <option>on-oom-kill</option>, the service will be restarted only if
+        its processes were killed by the kernel OOM killer or the userspace OOM killer
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        and is useful to recover automatically from OOM kills while still failing loudly otherwise. If set to
+        <option>on-watchdog</option>, the service will be restarted
         only if the watchdog timeout for the service expires. If set to <option>always</option>, the service
         will be restarted regardless of whether it exited cleanly or not, got terminated abnormally by
         a signal, or hit a timeout. Note that <varname>Type=oneshot</varname> services will never be restarted
@@ -925,6 +929,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry><option>on-failure</option></entry>
                 <entry><option>on-abnormal</option></entry>
                 <entry><option>on-abort</option></entry>
+                <entry><option>on-oom-kill</option></entry>
                 <entry><option>on-watchdog</option></entry>
               </row>
             </thead>
@@ -934,6 +939,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry/>
                 <entry>X</entry>
                 <entry>X</entry>
+                <entry/>
                 <entry/>
                 <entry/>
                 <entry/>
@@ -948,6 +954,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry/>
                 <entry/>
                 <entry/>
+                <entry/>
               </row>
               <row>
                 <entry>Unclean signal</entry>
@@ -957,6 +964,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry>X</entry>
                 <entry>X</entry>
                 <entry>X</entry>
+                <entry/>
                 <entry/>
               </row>
               <row>
@@ -968,6 +976,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry>X</entry>
                 <entry/>
                 <entry/>
+                <entry/>
               </row>
               <row>
                 <entry>Watchdog</entry>
@@ -976,6 +985,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry/>
                 <entry>X</entry>
                 <entry>X</entry>
+                <entry/>
                 <entry/>
                 <entry>X</entry>
               </row>
@@ -987,6 +997,7 @@ RestartMaxDelaySec=160s</programlisting>
                 <entry>X</entry>
                 <entry>X</entry>
                 <entry/>
+                <entry>X</entry>
                 <entry/>
               </row>
             </tbody>
