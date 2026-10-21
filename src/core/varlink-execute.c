@@ -19,7 +19,6 @@
 #include "namespace.h"
 #include "nsflags.h"
 #include "ordered-set.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "securebits-util.h"
@@ -1480,33 +1479,6 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_protect_home, ProtectHome, protect_hom
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_tmp, PrivateTmp, private_tmp_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_private_users, PrivateUsers, private_users_from_string);
 
-/* For the sandbox knobs typed as yes/no strings in the IDL (PrivateNetwork), matching
- * JSON_BUILD_PAIR_YES_NO on the runtime-context side, so a JSON boolean is not valid here. */
-static int dispatch_transient_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *b = ASSERT_PTR(userdata);
-        int r;
-
-        assert(variant);
-
-        if (sd_json_variant_is_null(variant)) {
-                *b = -1;
-                return 0;
-        }
-
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "JSON field '%s' is not a string.", strna(name));
-
-        r = parse_boolean(sd_json_variant_string(variant));
-        if (r < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Value of JSON field '%s' is not a boolean string: %s",
-                                strna(name), sd_json_variant_string(variant));
-
-        *b = r;
-        return 0;
-}
-
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1561,10 +1533,9 @@ typedef struct TransientExecProperty {
         { json, SD_JSON_VARIANT_STRING, dispatch_fn,                                       \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
-/* Yes/no-string property: a tristate bool whose IDL type is string, see
- * dispatch_transient_yes_no_string(). */
+/* Yes/no-string property: a tristate bool whose IDL type is string, see dispatch_yes_no_string(). */
 #define EXEC_PROPERTY_YES_NO_STRING(json, field)                                          \
-        { json, SD_JSON_VARIANT_STRING, dispatch_transient_yes_no_string,                 \
+        { json, SD_JSON_VARIANT_STRING, dispatch_yes_no_string,                           \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 static const TransientExecProperty exec_properties[] = {
