@@ -2409,7 +2409,8 @@ static bool ptybroker_compatible(void) {
                 !arg_timer_property &&
                 !arg_verbose &&
                 !arg_root_directory &&
-                arg_shell &&
+                (arg_shell || !arg_via_shell) &&
+                (!arg_description || strlen(arg_description) <= PTY_BROKER_DESCRIPTION_MAX) &&
                 arg_job_mode == JOB_FAIL &&
                 !arg_area &&
                 !arg_empower &&
@@ -2417,8 +2418,10 @@ static bool ptybroker_compatible(void) {
                 arg_ignore_sigpipe <= 0;
 }
 
-static int start_via_ptybroker(void) {
+static int start_via_ptybroker(sd_varlink *vl) {
         int r;
+
+        assert(vl);
 
         _cleanup_(run_context_done) RunContext c = RUN_CONTEXT_NULL;
         r = sd_event_default(&c.event);
@@ -2429,17 +2432,17 @@ static int start_via_ptybroker(void) {
          * case we need to authenticate interactively. */
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = pty_broker_connect(arg_runtime_scope, &vl);
-        if (r < 0)
-                return r;
-
         r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable file descriptor passing on ptybrokerd connection: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
-        r = pty_broker_terminal_settings_to_json(&ts);
+        if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO))
+                r = pty_broker_terminal_settings_to_json(&ts);
+        else
+                /* Match the D-Bus path: an explicitly requested PTY must not turn captured output into
+                 * terminal output. In particular, TERM=dumb suppresses PAM's session OSC sequences. */
+                r = sd_json_buildo(&ts, SD_JSON_BUILD_PAIR("envTERM", JSON_BUILD_CONST_STRING("dumb")));
         if (r < 0)
                 return log_error_errno(r, "Failed to build terminal settings: %m");
 
@@ -3083,8 +3086,17 @@ static int run(int argc, char* argv[]) {
 
         /* We generally prefer activating this session – if compatible – via the ptybroker, since it generates
          * better PolicyKit requests */
-        if (ptybroker_compatible())
-                return start_via_ptybroker();
+        if (ptybroker_compatible()) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
+                r = pty_broker_connect(arg_runtime_scope, &vl);
+                if (IN_SET(r, -ENOENT, -ECONNREFUSED))
+                        log_debug_errno(r, "PTY broker unavailable, using the service manager directly: %m");
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
+                else
+                        return start_via_ptybroker(vl);
+        }
 
         r = connect_bus(&bus);
         if (r < 0)
