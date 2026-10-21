@@ -15,11 +15,17 @@ struct Manager {
         Hashmap *polkit_registry;
 
         Hashmap *ptys; /* name string → PseudoTTY object */
+        Set *unit_references;
+        sd_bus *bus;
+        sd_bus_slot *bus_disconnected_slot;
+        sd_event_source *bus_retry_event_source;
 
         LIST_HEAD(PseudoTTY, ptys_free_queue);
         sd_event_source *ptys_free_queue_event_source;
 
         sd_event_source *exit_on_idle_event_source;
 };
+
+UnitReference* unit_reference_free(UnitReference *ref);
 
 #define BUFFER_MAX (4U * U64_MB)

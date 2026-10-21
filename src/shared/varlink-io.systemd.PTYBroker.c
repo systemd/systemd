@@ -74,6 +74,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: absolute path of the binary to execute. Only valid if viaShell is false. If unset the first element of the command line is used, otherwise the first element of the command line is only passed as argv[0] (e.g. to request login shell semantics by prefixing it with a dash)."),
                 SD_VARLINK_DEFINE_INPUT(executable, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("For shell backend: keep the service unit loaded until the returned unitReferenceFileDescriptor is closed, so that its final state can be read even after the PTY hangs up. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(referenceUnit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Convert the connection into a monitor connection once done"),
                 SD_VARLINK_DEFINE_INPUT(monitor, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, hang up the pty once this monitor connection is disconnected. If null defaults to false."),
@@ -104,6 +106,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(backendPath, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The name of the transient service unit that runs the shell or login on the PTY backend side."),
                 SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Index of a file descriptor that keeps the shell's service unit loaded. Returned if referenceUnit is true. Close it after reading the unit's final state; no data should be written to it. The descriptor reports an error if the reference is lost."),
+                SD_VARLINK_DEFINE_OUTPUT(unitReferenceFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Settled settings for the terminal"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE));
 
@@ -235,6 +239,7 @@ static SD_VARLINK_DEFINE_ERROR(PtyExists);
 static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
+static SD_VARLINK_DEFINE_ERROR(TooManyUnitReferences);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PTYBroker,
@@ -270,5 +275,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_TooManyPtys,
                 SD_VARLINK_SYMBOL_COMMENT("Limit on number of monitors of a PTY reached."),
                 &vl_error_TooManyMonitors,
+                SD_VARLINK_SYMBOL_COMMENT("Limit on number of outstanding unit references reached."),
+                &vl_error_TooManyUnitReferences,
                 SD_VARLINK_SYMBOL_COMMENT("Tracking of PTY state not enabled for specified PTY."),
                 &vl_error_TrackingNotEnabled);
