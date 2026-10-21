@@ -6,6 +6,16 @@
 #include "tests.h"
 #include "unit.h"
 
+TEST(job_type_to_access_method) {
+        ASSERT_STREQ(job_type_to_access_method(JOB_START), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RESTART), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_TRY_RESTART), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RELOAD_OR_START), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_STOP), "stop");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RELOAD), "reload");
+        ASSERT_STREQ(job_type_to_access_method(JOB_TRY_RELOAD), "reload");
+}
+
 TEST(job_type_merge) {
         const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
 
