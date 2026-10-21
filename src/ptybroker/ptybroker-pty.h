@@ -5,7 +5,6 @@
 
 #include "sd-event.h"
 #include "sd-json.h"
-#include "sd-varlink.h"
 
 #include "forward.h"
 #include "list.h"
@@ -50,15 +49,6 @@ struct PseudoTTY {
         char *backend_path;
         char *unit;
 
-        /* Connection to the service manager while the StartTransient() call for the shell unit is in flight */
-        sd_varlink *start_shell_link;
-
-        /* Client connection whose AcquirePty() reply is deferred until the shell unit start completed, plus
-         * the prepared reply parameters */
-        sd_varlink *acquire_link;
-        sd_json_variant *acquire_reply;
-        bool acquire_monitor;
-
         /* Identity of the client that allocated this PTY */
         PidRef owner_pidref;
         uid_t owner_uid;
@@ -95,16 +85,12 @@ int pseudo_tty_link(PseudoTTY *pty, Manager *m);
 
 int pseudo_tty_set_events(PseudoTTY *pty);
 
-void pseudo_tty_add_to_free_queue(PseudoTTY *pty);
-
 int pseudo_tty_watch_frontend_fd(PseudoTTY *pty, sd_event *event);
 int pseudo_tty_watch_backend_node(PseudoTTY *pty, sd_event *event);
 
 int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_variant **ret);
 
 int pseudo_tty_vhangup(PseudoTTY *pty);
-
-void pseudo_tty_fail_acquire(PseudoTTY *pty, const char *error_id, sd_json_variant *parameters);
 
 int pseudo_tty_sync_winsize(PseudoTTY *pty);
 
