@@ -16,7 +16,8 @@ URL = 'https://github.com/systemd/mkosi'
 BRANCH = 'main'  # We only want to ever use commits on upstream 'main' branch
 CONFIG = Path('mkosi/mkosi.conf')
 WORKFLOWS = [
-    Path('.github/workflows') / f for f in ['mkosi.yml', 'coverage.yml', 'linter.yml', 'unit-tests.yml']
+    Path('.github/workflows') / f
+    for f in ['mkosi.yml', 'coverage.yml', 'linter.yml', 'unit-tests.yml', 'rust.yml']
 ]
 
 
