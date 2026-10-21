@@ -10,6 +10,13 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
+bool pty_broker_description_valid(const char *s) {
+        if (!string_is_safe(s, STRING_ALLOW_QUOTES|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_GLOBS))
+                return false;
+
+        return strlen(s) <= PTY_BROKER_DESCRIPTION_MAX;
+}
+
 int pty_broker_connect(RuntimeScope scope, sd_varlink **ret) {
         int r;
 
@@ -18,15 +25,9 @@ int pty_broker_connect(RuntimeScope scope, sd_varlink **ret) {
         _cleanup_free_ char *socket_path = NULL;
         r = runtime_directory_generic(scope, "systemd/io.systemd.PTYBroker", &socket_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine ptybrokerd socket path: %m");
+                return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, socket_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
-
-        *ret = TAKE_PTR(vl);
-        return 0;
+        return sd_varlink_connect_address(ret, socket_path);
 }
 
 int pty_broker_terminal_settings_to_json(sd_json_variant **ret) {
@@ -84,7 +85,7 @@ int pty_broker_acquire_pty(
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(scope, &vl);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
         r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
@@ -191,7 +192,7 @@ int pty_broker_enroll_pty(
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(scope, &vl);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
         r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
