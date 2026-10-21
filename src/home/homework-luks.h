@@ -25,6 +25,7 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache);
 
 uint64_t luks_volume_key_size_convert(struct crypt_device *cd);
+const char* luks_key_type_convert(struct crypt_device *cd);
 
 int run_fitrim(int root_fd);
 int run_fallocate(int backing_fd, const struct stat *st);

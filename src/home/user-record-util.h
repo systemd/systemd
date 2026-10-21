@@ -7,6 +7,7 @@
  * reduce the chance of collision with a field any legitimate user record may ever
  * want to set. */
 #define HOMEWORK_BLOB_FDMAP_FIELD "__systemd_homework_internal_blob_fdmap"
+#define HOMEWORK_THIN_CREATION_ID_FIELD "__systemd_homework_internal_thin_creation_id"
 
 int user_record_synthesize(UserRecord *h, const char *user_name, const char *realm, const char *image_path, UserStorage storage, uid_t uid, gid_t gid);
 int group_record_synthesize(GroupRecord *g, UserRecord *h);
@@ -26,7 +27,12 @@ enum { /* return values */
 };
 
 int user_record_reconcile(UserRecord *host, UserRecord *embedded, UserReconcileMode mode, UserRecord **ret);
-int user_record_add_binding(UserRecord *h, UserStorage storage, const char *image_path, sd_id128_t partition_uuid, sd_id128_t luks_uuid, sd_id128_t fs_uuid, const char *luks_cipher, const char *luks_cipher_mode, uint64_t luks_volume_key_size, const char *file_system_type, const char *home_directory, uid_t uid, gid_t gid);
+int user_record_save(UserRecord *h, const char *path);
+int user_record_add_binding(UserRecord *h, UserStorage storage, const char *image_path, sd_id128_t partition_uuid, sd_id128_t luks_uuid, sd_id128_t fs_uuid, const char *luks_cipher, const char *luks_cipher_mode, const char *luks_key_type, uint64_t luks_volume_key_size, const char *file_system_type, const char *home_directory, uid_t uid, gid_t gid);
+int user_record_set_luks_integrity_binding(UserRecord *h, const char *integrity);
+int user_record_add_thin_pool_binding(UserRecord *h, const char *pool_uuid, uint32_t device_id);
+int user_record_set_thin_volume_creation_id(UserRecord *h, sd_id128_t creation_id);
+int user_record_get_thin_volume_creation_id(UserRecord *h, sd_id128_t *ret_creation_id);
 
 /* Results of the two test functions below. */
 enum {
