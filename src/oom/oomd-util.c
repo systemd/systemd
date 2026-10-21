@@ -270,6 +270,25 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
 
+        /* Also bump the counter on all ancestors of the killed cgroup, so that the service manager
+         * can attribute the kill to the unit owning the subtree: oomd may kill a cgroup below a
+         * unit's own cgroup, e.g. one created by a delegated service, in which case the counter on
+         * the unit cgroup itself would not change. */
+        _cleanup_free_ char *ancestor = strdup(ctx->path);
+        if (!ancestor)
+                return log_oom_debug();
+
+        for (;;) {
+                char *e = strrchr(ancestor, '/');
+                if (!e || e == ancestor)
+                        break;
+                *e = '\0';
+
+                r = increment_oomd_xattr(ancestor, "user.oomd_ooms", 1);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set user.oomd_ooms before kill on %s, ignoring: %m", ancestor);
+        }
+
         if (recurse) {
                 r = cg_kill_kernel_sigkill(ctx->path, &n_pids_killed);
                 if (r == -EOPNOTSUPP) {
