@@ -38,19 +38,27 @@ int unit_kill_context_build_json(sd_json_variant **ret, const char *name, void *
 struct TransientKillContextParameters {
         KillMode kill_mode;  /* negative = absent */
         int send_sighup;     /* tristate: -1 = absent */
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
 static DEFINE_VARLINK_APPLY_ENUM(kill_mode, KillMode, kill_mode_to_string);
 
 TransientKillContextParameters* transient_kill_context_parameters_free(TransientKillContextParameters *p) {
+        if (!p)
+                return NULL;
+
+        free(p->bad_field);
         return mfree(p);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TransientKillContextParameters*, transient_kill_context_parameters_free);
 
 int transient_kill_context_dispatch(
                 sd_json_variant *variant,
                 TransientKillContextParameters **ret,
-                const char **reterr_field) {
+                char **reterr_bad_field) {
 
         static const sd_json_dispatch_field kill_dispatch[] = {
                 { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   0 },
@@ -58,11 +66,12 @@ int transient_kill_context_dispatch(
                 {}
         };
 
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
 
-        _cleanup_free_ TransientKillContextParameters *p = NULL;
+        _cleanup_(transient_kill_context_parameters_freep) TransientKillContextParameters *p = NULL;
         p = new(TransientKillContextParameters, 1);
         if (!p)
                 return -ENOMEM;
@@ -72,9 +81,12 @@ int transient_kill_context_dispatch(
                 .send_sighup = -1,
         };
 
-        r = sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;

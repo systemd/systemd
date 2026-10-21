@@ -13,6 +13,11 @@ int exec_command_status_build_json(sd_json_variant **ret, const char *name, void
 int exec_command_status_list_build_json(sd_json_variant **ret, const char *name, void *userdata);
 int varlink_reply_bus_error(sd_varlink *link, int r, const sd_bus_error *e);
 
+/* If provided, *reterr_bad_field must be NULL or an owned heap string.
+ * Array indexes in error field paths are currently not supported. */
+void varlink_propagate_bad_field(const char *bad_field, const char *child_bad_field, char **reterr_bad_field);
+int varlink_propagate_bad_field_errno(int errnum, const char *bad_field, const char *child_bad_field, char **reterr_bad_field);
+
 /* Apply helpers return 0 for absent fields, 1 for applied settings (even if unchanged), or a negative error.
  * Negative tristates/enums and NULL strings represent absent fields. */
 int varlink_apply_tristate_bool(Unit *u, const char *name, bool *p, int value, UnitWriteFlags flags);

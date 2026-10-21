@@ -667,11 +667,8 @@ typedef struct StartTransientContextParameters {
         TransientServiceParameters *service;
         TransientScopeParameters *scope;
         TransientCGroupContextParameters *cgroup;
-        const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
-        const char *bad_kill_field;
-        const char *bad_service_field;
-        const char *bad_scope_field;
-        const char *bad_cgroup_field;
+
+        char *bad_field; /* Field path for error propagation. */
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
@@ -685,6 +682,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_scope_parameters_free(p->scope);
         transient_kill_context_parameters_free(p->kill);
         transient_cgroup_context_parameters_free(p->cgroup);
+        free(p->bad_field);
 }
 
 static void start_transient_context_parameters_init(StartTransientContextParameters *p) {
@@ -699,13 +697,14 @@ typedef struct StartTransientParameters {
         JobMode mode;
         int notify_job_changes;
         int notify_unit_changes;
-        char *unsupported_property; /* For error reporting on unknown context fields */
+
+        char *bad_field; /* Field path for error propagation. */
 } StartTransientParameters;
 
 static void start_transient_parameters_done(StartTransientParameters *p) {
         assert(p);
         start_transient_context_parameters_done(&p->context);
-        free(p->unsupported_property);
+        free(p->bad_field);
 }
 
 static void start_transient_parameters_init(StartTransientParameters *p) {
@@ -720,7 +719,7 @@ static void start_transient_parameters_init(StartTransientParameters *p) {
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
+        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_field);
 }
 
 static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -741,22 +740,22 @@ static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_js
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_service_dispatch(variant, &p->service, &p->bad_service_field);
+        return transient_service_dispatch(variant, &p->service, &p->bad_field);
 }
 
 static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_scope_dispatch(variant, &p->scope, &p->bad_scope_field);
+        return transient_scope_dispatch(variant, &p->scope, &p->bad_field);
 }
 
 static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_kill_context_dispatch(variant, &p->kill, &p->bad_kill_field);
+        return transient_kill_context_dispatch(variant, &p->kill, &p->bad_field);
 }
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_exec_context_dispatch(variant, &p->exec, &p->bad_exec_field);
+        return transient_exec_context_dispatch(variant, &p->exec, &p->bad_field);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -800,30 +799,12 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         /* Don't propagate the caller's flags (in particular SD_JSON_MANDATORY from the outer 'context'
          * field) into the nested dispatch, otherwise every inner field becomes mandatory. */
         r = sd_json_dispatch_full(variant, context_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->context, &bad_field);
-        if (r == -EADDRNOTAVAIL && !isempty(bad_field)) {
-                /* A UnitContext field that exists in the schema but is not settable at creation time: stash
-                 * the name so the caller can map this to io.systemd.Unit.PropertyNotSupported. If the
-                 * unknown field lives inside the nested Exec object, compose a dotted name to identify the
-                 * actual sub-property. */
-                if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
-                        p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
-                else if (streq(bad_field, "Kill") && !isempty(p->context.bad_kill_field))
-                        p->unsupported_property = strjoin("Kill.", p->context.bad_kill_field);
-                else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
-                        p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
-                else if (streq(bad_field, "Scope") && !isempty(p->context.bad_scope_field))
-                        p->unsupported_property = strjoin("Scope.", p->context.bad_scope_field);
-                else if (streq(bad_field, "CGroup") && !isempty(p->context.bad_cgroup_field))
-                        p->unsupported_property = strjoin("CGroup.", p->context.bad_cgroup_field);
-                else
-                        p->unsupported_property = strdup(bad_field);
-                if (!p->unsupported_property)
-                        return -ENOMEM;
-        }
+        if (r < 0 && bad_field)
+                varlink_propagate_bad_field(bad_field, p->context.bad_field, &p->bad_field);
         return r;
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, char **reterr_bad_field) {
         int r;
 
         assert(u);
@@ -846,11 +827,8 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 const char *dep_type_name = unit_dependency_to_string(dep_type);
                 STRV_FOREACH(dep, p->dependencies[dep_type]) {
                         r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
-                        if (r < 0) {
-                                if (reterr_field)
-                                        *reterr_field = dep_type_name;
-                                return r;
-                        }
+                        if (r < 0)
+                                return varlink_propagate_bad_field_errno(r, dep_type_name, /* child_bad_field= */ NULL, reterr_bad_field);
 
                         _cleanup_free_ char *label = strjoin(dep_type_name, "-", *dep);
                         if (!label)
@@ -1080,6 +1058,12 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         return 0;
 }
 
+static int varlink_error_unit_invalid_parameter(sd_varlink *link, const char *bad_field, const char *child_bad_field) {
+        _cleanup_free_ char *bad_field_path = NULL;
+        varlink_propagate_bad_field(bad_field, child_bad_field, &bad_field_path);
+        return sd_varlink_error_invalid_parameter_name(link, bad_field_path ?: bad_field);
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
@@ -1091,6 +1075,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
+        _cleanup_free_ char *child_bad_field = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
         Unit *u;
@@ -1107,15 +1092,19 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
-                /* An unknown field in 'context' maps to PropertyNotSupported (the field is defined in the
-                 * UnitContext schema but cannot be set at creation time). Anything else is a bad parameter. */
-                if (streq_ptr(bad_field, "context") && r == -EADDRNOTAVAIL && p.unsupported_property)
-                        return sd_varlink_errorbo(
-                                        link,
-                                        "io.systemd.Unit.PropertyNotSupported",
-                                        SD_JSON_BUILD_PAIR_STRING("property", p.unsupported_property));
-                if (bad_field)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
+                if (bad_field) {
+                        if (r == -EADDRNOTAVAIL) {
+                                _cleanup_free_ char *bad_field_path = NULL;
+
+                                varlink_propagate_bad_field(bad_field, p.bad_field, &bad_field_path);
+                                return sd_varlink_errorbo(
+                                                link,
+                                                "io.systemd.Unit.PropertyNotSupported",
+                                                SD_JSON_BUILD_PAIR_STRING("property", bad_field_path ?: bad_field));
+                        }
+
+                        return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
+                }
                 return r;
         }
 
@@ -1142,10 +1131,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
          * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */
-        bad_field = NULL;
-        r = transient_service_resolve_stdio_fds(link, p.context.service, &bad_field);
+        r = transient_service_resolve_stdio_fds(link, p.context.service, &child_bad_field);
         if (IN_SET(r, -ENXIO, -EPROTOTYPE, -EBADFD, -EISDIR)) /* bad index or unsuitable fd */
-                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
+                return varlink_error_unit_invalid_parameter(link, "context.Service", child_bad_field);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -1154,10 +1142,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        bad_field = NULL;
-        r = transient_unit_apply_properties(u, &p.context, &bad_field);
+        r = transient_unit_apply_properties(u, &p.context, &child_bad_field);
         if (r == -EINVAL)
-                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "context");
+                return varlink_error_unit_invalid_parameter(link, "context", child_bad_field);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -1167,10 +1154,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 if (!c)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
-                bad_field = NULL;
-                r = transient_exec_context_apply_properties(u, c, p.context.exec, &bad_field);
+                r = transient_exec_context_apply_properties(u, c, p.context.exec, &child_bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Exec");
+                        return varlink_error_unit_invalid_parameter(link, "context.Exec", child_bad_field);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }
@@ -1193,10 +1179,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 if (!cc)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
-                bad_field = NULL;
-                r = transient_cgroup_context_apply_properties(u, cc, p.context.cgroup, &bad_field);
+                r = transient_cgroup_context_apply_properties(u, cc, p.context.cgroup, &child_bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "CGroup");
+                        return varlink_error_unit_invalid_parameter(link, "context.CGroup", child_bad_field);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }
@@ -1204,10 +1189,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         /* Apply service-specific properties from context.Service */
         Service *service = SERVICE(u);
         if (service && p.context.service) {
-                bad_field = NULL;
-                r = transient_service_apply_properties(service, p.context.service, &bad_field);
+                r = transient_service_apply_properties(service, p.context.service, &child_bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
+                        return varlink_error_unit_invalid_parameter(link, "context.Service", child_bad_field);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service)
@@ -1215,10 +1199,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         Scope *scope = SCOPE(u);
         if (scope) {
-                bad_field = NULL;
-                r = transient_scope_apply_properties(scope, p.context.scope, link, &bad_field, &bus_error);
+                r = transient_scope_apply_properties(scope, p.context.scope, link, &child_bad_field, &bus_error);
                 if (r == -EINVAL)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Scope");
+                        return varlink_error_unit_invalid_parameter(link, "context.Scope", child_bad_field);
                 if (r < 0)
                         return varlink_reply_bus_error(link, r, &bus_error);
         } else if (p.context.scope)
