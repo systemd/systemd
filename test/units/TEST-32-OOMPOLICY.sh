@@ -29,4 +29,19 @@ if test -f /sys/fs/cgroup/system.slice/TEST-32-OOMPOLICY.service/memory.oom.grou
     test "$RESULT" = "oom-kill"
 fi
 
+# A process killed by the kernel OOM killer within the unit's cgroup should also be reported with
+# the 'oom-kill' result when OOMPolicy=continue, so that Restart= can react to it.
+systemd-run --unit=oomtest-continue.service \
+            -p Type=exec -p OOMPolicy=continue -p MemoryAccounting=yes -p MemoryMax=16M \
+            bash -c 's=$(printf "%134217728s" x); echo "${#s}"'
+
+while : ; do
+    STATE="$(systemctl show -P ActiveState oomtest-continue.service)"
+    [ "$STATE" = "failed" ] && break
+    sleep .5
+done
+
+RESULT="$(systemctl show -P Result oomtest-continue.service)"
+test "$RESULT" = "oom-kill"
+
 touch /testok

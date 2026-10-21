@@ -1416,6 +1416,9 @@ RestartMaxDelaySec=160s</programlisting>
         <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>. In case of
         both <constant>stop</constant> and <constant>kill</constant>, the service ultimately ends up in the
         <constant>oom-kill</constant> failed state after which <varname>Restart=</varname> may apply.
+        Independently of this setting, when processes of the unit are killed by the OOM killer or
+        <filename>systemd-oomd.service</filename> and the service subsequently fails, the failure is
+        reported with the <constant>oom-kill</constant> result.
         </para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
