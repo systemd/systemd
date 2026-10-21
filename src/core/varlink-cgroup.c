@@ -976,44 +976,6 @@ static DEFINE_APPLY_CGROUP(memory_zswap_writeback, "MemoryZSwapWriteback", CGROU
 static DEFINE_APPLY_CGROUP(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS,   varlink_apply_tristate_bool);
 static DEFINE_APPLY_CGROUP(io_accounting,          "IOAccounting",         CGROUP_MASK_IO,     varlink_apply_tristate_bool);
 
-/* Parse wrapper flipping <field>_set, as DEFINE_TRANSIENT_EXEC_SETTABLE in varlink-unit.c. An
- * explicit null is treated as absent (the IDL fields are nullable, and the output side emits null
- * for unset fields), rather than falling through to the primitive dispatchers' null mapping. */
-#define DEFINE_TRANSIENT_CGROUP_SETTABLE(field, primitive_dispatch)         \
-        static int dispatch_transient_cgroup_##field(                       \
-                        const char *name,                                   \
-                        sd_json_variant *variant,                           \
-                        sd_json_dispatch_flags_t flags,                     \
-                        void *userdata) {                                   \
-                                                                            \
-                TransientCGroupContextParameters *p = ASSERT_PTR(userdata); \
-                                                                            \
-                if (sd_json_variant_is_null(variant))                       \
-                        return 0;                                           \
-                                                                            \
-                p->field##_set = true;                                      \
-                                                                            \
-                return primitive_dispatch(name, variant, flags, &p->field); \
-        }
-
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_cpu_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_quota_per_sec_usec, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_quota_period_usec, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_min, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_low, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_low, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_high, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_high, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_swap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_swap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_zswap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_zswap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(io_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_io_weight, sd_json_dispatch_uint64);
-
 /* TasksMax takes the CGroupTasksMax object exactly as the read side emits it, so the output of a
  * List() call can be fed back in. TasksMaxScale reaches the same pair with a plain fraction. */
 static int dispatch_transient_cgroup_tasks_max(
@@ -1055,14 +1017,34 @@ static int dispatch_transient_cgroup_tasks_max(
         return 0;
 }
 
+#define DEFINE_DISPATCH_CGROUP_SETTABLE(field, dispatch) \
+        DEFINE_VARLINK_DISPATCH_SETTABLE(field, TransientCGroupContextParameters, dispatch)
+
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_weight,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_cpu_weight,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_quota_per_sec_usec,   sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_quota_period_usec,    sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_min,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_low,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_low,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_high,              sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_high,      sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_max,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_max,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_swap_max,          sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_swap_max,  sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_zswap_max,         sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_zswap_max, sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(io_weight,                sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_io_weight,        sd_json_dispatch_uint64);
 /* Scale fields are float fractions normalized to 1.0 == 100%. */
-DEFINE_TRANSIENT_CGROUP_SETTABLE(tasks_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_min_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_low_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_high_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_swap_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_zswap_max_scale, sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(tasks_max_scale,          sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_min_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_low_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_high_scale,        sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_max_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_swap_max_scale,    sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_zswap_max_scale,   sd_json_dispatch_double);
 
 /* Per-property descriptor, mirroring TransientExecProperty in varlink-unit.c; tristate ints are
  * seeded to -1 by transient_cgroup_context_parameters_init(). */
@@ -1076,14 +1058,17 @@ typedef struct TransientCGroupProperty {
         bool tristate;
 } TransientCGroupProperty;
 
-#define CGROUP_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
+#define CGROUP_PROPERTY_FULL(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
         { json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
 
-/* For fields whose DEFINE_TRANSIENT_CGROUP_SETTABLE* dispatcher already checks the JSON type
+#define CGROUP_PROPERTY(json, field, type) \
+        CGROUP_PROPERTY_FULL(json, type, dispatch_transient_cgroup_##field, 0, 0, apply_cgroup_##field)
+
+/* For fields whose DEFINE_DISPATCH_CGROUP_SETTABLE dispatcher already checks the JSON type
  * (uint64 and double alike). */
 #define CGROUP_PROPERTY_NUMERIC(json, field)                             \
         { json, _SD_JSON_VARIANT_TYPE_INVALID,                           \
-          dispatch_transient_cgroup_##field, 0, 0, apply_cgroup_##field }
+          varlink_dispatch_settable_##field, 0, 0, apply_cgroup_##field }
 
 #define CGROUP_PROPERTY_TRISTATE_BOOL(json, field)                  \
         { json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, \
@@ -1091,7 +1076,7 @@ typedef struct TransientCGroupProperty {
 
 static const TransientCGroupProperty cgroup_properties[] = {
         /* SD_JSON_STRICT restricts the slice name to UNIT_NAME_PLAIN, as bus_set_transient_slice() does. */
-        CGROUP_PROPERTY              ("Slice", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(TransientCGroupContextParameters, slice), SD_JSON_STRICT, apply_cgroup_slice),
+        CGROUP_PROPERTY_FULL         ("Slice", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(TransientCGroupContextParameters, slice), SD_JSON_STRICT, apply_cgroup_slice),
 
         CGROUP_PROPERTY_NUMERIC      ("CPUWeight",          cpu_weight),
         CGROUP_PROPERTY_NUMERIC      ("StartupCPUWeight",   startup_cpu_weight),
@@ -1119,13 +1104,14 @@ static const TransientCGroupProperty cgroup_properties[] = {
         CGROUP_PROPERTY_TRISTATE_BOOL("MemoryZSwapWriteback",  memory_zswap_writeback),
 
         CGROUP_PROPERTY_TRISTATE_BOOL("TasksAccounting", tasks_accounting),
-        CGROUP_PROPERTY              ("TasksMax", SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup_tasks_max, 0, 0, apply_cgroup_tasks_max),
+        CGROUP_PROPERTY              ("TasksMax", tasks_max, SD_JSON_VARIANT_OBJECT),
         CGROUP_PROPERTY_NUMERIC      ("TasksMaxScale", tasks_max_scale),
 
         CGROUP_PROPERTY_TRISTATE_BOOL("IOAccounting",    io_accounting),
         CGROUP_PROPERTY_NUMERIC      ("IOWeight",        io_weight),
         CGROUP_PROPERTY_NUMERIC      ("StartupIOWeight", startup_io_weight),
 };
+#undef CGROUP_PROPERTY_FULL
 #undef CGROUP_PROPERTY
 #undef CGROUP_PROPERTY_NUMERIC
 #undef CGROUP_PROPERTY_TRISTATE_BOOL
