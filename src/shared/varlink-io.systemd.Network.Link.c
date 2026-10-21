@@ -67,6 +67,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DHCPServerLease,
                 &vl_type_DHCPv6Client,
                 &vl_type_DHCPv6ClientPD,
+                &vl_type_DHCPv6ClientState,
                 &vl_type_DHCPv6ClientVendorOption,
                 &vl_type_DNS,
                 &vl_type_DNSSECNegativeTrustAnchor,
