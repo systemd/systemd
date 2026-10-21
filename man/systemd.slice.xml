@@ -37,7 +37,7 @@
     is located in the root slice <filename>-.slice</filename>.
     </para>
 
-    <para>Note that slice units cannot be templated, nor is possible to add multiple names to a slice unit by creating
+    <para>Note that slice units cannot be templated, nor is it possible to add multiple names to a slice unit by creating
     additional symlinks to its unit file.</para>
 
     <para>By default, service and scope units are placed in
