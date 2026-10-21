@@ -307,7 +307,7 @@ int manager_process_requests(Manager *manager) {
                         request_detach(req);
 
                         if (link) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 /* link_enter_failed() may detach multiple requests from the queue.
                                  * Hence, we need to exit from the loop. */
                                 break;
@@ -508,7 +508,7 @@ int manager_process_remove_requests(Manager *manager) {
 
                         /* Then, make the link enter the failed state. */
                         if (link)
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
 
                 } else {
                         /* On success, netlink needs to be unref()ed. Otherwise, the netlink and remove

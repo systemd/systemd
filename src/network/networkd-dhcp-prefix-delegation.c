@@ -355,7 +355,7 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         r = dhcp_pd_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -413,7 +413,7 @@ static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
 
         r = dhcp_pd_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -747,7 +747,7 @@ static void dhcp_pd_prefix_lost(Link *uplink, NetworkConfigSource source) {
 
                 r = dhcp_pd_remove(link, /* only_marked= */ false);
                 if (r < 0)
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
         }
 
         (void) dhcp_pd_remove_unreachable_route(uplink->manager, source, /* only_marked= */ false);
@@ -785,7 +785,7 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         r = dhcp4_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -803,7 +803,7 @@ static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         r = dhcp6_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -1069,7 +1069,7 @@ static int dhcp4_pd_6rd_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_messa
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "Failed to create tunnel device for DHCPv4 6rd");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -1146,7 +1146,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
                         if (link == uplink)
                                 return r;
 
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 }
         }
 
@@ -1257,7 +1257,7 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                         if (link == uplink)
                                 return r;
 
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 }
         }
 

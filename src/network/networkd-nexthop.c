@@ -709,7 +709,7 @@ int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, NextHo
                 (void) nexthop_to_string(nexthop, link->manager, &str);
                 log_link_message_warning_errno(link, m, r, "Failed to set %s nexthop (%s)",
                                                network_config_source_to_string(nexthop->source), strna(str));
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 

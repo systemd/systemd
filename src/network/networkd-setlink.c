@@ -67,7 +67,7 @@ static int set_link_handler_internal(
                                                ignore ? ", ignoring" : "");
 
                 if (!ignore)
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 return 0;
         }
 
@@ -76,7 +76,7 @@ static int set_link_handler_internal(
         if (get_link_handler) {
                 r = link_call_getlink(link, get_link_handler);
                 if (r < 0) {
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return 0;
                 }
         }
@@ -97,7 +97,7 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
         r = link_drop_ipv6ll_addresses(link);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Failed to drop IPv6LL addresses: %m");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
         }
 
         return 0;
@@ -164,7 +164,7 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
 
                 r = link_request_to_set_mac(link, /* allow_retry= */ false);
                 if (r < 0)
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
 
                 return 0;
         }
@@ -1085,7 +1085,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -1297,7 +1297,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -1391,7 +1391,7 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 

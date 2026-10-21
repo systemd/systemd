@@ -363,7 +363,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         r = dhcp4_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -919,7 +919,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         r = dhcp4_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -1216,7 +1216,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->dhcp_lease) {
                                 r = dhcp4_lease_lost(link);
                                 if (r < 0) {
-                                        link_enter_failed(link);
+                                        link_enter_failed(link, r);
                                         return r;
                                 }
                         }
@@ -1231,7 +1231,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->dhcp_lease) {
                                 r = dhcp4_lease_lost(link);
                                 if (r < 0) {
-                                        link_enter_failed(link);
+                                        link_enter_failed(link, r);
                                         return r;
                                 }
                         }
@@ -1245,7 +1245,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         r = dhcp_lease_ip_change(client, link);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return r;
                         }
 
@@ -1253,21 +1253,21 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_RENEW:
                         r = dhcp_lease_renew(client, link);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return r;
                         }
                         break;
                 case SD_DHCP_CLIENT_EVENT_IP_ACQUIRE:
                         r = dhcp_lease_acquired(client, link);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return r;
                         }
                         break;
                 case SD_DHCP_CLIENT_EVENT_SELECTING:
                         r = dhcp_server_is_filtered(link, client);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return r;
                         }
                         if (r > 0)

@@ -905,7 +905,7 @@ int manager_start(Manager *m) {
                 r = link_check_initialized(link);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to check if link is initialized: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 }
         }
 

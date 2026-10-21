@@ -224,7 +224,7 @@ int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
 int link_handle_bound_to_list(Link *link);
 int link_append_to_master(Link *link);
 
-void link_enter_failed(Link *link);
+void link_enter_failed(Link *link, int error);
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 

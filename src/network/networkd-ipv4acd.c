@@ -164,7 +164,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC) {
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict= */ false);
                         if (r < 0)
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                 }
 
                 /* We have nothing to do for DHCPv4 lease here, as the dhcp client is already stopped
@@ -183,7 +183,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 else
                         r = dhcp4_address_on_conflict(link);
                 if (r < 0)
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 break;
 
         default:
