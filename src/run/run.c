@@ -2409,7 +2409,8 @@ static bool ptybroker_compatible(void) {
                 !arg_timer_property &&
                 !arg_verbose &&
                 !arg_root_directory &&
-                arg_shell &&
+                (arg_shell || !arg_via_shell) &&
+                (!arg_description || strlen(arg_description) <= PTY_BROKER_DESCRIPTION_MAX) &&
                 arg_job_mode == JOB_FAIL &&
                 !arg_area &&
                 !arg_empower &&
@@ -2439,7 +2440,12 @@ static int start_via_ptybroker(void) {
                 return log_error_errno(r, "Failed to enable file descriptor passing on ptybrokerd connection: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
-        r = pty_broker_terminal_settings_to_json(&ts);
+        if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO))
+                r = pty_broker_terminal_settings_to_json(&ts);
+        else
+                /* Match the D-Bus path: an explicitly requested PTY must not turn captured output into
+                 * terminal output. In particular, TERM=dumb suppresses PAM's session OSC sequences. */
+                r = sd_json_buildo(&ts, SD_JSON_BUILD_PAIR("envTERM", JSON_BUILD_CONST_STRING("dumb")));
         if (r < 0)
                 return log_error_errno(r, "Failed to build terminal settings: %m");
 
