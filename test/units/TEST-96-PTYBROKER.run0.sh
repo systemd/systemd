@@ -8,6 +8,7 @@ set -o pipefail
 
 at_exit() {
     set +e
+    systemctl start systemd-ptybrokerd.socket
     rm -f /tmp/pty96-run0-*
 }
 
@@ -36,3 +37,8 @@ chmod +x /tmp/pty96-run0-shell
 script -qec 'run0 --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
 [[ "${RC:-0}" == 7 ]]
 test -e /tmp/pty96-run0-ok
+
+# run0 must still work when the broker is not installed or its socket is disabled.
+systemctl stop systemd-ptybrokerd.service systemd-ptybrokerd.socket
+[[ "$(run0 --pty echo -n foo)" == foo ]]
+systemctl start systemd-ptybrokerd.socket
