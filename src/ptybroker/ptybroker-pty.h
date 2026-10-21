@@ -27,6 +27,15 @@ enum BackendType {
         _BACKEND_TYPE_INVALID = -EINVAL,
 };
 
+enum PseudoTTYState {
+        PSEUDO_TTY_ACQUIRING, /* Allocating the PTY or starting its prepared shell service. */
+        PSEUDO_TTY_PAUSED,    /* Allocated, with a prepared shell waiting for WatchPty(unpause=true). */
+        PSEUDO_TTY_RUNNING,
+        PSEUDO_TTY_HUNG_UP,
+        _PSEUDO_TTY_STATE_MAX,
+        _PSEUDO_TTY_STATE_INVALID = -EINVAL,
+};
+
 struct PseudoTTY {
         Manager *manager;
 
@@ -48,6 +57,11 @@ struct PseudoTTY {
         int pin_fd;      /* O_PATH on backend_fd */
         char *backend_path;
         char *unit;
+        UnitReference *unit_reference;
+        Set *watch_links;
+        PseudoTTYState state;
+        sd_json_variant *shell_context; /* Prepared transient unit, submitted when the shell is started. */
+        bool starting; /* Keep the PTY alive while the unpausing fiber waits, even after terminal hangup. */
 
         /* Identity of the client that allocated this PTY */
         PidRef owner_pidref;
@@ -93,6 +107,11 @@ int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_vari
 int pseudo_tty_vhangup(PseudoTTY *pty);
 
 int pseudo_tty_sync_winsize(PseudoTTY *pty);
+void pseudo_tty_close(PseudoTTY *pty);
+int pseudo_tty_reply_description(PseudoTTY *pty, sd_varlink *link, bool more);
+int pseudo_tty_notify_watchers(PseudoTTY *pty);
+void pseudo_tty_close_watchers(PseudoTTY *pty);
 
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);
+DECLARE_STRING_TABLE_LOOKUP(pseudo_tty_state, PseudoTTYState);
