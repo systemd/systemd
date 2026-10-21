@@ -4,6 +4,7 @@
 import os
 import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 
 def sd_notify(state: str) -> bool:
@@ -37,6 +38,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', len(body))
             self.end_headers()
             self.wfile.write(body)
+        elif self.path == '/flaky':
+            # Not found for requests with this header, temporarily unavailable for all others. Leave a
+            # marker for the test that a request is now waiting for its retry.
+            if 'X-Fake-IMDS-Not-Found' in self.headers:
+                self.send_error(404)
+            else:
+                Path('/run/fake-imds-flaky').touch()
+                self.send_error(503)
         else:
             self.send_error(404)
 
