@@ -1742,6 +1742,28 @@ testcase_dot_strict_per_link_verify() {
         --grep "Failed to invoke SSL_do_handshake.*(certificate verify failed|self[- ]signed certificate|unable to get local issuer)"
 }
 
+testcase_cd_bypass_not_cached() {
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        resolvectl dnssec dns0 allow-downgrade
+        resolvectl flush-caches
+    }
+    trap cleanup RETURN ERR
+
+    # Queries with DO=1 CD=1 are passed on upstream as they are, CD bit included, hence the upstream server
+    # may skip checks for them. Their answers must not be cached for other clients, even if we don't
+    # validate on our own.
+    resolvectl dnssec dns0 no
+    resolvectl flush-caches
+    run dig +nostats +do +cd signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    (! resolvectl query --type=A --network=no signed.test)
+    # … while answers to the same queries without CD are
+    run dig +nostats +do signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    resolvectl query --type=A --network=no signed.test
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
