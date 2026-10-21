@@ -891,7 +891,7 @@
           <filename>systemd-ptybrokerd.service</filename>. The name the broker registers the pseudo TTY under
           is shown at startup; it may be used to monitor or hang up the console via
           <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
-          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 262.</para>
+          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 263.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
