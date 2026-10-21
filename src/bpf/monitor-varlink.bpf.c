@@ -218,6 +218,27 @@ static __always_inline __u64 pidfd_id_from_pid(struct pid *p) {
         return 0;
 }
 
+/* CO-RE flavors for struct sock::sk_peer_pid. Kernels before 7.4 store the struct pid of
+ * the peer's thread group leader. Since kernel commit 95d9b7369665
+ * ("net: turn sk_peer_pid into an array indexed by pid type") the field is an array
+ * indexed by pid type, with the thread group leader in the PIDTYPE_TGID slot. The field
+ * exists in both layouts, but libbpf only reports a field as existing when its type is
+ * compatible with the declaration here, so checking for the array flavor tells the two
+ * apart. */
+struct sock___peer_pid_array {
+        struct pid *sk_peer_pid[PIDTYPE_TGID + 1];
+};
+
+struct sock___peer_pid_single {
+        struct pid *sk_peer_pid;
+};
+
+static __always_inline struct pid *sock_peer_pid(struct sock *sk) {
+        if (bpf_core_field_exists(struct sock___peer_pid_array, sk_peer_pid))
+                return BPF_CORE_READ((struct sock___peer_pid_array *)sk, sk_peer_pid[PIDTYPE_TGID]);
+        return BPF_CORE_READ((struct sock___peer_pid_single *)sk, sk_peer_pid);
+}
+
 SEC("lsm/socket_sendmsg")
 int BPF_PROG(
                 monitor_varlink_socket_sendmsg,
@@ -250,7 +271,7 @@ int BPF_PROG(
         if (peer_cred)
                 peer_uid = BPF_CORE_READ(peer_cred, euid.val);
 
-        struct pid *peer_pid_s = BPF_CORE_READ(sk, sk_peer_pid);
+        struct pid *peer_pid_s = sock_peer_pid(sk);
         __u32 peer_pid = peer_pid_s ? BPF_CORE_READ(peer_pid_s, numbers[0].nr) : 0;
         __u64 peer_pidfd_id = pidfd_id_from_pid(peer_pid_s);
 
