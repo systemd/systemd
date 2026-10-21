@@ -16,6 +16,12 @@ struct Manager {
 
         Hashmap *ptys; /* name string → PseudoTTY object */
         Set *reserved_pty_names; /* AcquirePty() adds a PTY's name here until it links the PTY into ptys. */
+        Set *unit_references;
+        sd_varlink *unit_reference_link;
+        sd_varlink *unit_reference_pending_link;
+        char **unit_reference_pending_units;
+        sd_event_source *unit_reference_event_source;
+        bool unit_references_dirty;
 
         LIST_HEAD(PseudoTTY, ptys_free_queue);
         sd_event_source *ptys_free_queue_event_source;
