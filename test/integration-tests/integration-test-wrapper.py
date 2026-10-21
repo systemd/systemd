@@ -512,6 +512,7 @@ def main() -> None:
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--vm-images', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--nested-vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--coco', default=None, choices=('tdx', 'sev-snp', 'any'))
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
@@ -710,6 +711,18 @@ def main() -> None:
         else:
             vm_images_nspawn_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
 
+    # A test that launches a KVM guest of its own runs in the boot-mode container with the host's KVM and
+    # vsock devices bound in. In vm mode the guest would be nested one level deeper than the test VM,
+    # which on CI runners (themselves VMs) never gets going.
+    nested_vm_boot_args: list[str] = []
+    if args.nested_vm:
+        if vm:
+            exit_skip(args.tap, f'{args.name} launches a KVM guest and needs boot mode (root, no --vm), skipping')
+        for dev in ('/dev/kvm', '/dev/vhost-vsock'):
+            if not Path(dev).exists():
+                exit_skip(args.tap, f'{args.name} needs {dev} on the host for its KVM guest, skipping')
+            nested_vm_boot_args += [f'--bind={dev}']
+
     # Coco needs to launch a real (L1) confidential guest, which requires the boot-mode nspawn on
     # a coco-capable bare-metal host. Nested QEMU VM (vm mode) won't work.
     coco_boot_args: list[str] = []
@@ -812,6 +825,7 @@ def main() -> None:
                 ),
                 *bind_dirs_args,
                 *vm_images_nspawn_args,
+                *nested_vm_boot_args,
                 *coco_boot_args,
             ]
             if not vm

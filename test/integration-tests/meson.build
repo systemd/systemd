@@ -34,6 +34,9 @@ integration_test_template = {
         # Make the mkosi output (built images) available at /work/vm-images, for tests that boot a nested VM
         # from a full image. Bound read-only into the boot-mode container, shared as runtime tree in vm mode.
         'vm-images' : false,
+        # The test launches a KVM guest of its own. Runs in the boot-mode container with the host's KVM and
+        # vsock devices bound in, so that the guest is not nested one level deeper than the test itself.
+        'nested-vm' : false,
         'coco' : '',
         'suppress-sync' : true,
 }
@@ -145,6 +148,10 @@ foreach integration_test : integration_tests
 
         if integration_test['vm-images']
                 integration_test_args += ['--vm-images']
+        endif
+
+        if integration_test['nested-vm']
+                integration_test_args += ['--nested-vm']
         endif
 
         if integration_test['coco'] != ''
