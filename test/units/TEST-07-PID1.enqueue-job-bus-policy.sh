@@ -116,8 +116,6 @@ runas testuser busctl --system --allow-interactive-authorization=no call \
 for name in "$allowed" "$other"; do
     # shellcheck disable=SC2016
     timeout 30s bash -c 'until [[ "$(systemctl show "$1" -P ActiveState)" == active ]]; do sleep 0.1; done' _ "$name"
-done
-for name in "$allowed" "$other"; do
     assert_eq "$(systemctl show "$name" -P ActiveState)" active
 done
 assert_eq "$(systemctl show "$denied" -P ActiveState)" inactive
