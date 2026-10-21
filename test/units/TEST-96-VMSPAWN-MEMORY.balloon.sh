@@ -20,8 +20,8 @@ HALF=$((RAM / 2))
 at_exit() {
     local rc=$?
     set +e
-    if [[ $rc -ne 0 && -f "$WORKDIR/vmspawn.log" ]]; then
-        cat "$WORKDIR/vmspawn.log"
+    if [[ $rc -ne 0 ]]; then
+        echo "Guest console and vmspawn log are in the journal: journalctl -t $MACHINE"
     fi
     if machinectl status "$MACHINE" &>/dev/null; then
         machinectl terminate "$MACHINE" 2>/dev/null
@@ -50,8 +50,10 @@ wait_for_actual() {
     done
 }
 
-# Direct kernel boot of the built image on an ephemeral overlay, guest console into the log.
-systemd-vmspawn \
+# Direct kernel boot of the built image on an ephemeral overlay. The serial console carries guest output
+# from early boot on. It goes, together with vmspawn's debug log, into the log file and into the journal
+# under the machine name, which ends up in the CI artifacts: journalctl -t vmspawn-memory-balloon-<pid>
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE" \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
@@ -60,8 +62,9 @@ systemd-vmspawn \
     --ram=1G \
     --tpm=no \
     --console=read-only \
+    --console-transport=serial \
     selinux=0 systemd.firstboot=no rw \
-    &>"$WORKDIR/vmspawn.log" &
+    &> >(tee "$WORKDIR/vmspawn.log" | systemd-cat --identifier="$MACHINE") &
 VMSPAWN_PID=$!
 
 wait_for_machine "$MACHINE" "$VMSPAWN_PID" "$WORKDIR/vmspawn.log"
