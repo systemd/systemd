@@ -1634,6 +1634,39 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+testcase_synthesize_hostname_toggle() {
+    local dropin=/run/systemd/system/systemd-resolved.service.d/90-synthesize-hostname-test.conf
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f "$dropin"
+        systemctl daemon-reload
+        restart_resolved
+    }
+
+    trap cleanup RETURN ERR
+
+    mkdir -p "${dropin%/*}"
+    cat >"$dropin" <<EOF
+[Service]
+Environment=SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME=0
+EOF
+    systemctl daemon-reload
+    restart_resolved
+
+    run resolvectl query 127.0.0.2
+    grep -qF 'localhost' "$RUN_OUT"
+    (! grep -qF 'ns1.unsigned.test' "$RUN_OUT")
+
+    run dig @127.0.0.53 -x 127.0.0.2
+    grep -qF 'localhost.' "$RUN_OUT"
+
+    run resolvectl query 127.0.0.53
+    grep -qF '_localdnsstub' "$RUN_OUT"
+    run resolvectl query 127.0.0.54
+    grep -qF '_localdnsproxy' "$RUN_OUT"
+}
+
 # Regression test for CVE/strict-DoT verification: when the global
 # DNSOverTLS= is "no" or "opportunistic" but a specific link is configured
 # with DNSOverTLS=yes (per-link strict mode), resolved must still enable
