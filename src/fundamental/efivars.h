@@ -46,6 +46,7 @@
 #define EFI_STUB_FEATURE_REPORT_STUB_PARTITION     (UINT64_C(1) << 10)
 #define EFI_STUB_FEATURE_REPORT_URL                (UINT64_C(1) << 11)
 #define EFI_STUB_FEATURE_SMBIOS_MEASURED           (UINT64_C(1) << 12)
+#define EFI_STUB_FEATURE_TOFU_ADDONS               (UINT64_C(1) << 13)
 
 typedef enum SecureBootMode {
         SECURE_BOOT_UNSUPPORTED,
