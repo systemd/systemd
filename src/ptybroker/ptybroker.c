@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
@@ -53,14 +54,257 @@ COMMAND(
 
 #define PSEUDO_TTY_MAX 1024U
 #define MONITOR_MAX 16U
+#define WATCHER_MAX 16U
+
+struct UnitReference {
+        Manager *manager;
+        PseudoTTY *pty;
+        char *unit;
+        sd_future *waiting_fiber; /* Borrowed while the acquiring fiber owns this reference. */
+        sd_varlink *acquire_link; /* Borrowed from the same fiber. */
+        int result;
+};
+
+static void manager_schedule_idle_check(Manager *m);
+static void manager_schedule_unit_reference_update(Manager *m);
+
+UnitReference* unit_reference_free(UnitReference *ref) {
+        if (!ref)
+                return NULL;
+
+        if (ref->manager) {
+                set_remove(ref->manager->unit_references, ref);
+                manager_schedule_unit_reference_update(ref->manager);
+        }
+
+        if (ref->pty && ref->pty->unit_reference == ref)
+                ref->pty->unit_reference = NULL;
+        free(ref->unit);
+        return mfree(ref);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitReference*, unit_reference_free);
+
+static void unit_reference_fail(UnitReference *ref, int error) {
+        Manager *m = ASSERT_PTR(ref->manager);
+
+        assert(error < 0);
+
+        if (ref->waiting_fiber) {
+                ref->result = error;
+                assert_se(sd_fiber_resume(ref->waiting_fiber, /* result= */ 0) >= 0);
+                return; /* The fiber releases its reference while unwinding. */
+        }
+
+        pseudo_tty_close_watchers(ref->pty);
+        if (ref->pty->hung_up)
+                pseudo_tty_add_to_free_queue(ref->pty);
+        unit_reference_free(ref);
+        manager_schedule_idle_check(m);
+}
+
+static void manager_close_unit_reference_links(Manager *m, bool pending_only) {
+        if (!pending_only)
+                m->unit_reference_link = sd_varlink_close_unref(m->unit_reference_link);
+        m->unit_reference_pending_link = sd_varlink_close_unref(m->unit_reference_pending_link);
+        m->unit_reference_pending_units = strv_free(m->unit_reference_pending_units);
+}
+
+static void manager_fail_unit_references(Manager *m, int error, bool pending_only) {
+        manager_close_unit_reference_links(m, pending_only);
+
+        UnitReference *ref;
+        SET_FOREACH(ref, m->unit_references)
+                if (!pending_only || ref->waiting_fiber)
+                        unit_reference_fail(ref, error);
+}
+
+static int on_unit_ref_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link == m->unit_reference_link || link == m->unit_reference_pending_link);
+
+        if (error_id || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                log_error("Unit reference connection failed: %s", error_id ?: "AcquireReference() call ended.");
+                manager_fail_unit_references(m,
+                                             error_id ? sd_varlink_error_to_errno(error_id, parameters) : -EPROTO,
+                                             /* pending_only= */ link == m->unit_reference_pending_link);
+                return 0;
+        }
+
+        if (link == m->unit_reference_link)
+                return 0;
+
+        r = sd_varlink_set_relative_timeout(link, USEC_INFINITY);
+        if (r < 0) {
+                log_error_errno(r, "Failed to disable unit reference timeout: %m");
+                manager_fail_unit_references(m, r, /* pending_only= */ true);
+                return 0;
+        }
+
+        /* Keep the previous call open until all references in its replacement are acknowledged. This
+         * bounds the number of persistent manager connections at two, without a gap in any retained pin. */
+        m->unit_reference_link = sd_varlink_close_unref(m->unit_reference_link);
+        m->unit_reference_link = TAKE_PTR(m->unit_reference_pending_link);
+        _cleanup_strv_free_ char **units = TAKE_PTR(m->unit_reference_pending_units);
+
+        UnitReference *ref;
+        SET_FOREACH(ref, m->unit_references) {
+                if (!ref->waiting_fiber || ref->result != -EINPROGRESS || !strv_contains(units, ref->unit))
+                        continue;
+
+                if (sd_varlink_is_connected(ref->acquire_link) <= 0) {
+                        log_debug("Client disconnected before starting shell for unit '%s'.", ref->unit);
+                        unit_reference_fail(ref, -ECONNRESET);
+                        continue;
+                }
+
+                ref->result = 0;
+                assert_se(sd_fiber_resume(ref->waiting_fiber, /* result= */ 0) >= 0);
+        }
+
+        if (m->unit_references_dirty)
+                manager_schedule_unit_reference_update(m);
+
+        return 0;
+}
+
+static int on_unit_reference_update(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *link = NULL;
+        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        if (set_isempty(m->unit_references)) {
+                manager_close_unit_reference_links(m, /* pending_only= */ false);
+                m->unit_references_dirty = false;
+                return 0;
+        }
+        if (m->unit_reference_pending_link)
+                return 0; /* Coalesce changes while a replacement call is in flight. */
+
+        UnitReference *ref;
+        SET_FOREACH(ref, m->unit_references) {
+                r = strv_extend(&units, ref->unit);
+                if (r < 0)
+                        goto fail;
+        }
+        strv_uniq(units);
+
+        r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &address);
+        if (r < 0)
+                goto fail;
+
+        r = sd_varlink_connect_address(&link, address);
+        if (r < 0)
+                goto fail;
+
+        sd_varlink_set_userdata(link, m);
+        r = sd_varlink_bind_reply(link, on_unit_ref_reply);
+        if (r < 0)
+                goto fail;
+
+        r = sd_varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                goto fail;
+
+        r = sd_varlink_observebo(link, "io.systemd.Unit.AcquireReference", SD_JSON_BUILD_PAIR_STRV("names", units));
+        if (r < 0)
+                goto fail;
+
+        m->unit_reference_pending_link = TAKE_PTR(link);
+        m->unit_reference_pending_units = TAKE_PTR(units);
+        m->unit_references_dirty = false;
+        return 0;
+
+fail:
+        log_error_errno(r, "Failed to update service manager unit references: %m");
+        manager_fail_unit_references(m, r, /* pending_only= */ true);
+        return 0;
+}
+
+static void manager_schedule_unit_reference_update(Manager *m) {
+        int r;
+
+        if (!m->unit_reference_event_source) /* Manager is being freed. */
+                return;
+
+        m->unit_references_dirty = true;
+        r = sd_event_source_set_enabled(m->unit_reference_event_source, SD_EVENT_ONESHOT);
+        if (r < 0) {
+                log_error_errno(r, "Failed to schedule unit reference update: %m");
+                (void) sd_event_exit(m->event, EXIT_FAILURE);
+        }
+}
+
+static int acquire_unit_reference(Manager *m, sd_varlink *link, PseudoTTY *pty, const char *unit) {
+        _cleanup_(unit_reference_freep) UnitReference *ref = NULL;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(pty);
+        assert(!pty->unit_reference);
+        assert(unit);
+
+        ref = new(UnitReference, 1);
+        if (!ref)
+                return log_oom();
+
+        *ref = (UnitReference) {
+                .pty = pty,
+                .unit = strdup(unit),
+                .waiting_fiber = ASSERT_PTR(sd_fiber_get_current()),
+                .acquire_link = link,
+                .result = -EINPROGRESS,
+        };
+        if (!ref->unit)
+                return log_oom();
+
+        r = set_ensure_put(&m->unit_references, &trivial_hash_ops, ref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register unit reference: %m");
+        ref->manager = m;
+
+        manager_schedule_unit_reference_update(m);
+
+        while (ref->result == -EINPROGRESS) {
+                r = sd_fiber_suspend();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for unit reference: %m");
+        }
+        if (ref->result < 0)
+                return log_error_errno(ref->result, "Failed to acquire reference to unit '%s': %m", unit);
+
+        ref->waiting_fiber = NULL;
+        ref->acquire_link = NULL;
+        pty->unit_reference = TAKE_PTR(ref);
+        return 0;
+}
 
 static Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        hashmap_free(m->ptys);
+        m->unit_reference_event_source = sd_event_source_disable_unref(m->unit_reference_event_source);
+        manager_close_unit_reference_links(m, /* pending_only= */ false);
+
+        hashmap_free(TAKE_PTR(m->ptys));
         assert(!m->ptys_free_queue);
         set_free(m->reserved_pty_names);
+
+        UnitReference *ref;
+        while ((ref = set_first(m->unit_references)))
+                unit_reference_free(ref);
+        m->unit_references = set_free(m->unit_references);
 
         sd_varlink_server_unref(m->varlink_server);
         hashmap_free(m->polkit_registry);
@@ -145,6 +389,101 @@ static int make_shell_unit_name(const char *name, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(unit);
+        return 0;
+}
+
+static int vl_method_watch_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(pseudo_tty_freep) PseudoTTY *created = NULL;
+        struct {
+                const char *name;
+                bool wait;
+        } p = {};
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, name), SD_JSON_MANDATORY },
+                { "wait", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, wait), SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+        if (!pseudo_tty_name_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        PseudoTTY *pty = hashmap_get(m->ptys, p.name);
+        if (pty && pty->frontend_type < 0 && pty->in_free_queue)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
+        if (!pty) {
+                if (!p.wait)
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
+                if (set_contains(m->reserved_pty_names, p.name))
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
+                if (manager_pty_limit_reached(m))
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
+
+                r = pseudo_tty_new(&created);
+                if (r < 0)
+                        return r;
+                created->name = strdup(p.name);
+                if (!created->name)
+                        return log_oom();
+                r = sd_varlink_get_peer_uid(link, &created->owner_uid);
+                if (r < 0)
+                        return r;
+                r = sd_varlink_get_peer_gid(link, &created->owner_gid);
+                if (r < 0)
+                        return r;
+                r = varlink_get_peer_pidref(link, &created->owner_pidref);
+                if (r < 0)
+                        return r;
+
+                r = pseudo_tty_link(created, m);
+                if (r < 0)
+                        return r;
+                pty = created;
+        } else {
+                r = varlink_verify_polkit_async_full(
+                                link,
+                                /* bus= */ NULL,
+                                "io.systemd.PTYBroker.monitor-pty",
+                                (const char**) STRV_MAKE("name", p.name),
+                                /* good_user= */ pty->owner_uid,
+                                /* flags= */ 0,
+                                &m->polkit_registry,
+                                /* ret_admin= */ NULL);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (!pty->acquiring && pty->backend_type == BACKEND_SHELL && !pty->unit_reference)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOLINK), "Unit reference for PTY '%s' was lost.", p.name);
+        if (set_size(pty->watch_links) >= WATCHER_MAX)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyWatchers", /* parameters= */ NULL);
+
+        r = set_ensure_put(&pty->watch_links, &varlink_hash_ops, link);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+        sd_varlink_ref(link);
+
+        r = sd_varlink_notifybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("name", pty->name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allocated", !pty->acquiring && pty->frontend_type >= 0),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("hungUp", pty->hung_up),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit));
+        if (r < 0) {
+                sd_varlink_unref(set_remove(pty->watch_links, link));
+                return r;
+        }
+
+        TAKE_PTR(created);
         return 0;
 }
 
@@ -264,6 +603,10 @@ static int start_shell(
                         return log_oom();
         }
 
+        r = acquire_unit_reference(m, link, pty, unit);
+        if (r < 0)
+                return r;
+
         _cleanup_free_ char *socket_path = NULL;
         r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &socket_path);
         if (r < 0)
@@ -352,6 +695,7 @@ static int start_shell(
         log_debug("Transient unit '%s' for PTY '%s' started.", unit, pty->name);
 
         pty->unit = TAKE_PTR(unit);
+
         return 0;
 }
 
@@ -680,8 +1024,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
          * exited. Might not be available on old kernels, ignore that. */
         (void) pidref_acquire_pidfd_id(&peer_pidref);
 
+        PseudoTTY *waiting = p.name ? hashmap_get(m->ptys, p.name) : NULL;
         if (p.name) {
-                if (manager_pty_name_taken(m, p.name))
+                if (manager_pty_name_taken(m, p.name) &&
+                    (!waiting || waiting->frontend_type >= 0 || waiting->acquiring ||
+                     waiting->in_free_queue || waiting->owner_uid != uid))
                         return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
         } else {
                 sd_id128_t id;
@@ -699,22 +1046,24 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        if (manager_pty_limit_reached(m))
+        if (!waiting && manager_pty_limit_reached(m))
                 return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
 
-        /* start_shell() suspends the fiber until the service manager replies. The PTY is linked into the
-         * manager only after that. Without the reservation, a concurrent AcquirePty() or EnrollPty() call
+        /* start_shell() suspends the fiber until the service manager replies. Newly created PTYs are linked
+         * afterwards; watched reservations are protected by acquiring. Without a reservation, another call
          * can take the same name or the last slot under PSEUDO_TTY_MAX after the service manager has
          * already queued the shell. */
         _cleanup_(pseudo_tty_reservation_done) PseudoTTYReservation reservation = {};
-        r = manager_reserve_pty_name(m, p.name, &reservation);
-        if (r < 0)
-                return r;
-
-        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = NULL;
-        r = pseudo_tty_new(&pty);
-        if (r < 0)
-                return r;
+        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = waiting;
+        if (!pty) {
+                r = manager_reserve_pty_name(m, p.name, &reservation);
+                if (r < 0)
+                        return r;
+                r = pseudo_tty_new(&pty);
+                if (r < 0)
+                        return r;
+        }
+        pty->acquiring = true;
 
         pty->frontend_fd = openpt_allocate(O_RDWR|O_NOCTTY, &pty->backend_path);
         if (pty->frontend_fd < 0)
@@ -732,13 +1081,15 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return log_error_errno(r, "Failed to set PTY dimensions: %m");
 
-        pty->name = TAKE_PTR(p.name);
+        if (!pty->name)
+                pty->name = TAKE_PTR(p.name);
         pty->description = TAKE_PTR(p.description);
         pty->tag = TAKE_PTR(p.tag);
         pty->terminal_settings = TAKE_TERMINAL_SETTINGS(ts);
         pty->frontend_type = p.frontend_type;
         pty->backend_type = p.backend_type;
         pty->ignore_hangup = p.ignore_hangup;
+        pidref_done(&pty->owner_pidref);
         pty->owner_pidref = TAKE_PIDREF(peer_pidref);
         pty->owner_uid = uid;
         pty->owner_gid = gid;
@@ -829,9 +1180,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
          * is enqueued the upgrade callback may fire, and it requires the monitor to be fully wired up (in
          * particular its connection userdata pointer). Doing all fallible linking up front also ensures we
          * never leave a connection half-upgraded if e.g. the hashmap insertion runs out of memory. */
-        r = pseudo_tty_link(pty, m);
-        if (r < 0)
-                return r;
+        if (!pty->manager) {
+                r = pseudo_tty_link(pty, m);
+                if (r < 0)
+                        return r;
+        }
 
         if (monitor) {
                 pseudo_tty_monitor_link(monitor, pty);
@@ -865,6 +1218,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 r = sd_varlink_reply(link, reply);
         if (r < 0)
                 return r;
+
+        pty->acquiring = false;
+        r = pseudo_tty_notify_watchers(pty);
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify PTY watchers, ignoring: %m");
 
         TAKE_PTR(pty);
         TAKE_PTR(monitor);
@@ -1157,9 +1515,8 @@ static PseudoTTY* manager_get_alive_pty(Manager *m, const char *name) {
         assert(name);
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty || pty->in_free_queue) /* A pty queued for removal is as good as gone, report it as such
-                                         * rather than hooking up to it and then dropping the client on the
-                                         * floor when the deferred free runs. */
+        /* Reservations and hung-up allocations remain available to watchers, but not terminal clients. */
+        if (!pty || pty->frontend_type < 0 || pty->acquiring || pty->hung_up || pty->in_free_queue)
                 return NULL;
 
         return pty;
@@ -1425,7 +1782,7 @@ static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_
                 }
         } else
                 HASHMAP_FOREACH(pty, m->ptys) {
-                        if (pty->in_free_queue)
+                        if (pty->frontend_type < 0 || pty->acquiring || pty->hung_up || pty->in_free_queue)
                                 continue;
 
                         r = pseudo_tty_reply_description(pty, link);
@@ -1458,7 +1815,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty)
+        if (!pty || pty->frontend_type < 0 || pty->acquiring)
                 return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may hang it up without further authentication. (Note that once the
@@ -1476,7 +1833,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r <= 0)
                 return r;
 
-        if (pty->in_free_queue)
+        if (pty->in_free_queue || pty->hung_up)
                 /* The hang-up already completed and its callback (which answers the registered calls) has
                  * run; the pty is merely waiting for the deferred free. Answer right away, registering in
                  * vhangup_links would mean never getting a reply. */
@@ -1505,13 +1862,11 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
-        /* "Idle" means that no Varlink client is currently connected *and* no PTYs are allocated anymore. We
-         * must check both: PTYs may outlive the connection that created them (e.g. for the 'take' frontend,
-         * where we hand the frontend fd to the client and drop the connection), so an absence of connections
-         * alone is not sufficient — that's also why we can't just use sd_varlink_server_set_exit_on_idle(). */
+        /* PTYs and their unit references may outlive the connection that allocated them. */
 
         return sd_varlink_server_current_connections(m->varlink_server) == 0 &&
-                hashmap_isempty(m->ptys);
+                hashmap_isempty(m->ptys) &&
+                set_isempty(m->unit_references);
 }
 
 static int on_exit_on_idle(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1570,6 +1925,20 @@ static void manager_on_disconnect(sd_varlink_server *server, sd_varlink *link, v
         if (u && u != m)
                 pseudo_tty_monitor_on_link_disconnect(u);
 
+        UnitReference *ref;
+        SET_FOREACH(ref, m->unit_references)
+                if (ref->acquire_link == link)
+                        unit_reference_fail(ref, -ECONNRESET);
+
+        PseudoTTY *pty;
+        HASHMAP_FOREACH(pty, m->ptys)
+                if (set_remove(pty->watch_links, link)) {
+                        sd_varlink_unref(link);
+                        if (set_isempty(pty->watch_links) && !pty->acquiring &&
+                            (pty->frontend_type < 0 || pty->hung_up))
+                                pseudo_tty_add_to_free_queue(pty);
+                }
+
         manager_schedule_idle_check(m);
 }
 
@@ -1579,8 +1948,30 @@ static int on_ptys_free_queue(sd_event_source *s, void *userdata) {
         assert(s);
 
         PseudoTTY *pty;
-        while ((pty = m->ptys_free_queue))
-                pseudo_tty_free(pty);
+        while ((pty = m->ptys_free_queue)) {
+                if (set_isempty(pty->watch_links)) {
+                        pseudo_tty_free(pty);
+                        continue;
+                }
+
+                pty->hung_up = true;
+                pty->io_event_source = sd_event_source_disable_unref(pty->io_event_source);
+                pty->backend_inotify_event_source = sd_event_source_disable_unref(pty->backend_inotify_event_source);
+                while (pty->monitors)
+                        pseudo_tty_monitor_free(pty->monitors);
+
+                LIST_REMOVE(free_queue, m->ptys_free_queue, pty);
+                pty->in_free_queue = false;
+
+                int r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reply to PTY hangup requests, ignoring: %m");
+                pty->vhangup_links = set_free(pty->vhangup_links);
+
+                r = pseudo_tty_notify_watchers(pty);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to notify PTY watchers, ignoring: %m");
+        }
 
         manager_schedule_idle_check(m);
         return 0;
@@ -1624,6 +2015,14 @@ static int manager_new(RuntimeScope scope, Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_defer(m->event, &m->unit_reference_event_source, on_unit_reference_update, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(m->unit_reference_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
         (void) sd_event_source_set_description(m->ptys_free_queue_event_source, "ptys-free-queue");
 
         (void) sd_event_set_watchdog(m->event, true);
@@ -1663,6 +2062,7 @@ static int manager_startup(Manager *m) {
                         m->varlink_server,
                         "io.systemd.PTYBroker.EnrollPty",    vl_method_enroll_pty,
                         "io.systemd.PTYBroker.MonitorPty",   vl_method_monitor_pty,
+                        "io.systemd.PTYBroker.WatchPty",     vl_method_watch_pty,
                         "io.systemd.PTYBroker.ConfigurePty", vl_method_configure_pty,
                         "io.systemd.PTYBroker.ListPty",      vl_method_list_pty,
                         "io.systemd.PTYBroker.HangUpPty",    vl_method_hang_up_pty);

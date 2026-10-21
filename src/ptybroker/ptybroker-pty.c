@@ -15,6 +15,7 @@
 #include "inotify-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "json-util.h"
 #include "list.h"
 #include "log.h"
 #include "pidref.h"
@@ -112,6 +113,9 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
 
         if (!pty)
                 return NULL;
+
+        pseudo_tty_close_watchers(pty);
+        unit_reference_free(pty->unit_reference);
 
         /* A pending hang-up is complete once the pty is gone */
         r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
@@ -578,7 +582,7 @@ static int pseudo_tty_process_hangup(PseudoTTY *pty, uint32_t revents) {
         return 0;
 }
 
-static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
+void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         assert(pty);
 
         if (pty->in_free_queue)
@@ -592,6 +596,27 @@ static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         /* Trigger the deferred drain of the free queue. We don't free right here since we may be called from
          * within one of this PTY's own I/O callbacks. */
         (void) sd_event_source_set_enabled(pty->manager->ptys_free_queue_event_source, SD_EVENT_ONESHOT);
+}
+
+int pseudo_tty_notify_watchers(PseudoTTY *pty) {
+        assert(pty);
+
+        return varlink_many_notifybo(
+                        pty->watch_links,
+                        SD_JSON_BUILD_PAIR_STRING("name", pty->name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allocated", !pty->acquiring && pty->frontend_type >= 0),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("hungUp", pty->hung_up),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit));
+}
+
+void pseudo_tty_close_watchers(PseudoTTY *pty) {
+        sd_varlink *link;
+
+        assert(pty);
+
+        while ((link = set_steal_first(pty->watch_links)))
+                sd_varlink_close_unref(link);
+        pty->watch_links = set_free(pty->watch_links);
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
