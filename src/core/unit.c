@@ -3749,7 +3749,7 @@ int unit_watch_bus_name(Unit *u, const char *name) {
         /* Watch a specific name on the bus. We only support one unit
          * watching each name for now. */
 
-        if (u->manager->api_bus) {
+        if (u->manager->api_bus_ready) {
                 /* If the bus is already available, install the match directly.
                  * Otherwise, just put the name in the list. bus_setup_api() will take care later. */
                 r = unit_install_bus_match(u, u->manager->api_bus, name);
