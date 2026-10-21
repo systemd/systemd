@@ -57,12 +57,146 @@ COMMAND(
 
 #define PSEUDO_TTY_MAX 1024U
 #define MONITOR_MAX 16U
+#define WATCHER_MAX 16U
+
+struct UnitReference {
+        Manager *manager;
+        PseudoTTY *pty;
+        char *unit;
+        sd_varlink *link;
+        int result;
+};
+
+static void manager_schedule_idle_check(Manager *m);
+
+UnitReference* unit_reference_free(UnitReference *ref) {
+        if (!ref)
+                return NULL;
+
+        if (ref->pty && ref->pty->unit_reference == ref)
+                ref->pty->unit_reference = NULL;
+
+        sd_varlink_close_unref(ref->link);
+        free(ref->unit);
+        return mfree(ref);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitReference*, unit_reference_free);
+
+static int on_unit_ref_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        UnitReference *ref = ASSERT_PTR(userdata);
+
+        assert(link == ref->link);
+
+        if (!error_id && FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                ref->result = 0;
+                return 0;
+        }
+
+        ref->result = log_error_errno(
+                        error_id ? sd_varlink_error_to_errno(error_id, parameters) : -EPROTO,
+                        "Reference to unit '%s' failed: %s", ref->unit, error_id ?: "AcquireReference() call ended.");
+        if (!ref->manager) /* The acquiring call still owns the reference until its first acknowledgement. */
+                return 0;
+
+        Manager *m = ref->manager;
+        PseudoTTY *pty = ASSERT_PTR(ref->pty);
+        /* The unit reference failed, so the caller may no longer be able to get the exit status of the unit
+         * so kick it immediately by closing the watchers so the caller can also immediately terminate. */
+        pseudo_tty_close_watchers(pty);
+        unit_reference_free(ref);
+        if (pty->state == PSEUDO_TTY_HUNG_UP)
+                pseudo_tty_close(pty);
+        manager_schedule_idle_check(m);
+        return 0;
+}
+
+static int acquire_unit_reference(Manager *m, sd_varlink *link, PseudoTTY *pty, const char *unit) {
+        _cleanup_(unit_reference_freep) UnitReference *ref = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(pty);
+        assert(!pty->unit_reference);
+        assert(unit);
+
+        ref = new(UnitReference, 1);
+        if (!ref)
+                return log_oom();
+
+        *ref = (UnitReference) {
+                .pty = pty,
+                .unit = strdup(unit),
+                .result = -EINPROGRESS,
+        };
+        if (!ref->unit)
+                return log_oom();
+
+        r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine service manager socket path: %m");
+
+        r = sd_varlink_connect_address(&ref->link, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service manager for unit reference: %m");
+
+        sd_varlink_set_userdata(ref->link, ref);
+        r = sd_varlink_bind_reply(ref->link, on_unit_ref_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind unit reference reply callback: %m");
+
+        r = sd_varlink_observebo(
+                        ref->link,
+                        "io.systemd.Unit.AcquireReference",
+                        SD_JSON_BUILD_PAIR_STRV("names", STRV_MAKE(unit)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to request reference to unit '%s': %m", unit);
+
+        /* Wait for the pin before starting even a short-lived command. sd_varlink_wait() yields the
+         * acquiring fiber, while other PTYs keep their independent reference connections. */
+        while (ref->result == -EINPROGRESS) {
+                r = sd_varlink_process(ref->link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process unit reference reply: %m");
+                if (r > 0)
+                        continue;
+
+                r = sd_varlink_wait(ref->link, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for unit reference: %m");
+        }
+        if (ref->result < 0)
+                return ref->result;
+
+        if (sd_varlink_is_connected(link) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ECONNRESET), "Client disconnected before starting shell for unit '%s'.", unit);
+
+        r = sd_varlink_set_relative_timeout(ref->link, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable unit reference timeout: %m");
+
+        r = sd_varlink_attach_event(ref->link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach unit reference to event loop: %m");
+
+        ref->manager = m;
+        pty->unit_reference = TAKE_PTR(ref);
+        return 0;
+}
 
 static Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        hashmap_free(m->ptys);
+        hashmap_free(TAKE_PTR(m->ptys));
         assert(!m->ptys_free_queue);
         set_free(m->reserved_pty_names);
 
@@ -163,9 +297,8 @@ static bool working_directory_is_set(const WorkingDirectory *wd) {
         return wd->path || wd->home;
 }
 
-static int start_shell(
+static int prepare_shell(
                 Manager *m,
-                sd_varlink *link,
                 PseudoTTY *pty,
                 const char *user,
                 const char *group,
@@ -179,12 +312,12 @@ static int start_shell(
         int r;
 
         assert(m);
-        assert(link);
         assert(pty);
         assert(working_directory);
         assert(pty->backend_fd >= 0);
         assert(pty->backend_path);
         assert(!pty->unit);
+        assert(!pty->shell_context);
 
         _cleanup_free_ char *owner_name = uid_to_name(pty->owner_uid);
         if (!owner_name)
@@ -283,6 +416,66 @@ static int start_shell(
                         return log_oom();
         }
 
+        r = sd_json_buildo(
+                        &pty->shell_context,
+                        SD_JSON_BUILD_PAIR_STRING("ID", unit),
+                        SD_JSON_BUILD_PAIR_STRING("Description", d),
+                        SD_JSON_BUILD_PAIR_STRING("CollectMode", "inactive_or_failed"),
+                        SD_JSON_BUILD_PAIR("Kill", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_BOOLEAN("SendSIGHUP", true))),
+                        /* Shells are user workloads, hence place them in user.slice on the system manager. */
+                        SD_JSON_BUILD_PAIR_CONDITION(m->scope == RUNTIME_SCOPE_SYSTEM, "CGroup", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_STRING("Slice", SPECIAL_USER_SLICE))),
+                        SD_JSON_BUILD_PAIR("Service", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_STRING("Type", "exec"),
+                                                           SD_JSON_BUILD_PAIR("ExecStart", SD_JSON_BUILD_ARRAY(
+                                                                                              SD_JSON_BUILD_OBJECT(
+                                                                                                              SD_JSON_BUILD_PAIR_STRING("path", path),
+                                                                                                              SD_JSON_BUILD_PAIR_STRV("arguments", argv),
+                                                                                                              SD_JSON_BUILD_PAIR_BOOLEAN("viaShell", via_shell),
+                                                                                                              /* Execute exactly what polkit authorized. */
+                                                                                                              SD_JSON_BUILD_PAIR_BOOLEAN("noEnvExpand", true)))))),
+                        SD_JSON_BUILD_PAIR("Exec", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_STRING("TTYPath", pty->backend_path),
+                                                           JSON_BUILD_PAIR_STRING_NON_EMPTY("User", user),
+                                                           JSON_BUILD_PAIR_STRING_NON_EMPTY("Group", group),
+                                                           /* Only the system manager can open PAM sessions. */
+                                                           SD_JSON_BUILD_PAIR_CONDITION(m->scope == RUNTIME_SCOPE_SYSTEM, "PAMName", SD_JSON_BUILD_STRING("systemd-ptybroker-shell")),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(working_directory_is_set(working_directory), "WorkingDirectory",
+                                                                                        SD_JSON_BUILD_OBJECT(
+                                                                                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("path", working_directory->path),
+                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(working_directory->home, "home", SD_JSON_BUILD_BOOLEAN(true)),
+                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(working_directory->missing_ok, "missingOK", SD_JSON_BUILD_BOOLEAN(true)))),
+                                                           JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
+                                                           SD_JSON_BUILD_PAIR_STRV("LogExtraFields", log_extra_fields),
+                                                           SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to prepare shell unit context: %m");
+
+        return 0;
+}
+
+static int start_shell(Manager *m, sd_varlink *link, PseudoTTY *pty) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(pty);
+        assert(pty->shell_context);
+        assert(!pty->unit);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *context = TAKE_PTR(pty->shell_context);
+        _cleanup_free_ char *unit = strdup(ASSERT_PTR(sd_json_variant_string(sd_json_variant_by_key(context, "ID"))));
+        if (!unit)
+                return log_oom();
+
+        r = acquire_unit_reference(m, link, pty, unit);
+        if (r < 0)
+                return r;
+
+        if (pty->state == PSEUDO_TTY_HUNG_UP || pty->backend_fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ECONNRESET), "PTY '%s' was hung up before starting its shell.", pty->name);
+
         _cleanup_free_ char *socket_path = NULL;
         r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &socket_path);
         if (r < 0)
@@ -308,8 +501,20 @@ static int start_shell(
         int fd_stderr_idx = sd_varlink_push_fd(vl, pty->backend_fd);
         if (fd_stderr_idx < 0)
                 return log_error_errno(fd_stderr_idx, "Failed to push file descriptor into Varlink connection: %m");
-
         TAKE_FD(pty->backend_fd);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *service = sd_json_variant_ref(sd_json_variant_by_key(context, "Service"));
+        r = sd_json_variant_merge_objectbo(
+                        &service,
+                        SD_JSON_BUILD_PAIR_INTEGER("StandardInputFileDescriptor", fd_stdin_idx),
+                        SD_JSON_BUILD_PAIR_INTEGER("StandardOutputFileDescriptor", fd_stdout_idx),
+                        SD_JSON_BUILD_PAIR_INTEGER("StandardErrorFileDescriptor", fd_stderr_idx));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set shell file descriptors: %m");
+
+        r = sd_json_variant_set_field(&context, "Service", service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update shell service context: %m");
 
         sd_json_variant *reply;
         const char *error_id;
@@ -318,46 +523,7 @@ static int start_shell(
                         "io.systemd.Unit.StartTransient",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("context", SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("ID", unit),
-                                        SD_JSON_BUILD_PAIR_STRING("Description", d),
-                                        SD_JSON_BUILD_PAIR_STRING("CollectMode", "inactive_or_failed"),
-                                        SD_JSON_BUILD_PAIR("Kill", SD_JSON_BUILD_OBJECT(
-                                                                           SD_JSON_BUILD_PAIR_BOOLEAN("SendSIGHUP", true))),
-                                        /* Shells are user workloads, hence place them in user.slice (only
-                                         * on the system manager, the per-user manager has no such slice) */
-                                        SD_JSON_BUILD_PAIR_CONDITION(m->scope == RUNTIME_SCOPE_SYSTEM, "CGroup", SD_JSON_BUILD_OBJECT(
-                                                                           SD_JSON_BUILD_PAIR_STRING("Slice", SPECIAL_USER_SLICE))),
-                                        SD_JSON_BUILD_PAIR("Service", SD_JSON_BUILD_OBJECT(
-                                                                           SD_JSON_BUILD_PAIR_STRING("Type", "exec"),
-                                                                           SD_JSON_BUILD_PAIR_INTEGER("StandardInputFileDescriptor", fd_stdin_idx),
-                                                                           SD_JSON_BUILD_PAIR_INTEGER("StandardOutputFileDescriptor", fd_stdout_idx),
-                                                                           SD_JSON_BUILD_PAIR_INTEGER("StandardErrorFileDescriptor", fd_stderr_idx),
-                                                                           SD_JSON_BUILD_PAIR("ExecStart", SD_JSON_BUILD_ARRAY(
-                                                                                                              SD_JSON_BUILD_OBJECT(
-                                                                                                                              SD_JSON_BUILD_PAIR_STRING("path", path),
-                                                                                                                              SD_JSON_BUILD_PAIR_STRV("arguments", argv),
-                                                                                                                              SD_JSON_BUILD_PAIR_BOOLEAN("viaShell", via_shell),
-                                                                                                                              /* Don't let the service manager expand $VARIABLES via
-                                                                                                                               * the client-supplied environment: what we execute
-                                                                                                                               * must be exactly what polkit authorized. */
-                                                                                                                              SD_JSON_BUILD_PAIR_BOOLEAN("noEnvExpand", true)))))),
-                                        SD_JSON_BUILD_PAIR("Exec", SD_JSON_BUILD_OBJECT(
-                                                                           SD_JSON_BUILD_PAIR_STRING("TTYPath", pty->backend_path),
-                                                                           JSON_BUILD_PAIR_STRING_NON_EMPTY("User", user),
-                                                                           JSON_BUILD_PAIR_STRING_NON_EMPTY("Group", group),
-                                                                           /* Open a PAM session for the shell, the same way run0 does it,
-                                                                            * but via our own PAM stack. Only on the system manager, the
-                                                                            * per-user manager lacks the privileges for that. */
-                                                                           SD_JSON_BUILD_PAIR_CONDITION(m->scope == RUNTIME_SCOPE_SYSTEM, "PAMName", SD_JSON_BUILD_STRING("systemd-ptybroker-shell")),
-                                                                           SD_JSON_BUILD_PAIR_CONDITION(working_directory_is_set(working_directory), "WorkingDirectory",
-                                                                                                        SD_JSON_BUILD_OBJECT(
-                                                                                                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("path", working_directory->path),
-                                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(working_directory->home, "home", SD_JSON_BUILD_BOOLEAN(true)),
-                                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(working_directory->missing_ok, "missingOK", SD_JSON_BUILD_BOOLEAN(true)))),
-                                                                           JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
-                                                                           SD_JSON_BUILD_PAIR_STRV("LogExtraFields", log_extra_fields),
-                                                                           SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))))),
+                        SD_JSON_BUILD_PAIR_VARIANT("context", context),
                         SD_JSON_BUILD_PAIR_STRING("mode", "replace"));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Unit.StartTransient() call: %m");
@@ -369,9 +535,13 @@ static int start_shell(
                 return sd_varlink_error(link, error_id, reply);
         }
 
+        if (!pty->unit_reference)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLINK), "Reference to unit '%s' was lost while starting it.", unit);
+
         log_debug("Transient unit '%s' for PTY '%s' started.", unit, pty->name);
 
         pty->unit = TAKE_PTR(unit);
+
         return 0;
 }
 
@@ -393,6 +563,7 @@ typedef struct AcquirePtyParameters {
         bool hang_up_on_disconnect;
         bool ignore_hangup;
         bool osc2811;
+        bool acquire_paused;
         sd_json_variant *terminal_settings; /* no reference */
 } AcquirePtyParameters;
 
@@ -451,12 +622,22 @@ static const char* polkit_action_from_backend_type(BackendType type) {
         }
 }
 
-static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
+static int parse_acquire_pty_parameters(
+                Manager *m,
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                AcquirePtyParameters *ret_parameters,
+                TerminalSettings *ret_terminal_settings,
+                char ***ret_details) {
+
         int r;
 
+        assert(m);
         assert(link);
         assert(parameters);
+        assert(ret_parameters);
+        assert(ret_terminal_settings);
+        assert(ret_details);
 
         _cleanup_(acquire_pty_parameters_done) AcquirePtyParameters p = {
                 .frontend_type = _FRONTEND_TYPE_INVALID,
@@ -483,6 +664,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 { "hangUpOnDisconnect", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, hang_up_on_disconnect), 0                 },
                 { "ignoreHangup",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, ignore_hangup),         0                 },
                 { "osc2811",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, osc2811),               0                 },
+                { "acquirePaused",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, acquire_paused),        0                 },
                 { "terminalSettings",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref,      voffsetof(p, terminal_settings),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -521,12 +703,6 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (p.monitor && p.frontend_type == FRONTEND_TAKE)
                 return sd_varlink_error_invalid_parameter_name(link, "monitor");
 
-        if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
-
-        if (!p.monitor && FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
-
         if (p.osc2811 && !p.monitor)
                 return sd_varlink_error_invalid_parameter_name(link, "osc2811");
 
@@ -535,6 +711,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return sd_varlink_error_invalid_parameter_name(link, "ignoreHangup");
 
         if (p.backend_type != BACKEND_SHELL) {
+                if (p.acquire_paused)
+                        return sd_varlink_error_invalid_parameter_name(link, "acquirePaused");
                 if (p.user)
                         return sd_varlink_error_invalid_parameter_name(link, "user");
                 if (p.group)
@@ -674,6 +852,114 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 }
         }
 
+        *ret_parameters = p;
+        p = (AcquirePtyParameters) {};
+        *ret_terminal_settings = TAKE_TERMINAL_SETTINGS(ts);
+        *ret_details = TAKE_PTR(details);
+        return 0;
+}
+
+static int vl_method_watch_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        struct {
+                const char *name;
+                bool unpause;
+        } p = {};
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, name),    SD_JSON_MANDATORY },
+                { "unpause", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, unpause), SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+        if (!pseudo_tty_name_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        PseudoTTY *pty = hashmap_get(m->ptys, p.name);
+        if (!pty || pty->state == PSEUDO_TTY_HUNG_UP || pty->in_free_queue)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
+
+        /* AcquirePty() already authorized the prepared shell. Its owner may watch and start it without
+         * another authentication; other callers need permission to monitor this allocation. */
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.PTYBroker.monitor-pty",
+                        (const char**) STRV_MAKE("name", p.name),
+                        /* good_user= */ pty->owner_uid,
+                        /* flags= */ 0,
+                        &m->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r <= 0)
+                return r;
+
+        if (pty->state == PSEUDO_TTY_RUNNING && pty->backend_type == BACKEND_SHELL && !pty->unit_reference)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOLINK), "Unit reference for PTY '%s' was lost.", p.name);
+        if (set_size(pty->watch_links) >= WATCHER_MAX)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyWatchers", /* parameters= */ NULL);
+
+        r = set_ensure_put(&pty->watch_links, &varlink_hash_ops, link);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+        sd_varlink_ref(link);
+
+        r = pseudo_tty_reply_description(pty, link, /* more= */ true);
+        if (r < 0) {
+                sd_varlink_unref(set_remove(pty->watch_links, link));
+                return r;
+        }
+
+        if (p.unpause && pty->state == PSEUDO_TTY_PAUSED) {
+                /* Register the watch before starting the unit, and keep the object alive while this
+                 * fiber waits even if a monitor disconnects and hangs up the terminal meanwhile. */
+                pty->starting = true;
+                pty->state = PSEUDO_TTY_ACQUIRING;
+                r = pseudo_tty_notify_watchers(pty);
+                if (r >= 0)
+                        r = start_shell(m, link, pty);
+                pty->starting = false;
+                if (r < 0) {
+                        sd_varlink_unref(set_remove(pty->watch_links, link));
+                        pseudo_tty_close(pty);
+                        return r;
+                }
+
+                if (pty->state != PSEUDO_TTY_HUNG_UP)
+                        pty->state = PSEUDO_TTY_RUNNING;
+                r = pseudo_tty_notify_watchers(pty);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to notify PTY watchers, ignoring: %m");
+                if (pty->state == PSEUDO_TTY_HUNG_UP)
+                        pseudo_tty_close(pty);
+        }
+
+        return 0;
+}
+
+static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(acquire_pty_parameters_done) AcquirePtyParameters p = {};
+        _cleanup_(terminal_settings_done) TerminalSettings ts = TERMINAL_SETTINGS_NULL;
+        _cleanup_strv_free_ char **details = NULL;
+        int r;
+
+        r = parse_acquire_pty_parameters(m, link, parameters, &p, &ts, &details);
+        if (r != 0)
+                return r;
+        if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
+
+        if (!p.monitor && FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+
         r = varlink_verify_polkit_async(
                         link,
                         /* bus= */ NULL,
@@ -724,10 +1010,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (manager_pty_limit_reached(m))
                 return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
 
-        /* start_shell() suspends the fiber until the service manager replies. The PTY is linked into the
-         * manager only after that. Without the reservation, a concurrent AcquirePty() or EnrollPty() call
-         * can take the same name or the last slot under PSEUDO_TTY_MAX after the service manager has
-         * already queued the shell. */
+        /* Reserve the name and slot while start_shell() suspends the fiber, until the PTY is linked. */
         _cleanup_(pseudo_tty_reservation_done) PseudoTTYReservation reservation = {};
         r = manager_reserve_pty_name(m, p.name, &reservation);
         if (r < 0)
@@ -806,19 +1089,24 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         case BACKEND_SHELL:
                 assert(pty->backend_fd >= 0);
 
-                r = start_shell(m,
-                                link,
-                                pty,
-                                p.user,
-                                p.group,
-                                &p.working_directory,
-                                p.environment,
-                                p.command_line,
-                                p.executable,
-                                p.via_shell != 0,
-                                p.lightweight);
+                r = prepare_shell(m,
+                                  pty,
+                                  p.user,
+                                  p.group,
+                                  &p.working_directory,
+                                  p.environment,
+                                  p.command_line,
+                                  p.executable,
+                                  p.via_shell != 0,
+                                  p.lightweight);
                 if (r < 0)
                         return r;
+
+                if (!p.acquire_paused) {
+                        r = start_shell(m, link, pty);
+                        if (r < 0)
+                                return r;
+                }
 
                 break;
 
@@ -887,6 +1175,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 r = sd_varlink_reply(link, reply);
         if (r < 0)
                 return r;
+
+        pty->state = p.acquire_paused ? PSEUDO_TTY_PAUSED : PSEUDO_TTY_RUNNING;
 
         TAKE_PTR(pty);
         TAKE_PTR(monitor);
@@ -1171,6 +1461,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
+        pty->state = PSEUDO_TTY_RUNNING;
         TAKE_PTR(pty);
         TAKE_PTR(monitor);
 
@@ -1182,9 +1473,7 @@ static PseudoTTY* manager_get_alive_pty(Manager *m, const char *name) {
         assert(name);
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty || pty->in_free_queue) /* A pty queued for removal is as good as gone, report it as such
-                                         * rather than hooking up to it and then dropping the client on the
-                                         * floor when the deferred free runs. */
+        if (!pty || !IN_SET(pty->state, PSEUDO_TTY_PAUSED, PSEUDO_TTY_RUNNING) || pty->in_free_queue)
                 return NULL;
 
         return pty;
@@ -1388,24 +1677,6 @@ static int vl_method_configure_pty(sd_varlink *link, sd_json_variant *parameters
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("terminalSettings", tsj));
 }
 
-static int pseudo_tty_reply_description(PseudoTTY *pty, sd_varlink *link) {
-        assert(pty);
-        assert(link);
-
-        return sd_varlink_replybo(
-                        link,
-                        SD_JSON_BUILD_PAIR_STRING("name", pty->name),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", pty->description),
-                        JSON_BUILD_PAIR_ENUM("frontendType", frontend_type_to_string(pty->frontend_type)),
-                        JSON_BUILD_PAIR_ENUM("backendType", backend_type_to_string(pty->backend_type)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("tag", pty->tag),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("backendPath", pty->backend_path),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit),
-                        JSON_BUILD_PAIR_PIDREF_NON_NULL("owner", &pty->owner_pidref),
-                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(pty->owner_uid), "ownerUID", SD_JSON_BUILD_UNSIGNED(pty->owner_uid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(pty->owner_gid), "ownerGID", SD_JSON_BUILD_UNSIGNED(pty->owner_gid)));
-}
-
 static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1444,16 +1715,16 @@ static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_
         if (name) {
                 pty = manager_get_alive_pty(m, name);
                 if (pty) {
-                        r = pseudo_tty_reply_description(pty, link);
+                        r = pseudo_tty_reply_description(pty, link, /* more= */ false);
                         if (r < 0)
                                 return r;
                 }
         } else
                 HASHMAP_FOREACH(pty, m->ptys) {
-                        if (pty->in_free_queue)
+                        if (!IN_SET(pty->state, PSEUDO_TTY_PAUSED, PSEUDO_TTY_RUNNING) || pty->in_free_queue)
                                 continue;
 
-                        r = pseudo_tty_reply_description(pty, link);
+                        r = pseudo_tty_reply_description(pty, link, /* more= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -1483,7 +1754,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty)
+        if (!pty || pty->state == PSEUDO_TTY_ACQUIRING)
                 return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may hang it up without further authentication. (Note that once the
@@ -1501,7 +1772,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r <= 0)
                 return r;
 
-        if (pty->in_free_queue)
+        if (pty->in_free_queue || pty->state == PSEUDO_TTY_HUNG_UP)
                 /* The hang-up already completed and its callback (which answers the registered calls) has
                  * run; the pty is merely waiting for the deferred free. Answer right away, registering in
                  * vhangup_links would mean never getting a reply. */
@@ -1530,10 +1801,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
-        /* "Idle" means that no Varlink client is currently connected *and* no PTYs are allocated anymore. We
-         * must check both: PTYs may outlive the connection that created them (e.g. for the 'take' frontend,
-         * where we hand the frontend fd to the client and drop the connection), so an absence of connections
-         * alone is not sufficient — that's also why we can't just use sd_varlink_server_set_exit_on_idle(). */
+        /* PTYs and their unit references may outlive the connection that allocated them. */
 
         return sd_varlink_server_current_connections(m->varlink_server) == 0 &&
                 hashmap_isempty(m->ptys);
@@ -1594,6 +1862,14 @@ static void manager_on_disconnect(sd_varlink_server *server, sd_varlink *link, v
         void *u = sd_varlink_get_userdata(link);
         if (u && u != m)
                 pseudo_tty_monitor_on_link_disconnect(u);
+
+        PseudoTTY *pty;
+        HASHMAP_FOREACH(pty, m->ptys)
+                if (set_remove(pty->watch_links, link)) {
+                        sd_varlink_unref(link);
+                        if (set_isempty(pty->watch_links) && pty->state == PSEUDO_TTY_HUNG_UP)
+                                pseudo_tty_close(pty);
+                }
 
         manager_schedule_idle_check(m);
 }
@@ -1679,8 +1955,11 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add interfaces to Varlink server: %m");
 
-        /* AcquirePty() runs on a fiber, since starting a shell waits for the reply of the service manager. */
-        r = varlink_server_bind_fiber(m->varlink_server, "io.systemd.PTYBroker.AcquirePty", vl_method_acquire_pty);
+        /* Both calls can start a shell and wait for the service manager. */
+        r = varlink_server_bind_fiber_many(
+                        m->varlink_server,
+                        "io.systemd.PTYBroker.AcquirePty", vl_method_acquire_pty,
+                        "io.systemd.PTYBroker.WatchPty", vl_method_watch_pty);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink fiber method: %m");
 
