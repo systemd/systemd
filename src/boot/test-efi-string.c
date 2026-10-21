@@ -249,6 +249,28 @@ TEST(strchr16) {
         ASSERT_PTR_EQ(strchr16(str, 0), str + strlen16(str));
 }
 
+TEST(strstr16) {
+        ASSERT_NULL(strstr16(NULL, u"a"));
+        ASSERT_NULL(strstr16(u"a", NULL));
+        ASSERT_NULL(strstr16(u"", u"a"));
+        ASSERT_NULL(strstr16(u"abc", u"abcd"));
+        ASSERT_NULL(strstr16(u"abc", u"d"));
+
+        const char16_t str[] = u"abcabd";
+        ASSERT_PTR_EQ(strstr16(str, u""), &str[0]);
+        ASSERT_PTR_EQ(strstr16(str, u"abc"), &str[0]);
+        ASSERT_PTR_EQ(strstr16(str, u"abd"), &str[3]);
+        ASSERT_PTR_EQ(strstr16(str, u"d"), &str[5]);
+        ASSERT_PTR_EQ(strstr16(str, u"abcabd"), &str[0]);
+}
+
+TEST(strstr8) {
+        ASSERT_NULL(strstr8(NULL, "a"));
+        ASSERT_NULL(strstr8("hello", "lo!"));
+        ASSERT_TRUE(streq8(strstr8("hello world", "o w"), "o world"));
+        ASSERT_TRUE(streq8(strstr8("hello", ""), "hello"));
+}
+
 TEST(xstrndup8) {
         char *s = NULL;
 
