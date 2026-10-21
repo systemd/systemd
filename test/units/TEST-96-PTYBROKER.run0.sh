@@ -36,3 +36,19 @@ chmod +x /tmp/pty96-run0-shell
 script -qec 'run0 --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
 [[ "${RC:-0}" == 7 ]]
 test -e /tmp/pty96-run0-ok
+
+# The reference FD must outlive the PTY and remain valid across manager reload and reexecution.
+# shellcheck disable=SC2016
+timeout 60 varlinkctl --exec call /run/systemd/io.systemd.PTYBroker io.systemd.PTYBroker.AcquirePty \
+    '{"frontendType":"null","backendType":"shell","viaShell":false,"commandLine":["/bin/sh","-c","exit 47"],"referenceUnit":true}' \
+    -- bash -euxc '
+        read -r unit reference < <(jq -er "[.unit, .unitReferenceFileDescriptor] | @tsv")
+        [[ "$LISTEN_FDS" == 1 && "$reference" == 0 ]]
+        until [[ "$(systemctl show -P ActiveState "$unit")" == failed ]]; do sleep .1; done
+        for operation in daemon-reload daemon-reexec; do
+            systemctl "$operation"
+            [[ "$(systemctl show -P ExecMainStatus "$unit")" == 47 ]]
+        done
+        exec 3>&-
+        until [[ "$(systemctl show -P LoadState "$unit")" == not-found ]]; do sleep .1; done
+    '
