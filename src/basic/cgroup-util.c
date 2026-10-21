@@ -24,6 +24,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
@@ -995,6 +996,10 @@ static const char* skip_user_prefix(const char *path) {
 
         /* Alternatively skip the user session if it is in the path... */
         return skip_session(e);
+}
+
+RuntimeScope cg_path_runtime_scope(const char *path) {
+        return skip_user_prefix(path) ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM;
 }
 
 int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup) {
