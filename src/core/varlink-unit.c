@@ -995,25 +995,34 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         if (n > 1 && notify)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, NULL);
 
-        const char **details = n == 1 ?
-                (const char**) STRV_MAKE(
-                                "unit", p.names[0],
+        /* Callers without privileges get a polkit query for each unit, and every answer restarts the method
+         * call, so bound the work they can ask for. Same as for the D-Bus EnqueueUnitJobMany() method. */
+        if (n > MANAGER_MAX_POLKIT_NAMES) {
+                r = varlink_check_peer_privilege(link);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "names");
+        }
+
+        /* Authorize every unit separately, with the unit and verb in the polkit details, so that unit- and
+         * verb-scoped polkit rules also apply to batches. */
+        STRV_FOREACH(name, p.names) {
+                const char **details = (const char**) STRV_MAKE(
+                                "unit", *name,
                                 "verb", job_type_to_string(p.job_type),
                                 "polkit.message", N_("Authentication is required to manage unit '$(unit)'."),
-                                "polkit.gettext_domain", GETTEXT_PACKAGE) :
-                (const char**) STRV_MAKE(
-                                "verb", job_type_to_string(p.job_type),
-                                "polkit.message", N_("Authentication is required to manage system services or other units."),
                                 "polkit.gettext_domain", GETTEXT_PACKAGE);
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        details,
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.systemd1.manage-units",
+                                details,
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         Unit *first = NULL;
         STRV_FOREACH(name, p.names) {

@@ -746,7 +746,7 @@ static int varlink_check_good_user(sd_varlink *link, uid_t good_user, bool *ret_
         return good_user == peer_uid;
 }
 
-static int varlink_check_peer_privilege(sd_varlink *link) {
+int varlink_check_peer_privilege(sd_varlink *link) {
         int r;
 
         assert(link);
