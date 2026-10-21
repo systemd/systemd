@@ -1714,34 +1714,6 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int machine_tags_add_remove(char * const *base, char * const *add, char * const *remove, char ***ret) {
-        int r;
-
-        assert(ret);
-
-        /* Computes the resulting machine tag list when adding 'add' to and removing 'remove' from the 'base'
-         * list, i.e. (base ∪ add) \ remove, sorted and deduplicated. Shared by the D-Bus AddAndRemoveTags()
-         * and Varlink SetTags() implementations. */
-
-        _cleanup_strv_free_ char **tags = strv_copy(base);
-        if (!tags)
-                return -ENOMEM;
-
-        r = strv_extend_strv(&tags, add, /* filter_duplicates= */ true);
-        if (r < 0)
-                return r;
-
-        strv_remove_strv(tags, remove);
-
-        strv_sort_uniq(tags);
-
-        if (strv_length(tags) > MACHINE_TAGS_MAX)
-                return -E2BIG;
-
-        *ret = TAKE_PTR(tags);
-        return 0;
-}
-
 static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         int r;
@@ -1781,7 +1753,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return log_error_errno(r, "Failed to parse current machine tags: %m");
 
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_add_remove(current, add, remove, &tags);
+        r = machine_tags_edit(current, add, remove, &tags);
         if (r == -E2BIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
         if (r < 0)
@@ -2591,7 +2563,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         /* Use either the explicitly specified tag list or the current one as the basis, then apply the
          * additions and removals on top. */
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_add_remove(reset ? p.set : current, p.add, p.remove, &tags);
+        r = machine_tags_edit(reset ? p.set : current, p.add, p.remove, &tags);
         if (r == -E2BIG)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
         if (r < 0)
