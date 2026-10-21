@@ -218,6 +218,17 @@ static __always_inline __u64 pidfd_id_from_pid(struct pid *p) {
         return 0;
 }
 
+/* Kernel commit 95d9b7369665 (7.4) made sk_peer_pid an array indexed by enum pid_type. */
+struct sock___peer_pid_array {
+        struct pid *sk_peer_pid[PIDTYPE_TGID + 1];
+};
+
+// FIXME: This compatibility code path shall be removed once kernel 7.4
+//        becomes the new minimal baseline.
+struct sock___peer_pid {
+        struct pid *sk_peer_pid;
+};
+
 SEC("lsm/socket_sendmsg")
 int BPF_PROG(
                 monitor_varlink_socket_sendmsg,
@@ -250,7 +261,12 @@ int BPF_PROG(
         if (peer_cred)
                 peer_uid = BPF_CORE_READ(peer_cred, euid.val);
 
-        struct pid *peer_pid_s = BPF_CORE_READ(sk, sk_peer_pid);
+        struct pid *peer_pid_s;
+        if (bpf_core_field_exists(struct sock___peer_pid_array, sk_peer_pid))
+                peer_pid_s = BPF_CORE_READ((struct sock___peer_pid_array*) sk, sk_peer_pid[PIDTYPE_TGID]);
+        else
+                peer_pid_s = BPF_CORE_READ((struct sock___peer_pid*) sk, sk_peer_pid);
+
         __u32 peer_pid = peer_pid_s ? BPF_CORE_READ(peer_pid_s, numbers[0].nr) : 0;
         __u64 peer_pidfd_id = pidfd_id_from_pid(peer_pid_s);
 
