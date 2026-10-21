@@ -8917,6 +8917,12 @@ static int context_write_partition_table(Context *context) {
 
                 log_info("Wiped block device.");
 
+                /* Wiping the partition table does not remove the kernel partition devices, do a rescan now
+                 * to avoid -EBUSY later. */
+                r = context_partscan(context);
+                if (r < 0)
+                        return r;
+
                 if (arg_discard) {
                         r = context_discard_range(context, 0, context->total);
                         if (r == -EOPNOTSUPP)
