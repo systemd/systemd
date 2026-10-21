@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "set.h"
 #include "tests.h"
 
 TEST(basic) {
@@ -322,6 +323,55 @@ TEST(dhcp_server_process_message) {
         /* try again */
         dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, htobe32(INADDR_LOOPBACK + 42)));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+}
+
+TEST(dhcp_server_rapid_commit_ipv6_only_preferred) {
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(
+                                  m,
+                                  BOOTREQUEST,
+                                  0x12345678,
+                                  ARPHRD_ETHER,
+                                  &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, DHCP_DISCOVER));
+        ASSERT_OK(dhcp_message_append_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT));
+
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, MIN_V6ONLY_WAIT_USEC));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        /* Client does not request option 108, rapid commit is honored. */
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        /* Client requests option 108, the reply would contain it, so rapid commit must not be honored. */
+        _cleanup_set_free_ Set *prl = NULL;
+        ASSERT_OK(set_ensure_put(&prl, /* hash_ops= */ NULL, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)));
+        ASSERT_OK(dhcp_message_append_option_parameter_request_list(m, prl));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+
+        /* Option 108 disabled on the server, rapid commit is honored again. */
+        ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, 0));
         ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
 }
 
