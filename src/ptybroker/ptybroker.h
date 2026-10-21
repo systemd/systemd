@@ -24,3 +24,5 @@ struct Manager {
 };
 
 #define BUFFER_MAX (4U * U64_MB)
+
+UnitReference* unit_reference_free(UnitReference *ref);
