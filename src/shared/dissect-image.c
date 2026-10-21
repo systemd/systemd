@@ -5992,7 +5992,7 @@ int remove_tree_foreign(const char *path, int userns_fd) {
 
                 _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
                 if (dfd < 0) {
-                        log_debug_errno(r, "Failed to reopen tree fd: %m");
+                        log_debug_errno(dfd, "Failed to reopen tree fd: %m");
                         _exit(EXIT_FAILURE);
                 }
 
