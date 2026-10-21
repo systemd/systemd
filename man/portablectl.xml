@@ -144,7 +144,10 @@
         <para>When images are attached, an image policy will be generated that pins the attached image by
         the exact content that was found while attaching, so that it cannot be swapped downgrading security
         (e.g.: removing dm-verity protection) without a full reinstallation. For more details on policies, see
-        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        If an image contains a dm-verity signature, attaching fails unless a key in the kernel keyring or a
+        certificate in <filename>/etc/verity.d/</filename> (and related directories) validates the
+        signature.</para>
 
         <xi:include href="vpick.xml" xpointer="image"/>
         <xi:include href="vpick.xml" xpointer="directory"/>

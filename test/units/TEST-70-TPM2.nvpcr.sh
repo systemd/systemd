@@ -414,3 +414,13 @@ systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/nvp
 
 set +o pipefail
 diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -F '"content":{"nvIndexName":"verity","string":"verity:'
+
+# If neither the kernel nor userspace can validate the signature, only the root hash is measured, without
+# the signer. Without the certificate in /run/verity.d/, only the kernel keyring could validate the
+# signature, so this only works if the image isn't signed with the mkosi key.
+if ! machine_supports_verity_keyring; then
+    rm /run/verity.d/test-70-nvpcr.crt
+    cp /run/log/systemd/tpm2-measure.log /tmp/nvpcr/log-before
+    systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/nvpcr.raw
+    diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -E '"content":\{"nvIndexName":"verity","string":"verity:[^"]*:"'
+fi

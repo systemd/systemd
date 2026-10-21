@@ -777,13 +777,15 @@ static int acquire_sig_for_roothash(
 
         int r;
 
+        /* Returns -EBADMSG if the partition contents are not valid signature data. */
+
         assert(fd >= 0);
 
         if (partition_offset == UINT64_MAX || partition_size == UINT64_MAX)
                 return -EINVAL;
 
         if (partition_size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
-                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Verity signature partition is larger than 4M, refusing.");
 
         _cleanup_free_ char *buf = new(char, partition_size+1);
         if (!buf)
@@ -799,32 +801,40 @@ static int acquire_sig_for_roothash(
         if (e) {
                 /* If we found a NUL byte then the rest of the data must be NUL too */
                 if (!memeqzero(e, partition_size - (e - buf)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature data contains embedded NUL byte.");
         } else
                 buf[partition_size] = 0;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature JSON data: %s", STRERROR(r));
 
         sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'rootHash' field.");
 
         _cleanup_(iovec_done) struct iovec root_hash = {};
         r = sd_json_variant_unhex(rh, &root_hash.iov_base, &root_hash.iov_len);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse root hash field: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse root hash field: %s", STRERROR(r));
+        if (root_hash.iov_len < sizeof(sd_id128_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Root hash field is too short.");
 
         sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
         if (!sig)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'signature' field.");
 
         _cleanup_(iovec_done) struct iovec root_hash_sig = {};
         r = sd_json_variant_unbase64(sig, &root_hash_sig.iov_base, &root_hash_sig.iov_len);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature field: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature field: %s", STRERROR(r));
 
         if (ret_root_hash)
                 *ret_root_hash = TAKE_STRUCT(root_hash);
@@ -1062,7 +1072,7 @@ static int dissect_image_from_unpartitioned(
         m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
         m->has_verity_sig = false; /* signature not embedded, must be specified */
-        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash);
+        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash_sig);
 
         if (uuid)
                 m->image_uuid = *uuid;
@@ -1518,6 +1528,13 @@ static int dissect_image(
                                                         (uint64_t) size * 512,
                                                         &root_hash,
                                                         /* ret_root_hash_sig= */ NULL);
+                                        if (r == -EBADMSG) {
+                                                /* If the image policy requires a signature, the policy check
+                                                 * fails later, because the image has no usable signature
+                                                 * partition. */
+                                                log_debug_errno(r, "Verity signature partition is invalid, ignoring.");
+                                                continue;
+                                        }
                                         if (r < 0)
                                                 return r;
                                         if (!iovec_equal(&verity->root_hash, &root_hash)) {
@@ -1991,6 +2008,57 @@ static int dissect_image(
 }
 #endif
 
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
+        int r;
+
+        assert(verity);
+
+        if (!iovec_is_set(&verity->root_hash_sig) || !FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED))
+                return false;
+
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE, ignoring: %m");
+
+        return r != 0;
+}
+
+static bool verity_need_validated_device(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
+        /* We only use a device without a validated signature if the policy allows "verity" and we don't have
+         * a signature that we could use instead. */
+        return !FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) || verity_use_signature(verity, policy_flags);
+}
+#endif
+
+#if HAVE_BLKID
+static int verity_device_has_validated_signature(const char *name) {
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity params = {};
+        int r;
+
+        assert(name);
+
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_get_verity_info(cd, &params);
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+#endif
+
 int dissected_image_new_from_existing_verity(
                 const char *src,
                 const VeritySettings *verity,
@@ -2028,6 +2096,10 @@ int dissected_image_new_from_existing_verity(
             !iovec_is_set(&verity->root_hash))
                 return -ENOPKG;
 
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+
         /* The policy fstype flags translate to the literal fstype name of each filesystem.
          * Input must be a single filesystem image, if the policy specifies more than one, we need to dissect */
         r = partition_policy_determine_fstype(image_policy, PARTITION_ROOT, &encrypted, &root_fstype_string);
@@ -2045,7 +2117,9 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
+        const char *name = strjoina(root_hash_encoded, "-verity");
+
+        node = path_join("/dev/mapper", name);
         if (!node)
                 return -ENOMEM;
 
@@ -2053,9 +2127,24 @@ int dissected_image_new_from_existing_verity(
         if (r < 0)
                 return r;
 
+        /* We open the device before we check its signature. The device can't be removed while we keep it
+         * open, so the check applies to the device that we use. */
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        /* If the policy requires a signature, or if we have a signature and the policy allows "signed", we
+         * only use the existing device here if the kernel validated a signature when it set up the device.
+         * Otherwise we fall back to the full dissection, which checks our signature. */
+        if (verity_need_validated_device(verity, root_flags)) {
+                r = verity_device_has_validated_signature(name);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check signature state of verity device %s, not using it: %m", name);
+                else if (r == 0)
+                        log_debug("Existing verity device %s has no validated signature, not using it.", name);
+                if (r <= 0)
+                        return -ENOPKG;
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
@@ -3101,6 +3190,109 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
 
+int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root) {
+        int r;
+
+        /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
+
+        r = secure_getenv_bool("SYSTEMD_ALLOW_USERSPACE_VERITY");
+        if (r < 0 && r != -ENXIO) {
+                log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!r) {
+                log_debug("Userspace dm-verity signature authentication disabled via $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable.");
+                return 0;
+        }
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.allow_userspace_verity", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse systemd.allow_userspace_verity= kernel command line option, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!b) {
+                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line option.");
+                return 0;
+        }
+
+#if HAVE_OPENSSL
+        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
+        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *s = NULL;
+        _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
+                                               * of declaration in place, please */
+        assert(iovec_is_set(root_hash));
+        assert(iovec_is_set(root_hash_sig));
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
+         * userspace validation. */
+
+        r = conf_files_list_nulstr(&certs, ".crt", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate certificates: %m");
+        if (strv_isempty(certs)) {
+                log_debug("No userspace dm-verity certificates found.");
+                return 0;
+        }
+
+        const unsigned char *d = root_hash_sig->iov_base;
+        p7 = sym_d2i_PKCS7(NULL, &d, (long) root_hash_sig->iov_len);
+        if (!p7)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
+
+        s = hexmem(root_hash->iov_base, root_hash->iov_len);
+        if (!s)
+                return log_oom_debug();
+
+        bio = sym_BIO_new_mem_buf(s, strlen(s));
+        if (!bio)
+                return log_oom_debug();
+
+        sk = sym_sk_X509_new_null();
+        if (!sk)
+                return log_oom_debug();
+
+        STRV_FOREACH(i, certs) {
+                _cleanup_(X509_freep) X509 *c = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*i, "re");
+                if (!f) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
+                if (!c) {
+                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
+                        continue;
+                }
+
+                if (sym_sk_X509_push(sk, c) == 0)
+                        return log_oom_debug();
+
+                TAKE_PTR(c);
+        }
+
+        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        if (r)
+                log_debug("Userspace PKCS#7 validation succeeded.");
+        else
+                log_openssl_errors(LOG_DEBUG, "Userspace PKCS#7 validation failed");
+
+        return r;
+#else
+        log_debug("Not doing client-side validation of dm-verity root hash signatures, OpenSSL support disabled.");
+        return 0;
+#endif
+}
+
 #if HAVE_LIBCRYPTSETUP
 static int decrypted_image_new(DecryptedImage **ret) {
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
@@ -3287,9 +3479,21 @@ static int decrypt_partition(
         return 0;
 }
 
+typedef enum VeritySignatureMode {
+        /* Set up our own device with our signature rather than reuse a device without a validated
+         * signature. */
+        VERITY_SIGNATURE_DEFAULT,
+        /* Only set up the device if the kernel validates our signature. */
+        VERITY_SIGNATURE_KERNEL_ONLY,
+        /* The kernel can't validate our signature, so reuse a device without a validated signature. */
+        VERITY_SIGNATURE_REUSE_UNVALIDATED,
+} VeritySignatureMode;
+
 static int verity_can_reuse(
                 const VeritySettings *verity,
                 const char *name,
+                PartitionPolicyFlags policy_flags,
+                VeritySignatureMode mode,
                 struct crypt_device **ret_cd) {
 
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
@@ -3324,11 +3528,20 @@ static int verity_can_reuse(
         if (!iovec_equal(&verity->root_hash, &root_hash_existing))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
-        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
-         * same settings, so that a previous unsigned mount will not be reused if the user asks to use
-         * signing for the new one, and vice versa. */
-        if (iovec_is_set(&verity->root_hash_sig) != FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
+        if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE) &&
+            verity_need_validated_device(verity, policy_flags)) {
+                /* If the policy requires a signature and we can't use ours, reusing the device would bypass
+                 * the policy. */
+                if (!verity_use_signature(verity, policy_flags))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
+
+                /* If we have a signature, we first try to set up our own device with it. If the kernel
+                 * validates our signature, it records the validation on the device. LSMs such as IPE check
+                 * the recorded validation, for example to only run programs from verity devices with a
+                 * validated signature. */
+                if (mode != VERITY_SIGNATURE_REUSE_UNVALIDATED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Verity device %s already exists without a validated signature.", name);
+        }
 
         *ret_cd = TAKE_PTR(cd);
         return 0;
@@ -3344,112 +3557,20 @@ static char* dm_deferred_remove_clean(char *name) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
 static int validate_signature_userspace(const VeritySettings *verity, const char *root, DissectImageFlags flags) {
-        int r;
-
-        /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
+        assert(verity);
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_USERSPACE_VERITY)) {
                 log_debug("Userspace dm-verity signature authentication disabled via flag.");
                 return 0;
         }
 
-        r = secure_getenv_bool("SYSTEMD_ALLOW_USERSPACE_VERITY");
-        if (r < 0 && r != -ENXIO) {
-                log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
-                return 0;
-        }
-        if (!r) {
-                log_debug("Userspace dm-verity signature authentication disabled via $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable.");
-                return 0;
-        }
+        return verity_validate_signature_userspace(&verity->root_hash, &verity->root_hash_sig, root);
+}
 
-        bool b;
-        r = proc_cmdline_get_bool("systemd.allow_userspace_verity", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse systemd.allow_userspace_verity= kernel command line option, refusing userspace dm-verity signature authentication.");
-                return 0;
-        }
-        if (!b) {
-                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line option.");
-                return 0;
-        }
+static bool verity_device_exists(const char *name) {
+        assert(name);
 
-#if HAVE_OPENSSL
-        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
-        _cleanup_strv_free_ char **certs = NULL;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        _cleanup_free_ char *s = NULL;
-        _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
-                                               * of declaration in place, please */
-        assert(verity);
-        assert(iovec_is_set(&verity->root_hash));
-        assert(iovec_is_set(&verity->root_hash_sig));
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
-        /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
-         * userspace validation. */
-
-        r = conf_files_list_nulstr(&certs, ".crt", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enumerate certificates: %m");
-        if (strv_isempty(certs)) {
-                log_debug("No userspace dm-verity certificates found.");
-                return 0;
-        }
-
-        const unsigned char *d = verity->root_hash_sig.iov_base;
-        p7 = sym_d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig.iov_len);
-        if (!p7)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
-
-        s = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
-        if (!s)
-                return log_oom_debug();
-
-        bio = sym_BIO_new_mem_buf(s, strlen(s));
-        if (!bio)
-                return log_oom_debug();
-
-        sk = sym_sk_X509_new_null();
-        if (!sk)
-                return log_oom_debug();
-
-        STRV_FOREACH(i, certs) {
-                _cleanup_(X509_freep) X509 *c = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-
-                f = fopen(*i, "re");
-                if (!f) {
-                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
-                        continue;
-                }
-
-                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
-                if (!c) {
-                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
-                        continue;
-                }
-
-                if (sym_sk_X509_push(sk, c) == 0)
-                        return log_oom_debug();
-
-                TAKE_PTR(c);
-        }
-
-        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
-        if (r)
-                log_debug("Userspace PKCS#7 validation succeeded.");
-        else
-                log_openssl_errors(LOG_DEBUG, "Userspace PKCS#7 validation failed");
-
-        return r;
-#else
-        log_debug("Not doing client-side validation of dm-verity root hash signatures, OpenSSL support disabled.");
-        return 0;
-#endif
+        return sym_crypt_status(/* cd= */ NULL, name) != CRYPT_INACTIVE;
 }
 
 static int do_crypt_activate_verity(
@@ -3458,7 +3579,8 @@ static int do_crypt_activate_verity(
                 const char *name,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
-                PartitionPolicyFlags policy_flags) {
+                PartitionPolicyFlags policy_flags,
+                VeritySignatureMode mode) {
 
         int r;
 
@@ -3466,18 +3588,8 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
-        bool check_signature;
-        if (iovec_is_set(&verity->root_hash_sig) && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
-                r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
-
-                check_signature = r != 0;
-        } else
-                check_signature = false;
-
         bool measure_signature;
-        if (check_signature) {
+        if (verity_use_signature(verity, policy_flags)) {
                 int k;
 
                 /* First, if we have support for signed keys in the kernel, then try that first. */
@@ -3495,37 +3607,42 @@ static int do_crypt_activate_verity(
                         goto done;
                 }
 
-                log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
+                /* As below, if the device doesn't exist, the kernel rejected our signature. */
+                if (mode == VERITY_SIGNATURE_KERNEL_ONLY)
+                        return log_debug_errno(verity_device_exists(name) ? r : SYNTHETIC_ERRNO(ENOKEY),
+                                               "Validation of dm-verity signature failed via the kernel: %m");
 
-                /* Let's mangle ENOKEY → EDESTADDRREQ, so that we return a clear, recognizable error if
-                 * there's a signature we don't recognize, that is distinct from the LUKS/encryption
-                 * -ENOKEY, which means "password required, but I have none". */
-                if (r == -ENOKEY)
-                        r = -EDESTADDRREQ;
+                log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
 
-                /* Preferably propagate the original kernel error, so that the fallback logic can work,
-                 * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, root, flags);
-                if (k < 0)
+                if (k == -ENOMEM)
                         return k;
-                if (k == 0) {
-                        log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
+                if (k <= 0) {
+                        if (k < 0)
+                                log_debug_errno(k, "Userspace validation of dm-verity signature failed: %m");
+                        log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace.");
 
-                        /* So if we had a signature and we're supposed to exclusively allow
-                         * signature-based activation, then return the error now */
+                        /* If the policy allows "verity" as well as "signed", the signature is optional and
+                         * we activate the volume by its root hash. Otherwise we return -EDESTADDRREQ, so
+                         * that callers get a recognizable error for a signature that no trusted key
+                         * validates, distinct from the LUKS -ENOKEY, which means "password required, but
+                         * I have none". libcryptsetup returns errors such as -ENOKEY, -EBUSY or -ENODEV if
+                         * the kernel rejects the signature, but also if another process activates the same
+                         * volume at the same time. If another process activated the volume, the device
+                         * exists, and we return the error, so that verity_partition() checks whether it
+                         * can use the device. */
                         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
-                                return r < 0 ? r : -EDESTADDRREQ;
+                                return verity_device_exists(name) ? r : -EDESTADDRREQ;
 
                         log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
-                } else
+                        measure_signature = false;
+                } else {
                         log_debug("Verity activation via userspace signature logic worked, activating by root hash.");
-
-                /* Otherwise let's see what signature-less activation results in. */
-
-                measure_signature = true;
+                        measure_signature = true;
+                }
 
         } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
@@ -3583,11 +3700,13 @@ static int verity_partition(
                 const VeritySettings *verity,
                 DissectImageFlags flags,
                 PartitionPolicyFlags policy_flags,
+                VeritySignatureMode mode,
                 DecryptedImage *d) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
+        bool unvalidated_device = false;
         int r;
 
         assert(di);
@@ -3666,7 +3785,7 @@ static int verity_partition(
                         goto check; /* The device already exists. Let's check it. */
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
+                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags, mode);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
@@ -3700,7 +3819,11 @@ static int verity_partition(
                 if (!restore_deferred_remove)
                         return log_oom_debug();
 
-                r = verity_can_reuse(verity, name, &existing_cd);
+                r = verity_can_reuse(verity, name, policy_flags, mode, &existing_cd);
+                if (r == -ENOKEY) {
+                        unvalidated_device = true;
+                        break;
+                }
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
@@ -3750,6 +3873,57 @@ static int verity_partition(
                 (void) usleep_safe(2 * USEC_PER_MSEC);
         }
 
+        if (unvalidated_device) {
+                if (mode == VERITY_SIGNATURE_KERNEL_ONLY)
+                        return -ENOKEY;
+
+                /* As for the activation with a unique name below, we free the crypt_device object first. */
+                sym_crypt_free(cd);
+                cd = NULL;
+
+                if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                        r = verity_partition(
+                                        di,
+                                        designator,
+                                        m,
+                                        v,
+                                        root,
+                                        verity,
+                                        flags & ~DISSECT_IMAGE_VERITY_SHARE,
+                                        policy_flags,
+                                        VERITY_SIGNATURE_KERNEL_ONLY,
+                                        d);
+                        if (r != -ENOKEY)
+                                return r;
+                }
+
+                /* The kernel can't validate our signature, so a device that we set up ourselves wouldn't
+                 * have a validated signature either. If the policy requires a signature, we can only reuse
+                 * the existing device if userspace validates our signature. */
+                if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY)) {
+                        r = validate_signature_userspace(verity, root, flags);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r <= 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                                       "Neither the kernel nor userspace validated the signature for verity device %s, refusing.",
+                                                       name);
+                }
+
+                log_debug("The kernel can't validate our signature, reusing verity device %s without a validated signature.", name);
+                return verity_partition(
+                                di,
+                                designator,
+                                m,
+                                v,
+                                root,
+                                verity,
+                                flags,
+                                policy_flags,
+                                VERITY_SIGNATURE_REUSE_UNVALIDATED,
+                                d);
+        }
+
         /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */
         if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
                 /* Before trying to activate with unique name, we need to free crypt_device object.
@@ -3769,6 +3943,7 @@ static int verity_partition(
                                 verity,
                                 flags & ~DISSECT_IMAGE_VERITY_SHARE,
                                 policy_flags,
+                                mode,
                                 d);
         }
 
@@ -3799,6 +3974,37 @@ static void dissected_image_undo_decrypt(DissectedImage *m) {
         }
 }
 #endif
+
+static int dissected_image_check_verity_policy(const DissectedImage *m, const ImagePolicy *policy) {
+        assert(m);
+
+        /* The policy checks during dissection accept a partition that has a Verity hash partition, even if
+         * we never set up Verity for it. We don't set up Verity if no root hash is known, for example if
+         * $SYSTEMD_DISSECT_VERITY_GUESS=0 is set and the signature partition can't be used. Mounting the
+         * data partition directly would bypass a policy that only allows "verity" or "signed". */
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                const DissectedPartition *p = m->partitions + i;
+
+                if (!p->found || p->decrypted_node || partition_verity_hash_of(i) < 0)
+                        continue;
+
+                if (streq_ptr(p->fstype, "crypto_LUKS"))
+                        continue;
+
+                PartitionPolicyFlags f = image_policy_get_exhaustively(policy, i);
+                if (f < 0)
+                        return f;
+                if (f & (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED))
+                        continue;
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "Image policy requires Verity for the %s partition, but Verity is not set up, refusing.",
+                                       partition_designator_to_string(i));
+        }
+
+        return 0;
+}
 
 int dissected_image_decrypt(
                 DissectedImage *m,
@@ -3834,7 +4040,7 @@ int dissected_image_decrypt(
                 return -EINVAL;
 
         if (!m->encrypted && !m->verity_ready)
-                return 0;
+                return dissected_image_check_verity_policy(m, policy);
 
         r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
         if (r >= 0)
@@ -3866,7 +4072,7 @@ int dissected_image_decrypt(
                  * the verity device. */
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, d);
+                        r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, VERITY_SIGNATURE_DEFAULT, d);
                         if (r < 0)
                                 goto fail;
                 }
@@ -3881,6 +4087,10 @@ int dissected_image_decrypt(
                                 goto fail;
                 }
         }
+
+        r = dissected_image_check_verity_policy(m, policy);
+        if (r < 0)
+                goto fail;
 
         m->decrypted_image = TAKE_PTR(d);
         return 1;
@@ -4374,6 +4584,13 @@ int dissected_image_load_verity_sig_partition(
                         p->size,
                         &root_hash,
                         &root_hash_sig);
+        if (r == -EBADMSG) {
+                /* If the image policy requires a signature, dissected_image_decrypt() refuses the image,
+                 * because no signature is loaded. Otherwise dissected_image_guess_verity_roothash()
+                 * derives the root hash from the partition UUIDs. */
+                log_debug_errno(r, "Verity signature partition is invalid, ignoring.");
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -5458,7 +5675,6 @@ int mountfsd_mount_image_fd(
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_close_ int verity_data_fd = -EBADF;
         _cleanup_free_ char *ps = NULL;
-        const char *error_id;
         int r;
 
         assert(image_fd >= 0);
@@ -5538,7 +5754,8 @@ int mountfsd_mount_image_fd(
         }
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo_and_log(
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.MountFileSystem.MountImage",
                         &reply,
@@ -5556,7 +5773,23 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash_sig), "verityRootHashSignature", JSON_BUILD_IOVEC_BASE64(&verity->root_hash_sig)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
+        if (error_id) {
+                /* Return the same errors as dissected_image_decrypt(), so that callers can report them the
+                 * same way, whether they mount the image themselves or through mountfsd. */
+                if (streq(error_id, "io.systemd.MountFileSystem.KeyNotFound"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                               "mountfsd refused the image, because no trusted key validates its signature.");
+                if (streq(error_id, "io.systemd.MountFileSystem.DeniedByImagePolicy"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                               "mountfsd refused the image, because the image policy doesn't permit it.");
+
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
+
+                return log_error_errno(r, "Failed to issue MountImage() varlink call: %s", error_id);
+        }
 
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -5712,12 +5945,10 @@ int mountfsd_mount_directory_fd(
         }
 
         sd_json_variant *reply = NULL;
-        const char *error_id = NULL;
         r = varlink_callbo_and_log(
                         vl,
                         "io.systemd.MountFileSystem.MountDirectory",
                         &reply,
-                        &error_id,
                         SD_JSON_BUILD_PAIR_UNSIGNED("directoryFileDescriptor", 0),
                         SD_JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(1)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),

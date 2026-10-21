@@ -331,6 +331,13 @@
         <varname>root=dissect-force</varname>) are specified. (The policy will always be applied to the other
         auto-discoverable partition types.)</para>
 
+        <para>If the policy for the root or <filename>/usr/</filename> partition allows
+        <option>signed</option> but not <option>verity</option>, the generated
+        <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        unit uses the <option>root-hash-signature-required</option> option (see
+        <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>), so
+        the partition is only activated if the kernel or userspace validates its root hash signature.</para>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
