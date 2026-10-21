@@ -16,8 +16,10 @@ at_exit() {
     set +e
     systemctl stop fake-imds systemd-imdsd.socket
     ip link del dummy0
-    rm -f /run/credstore/firstboot.hostname /run/credstore/acredtest /run/systemd/system/systemd-imdsd@.service.d/50-env.conf
+    rm -f /run/credstore/firstboot.hostname /run/credstore/acredtest /run/systemd/system/systemd-imdsd@.service.d/50-env.conf /run/fake-imds-flaky
     rmdir /run/systemd/system/systemd-imdsd@.service.d
+    # cached negative entries would short-circuit the /flaky retry on a rerun
+    rm -rf /run/systemd/imds/cache/dummy0
     rm -rf "$WORK_DIR"
 }
 
@@ -79,6 +81,22 @@ done
 (! /usr/lib/systemd/systemd-imds --well-known=ssh-key 2>"$WORK_DIR/imds.err")
 cat "$WORK_DIR/imds.err"
 grep -F "Key not available." "$WORK_DIR/imds.err" >/dev/null
+
+# A request waiting for a retry finds a negative cache entry, which another request wrote in the meantime.
+# fake-imds answers /flaky with 503, so the first request keeps retrying. The second request runs like
+# another instance of the service (same user, capabilities, and cache directory), but with a header which
+# makes fake-imds answer 404, so it writes the negative cache entry. The first request never gets 404 from
+# the network, so KeyNotFound can only come from the cache.
+varlinkctl call --graceful=io.systemd.InstanceMetadata.KeyNotFound /run/systemd/io.systemd.InstanceMetadata io.systemd.InstanceMetadata.Get '{"key":"/flaky"}' >"$WORK_DIR/flaky.out" &
+FLAKY_PID=$!
+timeout 10 bash -c 'until test -e /run/fake-imds-flaky; do sleep 0.1; done'
+(! systemd-run --wait --pipe --quiet \
+               -p User=systemd-imds \
+               -p AmbientCapabilities="CAP_NET_ADMIN CAP_NET_BIND_SERVICE" \
+               -E RUNTIME_DIRECTORY=/run/systemd/imds \
+               $IMDSD --interface=dummy0 --extra-header="X-Fake-IMDS-Not-Found: 1" /flaky)
+wait "$FLAKY_PID"
+assert_eq "$(cat "$WORK_DIR/flaky.out")" "{}"
 
 /usr/lib/systemd/systemd-imds
 /usr/lib/systemd/systemd-imds --import 2>&1 | tee "$WORK_DIR/import.log"
