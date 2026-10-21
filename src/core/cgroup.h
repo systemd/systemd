@@ -427,6 +427,7 @@ int unit_get_cgroup_path_with_fallback(const Unit *u, char **ret);
 int unit_realize_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
+void cgroup_log_level_max_xattr_apply(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);
 void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime);
