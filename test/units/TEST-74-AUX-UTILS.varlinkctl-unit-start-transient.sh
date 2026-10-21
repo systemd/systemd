@@ -118,6 +118,20 @@ testcase_basic() {
     echo "$unsupported_service" | grep -F "context.Service.Restart"
 }
 
+testcase_dispatch_validation() {
+    setup
+
+    defer_transient_cleanup varlink-transient-bad-dispatch.service
+
+    # These inputs pass IDL validation but fail in the property dispatchers.
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"WorkingDirectory":{"path":"/tmp","home":true}}}}' \
+        "context.Exec.WorkingDirectory"
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"WorkingDirectory":{"path":"","missingOK":true}}}}' \
+        "context.Exec.WorkingDirectory.path"
+}
+
 testcase_notifications() {
     setup
 
@@ -180,6 +194,14 @@ testcase_exec_properties() {
         '{"context":{"ID":"varlink-transient-wd-home.service","Exec":{"WorkingDirectory":{"home":true}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
     systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
+
+    # An empty path resets the working directory, matching D-Bus.
+    defer_transient_cleanup varlink-transient-wd-empty.service
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-wd-empty.service","Exec":{"WorkingDirectory":{"path":""}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-empty.service; do sleep 0.5; done'
+    [[ -z $(systemctl show -P WorkingDirectory varlink-transient-wd-empty.service) ]]
+    systemctl cat varlink-transient-wd-empty.service | grep -Fx 'WorkingDirectory=' >/dev/null
 
     # Exec.StandardInput/StandardOutput/StandardError enum properties and Exec.TTYPath
     defer_transient_cleanup varlink-transient-stdio.service
@@ -918,11 +940,6 @@ testcase_exec_apply_error_paths() {
             '{"context":{"ID":"'"$unit"'","Exec":{"'"$field"'":[{"id":"first","value":"YWJj"},{"id":"bad/id","value":"YWJj"}]}}}' \
             "context.Exec.$field.id"
     done
-
-    defer_transient_cleanup varlink-transient-wd-conflict.service
-    expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-wd-conflict.service","Exec":{"WorkingDirectory":{"path":"/tmp","home":true}}}}' \
-        "context.Exec.WorkingDirectory"
 
     defer_transient_cleanup varlink-transient-wd-bad-nice.service
     expect_invalid_parameter \
