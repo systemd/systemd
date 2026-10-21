@@ -2409,7 +2409,6 @@ static bool ptybroker_compatible(void) {
                 !arg_timer_property &&
                 !arg_verbose &&
                 !arg_root_directory &&
-                arg_shell &&
                 arg_job_mode == JOB_FAIL &&
                 !arg_area &&
                 !arg_empower &&
