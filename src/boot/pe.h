@@ -62,6 +62,14 @@ EFI_STATUS pe_memory_locate_sections(
                 const char *const section_names[],
                 PeSectionVector sections[]);
 
+EFI_STATUS pe_buffer_locate_sections(
+                const void *buffer,
+                size_t size,
+                const char *const section_names[],
+                PeSectionVector sections[]);
+
+EFI_STATUS pe_buffer_has_signature(const void *buffer, size_t size, bool *ret);
+
 EFI_STATUS pe_kernel_info(
                 const void *base,
                 size_t base_len,

@@ -77,6 +77,7 @@ typedef struct PeImageDataDirectory {
 } _packed_ PeImageDataDirectory;
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+#define CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY 4
 
 typedef struct PeOptionalHeader {
         uint16_t Magic;
@@ -749,6 +750,77 @@ EFI_STATUS pe_memory_locate_sections(
                         size_in_memory,
                         sections);
 
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_buffer_locate_sections(
+                const void *buffer,
+                size_t size,
+                const char *const section_names[],
+                PeSectionVector sections[]) {
+
+        EFI_STATUS err;
+
+        assert(buffer);
+        assert(section_names);
+        assert(sections);
+
+        /* Like pe_memory_locate_sections(), but for a PE file as read from disk, i.e. not laid out in memory
+         * by the firmware. Callers hence must use the returned file_offset/file_size fields, which are
+         * validated against the size of the buffer. Sections that are selected by matching the running
+         * system (.dtbauto, .efifw) require the in-memory layout and are skipped, as the matcher does
+         * without a base address. */
+
+        const PeSectionHeader *section_table;
+        size_t n_section_table, size_in_memory;
+        err = pe_section_table_from_base(buffer, size, &section_table, &n_section_table, &size_in_memory);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        pe_locate_sections_internal(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* validate_base= */ 0,
+                        size_in_memory,
+                        /* device_table= */ NULL,
+                        /* device= */ NULL,
+                        sections);
+
+        /* The matcher validates the in-memory layout only, the file data has to be within the buffer too */
+        for (size_t i = 0; section_names[i]; i++)
+                if (PE_SECTION_VECTOR_IS_SET(sections + i) &&
+                    (sections[i].file_offset > size || sections[i].file_size > size - sections[i].file_offset))
+                        sections[i] = (PeSectionVector) {};
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_buffer_has_signature(const void *buffer, size_t size, bool *ret) {
+        EFI_STATUS err;
+
+        assert(buffer);
+        assert(ret);
+
+        /* Checks whether a PE file carries an Authenticode signature, i.e. whether its certificate table data
+         * directory entry is non-empty. verify_pe() already made sure the optional header covers the data
+         * directory entries up to and including the base relocation table, which comes after the
+         * certificate table. */
+
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        err = pe_headers_from_base(buffer, size, /* allow_compatibility= */ false, &dos, &pe);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        assert_cc(CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY < BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY);
+
+        const PeImageDataDirectory *d =
+                pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                pe->OptionalHeader.DataDirectory32 + CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY :
+                pe->OptionalHeader.DataDirectory64 + CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY;
+
+        *ret = d->Size > 0;
         return EFI_SUCCESS;
 }
 
