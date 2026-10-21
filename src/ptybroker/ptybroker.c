@@ -5,12 +5,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -36,6 +38,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "varlink-io.systemd.PTYBroker.h"
@@ -54,12 +57,112 @@ COMMAND(
 #define PSEUDO_TTY_MAX 1024U
 #define MONITOR_MAX 16U
 
+typedef struct UnitReference {
+        Manager *manager;
+        sd_bus *bus;
+        sd_event_source *event_source;
+} UnitReference;
+
+static void manager_schedule_idle_check(Manager *m);
+
+static UnitReference* unit_reference_free(UnitReference *ref) {
+        if (!ref)
+                return NULL;
+
+        if (ref->manager)
+                set_remove(ref->manager->unit_references, ref);
+
+        sd_event_source_disable_unref(ref->event_source);
+        sd_bus_flush_close_unref(ref->bus);
+        return mfree(ref);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitReference*, unit_reference_free);
+
+static int on_unit_reference_closed(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        UnitReference *ref = ASSERT_PTR(userdata);
+        Manager *m = ref->manager;
+
+        assert(s);
+        assert(fd >= 0);
+
+        unit_reference_free(ref);
+        manager_schedule_idle_check(m);
+        return 0;
+}
+
+static int acquire_unit_reference(Manager *m, const char *unit, int *ret_fd) {
+        _cleanup_(unit_reference_freep) UnitReference *ref = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        int r;
+
+        assert(m);
+        assert(unit);
+        assert(ret_fd);
+
+        ref = new0(UnitReference, 1);
+        if (!ref)
+                return log_oom();
+
+        /* Use a dedicated connection: closing it releases the reference, even if the PTY is already gone. */
+        if (m->scope == RUNTIME_SCOPE_SYSTEM)
+                r = sd_bus_open_system(&ref->bus);
+        else
+                r = sd_bus_open_user(&ref->bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to bus to reference shell unit: %m");
+
+        _cleanup_free_ char *path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return log_oom();
+
+        /* The unit object finder loads a pristine stub if necessary. Pin it before StartTransient(), so
+         * that even a shell that exits immediately cannot be collected before its result is read. */
+        r = sd_bus_call_method(ref->bus,
+                               "org.freedesktop.systemd1",
+                               path,
+                               "org.freedesktop.systemd1.Unit",
+                               "Ref",
+                               &error,
+                               /* ret_reply= */ NULL,
+                               /* types= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reference shell unit '%s': %s", unit, bus_error_message(&error, r));
+
+        if (pipe2(pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_error_errno(errno, "Failed to allocate unit reference pipe: %m");
+
+        r = sd_event_add_io(m->event, &ref->event_source, pipe_fds[0], EPOLLHUP, on_unit_reference_closed, ref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch unit reference pipe: %m");
+
+        r = sd_event_source_set_io_fd_own(ref->event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to take ownership of unit reference pipe: %m");
+        TAKE_FD(pipe_fds[0]);
+
+        r = set_ensure_put(&m->unit_references, &trivial_hash_ops, ref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register unit reference: %m");
+        ref->manager = m;
+
+        *ret_fd = TAKE_FD(pipe_fds[1]);
+        TAKE_PTR(ref);
+        return 0;
+}
+
 static Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
         hashmap_free(m->ptys);
         assert(!m->ptys_free_queue);
+
+        UnitReference *ref;
+        while ((ref = set_first(m->unit_references)))
+                unit_reference_free(ref);
+        set_free(m->unit_references);
 
         sd_varlink_server_unref(m->varlink_server);
         hashmap_free(m->polkit_registry);
@@ -188,7 +291,9 @@ static int start_shell(
                 char **command_line,
                 const char *executable,
                 bool via_shell,
-                int lightweight) {
+                int lightweight,
+                bool reference_unit,
+                int *ret_unit_reference_fd) {
 
         int r;
 
@@ -199,6 +304,7 @@ static int start_shell(
         assert(pty->backend_path);
         assert(!pty->unit);
         assert(!pty->start_shell_link);
+        assert(ret_unit_reference_fd);
 
         const char *d;
         _cleanup_free_ char *description = NULL;
@@ -320,6 +426,13 @@ static int start_shell(
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
+        _cleanup_close_ int unit_reference_fd = -EBADF;
+        if (reference_unit) {
+                r = acquire_unit_reference(m, unit, &unit_reference_fd);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_varlink_invokebo(
                         vl,
                         "io.systemd.Unit.StartTransient",
@@ -370,6 +483,7 @@ static int start_shell(
          * PTY's destruction) disposes of it. */
         pty->start_shell_link = TAKE_PTR(vl);
         pty->unit = TAKE_PTR(unit);
+        *ret_unit_reference_fd = TAKE_FD(unit_reference_fd);
 
         return 0;
 }
@@ -392,6 +506,7 @@ typedef struct AcquirePtyParameters {
         bool hang_up_on_disconnect;
         bool ignore_hangup;
         bool osc2811;
+        bool reference_unit;
         sd_json_variant *terminal_settings; /* no reference */
 } AcquirePtyParameters;
 
@@ -482,6 +597,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 { "hangUpOnDisconnect", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, hang_up_on_disconnect), 0                 },
                 { "ignoreHangup",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, ignore_hangup),         0                 },
                 { "osc2811",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, osc2811),               0                 },
+                { "referenceUnit",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, reference_unit),        0                 },
                 { "terminalSettings",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref,      voffsetof(p, terminal_settings),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -548,6 +664,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                         return sd_varlink_error_invalid_parameter_name(link, "viaShell");
                 if (p.lightweight >= 0)
                         return sd_varlink_error_invalid_parameter_name(link, "lightweight");
+                if (p.reference_unit)
+                        return sd_varlink_error_invalid_parameter_name(link, "referenceUnit");
         }
 
         /* Direct invocation without a command line would leave nothing to execute */
@@ -721,6 +839,9 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (hashmap_size(m->ptys) >= PSEUDO_TTY_MAX)
                 return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", NULL);
 
+        if (p.reference_unit && set_size(m->unit_references) >= PSEUDO_TTY_MAX)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyUnitReferences", NULL);
+
         _cleanup_(pseudo_tty_freep) PseudoTTY *pty = NULL;
         r = pseudo_tty_new(&pty);
         if (r < 0)
@@ -772,6 +893,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 TAKE_FD(pty->frontend_fd);
         }
 
+        _cleanup_close_ int unit_reference_fd = -EBADF;
         int backend_idx = -1;
         switch (pty->backend_type) {
 
@@ -803,7 +925,9 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                                 p.command_line,
                                 p.executable,
                                 p.via_shell != 0,
-                                p.lightweight);
+                                p.lightweight,
+                                p.reference_unit,
+                                &unit_reference_fd);
                 if (r < 0)
                         return r;
 
@@ -850,6 +974,14 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                         return log_error_errno(r, "Failed to enqueue pending output for monitor: %m");
         }
 
+        int unit_reference_idx = -1;
+        if (unit_reference_fd >= 0) {
+                unit_reference_idx = sd_varlink_push_fd(link, unit_reference_fd);
+                if (unit_reference_idx < 0)
+                        return log_error_errno(unit_reference_idx, "Failed to push unit reference fd to client: %m");
+                TAKE_FD(unit_reference_fd);
+        }
+
         /* Assemble the reply up-front. Note that the monitor and non-monitor cases need no separate variants
          * here: monitoring is refused for the 'take' frontend type above, hence frontend_idx is never set in
          * the monitor case, and the conditional pair simply remains absent. */
@@ -865,6 +997,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                         SD_JSON_BUILD_PAIR_CONDITION(backend_idx >= 0, "backendFileDescriptor", SD_JSON_BUILD_INTEGER(backend_idx)),
                         SD_JSON_BUILD_PAIR_STRING("backendPath", pty->backend_path),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit),
+                        SD_JSON_BUILD_PAIR_CONDITION(unit_reference_idx >= 0, "unitReferenceFileDescriptor", SD_JSON_BUILD_INTEGER(unit_reference_idx)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("terminalSettings", tsj));
         if (r < 0)
                 return r;
@@ -1521,13 +1654,12 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
-        /* "Idle" means that no Varlink client is currently connected *and* no PTYs are allocated anymore. We
-         * must check both: PTYs may outlive the connection that created them (e.g. for the 'take' frontend,
-         * where we hand the frontend fd to the client and drop the connection), so an absence of connections
-         * alone is not sufficient — that's also why we can't just use sd_varlink_server_set_exit_on_idle(). */
+        /* PTYs may outlive their Varlink connections, and unit references may outlive their PTYs. Check all
+         * three before exiting, as sd_varlink_server_set_exit_on_idle() would release references early. */
 
         return sd_varlink_server_current_connections(m->varlink_server) == 0 &&
-                hashmap_isempty(m->ptys);
+                hashmap_isempty(m->ptys) &&
+                set_isempty(m->unit_references);
 }
 
 static int on_exit_on_idle(sd_event_source *s, uint64_t usec, void *userdata) {
