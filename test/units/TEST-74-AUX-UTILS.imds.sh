@@ -133,3 +133,11 @@ assert_eq "$(cat "$WORK_DIR/flaky.out")" "{}"
 assert_eq "$(cat /run/credstore/firstboot.hostname)" "piff"
 assert_eq "$(cat /run/credstore/acredtest)" "avalue"
 test ! -e /run/credstore/ssh.authorized_keys.root
+
+# A failed public address lookup fails the import, like any other well-known key lookup. Use a key with a
+# value which is not an IP address.
+echo "Environment=SYSTEMD_IMDS_KEY_IPV4_PUBLIC=/hostname" >>/run/systemd/system/systemd-imdsd@.service.d/50-env.conf
+systemctl daemon-reload
+(! /usr/lib/systemd/systemd-imds --import 2>"$WORK_DIR/import.err")
+cat "$WORK_DIR/import.err"
+grep -F "Failed to parse IP address 'piff'" "$WORK_DIR/import.err" >/dev/null
