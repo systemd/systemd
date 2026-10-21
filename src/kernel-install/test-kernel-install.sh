@@ -110,6 +110,32 @@ test ! -e "$entry"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
+# Test devicetree file without trailing newline (issue #39881)
+test ! -e "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
+printf '%s' 'subdir/whatever.dtb' >"$D/sources/devicetree"
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -f "$entry"
+grep -qE '^devicetree .*/the-token/1.1.1/whatever.dtb' "$entry"
+grep -qE 'DTBDTB' "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
+"$kernel_install" -v remove 1.1.1
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
+
+# Empty and newline-only devicetree files, or one referencing a missing blob, are still errors
+for dt in '' $'\n' 'subdir/missing.dtb'; do
+    printf '%s' "$dt" >"$D/sources/devicetree"
+    ( ! "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd" 2>"$D/devicetree.err" )
+    if [[ "$dt" == subdir/* ]]; then
+        grep -qF "Error: could not find device tree blob '$dt'." "$D/devicetree.err"
+    else
+        grep -qF "Error: '$D/sources/devicetree' is empty or cannot be read." "$D/devicetree.err"
+    fi
+    test ! -e "$entry"
+    test ! -e "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
+    "$kernel_install" -v remove 1.1.1
+done
+echo 'subdir/whatever.dtb' >"$D/sources/devicetree"
+
 # Invoke kernel-install as installkernel
 ln -s --relative -v "$kernel_install" "$D/sources/installkernel"
 "$D/sources/installkernel" -v 1.1.2 "$D/sources/linux" System.map /somedirignored
@@ -141,6 +167,33 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
+
+# Same with a tries file without trailing newline (issue #39881)
+rm "$entry"
+printf '%s' '56' >"$D/sources/tries"
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -f "$entry"
+grep -qE '^version +1.1.1' "$entry"
+
+# Empty and malformed tries files are still refused, without touching the existing entry
+for tries in '' 'foo'; do
+    printf '%s' "$tries" >"$D/sources/tries"
+    ( ! "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd" 2>"$D/tries.err" )
+    grep -qF "$D/sources/tries does not contain an integer." "$D/tries.err"
+    test -f "$entry"
+    test ! -e "$BOOT_ROOT/loader/entries/the-token-1.1.1+$tries.conf"
+done
+echo '56' >"$D/sources/tries"
+
+# Empty and newline-only devicetree files are refused before the existing counted entry is removed
+cp "$entry" "$D/entry.orig"
+for dt in '' $'\n'; do
+    printf '%s' "$dt" >"$D/sources/devicetree"
+    ( ! "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd" 2>"$D/devicetree.err" )
+    grep -qF "Error: '$D/sources/devicetree' is empty or cannot be read." "$D/devicetree.err"
+    cmp "$D/entry.orig" "$entry"
+done
+echo 'subdir/whatever.dtb' >"$D/sources/devicetree"
 
 # Install UKI
 if [ -f "$ukify" ]; then
@@ -451,3 +504,40 @@ KERNEL_INSTALL_PLUGINS="$D/10-plugin-fail" "$kernel_install" -v add 1.1.1 "$D/so
 ret=$?
 set -e
 test "$ret" -eq "42"
+
+###########################################
+# tests for tries file handling in 90-uki-copy.install (issue #39881)
+###########################################
+mkdir -p "$D/uki-conf" "$D/uki-staging"
+echo 'fake UKI' >"$D/sources/fake.efi"
+uki_dir="$D/uki-boot/EFI/Linux"
+
+uki_copy_add() {
+    KERNEL_INSTALL_CONF_ROOT="$D/uki-conf" \
+    KERNEL_INSTALL_LAYOUT=uki \
+    KERNEL_INSTALL_VERBOSE=1 \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_BOOT_ROOT="$D/uki-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/uki-staging" \
+        "$uki_copy_install" add 2.0.0 "$D/uki-boot/the-token/2.0.0" "$D/sources/fake.efi"
+}
+
+# Tries file with trailing newline
+echo '56' >"$D/uki-conf/tries"
+uki_copy_add
+cmp "$D/sources/fake.efi" "$uki_dir/the-token-2.0.0+56.efi"
+
+# Tries file without trailing newline, replaces the previous UKI that has not booted yet
+printf '%s' '3' >"$D/uki-conf/tries"
+uki_copy_add
+cmp "$D/sources/fake.efi" "$uki_dir/the-token-2.0.0+3.efi"
+test ! -e "$uki_dir/the-token-2.0.0+56.efi"
+
+# Empty and malformed tries files are refused before anything is removed or installed
+for tries in '' 'foo'; do
+    printf '%s' "$tries" >"$D/uki-conf/tries"
+    ( ! uki_copy_add 2>"$D/uki-copy.err" )
+    grep -qF 'does not contain an integer.' "$D/uki-copy.err"
+    test -f "$uki_dir/the-token-2.0.0+3.efi"
+    test ! -e "$uki_dir/the-token-2.0.0+$tries.efi"
+done
