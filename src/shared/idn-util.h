@@ -14,7 +14,7 @@
 #include "dlfcn-util.h"
 
 extern DLSYM_PROTOTYPE(idn2_lookup_u8);
-extern const char *(*sym_idn2_strerror)(int rc) _const_;
+extern const char *(*sym_idn2_strerror)(int rc);
 extern DLSYM_PROTOTYPE(idn2_to_unicode_8z8z);
 #endif
 
