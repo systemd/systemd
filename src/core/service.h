@@ -219,6 +219,11 @@ typedef struct Service {
         ServiceResult live_mount_result;
         ServiceResult clean_result;
 
+        /* Monotonic timestamp of the most recent OOM kill in this unit's cgroup (by the kernel OOM
+         * killer or systemd-oomd), or 0 if we haven't seen any. Used to attribute process exits to
+         * OOM kills, see service_sigchld_event(). */
+        usec_t oom_kill_event_monotonic;
+
         bool main_pid_known:1;
         bool main_pid_alien:1;
         bool bus_name_good:1;

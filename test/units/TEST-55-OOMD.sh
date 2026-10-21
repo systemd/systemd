@@ -337,8 +337,9 @@ EOF
     chmod +x /tmp/script.sh
 
     (! systemd-run --wait --unit oom-kill -p OOMPolicy=continue /tmp/script.sh)
-    # With OOMPolicy=continue, we shouldn't get the oom-kill result.
-    assert_eq "$(systemctl show oom-kill -P Result)" "signal"
+    # Even with OOMPolicy=continue the exit is attributed to the kernel OOM kill, so that Restart=
+    # can react to it.
+    assert_eq "$(systemctl show oom-kill -P Result)" "oom-kill"
     # Check that OOMKills reports 2 individual processes killed.
     assert_eq "$(systemctl show oom-kill -P OOMKills)" "2"
     systemctl reset-failed

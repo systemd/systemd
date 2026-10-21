@@ -72,6 +72,12 @@
 
 #define SERVICE_BUS_NAME_GRACE_USEC (2 * USEC_PER_SEC)
 
+/* How long we consider an OOM kill in a unit's cgroup (by the kernel OOM killer or systemd-oomd)
+ * relevant for attributing process exits to it. The OOM notification is typically dispatched right
+ * before the SIGCHLD event of the affected processes, but allow for some leeway for the cases where
+ * it is dispatched later, e.g. via the cgroup empty notification. */
+#define OOM_KILL_EVENT_TIMEOUT_USEC (5 * USEC_PER_SEC)
+
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD]                       = UNIT_INACTIVE,
         [SERVICE_CONDITION]                  = UNIT_ACTIVATING,
@@ -2800,6 +2806,9 @@ static void service_enter_running(Service *s, ServiceResult f) {
 
         assert(s);
 
+        /* Any OOM kill we might have seen earlier is not relevant for future process exits anymore */
+        s->oom_kill_event_monotonic = 0;
+
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
@@ -4704,6 +4713,11 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
+        /* Remember when we last saw an OOM kill in this unit's cgroup (by the kernel OOM killer or
+         * systemd-oomd), so that the exit of the affected processes can be attributed to it, see
+         * service_sigchld_event(). */
+        s->oom_kill_event_monotonic = now(CLOCK_MONOTONIC);
+
         if (managed_oom)
                 log_unit_debug(u, "Process(es) of control group were killed by systemd-oomd.");
         else
@@ -4757,6 +4771,19 @@ static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         }
 }
 
+static bool service_oom_kill_event_recent(Service *s) {
+        usec_t n;
+
+        assert(s);
+
+        if (s->oom_kill_event_monotonic == 0)
+                return false;
+
+        n = now(CLOCK_MONOTONIC);
+        return n >= s->oom_kill_event_monotonic &&
+                n - s->oom_kill_event_monotonic < OOM_KILL_EVENT_TIMEOUT_USEC;
+}
+
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = ASSERT_PTR(SERVICE(u));
         bool notify_dbus = true;
@@ -4784,6 +4811,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 f = SERVICE_FAILURE_CORE_DUMP;
         else
                 assert_not_reached();
+
+        /* If the process died from a signal shortly after an OOM kill in this unit's cgroup, report
+         * the more specific 'oom-kill' result rather than 'signal', so that Restart= policies can
+         * react to it. Typically this happens within the same event loop iteration: the OOM
+         * notification is dispatched before the SIGCHLD event, see manager_dispatch_sigchld(). */
+        if (IN_SET(f, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP) &&
+            service_oom_kill_event_recent(s))
+                f = SERVICE_FAILURE_OOM_KILL;
 
         if (s->main_pid.pid == pid) {
                 /* Clean up the exec_fd event source. We want to do this here, not later in
