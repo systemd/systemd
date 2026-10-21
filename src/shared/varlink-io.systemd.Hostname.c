@@ -123,7 +123,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetTags,
                 SD_VARLINK_FIELD_COMMENT("If specified, the machine tag list is first reset to exactly these tags, before the 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead."),
                 SD_VARLINK_DEFINE_INPUT(set, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Machine tags to add to the list."),
+                SD_VARLINK_FIELD_COMMENT("Machine tags to add to the list. A key=value tag replaces any assignment of the same key already in the list."),
                 SD_VARLINK_DEFINE_INPUT(add, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Machine tags to remove from the list."),
                 SD_VARLINK_DEFINE_INPUT(remove, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
