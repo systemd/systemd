@@ -71,4 +71,14 @@ run0_test --pty /tmp/pty96-run0-shell
 systemctl stop systemd-ptybrokerd.socket systemd-ptybrokerd.service
 run0_test "" /tmp/pty96-run0-shell-dbus
 run0_test --pty /tmp/pty96-run0-shell-dbus
+[[ "$(run0 --pty echo -n foo)" == foo ]]
 systemctl start systemd-ptybrokerd.socket
+
+# Descriptions with control characters are incompatible with the broker, but work via D-Bus.
+for command in $'printf foo\nexit 37' $'printf foo; exit 37 # \001'; do
+    rc=0
+    output=$(run0 --pty sh -c "$command") || rc=$?
+    [[ "$rc" == 37 ]]
+    [[ "$output" == foo ]]
+done
+[[ "$(run0 --pty --description=$'tab\tdescription' echo -n foo)" == foo ]]

@@ -24,7 +24,6 @@ enum EndOfLine {
 };
 
 bool pseudo_tty_name_valid(const char *s);
-bool pseudo_tty_description_valid(const char *s);
 bool pseudo_tty_tag_valid(const char *s);
 
 EndOfLine end_of_line_from_char(char c);
