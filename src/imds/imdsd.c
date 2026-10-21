@@ -945,7 +945,10 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
                 (void) context_schedule_retry(c);
                 return 0;
         }
-        if (result != CURLE_OK) /* if getting the HTTP status didn't work, propagate a generic error */
+        /* For status >= 300 the transfer was aborted on purpose to skip reading the error page. The status
+         * checks below then report the actual error. For a successful reply it means a local failure, which
+         * the callback logged already. */
+        if (result == CURLE_WRITE_ERROR && status < 300)
                 return context_fail(c, SYNTHETIC_ERRNO(ENOTRECOVERABLE));
 
         if (slot == c->slot_token) {
