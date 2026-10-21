@@ -25,6 +25,17 @@ for order in path tasks cpu memory io; do
 done
 systemd-cgtop -p -t -c -m -i
 
+for i in / //.//./ //..//../; do
+    [[ "$(systemd-cgtop -1 "$i" | awk 'NR==1 { print $1 }')" == / ]]
+done
+for i in system.slice //./../system.slice//./; do
+    [[ "$(systemd-cgtop -1 "$i" | awk 'NR==1 { print $1 }')" == system.slice ]]
+done
+(! systemd-cgtop -1 .)
+(! systemd-cgtop -1 .//././/)
+(! systemd-cgtop -1 ..)
+(! systemd-cgtop -1 ./..///)
+
 (! systemd-cgtop --cpu=foo)
 (! systemd-cgtop --order=foo)
 (! systemd-cgtop --depth=-1)
