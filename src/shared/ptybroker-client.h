@@ -6,6 +6,8 @@
 
 #include "runtime-scope.h"
 
+#define PTY_BROKER_DESCRIPTION_MAX 255U
+
 int pty_broker_connect(RuntimeScope scope, sd_varlink **ret);
 int pty_broker_terminal_settings_to_json(sd_json_variant **ret);
 
