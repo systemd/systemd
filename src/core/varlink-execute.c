@@ -993,7 +993,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
 /* Write side of the Exec context for StartTransient. */
 
 typedef struct TransientWorkingDirectory {
-        const char *path;
+        char *path;
         bool home;
         bool missing_ok;
 } TransientWorkingDirectory;
@@ -1098,39 +1098,60 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
         free(p->bad_field);
+        free(p->working_directory.path);
 
         return mfree(p);
 }
 
-static int dispatch_const_string_empty_as_null(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        const char **s = ASSERT_PTR(userdata);
-        int r;
-
-        r = sd_json_dispatch_const_string(name, variant, flags, s);
-        if (r >= 0 && isempty(*s))
-                *s = NULL;
-        return r;
-}
-
 static int dispatch_transient_working_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        /* No equivalent D-Bus properties, so use varlink camelCase */
         static const sd_json_dispatch_field dispatch[] = {
-                { "path",      SD_JSON_VARIANT_STRING,  dispatch_const_string_empty_as_null, offsetof(TransientWorkingDirectory, path),       0 },
-                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, home),       0 },
-                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, missing_ok), 0 },
+                { "path",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(TransientWorkingDirectory, path),       0 },
+                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, home),       0 },
+                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, missing_ok), 0 },
                 {}
         };
 
         TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        TransientWorkingDirectory *wd = &p->working_directory;
         const char *bad_field = NULL;
         int r;
 
-        p->working_directory_set = true;
+        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, flags, wd, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+                return r;
+        }
 
-        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, flags, &p->working_directory, &bad_field);
-        if (r < 0 && bad_field)
-                varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
-        return r;
+        if (wd->home && wd->path)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "WorkingDirectory: 'home' and 'path' are mutually exclusive");
+        if (!wd->home && !wd->path)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "WorkingDirectory: must specify either 'home' or 'path'");
+
+        /* D-Bus keeps its parsed path NULL for empty input. Use the same reset value, since mount
+         * dependency setup treats a non-NULL empty string as a configured path. An empty path with
+         * missingOK corresponds to D-Bus "-", which must fail the absolute path check below. */
+        if (isempty(wd->path) && !wd->home && !wd->missing_ok) {
+                wd->path = mfree(wd->path);
+        } else if (!wd->home) {
+                if (!path_is_absolute(wd->path)) {
+                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: expects an absolute path");
+                }
+
+                path_simplify(wd->path);
+                if (!path_is_normalized(wd->path)) {
+                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: expects a normalized path");
+                }
+        }
+
+        p->working_directory_set = true;
+        return 0;
 }
 
 static int dispatch_transient_set_credential_array(
@@ -1316,39 +1337,14 @@ static int apply_exec_umask(Unit *u, ExecContext *c, TransientExecContextParamet
 }
 
 static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
-        _cleanup_free_ char *simplified = NULL;
-        TransientWorkingDirectory *wd = &p->working_directory;
-        int r;
-
         assert(p);
+        assert(!c->working_directory);
 
         if (!p->working_directory_set)
                 return 0;
 
-        if (wd->home && wd->path)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "WorkingDirectory: 'home' and 'path' are mutually exclusive");
-        if (!wd->home && !wd->path)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "WorkingDirectory: must specify either 'home' or 'path'");
-
-        if (!wd->home) {
-                if (!path_is_absolute(wd->path)) {
-                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "WorkingDirectory: expects an absolute path");
-                }
-                r = path_simplify_alloc(wd->path, &simplified);
-                if (r < 0)
-                        return r;
-                if (!path_is_normalized(simplified)) {
-                        varlink_propagate_bad_field("path", /* child_bad_field= */ NULL, &p->bad_field);
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "WorkingDirectory: expects a normalized path");
-                }
-        }
-
-        free_and_replace(c->working_directory, simplified);
+        TransientWorkingDirectory *wd = &p->working_directory;
+        c->working_directory = TAKE_PTR(wd->path);
         c->working_directory_home = wd->home;
         c->working_directory_missing_ok = wd->missing_ok;
 
@@ -1520,7 +1516,7 @@ typedef struct TransientExecProperty {
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 static const TransientExecProperty exec_properties[] = {
-        EXEC_PROPERTY_FULL         ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
+        EXEC_PROPERTY              ("WorkingDirectory",       working_directory,         SD_JSON_VARIANT_OBJECT),
         EXEC_PROPERTY_STRING       ("RootDirectory",          root_directory),
         EXEC_PROPERTY_STRING       ("RootImage",              root_image),
         EXEC_PROPERTY_STRING       ("RootMStack",             root_mstack),
