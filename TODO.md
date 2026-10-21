@@ -127,6 +127,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- sysupdate: add mode where download entries can be explicitly revoked or
+  implicitly by removing them from the listings, which would cause local
+  removal.
+
+- image version pin logic, which allows us to pin root fs, confext, sysext ddis
+  in their versions. make it a short string. then have a small service that at
+  boot generates a credential from it, and then issues bootctl link-auto to
+  create a boot menu entry from it that pins a working version. also add
+  ability to "unpin" versions after successful sysupdate download.
+
 - vmspawn: pass in a document as credential that carries host ids, signed by
   the TPM, so that we can determine relationshiops between VMs and bare metal
   in our mgmt UIs. On COCO use chip ids (amd) instead.
