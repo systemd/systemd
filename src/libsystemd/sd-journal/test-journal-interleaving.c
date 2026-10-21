@@ -22,6 +22,8 @@
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "journal-segmented.h"
+#include "journal-test-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "logs-show.h"
@@ -503,7 +505,7 @@ static void test_remove_unlinked_selected_file_one(bool truncate, bool refresh_s
                 if (refresh_stat)
                         ASSERT_ERROR(journal_file_fstat(f), EIDRM);
                 else {
-                        ASSERT_EQ(READ_NOW(f->header->state), STATE_OFFLINE);
+                        ASSERT_EQ(READ_NOW((f->segmented ? f->segmented->disk_header : f->header)->state), STATE_OFFLINE);
                         ASSERT_TRUE(mmap_cache_fd_got_sigbus(f->cache_fd));
                 }
         } else {
@@ -686,11 +688,11 @@ TEST(cursor_and_data_lifetime) {
         size_t size;
 
         mkdtemp_chdir_chattr("/var/tmp/journal-cursor-XXXXXX", &t);
-        ASSERT_OK(sd_id128_randomize(&seqnum_id));
         ASSERT_OK(sd_id128_randomize(&boot_id));
         ASSERT_NOT_NULL(dual_timestamp_now(&ts));
 
         f = test_open_internal("test.journal", 0);
+        seqnum_id = f->header->seqnum_id;
         ASSERT_OK(journal_file_append_entry(
                         f,
                         &ts,
@@ -1358,6 +1360,10 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
 }
 
 TEST(generic_array_bisect) {
+        /* Tests entry arrays, which segmented files do not have. */
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no entry arrays");
+
         for (size_t n = 1; n < 10; n++)
                 for (size_t m = 1; m <= n; m++)
                         test_generic_array_bisect_one(n, m);
@@ -1630,6 +1636,7 @@ static void append_test_entry_full(
                                         m,
                                         /* file_flags= */ JOURNAL_STRICT_ORDER,
                                         /* compress_threshold_bytes= */ UINT64_MAX,
+                                        seqnum_id,
                                         /* deferred_closes= */ NULL));
         }
 
@@ -1692,8 +1699,7 @@ TEST(seek_time) {
                                   &f));
 
         uint64_t seqnum = 1;
-        sd_id128_t seqnum_id, boot_id;
-        ASSERT_OK(sd_id128_randomize(&seqnum_id));
+        sd_id128_t seqnum_id = f->header->seqnum_id, boot_id;
         ASSERT_OK(sd_id128_randomize(&boot_id));
 
         dual_timestamp base, ts;
@@ -1964,4 +1970,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
+DEFINE_JOURNAL_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

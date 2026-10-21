@@ -11,6 +11,7 @@
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
+#include "journal-test-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "lookup3.h"
@@ -80,21 +81,24 @@ static void test_non_empty_one(void) {
         ASSERT_EQ(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
 
-        ASSERT_EQ(journal_file_find_data_object(f, test, strlen(test), &d, NULL), 1);
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, &o, NULL), 1);
+        if (!f->segmented)
+                ASSERT_EQ(journal_file_find_data_object(f, test, strlen(test), &d, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test, strlen(test), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
 
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, &o, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test, strlen(test), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_UP, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(3));
 
-        ASSERT_EQ(journal_file_find_data_object(f, test2, strlen(test2), &d, NULL), 1);
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, &o, NULL), 1);
+        if (!f->segmented)
+                ASSERT_EQ(journal_file_find_data_object(f, test2, strlen(test2), &d, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test2, strlen(test2), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_UP, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(2));
 
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, &o, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test2, strlen(test2), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(2));
 
-        ASSERT_OK_ZERO(journal_file_find_data_object(f, "quux", 4, &d, NULL));
+        if (!f->segmented)
+                ASSERT_OK_ZERO(journal_file_find_data_object(f, "quux", 4, &d, NULL));
 
         ASSERT_EQ(journal_file_move_to_entry_by_seqnum(f, 1, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
@@ -107,8 +111,8 @@ static void test_non_empty_one(void) {
 
         ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL));
 
-        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, NULL);
-        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, NULL);
+        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
+        journal_file_rotate(&f, m, JOURNAL_SEAL|JOURNAL_COMPRESS, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
 
         (void) journal_file_offline_close(f);
 
@@ -502,6 +506,9 @@ static void test_recover_truncated_linear_one(bool zeroed_tail) {
 }
 
 TEST(recover_truncated_linear) {
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no entry arrays");
+
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_recover_truncated_linear_one(/* zeroed_tail= */ false);
         test_recover_truncated_linear_one(/* zeroed_tail= */ true);
@@ -588,6 +595,9 @@ static void test_recover_truncated_indexed_one(bool zeroed_tail) {
 }
 
 TEST(recover_truncated_indexed) {
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no entry arrays");
+
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_recover_truncated_indexed_one(/* zeroed_tail= */ false);
         test_recover_truncated_indexed_one(/* zeroed_tail= */ true);
@@ -679,6 +689,9 @@ static void test_recover_truncated_hash_chain_one(bool field, bool zeroed_tail) 
 TEST(recover_truncated_hash_chain) {
         const char *compact;
 
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no hash tables");
+
         FOREACH_ARGUMENT(compact, "0", "1") {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
 
@@ -744,6 +757,9 @@ static void test_punch_holes_hash_chain_cycle_one(void) {
 TEST(punch_holes_hash_chain_cycle) {
         const char *compact;
 
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no hash tables");
+
         FOREACH_ARGUMENT(compact, "0", "1") {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
                 test_punch_holes_hash_chain_cycle_one();
@@ -799,6 +815,9 @@ static void test_enumerate_fields_hash_chain_cycle_one(void) {
 
 TEST(enumerate_fields_hash_chain_cycle) {
         const char *compact;
+
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no hash tables");
 
         FOREACH_ARGUMENT(compact, "0", "1") {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
@@ -858,6 +877,9 @@ static void test_enumerate_unique_field_list_cycle_one(void) {
 TEST(enumerate_unique_field_list_cycle) {
         const char *compact;
 
+        if (journal_test_segmented())
+                return (void) log_tests_skipped("Segmented files have no hash tables");
+
         FOREACH_ARGUMENT(compact, "0", "1") {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
                 test_enumerate_unique_field_list_cycle_one();
@@ -876,4 +898,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
+DEFINE_JOURNAL_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

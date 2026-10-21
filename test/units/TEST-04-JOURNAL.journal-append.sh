@@ -11,6 +11,13 @@ TEST_JOURNAL_APPEND=/usr/lib/systemd/tests/unit-tests/manual/test-journal-append
 
 [[ -x "$TEST_JOURNAL_APPEND" ]]
 
+# A segmented file with the entries that test-journal-append writes is smaller than 2K, so the offsets
+# below only fit classic files. Corrupt the first ~1024 bytes and random bytes of a segmented file here.
+SYSTEMD_LOG_LEVEL=info SYSTEMD_JOURNAL_SEGMENTED=1 "$TEST_JOURNAL_APPEND" --sequential --start-offset=0 --iterations=350 --iteration-step=3
+SYSTEMD_LOG_LEVEL=info SYSTEMD_JOURNAL_SEGMENTED=1 "$TEST_JOURNAL_APPEND" --iterations=25
+
+export SYSTEMD_JOURNAL_SEGMENTED=0
+
 # Corrupt the first ~1024 bytes, this should be pretty quick
 SYSTEMD_LOG_LEVEL=info "$TEST_JOURNAL_APPEND" --sequential --start-offset=0 --iterations=350 --iteration-step=3
 

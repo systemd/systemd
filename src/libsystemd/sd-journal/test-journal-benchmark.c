@@ -29,6 +29,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
+#include "journal-segmented.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -66,12 +67,14 @@ COMMAND(
 typedef struct Format {
         const char *name;
         const char *compact;
+        const char *segmented;
         bool nocow;
 } Format;
 
 static const Format formats[] = {
-        { "classic", "0", true },
-        { "compact", "1", true },
+        { "classic",     "0", "0", true  },
+        { "compact",     "1", "0", true  },
+        { "segmented", "1", "1", false },
 };
 
 typedef struct Entry {
@@ -127,6 +130,7 @@ typedef struct WriteResult {
         uint64_t append_p50_nsec;
         uint64_t append_p99_nsec;
         uint64_t append_max_nsec;
+        uint64_t n_indexes;
 } WriteResult;
 
 typedef struct ReadResult {
@@ -696,6 +700,9 @@ static int account_file(int fd, const struct stat *st, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal file: %m");
 
+        if (f->segmented)
+                result->n_indexes += f->segmented->n_indexes;
+
         f->close_fd = false;
         return 0;
 }
@@ -781,7 +788,7 @@ static int write_test(const Workload *w, const char *path, WriteResult *result) 
 
         heap_start = heap_in_use();
 
-        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, flags, 0640, UINT64_MAX, &metrics, mmap_cache, &f);
+        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, flags, 0640, UINT64_MAX, &metrics, mmap_cache, /* seqnum_id= */ NULL, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", fn);
 
@@ -824,7 +831,7 @@ static int write_test(const Workload *w, const char *path, WriteResult *result) 
                         if (rotate) {
                                 Tracker old = TAKE_GENERIC(tracker, Tracker, (Tracker) { .fd = -EBADF });
 
-                                r = journal_file_rotate(&f, mmap_cache, flags, UINT64_MAX, /* deferred_closes= */ NULL);
+                                r = journal_file_rotate(&f, mmap_cache, flags, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to rotate %s: %m", fn);
 
@@ -1257,11 +1264,12 @@ static int follow_writer(const Workload *w, const char *path, uint64_t n, int re
         ASSERT_NOT_NULL(mmap_cache = mmap_cache_new());
         ASSERT_NOT_NULL(fn = path_join(path, "system.journal"));
 
-        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, arg_compress ? JOURNAL_COMPRESS : 0, 0640, UINT64_MAX, &metrics, mmap_cache, &f);
+        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, arg_compress ? JOURNAL_COMPRESS : 0, 0640, UINT64_MAX, &metrics, mmap_cache, /* seqnum_id= */ NULL, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", fn);
 
-        /* Like journald, notify readers of changes at most every 250ms. */
+        /* Like journald, notify readers of changes at most every 250ms. The event loop runs after each
+         * entry, and then writes out segmented files right away, as journald does when it is idle. */
         ASSERT_OK(sd_event_default(&e));
         ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
 
@@ -1436,6 +1444,7 @@ static int run_format(const Workload *w, const Format *format, Report *report) {
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "1", /* overwrite= */ true));
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", format->compact, /* overwrite= */ true));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", format->segmented, /* overwrite= */ true));
 
                 if (arg_write) {
                         r = write_test(w, path, &child.write);
@@ -1622,6 +1631,7 @@ static void print_reports(const Workload *w, const Format **used, const Report *
                 WRITE_ROW("file size", file_bytes, U64_MB, "MiB");
                 WRITE_ROW("disk usage", disk_bytes, U64_MB, "MiB");
                 WRITE_ROW("extents", n_extents, 1, "");
+                WRITE_ROW("indexes", n_indexes, 1, "");
                 WRITE_ROW("append CPU time", append_cpu_nsec, NSEC_PER_MSEC, "ms");
                 WRITE_ROW("append latency, median", append_p50_nsec, NSEC_PER_USEC, "us");
                 WRITE_ROW("append latency, 99th percentile", append_p99_nsec, NSEC_PER_USEC, "us");
@@ -1785,7 +1795,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("formats", "LIST",
-                            "Comma-separated formats to compare: classic, compact (default: all)"):
+                            "Comma-separated formats to compare: classic, compact, segmented (default: all)"):
                         r = strv_split_and_extend(&arg_formats, opts.arg, ",", /* filter_duplicates= */ true);
                         if (r < 0)
                                 return log_oom();
@@ -1816,7 +1826,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("nocow", "BOOL",
-                            "Disable copy-on-write for the journal files (default: yes)"):
+                            "Disable copy-on-write for the journal files (default: auto, only for classic and compact)"):
                         r = parse_tristate_argument_with_auto("--nocow=", opts.arg, &arg_nocow);
                         if (r < 0)
                                 return r;

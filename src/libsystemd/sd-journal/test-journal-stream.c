@@ -183,6 +183,7 @@ int main(int argc, char *argv[]) {
 
         /* Run this test multiple times with different configurations of features. */
 
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "0", 1));
         run_test();
 
@@ -193,6 +194,9 @@ int main(int argc, char *argv[]) {
         run_test();
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        run_test();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
         run_test();
 
         return 0;

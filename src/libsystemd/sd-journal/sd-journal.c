@@ -34,7 +34,9 @@
 #include "path-util.h"
 #include "prioq.h"
 #include "replace-var.h"
+#include "random-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -55,7 +57,7 @@
 DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_journal, journal);
 
 static void remove_file_real(sd_journal *j, JournalFile *f);
-static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f);
+static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f, bool refresh);
 static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f);
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
@@ -227,6 +229,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(data, -EINVAL);
+
+        j->match_generation++;
 
         /* If the size is unspecified, assume it's a string. Note: 0 is the public value we document for
          * this, for historical reasons. Internally, we pretty widely started using SIZE_MAX for this in
@@ -440,6 +444,7 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
                 match_free(j->level0);
 
         j->level0 = j->level1 = j->level2 = NULL;
+        j->match_generation++;
 
         detach_location(j);
 }
@@ -570,8 +575,10 @@ static int journal_file_find_newest_for_boot_id(
 
                 prev = f;
 
-                /* Let's read the journal file's current timestamp once, before we return it, maybe it has changed. */
-                r = journal_file_read_tail_timestamp(j, f);
+                /* Let's read the journal file's current timestamp once, before we return it, maybe it has changed.
+                 * Do not refresh segmented files here: this runs while locations are compared, and a file
+                 * that was replaced would lose its location in the middle of that. */
+                r = journal_file_read_tail_timestamp(j, f, /* refresh= */ false);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
                 if (r == 0) {
@@ -796,6 +803,32 @@ static int seek_without_match(
         }
 }
 
+/* A segmented file evaluates the whole match expression at once and caches the result. The generation changes
+ * whenever the matches change, so that the file does not return a cached result for other matches. */
+typedef struct SeekExpression {
+        Match *m;
+        uint64_t generation;
+} SeekExpression;
+
+static int seek_expression(
+                JournalFile *f,
+                void *userdata,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        SeekExpression *e = ASSERT_PTR(userdata);
+
+        return segmented_seek(
+                        f, e->m,
+                        (const uint64_t[2]) { SEGMENTED_KEY_EXPRESSION, e->generation },
+                        where, boot_id, needle, direction,
+                        ret, ret_offset);
+}
+
 static int move_by_boot(
                 JournalFile *f,
                 direction_t direction,
@@ -981,6 +1014,15 @@ static int find_location_with_matches(
         assert(j);
         assert(f);
 
+        if (j->level0 && f->segmented) {
+                SeekExpression e = {
+                        .m = j->level0,
+                        .generation = j->match_generation,
+                };
+
+                return find_location_seek(j, f, direction, seek_expression, &e, ret, ret_offset);
+        }
+
         if (j->level0)
                 return find_location_for_match(j, j->level0, f, direction, ret, ret_offset);
 
@@ -1004,10 +1046,74 @@ static int next_with_matches(
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */
+
+        if (f->segmented)
+                return segmented_seek(
+                                f,
+                                j->level0,
+                                (const uint64_t[2]) { SEGMENTED_KEY_EXPRESSION, j->match_generation },
+                                JOURNAL_SEEK_OFFSET,
+                                SD_ID128_NULL,
+                                direction == DIRECTION_DOWN ? f->current_offset + 1
+                                                            : f->current_offset - 1,
+                                direction,
+                                ret, ret_offset);
+
         return next_for_match(j, j->level0, f,
                               direction == DIRECTION_DOWN ? f->current_offset + 1
                                                           : f->current_offset - 1,
                               direction, ret, ret_offset);
+}
+
+static int file_refresh(sd_journal *j, JournalFile *f, usec_t ts) {
+        int r;
+
+        assert(j);
+        assert(f);
+
+        if (FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE))
+                return 0;
+
+        r = journal_file_refresh(f, ts);
+        if (r == -ESTALE) {
+                /* The file shrank and was read anew, so positions in it are no longer valid. */
+                journal_file_reset_location(f);
+                f->newest_entry_offset = 0;
+                j->current_invalidate_counter++;
+                return 1;
+        }
+
+        return r;
+}
+
+static JournalFile* enumeration_file(sd_journal *j, JournalFile *f) {
+        /* Enumeration reads segmented files as of their last refresh */
+        if (f)
+                (void) file_refresh(j, f, now(CLOCK_BOOTTIME));
+
+        return f;
+}
+
+static int next_with_matches_refresh(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                usec_t ts,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        int r;
+
+        r = next_with_matches(j, f, direction, ret, ret_offset);
+        if (r != 0 || direction != DIRECTION_DOWN)
+                return r;
+
+        /* End of the file as last seen, look for entries appended since. */
+        r = file_refresh(j, f, ts);
+        if (r <= 0)
+                return r;
+
+        return next_with_matches(j, f, direction, ret, ret_offset);
 }
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, usec_t ts) {
@@ -1018,12 +1124,18 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
+        if (direction == DIRECTION_DOWN && f->location_type == LOCATION_TAIL) {
+                r = file_refresh(j, f, ts);
+                if (r < 0)
+                        return r;
+        }
+
         /* Rate-limit tail timestamp refreshes during iteration. Calling this unconditionally is
          * O(N x files) volatile mmap overhead that makes large 'journalctl -n N' queries unusably
          * slow. Periodic refresh keeps cross-boot ordering reasonably fresh and provides a fallback
          * for any missed inotify events. */
         if (ratelimit_below_at(&f->tail_timestamp_ratelimit, ts))
-                (void) journal_file_read_tail_timestamp(j, f);
+                (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -1041,13 +1153,18 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                  * iteration and the current location already points to a
                  * candidate entry. */
                 if (f->location_type != LOCATION_SEEK) {
-                        r = next_with_matches(j, f, direction, &c, &cp);
+                        r = next_with_matches_refresh(j, f, direction, ts, &c, &cp);
                         if (r <= 0)
                                 return r;
 
                         journal_file_save_location(f, c, cp);
                 }
         } else {
+                /* The seek may be meant for entries appended since the file was last refreshed */
+                r = file_refresh(j, f, ts);
+                if (r < 0)
+                        return r;
+
                 r = find_location_with_matches(j, f, direction, &c, &cp);
                 /* LOCATION_SEEK specified to j->current_location.type here means that this is called first
                  * after sd_journal_seek_monotonic_usec() or friends was called. In that case, this file may
@@ -1084,7 +1201,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (found)
                         return 1;
 
-                r = next_with_matches(j, f, direction, &c, &cp);
+                r = next_with_matches_refresh(j, f, direction, ts, &c, &cp);
                 if (r <= 0)
                         return r;
 
@@ -1696,7 +1813,11 @@ static int add_any_file(
                                  * which are gone. */
 
                                 f->last_seen_generation = j->generation;
-                                (void) journal_file_read_tail_timestamp(j, f);
+
+                                /* This may be due to an inotify event, so skip the refresh rate limit. */
+                                journal_file_request_refresh(f);
+
+                                (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
                                 return 0;
                         }
 
@@ -1737,7 +1858,7 @@ static int add_any_file(
 
         track_file_disposition(j, f);
         check_network(j, f->fd);
-        (void) journal_file_read_tail_timestamp(j, f);
+        (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
 
         j->current_invalidate_counter++;
 
@@ -1850,6 +1971,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                 /* Jump to the next unique_file or NULL if that one was last */
                 j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
                 j->unique_offset = 0;
+                j->unique_cursor = (SegmentedCursor) {};
                 if (!j->unique_file)
                         j->unique_file_lost = true;
         }
@@ -1857,6 +1979,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         if (j->fields_file == f) {
                 j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
                 j->fields_offset = 0;
+                j->fields_cursor = (SegmentedCursor) {};
                 if (!j->fields_file)
                         j->fields_file_lost = true;
         }
@@ -2632,6 +2755,8 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
+        set_free(j->unique_seen);
+        set_free(j->fields_seen);
         free(j);
 }
 
@@ -2676,7 +2801,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, uint64_t
         return -ENOENT;
 }
 
-static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
+static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f, bool refresh) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
         ObjectType type;
@@ -2691,6 +2816,12 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
 
         if (FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE) && f->newest_entry_offset != 0)
                 return 0; /* We have already read the file, and we assume that the file is immutable. */
+
+        if (refresh) {
+                r = file_refresh(j, f, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
 
         if (f->header->state == f->newest_state &&
             f->header->state == STATE_ARCHIVED &&
@@ -3470,9 +3601,54 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes) {
         return 0;
 }
 
+static bool journal_has_segmented(sd_journal *j) {
+        JournalFile *f;
+
+        assert(j);
+
+        ORDERED_HASHMAP_FOREACH(f, j->files)
+                if (f->segmented)
+                        return true;
+
+        return false;
+}
+
+static int journal_seen(sd_journal *j, Set **seen, const void *data, size_t size) {
+        _cleanup_free_ sd_id128_t *k = NULL;
+        int r;
+
+        assert(j);
+        assert(seen);
+
+        /* Returns > 0 if this was returned before. */
+
+        if (!j->seen_key_set) {
+                random_bytes(j->seen_key, sizeof(j->seen_key));
+                j->seen_key_set = true;
+        }
+
+        k = new(sd_id128_t, 1);
+        if (!k)
+                return -ENOMEM;
+
+        *k = (sd_id128_t) {
+                .qwords = {
+                        siphash24(data, size, j->seen_key),
+                        siphash24(data, size, j->seen_key + 16),
+                },
+        };
+
+        r = set_ensure_consume(seen, &id128_hash_ops_free, TAKE_PTR(k));
+        if (r < 0)
+                return r;
+
+        return r == 0;
+}
+
 static int journal_seen_before(
                 sd_journal *j,
                 JournalFile *current,
+                Set **seen,
                 const void *data,
                 size_t size,
                 int (*find)(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset)) {
@@ -3480,9 +3656,24 @@ static int journal_seen_before(
         JournalFile *of;
         int r;
 
+        assert(seen);
+
+        /* Returns > 0 if the value was returned before. Segmented files may return a value more than once
+         * and cannot look one up cheaply, hence the set of what was returned covers them. */
+
+        /* Also once the last segmented file is gone, the set covers what was returned from it */
+        if (*seen || journal_has_segmented(j)) {
+                r = journal_seen(j, seen, data, size);
+                if (r != 0)
+                        return r;
+        }
+
         ORDERED_HASHMAP_FOREACH(of, j->files) {
                 if (of == current)
                         break;
+
+                if (of->segmented)
+                        continue;
 
                 /* Skip this file it didn't have any fields indexed */
                 if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
@@ -3520,6 +3711,9 @@ static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, s
 
         assert(ret_data);
         assert(ret_size);
+
+        if (f->segmented)
+                return segmented_enumerate_unique(f, j->unique_field, k, j->data_threshold, &j->unique_cursor, ret_data, ret_size);
 
         /* Proceed to next data object in the field's linked list */
         if (j->unique_offset == 0) {
@@ -3577,11 +3771,13 @@ _public_ int sd_journal_enumerate_unique(
                 if (j->unique_file_lost)
                         return 0;
 
-                j->unique_file = ordered_hashmap_first(j->files);
+                j->unique_file = enumeration_file(j, ordered_hashmap_first(j->files));
                 if (!j->unique_file)
                         return 0;
 
                 j->unique_offset = 0;
+                j->unique_cursor = (SegmentedCursor) {};
+                j->unique_seen = set_free(j->unique_seen); /* Starting over returns everything again */
         }
 
         for (;;) {
@@ -3594,17 +3790,16 @@ _public_ int sd_journal_enumerate_unique(
                         return r;
                 if (r == 0) {
                         /* We reached the end of the list? Then start again, with the next file */
-                        j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
+                        j->unique_file = enumeration_file(j, ordered_hashmap_next(j->files, j->unique_file->path));
                         j->unique_offset = 0;
+                        j->unique_cursor = (SegmentedCursor) {};
                         if (!j->unique_file)
                                 return 0;
 
                         continue;
                 }
 
-                /* OK, now let's see if we already returned this data object by checking if it exists in the
-                 * earlier traversed files. */
-                r = journal_seen_before(j, j->unique_file, odata, ol, journal_file_find_data_object);
+                r = journal_seen_before(j, j->unique_file, &j->unique_seen, odata, ol, journal_file_find_data_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3637,6 +3832,8 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file = NULL;
         j->unique_offset = 0;
         j->unique_file_lost = false;
+        j->unique_cursor = (SegmentedCursor) {};
+        j->unique_seen = set_free(j->unique_seen);
 }
 
 static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret_size) {
@@ -3646,6 +3843,9 @@ static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret
 
         assert(ret_name);
         assert(ret_size);
+
+        if (f->segmented)
+                return segmented_enumerate_fields(f, &j->fields_cursor, ret_name, ret_size);
 
         for (;;) {
                 if (j->fields_offset == 0) {
@@ -3714,12 +3914,14 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 if (j->fields_file_lost)
                         return 0;
 
-                j->fields_file = ordered_hashmap_first(j->files);
+                j->fields_file = enumeration_file(j, ordered_hashmap_first(j->files));
                 if (!j->fields_file)
                         return 0;
 
                 j->fields_hash_table_index = 0;
                 j->fields_offset = 0;
+                j->fields_cursor = (SegmentedCursor) {};
+                j->fields_seen = set_free(j->fields_seen); /* Starting over returns everything again */
         }
 
         for (;;) {
@@ -3731,9 +3933,10 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                         return r;
                 if (r == 0) {
                         /* Proceed with next file */
-                        j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
+                        j->fields_file = enumeration_file(j, ordered_hashmap_next(j->files, j->fields_file->path));
                         j->fields_offset = 0;
                         j->fields_hash_table_index = 0;
+                        j->fields_cursor = (SegmentedCursor) {};
                         if (!j->fields_file) {
                                 *ret = NULL;
                                 return 0;
@@ -3743,7 +3946,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 }
 
                 /* Let's see if we already returned this field name before. */
-                r = journal_seen_before(j, j->fields_file, name, sz, journal_file_find_field_object);
+                r = journal_seen_before(j, j->fields_file, &j->fields_seen, name, sz, journal_file_find_field_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3778,6 +3981,8 @@ _public_ void sd_journal_restart_fields(sd_journal *j) {
         j->fields_hash_table_index = 0;
         j->fields_offset = 0;
         j->fields_file_lost = false;
+        j->fields_cursor = (SegmentedCursor) {};
+        j->fields_seen = set_free(j->fields_seen);
 }
 
 _public_ int sd_journal_reliable_fd(sd_journal *j) {
