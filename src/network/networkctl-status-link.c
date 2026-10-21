@@ -335,6 +335,11 @@ static int link_status_one(
         if (r < 0)
                 return table_log_add_error(r);
 
+        r = table_add_string_line(table, "Configuring",
+                                  link_configuring_reason_message_to_string(info->configuring_reason));
+        if (r < 0)
+                return r;
+
         r = table_add_many(table,
                            TABLE_FIELD, "Online state",
                            TABLE_STRING, online_state ?: "unknown",
