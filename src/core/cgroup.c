@@ -937,6 +937,10 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
 static void cgroup_survive_xattr_apply(Unit *u) {
         assert(u);
 
+        /* SurviveFinalKillSignal= is a system-only unit property */
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
         if (u->survive_final_kill_signal)
                 unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
         else
@@ -946,14 +950,9 @@ static void cgroup_survive_xattr_apply(Unit *u) {
 static void cgroup_xattr_apply(Unit *u) {
         assert(u);
 
-        /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
         cgroup_invocation_id_xattr_apply(u);
         cgroup_delegate_xattr_apply(u);
         cgroup_survive_xattr_apply(u);
