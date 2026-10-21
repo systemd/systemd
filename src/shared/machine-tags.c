@@ -238,6 +238,28 @@ static int tags_hashmap_to_strv(Hashmap *h, char ***ret) {
         return 0;
 }
 
+int machine_tags_edit(char* const *base, char* const *add, char* const *remove, char ***ret) {
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        int r;
+
+        r = tags_make_hashmap(base, &h);
+        if (r < 0) {
+                assert(r == -ENOMEM);
+                return log_oom();
+        }
+
+        STRV_FOREACH(i, add) {
+                r = tags_add(&h, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(i, remove)
+                tags_remove_matching(h, *i);
+
+        return tags_hashmap_to_strv(h, ret);
+}
+
 static int apply_conf_file(ConfFile *c, Hashmap **h) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;

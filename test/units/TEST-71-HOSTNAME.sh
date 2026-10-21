@@ -469,6 +469,13 @@ testcase_tags() {
     hostnamectl tags -- -nonexistent
     assert_eq "$(hostnamectl tags)" "alpha:beta:quux"
 
+    # Adding an assignment replaces an existing value of the same key, but leaves bare tags alone.
+    hostnamectl tags foo foo=a
+    hostnamectl tags +foo=b
+    assert_eq "$(hostnamectl tags)" "foo:foo=b"
+    grep -x "TAGS=foo:foo=b" /etc/machine-info >/dev/null
+    hostnamectl tags alpha:beta:quux
+
     # Plain and prefixed arguments may not be mixed.
     (! hostnamectl tags foo +bar)
     (! hostnamectl tags +bar foo)
@@ -497,6 +504,11 @@ testcase_tags() {
     assert_eq "$(hostnamectl tags)" "aaa:bbb"
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"remove":["aaa"]}'
     assert_eq "$(hostnamectl tags)" "bbb"
+    # An added assignment replaces the value from 'set' for the same key.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"set":["k=1","bbb"],"add":["k=2"]}'
+    assert_eq "$(hostnamectl tags)" "bbb:k=2"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["bbb"]}'
     # Invalid tags are refused.
     (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
 
