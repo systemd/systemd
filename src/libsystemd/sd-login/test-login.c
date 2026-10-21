@@ -45,7 +45,8 @@ TEST(login) {
                 *display = NULL, *remote_user = NULL, *remote_host = NULL,
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
-                *unit = NULL, *user_unit = NULL, *slice = NULL;
+                *unit = NULL, *user_unit = NULL, *slice = NULL,
+                *unit_cgroup = NULL, *user_unit_cgroup = NULL;
         _cleanup_close_ int pidfd = -EBADF;
         int r;
         uid_t u, u2 = UID_INVALID;
@@ -55,8 +56,16 @@ TEST(login) {
         log_info("sd_pid_get_unit(0, …) → %s / \"%s\"", e(r), strnull(unit));
         assert_se(IN_SET(r, 0, -ENODATA));
 
+        r = sd_pid_get_unit_cgroup(0, &unit_cgroup);
+        log_info("sd_pid_get_unit_cgroup(0, …) → %s / \"%s\"", e(r), strnull(unit_cgroup));
+        assert_se(IN_SET(r, 0, -ENODATA));
+
         r = sd_pid_get_user_unit(0, &user_unit);
         log_info("sd_pid_get_user_unit(0, …) → %s / \"%s\"", e(r), strnull(user_unit));
+        assert_se(IN_SET(r, 0, -ENODATA));
+
+        r = sd_pid_get_user_unit_cgroup(0, &user_unit_cgroup);
+        log_info("sd_pid_get_user_unit_cgroup(0, …) → %s / \"%s\"", e(r), strnull(user_unit_cgroup));
         assert_se(IN_SET(r, 0, -ENODATA));
 
         /* Coverage for https://github.com/systemd/systemd/issues/39949 */
@@ -80,14 +89,23 @@ TEST(login) {
         pidfd = pidfd_open(getpid_cached(), 0);
         if (pidfd >= 0) {
                 _cleanup_free_ char *cgroup2 = NULL, *session2 = NULL,
-                        *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL;
+                        *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL,
+                        *unit_cgroup2 = NULL, *user_unit_cgroup2 = NULL;
 
                 r = sd_pidfd_get_unit(pidfd, &unit2);
                 log_info("sd_pidfd_get_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(unit2));
                 assert_se(IN_SET(r, 0, -ENODATA));
 
+                r = sd_pidfd_get_unit_cgroup(pidfd, &unit_cgroup2);
+                log_info("sd_pidfd_get_unit_cgroup(pidfd, …) → %s / \"%s\"", e(r), strnull(unit_cgroup2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
                 r = sd_pidfd_get_user_unit(pidfd, &user_unit2);
                 log_info("sd_pidfd_get_user_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(user_unit2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_user_unit_cgroup(pidfd, &user_unit_cgroup2);
+                log_info("sd_pidfd_get_user_unit_cgroup(pidfd, …) → %s / \"%s\"", e(r), strnull(user_unit_cgroup2));
                 assert_se(IN_SET(r, 0, -ENODATA));
 
                 r = sd_pidfd_get_slice(pidfd, &slice2);
