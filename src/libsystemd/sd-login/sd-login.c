@@ -124,6 +124,38 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup) {
         return 0;
 }
 
+_public_ int sd_pid_get_unit_cgroup(pid_t pid, char **ret_cgroup) {
+        int r;
+
+        assert_return(pid >= 0, -EINVAL);
+
+        _cleanup_free_ char *c = NULL;
+        r = cg_pid_get_unit_path(pid, &c);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(c);
+
+        return 0;
+}
+
+_public_ int sd_pid_get_user_unit_cgroup(pid_t pid, char **ret_cgroup) {
+        int r;
+
+        assert_return(pid >= 0, -EINVAL);
+
+        _cleanup_free_ char *c = NULL;
+        r = cg_pid_get_user_unit_path(pid, &c);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(c);
+
+        return 0;
+}
+
 _public_ int sd_pidfd_get_session(int pidfd, char **ret_session) {
         _cleanup_free_ char *session = NULL;
         pid_t pid;
@@ -316,6 +348,54 @@ _public_ int sd_pidfd_get_cgroup(int pidfd, char **ret_cgroup) {
         return 0;
 }
 
+_public_ int sd_pidfd_get_unit_cgroup(int pidfd, char **ret_cgroup) {
+        _cleanup_free_ char *cgroup = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_unit_cgroup(pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(cgroup);
+        return 0;
+}
+
+_public_ int sd_pidfd_get_user_unit_cgroup(int pidfd, char **ret_cgroup) {
+        _cleanup_free_ char *cgroup = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_user_unit_cgroup(pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(cgroup);
+        return 0;
+}
+
 _public_ int sd_peer_get_session(int fd, char **ret_session) {
         int r;
 
@@ -434,6 +514,46 @@ _public_ int sd_peer_get_cgroup(int fd, char **ret_cgroup) {
                 *ret_cgroup = TAKE_PTR(c);
         }
 
+        return 0;
+}
+
+_public_ int sd_peer_get_unit_cgroup(int fd, char **ret_cgroup) {
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *c = NULL;
+        r = cg_pidref_get_unit_path(&pidref, &c);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(c);
+        return 0;
+}
+
+_public_ int sd_peer_get_user_unit_cgroup(int fd, char **ret_cgroup) {
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *c = NULL;
+        r = cg_pidref_get_user_unit_path(&pidref, &c);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(c);
         return 0;
 }
 

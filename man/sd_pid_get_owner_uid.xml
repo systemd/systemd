@@ -25,6 +25,8 @@
     <refname>sd_pid_get_slice</refname>
     <refname>sd_pid_get_user_slice</refname>
     <refname>sd_pid_get_cgroup</refname>
+    <refname>sd_pid_get_unit_cgroup</refname>
+    <refname>sd_pid_get_user_unit_cgroup</refname>
     <refname>sd_pidfd_get_owner_uid</refname>
     <refname>sd_pidfd_get_session</refname>
     <refname>sd_pidfd_get_user_unit</refname>
@@ -33,6 +35,8 @@
     <refname>sd_pidfd_get_slice</refname>
     <refname>sd_pidfd_get_user_slice</refname>
     <refname>sd_pidfd_get_cgroup</refname>
+    <refname>sd_pidfd_get_unit_cgroup</refname>
+    <refname>sd_pidfd_get_user_unit_cgroup</refname>
     <refname>sd_peer_get_owner_uid</refname>
     <refname>sd_peer_get_session</refname>
     <refname>sd_peer_get_user_unit</refname>
@@ -41,6 +45,8 @@
     <refname>sd_peer_get_slice</refname>
     <refname>sd_peer_get_user_slice</refname>
     <refname>sd_peer_get_cgroup</refname>
+    <refname>sd_peer_get_unit_cgroup</refname>
+    <refname>sd_peer_get_user_unit_cgroup</refname>
     <refpurpose>Determine the owner uid of the user unit or session,
     or the session, user unit, system unit, container/VM or slice that
     a specific PID or socket peer belongs to</refpurpose>
@@ -99,6 +105,18 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_pid_get_unit_cgroup</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pid_get_user_unit_cgroup</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_pidfd_get_owner_uid</function></funcdef>
         <paramdef>int <parameter>pidfd</parameter></paramdef>
         <paramdef>uid_t *<parameter>uid</parameter></paramdef>
@@ -147,6 +165,18 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_unit_cgroup</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_user_unit_cgroup</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_peer_get_owner_uid</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>uid_t *<parameter>uid</parameter></paramdef>
@@ -190,6 +220,18 @@
 
       <funcprototype>
         <funcdef>int <function>sd_peer_get_cgroup</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_peer_get_unit_cgroup</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_peer_get_user_unit_cgroup</function></funcdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
         <paramdef>char **<parameter>cgroup</parameter></paramdef>
       </funcprototype>
@@ -266,7 +308,17 @@
     <para><function>sd_pid_get_cgroup()</function> returns the control group path of the specified process,
     relative to the root of the hierarchy. Returns the path without trailing slash, except for processes
     located in the root control group, where "/" is returned. To find the actual control group path
-    in the file system, the returned path needs to be prefixed with <filename>/sys/fs/cgroup/</filename>.</para>
+    in the file system, the returned path needs to be prefixed with <filename>/sys/fs/cgroup/</filename>.
+    The returned string needs to be freed with the libc
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call after use.</para>
+
+    <para><function>sd_pid_get_unit_cgroup()</function> is like <function>sd_pid_get_cgroup()</function>,
+    but returns the control group path of the systemd system unit that contains the process. If the process
+    is not part of a systemd unit, then this function fails with <constant>-ENODATA</constant>.</para>
+
+    <para><function>sd_pid_get_user_unit_cgroup()</function> is like <function>sd_pid_get_unit_cgroup()</function>,
+    but operates on systemd user units (as managed by the user's systemd instance).</para>
 
     <para>If the <varname>pid</varname> parameter of any of these
     functions is passed as 0, the operation is executed for the
@@ -278,12 +330,14 @@
     <function>sd_pidfd_get_unit()</function>,
     <function>sd_pidfd_get_machine_name()</function>,
     <function>sd_pidfd_get_slice()</function>,
-    <function>sd_pidfd_get_user_slice()</function> and
-    <function>sd_pidfd_get_cgroup()</function> calls operate similarly to their PID counterparts, but accept a
-    <constant>PIDFD</constant> instead of a <constant>PID</constant>, which means they are not subject to recycle
-    race conditions as the process is pinned by the file descriptor during the whole duration of the invocation.
-    Note that these require a kernel that supports <constant>PIDFD</constant>. A suitable file descriptor may be
-    acquired via
+    <function>sd_pidfd_get_user_slice()</function>,
+    <function>sd_pidfd_get_cgroup()</function>,
+    <function>sd_pidfd_get_unit_cgroup()</function>, and
+    <function>sd_pidfd_get_user_unit_cgroup()</function>, calls operate similarly to their PID counterparts,
+    but accept a <constant>PIDFD</constant> instead of a <constant>PID</constant>, which means they are not
+    subject to recycle race conditions as the process is pinned by the file descriptor during the whole
+    duration of the invocation. Note that these require a kernel that supports <constant>PIDFD</constant>.
+    A suitable file descriptor may be acquired via
     <citerefentry project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
 
     <para>The <function>sd_peer_get_owner_uid()</function>,
@@ -292,10 +346,12 @@
     <function>sd_peer_get_unit()</function>,
     <function>sd_peer_get_machine_name()</function>,
     <function>sd_peer_get_slice()</function>,
-    <function>sd_peer_get_user_slice()</function> and
-    <function>sd_peer_get_cgroup()</function> calls operate similarly to their PID counterparts, but accept a
-    connected <constant>AF_UNIX</constant> socket and retrieve information about the connected peer process.
-    Note that these fields are retrieved via <filename>/proc/</filename>, and hence are not suitable for
+    <function>sd_peer_get_user_slice()</function>,
+    <function>sd_peer_get_cgroup()</function>,
+    <function>sd_peer_get_unit_cgroup()</function>, and
+    <function>sd_peer_get_user_unit_cgroup()</function> calls operate similarly to their PID counterparts, but
+    accept a connected <constant>AF_UNIX</constant> socket and retrieve information about the connected peer
+    process. Note that these fields are retrieved via <filename>/proc/</filename>, and hence are not suitable for
     authorization purposes, as they are subject to races.</para>
   </refsect1>
 
@@ -386,6 +442,12 @@
     <function>sd_pidfd_get_slice()</function>,
     <function>sd_pidfd_get_user_slice()</function>, and
     <function>sd_pidfd_get_cgroup()</function> were added in version 253.</para>
+    <para><function>sd_pid_get_unit_cgroup()</function>,
+    <function>sd_pid_get_user_unit_cgroup()</function>,
+    <function>sd_pidfd_get_unit_cgroup()</function>,
+    <function>sd_pidfd_get_user_unit_cgroup()</function>,
+    <function>sd_peer_get_unit_cgroup()</function>, and
+    <function>sd_peer_get_user_unit_cgroup()</function> were added in version 263.</para>
   </refsect1>
 
   <refsect1>
