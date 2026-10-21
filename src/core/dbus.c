@@ -844,6 +844,12 @@ static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_b
                                "Failed to query API bus instance ID%s: %s",
                                subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring",
                                bus_error_message(e, r));
+
+                /* If the connection is gone (e.g. the bus daemon never completed the authentication),
+                 * there is nothing to set up. The disconnect handler takes care of it. */
+                if (!sd_bus_is_open(bus))
+                        return 0;
+
                 goto setup_api;
         }
 

@@ -2907,6 +2907,24 @@ void manager_trigger_run_queue(Manager *m) {
                 log_warning_errno(r, "Failed to enable job run queue event source, ignoring: %m");
 }
 
+static unsigned manager_send_pending_reload_replies(Manager *m) {
+        unsigned n = 0;
+
+        assert(m);
+
+        if (m->pending_reload_message_dbus) {
+                bus_send_pending_reload_message(m);
+                n++;
+        }
+
+        if (m->pending_reload_message_vl) {
+                manager_varlink_send_pending_reload_message(m);
+                n++;
+        }
+
+        return n;
+}
+
 static unsigned manager_dispatch_dbus_queue(Manager *m) {
         unsigned n = 0, budget;
         Unit *u;
@@ -2916,11 +2934,14 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         /* If the API bus is connected but not fully set up yet (see bus_init_api()), postpone
          * dispatching the queue, otherwise subscribers restored from a previous reexec would miss
-         * messages. The pending Varlink reload reply does not depend on the API bus, but it is held
-         * back too, so that the order between D-Bus messages and Varlink replies is preserved for
-         * clients that monitor both. */
+         * messages. Reload replies are sent anyway: method_reload()/vl_method_reload_manager() rely on
+         * them being sent before the next request is dispatched, and holding them back until the bus
+         * is set up (which can take a long time while the bus daemon is still starting) lets a second
+         * Reload() arrive while the first reply is still pending. Hence in this window a reply goes
+         * out before the signals queued by its reload, also on private connections, which get those
+         * signals once the bus is set up. */
         if (m->api_bus && !m->api_bus_ready)
-                return 0;
+                return manager_send_pending_reload_replies(m);
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
@@ -2979,17 +3000,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 n++;
         }
 
-        if (m->pending_reload_message_dbus) {
-                bus_send_pending_reload_message(m);
-                n++;
-        }
-
-        if (m->pending_reload_message_vl) {
-                manager_varlink_send_pending_reload_message(m);
-                n++;
-        }
-
-        return n;
+        return n + manager_send_pending_reload_replies(m);
 }
 
 static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
