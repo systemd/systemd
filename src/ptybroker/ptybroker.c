@@ -28,6 +28,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "ptybroker.h"                       /* IWYU pragma: keep */
+#include "ptybroker-client.h"
 #include "ptybroker-monitor.h"
 #include "ptybroker-pty.h"
 #include "runtime-scope.h"
@@ -511,7 +512,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 }
         }
 
-        if (p.description && !pseudo_tty_description_valid(p.description))
+        if (p.description && !pty_broker_description_valid(p.description))
                 return sd_varlink_error_invalid_parameter_name(link, "description");
 
         if (p.tag && !pseudo_tty_tag_valid(p.tag))
@@ -1003,7 +1004,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
         if (p.name && !pseudo_tty_name_valid(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
-        if (p.description && !pseudo_tty_description_valid(p.description))
+        if (p.description && !pty_broker_description_valid(p.description))
                 return sd_varlink_error_invalid_parameter_name(link, "description");
 
         if (p.tag && !pseudo_tty_tag_valid(p.tag))
