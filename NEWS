@@ -121,7 +121,9 @@ CHANGES WITH 263 in spe:
           may be used to disable this.
 
         * "networkctl renew" now renews the DHCPv6 lease too, not only the
-          DHCPv4 lease.
+          DHCPv4 lease. When the DHCPv6 client runs in the information
+          request mode, the information, e.g. DNS servers, is requested
+          again.
 
         Changes in systemd-sysupdate:
 

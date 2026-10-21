@@ -838,7 +838,7 @@ static bool dhcp6_hostname_is_from_lease(Link *link) {
 }
 
 int dhcp6_update_hostname(Link *link) {
-        int r;
+        int inf_req, r;
 
         assert(link);
 
@@ -855,6 +855,13 @@ int dhcp6_update_hostname(Link *link) {
         r = dhcp6_set_hostname(link->dhcp6_client, link);
         if (r < 0)
                 return r;
+
+        /* No hostname is sent in the information request mode. */
+        r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
+        if (r < 0)
+                return r;
+        if (inf_req)
+                return 0;
 
         /* If the hostname was set from the current lease, the server already knows it. The new hostname
          * will be sent on the next renewal. */
@@ -879,6 +886,8 @@ int dhcp6_update_hostname(Link *link) {
 }
 
 int dhcp6_renew(Link *link) {
+        int r;
+
         assert(link);
         assert(link->manager);
 
@@ -891,13 +900,18 @@ int dhcp6_renew(Link *link) {
             IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
+        /* This renews the acquired lease, or in the information request mode, requests the information
+         * again. This does nothing if no reply is received yet. */
+        r = sd_dhcp6_client_send_renew(link->dhcp6_client);
+        if (r < 0)
+                return r;
+
         /* The client may have been stopped, e.g. on failure. Let's restart it in that case. This does
          * nothing when the client is started by RA, as the client will be started on the next RA. */
         if (!sd_dhcp6_client_is_running(link->dhcp6_client))
                 return dhcp6_start(link);
 
-        /* This does nothing if no lease is acquired yet. */
-        return sd_dhcp6_client_send_renew(link->dhcp6_client);
+        return 0;
 }
 
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
