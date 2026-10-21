@@ -849,6 +849,10 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) && t->scope->dnssec_mode != DNSSEC_NO)
                 return;
 
+        /* Don't cache replies to bypass queries with checking disabled, regardless of DNSSEC mode. */
+        if (t->bypass && DNS_PACKET_CD(t->bypass))
+                return;
+
         /* Same if the reply could not be validated merely because the query went out without DO (e.g. a
          * bypass query without DO, or one sent while the server was degraded): later lookups may send DO
          * and validate again, and nothing guarantees that the cache gets flushed before they do. */
