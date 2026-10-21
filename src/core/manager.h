@@ -18,6 +18,9 @@ struct libmnt_monitor;
 
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
+/* Unprivileged callers have to be authorized for every unit of a batch separately, which takes one polkit
+ * round trip per unit. Only allow so many units for them, and don't let a huge batch keep PID 1 busy. */
+#define MANAGER_MAX_POLKIT_NAMES 1024
 
 /* Enforce upper limit on the number of patterns/states requested over IPC */
 #define MANAGER_MAX_PATTERNS_PER_CALL 4096U
