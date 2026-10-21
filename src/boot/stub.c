@@ -26,6 +26,7 @@
 #include "shim.h"
 #include "smbios.h"
 #include "splash.h"
+#include "tofu.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
 #include "url-discovery.h"
@@ -120,6 +121,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
                 EFI_STUB_FEATURE_ENTRY_ADDONS |             /* We pick up addons passed by the boot loader */
+                EFI_STUB_FEATURE_TOFU_ADDONS |              /* We can trust unsigned addons on first use */
                 0;
 
         assert(loaded_image);
@@ -525,13 +527,158 @@ static void acquire_previous_initrd(struct iovec initrds[static _INITRD_MAX]) {
                 log_debug("Successfully loaded previously registered initrd (%zu bytes).", initrds[INITRD_PREVIOUS].iov_len);
 }
 
-/* Loads the addon at 'addon_path' and extends the passed cmdline and arrays with its contents. 'name' is used
- * for logging and measurements. Addons that fail validation are logged and skipped, only other errors are
- * returned. */
+static const void* addon_section_data(
+                const void *base,
+                size_t base_size,
+                bool raw_file,
+                const PeSectionVector *section,
+                size_t *ret_size) {
+
+        assert(base);
+        assert(section);
+        assert(ret_size);
+
+        if (!PE_SECTION_VECTOR_IS_SET(section))
+                return NULL;
+
+        size_t offset = raw_file ? section->file_offset : section->memory_offset,
+                size = raw_file ? section->file_size : section->memory_size;
+
+        if (offset > base_size || size > base_size - offset)
+                return NULL;
+
+        *ret_size = size;
+        return (const uint8_t*) base + offset;
+}
+
+static EFI_STATUS load_addon_unsigned(
+                EFI_FILE *root,
+                const char16_t *path,
+                const char16_t *filename,
+                const TofuContext *tofu,
+                int *parameters_measured,
+                char **ret_buffer,
+                size_t *ret_size,
+                PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+
+        EFI_STATUS err;
+
+        assert(root);
+        assert(path);
+        assert(filename);
+        assert(tofu);
+        assert(parameters_measured);
+        assert(ret_buffer);
+        assert(ret_size);
+        assert(sections);
+
+        /* The firmware refused to load the addon, which under Secure Boot means it is not signed with a key
+         * it trusts. Read the file ourselves, and if it is trusted on first use, parse its sections right
+         * from the file. We never execute addons, hence we don't need the firmware to lay the image out in
+         * memory for us. */
+
+        _cleanup_free_ char *buffer = NULL;
+        size_t size = 0;
+        err = file_read(root, path, /* offset= */ 0, /* size= */ 0, &buffer, &size);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to read '%ls': %m", path);
+
+        /* Only addons without any signature are candidates. One that carries a signature the firmware
+         * rejected is either revoked or signed with a key that is not trusted, and either way it was meant
+         * to be verified, not trusted blindly. */
+        bool has_signature;
+        err = pe_buffer_has_signature(buffer, size, &has_signature);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to parse PE headers of %ls: %m", filename);
+        if (has_signature)
+                return log_error_status(EFI_SECURITY_VIOLATION,
+                                        "Addon '%ls' carries a signature the firmware rejected, not trusting it on first use, ignoring.",
+                                        filename);
+
+        /* Only addons in the record in effect are trusted. When enrolling, the record was written before we
+         * got here, and it only lists addons that passed all checks, so that whether an addon is measured
+         * doesn't depend on whether this is the boot that enrolled it. */
+        if (!tofu_check(tofu, buffer, size, path))
+                return EFI_SECURITY_VIOLATION;
+
+        /* The firmware did not measure the file into PCR 4, as it never loaded it. Measure it as a whole
+         * into PCR 12 ourselves, with a tag of its own, so that attestation can tell addons trusted on first
+         * use apart from signed ones. */
+        bool m = false;
+        err = tpm_log_tagged_event(
+                        TPM2_PCR_KERNEL_CONFIG,
+                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                        size,
+                        TOFU_ADDON_EVENT_TAG_ID,
+                        filename,
+                        &m);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to extend PCR %i with addon '%ls': %m", TPM2_PCR_KERNEL_CONFIG, filename);
+        combine_measured_flag(parameters_measured, m);
+
+        err = pe_buffer_locate_sections(buffer, size, unified_sections, sections);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to locate PE sections in %ls: %m", filename);
+
+        *ret_buffer = TAKE_PTR(buffer);
+        *ret_size = size;
+        return EFI_SUCCESS;
+}
+
+static bool addon_is_usable(
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                const void *base,
+                size_t base_size,
+                bool raw_file,
+                const char *uname,
+                const char16_t *name,
+                LogLevel log_level) {
+
+        assert(sections);
+        assert(base);
+        assert(name);
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.", name);
+                return false;
+        }
+
+        /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
+                log_full(EFI_SUCCESS, log_level, "%ls is a UKI, not an addon, ignoring.", name);
+                return false;
+        }
+
+        /* Also enforce that, in case it is specified, .uname matches as a quick way to allow enforcing
+         * compatibility with a specific UKI only */
+        if (uname) {
+                size_t data_size;
+                const void *data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_UNAME, &data_size);
+                if (data && !strneq8(uname, data, data_size)) {
+                        log_full(EFI_SUCCESS, log_level, ".uname mismatch between %ls and UKI, ignoring", name);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+/* Loads the addon at 'addon_path' and extends the passed cmdline and arrays with its contents. 'name' is
+ * used for logging and measurements. Addons that fail validation are logged and skipped, only other errors
+ * are returned. If 'root' and 'addon_spath' are given and the TOFU context allows it, an addon the firmware
+ * refuses is read from the file system instead, and used if it is trusted on first use. */
 static EFI_STATUS load_addon(
                 EFI_HANDLE stub_image,
                 const EFI_DEVICE_PATH *addon_path,
                 const char16_t *name,
+                EFI_FILE *root,              /* May be NULL, then nothing is trusted on first use */
+                const char16_t *addon_spath, /* Ditto */
+                TofuContext *tofu,           /* Ditto */
+                int *parameters_measured,
                 const char *uname,
                 char16_t **cmdline,                         /* Both input+output, extended with the addon's contents */
                 NamedAddon **devicetree_addons,             /* Ditto */
@@ -544,120 +691,121 @@ static EFI_STATUS load_addon(
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
         _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
         EFI_LOADED_IMAGE_PROTOCOL *loaded_addon = NULL;
+        _cleanup_free_ char *raw_buffer = NULL;
+        const void *base = NULL;
+        size_t base_size = 0;
+        bool raw_file = false;
         EFI_STATUS err;
 
         assert(stub_image);
         assert(addon_path);
         assert(name);
+        assert(parameters_measured);
 
         /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
          * and with DB, and running with or without shim. */
         err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
-        if (err != EFI_SUCCESS) {
+        if (IN_SET(err, EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION) &&
+            root && addon_spath && tofu && tofu->state != TOFU_DISABLED) {
+                /* Refused by Secure Boot. If the booted profile allows trusting addons on first use, let's
+                 * see if this one is trusted. */
+                err = load_addon_unsigned(
+                                root,
+                                addon_spath,
+                                name,
+                                tofu,
+                                parameters_measured,
+                                &raw_buffer,
+                                &base_size,
+                                sections);
+                if (err != EFI_SUCCESS)
+                        return EFI_SUCCESS; /* Logged already, skip the addon */
+
+                base = raw_buffer;
+                raw_file = true;
+        } else if (err != EFI_SUCCESS) {
                 log_error_status(err, "Failed to read '%ls', ignoring: %m", name);
                 return EFI_SUCCESS;
+        } else {
+                err = BS->HandleProtocol(addon,
+                                         MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
+                                         (void **) &loaded_addon);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to find protocol in %ls: %m", name);
+
+                err = pe_memory_locate_sections(loaded_addon->ImageBase, loaded_addon->ImageSize, unified_sections, sections);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err,
+                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
+                                         name);
+                        return EFI_SUCCESS;
+                }
+
+                base = loaded_addon->ImageBase;
+                base_size = loaded_addon->ImageSize;
         }
 
-        err = BS->HandleProtocol(addon,
-                                 MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
-                                 (void **) &loaded_addon);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to find protocol in %ls: %m", name);
-
-        err = pe_memory_locate_sections(loaded_addon->ImageBase, loaded_addon->ImageSize, unified_sections, sections);
-        if (err != EFI_SUCCESS) {
-                log_error_status(err,
-                                 "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
-                                 name);
+        if (!addon_is_usable(sections, base, base_size, raw_file, uname, name, LOG_ERR))
                 return EFI_SUCCESS;
-        }
 
-        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
-            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
-            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
-            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
-            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
-                log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.",
-                          name);
-                return EFI_SUCCESS;
-        }
+        const void *data;
+        size_t data_size;
 
-        /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
-                log_error("%ls is a UKI, not an addon, ignoring.", name);
-                return EFI_SUCCESS;
-        }
+        if (cmdline) {
+                data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_CMDLINE, &data_size);
+                if (data) {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
+                                *extra16 = mangle_stub_cmdline(xstrn8_to_16(data, data_size));
 
-        /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
-         * enforcing compatibility with a specific UKI only */
-        if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
-                        !strneq8(uname,
-                                 (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                                 sections[UNIFIED_SECTION_UNAME].memory_size)) {
-                log_error(".uname mismatch between %ls and UKI, ignoring", name);
-                return EFI_SUCCESS;
-        }
-
-        if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
-                        *extra16 = mangle_stub_cmdline(pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE));
-
-                *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+                        *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+                }
         }
 
         // FIXME: do we want to do something else here?
         // This should behave exactly as .dtb/.dtbauto in the main UKI
-        if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO)) {
+        if (devicetree_addons && (data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_DTBAUTO, &data_size))) {
                 *devicetree_addons = xrealloc(*devicetree_addons,
                                               *n_devicetree_addons * sizeof(NamedAddon),
                                               (*n_devicetree_addons + 1) * sizeof(NamedAddon));
 
                 (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
-                        .blob = {
-                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTBAUTO].memory_offset, sections[UNIFIED_SECTION_DTBAUTO].memory_size),
-                                .iov_len = sections[UNIFIED_SECTION_DTBAUTO].memory_size,
-                        },
+                        .blob = IOVEC_MAKE(xmemdup(data, data_size), data_size),
                         .filename = xstrdup16(name),
                 };
-        } else if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+        } else if (devicetree_addons && (data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_DTB, &data_size))) {
                 *devicetree_addons = xrealloc(*devicetree_addons,
                                               *n_devicetree_addons * sizeof(NamedAddon),
                                               (*n_devicetree_addons + 1) * sizeof(NamedAddon));
 
                 (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
-                        .blob = {
-                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].memory_size),
-                                .iov_len = sections[UNIFIED_SECTION_DTB].memory_size,
-                        },
+                        .blob = IOVEC_MAKE(xmemdup(data, data_size), data_size),
                         .filename = xstrdup16(name),
                 };
         }
 
-        if (initrd_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
+        if (initrd_addons && (data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_INITRD, &data_size))) {
                 *initrd_addons = xrealloc(*initrd_addons,
                                           *n_initrd_addons * sizeof(NamedAddon),
                                           (*n_initrd_addons + 1)  * sizeof(NamedAddon));
                 (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
-                        .blob = {
-                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].memory_size),
-                                .iov_len = sections[UNIFIED_SECTION_INITRD].memory_size,
-                        },
+                        .blob = IOVEC_MAKE(xmemdup(data, data_size), data_size),
                         .filename = xstrdup16(name),
                 };
         }
 
-        if (ucode_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+        if (ucode_addons && (data = addon_section_data(base, base_size, raw_file, sections + UNIFIED_SECTION_UCODE, &data_size))) {
                 *ucode_addons = xrealloc(*ucode_addons,
                                          *n_ucode_addons * sizeof(NamedAddon),
                                          (*n_ucode_addons + 1)  * sizeof(NamedAddon));
                 (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
-                        .blob = {
-                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].memory_size),
-                                .iov_len = sections[UNIFIED_SECTION_UCODE].memory_size,
-                        },
+                        .blob = IOVEC_MAKE(xmemdup(data, data_size), data_size),
                         .filename = xstrdup16(name),
                 };
         }
+
+        /* The addon passed all checks and was used, report it */
+        if (raw_file)
+                tofu_accept(tofu, addon_spath);
 
         return EFI_SUCCESS;
 }
@@ -666,6 +814,8 @@ static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *prefix,
+                TofuContext *tofu,
+                int *parameters_measured,
                 const char *uname,
                 char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
                 NamedAddon **devicetree_addons,             /* Ditto */
@@ -718,6 +868,10 @@ static EFI_STATUS load_addons(
                                 stub_image,
                                 addon_path,
                                 items[i],
+                                root,
+                                addon_spath,
+                                tofu,
+                                parameters_measured,
                                 uname,
                                 cmdline,
                                 devicetree_addons,
@@ -735,6 +889,7 @@ static EFI_STATUS load_addons(
 
 static EFI_STATUS load_entry_addons(
                 EFI_HANDLE stub_image,
+                int *parameters_measured,
                 const char *uname,
                 char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
                 NamedAddon **devicetree_addons,             /* Ditto */
@@ -755,10 +910,16 @@ static EFI_STATUS load_entry_addons(
                 return log_error_status(err, "Failed to find addons passed by the boot loader: %m");
 
         FOREACH_ARRAY(dp, paths, n_paths) {
+                /* NB: no TOFU context: addons passed by the boot loader cannot be read as plain files,
+                 * hence unsigned ones are never trusted on first use. */
                 err = load_addon(
                                 stub_image,
                                 *dp,
                                 addon_media_filename(*dp),
+                                /* root= */ NULL,
+                                /* addon_spath= */ NULL,
+                                /* tofu= */ NULL,
+                                parameters_measured,
                                 uname,
                                 cmdline,
                                 devicetree_addons,
@@ -1095,9 +1256,114 @@ static void install_embedded_devicetree(
                 log_error_status(err, "Error loading embedded devicetree, ignoring: %m");
 }
 
+static void enroll_addons_dir(
+                EFI_FILE *root,
+                const char16_t *prefix,
+                const char *uname,
+                TofuContext *tofu) {
+
+        _cleanup_strv_free_ char16_t **items = NULL;
+        size_t n_items = 0, n_allocated = 0;
+        EFI_STATUS err;
+
+        assert(root);
+        assert(prefix);
+        assert(tofu);
+
+        err = load_addons_from_dir(root, prefix, &items, &n_items, &n_allocated);
+        if (err != EFI_SUCCESS) {
+                tofu->scan_incomplete = true;
+                return;
+        }
+
+        /* Same order as load_addons(), so that which addons are recorded doesn't depend on the order the
+         * directory is read in, should there be more than can be recorded */
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
+
+        for (size_t i = 0; i < n_items; i++) {
+                PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
+                _cleanup_free_ char16_t *path = xasprintf("%ls\\%ls", prefix, items[i]);
+                _cleanup_free_ char *buffer = NULL;
+                size_t size = 0;
+
+                err = file_read(root, path, /* offset= */ 0, /* size= */ 0, &buffer, &size);
+                if (err != EFI_SUCCESS) {
+                        /* We don't know whether this one should be trusted, hence the record can't be
+                         * completed on this boot. */
+                        log_error_status(err, "Failed to read '%ls': %m", path);
+                        tofu->scan_incomplete = true;
+                        continue;
+                }
+
+                /* Signed addons are left to the firmware, and are never trusted on first use */
+                bool has_signature;
+                err = pe_buffer_has_signature(buffer, size, &has_signature);
+                if (err != EFI_SUCCESS || has_signature)
+                        continue;
+
+                err = pe_buffer_locate_sections(buffer, size, unified_sections, sections);
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                /* The loader logs about unusable addons later, hence stay quiet here */
+                if (!addon_is_usable(sections, buffer, size, /* raw_file= */ true, uname, path, LOG_DEBUG))
+                        continue;
+
+                tofu_enroll(tofu, buffer, size, path);
+        }
+}
+
+static void enroll_all_addons(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char *uname,
+                TofuContext *tofu) {
+
+        _cleanup_file_close_ EFI_FILE *root = NULL;
+        EFI_STATUS err;
+
+        assert(loaded_image);
+        assert(tofu);
+
+        if (!tofu_enrolling(tofu))
+                return;
+
+        /* Collect the unsigned addons from the directories load_all_addons() looks at, and write the record
+         * before any of them is used. If we cannot look at all of them, nothing is recorded, as the enrollment
+         * window would otherwise be closed without them: with a boot loader that doesn't tell us where the
+         * UKI-specific addons are, a later boot via one that does would find addons the record lacks. */
+
+        if (!loaded_image->DeviceHandle)
+                tofu->scan_unsupported = true;
+        else {
+                err = open_volume(loaded_image->DeviceHandle, &root);
+                if (err == EFI_UNSUPPORTED)
+                        tofu->scan_unsupported = true;
+                else if (err != EFI_SUCCESS) {
+                        log_error_status(err, "Unable to open root directory, cannot enroll addons: %m");
+                        tofu->scan_incomplete = true;
+                }
+        }
+
+        if (root) {
+                enroll_addons_dir(root, u"\\loader\\addons", uname, tofu);
+
+                /* Some bootloaders always pass NULL in FilePath, then we don't know where the UKI-specific
+                 * addons are. */
+                _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+                if (dropin_dir)
+                        enroll_addons_dir(root, dropin_dir, uname, tofu);
+                else
+                        tofu->scan_unsupported = true;
+        }
+
+        tofu_commit(tofu);
+}
+
 static void load_all_addons(
                 EFI_HANDLE image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                TofuContext *tofu,
+                int *parameters_measured,
                 const char *uname,
                 char16_t **cmdline_addons,
                 NamedAddon **dt_addons,
@@ -1122,6 +1388,8 @@ static void load_all_addons(
                         image,
                         loaded_image,
                         u"\\loader\\addons",
+                        tofu,
+                        parameters_measured,
                         uname,
                         cmdline_addons,
                         dt_addons,
@@ -1140,6 +1408,8 @@ static void load_all_addons(
                                 image,
                                 loaded_image,
                                 dropin_dir,
+                                tofu,
+                                parameters_measured,
                                 uname,
                                 cmdline_addons,
                                 dt_addons,
@@ -1154,6 +1424,7 @@ static void load_all_addons(
 
         err = load_entry_addons(
                         image,
+                        parameters_measured,
                         uname,
                         cmdline_addons,
                         dt_addons,
@@ -1333,7 +1604,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_array);
         CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_array);
         CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_array);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
+        /* Check whether the booted profile allows trusting unsigned addons on first use, and prepare for it */
+        _cleanup_(tofu_context_done) TofuContext tofu = {};
+        tofu_setup(&tofu, loaded_image, profile, sections + UNIFIED_SECTION_PROFILE);
+
+        enroll_all_addons(loaded_image, uname, &tofu);
+        load_all_addons(image, loaded_image, &tofu, &parameters_measured, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
+        tofu_finish(&tofu);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
          * additions together, after the embedded options, but before the smbios ones, so that the order is
