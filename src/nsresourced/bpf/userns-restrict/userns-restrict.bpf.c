@@ -161,8 +161,8 @@ static int userns_is_below(struct user_namespace *ancestor, struct user_namespac
  * already accepts (a register that is a BTF pointer on one branch and a scalar on the other). Returns NULL
  * for an empty map or on a read failure. */
 static inline __attribute__((always_inline))
-struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
-        struct uid_gid_extent *array;
+const struct uid_gid_extent* uid_gid_map_extents(const struct uid_gid_map *map, bool up) {
+        const struct uid_gid_extent *array;
 
         if (map->nr_extents == 0)
                 return NULL;
@@ -187,8 +187,8 @@ struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
  * through the map, where the up flag selects which end of the extents is searched. Stores UID_GID_INVALID if
  * the ID is not mapped, and returns negative if the map could not be read, which callers must keep apart: an
  * unmapped ID records nothing on disk, whereas a map we failed to read tells us nothing at all. */
-static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
-        struct uid_gid_extent *array;
+static int uid_gid_map_translate(const struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
+        const struct uid_gid_extent *array;
         unsigned n;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
@@ -233,8 +233,8 @@ static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid
  * Stores UID_GID_INVALID if the ID does not map, in which case the kernel refuses the operation with
  * EOVERFLOW anyway, see fsuidgid_has_mapping(). Returns negative if a map could not be read. */
 static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
-        struct mnt_idmap *idmap;
-        struct uid_gid_map *m;
+        const struct mnt_idmap *idmap;
+        const struct uid_gid_map *m;
         int r;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
@@ -433,8 +433,8 @@ static bool range_hits_transient(uint64_t a, uint64_t b) {
  * any extent's on-disk range is transient, no matter which input reaches it. Ids no extent covers are left
  * unmapped, which fails the write with EOVERFLOW, so they are fine too. An empty map is the identity
  * mapping and hence neutralizes nothing. */
-static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
-        struct uid_gid_extent *array;
+static bool idmap_map_neutralizes_transient(const struct uid_gid_map *map) {
+        const struct uid_gid_extent *array;
         unsigned n;
 
         n = map->nr_extents;
@@ -467,7 +467,7 @@ static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
 /* True if the mount's idmapping maps the whole transient UID and GID ranges away, so a transient client
  * writing through it leaves nothing recyclable on disk. A non-idmapped mount maps them through unchanged. */
 static bool mount_neutralizes_transient(struct vfsmount *mnt) {
-        struct mnt_idmap *idmap;
+        const struct mnt_idmap *idmap;
 
         idmap = mnt->mnt_idmap;
         if (!idmap)
