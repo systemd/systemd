@@ -105,8 +105,8 @@ static inline bool uid_is_transient(uid_t uid) {
  * argument if found, 0 if the whole chain was walked without a match, and a negative error if the chain is
  * longer than the kernel permits (in which case we refuse rather than fail open, as we cannot rule out a
  * managed ancestor). */
-static int find_managed_userns(struct user_namespace *userns, struct user_namespace **ret) {
-        struct user_namespace *p = userns;
+static int find_managed_userns(const struct user_namespace *userns, const struct user_namespace **ret) {
+        const struct user_namespace *p = userns;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
         if (!ret)
@@ -132,8 +132,8 @@ static int find_managed_userns(struct user_namespace *userns, struct user_namesp
 }
 
 /* Is the second user namespace the first one itself, or nested below it? */
-static int userns_is_below(struct user_namespace *ancestor, struct user_namespace *ns) {
-        struct user_namespace *p = ns;
+static int userns_is_below(const struct user_namespace *ancestor, const struct user_namespace *ns) {
+        const struct user_namespace *p = ns;
 
         for (unsigned i = 0; i < USER_NAMESPACE_DEPTH_MAX; i++) {
                 if (p == ancestor)
@@ -161,7 +161,7 @@ static int userns_is_below(struct user_namespace *ancestor, struct user_namespac
  * already accepts (a register that is a BTF pointer on one branch and a scalar on the other). Returns NULL
  * for an empty map or on a read failure. */
 static inline __attribute__((always_inline))
-struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
+const struct uid_gid_extent* uid_gid_map_extents(const struct uid_gid_map *map, bool up) {
         struct uid_gid_extent *array;
 
         if (map->nr_extents == 0)
@@ -187,21 +187,18 @@ struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
  * through the map, where the up flag selects which end of the extents is searched. Stores UID_GID_INVALID if
  * the ID is not mapped, and returns negative if the map could not be read, which callers must keep apart: an
  * unmapped ID records nothing on disk, whereas a map we failed to read tells us nothing at all. */
-static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
-        struct uid_gid_extent *array;
-        unsigned n;
-
+static int uid_gid_map_translate(const struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
         if (!ret)
                 return -EINVAL;
 
-        n = map->nr_extents;
+        unsigned n = map->nr_extents;
         if (n == 0) { /* Empty map: nothing is mapped, and that is an answer, not a failure. */
                 *ret = UID_GID_INVALID;
                 return 0;
         }
 
-        array = uid_gid_map_extents(map, up);
+        const struct uid_gid_extent *array = uid_gid_map_extents(map, up);
         if (!array) /* Non-empty map whose extents we could not resolve. */
                 return -EPERM;
 
@@ -232,22 +229,20 @@ static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid
  * the passed ID creates an object on the given mount. The gid flag selects the GID maps over the UID maps.
  * Stores UID_GID_INVALID if the ID does not map, in which case the kernel refuses the operation with
  * EOVERFLOW anyway, see fsuidgid_has_mapping(). Returns negative if a map could not be read. */
-static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
-        struct mnt_idmap *idmap;
-        struct uid_gid_map *m;
+static int mount_map_id(const struct vfsmount *mnt, const struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
         int r;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
         if (!ret)
                 return -EINVAL;
 
-        idmap = mnt->mnt_idmap;
+        const struct mnt_idmap *idmap = mnt->mnt_idmap;
         if (!idmap) {
                 *ret = id;
                 return 0;
         }
 
-        m = gid ? &idmap->gid_map : &idmap->uid_map;
+        const struct uid_gid_map *m = gid ? &idmap->gid_map : &idmap->uid_map;
 
         /* Both nop_mnt_idmap and invalid_mnt_idmap carry empty maps. For the former that is an identity
          * mapping; for the latter the operation fails later on regardless, so treating it as identity only
@@ -282,7 +277,7 @@ static bool mount_is_exempt(struct vfsmount *v) {
 /* Common tail of the inode creation hooks: would the object the calling task is about to create end up
  * owned by a transient ID on a file system that outlives the user namespace that ID was handed to? */
 static int validate_mount(struct vfsmount *v, int ret) {
-        struct user_namespace *managed, *fs_userns;
+        const struct user_namespace *managed, *fs_userns;
         const struct cred *cred;
         struct task_struct *task;
         uid_t uid, gid;
@@ -341,22 +336,20 @@ static int validate_mount(struct vfsmount *v, int ret) {
 
 SEC("lsm/path_chown")
 int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
-        struct user_namespace *managed;
-        const struct cred *cred;
-        struct task_struct *task;
         int r;
 
         if (ret != 0) /* propagate earlier error */
                 return ret;
 
         /* Get user namespace from task */
-        task = (struct task_struct*) bpf_get_current_task_btf();
-        cred = task->cred;
+        const struct task_struct *task = (struct task_struct*) bpf_get_current_task_btf();
+        const struct cred *cred = task->cred;
         if (!cred)
                 return -EPERM;
 
         /* User namespaces that were not provisioned by nsresourced can still write to the transient ranges
          * so that we don't break use cases like systemd-nspawn's --private-users=pick switch. */
+        const struct user_namespace *managed;
         r = find_managed_userns(cred->user_ns, &managed);
         if (r < 0)
                 return r;
@@ -433,13 +426,10 @@ static bool range_hits_transient(uint64_t a, uint64_t b) {
  * any extent's on-disk range is transient, no matter which input reaches it. Ids no extent covers are left
  * unmapped, which fails the write with EOVERFLOW, so they are fine too. An empty map is the identity
  * mapping and hence neutralizes nothing. */
-static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
-        struct uid_gid_extent *array;
-        unsigned n;
+static bool idmap_map_neutralizes_transient(const struct uid_gid_map *map) {
+        unsigned n = map->nr_extents;
 
-        n = map->nr_extents;
-
-        array = uid_gid_map_extents(map, /* up= */ true);
+        const struct uid_gid_extent *array = uid_gid_map_extents(map, /* up= */ true);
         /* NULL means an empty map (identity mapping, neutralizes nothing) or a read failure; refuse either. */
         if (!array)
                 return false;
@@ -467,9 +457,7 @@ static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
 /* True if the mount's idmapping maps the whole transient UID and GID ranges away, so a transient client
  * writing through it leaves nothing recyclable on disk. A non-idmapped mount maps them through unchanged. */
 static bool mount_neutralizes_transient(struct vfsmount *mnt) {
-        struct mnt_idmap *idmap;
-
-        idmap = mnt->mnt_idmap;
+        const struct mnt_idmap *idmap = mnt->mnt_idmap;
         if (!idmap)
                 return false;
 
@@ -504,7 +492,7 @@ static bool mount_neutralizes_transient(struct vfsmount *mnt) {
 SEC("lsm/sb_kern_mount")
 int BPF_PROG(userns_restrict_sb_kern_mount, struct super_block *sb, int ret) {
         struct ovl_layer___local *layers;
-        struct user_namespace *managed, *fs_userns;
+        const struct user_namespace *managed, *fs_userns;
         struct ovl_fs___local *ofs;
         struct vfsmount *upper;
         void *upper_addr;
