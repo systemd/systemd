@@ -121,6 +121,26 @@ DEFINE_STRCPY(char16_t, strcpy16);
 DEFINE_STRCHR(char, strchr8);
 DEFINE_STRCHR(char16_t, strchr16);
 
+#define DEFINE_STRSTR(type, name, len_func)                                     \
+        type *name(const type *haystack, const type *needle) {                  \
+                if (!haystack || !needle)                                       \
+                        return NULL;                                            \
+                                                                                \
+                size_t n = len_func(needle);                                    \
+                for (const type *p = haystack; ; p++) {                         \
+                        size_t i = 0;                                           \
+                        for (; i < n && p[i] == needle[i]; i++)                 \
+                                ;                                               \
+                        if (i == n)                                             \
+                                return (type *) p;                              \
+                        if (p[i] == 0)                                          \
+                                return NULL;                                    \
+                }                                                               \
+        }
+
+DEFINE_STRSTR(char, strstr8, strlen8);
+DEFINE_STRSTR(char16_t, strstr16, strlen16);
+
 #define DEFINE_STRNDUP(type, name, len_func)              \
         type *name(const type *s, size_t n) {             \
                 if (!s)                                   \
