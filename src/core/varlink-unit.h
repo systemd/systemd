@@ -8,6 +8,7 @@
 #define VARLINK_ERROR_UNIT_DBUS_SHUTTING_DOWN "io.systemd.Unit.DBusShuttingDown"
 #define VARLINK_ERROR_UNIT_UNIT_EXISTS "io.systemd.Unit.UnitExists"
 #define VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED "io.systemd.Unit.UnitTypeNotSupported"
+#define VARLINK_ERROR_UNIT_PROPERTY_NOT_SUPPORTED "io.systemd.Unit.PropertyNotSupported"
 #define VARLINK_ERROR_UNIT_BAD_SETTING "io.systemd.Unit.BadUnitSetting"
 #define VARLINK_ERROR_UNIT_ALREADY_BEING_WATCHED "io.systemd.Unit.AlreadyBeingWatched"
 #define VARLINK_ERROR_UNIT_PID_UNKNOWN "io.systemd.Unit.ProcessIdUnknown"
