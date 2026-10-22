@@ -17,6 +17,37 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
+# Unprivileged users can inspect images by name, but not with extension images specified by path, because
+# inspecting loop-mounts the extension images as root.
+mkdir -p /run/portables
+cp /usr/share/minimal_0.raw /run/portables/minimal_8.raw
+runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                           GetImageMetadata sas minimal_8 0 >/dev/null
+(! runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                              GetImageMetadataWithExtensions sasast minimal_8 1 /tmp/app0.raw 0 0 >/dev/null)
+rm /run/portables/minimal_8.raw
+
+# The host refuses to attach an image whose signature it doesn't trust, so that the service doesn't only
+# fail when it starts. Inspecting the image still works. Without a signature, the same image is attached
+# and pinned to Verity alone.
+mkdir -p /run/portables
+cp /tmp/untrusted/minimal_9.raw /tmp/untrusted/minimal_9.verity /tmp/untrusted/minimal_9.roothash \
+   /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
+portablectl inspect /run/portables/minimal_9.raw minimal-app0 >/dev/null
+(! portablectl "${ARGS[@]}" attach --runtime /run/portables/minimal_9.raw minimal-app0 2>/tmp/untrusted/attach.err)
+grep -F "doesn't trust the signature" /tmp/untrusted/attach.err >/dev/null
+test ! -e /run/systemd/system.attached/minimal-app0.service
+rm /run/portables/minimal_9.roothash.p7s
+portablectl "${ARGS[@]}" attach --runtime /run/portables/minimal_9.raw minimal-app0
+grep -F 'root=verity+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+# A reattach that is refused because of the signature leaves the image attached.
+cp /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
+(! portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_9.raw minimal-app0)
+test -e /run/systemd/system.attached/minimal-app0.service
+rm /run/portables/minimal_9.roothash.p7s
+portablectl detach --runtime /run/portables/minimal_9.raw minimal-app0
+rm /run/portables/minimal_9.*
+
 # Attaching with a profile that doesn't exist must fail and must not leave anything behind
 (! portablectl attach --runtime --profile=nonexistent /usr/share/minimal_0.raw minimal-app0)
 test ! -e /run/systemd/system.attached/minimal-app0.service
