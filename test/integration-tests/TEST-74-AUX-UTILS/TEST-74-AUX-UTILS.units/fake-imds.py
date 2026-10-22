@@ -58,6 +58,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', len(body))
             self.end_headers()
             self.wfile.write(body)
+        elif self.path == '/busy':
+            self.send_error(503)
         elif self.path == '/hostname':
             body = b'piff'
             self.send_response(200)
