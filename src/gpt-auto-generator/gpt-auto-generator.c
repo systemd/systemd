@@ -50,6 +50,7 @@ typedef enum MountPointFlags {
         MOUNT_GROWFS     = 1 << 1,
         MOUNT_MEASURE    = 1 << 2,
         MOUNT_VALIDATEFS = 1 << 3,
+        MOUNT_EARLY_FSCK = 1 << 4,
 } MountPointFlags;
 
 static const char *arg_dest = NULL;
@@ -391,7 +392,14 @@ static int add_mount(
          * generator drop-in dir for explicit configuration via systemd-fstab-generator or similar, and put
          * out automatic configuration in the arg_dest_late directory. But this one is an exception, since we
          * need to override the static version of the fsck root service file. */
-        r = generator_write_fsck_deps(f, arg_dest, what, where, fstype, opts_filtered);
+        r = generator_write_fsck_deps_full(
+                        f,
+                        arg_dest,
+                        what,
+                        where,
+                        fstype,
+                        opts_filtered,
+                        /* early= */ FLAGS_SET(flags, MOUNT_EARLY_FSCK));
         if (r < 0)
                 return r;
 
@@ -1082,11 +1090,14 @@ static int add_early_esp_mount(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pick ESP mount options: %m");
 
+        /* Use systemd-fsck-early@.service, as systemd-fsck@.service is ordered after
+         * systemd-fsck-root.service, which waits for a root partition that systemd-repart might only create
+         * once the software TPM is up, and the software TPM needs this mount. */
         return add_mount("esp",
                          "/dev/disk/by-designator/esp",
                          "/sysefi/",
                          "vfat",
-                         MOUNT_RW,
+                         MOUNT_RW|MOUNT_EARLY_FSCK,
                          options,
                          "EFI System Partition (Early)",
                          /* post= */ NULL,
