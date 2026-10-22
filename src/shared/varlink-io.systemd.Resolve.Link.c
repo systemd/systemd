@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "bus-polkit.h"
+#include "varlink-io.systemd.Resolve.Link.h"
+
+static SD_VARLINK_DEFINE_ERROR(IsLoopback);
+static SD_VARLINK_DEFINE_ERROR(ManagedByNetworkd);
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSServerContext,
+                /* The address and family are always required as input, so are not nullable. */
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server."),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Port number of the server."),
+                SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index for which this server is configured."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNS servers to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(servers, DNSServerContext, SD_VARLINK_ARRAY));
