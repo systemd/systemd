@@ -125,6 +125,11 @@ CHANGES WITH 263 in spe:
           request mode, the information, e.g. DNS servers, is requested
           again.
 
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReasons field of
+          the interface description provided over Varlink.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate's "update" command acquired a new --loop= switch.

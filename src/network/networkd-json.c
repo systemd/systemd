@@ -1564,10 +1564,13 @@ static int lldp_tx_append_json(Link *link, sd_json_variant **v) {
 int link_build_json(Link *link, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
+        LinkConfiguringReason configuring_reason;
         int r;
 
         assert(link);
         assert(ret);
+
+        configuring_reason = link_get_configuring_reason(link);
 
         r = net_get_type_string(link->dev, link->iftype, &type);
         if (r == -ENOMEM)
@@ -1608,6 +1611,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                         JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL("BSSID", &link->bssid),
                         /* link state */
                         SD_JSON_BUILD_PAIR_STRING("AdministrativeState", link_state_to_string(link->state)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        configuring_reason >= 0, "ConfiguringReasons",
+                                        SD_JSON_BUILD_ARRAY(JSON_BUILD_STRING_UNDERSCORIFY(
+                                                        link_configuring_reason_to_string(configuring_reason)))),
                         SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
                         SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
                         JSON_BUILD_PAIR_ENUM("AddressState", link_address_state_to_string(link->address_state)),

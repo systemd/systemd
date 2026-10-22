@@ -75,6 +75,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Domain,
                 &vl_type_Interface,
                 &vl_type_LinkState,
+                &vl_type_LinkConfiguringReason,
                 &vl_type_LinkAddressState,
                 &vl_type_LinkOnlineState,
                 &vl_type_LinkRequiredAddressFamily,
