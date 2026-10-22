@@ -350,11 +350,11 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     '"'" /dev/null
 
     # --pty also passes a service PTY as an fd. It must still provide a usable TTY to
-    # the target user without changing the caller's TTY ownership/access mode.
+    # the target user without changing the caller's TTY ownership/access mode. Force the D-Bus path here.
     script -qec 'bash -euxc '"'"'
         tty_path="$(tty)"
         tty_stat="$(stat -Lc "%u:%g:%a" "$tty_path")"
-        run0 --pty --user=testuser bash -xec \
+        run0 --pty --nice=0 --user=testuser bash -xec \
             "test \"\$(id -un)\" = testuser; test -t 0; test -t 1; test -t 2; tty >/dev/null"
         [[ "$(stat -Lc "%u:%g:%a" "$tty_path")" == "$tty_stat" ]]
     '"'" /dev/null
