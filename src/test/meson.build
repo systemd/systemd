@@ -162,6 +162,7 @@ simple_tests += files(
         'test-modhex.c',
         'test-mountpoint-util.c',
         'test-mstack.c',
+        'test-mtools-util.c',
         'test-namespace-util.c',
         'test-net-naming-scheme.c',
         'test-notify-recv.c',
