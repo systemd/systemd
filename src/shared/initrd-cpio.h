@@ -12,3 +12,9 @@
 int initrd_cpio_credentials_to_tempfile(
                 const MachineCredentialContext *creds,
                 char **ret_path);
+
+/* Same, but returns the archive in memory. An archive is built even if there are no credentials. */
+int initrd_cpio_credentials_to_memory(
+                const MachineCredentialContext *creds,
+                void **ret,
+                size_t *ret_size);
