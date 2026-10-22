@@ -18,3 +18,5 @@ static inline int machine_tags_from_string(const char *s, bool graceful, char **
 }
 int machine_tags_config_files(const char *root, ConfFile ***ret_files, size_t *ret_n_files);
 int machine_tags_apply_config(const char *root, char * const *base, char ***ret);
+
+int json_dispatch_object_tags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
