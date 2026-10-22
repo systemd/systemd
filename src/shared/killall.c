@@ -85,16 +85,16 @@ static bool ignore_proc(PidRef *pid, bool warn_rootfs) {
         if (pidref_is_kernel_thread(pid) != 0)
                 return true; /* also ignore processes where we can't determine this */
 
-        /* Ignore processes that are part of a cgroup marked with the user.survive_final_kill_signal xattr */
-        if (is_in_survivor_cgroup(pid))
-                return true;
-
         if (pidref_get_uid(pid, &uid) < 0)
                 return true; /* not really, but better safe than sorry */
 
-        /* Non-root processes otherwise are always subject to be killed */
+        /* Non-root processes are always subject to be killed */
         if (uid != 0)
                 return false;
+
+        /* Ignore processes that are part of a cgroup marked with the user.survive_final_kill_signal xattr */
+        if (is_in_survivor_cgroup(pid))
+                return true;
 
         if (argv_has_at(pid) == 0)
                 return false; /* if this fails, ignore the process */

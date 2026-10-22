@@ -368,6 +368,32 @@ static int property_get_markers(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_tags(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        Hashmap *tags = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        const char *tag_name, *tag_value;
+        HASHMAP_FOREACH_KEY(tag_value, tag_name, tags) {
+                r = sd_bus_message_append(reply, "{ss}", tag_name, tag_value);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -959,6 +985,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("WantsMountsFor", "as", property_get_mounts_for, offsetof(Unit, mounts_for[UNIT_MOUNT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Tags", "a{ss}", property_get_tags, offsetof(Unit, tags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AccessSELinuxContext", "s", NULL, offsetof(Unit, access_selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadState", "s", property_get_load_state, offsetof(Unit, load_state), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveState", "s", property_get_active_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -2447,6 +2474,38 @@ static int bus_unit_set_transient_property(
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }
                 }
+
+                return 1;
+        }
+
+        if (streq(name, "Tags")) {
+                r = sd_bus_message_open_container(message, 'a', "{ss}");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *tag_name, *tag_value;
+                        r = sd_bus_message_read(message, "{ss}", &tag_name, &tag_value);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!unit_tag_name_is_valid(tag_name))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag in %s: %s", name, tag_name);
+                        if (!unit_tag_value_is_valid(tag_value))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag '%s' value in %s: %s", tag_name, name, tag_value);
+
+                        r = unit_set_tag(u, tag_name, tag_value);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags, name, "%s=%s=%s", name, tag_name, tag_value);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
 
                 return 1;
         }
