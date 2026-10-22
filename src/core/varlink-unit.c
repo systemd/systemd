@@ -1241,7 +1241,7 @@ typedef struct UnitSetPropertiesParameters {
         const char *name;
         bool runtime;
 
-        bool markers_found;
+        bool markers_set;
         unsigned markers, markers_mask;
 
         const char *bad_field; /* For error reporting */
@@ -1279,7 +1279,7 @@ static int parse_unit_markers(const char *name, sd_json_variant *variant, sd_jso
 
         p->markers = settings;
         p->markers_mask = mask;
-        p->markers_found = true;
+        p->markers_set = true;
 
         return 0;
 }
@@ -1345,7 +1345,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
         if (r <= 0)
                 return r;
 
-        if (p.markers_found)
+        if (p.markers_set)
                 unit->markers = unit_normalize_markers((unit->markers & ~p.markers_mask), p.markers);
 
         return sd_varlink_reply(link, NULL);
