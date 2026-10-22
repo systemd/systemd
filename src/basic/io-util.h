@@ -20,6 +20,10 @@ static inline int loop_write(int fd, const void *buf, size_t nbytes) {
         return loop_write_full(fd, buf, nbytes, 0);
 }
 
+/* Sends all of buf with send(). On a fiber, loop_send() suspends the fiber until the socket is writable.
+ * Elsewhere, it blocks until the socket is writable. */
+int loop_send(int fd, const void *buf, size_t nbytes, int flags) _nonnull_if_nonzero_(2, 3);
+
 int pwritev_full(int fd, struct iovec *iovec, size_t n, uint64_t offset, uint64_t *ret_written);
 int pwrite_full(int fd, const void *buf, size_t nbytes, uint64_t offset) _nonnull_if_nonzero_(2, 3);
 
