@@ -9,11 +9,33 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "initrd-cpio.h"
+#include "iovec-util.h"
 #include "machine-credential.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+
+TEST(initrd_cpio_credentials_to_memory) {
+        _cleanup_(machine_credential_context_done) MachineCredentialContext creds = {};
+        _cleanup_(iovec_done) struct iovec empty = {}, archive = {};
+
+        /* Without credentials the archive still carries the directories and the trailer */
+        ASSERT_OK(initrd_cpio_credentials_to_memory(&creds, &empty));
+        ASSERT_NOT_NULL(empty.iov_base);
+        ASSERT_GT(empty.iov_len, 0U);
+        ASSERT_EQ(empty.iov_len % 4, 0U);
+        ASSERT_NOT_NULL(memmem(empty.iov_base, empty.iov_len, "TRAILER!!!", STRLEN("TRAILER!!!")));
+        ASSERT_NOT_NULL(memmem(empty.iov_base, empty.iov_len, ".extra/system_credentials", STRLEN(".extra/system_credentials")));
+
+        ASSERT_OK(machine_credential_add(&creds, "foo", "hello", 5));
+        ASSERT_OK(initrd_cpio_credentials_to_memory(&creds, &archive));
+        ASSERT_NOT_NULL(archive.iov_base);
+        ASSERT_GT(archive.iov_len, empty.iov_len);
+        ASSERT_NOT_NULL(memmem(archive.iov_base, archive.iov_len, ".extra/system_credentials/foo.cred", STRLEN(".extra/system_credentials/foo.cred")));
+        ASSERT_NOT_NULL(memmem(archive.iov_base, archive.iov_len, "hello", STRLEN("hello")));
+        ASSERT_NULL(memmem(empty.iov_base, empty.iov_len, "foo.cred", STRLEN("foo.cred")));
+}
 
 TEST_RET(initrd_cpio_credentials_basic) {
         struct stat st;
