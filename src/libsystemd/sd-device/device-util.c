@@ -67,7 +67,7 @@ int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_dev
         return TAKE_FD(fd);
 }
 
-static int add_string_field(
+static void add_string_field(
                 sd_device *device,
                 const char *field,
                 int (*func)(sd_device *dev, const char **s),
@@ -86,8 +86,6 @@ static int add_string_field(
                 log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", field);
         if (r >= 0)
                 (void) strv_extend_assignment(strv, field, s);
-
-        return 0;
 }
 
 char** device_make_log_fields(sd_device *device) {
@@ -100,14 +98,14 @@ char** device_make_log_fields(sd_device *device) {
 
         assert(device);
 
-        (void) add_string_field(device, "SYSPATH", sd_device_get_syspath, &strv);
-        (void) add_string_field(device, "SUBSYSTEM", sd_device_get_subsystem, &strv);
-        (void) add_string_field(device, "DEVTYPE", sd_device_get_devtype, &strv);
-        (void) add_string_field(device, "DRIVER", sd_device_get_driver, &strv);
-        (void) add_string_field(device, "DEVPATH", sd_device_get_devpath, &strv);
-        (void) add_string_field(device, "DEVNAME", sd_device_get_devname, &strv);
-        (void) add_string_field(device, "SYSNAME", sd_device_get_sysname, &strv);
-        (void) add_string_field(device, "SYSNUM", sd_device_get_sysnum, &strv);
+        add_string_field(device, "SYSPATH", sd_device_get_syspath, &strv);
+        add_string_field(device, "SUBSYSTEM", sd_device_get_subsystem, &strv);
+        add_string_field(device, "DEVTYPE", sd_device_get_devtype, &strv);
+        add_string_field(device, "DRIVER", sd_device_get_driver, &strv);
+        add_string_field(device, "DEVPATH", sd_device_get_devpath, &strv);
+        add_string_field(device, "DEVNAME", sd_device_get_devname, &strv);
+        add_string_field(device, "SYSNAME", sd_device_get_sysname, &strv);
+        add_string_field(device, "SYSNUM", sd_device_get_sysnum, &strv);
 
         r = sd_device_get_devnum(device, &devnum);
         if (r < 0 && r != -ENOENT)
