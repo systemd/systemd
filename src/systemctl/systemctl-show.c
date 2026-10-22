@@ -2177,6 +2177,21 @@ static int print_property(
                         bus_print_property_value(name, expected_value, flags, joined);
 
                         return 1;
+                } else if (streq(name, "Tags")) {
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        const char *tag_name, *tag_value;
+                        while ((r = sd_bus_message_read(m, "{ss}", &tag_name, &tag_value)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s%s%s",
+                                                          tag_name, tag_value ? "=" : "", tag_value);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
                 }
 
                 break;
