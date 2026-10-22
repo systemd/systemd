@@ -7,7 +7,9 @@ set -o pipefail
 # without a hardware/firmware TPM and with "systemd.tpm2_software_fallback=yes" (see the test's meson.build),
 # so systemd-tpm2-generator manufactures a software TPM on the ESP in the initrd and chainloads swtpm.
 #
-#   boot 0: the TPM is manufactured in the initrd; seal a secret to it and stash the blob.
+#   boot 0: the TPM is manufactured in the initrd; seal a secret to it and stash the blob. Also check that
+#           a volume created by systemd-repart with Encrypt=tpm2, or enrolled by systemd-cryptenroll, can be
+#           unlocked.
 #   boot 1: the TPM state persisted on the ESP across the reboot, so the secret still unseals. Then mimic a
 #           manufacture that was interrupted before it completed (drop everything but the config files, so the
 #           ".manufactured" marker is gone) and reboot.
@@ -70,6 +72,50 @@ swtpm_state_dir() {
     return 1
 }
 
+# An Encrypt=tpm2 volume created by systemd-repart must be unlockable with the software TPM. Binding to the
+# signed PCR 11 policy would break this as long as the UKI isn't measured into PCR 11. The PCR public key
+# must exist, as otherwise there would be nothing to bind to and this would test nothing.
+test_repart_encrypt_tpm2() {
+    local defs device image
+
+    test -e /run/systemd/tpm2-pcr-public-key.pem
+
+    defs="$(mktemp --directory)"
+    image="$(mktemp --dry-run)"
+    cat >"$defs/50-root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+Encrypt=tpm2
+EOF
+    systemd-repart --tpm2-device="$TPM2_DEVICE" --definitions="$defs" --empty=create --size=80M "$image"
+    device="$(systemd-dissect --attach "$image")"
+    udevadm wait --settle --timeout=10 "${device}p1"
+    systemd-cryptsetup attach swtpm-repart "${device}p1" - tpm2-device="$TPM2_DEVICE",headless=yes
+    systemd-cryptsetup detach swtpm-repart
+    systemd-dissect --detach "$device"
+    rm -rf "$defs" "$image"
+}
+
+# The same for a TPM2 slot enrolled by systemd-cryptenroll, which also picks up the PCR public key on its
+# own.
+test_cryptenroll_tpm2() {
+    local image passphrase
+
+    test -e /run/systemd/tpm2-pcr-public-key.pem
+
+    image="$(mktemp)"
+    passphrase="$(mktemp)"
+    echo -n passphrase >"$passphrase"
+    truncate -s 20M "$image"
+    cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom \
+        "$image" "$passphrase"
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device="$TPM2_DEVICE" "$image"
+    systemd-cryptsetup attach swtpm-cryptenroll "$image" - tpm2-device="$TPM2_DEVICE",headless=yes
+    systemd-cryptsetup detach swtpm-cryptenroll
+    rm -f "$image" "$passphrase"
+}
+
 case "$REBOOT_COUNT" in
     0)
         assert_swtpm_up
@@ -77,6 +123,8 @@ case "$REBOOT_COUNT" in
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
         systemd-creds --tpm2-device="$TPM2_DEVICE" encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext "$CRED"
         systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
+        test_repart_encrypt_tpm2
+        test_cryptenroll_tpm2
         systemctl_final reboot
         exec sleep infinity
         ;;
