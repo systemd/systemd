@@ -98,6 +98,8 @@ wrap=(
     multipath
     multipathd
     nvme
+    objcopy
+    objdump
     p11-kit
     pkill
     ps
