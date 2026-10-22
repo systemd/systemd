@@ -866,6 +866,7 @@ static int install_binaries(
 
         const char *suffix = strjoina(arch, ".efi");
         const char *suffix_signed = strjoina(arch, ".efi.signed");
+        bool found_loader = false;
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", source_path)) {
                 int k;
@@ -880,12 +881,35 @@ static int install_binaries(
                 } else if (!endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
+                /* Only systemd-boot itself counts, not any other EFI binary that happens to match. Unless
+                 * installing for all architectures, it also has to be the one for the requested
+                 * architecture, i.e. the one that copy_one_file() also installs as BOOT<ARCH>.EFI, and not
+                 * e.g. "systemd-boot-extrax64.efi". */
+                const char *e = startswith(de->d_name, "systemd-boot");
+                if (e && (isempty(arch) || strcaseeq(e, suffix) || strcaseeq(e, suffix_signed)))
+                        found_loader = true;
+
                 k = copy_one_file(c, de->d_name, c->operation == INSTALL_NEW);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
                 if (c->graceful && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
                 RET_GATHER(r, k);
+        }
+
+        /* An existing source directory without a suitable boot loader is no better than a missing one:
+         * don't claim success if there is nothing to install (#41312). Other errors take precedence. */
+        if (r >= 0 && !found_loader) {
+                const char *fn = strjoina("systemd-boot", isempty(arch) ? "*" : arch, ".efi");
+
+                if (c->graceful) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                 "No '%s' boot loader binary found in '%s', skipping.", fn, source_path);
+                        return 0;
+                }
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No '%s' boot loader binary found in '%s'.", fn, source_path);
         }
 
         return r;
