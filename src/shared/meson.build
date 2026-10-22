@@ -170,6 +170,7 @@ shared_sources = files(
         'password-quality-util-pwquality.c',
         'pcre2-util.c',
         'pcrextend-util.c',
+        'pe-addon.c',
         'pe-binary.c',
         'pe-writer.c',
         'pkcs7-util.c',
