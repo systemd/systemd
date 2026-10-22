@@ -207,6 +207,7 @@ shared_sources = files(
         'socket-label.c',
         'socket-netlink.c',
         'specifier.c',
+        'ssh-util.c',
         'ssl-util.c',
         'storage-util.c',
         'switch-root.c',
