@@ -1064,6 +1064,16 @@ static int varlink_error_unit_invalid_parameter(sd_varlink *link, const char *ba
         return sd_varlink_error_invalid_parameter_name(link, bad_field_path ?: bad_field);
 }
 
+static int varlink_error_unit_property_not_supported(sd_varlink *link, const char *bad_field, const char *child_bad_field) {
+        _cleanup_free_ char *bad_field_path = NULL;
+
+        varlink_propagate_bad_field(bad_field, child_bad_field, &bad_field_path);
+        return sd_varlink_errorbo(
+                        link,
+                        VARLINK_ERROR_UNIT_PROPERTY_NOT_SUPPORTED,
+                        SD_JSON_BUILD_PAIR_STRING("property", bad_field_path ?: bad_field));
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
@@ -1093,15 +1103,8 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
                 if (bad_field) {
-                        if (r == -EADDRNOTAVAIL) {
-                                _cleanup_free_ char *bad_field_path = NULL;
-
-                                varlink_propagate_bad_field(bad_field, p.bad_field, &bad_field_path);
-                                return sd_varlink_errorbo(
-                                                link,
-                                                "io.systemd.Unit.PropertyNotSupported",
-                                                SD_JSON_BUILD_PAIR_STRING("property", bad_field_path ?: bad_field));
-                        }
+                        if (r == -EADDRNOTAVAIL)
+                                return varlink_error_unit_property_not_supported(link, bad_field, p.bad_field);
 
                         return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
                 }
@@ -1320,10 +1323,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
                 /* When properties contains a valid field, but that we don't currently support, make sure to
                  * return a specific error, rather than generic invalid argument. */
                 if (streq_ptr(bad_field, "properties") && r == -EADDRNOTAVAIL)
-                        return sd_varlink_errorbo(
-                                link,
-                                "io.systemd.Unit.PropertyNotSupported",
-                                SD_JSON_BUILD_PAIR_CONDITION(!!p.unsupported_property, "property", SD_JSON_BUILD_STRING(p.unsupported_property)));
+                        return varlink_error_unit_property_not_supported(link, bad_field, p.unsupported_property);
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;
@@ -1331,10 +1331,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
 
         /* Only Markers is supported, and it cannot be persisted as unit configuration. */
         if (!p.runtime)
-                return sd_varlink_errorbo(
-                                link,
-                                "io.systemd.Unit.PropertyNotSupported",
-                                SD_JSON_BUILD_PAIR_STRING("property", "runtime"));
+                return varlink_error_unit_property_not_supported(link, "runtime", /* child_bad_field= */ NULL);
 
         r = load_unit_and_check(link, manager, p.name, &unit);
         if (r < 0)
