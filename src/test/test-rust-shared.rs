@@ -8,10 +8,12 @@
 #![no_std]
 #![no_main]
 
+use core::alloc::Layout;
 use core::ffi::{c_char, c_int, CStr};
 use core::mem::{align_of, size_of};
 use core::ptr;
 
+use systemd_shared::alloc::{Allocator, Malloc};
 use systemd_shared::cstr::{self, display};
 use systemd_shared::prelude::*;
 use systemd_shared::{fd, json, sys};
@@ -296,6 +298,26 @@ fn test_alloc() {
         Vec::<u8>::with_capacity(core::hint::black_box(usize::MAX / 2)).unwrap_err(),
         AllocError
     );
+
+    // The allocator itself takes zero-sized layouts, zeroes, grows and shrinks, as std's does.
+    let zero = Layout::new::<()>();
+    let p = Malloc.allocate(zero).unwrap();
+    assert_eq!(p.len(), 0);
+    // SAFETY: the block came from allocate() for the layout.
+    unsafe { Malloc.deallocate(p.cast(), zero) };
+    let eight = Layout::new::<[u8; 8]>();
+    let p = Malloc.allocate_zeroed(eight).unwrap();
+    assert_eq!(p.len(), 8);
+    // SAFETY: the block is valid for reads of its length.
+    assert!(unsafe { p.as_ref() }.iter().all(|&b| b == 0));
+    // SAFETY: the block came from allocate_zeroed() for eight bytes and the new layout is larger.
+    let p = unsafe { Malloc.grow(p.cast(), eight, Layout::new::<[u8; 16]>()) }.unwrap();
+    assert_eq!(p.len(), 16);
+    // SAFETY: the block holds 16 bytes now and the new layout is smaller.
+    let p = unsafe { Malloc.shrink(p.cast(), Layout::new::<[u8; 16]>(), Layout::new::<[u8; 4]>()) }.unwrap();
+    assert_eq!(p.len(), 4);
+    // SAFETY: the block holds four bytes now and goes back once.
+    unsafe { Malloc.deallocate(p.cast(), Layout::new::<[u8; 4]>()) };
 }
 
 fn test_print() {
