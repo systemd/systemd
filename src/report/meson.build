@@ -7,7 +7,6 @@ endif
 executables += [
         libexec_template + {
                 'name' : 'systemd-report',
-                'public' : true,
                 'sources' : files(
                         'report.c',
                         'report-generate.c',
@@ -20,7 +19,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-basic',
-                'public' : true,
                 'sources' : files('report-basic.c'),
                 'export' : files('report-server.c'),
         },

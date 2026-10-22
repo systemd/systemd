@@ -84,7 +84,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'homectl',
-                'public' : true,
                 'sources' : homectl_sources,
                 'export' : homectl_export_sources,
                 'import' : ['systemd-homed'],

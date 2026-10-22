@@ -1871,9 +1871,9 @@ exported_by_name = {}
 fuzzer_exes = []
 sources = []
 
-# binaries that have --help and are intended for use by humans,
-# usually, but not always, installed in /usr/bin.
-public_programs = []
+# All installed programs and aliases: dependencies of the mkosi target, and checked for
+# working --help and --version below.
+install_programs = []
 
 # D-Bus introspection XML export
 dbus_programs = []
@@ -2094,7 +2094,7 @@ endif
 #                      of the executable.
 #   'conditions'     : a list of config options that must all be enabled for the
 #                      symlink to be created.
-#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+#   'dbus'           : same meaning as for the executable itself, but for the alias.
 # The symlinks are also created in the build directory, pointing to the executable in
 # the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
@@ -2382,7 +2382,7 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
+                if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
                            'bpf_programs', 'link_args_static', 'symlinks']
@@ -2483,8 +2483,8 @@ foreach dict : executables
                 if dict.get('dbus', false)
                         dbus_programs += exe
                 endif
-                if dict.get('public', false)
-                        public_programs += exe
+                if install_shared and not is_test and not is_fuzz
+                        install_programs += exe
                 endif
         endif
 
@@ -2525,8 +2525,8 @@ foreach dict : executables
                         if dict.get('dbus', false) and not build_by_default_shared
                                 dbus_programs += exe_static
                         endif
-                        if dict.get('public', false)
-                                public_programs += exe_static
+                        if install_static
+                                install_programs += exe_static
                         endif
                 endif
         endif
@@ -2565,8 +2565,8 @@ foreach dict : executables
                                         if symlink.get('dbus', false)
                                                 dbus_programs += link
                                         endif
-                                        if symlink.get('public', false)
-                                                public_programs += link
+                                        if install_primary
+                                                install_programs += link
                                         endif
                                 endif
                         endif
@@ -2797,7 +2797,7 @@ ukify = custom_target(
         depends : ukify_depends,
         install_dir : bindir)
 if want_ukify
-        public_programs += ukify
+        install_programs += ukify
 
         # symlink for backwards compatibility after rename
         install_symlink('ukify',
@@ -2808,7 +2808,7 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
-mkosi_depends = public_programs
+mkosi_depends = install_programs
 
 foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyutil']
         if executable in executables_by_name
@@ -2902,9 +2902,16 @@ endif
 
 #####################################################################
 
-foreach exec : public_programs
+# Aliases whose command line follows other conventions
+check_help_exclude = [
+        'mount.ddi',      # mount helpers implement the mount(8) interface
+        'mount.mstack',
+        'mount.storage',
+]
+
+foreach exec : install_programs
         name = fs.name(exec.full_path())
-        if want_tests != 'false'
+        if want_tests != 'false' and name not in check_help_exclude
                 test('check-version-' + name,
                      check_version_sh,
                      suite : 'dist',

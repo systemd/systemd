@@ -26,6 +26,14 @@
 #include "string-util.h"
 #include "strv.h"
 #include "swtpm-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-tpm2-swtpm\0",
+        "Provide a fallback software TPM.",
+        .man_pages = "systemd-tpm2-swtpm.service(8)\0",
+        .option_namespace = "common",
+);
 
 #define BOOT_SECRET_SIZE 32U
 
@@ -149,6 +157,10 @@ static int run(int argc, char *argv[]) {
         LIBBLKID_NOTE(recommended);
 
         log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         _cleanup_free_ char *runtime_dir = NULL;
         r = runtime_directory(RUNTIME_SCOPE_SYSTEM, "systemd/swtpm", &runtime_dir);

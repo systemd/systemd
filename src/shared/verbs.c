@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -71,6 +72,75 @@ static bool verb_is_metadata(const Verb *verb) {
         /* A metadata entry that is not a real verb, i.e. either the command and group markers. */
         return  FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_COMMAND_MARKER) ||
                 FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
+}
+
+static const char* invoked_name(void) {
+        /* The name the program was invoked as, i.e. the alias in case of a multicall binary.
+         * $SYSTEMD_INVOKED_AS overrides argv[0], as in invoked_as(). */
+        return empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
+                ?: program_invocation_short_name;
+}
+
+static const Verb* find_invoked_command_in_namespace(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                bool exact,
+                const CommandDescription **ret_cmd) {
+
+        /* Find a command in the namespace named like the program, or with a name contained in the
+         * program name if !exact. */
+
+        const char *invoked = invoked_name();
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        continue;
+
+                const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
+                if (!streq_ptr(cmd->option_namespace, option_namespace))
+                        continue;
+
+                NULSTR_FOREACH(name, cmd->names)
+                        if (exact ? streq(invoked, name) : !!strstr(invoked, name)) {
+                                if (ret_cmd)
+                                        *ret_cmd = cmd;
+                                return verb;
+                        }
+        }
+
+        return NULL;
+}
+
+const Verb* _verbs_find_invoked_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                const CommandDescription **ret_cmd) {
+
+        /* In a multicall binary several commands may share the option namespace, so prefer the one
+         * named like the program. Otherwise accept a command whose name is contained in the program
+         * name, e.g. "systemd-sysroot-fstab-check.real": this is how invoked_as() matches when a
+         * multicall binary picks its mode, so the help describes the mode that runs. Fall back to the
+         * first command in the namespace.
+         *
+         * Only commands in the namespace are considered, since the caller parses the options of that
+         * namespace. A command named like the program but with its own options, e.g. homectl when
+         * the fallback shell runs with $SYSTEMD_INVOKED_AS=homectl, is skipped. */
+
+        const Verb *v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ true, ret_cmd);
+        if (v)
+                return v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ false, ret_cmd);
+        if (v)
+                return v;
+
+        return _verbs_find_command(verbs, verbs_end, option_namespace, ret_cmd);
 }
 
 const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name) {
@@ -523,14 +593,10 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
 static void help_cmdline(const char *arguments) {
         assert(arguments);
 
-        const char *progname =
-                empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
-                ?: program_invocation_short_name;
-
         printf("%s>%s %s %s\n",
                ansi_grey(),
                ansi_normal(),
-               progname,
+               invoked_name(),
                arguments);
 }
 
@@ -939,4 +1005,103 @@ int _introspect_cli(
                 return log_error_errno(r, "Failed to print JSON object: %m");
 
         return 0;
+}
+
+int _common_parse_argv(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                OptionParserMode mode,
+                size_t min_args, size_t max_args,
+                char ***ret_args) {
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(mode >= 0 && mode < _OPTION_PARSER_MODE_MAX);
+        assert(min_args <= max_args);
+        assert(ret_args || max_args == 0);
+
+        /* The COMMAND description must reference the option namespace defined below, otherwise
+         * --help and --introspect-cli would not find the options. */
+        const CommandDescription *cmd = NULL;
+        assert_se(_verbs_find_invoked_command(verbs, verbs_end, "common", &cmd));
+        assert(streq_ptr(cmd->option_namespace, "common"));
+
+        OptionParser opts = { argc, argv, mode, .namespace = "common" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_NAMESPACE("common"): {}
+
+                OPTION_COMMON_HELP:
+                        return _command_print_help_full(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        cmd->names,
+                                        /* footer_ansi_seq= */ NULL);
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return _introspect_cli(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        SD_JSON_FORMAT_OFF);
+                }
+
+        size_t n = option_parser_get_n_args(&opts);
+        if (max_args == 0 && n > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        if (n < min_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
+        if (n > max_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
+
+        if (ret_args)
+                *ret_args = option_parser_get_args(&opts);
+        return 1; /* Further action */
+}
+
+int _common_parse_argv_passthrough(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[]) {
+
+        assert(argc >= 0);
+        assert(argv);
+
+        /* Find out whether the command line consists of nothing but common options with a quiet dry run on
+         * a copy, since the parser reorders argv and complains about unknown options. */
+        _cleanup_free_ char **copy = newdup(char*, argv, argc + 1);
+        if (!copy)
+                return log_oom();
+
+        OptionParser opts = { argc, copy, .namespace = "common", .log_level_shift = LOG_DEBUG - LOG_ERR };
+        bool refused = false;
+
+        for (;;) {
+                int c = option_parse(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, &opts);
+                if (c == 0)
+                        break;
+                if (c == -EPERM) {
+                        /* An experimental common option which this build refuses. Report that below, like
+                         * any other program does, rather than passing the option on. */
+                        refused = true;
+                        break;
+                }
+                if (c < 0)
+                        return 1; /* Not a common option, the program passes the command line on. */
+        }
+
+        if (!refused && option_parser_get_n_args(&opts) > 0)
+                return 1; /* Positional arguments are passed on too. */
+
+        return _common_parse_argv(verbs, verbs_end, options, options_end, argc, argv, OPTION_PARSER_NORMAL,
+                                  /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
 }

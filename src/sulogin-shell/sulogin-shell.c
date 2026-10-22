@@ -22,6 +22,14 @@
 #include "special.h"
 #include "string-util.h"
 #include "unit-def.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-sulogin-shell\0",
+        "Spawn a sulogin shell and continue the boot afterwards.",
+        .argspec = "[MODE]\0",
+        .option_namespace = "common",
+);
 
 static int target_is_inactive(sd_bus *bus, const char *target) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -100,7 +108,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        print_mode(argc > 1 ? argv[1] : "");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
+
+        print_mode(strempty(args[0]));
 
         if (getenv_bool("SYSTEMD_SULOGIN_FORCE") > 0)
                 force = true;

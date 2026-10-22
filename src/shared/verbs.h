@@ -134,6 +134,15 @@ const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], cons
 #define verbs_find_command(name, ret_cmd)                               \
         _verbs_find_command(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name, ret_cmd)
 
+/* Find the command of the program as invoked (honouring $SYSTEMD_INVOKED_AS) among the commands in
+ * the given option namespace: the one named like the program, else one whose name is contained in
+ * the program name, as invoked_as() matches, else the first command in the namespace. */
+const Verb* _verbs_find_invoked_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                const CommandDescription **ret_cmd);
+
 const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name);
 #define verbs_find_verb(name) \
         _verbs_find_verb(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name)
@@ -202,3 +211,58 @@ int _introspect_cli(
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
                 flags)
+
+/* Parse the command line of a program which has no options of its own, i.e. which accepts only the
+ * common --help, --version, and --introspect-cli. The implementation is defined in libsystemd-shared,
+ * in the "common" option namespace, and the program's COMMAND() must declare
+ * .option_namespace = "common" so that --help and --introspect-cli finds it.
+ * In a multicall binary with several such commands, the one matching the invoked name is described.
+ *
+ * The number of positional arguments is checked against min_args and max_args, and the arguments are
+ * returned in *ret_args, typically to be passed to dispatch_verb(). ret_args may be NULL if max_args is 0.
+ *
+ * mode is the OptionParser mode: a program whose positional arguments are data which may start
+ * with a dash should use OPTION_PARSER_STOP_AT_FIRST_NONOPTION, so that only options before the
+ * first positional argument are recognized. (The glibc parser calls this "posixly correct" and
+ * it can be enabled by setting POSIXLY_CORRECT=1 or prefixing the option string with "+".)
+ *
+ * Returns 1 if the program shall continue, 0 if it shall exit immediately (--help, --version, or
+ * --introspect-cli has been handled), and a negative errno on error. */
+int _common_parse_argv(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                OptionParserMode mode,
+                size_t min_args, size_t max_args,
+                char ***ret_args);
+/* The macros insert the calling binary's verb section, where its COMMAND is found, and its option
+ * section, which is empty (both symbols are NULL) unless the binary also implements other commands
+ * with options of their own. */
+#define common_parse_argv_mode(argc, argv, mode, min_args, max_args, ret_args) \
+        _common_parse_argv(                                             \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                argc, argv, mode, min_args, max_args, ret_args)
+#define common_parse_argv_full(argc, argv, min_args, max_args, ret_args) \
+        common_parse_argv_mode(argc, argv, OPTION_PARSER_NORMAL, min_args, max_args, ret_args)
+/* For programs which dispatch verbs, and hence check the number of arguments themselves. */
+#define common_parse_argv(argc, argv, ret_args)                         \
+        common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ SIZE_MAX, ret_args)
+
+/* For a program which hands its command line on to another program, like a login shell: the common
+ * options are handled as by common_parse_argv() if the command line consists of nothing else, and 0
+ * or a negative errno is returned. Otherwise, including unknown options and "--", the arguments are
+ * left untouched and 1 is returned without a message. */
+int _common_parse_argv_passthrough(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[]);
+#define common_parse_argv_passthrough(argc, argv)                       \
+        _common_parse_argv_passthrough(                                 \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                argc, argv)

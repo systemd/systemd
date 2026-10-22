@@ -21,6 +21,7 @@
 COMMAND(
         "systemd-report-cgroup\0",
         "Report cgroup metrics.",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;

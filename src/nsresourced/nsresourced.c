@@ -9,6 +9,14 @@
 #include "log.h"
 #include "main-func.h"
 #include "nsresourced-manager.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-nsresourced\0",
+        "Delegate user namespace resources to unprivileged clients.",
+        .man_pages = "systemd-nsresourced.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -18,8 +26,9 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.NamespaceResource", 1) < 0)
                 return log_error_errno(errno, "Failed to set $SYSTEMD_BYPASS_USERDB: %m");

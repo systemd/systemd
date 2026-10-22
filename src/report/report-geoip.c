@@ -55,6 +55,7 @@ COMMAND(
         "systemd-report-geoip\0",
         "Report the approximate geographic location of the system as a metric.",
         .man_pages = "systemd-report-geoip@.service(8)\0",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;

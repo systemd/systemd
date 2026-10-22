@@ -12,7 +12,16 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-imds-generator\0",
+        "Enable IMDS support in supporting environments.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-imds-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static int arg_enabled = -1;  /* Whether we shall offer local IMDS APIs */
 static int arg_import = -1;   /* Whether we shall import IMDS credentials, SSH keys, … into the local system */

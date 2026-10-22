@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-pty-forward',
-                'public' : true,
                 'sources' : files('ptyfwd-tool.c'),
         },
 ]

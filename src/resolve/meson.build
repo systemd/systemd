@@ -86,7 +86,6 @@ executables += [
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
-                'public' : true,
                 'sources' : files(
                         'resolvconf-compat.c',
                         'resolvectl.c',

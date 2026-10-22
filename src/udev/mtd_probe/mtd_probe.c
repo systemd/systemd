@@ -22,67 +22,38 @@
 #include <mtd/mtd-user.h>
 #include <sys/ioctl.h>
 
-#include "sd-json.h"
-
-#include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mtd_probe.h"
-#include "strv.h"
 #include "verbs.h"
-
-static const char *arg_device = NULL;
 
 COMMAND(
         "mtd_probe\0",
         "Probe MTD devices.",
         .argspec = "/dev/mtdN\0",
+        .option_namespace = "common",
 );
-
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        char **args = option_parser_get_args(&opts);
-        if (strv_length(args) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Need exactly one DEVICE argument.");
-
-        arg_device = args[0];
-        return 1;
-}
 
 static int run(int argc, char** argv) {
         _cleanup_close_ int mtd_fd = -EBADF;
         mtd_info_t mtd_info;
         int r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 1, /* max_args= */ 1, &args);
         if (r <= 0)
                 return r;
 
-        mtd_fd = open(arg_device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        const char *device = args[0];
+
+        mtd_fd = open(device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (mtd_fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to open device node '%s'%s: %m",
-                               arg_device, ignore ? ", ignoring" : "");
+                               device, ignore ? ", ignoring" : "");
                 return ignore ? 0 : -errno;
         }
 

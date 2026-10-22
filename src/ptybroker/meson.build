@@ -12,7 +12,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'ptyctl',
-                'public' : true,
                 'sources' : files('ptyctl.c'),
         },
 ]

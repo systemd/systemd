@@ -33,6 +33,15 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "vconsole-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-vconsole-setup\0",
+        "Configure the virtual consoles.",
+        .argspec = "[TTY]\0",
+        .man_pages = "systemd-vconsole-setup.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct Context {
         char *keymap;
@@ -737,13 +746,19 @@ static int run(int argc, char **argv) {
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;
         unsigned idx = 0;
+        int r;
 
         log_setup();
 
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
+
         umask(0022);
 
-        if (argv[1]) {
-                fd = verify_source_vc(&vc, argv[1]);
+        if (args[0]) {
+                fd = verify_source_vc(&vc, args[0]);
                 if (fd < 0)
                         return fd;
         } else {

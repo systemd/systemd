@@ -7,7 +7,6 @@ endif
 executables += [
         libexec_template + {
                 'name' : 'systemd-binfmt',
-                'public' : true,
                 'sources' : files('binfmt.c'),
         },
 ]

@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-delta',
-                'public' : true,
                 'sources' : files('delta.c'),
         },
 ]
