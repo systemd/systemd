@@ -62,6 +62,8 @@ typedef struct LinkInfo {
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
 
+        char **configuring_reasons;
+
         /* DHCPv4 */
         sd_dhcp_message *dhcp_message;
         sd_dhcp_client_id dhcp_client_id;
