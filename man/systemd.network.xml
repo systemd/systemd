@@ -488,7 +488,11 @@
           <para>Defaults to <option>no</option> when <varname>KeepMaster=</varname> or
           <varname>Bridge=</varname> is set or when the specified
           <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>,
-          or <option>ipv6</option> otherwise.</para>
+          or <option>ipv6</option> otherwise. For WireGuard interfaces, an IPv6 link-local address is
+          configured only when this is explicitly set to <option>yes</option> or <option>ipv6</option>.
+          As WireGuard interfaces do not have a hardware address, the kernel generates the address in the
+          same way as the <literal>random</literal> mode even when <literal>eui64</literal> is used, see
+          <varname>IPv6LinkLocalAddressGenerationMode=</varname> below.</para>
 
           <para>When IPv4 link-local addressing is enabled, <varname>ARP=</varname> is enabled unless if it
           is explicitly configured.</para>

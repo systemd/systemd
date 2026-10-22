@@ -2667,6 +2667,12 @@ ReorderHeader=no
         self.networkctl_check_unit('wg98', '25-wireguard-23-peers', '25-wireguard-23-peers')
         self.networkctl_check_unit('wg97', '25-wireguard-no-peer', '25-wireguard-no-peer')
 
+        # An IPv6LL address is generated only when LinkLocalAddressing= is explicitly set.
+        self.wait_address('wg97', r'inet6 fe80::[0-9a-f:]+/64', scope='link', ipv='-6')
+        output = check_output('ip -6 address show dev wg98 scope link')
+        print(output)
+        self.assertNotIn('inet6 fe80', output)
+
         output = check_output('ip -4 address show dev wg99')
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
