@@ -268,7 +268,7 @@ static EFI_STATUS acquire_secret_mixin(
         return EFI_SUCCESS;
 }
 
-static char* pick_id(const char *_osrel, size_t osrel_size) {
+char* osrel_pick_id(const char *_osrel, size_t osrel_size) {
         assert(_osrel || osrel_size == 0);
 
         /* Make a NUL terminated copy we can chop into pieces */
@@ -372,7 +372,7 @@ EFI_STATUS prepare_boot_secret(
                 osrel = (const char*) loaded_image->ImageBase + osrel_section->memory_offset;
                 osrel_size = osrel_section->memory_size;
         }
-        _cleanup_free_ char *id = pick_id(osrel, osrel_size);
+        _cleanup_free_ char *id = osrel_pick_id(osrel, osrel_size);
 
         derive_secret(efivar_secret, secret_mixin, id, ret);
         return EFI_SUCCESS;

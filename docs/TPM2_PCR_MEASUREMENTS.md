@@ -269,6 +269,22 @@ Ucode addons are measured individually as a tagged event.
 
 → **Measured hash** covers the contents of the ucode initrd.
 
+### PCR 12, `EV_EVENT_TAG`, addons trusted on first use
+
+Addons that the firmware refused to load, and that systemd-stub trusted on first
+use instead (see the "Trusting Addons On First Use" section of
+[systemd-stub(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html)),
+are measured as a whole, as a tagged event, before the sections taken from them
+are measured as described above. The firmware does not measure them into PCR 4,
+as it never loaded them. Every unsigned addon whose contents were examined is
+measured, including one that is then ignored for not being a valid addon.
+
+→ **Event Tag** `0x7a0f3b51`
+
+→ **Description** is the addon filename.
+
+→ **Measured hash** covers the contents of the addon PE file.
+
 ### PCR 12, `EV_IPL`, per-uki credentials initrd
 
 → **Description** in the event log record is the constant string "Credentials
