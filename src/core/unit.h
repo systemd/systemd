@@ -249,6 +249,7 @@ typedef struct Unit {
 
         char *description;
         char **documentation;
+        Hashmap *tags;
 
         /* The SELinux context used for checking access to this unit read off the unit file at load time (do
          * not confuse with the selinux_context field in ExecContext which is the SELinux context we'll set
@@ -1114,6 +1115,8 @@ int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_
 
 int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask);
 unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers);
+
+int unit_set_tag(Unit *u, const char *name, const char *value);
 
 /* Trying to log with too many fields is going to fail. We need at least also MESSAGE=,
  * but we generally log a few extra in most cases. So let's reserve 10. Anything
