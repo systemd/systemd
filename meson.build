@@ -5,6 +5,7 @@ project('systemd', 'c',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu17',
+                'rust_std=2021',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
@@ -369,6 +370,129 @@ if add_languages('cpp', native : false, required : fuzzer_build)
         cxx_cmd = ' '.join(cxx.cmd_array())
 else
         cxx_cmd = ''
+endif
+
+#####################################################################
+
+rust_feature = get_option('rust')
+# The oldest rustc we support. Also handed to bindgen, so that the generated bindings never require a
+# newer compiler than the hand-written code does.
+rust_msrv = '1.85'
+bindgen_min_version = '0.71.1'
+have_rust = false
+
+if rust_feature.allowed()
+        # The rust module's bindgen() integration needs this meson version.
+        if meson.version().version_compare('< 1.4.0')
+                if rust_feature.enabled()
+                        error('Rust support requires meson >= 1.4.0, found @0@'.format(meson.version()))
+                endif
+                message('Rust support requires meson >= 1.4.0, disabling')
+        elif meson.is_cross_build()
+                if rust_feature.enabled()
+                        error('Rust support is not available when cross-compiling yet')
+                endif
+                message('Rust support is not available when cross-compiling yet, disabling')
+        else
+                have_rust = add_languages('rust', native : false, required : rust_feature)
+        endif
+endif
+
+if have_rust
+        rustc = meson.get_compiler('rust')
+        if rustc.version().version_compare('< ' + rust_msrv)
+                if rust_feature.enabled()
+                        error('rustc >= @0@ is required, found @1@'.format(rust_msrv, rustc.version()))
+                endif
+                message('rustc >= @0@ is required, found @1@, disabling Rust support'.format(rust_msrv, rustc.version()))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        bindgen = find_program('bindgen', required : rust_feature, version : '>= ' + bindgen_min_version)
+        have_rust = bindgen.found()
+
+        # 0.72.0 generates bindings that do not compile, 0.72.1 fixed that.
+        if have_rust and bindgen.version() == '0.72.0'
+                if rust_feature.enabled()
+                        error('bindgen 0.72.0 is known to be broken, use 0.71.1 or >= 0.72.1')
+                endif
+                message('bindgen 0.72.0 is known to be broken, disabling Rust support')
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        # bindgen parses C with libclang, which it loads at run time, so find_program() proves nothing about
+        # it. Run it once over a header that reports the libclang version and contains the construct bindgen
+        # < 0.72.1 mishandles with libclang >= 22 (https://github.com/rust-lang/rust-bindgen/pull/3278).
+        bindgen_probe = run_command(bindgen, files('tools/bindgen-probe.h'), '--formatter', 'none', check : false)
+        libclang_version = ''
+        if bindgen_probe.returncode() == 0
+                foreach line : bindgen_probe.stderr().split('\n')
+                        if line.contains('clang version ')
+                                libclang_version = line.split('clang version ')[1].split(' ')[0]
+                        endif
+                endforeach
+        endif
+
+        if libclang_version == ''
+                if rust_feature.enabled()
+                        error('bindgen cannot generate bindings, is libclang installed?\n' + bindgen_probe.stderr())
+                endif
+                message('bindgen cannot generate bindings, disabling Rust support')
+                have_rust = false
+        elif libclang_version.version_compare('>= 22') and bindgen.version().version_compare('< 0.72.1') and not bindgen_probe.stdout().contains('pub foo')
+                if rust_feature.enabled()
+                        error('bindgen @0@ does not work with libclang @1@, use bindgen >= 0.72.1'.format(bindgen.version(), libclang_version))
+                endif
+                message('bindgen @0@ does not work with libclang @1@, disabling Rust support'.format(bindgen.version(), libclang_version))
+                have_rust = false
+        endif
+endif
+
+conf.set10('HAVE_RUST', have_rust)
+
+if have_rust
+        rustfmt = find_program('rustfmt', required : false)
+
+        # Warnings are errors only under --werror, like for C.
+        rust_args = [
+                '-D', 'non_ascii_idents',
+                '-D', 'unsafe_op_in_unsafe_fn',
+                '-W', 'missing_docs',
+                '-W', 'rust_2018_idioms',
+                '-W', 'unreachable_pub',
+                '-W', 'clippy::undocumented_unsafe_blocks',
+                '-W', 'clippy::unnecessary_safety_comment',
+                '-W', 'clippy::unnecessary_safety_doc',
+                '-W', 'clippy::ptr_as_ptr',
+                '-W', 'clippy::ptr_cast_constness',
+                '-W', 'clippy::ref_as_ptr',
+                '-W', 'clippy::as_ptr_cast_mut',
+                '-W', 'clippy::cast_lossless',
+                '-W', 'clippy::dbg_macro',
+                '-W', 'rustdoc::missing_crate_level_docs',
+                # rustc's default depends on the optimization level. C code in systemd checks its arithmetic
+                # where it matters, Rust code does not get to wrap silently either.
+                '-C', 'overflow-checks=yes',
+                # Unwinding could not cross the C frames of an event loop anyway, and without std there is no
+                # unwinder.
+                '-C', 'panic=abort',
+        ]
+        # meson passes source paths relative to the build directory, which is what file!() and hence
+        # CODE_FILE= in the journal would show. Strip the prefix like PROJECT_FILE does for C. This also
+        # makes the paths in the debug info relative to the source root (--remap-path-scope=macro would
+        # limit it to file!(), but rustdoc does not accept that flag on stable).
+        rust_args += ['--remap-path-prefix=' + relative_source_path + '/=']
+        add_project_arguments(rust_args, language : 'rust')
+
+        summary({
+                'rustc'    : rustc.version(),
+                'bindgen'  : bindgen.version(),
+                'libclang' : libclang_version,
+        }, section : 'Rust')
 endif
 
 if want_libfuzzer
@@ -1866,6 +1990,10 @@ simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
+rust_executables = [] # programs written in Rust, see the loop over them below
+rust_executable_targets = []
+rust_executables_by_name = {}
+rust_sources = []
 executables_by_name = {}
 exported_by_name = {}
 fuzzer_exes = []
@@ -1952,6 +2080,32 @@ subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/libudev')
+
+if have_rust
+        # The config.h conditions, so that Rust code says #[cfg(HAVE_FOO)] where C code says #if HAVE_FOO, and
+        # a misspelled one is reported.
+        rust_cfg_args = []
+        foreach key : conf.keys()
+                if key.startswith('HAVE_') or key.startswith('ENABLE_')
+                        rust_cfg_args += '--check-cfg=cfg(@0@)'.format(key)
+                        if '@0@'.format(conf.get(key)) == '1'
+                                rust_cfg_args += '--cfg=' + key
+                        endif
+                endif
+        endforeach
+        # And the one C code gets from the compiler.
+        rust_cfg_args += '--check-cfg=cfg(HAS_FEATURE_ADDRESS_SANITIZER)'
+        if get_option('b_sanitize').contains('address')
+                rust_cfg_args += '--cfg=HAS_FEATURE_ADDRESS_SANITIZER'
+        endif
+
+        # meson judges the feature warnings of this block against the version compared here, not the
+        # project's floor, which is older than what the Rust bits use.
+        if meson.version().version_compare('>= 1.4.0')
+                subdir('src/rust/systemd-shared')
+        endif
+        rust_sources += systemd_shared_rust_sources
+endif
 
 libsystemd = shared_library(
         'systemd',
@@ -2816,6 +2970,104 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
         endif
 endforeach
 
+#####################################################################
+
+# Programs written in Rust are declared like the C ones, but with .rs sources:
+#
+#         rust_executables += [
+#                 {
+#                         'sources' : files('foo.rs'),
+#                         'install_dir' : libexecdir,
+#                 },
+#         ]
+#
+# The first source is the crate root, the others are only tracked for rebuilds. 'conditions', 'public' and
+# 'type' work like for the C programs: public programs get the --help and --version checks, names starting
+# with 'test-' are registered as unit tests (unless the type is 'manual') and installed with the C ones
+# when -Dinstall-tests is on. There are no .standalone variants: Rust programs always link libsystemd-shared
+# dynamically, and take part in test-link-abi like the C ones.
+
+if have_rust
+        rust_executable_template = {
+                'link_with' : [libsystemd_shared_rs],
+                'install' : true,
+                'install_rpath' : pkglibdir,
+                # meson keeps rustc's own library directory in the runpath of Rust programs that link a shared
+                # library (it is only needed for Rust dylibs, which we do not use) and cannot grow a runpath
+                # when installing. Add a build-only entry that is at least as long as the installed runpath, so
+                # that install always succeeds, and let fix-rust-rpath.py drop the leftover entry afterwards.
+                # Both become no-ops once meson stops adding the directory.
+                'build_rpath' : meson.project_build_root() / pkglibdir.strip('/'),
+                # Nothing from the crates is exported. The linker exports what a DSO in the link also defines,
+                # and a stub of the crates would then preempt it for the libraries a program loads.
+                'link_args' : ['-Wl,--exclude-libs,ALL'],
+                'rust_args' : rust_cfg_args,
+                'build_by_default' : true,
+        }
+
+        foreach dict : rust_executables
+                name = dict.get('name', '')
+                if name == ''
+                        name = fs.stem(dict.get('sources')[0])
+                endif
+                is_test = name.startswith('test-')
+                type = dict.get('type', '')
+
+                build = true
+                foreach cond : dict.get('conditions', [])
+                        if conf.get(cond) != 1
+                                build = false
+                                break
+                        endif
+                endforeach
+                if not build
+                        continue
+                endif
+
+                kwargs = rust_executable_template
+                foreach key, val : dict
+                        if key in ['name', 'sources', 'conditions', 'public', 'suite', 'timeout', 'type']
+                                continue
+                        endif
+                        kwargs += { key : val }
+                endforeach
+
+                if is_test
+                        kwargs += {
+                                'install' : install_tests,
+                                'install_dir' : unittestsdir / type,
+                                'build_by_default' : want_tests != 'false',
+                        }
+                endif
+
+                exe = executable(name, dict.get('sources'), kwargs : kwargs)
+                rust_executable_targets += exe
+                rust_executables_by_name += { name : exe }
+                rust_sources += dict.get('sources')
+                if dict.get('public', false)
+                        public_programs += exe
+                endif
+
+                if is_test and want_tests != 'false' and type != 'manual' and (type != 'unsafe' or want_tests == 'unsafe')
+                        test(name, exe,
+                             env : test_env,
+                             timeout : dict.get('timeout', 30),
+                             suite : dict.get('suite', 'rust'))
+                endif
+                if kwargs.get('install')
+                        meson.add_install_script(python, fix_rust_rpath_py, pkglibdir,
+                                                 kwargs.get('install_dir', bindir) / name)
+                endif
+        endforeach
+
+        if want_tests != 'false' and rustfmt.found() and rust_sources.length() > 0
+                test('rustfmt',
+                     rustfmt,
+                     args : ['--check', '--edition', '2021', rust_sources],
+                     suite : 'dist')
+        endif
+endif
+
 if mkosi.found()
         custom_target(
                 build_always_stale : true,
@@ -3286,6 +3538,7 @@ foreach tuple : [
         ['report'],
         ['resolve'],
         ['rfkill'],
+        ['rust',                   have_rust],
         ['sysext'],
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
