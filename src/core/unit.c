@@ -890,6 +890,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->description);
         strv_free(u->documentation);
+        hashmap_free(u->tags);
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
@@ -7337,4 +7338,37 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
 
         return markers;
+}
+
+int unit_set_tag(Unit *u, const char *name, const char *value) {
+        int r;
+
+        assert(u);
+        assert(name);
+
+        _cleanup_free_ char *name_owned = strdup(name);
+        if (!name_owned)
+                return -ENOMEM;
+
+        _cleanup_free_ char *value_owned = NULL;
+        if (!isempty(value)) {
+                value_owned = strdup(value);
+                if (!value_owned)
+                        return -ENOMEM;
+        }
+
+        _cleanup_free_ char *old_name = NULL, *old_value = NULL;
+        old_value = hashmap_remove2(u->tags, name, (void**) &old_name);
+
+        if (!old_name && hashmap_size(u->tags) >= UNIT_TAGS_MAX)
+                return -E2BIG;
+
+        r = hashmap_ensure_put(&u->tags, &string_hash_ops_free_free, name_owned, value_owned);
+        assert(r != -EEXIST);
+        if (r < 0)
+                return r;
+        TAKE_PTR(name_owned);
+        TAKE_PTR(value_owned);
+
+        return 0;
 }

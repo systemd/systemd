@@ -444,3 +444,25 @@ Glyph unit_active_state_to_glyph(UnitActiveState state) {
         assert(state < _UNIT_ACTIVE_STATE_MAX);
         return map[state];
 }
+
+bool unit_tag_name_is_valid(const char *name) {
+        size_t n = strlen_ptr(name);
+        if (n <= 0 || n > UNIT_TAG_NAME_MAX)
+                return false;
+
+        /* Don't start or end with "." or "-" separators */
+        if (strchr("-.", name[0]) || strchr("-.", name[n - 1]))
+                return false;
+
+        return in_charset(name, ALPHANUMERICAL "-.");
+}
+
+bool unit_tag_value_is_valid(const char *value) {
+        size_t n = strlen_ptr(value);
+        if (n <= 0)
+                return true;
+        if (n > UNIT_TAG_VALUE_MAX)
+                return false;
+
+        return in_charset(value, ALPHANUMERICAL "-.:=");
+}

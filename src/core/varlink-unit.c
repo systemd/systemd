@@ -122,6 +122,24 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
         return 0;
 }
 
+static int unit_tags_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Hashmap *tags = userdata;
+        int r;
+
+        assert(ret);
+
+        const char *tag_name, *tag_value;
+        HASHMAP_FOREACH_KEY(tag_value, tag_name, tags) {
+                r = sd_json_variant_set_field_string(&v, tag_name, strempty(tag_value));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
 
@@ -151,6 +169,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#%5BUnit%5D%20Section%20Options */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Description", u->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Documentation", u->documentation),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Tags", unit_tags_build_json, u->tags),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Wants", unit_dependencies_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("WantedBy", unit_dependencies_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Requires", unit_dependencies_build_json, u),
