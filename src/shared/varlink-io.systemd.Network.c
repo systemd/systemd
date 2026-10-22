@@ -21,6 +21,31 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(linger));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
+                LinkConfiguringReason,
+                SD_VARLINK_DEFINE_ENUM_VALUE(traffic_control),
+                SD_VARLINK_DEFINE_ENUM_VALUE(link_layer),
+                SD_VARLINK_DEFINE_ENUM_VALUE(activation),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stacked_netdevs),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_addresses),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_address_labels),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_bridge_fdb),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_bridge_mdb),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_neighbors),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_neighbor_proxy),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_nexthops),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_routes),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_routing_policy_rules),
+                SD_VARLINK_DEFINE_ENUM_VALUE(sr_iov),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bearer),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ipv6ll),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static_address_not_ready),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dhcp4_6rd),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dhcp4_6rd_prefix),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dhcp6_pd),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dhcp6_pd_prefix),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dynamic_addressing));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 LinkAddressState,
                 SD_VARLINK_DEFINE_ENUM_VALUE(off),
                 SD_VARLINK_DEFINE_ENUM_VALUE(degraded),
@@ -479,6 +504,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(BSSID, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Administrative state (configuring, configured, etc.)"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(AdministrativeState, LinkState, 0),
+                SD_VARLINK_FIELD_COMMENT("Why the link is still in the configuring state, set only in that state"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ConfiguringReasons, LinkConfiguringReason, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Operational state (routable, degraded, etc.)"),
                 SD_VARLINK_DEFINE_FIELD(OperationalState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Carrier state (carrier, no-carrier, etc.)"),
@@ -649,6 +676,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Domain,
                 &vl_type_Interface,
                 &vl_type_LinkState,
+                &vl_type_LinkConfiguringReason,
                 &vl_type_LinkAddressState,
                 &vl_type_LinkOnlineState,
                 &vl_type_LinkRequiredAddressFamily,
