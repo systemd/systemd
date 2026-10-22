@@ -437,6 +437,9 @@ TEST(chase_and_open) {
         fd = safe_close(fd);
         result = mfree(result);
 
+        /* O_CREAT on the parent opened with CHASE_PARENT */
+        ASSERT_ERROR(chase_and_open("/usr/lib", NULL, CHASE_PARENT, O_RDONLY|O_CREAT|O_CLOEXEC, NULL), EISDIR);
+
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME — opens parent dir, returns just the filename. */
         fd = ASSERT_OK(chase_and_open("/usr/lib", NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
         ASSERT_OK(fd_verify_directory(fd));
@@ -775,6 +778,12 @@ TEST(chaseat) {
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK(faccessat(tfd, "mkopen/d/i/r/target", F_OK, 0));
         fd = safe_close(fd);
+
+        /* O_CREAT on the directory itself: the parent opened with CHASE_PARENT, or a symlink to the root */
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/d/i/r/target", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
+        ASSERT_OK_ERRNO(symlinkat("/", tfd, "mkopen/toroot"));
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", 0, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
 
         /* Test chase_and_openat() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations */
 
