@@ -1054,6 +1054,10 @@ int chase_and_open(
                 }
         }
 
+        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
+        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
+
         r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
         if (r < 0)
                 return r;
@@ -1264,6 +1268,10 @@ int chase_and_openat(
                         open_name = fname;
                 }
         }
+
+        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
+        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
 
         r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
         if (r < 0)
