@@ -436,6 +436,9 @@ static int dispatch_dns_server(const sd_json_dispatch_field table[], const char 
         if (s->family != s->in_addr.family)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "'%s' address and family are inconsistent.", strna(name));
 
+        if (IN_SET(s->port, 53, 853))
+                s->port = 0;
+
         *ret = TAKE_PTR(s);
 
         return 0;
