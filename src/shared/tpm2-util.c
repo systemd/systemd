@@ -19,6 +19,7 @@
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -9775,8 +9776,9 @@ static int tpm2_nvpcr_calculate_pcr_init_policy(
         return 0;
 }
 
-/* Loads the signed init policy of NvPCR 'name' from the booted UKI. Returns -ENOKEY if no PCR public key,
- * signature file, or "initrd" signature for the key is available, in which case 'ret' is left untouched. */
+/* Loads the signed init policy of NvPCR 'name' from the booted UKI. Returns -ENOKEY if the UKI or the OS is
+ * not measured into PCR 11, or if no PCR public key, signature file, or "initrd" signature for the key is
+ * available, in which case 'ret' is left untouched. */
 static int tpm2_nvpcr_load_signed_init_policy(
                 const char *name,
                 const TPML_PCR_SELECTION *pcr_selection,
@@ -9792,6 +9794,13 @@ static int tpm2_nvpcr_load_signed_init_policy(
         assert(ret);
 
         p.pcr_selection = *pcr_selection;
+
+        /* The signed values are never reached if the UKI or the OS is not measured into PCR 11, e.g., with
+         * a software TPM, hence don't use the signatures then. */
+        r = efi_should_use_pcrsig(LOG_DEBUG);
+        if (r <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "UKI or OS not measured into PCR 11, cannot use signed init policy for NvPCR '%s'.", name);
 
         /* Load the PCR public key. Its signatures authorize the initializing write to the NvPCR via the
          * PolicyAuthorize branch of the write policy. */
