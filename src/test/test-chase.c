@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
 #include "mkdir.h"
@@ -18,6 +19,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 
 static const char *arg_test_dir = NULL;
@@ -435,6 +437,9 @@ TEST(chase_and_open) {
         fd = safe_close(fd);
         result = mfree(result);
 
+        /* O_CREAT on the parent opened with CHASE_PARENT */
+        ASSERT_ERROR(chase_and_open("/usr/lib", NULL, CHASE_PARENT, O_RDONLY|O_CREAT|O_CLOEXEC, NULL), EISDIR);
+
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME — opens parent dir, returns just the filename. */
         fd = ASSERT_OK(chase_and_open("/usr/lib", NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
         ASSERT_OK(fd_verify_directory(fd));
@@ -774,6 +779,12 @@ TEST(chaseat) {
         ASSERT_OK(faccessat(tfd, "mkopen/d/i/r/target", F_OK, 0));
         fd = safe_close(fd);
 
+        /* O_CREAT on the directory itself: the parent opened with CHASE_PARENT, or a symlink to the root */
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/d/i/r/target", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
+        ASSERT_OK_ERRNO(symlinkat("/", tfd, "mkopen/toroot"));
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", 0, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, NULL), EISDIR);
+
         /* Test chase_and_openat() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations */
 
         /* No CHASE_PARENT, no CHASE_EXTRACT_FILENAME, with ret_path — opens the target, returns full path. */
@@ -1103,6 +1114,125 @@ TEST(use_chase_as_mkdir_p) {
         ASSERT_OK(path_extract_directory(ff, &fff));
 
         ASSERT_OK(rm_rf(fff, REMOVE_PHYSICAL));
+}
+
+TEST(chase_mode) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *f = NULL, *l = NULL, *al = NULL;
+        _cleanup_close_ int tfd = -EBADF, bfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+        ASSERT_OK_ERRNO(tfd = open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
+
+        ASSERT_NOT_NULL(a = path_join(t, "a"));
+        ASSERT_NOT_NULL(b = path_join(t, "a/b"));
+        ASSERT_NOT_NULL(c = path_join(t, "a/b/c"));
+        ASSERT_NOT_NULL(f = path_join(t, "a/b/f"));
+        ASSERT_NOT_NULL(l = path_join(t, "a/l"));
+
+        WITH_UMASK(0022) {
+                ASSERT_OK(mkdir_p(b, 0755));
+                ASSERT_OK(write_string_file(f, "x", WRITE_STRING_FILE_CREATE));
+                ASSERT_OK_ERRNO(symlink("b/f", l));
+        }
+
+        /* 0755 directories all the way down to a 0644 file pass, a symlink on the way is not checked */
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK(chaseat(tfd, tfd, "a/l", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK(chase("a/b/f", t, CHASE_PREFIX_ROOT|CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY|O_CLOEXEC,
+                                        /* ret_path= */ NULL));
+        fd = safe_close(fd);
+
+        /* A directory writable by others fails */
+        ASSERT_OK_ERRNO(chmod(b, 0777));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY|O_CLOEXEC, NULL),
+                     ENOLINK);
+        ASSERT_OK_ERRNO(chmod(b, 0757));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+
+        /* Group write, stricter modes and the special bits pass */
+        ASSERT_OK_ERRNO(chmod(b, 0775));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 0750));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 0700));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 02755));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 01755));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 0755));
+
+        /* The final file may not exceed 0664, exec and special bits included */
+        ASSERT_OK_ERRNO(chmod(f, 0666));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 0646));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 0755));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 04644));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 02644));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 01644));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 0664));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(f, 0600));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(f, 0644));
+
+        /* A symlink as the final component is not checked when it is not followed */
+        ASSERT_OK_ERRNO(chmod(f, 0666));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/l", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, tfd, "a/l", CHASE_NOFOLLOW|CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(f, 0644));
+
+        /* The starting directory is checked like any other, also when ".." leads back to it */
+        ASSERT_OK_ERRNO(chmod(t, 0777));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chase("a/b/f", t, CHASE_PREFIX_ROOT|CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/../a/b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+
+        /* And so is the parent walked through with ".." */
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/../b/f", CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(a, 0777));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/../b/f", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(a, 0755));
+
+        /* Directories created on the way are 0755 and pass */
+        WITH_UMASK(0022)
+                ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MKDIR_0755|CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MAX_MODE, NULL, NULL));
+
+        /* Starting below the root: a trailing ".." with CHASE_PARENT checks the grandparent, which the walk
+         * never entered on the way down */
+        WITH_UMASK(0022)
+                ASSERT_OK(mkdir_p(c, 0755));
+        ASSERT_OK_ERRNO(bfd = open(b, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(a, 0777));
+        ASSERT_ERROR(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chaseat(tfd, bfd, "..", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(a, 0755));
+
+        /* The root is checked like the starting directory when ".." climbs into it, and not at all when the
+         * walk never gets there */
+        ASSERT_OK_ERRNO(chmod(t, 0777));
+        ASSERT_ERROR(chaseat(tfd, bfd, "../..", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chaseat(tfd, bfd, "../../a/b/c", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, bfd, "c", CHASE_MAX_MODE, NULL, NULL));
+
+        /* An absolute symlink leads back to the root, which is checked then */
+        ASSERT_NOT_NULL(al = path_join(t, "a/al"));
+        ASSERT_OK_ERRNO(symlink("/a/b/c", al));
+        ASSERT_ERROR(chaseat(tfd, bfd, "../al", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+        ASSERT_OK(chaseat(tfd, bfd, "../al", CHASE_MAX_MODE, NULL, NULL));
 }
 
 static int intro(void) {
