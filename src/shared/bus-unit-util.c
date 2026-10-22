@@ -34,6 +34,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "object-tags.h"
 #include "open-file.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -2490,6 +2491,44 @@ static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, 
         return bus_append_strv(m, field, eq);
 }
 
+static int bus_append_tags(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(m);
+        assert(field);
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "as");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = object_tags_from_string(eq, /* separators= */ NULL, /* graceful= */ false, &tags);
+        if (r < 0)
+                return parse_log_error(r, field, eq);
+
+        r = sd_bus_message_append_strv(m, tags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 typedef struct BusProperty {
         const char *name;
         int (*convert)(sd_bus_message *m, const char *field, const char *eq);
@@ -2965,6 +3004,7 @@ static const BusProperty unit_properties[] = {
         { "SuccessActionExitStatus",               bus_append_action_exit_status                 },
         { "FailureActionExitStatus",               bus_append_action_exit_status                 },
         { "Documentation",                         bus_append_strv                               },
+        { "Tags",                                  bus_append_tags                               },
         { "RequiresMountsFor",                     bus_append_strv                               },
         { "WantsMountsFor",                        bus_append_strv                               },
         { "Markers",                               bus_append_strv                               },
