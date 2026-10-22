@@ -47,6 +47,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-link-bus.h"
 #include "networkd-lldp-tx.h"
@@ -2031,6 +2032,8 @@ static int link_carrier_lost(Link *link) {
 }
 
 static int link_admin_state_up(Link *link) {
+        int r;
+
         assert(link);
 
         /* This is called every time an interface admin state changes to up;
@@ -2049,6 +2052,15 @@ static int link_admin_state_up(Link *link) {
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
         (void) link_set_ipv6_mtu(link, LOG_INFO);
+
+        /* Some drivers, e.g. WireGuard, reset the IPv6LL address generation mode when the interface is
+         * brought up, so we need to reset it. Setting the mode by sysctl also generates the address. */
+        IPv6LinkLocalAddressGenMode mode = link_get_ipv6ll_addrgen_mode(link);
+        if (mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE) {
+                r = link_set_ipv6ll_addrgen_mode(link, mode);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Cannot set IPv6 address generation mode, ignoring: %m");
+        }
 
         return 0;
 }

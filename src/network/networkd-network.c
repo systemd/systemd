@@ -197,6 +197,7 @@ int network_verify(Network *network) {
                 network->routes_by_section = hashmap_free(network->routes_by_section);
         }
 
+        network->link_local_set = network->link_local >= 0;
         if (network->link_local < 0) {
                 network->link_local = ADDRESS_FAMILY_IPV6;
 
