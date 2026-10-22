@@ -627,7 +627,11 @@ EOF
 
     if [[ "$OFFLINE" == yes ]]; then
         exec {partition_fd}<&-
-        grep -F "Failed to reread partition table after wiping, ignoring: Device or resource busy" "$imgs/recreate.log"
+        if built_with_musl; then
+            grep -F "Failed to reread partition table after wiping, ignoring: Resource busy" "$imgs/recreate.log"
+        else
+            grep -F "Failed to reread partition table after wiping, ignoring: Device or resource busy" "$imgs/recreate.log"
+        fi
     fi
 
     assert_eq "$(grep -Fc 'Informing kernel about changed partitions...' "$imgs/recreate.log")" 1
