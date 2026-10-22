@@ -33,11 +33,11 @@ ip addr add 192.168.47.11/24 dev dummy0
 USERDATA='{"systemd.credentials":[{"name":"acredtest","text":"avalue"}]}'
 
 # First try imdsd directly
-IMDSD="/usr/lib/systemd/systemd-imdsd --vendor=test --data-url=http://192.168.47.11:8088 --well-known-key=userdata:/userdata --well-known-key=hostname:/hostname"
-assert_eq "$($IMDSD --well-known=hostname)" "piff"
-assert_eq "$($IMDSD --well-known=userdata)" "$USERDATA"
-assert_eq "$($IMDSD /hostname)" "piff"
-assert_eq "$($IMDSD /userdata)" "$USERDATA"
+IMDSD=(/usr/lib/systemd/systemd-imdsd --vendor=test --data-url=http://192.168.47.11:8088 --well-known-key=userdata:/userdata --well-known-key=hostname:/hostname)
+assert_eq "$("${IMDSD[@]}" --well-known=hostname)" "piff"
+assert_eq "$("${IMDSD[@]}" --well-known=userdata)" "$USERDATA"
+assert_eq "$("${IMDSD[@]}" /hostname)" "piff"
+assert_eq "$("${IMDSD[@]}" /userdata)" "$USERDATA"
 
 # Then, try it as Varlink service
 mkdir -p /run/systemd/system/systemd-imdsd@.service.d/
