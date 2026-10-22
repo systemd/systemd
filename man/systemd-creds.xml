@@ -397,8 +397,13 @@
         a PEM encoded RSA public key, to bind the encryption to. If this is not specified explicitly, but a
         file <filename>tpm2-pcr-public-key.pem</filename> exists in one of the directories
         <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
-        <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
-        <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
+        <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used, but only
+        if <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        measured the unified kernel image into PCR 11 and OS measurements are enabled, as otherwise PCR 11
+        never reaches the signed values. This is the default when booting a unified kernel image with a
+        hardware TPM, unless OS measurements are disabled with <varname>systemd.tpm2_measured_os=0</varname>,
+        see <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        The <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
         syntax as <option>--tpm2-pcrs=</option> described above). If not specified, defaults to 11 (i.e. this
         binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
 

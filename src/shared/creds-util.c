@@ -17,6 +17,7 @@
 #include "creds-util.h"
 #include "crypto-util.h"
 #include "efi-api.h"
+#include "efi-loader.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -963,10 +964,12 @@ int encrypt_credential_and_warn(
                 try_tpm2 = CRED_KEY_REQUIRES_TPM2(with_key);
 
         if (try_tpm2) {
-                /* If the firmware does not support TPMs, then UKI measurements are not going to work, hence
-                 * PCR 11 public key stuff cannot work. Because of that, if PK is only wanted (but not
-                 * required) we won't try it. */
-                if ((CRED_KEY_WANTS_TPM2_PK(with_key) && tpm2_is_fully_supported()) || CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
+                /* If the UKI and the OS are not measured into PCR 11, then it never reaches the signed
+                 * values, hence PCR 11 public key stuff cannot work. Because of that, if PK is only wanted
+                 * (but not required) we won't try it, unless a public key was explicitly specified. */
+                if ((CRED_KEY_WANTS_TPM2_PK(with_key) &&
+                     (tpm2_pubkey_path || efi_should_use_pcrsig(LOG_DEBUG) > 0)) ||
+                    CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
 
                         /* Load public key for PCR policies, if one is specified, or explicitly requested */
 
