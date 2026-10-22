@@ -249,6 +249,7 @@ typedef struct Unit {
 
         char *description;
         char **documentation;
+        char **tags;
 
         /* The SELinux context used for checking access to this unit read off the unit file at load time (do
          * not confuse with the selinux_context field in ExecContext which is the SELinux context we'll set
