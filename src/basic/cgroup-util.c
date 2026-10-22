@@ -516,6 +516,20 @@ int cg_remove_xattr(const char *path, const char *name) {
         return RET_NERRNO(removexattr(fs, name));
 }
 
+int cg_list_xattr(const char *path, char **ret) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
+        if (r < 0)
+                return r;
+
+        return listxattr_malloc(fs, ret);
+}
+
 int cg_pid_get_path(pid_t pid, char **ret_path) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *fs;
