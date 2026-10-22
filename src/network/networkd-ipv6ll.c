@@ -33,7 +33,7 @@ bool link_ipv6ll_enabled(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "nlmon"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "ipip", "gre", "sit", "vti", "nlmon"))
                 return false;
 
         if (link->network->bond)

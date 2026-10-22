@@ -2088,7 +2088,10 @@ static int link_admin_state_up(Link *link) {
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
         (void) link_set_ipv6_mtu(link, LOG_INFO);
 
-        return 0;
+        /* Some drivers, e.g. WireGuard, reset the IPv6LL address generation mode when the interface is
+         * brought up, so we need to reset it. As the interface is up, the mode is set by sysctl, which
+         * also generates the address. */
+        return link_request_to_set_addrgen_mode(link);
 }
 
 static int link_admin_state_down(Link *link) {
