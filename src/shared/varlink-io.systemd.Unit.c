@@ -1943,6 +1943,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The timer runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerRuntime, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                UnitProperties,
+                /* For future use once the setters are implemented:
+                 * SD_VARLINK_DEFINE_FIELD(Description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                 * SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupProperties, SD_VARLINK_NULLABLE),
+                 */
+                SD_VARLINK_FIELD_COMMENT("Replace markers, or use '+'/'-' prefixes to add/remove them. An empty array clears all markers."),
+                SD_VARLINK_DEFINE_FIELD(Markers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -2022,7 +2031,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
                 SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitRuntime, 0));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
@@ -2042,6 +2051,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's runtime information"),
                 &vl_type_UnitRuntime,
+                SD_VARLINK_SYMBOL_COMMENT("Configuration and mutable runtime state that can be changed on an existing unit"),
+                &vl_type_UnitProperties,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's activation details"),
