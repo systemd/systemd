@@ -16,6 +16,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
@@ -1075,6 +1076,41 @@ TEST(trailing_dot_dot) {
         ASSERT_PATH_EQ(path, expected1);
         ASSERT_OK(fd_get_path(fd, &fdpath));
         ASSERT_PATH_EQ(fdpath, expected2);
+}
+
+TEST(trailing_dot_dot_below_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, a_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        _cleanup_free_ char *sub = ASSERT_PTR(path_join(t, "a/b"));
+        ASSERT_OK(mkdir_p(sub, 0700));
+        root_fd = ASSERT_OK_ERRNO(open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        a_fd = ASSERT_OK_ERRNO(openat(root_fd, "a", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(symlinkat("..", root_fd, "a/up"));
+
+        /* The parent of the root directory is the root directory itself. */
+        FOREACH_STRING(p, "..", "a/..", "/a/..", "a/up") {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                log_debug("/* %s(%s) */", __func__, p);
+
+                ASSERT_OK(chaseat(root_fd, root_fd, p, CHASE_PARENT, &path, &fd));
+                ASSERT_STREQ(path, ".");
+                ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
+        }
+
+        _cleanup_free_ char *path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, a_fd, "..", CHASE_PARENT, &path, &fd));
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
+
+        path = mfree(path);
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat(root_fd, root_fd, "a/b/..", CHASE_PARENT, &path, &fd));
+        ASSERT_STREQ(path, "a");
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
 }
 
 TEST(use_chase_as_mkdir_p) {
