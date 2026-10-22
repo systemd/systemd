@@ -930,6 +930,30 @@ static int dispatch_unsupported(const char *name, sd_json_variant *v, sd_json_di
         return 0;
 }
 
+static int json_dispatch_oci_user(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **user = ASSERT_PTR(userdata);
+                *user = mfree(*user);
+                return 0;
+        }
+
+        return json_dispatch_user_group_name(name, variant, flags, userdata);
+}
+
+static int json_dispatch_oci_working_dir(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **working_dir = ASSERT_PTR(userdata);
+                *working_dir = mfree(*working_dir);
+                return 0;
+        }
+
+        return json_dispatch_path(name, variant, flags, userdata);
+}
+
 static int oci_pull_save_nspawn_settings(OciPull *i) {
         int r;
 
@@ -959,11 +983,11 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 .stop_signal = SIGTERM,
         };
         static const struct sd_json_dispatch_field dispatch_table[] = {
-                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(OciConfiguration, user),        0 },
+                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_oci_user,         offsetof(OciConfiguration, user),        0 },
                 { "Env",          SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment, offsetof(OciConfiguration, env),         0 },
                 { "Entrypoint",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, entrypoint),  0 },
                 { "Cmd",          SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, cmd),         0 },
-                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_path,             offsetof(OciConfiguration, working_dir), 0 },
+                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_oci_working_dir,  offsetof(OciConfiguration, working_dir), 0 },
                 { "StopSignal",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_signal,        offsetof(OciConfiguration, stop_signal), 0 },
 
                 /* Currently unsupported fields that the OCI image spec defines but we cannot convert into
