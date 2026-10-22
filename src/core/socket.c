@@ -1340,14 +1340,14 @@ static int mq_address_create(
         return TAKE_FD(fd);
 }
 
-static int socket_symlink(Socket *s) {
+static void socket_symlink(Socket *s) {
         int r;
 
         assert(s);
 
         const char *target = socket_find_symlink_target(s);
         if (!target)
-                return 0;
+                return;
 
         STRV_FOREACH(linkpath, s->symlinks) {
                 (void) mkdir_parents_label(*linkpath, s->directory_mode);
@@ -1365,8 +1365,6 @@ static int socket_symlink(Socket *s) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
                                                *linkpath, glyph(GLYPH_ARROW_RIGHT), target);
         }
-
-        return 0;
 }
 
 static int usbffs_write_descs(int fd, Service *s) {
