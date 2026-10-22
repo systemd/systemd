@@ -13,6 +13,8 @@ typedef enum VmspawnQmpFeatureFlags {
         VMSPAWN_QMP_FEATURE_DISCARD_NO_UNREF = 1u << 1,
 } VmspawnQmpFeatureFlags;
 
+typedef struct VmspawnMemory VmspawnMemory;
+
 typedef struct VmspawnQmpBridge {
         QmpClient *qmp;
         Hashmap *pending_jobs;         /* blockdev-create continuations */
@@ -24,6 +26,7 @@ typedef struct VmspawnQmpBridge {
         qmp_event_callback_t event_callback;  /* receives the events the bridge doesn't consume itself */
         void *event_userdata;
         VmspawnQmpFeatureFlags features;
+        VmspawnMemory *memory;
         bool setup_done;
         bool reset_pending;            /* boot-time system_reset sent, RESET event not seen yet */
         bool scsi_controller_created;  /* virtio-scsi-pci has been device_add'd */
@@ -180,3 +183,6 @@ int vmspawn_qmp_replace_block_device(
                 const char *id,
                 int fd,
                 QmpDriveFlags fd_flags);
+
+/* Translate a QMP async completion into a varlink error reply */
+int vmspawn_qmp_reply_error(sd_varlink *link, const char *error_desc, int error);

@@ -95,6 +95,7 @@
 #include "utf8.h"
 #include "verbs.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
 #include "vmspawn-qmp.h"
@@ -2797,6 +2798,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
+        bool balloon = arg_confidential_computing == COCO_NO;
+        uint64_t ram;
         int r;
 
         CLEANUP_ARRAY(children, n_children, fork_notify_terminate_many);
@@ -2931,7 +2934,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
+        ram = DIV_ROUND_UP(arg_ram, U64_MB) * U64_MB;
+        if (asprintf(&mem, "%" PRIu64 "M", ram / U64_MB) < 0)
                 return log_oom();
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
@@ -3033,9 +3037,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_confidential_computing == COCO_NO) {
+        if (balloon) {
                 r = qemu_config_section(config_file, "device", "balloon0",
                                         "driver", "virtio-balloon",
+                                        "deflate-on-oom", "on",
                                         "free-page-reporting", "on");
                 if (r < 0)
                         return r;
@@ -4143,6 +4148,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return r;
 
         r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_memory_setup(bridge, ram, balloon);
         if (r < 0)
                 return r;
 
