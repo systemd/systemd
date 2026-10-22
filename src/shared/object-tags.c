@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
 #include "object-tags.h"
 #include "string-util.h"
@@ -395,4 +396,29 @@ int machine_tags_apply_config(const char *root, char * const *base, char ***ret)
         }
 
         return tags_hashmap_to_strv(h, ret);
+}
+
+int json_dispatch_object_tags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***ret = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = strv_free(*ret);
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = sd_json_dispatch_strv(name, variant, flags, &tags);
+        if (r < 0)
+                return r;
+
+        r = object_tags_from_strv(tags, /* graceful= */ false, /* ret= */ NULL);
+        if (r == -EINVAL)
+                return json_log(variant, flags, r, "JSON field '%s' contains invalid tag.", strna(name));
+        if (r == -E2BIG)
+                return json_log(variant, flags, r, "JSON field '%s' contains too many tags.", strna(name));
+        if (r < 0)
+                return r;
+
+        return strv_free_and_replace(*ret, tags);
 }
