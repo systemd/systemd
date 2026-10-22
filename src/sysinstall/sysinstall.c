@@ -514,7 +514,7 @@ static int prompt_block_device(sd_varlink **repart_link, char **ret_node) {
         return 0;
 }
 
-static int sysinstall_context_notify(
+static void sysinstall_context_notify(
                 SysInstallContext *context,
                 ProgressPhase phase,
                 const char *object,
@@ -544,8 +544,6 @@ static int sysinstall_context_notify(
                 if (r < 0)
                         log_debug_errno(r, "Failed to flush varlink notify progress notification, ignoring: %m");
         }
-
-        return 0;
 }
 
 typedef struct RepartResult {
@@ -634,7 +632,7 @@ static int handle_repart_reply(
         }
 
         if ((p.progress != UINT_MAX || p.object) && result->context->link)
-                (void) sysinstall_context_notify(result->context, PROGRESS_INSTALL_PARTITIONS, p.object, p.progress);
+                sysinstall_context_notify(result->context, PROGRESS_INSTALL_PARTITIONS, p.object, p.progress);
 
         return result->ret = 0;
 }
@@ -1591,7 +1589,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
 
         assert(context);
 
-        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
@@ -1599,7 +1597,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, NULL, UINT_MAX);
 
         /* Do the main part of the installation */
 
@@ -1607,7 +1605,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_MOUNT_PARTITIONS, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_MOUNT_PARTITIONS, NULL, UINT_MAX);
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
@@ -1630,20 +1628,20 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mount new image: %m");
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
         r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, NULL, UINT_MAX);
 
         r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, NULL, UINT_MAX);
+        sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, NULL, UINT_MAX);
 
         root_fd = safe_close(root_fd);
         r = umount_recursive(root_dir, /* flags= */ 0);

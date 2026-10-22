@@ -1421,7 +1421,7 @@ void context_clear(Context *context) {
         hashmap_free(context->links_by_filename);
 }
 
-static int address_dump(Address *address, FILE *f) {
+static void address_dump(Address *address, FILE *f) {
         assert(address);
         assert(f);
 
@@ -1432,10 +1432,9 @@ static int address_dump(Address *address, FILE *f) {
         if (in_addr_is_set(address->family, &address->peer))
                 fprintf(f, "Peer=%s\n",
                         IN_ADDR_TO_STRING(address->family, &address->peer));
-        return 0;
 }
 
-static int route_dump(Route *route, FILE *f) {
+static void route_dump(Route *route, FILE *f) {
         assert(route);
         assert(f);
 
@@ -1446,8 +1445,6 @@ static int route_dump(Route *route, FILE *f) {
         if (in_addr_is_set(route->family, &route->gateway))
                 fprintf(f, "Gateway=%s\n",
                         IN_ADDR_TO_STRING(route->family, &route->gateway));
-
-        return 0;
 }
 
 void network_dump(Network *network, FILE *f) {
@@ -1516,10 +1513,10 @@ void network_dump(Network *network, FILE *f) {
                 fprintf(f, "UseDNS=%s\n", yes_no(network->dhcp_use_dns));
 
         LIST_FOREACH(addresses, address, network->addresses)
-                (void) address_dump(address, f);
+                address_dump(address, f);
 
         LIST_FOREACH(routes, route, network->routes)
-                (void) route_dump(route, f);
+                route_dump(route, f);
 }
 
 void netdev_dump(NetDev *netdev, FILE *f) {
