@@ -358,9 +358,7 @@ static EventLog* event_log_free(EventLog *el) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(EventLog*, event_log_free);
 
 static EventLogRecord* event_log_record_new(EventLog *el) {
-        EventLogRecord *record;
-
-        record = new(EventLogRecord, 1);
+        EventLogRecord *record = new(EventLogRecord, 1);
         if (!record)
                 return NULL;
 
@@ -379,15 +377,12 @@ static EventLogRecord* event_log_record_new(EventLog *el) {
 static int event_log_add_record(
                 EventLog *el,
                 EventLogRecord **ret) {
-
-        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
-
         assert(el);
 
         if (!GREEDY_REALLOC(el->records, el->n_records+1))
                 return -ENOMEM;
 
-        record = event_log_record_new(el);
+        EventLogRecord *record = event_log_record_new(el);
         if (!record)
                 return -ENOMEM;
 
@@ -395,8 +390,6 @@ static int event_log_add_record(
 
         if (ret)
                 *ret = record;
-
-        TAKE_PTR(record);
 
         return 0;
 }
@@ -947,7 +940,7 @@ static int event_log_add_firmware_record(
                 size_t payload_size,
                 EventLogRecord **ret) {
 
-        EventLogRecord *record = NULL;
+        EventLogRecord *record;
         int r;
 
         assert(el);
