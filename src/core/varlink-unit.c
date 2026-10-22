@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "manager.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "scope.h"
@@ -841,6 +842,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_strin
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
+        char **tags;
         CollectMode collect_mode;
         char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters *exec;
@@ -859,6 +861,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         FOREACH_ELEMENT(d, p->dependencies)
                 strv_free(*d);
 
+        strv_free(p->tags);
         transient_exec_context_parameters_free(p->exec);
         transient_service_parameters_free(p->service);
         transient_scope_parameters_free(p->scope);
@@ -900,6 +903,24 @@ static void start_transient_parameters_init(StartTransientParameters *p) {
                 .notify_unit_changes = -1,
         };
         start_transient_context_parameters_init(&p->context);
+}
+
+static int dispatch_transient_tags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***ret = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        /* We want json_dispatch_object_tags, but we also want to differentiate between an explicit null and
+         * an empty array of tags */
+        if (sd_json_variant_is_array(variant) && sd_json_variant_elements(variant) == 0) {
+                char **empty = new0(char*, 1);
+                if (!empty)
+                        return -ENOMEM;
+
+                return strv_free_and_replace(*ret, empty);
+        }
+
+        return json_dispatch_object_tags(name, variant, flags, ret);
 }
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -981,6 +1002,7 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
                 /* ID is already validated and stored before authorization via dispatch_transient_context_preauth(). */
                 { "ID",          SD_JSON_VARIANT_STRING, NULL,                            0,                                                       0                 },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  SD_JSON_NULLABLE  },
+                { "Tags",        SD_JSON_VARIANT_ARRAY,  dispatch_transient_tags,         offsetof(StartTransientContextParameters, tags),         SD_JSON_NULLABLE  },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), SD_JSON_NULLABLE  },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       SD_JSON_NULLABLE  },
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       SD_JSON_NULLABLE  },
@@ -1027,6 +1049,35 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
         return r;
 }
 
+static int apply_tags(Unit *u, char *const *add_tags) {
+        int r;
+
+        assert(u);
+
+        if (!add_tags)
+                return 0;
+
+        if (strv_isempty(add_tags)) {
+                u->tags = strv_free(u->tags);
+                unit_write_setting(u, UNIT_RUNTIME, "Tags", "Tags=");
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = object_tags_edit(u->tags, add_tags, /* remove= */ NULL, &tags);
+        if (r == -E2BIG)
+                return log_debug_errno(r, "Too many unit tags.");
+        if (r < 0)
+                return r;
+
+        strv_free_and_replace (u->tags, tags);
+
+        STRV_FOREACH(tag, add_tags)
+                unit_write_settingf(u, UNIT_RUNTIME, "Tags", "Tags=%s", *tag);
+
+        return 0;
+}
+
 static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, char **reterr_bad_field) {
         int r;
 
@@ -1038,6 +1089,12 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 if (r < 0)
                         return r;
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        r = apply_tags(u, p->tags);
+        if (r < 0) {
+                varlink_propagate_bad_field("Tags", /* child_bad_field= */ NULL, reterr_bad_field);
+                return r;
         }
 
         varlink_apply_enum_collect_mode(u, "CollectMode", &u->collect_mode, p->collect_mode,

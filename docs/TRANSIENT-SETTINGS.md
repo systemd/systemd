@@ -21,6 +21,7 @@ Most generic unit settings are available for transient units.
 
 ```
 ✓ Description=
+✓ Tags=
 ✓ SourcePath=
 ✓ OnFailureJobMode=
 ✓ JobTimeoutAction=
