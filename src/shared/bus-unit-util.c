@@ -2490,6 +2490,68 @@ static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, 
         return bus_append_strv(m, field, eq);
 }
 
+static int bus_append_tags(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(m);
+        assert(field);
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a{ss}");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "{ss}");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        for (const char *p = eq;;) {
+                _cleanup_free_ char *tag = NULL;
+                r = extract_first_word(&p, &tag, NULL, 0);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
+                if (r == 0)
+                        break;
+
+                const char *tag_value = NULL;
+                char *e = strchr(tag, '=');
+                if (e) {
+                        *e = '\0';
+                        tag_value = e + 1;
+                }
+
+                if (!unit_tag_name_is_valid(tag))
+                        return parse_log_error(r, field, eq);
+                if (!unit_tag_value_is_valid(tag_value))
+                        return parse_log_error(r, field, eq);
+
+                r = sd_bus_message_append(m, "{ss}", tag, tag_value);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 typedef struct BusProperty {
         const char *name;
         int (*convert)(sd_bus_message *m, const char *field, const char *eq);
@@ -2964,6 +3026,7 @@ static const BusProperty unit_properties[] = {
         { "SuccessActionExitStatus",               bus_append_action_exit_status                 },
         { "FailureActionExitStatus",               bus_append_action_exit_status                 },
         { "Documentation",                         bus_append_strv                               },
+        { "Tags",                                  bus_append_tags                               },
         { "RequiresMountsFor",                     bus_append_strv                               },
         { "WantsMountsFor",                        bus_append_strv                               },
         { "Markers",                               bus_append_strv                               },
