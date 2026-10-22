@@ -379,6 +379,28 @@ result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Dec
 echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET"
+
+# Test 3: interactive use with a (blocking) tty as stdin. The reply has to arrive while stdin is still
+# open, i.e. forwarding must not get stuck reading from the tty after the first line. Only then is stdin
+# closed, which ends the session.
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve io.systemd.test.Reverse -- sh -c 'head -n1 | rev')
+TTY_INPUT="$(dirname "$SERVE_SOCKET")/tty-input"
+TTY_OUTPUT="$(dirname "$SERVE_SOCKET")/tty-output"
+mkfifo "$TTY_INPUT"
+timeout 30 script -qec "varlinkctl call --upgrade unix:$SERVE_SOCKET io.systemd.test.Reverse {}" /dev/null \
+        <"$TTY_INPUT" >"$TTY_OUTPUT" &
+CALL_PID=$!
+exec 3>"$TTY_INPUT"
+echo "via tty" >&3
+timeout 30 bash -c "until grep 'ytt aiv' '$TTY_OUTPUT' >/dev/null; do sleep .1; done"
+exec 3>&-
+wait "$CALL_PID"
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET" "$TTY_INPUT" "$TTY_OUTPUT"
 
 # Test 3: --polkit-action=: root passes without a polkit round trip, an unprivileged user is denied
 # because no policy grants the (nonexistent) action.
