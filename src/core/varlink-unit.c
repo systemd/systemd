@@ -1329,6 +1329,13 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
                 return r;
         }
 
+        /* Only Markers is supported, and it cannot be persisted as unit configuration. */
+        if (!p.runtime)
+                return sd_varlink_errorbo(
+                                link,
+                                "io.systemd.Unit.PropertyNotSupported",
+                                SD_JSON_BUILD_PAIR_STRING("property", "runtime"));
+
         r = load_unit_and_check(link, manager, p.name, &unit);
         if (r < 0)
                 return r;
