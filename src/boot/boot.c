@@ -1340,7 +1340,14 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (FLAGS_SET(file_info->Attribute, EFI_FILE_READ_ONLY))
                 goto read_only;
 
-        /* And rename the file */
+        /* And rename the file. The new name may be longer than the old one (e.g. "foo+1.conf" becomes
+         * "foo+0-1.conf"), so make sure the buffer has room for it. */
+        size_t new_size = offsetof(EFI_FILE_INFO, FileName) + strsize16(entry->next_name);
+        if (new_size > file_info_size) {
+                file_info = xrealloc(file_info, file_info_size, new_size);
+                file_info->Size = file_info_size = new_size;
+        }
+
         strcpy16(file_info->FileName, entry->next_name);
         err = handle->SetInfo(handle, MAKE_GUID_PTR(EFI_FILE_INFO), file_info_size, file_info);
         if (err != EFI_SUCCESS)
