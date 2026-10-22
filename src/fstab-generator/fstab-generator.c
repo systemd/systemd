@@ -998,11 +998,27 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
-        if (r < 0)
-                return r;
-        where_changed = r > 0;
+         * target is the final directory.
+         *
+         * Do not chase network filesystems (e.g. NFS, CIFS). If the network share is already
+         * mounted but unreachable, traversing the path with chase() will issue RPC lookups and block
+         * indefinitely in uninterruptible sleep, triggering the generator timeout and stalling PID 1. */
+        if (mount_is_network(fstype, options)) {
+                if (prefix_sysroot)
+                        where = path_join("/sysroot", where_original);
+                else
+                        where = strdup(where_original);
+                if (!where)
+                        return log_oom();
+
+                path_simplify(where);
+                where_changed = !streq(where_original, where);
+        } else {
+                r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+                if (r < 0)
+                        return r;
+                where_changed = r > 0;
+        }
 
         if (prefix_sysroot && fstab_is_bind(options, fstype)) {
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
