@@ -115,6 +115,13 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        * An IPv6 link-local address is now generated on WireGuard interfaces
+          by default, like on other interfaces. This is useful e.g. for running
+          routing protocols like Babel over the tunnel. Previously,
+          LinkLocalAddressing= was ignored for WireGuard interfaces, and an IPv6
+          link-local address could only be assigned with Address=. Set
+          LinkLocalAddressing=no to restore the previous behavior.
+
         * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
           clients now follows the system hostname. The new
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
