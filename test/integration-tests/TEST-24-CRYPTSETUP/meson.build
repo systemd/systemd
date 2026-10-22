@@ -14,7 +14,7 @@ integration_tests += [
                         'luks.options=0d318174-56b0-4d6e-a324-ac1e7e7d235d=x-initrd.attach',
                 ],
                 'qemu-args' : [
-                        '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@0@'.format(meson.project_build_root() / 'mkosi.output/keydev.raw'),
+                        '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@MKOSI_OUTPUT_DIR@/keydev.raw',
                         '-device', 'virtio-blk-pci,drive=keydev,serial=keydev',
                 ],
                 'mkosi-args' : integration_test_template['mkosi-args'] + [
