@@ -275,6 +275,21 @@ fn test_alloc() {
     assert_eq!(units.len(), 1000);
     drop(Box::new(()).unwrap());
 
+    // A boxed slice gives the spare capacity back, an empty or zero-sized one has no memory.
+    let mut v: Vec<u32> = Vec::with_capacity(8).unwrap();
+    v.extend_from_slice(&[1, 2, 3]).unwrap();
+    v.shrink_to_fit().unwrap();
+    assert_eq!(v.capacity(), 3);
+    let b: Box<[u32]> = v.into_boxed_slice().unwrap();
+    assert_eq!(*b, [1, 2, 3]);
+    drop(b);
+    assert!(Vec::<u8>::with_capacity(4)
+        .unwrap()
+        .into_boxed_slice()
+        .unwrap()
+        .is_empty());
+    assert_eq!(units.into_boxed_slice().unwrap().len(), 1000);
+
     let mut v = Vec::from_elem(1u32, 3).unwrap();
     v.extend_from_slice(&[2, 3]).unwrap();
     assert_eq!(v, [1, 1, 1, 2, 3]);
