@@ -174,6 +174,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
 /* Returns negative on error, and 0 or 1 on success for the bool value */
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
+int cg_list_xattr(const char *path, char **ret);
 
 int cg_is_empty(const char *path);
 
