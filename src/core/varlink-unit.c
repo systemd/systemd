@@ -1239,12 +1239,13 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 }
 
 typedef struct UnitSetPropertiesParameters {
-        const char *unsupported_property; /* For error reporting */
         const char *name;
         bool runtime;
 
         bool markers_found;
         unsigned markers, markers_mask;
+
+        const char *bad_field; /* For error reporting */
 } UnitSetPropertiesParameters;
 
 static int parse_unit_markers(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1289,16 +1290,9 @@ static int unit_dispatch_properties(const char *name, sd_json_variant *variant, 
                 { "Markers", SD_JSON_VARIANT_ARRAY, parse_unit_markers, 0, 0 },
                 {}
         };
-        UnitSetPropertiesParameters *p = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        int r;
 
-        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, flags, userdata, &bad_field);
-        if (r == -EADDRNOTAVAIL && !isempty(bad_field))
-                /* When properties contains a valid field, but that we don't currently support, make sure to
-                 * return the offending property, rather than generic invalid argument. */
-                p->unsupported_property = bad_field;
-        return r;
+        UnitSetPropertiesParameters *p = ASSERT_PTR(userdata);
+        return sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, flags, userdata, &p->bad_field);
 }
 
 int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1320,12 +1314,14 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
 
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
-                /* When properties contains a valid field, but that we don't currently support, make sure to
-                 * return a specific error, rather than generic invalid argument. */
-                if (streq_ptr(bad_field, "properties") && r == -EADDRNOTAVAIL)
-                        return varlink_error_unit_property_not_supported(link, bad_field, p.unsupported_property);
-                if (bad_field)
-                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
+                if (bad_field) {
+                        /* When properties contains a valid field, but that we don't currently support, make sure to
+                         * return a specific error, rather than generic invalid argument. */
+                        if (r == -EADDRNOTAVAIL)
+                                return varlink_error_unit_property_not_supported(link, bad_field, p.bad_field);
+
+                        return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
+                }
                 return r;
         }
 
