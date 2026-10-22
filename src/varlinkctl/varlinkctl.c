@@ -628,6 +628,16 @@ static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
         return sd_event_exit(event, error < 0 ? error : 0);
 }
 
+static int dup_stdio_fd(int fd, int flags) {
+        /* Only ttys block in splice(), pipes are covered by SPLICE_F_NONBLOCK and regular files never
+         * block. Reopen ttys to get a private O_NONBLOCK open file description (as ptyfwd does) so the
+         * invoking shell's terminal is left alone, everything else keeps the shared description. */
+        if (isatty_safe(fd))
+                return fd_reopen(fd, flags|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+
+        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+}
+
 /* This will only return if something goes wrong, otherwise the exec_cmdline
  * is run and replaces our code. */
 static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
@@ -826,13 +836,13 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        _cleanup_close_ int stdin_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        _cleanup_close_ int stdin_fd = dup_stdio_fd(STDIN_FILENO, O_RDONLY);
         if (stdin_fd < 0)
-                return log_error_errno(errno, "Failed to dup stdin: %m");
+                return log_error_errno(stdin_fd, "Failed to dup stdin: %m");
 
-        _cleanup_close_ int stdout_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        _cleanup_close_ int stdout_fd = dup_stdio_fd(STDOUT_FILENO, O_WRONLY);
         if (stdout_fd < 0)
-                return log_error_errno(errno, "Failed to dup stdout: %m");
+                return log_error_errno(stdout_fd, "Failed to dup stdout: %m");
 
         r = socket_forward_new_pair(
                         event,
