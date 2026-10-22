@@ -944,7 +944,12 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
         if (r < 0)
                 return context_fail(c, r);
         if (r == 0) { /* We shall retry */
-                (void) context_schedule_retry(c);
+                r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
+                if (r < 0)
+                        return context_fail(c, r);
+
                 return 0;
         }
         /* For status >= 300 the transfer was aborted on purpose to skip reading the error page. The status
