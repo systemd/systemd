@@ -2069,6 +2069,8 @@ static int link_carrier_lost(Link *link) {
 }
 
 static int link_admin_state_up(Link *link) {
+        int r;
+
         assert(link);
 
         /* This is called every time an interface admin state changes to up;
@@ -2087,6 +2089,15 @@ static int link_admin_state_up(Link *link) {
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
         (void) link_set_ipv6_mtu(link, LOG_INFO);
+
+        /* Some drivers, e.g. WireGuard, reset the IPv6LL address generation mode when the interface is
+         * brought up, so we need to reset it. As the interface is up, the mode is set by sysctl, which
+         * also generates the address. */
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                r = link_request_to_set_addrgen_mode(link);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
