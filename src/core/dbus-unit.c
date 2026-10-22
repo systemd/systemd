@@ -23,6 +23,7 @@
 #include "log.h"
 #include "manager.h"
 #include "namespace-util.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -2446,6 +2447,38 @@ static int bus_unit_set_transient_property(
                                 STRV_FOREACH(p, l)
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "Tags")) {
+                _cleanup_strv_free_ char **add_tags = NULL;
+                r = sd_bus_message_read_strv(message, &add_tags);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(tag, add_tags)
+                        if (!object_tag_is_valid(*tag))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag in %s: %s", name, *tag);
+
+                if (!strv_isempty(add_tags)) {
+                        _cleanup_strv_free_ char **tags = NULL;
+                        r = object_tags_edit(u->tags, add_tags, /* remove= */ NULL, &tags);
+                        if (r == -E2BIG)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Too many tags in %s", name);
+                        if (r < 0)
+                                return r;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                strv_free_and_replace(u->tags, tags);
+
+                                STRV_FOREACH(tag, add_tags)
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, *tag);
+                        }
+                } else if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        u->tags = strv_free(u->tags);
+                        unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
                 return 1;
