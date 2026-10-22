@@ -2186,8 +2186,17 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
 
         dual_timestamp_now(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_START));
         r = manager_run_environment_generators(m);
-        if (r >= 0)
+        if (r < 0 && serialization) {
+                log_warning_errno(r, "Failed to run environment generators during re-execution, ignoring: %m");
+                r = 0;
+        }
+        if (r >= 0) {
                 r = manager_run_generators(m);
+                if (r < 0 && serialization) {
+                        log_warning_errno(r, "Failed to run generators during re-execution, proceeding with existing units: %m");
+                        r = 0;
+                }
+        }
         dual_timestamp_now(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_FINISH));
         if (r < 0)
                 return r;
