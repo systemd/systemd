@@ -654,6 +654,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Tags=</varname></term>
+        <listitem><para>A space-separated list of tags attached to this unit.
+        Tags are user-defined labels used to track any administrator-defined attribute
+        of a unit, often to classify and group units. For example:
+        <literal>Tags=company.backend.trigger-reason=api-event-123456789 company.foobar</literal></para>
+
+        <para>Unit tags follow the syntax of machine tags, see
+        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        a description of the syntax.</para>
+
+        <para>Tags should be namespaced. In particular, tags belonging to an organization or company should
+        be prefixed with some identifier for the organization before the first dot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Wants=</varname></term>
 
         <listitem><para>Configures (weak) requirement dependencies on other units. This option may be
