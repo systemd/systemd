@@ -107,50 +107,11 @@ static int pseudo_tty_track_buffer_add_line(PseudoTTY *pty, char *line) {
         return 0;
 }
 
-void pseudo_tty_fail_acquire(PseudoTTY *pty, const char *error_id, sd_json_variant *parameters) {
-        int r;
-
-        assert(pty);
-
-        /* Fails the AcquirePty() call still waiting for its reply, if there is one. If no error ID is
-         * specified a generic ECONNRESET error is returned. */
-
-        if (!pty->acquire_link)
-                return;
-
-        _cleanup_(sd_varlink_unrefp) sd_varlink *client = TAKE_PTR(pty->acquire_link);
-        pty->acquire_reply = sd_json_variant_unref(pty->acquire_reply);
-
-        /* If a monitor was requested it shares the connection with the AcquirePty() call, and would close
-         * it when destroyed, before the error reply is flushed. Hence detach the connection from the monitor
-         * first, and dispose of the monitor right-away, it will never get its connection upgraded. */
-        LIST_FOREACH(monitors, monitor, pty->monitors) {
-                if (monitor->link != client)
-                        continue;
-
-                /* The error reply below returns the connection to idle state, i.e. the client may issue
-                 * further calls on it, hence hand it back to the Manager */
-                sd_varlink_set_userdata(monitor->link, pty->manager);
-                monitor->link = sd_varlink_unref(monitor->link);
-                pseudo_tty_monitor_free(monitor);
-        }
-
-        if (error_id)
-                r = sd_varlink_error(client, error_id, parameters);
-        else
-                r = sd_varlink_error_errno(client, -ECONNRESET);
-        if (r < 0)
-                log_debug_errno(r, "Failed to send error reply to client, ignoring: %m");
-}
-
 PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
         int r;
 
         if (!pty)
                 return NULL;
-
-        /* Make sure no client is left waiting for a reply that would never come */
-        pseudo_tty_fail_acquire(pty, /* error_id= */ NULL, /* parameters= */ NULL);
 
         /* A pending hang-up is complete once the pty is gone */
         r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
@@ -184,11 +145,6 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
 
         free(pty->backend_path);
         free(pty->unit);
-
-        sd_varlink_close_unref(pty->start_shell_link);
-
-        sd_varlink_unref(pty->acquire_link);
-        sd_json_variant_unref(pty->acquire_reply);
 
         free_many_charp(pty->track_buffer, pty->track_buffer_allocated_lines);
         free(pty->track_buffer);
@@ -622,7 +578,7 @@ static int pseudo_tty_process_hangup(PseudoTTY *pty, uint32_t revents) {
         return 0;
 }
 
-void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
+static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         assert(pty);
 
         if (pty->in_free_queue)
