@@ -906,22 +906,25 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
-static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, bool chase_symlinks, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
-        int r;
+        int r = -EAGAIN;
 
         assert(path);
         assert(type);
         assert(STR_IN_SET(type, "where", "what"));
         assert(ret);
 
-        // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
-        // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+        if (chase_symlinks) {
+                // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
+                // /sysroot on error below.
+                r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+        }
 
+        if (r < 0) {
                 if (prefix_sysroot)
                         p = path_join("/sysroot", path);
                 else
@@ -998,8 +1001,12 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+         * target is the final directory.
+         *
+         * Do not chase network filesystems (e.g. NFS, CIFS). If the network share is already
+         * mounted but unreachable, traversing the path with chase() will issue RPC lookups and block
+         * indefinitely in uninterruptible sleep, triggering the generator timeout and stalling PID 1. */
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, !mount_is_network(fstype, options), &where);
         if (r < 0)
                 return r;
         where_changed = r > 0;
@@ -1008,7 +1015,7 @@ static int parse_fstab_one(
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
                 _cleanup_free_ char *p = NULL;
 
-                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, /* chase_symlinks= */ true, &p);
                 if (r < 0)
                         return r;
 
