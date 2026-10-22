@@ -2478,6 +2478,38 @@ static int bus_unit_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "Tags")) {
+                r = sd_bus_message_open_container(message, 'a', "{ss}");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *tag_name, *tag_value;
+                        r = sd_bus_message_read(message, "{ss}", &tag_name, &tag_value);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!unit_tag_name_is_valid(tag_name))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag in %s: %s", name, tag_name);
+                        if (!unit_tag_value_is_valid(tag_value))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag '%s' value in %s: %s", tag_name, name, tag_value);
+
+                        r = unit_set_tag(u, tag_name, tag_value);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags, name, "%s=%s=%s", name, tag_name, tag_value);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
         if (streq(name, "Slice")) {
                 Unit *slice;
                 const char *s;

@@ -679,6 +679,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_strin
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
+        Hashmap *tags;
         CollectMode collect_mode;
         char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters *exec;
@@ -696,6 +697,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         FOREACH_ELEMENT(d, p->dependencies)
                 strv_free(*d);
 
+        hashmap_free(p->tags);
         transient_exec_context_parameters_free(p->exec);
         transient_service_parameters_free(p->service);
         transient_scope_parameters_free(p->scope);
@@ -734,6 +736,31 @@ static void start_transient_parameters_init(StartTransientParameters *p) {
                 .notify_unit_changes = -1,
         };
         start_transient_context_parameters_init(&p->context);
+}
+
+static int dispatch_transient_tags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Hashmap **dest = ASSERT_PTR(userdata);
+        _cleanup_hashmap_free_ Hashmap *tags = NULL;
+        int r;
+
+        sd_json_variant *tag_value_json;
+        const char *tag_name;
+        JSON_VARIANT_OBJECT_FOREACH(tag_name, tag_value_json, variant) {
+                if (!unit_tag_name_is_valid(tag_name))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Unit tag '%s' is not valid.", strna(tag_name));
+
+                const char *tag_value = sd_json_variant_string(tag_value_json);
+                if (!tag_value && !sd_json_variant_is_null(tag_value_json))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Unit tag '%s' value is not a string.", strna(tag_name));
+                if (!unit_tag_value_is_valid(tag_name))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Unit tag '%s' value is not valid: %s", tag_name, strna(tag_value));
+
+                r = hashmap_ensure_put(&tags, &string_hash_ops, tag_name, (void*) tag_value);
+                if (r < 0)
+                        return r;
+        }
+
+        return hashmap_free_and_replace(*dest, tags);
 }
 
 static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -781,6 +808,7 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         static const sd_json_dispatch_field base_context_dispatch[] = {
                 { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
+                { "Tags",        SD_JSON_VARIANT_ARRAY,  dispatch_transient_tags,         offsetof(StartTransientContextParameters, tags),         0,                },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
@@ -834,6 +862,17 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 if (r < 0)
                         return r;
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        if (p->tags) {
+                const char *tag_name, *tag_value;
+                HASHMAP_FOREACH_KEY(tag_value, tag_name, p->tags) {
+                        r = unit_set_tag(u, tag_name, tag_value);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, UNIT_RUNTIME, "Tags", "Tags=%s=%s", tag_name, tag_value);
+                }
         }
 
         varlink_apply_enum_collect_mode(u, "CollectMode", &u->collect_mode, p->collect_mode,
