@@ -86,6 +86,8 @@ TEST(server_name_parse) {
                 "fe80::10%eth\n0",
                 "fe80::10%eth/0",
                 "fe80::10%eth0#name",
+                "fe80::10%eth]0",
+                "[fe80::10]:1123%eth[0",
                 "fe80::10%.",
                 "fe80::10%..",
                 "fe80::10%0",
