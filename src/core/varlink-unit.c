@@ -151,6 +151,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#%5BUnit%5D%20Section%20Options */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Description", u->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Documentation", u->documentation),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Tags", u->tags),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Wants", unit_dependencies_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("WantedBy", unit_dependencies_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Requires", unit_dependencies_build_json, u),

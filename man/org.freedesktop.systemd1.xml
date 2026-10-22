@@ -2231,6 +2231,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Description = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as Tags = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s AccessSELinuxContext = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LoadState = '...';
@@ -2559,6 +2561,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Description"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Tags"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="AccessSELinuxContext"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LoadState"/>
@@ -2742,6 +2746,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>Documentation</varname> contains a string array with URLs of documentation for this
       unit.</para>
+
+      <para><varname>Tags</varname> contains the array of the unit's tags.</para>
 
       <para><varname>LoadState</varname> contains a state value that reflects whether the configuration file
       of this unit has been loaded. The following states are currently defined: <literal>loaded</literal>,
@@ -12978,6 +12984,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>WantsMountsFor</varname> was added in version 256.</para>
       <para><varname>DebugInvocation</varname>, and
       <varname>CanLiveMount</varname> were added in version 257.</para>
+      <para><varname>Tags</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>

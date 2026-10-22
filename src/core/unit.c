@@ -894,6 +894,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->description);
         strv_free(u->documentation);
+        strv_free(u->tags);
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
