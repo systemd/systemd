@@ -36,12 +36,11 @@ typedef enum Action {
 /* The structure for collected "metrics". */
 typedef struct Context {
         Action action;
-        sd_event *event;
-        Set *link_infos;
         char **matches;  /* Metric families to include, or NULL/empty for all */
         sd_json_variant **metrics;  /* Collected metrics for sorting */
         size_t n_metrics, n_skipped_metrics, n_invalid_metrics, n_contacted_sources, n_skipped_sources;
         const struct iovec *nonce;
+        usec_t query_jitter;
 
         int upload_result;
         struct iovec_wrapper upload_answer;
