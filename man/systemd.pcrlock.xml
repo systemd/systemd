@@ -68,6 +68,11 @@
     component. Example: <filename>650-kernel.pcrlock.d/6.5.5-200.fc38.x86_64.pcrlock</filename> and
     <filename>650-kernel.pcrlock.d/6.5.7-100.fc38.x86_64.pcrlock</filename></para>
 
+    <para>Components may have any number of variants. If a PCR ends up with more than eight alternative
+    values, <command>systemd-pcrlock</command> expresses them in the TPM2 access policy as a balanced tree of
+    nested <function>PolicyOR</function> statements. Up to 8^5 = 32768 alternative values per PCR are
+    supported.</para>
+
     <para>Use <command>systemd-pcrlock list-components</command> to list all pcrlock files currently
     installed.</para>
 
