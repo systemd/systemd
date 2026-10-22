@@ -2028,7 +2028,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
+                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently. Currently only true is supported."),
                 SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
