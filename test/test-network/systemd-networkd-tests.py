@@ -2667,6 +2667,16 @@ ReorderHeader=no
         self.networkctl_check_unit('wg98', '25-wireguard-23-peers', '25-wireguard-23-peers')
         self.networkctl_check_unit('wg97', '25-wireguard-no-peer', '25-wireguard-no-peer')
 
+        # The WireGuard driver disables generating an IPv6LL address every time the interface is brought
+        # up. Check that the address is generated, also after the interface is brought down and up again.
+        ipv6ll = r'inet6 fe80::[0-9a-f:]+/64'
+        self.wait_address('wg97', ipv6ll, scope='link', ipv='-6')
+        self.wait_address('wg98', ipv6ll, scope='link', ipv='-6')
+        check_output('ip link set dev wg97 down')
+        self.wait_address_dropped('wg97', ipv6ll, scope='link', ipv='-6')
+        check_output('ip link set dev wg97 up')
+        self.wait_address('wg97', ipv6ll, scope='link', ipv='-6')
+
         output = check_output('ip -4 address show dev wg99')
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
@@ -2799,6 +2809,14 @@ ReorderHeader=no
         )
         networkctl_reload()
         self.wait_online('wg99:routable', 'wg98:routable', 'wg97:carrier')
+
+        # Check that the IPv6LL address is dropped when LinkLocalAddressing=no is set.
+        with open(
+            os.path.join(network_unit_dir, '25-wireguard-no-peer.network'), mode='a', encoding='utf-8'
+        ) as f:
+            f.write('\n[Network]\nLinkLocalAddressing=no\n')
+        networkctl_reload()
+        self.wait_address_dropped('wg97', ipv6ll, scope='link', ipv='-6')
 
     def test_geneve(self):
         copy_network_unit('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
