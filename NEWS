@@ -189,6 +189,13 @@ CHANGES WITH 263 in spe:
           "# [Experimental]" comment line in the interface description, which
           sd_varlink_idl_parse() turns back into the flag.
 
+        Changes in other components:
+
+        * systemd-cryptsetup gained support for a new friendly-name= option in
+          /etc/crypttab. It can be used to override the default device
+          description shown when the user is asked for the passphrase or PKCS#11
+          token PIN to unlock a device.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
