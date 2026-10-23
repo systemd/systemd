@@ -948,6 +948,79 @@ static void generate_boot_secret_initrd(
                         /* ret_measured= */ NULL);
 }
 
+static char* cmdline_key_startswith(char *word, const char *key) {
+        assert(word);
+        assert(key);
+
+        /* Like startswith8(), but considers "-" and "_" the same, like proc_cmdline_key_streq() */
+        for (; *key != 0; word++, key++)
+                if (*word != *key && !(IN_SET(*word, '-', '_') && IN_SET(*key, '-', '_')))
+                        return NULL;
+
+        return word;
+}
+
+static bool cmdline_wants_measured_os(const char16_t *cmdline) {
+        bool enabled = false;
+
+        /* Checks whether systemd.tpm2_measured_os= on the kernel command line enables OS measurements, in
+         * the same way as proc_cmdline_get_bool() in userspace. The last assignment wins, the switch without
+         * a value means true, an invalid value means false, and "-" and "_" are considered the same in the
+         * key. Words are only split at whitespace and quoting is ignored, which is good enough for a
+         * boolean switch. */
+
+        for (const char16_t *p = cmdline; p && *p != 0;) {
+                p += strspn16(p, u" \t\n\r");
+                size_t l = strcspn16(p, u" \t\n\r");
+                if (l == 0)
+                        break;
+
+                /* A word with non-ASCII characters can't be our switch */
+                _cleanup_free_ char *word = xstrn16_to_ascii(p, l);
+                p += l;
+                if (!word)
+                        continue;
+
+                char *v = cmdline_key_startswith(word, "systemd.tpm2_measured_os");
+                if (!v)
+                        continue;
+
+                if (*v == 0)
+                        enabled = true;
+                else if (*v == '=') {
+                        /* The value is case-insensitive in userspace */
+                        for (char *c = v + 1; *c != 0; c++)
+                                if (*c >= 'A' && *c <= 'Z')
+                                        *c += 'a' - 'A';
+
+                        bool b;
+                        enabled = parse_boolean(v + 1, &b) && b;
+                }
+        }
+
+        return enabled;
+}
+
+static void generate_replay_log_initrd(struct iovec *ret) {
+        assert(ret);
+
+        /* Pass on the measurements we couldn't make for lack of a TPM, so that systemd-tpm2-swtpm can
+         * replay them into a software TPM. This has to be called after the last measurement. Nothing was
+         * recorded unless systemd.tpm2_measured_os=1 is set. */
+        const struct iovec *log = tpm_replay_log();
+        if (!iovec_is_set(log))
+                return;
+
+        (void) pack_cpio_literal(
+                        log->iov_base,
+                        log->iov_len,
+                        &cpio_target_meta,
+                        u"tpm2-event-log",
+                        /* tpm_description= */ NULL,
+                        ret,
+                        /* ret_measured= */ NULL);
+}
+
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
@@ -1220,6 +1293,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return err;
 
+        /* Without a TPM, keep track of what we would have measured, see generate_replay_log_initrd() */
+        tpm_replay_log_start(loaded_image->ImageBase, loaded_image->ImageSize);
+
         measure_profile(profile, &parameters_measured);
         measure_sections(loaded_image, sections, &sections_measured);
 
@@ -1251,6 +1327,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
+        /* The command line is settled now, hence decide whether to keep what we would have measured */
+        tpm_replay_log_settle(cmdline_wants_measured_os(cmdline));
+
         cmdline_append_console(&cmdline);
 
         export_common_variables(loaded_image);
@@ -1279,10 +1358,16 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * 3. Previous initrds
          * 4. UKI initrd
          * 5. Generated initrds
-         * 6. initrd addons */
+         * 6. initrd addons
+         * 7. Measurements to replay */
         measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
         extend_initrds(initrds, &all_initrds, &n_all_initrds);
         measure_and_append_initrd_addons(&all_initrds, &n_all_initrds, initrd_addons, n_initrd_addons, &parameters_measured);
+
+        /* Last, as it has to come after all measurements */
+        _cleanup_(iovec_done) struct iovec replay_log_initrd = {};
+        generate_replay_log_initrd(&replay_log_initrd);
+        iovec_array_extend(&all_initrds, &n_all_initrds, replay_log_initrd);
 
         /* Export variables indicating what we measured */
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
