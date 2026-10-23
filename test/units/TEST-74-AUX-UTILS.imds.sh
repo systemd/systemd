@@ -64,8 +64,9 @@ grep -F "io.systemd.InstanceMetadata.KeyNotFound" "$WORK_DIR/imdsd.err" >/dev/nu
 (! grep -F "io.systemd.System" "$WORK_DIR/imdsd.err" >/dev/null)
 
 # Running out of retries for connection errors is reported as timeout. Slow, as this waits for all retries.
-# Same for HTTP 503; run that in parallel to save time.
-(! "${IMDSD[@]}" --interface=dummy0 /busy 2>"$WORK_DIR/busy.err") &
+# Same for HTTP 503; run that in parallel to save time. With the token cached above, so that every retry
+# reuses it.
+(! RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" /busy 2>"$WORK_DIR/busy.err") &
 BUSY_PID=$!
 (! "${IMDSD[@]}" --interface=dummy0 --data-url=http://192.168.47.11:1 /hostname 2>"$WORK_DIR/refused.err")
 cat "$WORK_DIR/refused.err"
@@ -74,6 +75,7 @@ grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/refused.err" >/dev/null
 wait "$BUSY_PID"
 cat "$WORK_DIR/busy.err"
 grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/busy.err" >/dev/null
+grep -F "Reusing cached token." "$WORK_DIR/busy.err" >/dev/null
 # fails right away, does not hang until the overall timeout
 (! grep -F "Overall timeout reached" "$WORK_DIR/busy.err" >/dev/null)
 
