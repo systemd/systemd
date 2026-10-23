@@ -2184,10 +2184,27 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
         if (r < 0)
                 return r;
 
+        /* Plain daemon-reexec on an already running system is the only transition where
+         * serialization is present and switching_root is false (cold boot has no serialization,
+         * while soft-reboot and switch-root both set switching_root=true in main.c). */
+        bool reexecuting = serialization && !m->switching_root;
+
         dual_timestamp_now(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_START));
         r = manager_run_environment_generators(m);
-        if (r >= 0)
+        if (r < 0 && reexecuting) {
+                log_warning_errno(r, "Failed to run environment generators during re-execution, ignoring: %m");
+                r = 0;
+        }
+        if (r >= 0) {
                 r = manager_run_generators(m);
+                if (r < 0 && reexecuting) {
+                        /* During daemon-reexec on an already running system, do not freeze PID 1 if
+                         * generators fail, matching manager_reload() resilience. Running units keep
+                         * their runtime state from serialization, though generated unit files may be missing. */
+                        log_warning_errno(r, "Failed to run generators during re-execution, proceeding (generated units may be missing): %m");
+                        r = 0;
+                }
+        }
         dual_timestamp_now(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_FINISH));
         if (r < 0)
                 return r;

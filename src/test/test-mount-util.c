@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -649,6 +650,33 @@ TEST(mount_fd_clone) {
                 _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(target, "marker"));
                 ASSERT_OK_ERRNO(access(marker, F_OK));
 
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(path_is_mount_point_in_mountinfo) {
+        int r = path_is_mount_point_in_mountinfo("/");
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("libmount not supported");
+        ASSERT_OK(r);
+
+        ASSERT_OK_ZERO(path_is_mount_point_in_mountinfo("/nonexistent-mount-point-xyz123"));
+
+        CHECK_PRIV;
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mountinfo-XXXXXX", &t));
+
+        _cleanup_free_ char *canonical_t = NULL;
+        ASSERT_OK(chase(t, NULL, 0, &canonical_t, NULL));
+
+        r = ASSERT_OK(pidref_safe_fork("(path-is-mountinfo-test)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) {
+                ASSERT_OK_ZERO(path_is_mount_point_in_mountinfo(canonical_t));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", canonical_t, "tmpfs", 0, NULL));
+                ASSERT_OK_POSITIVE(path_is_mount_point_in_mountinfo(canonical_t));
+                ASSERT_OK_ERRNO(umount(canonical_t));
+                ASSERT_OK_ZERO(path_is_mount_point_in_mountinfo(canonical_t));
                 _exit(EXIT_SUCCESS);
         }
 }
