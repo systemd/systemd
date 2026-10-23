@@ -19,6 +19,8 @@
 #include "unit.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink-serialize.h"
+#include "varlink-unit.h"
 
 /* Make sure out values fit in the bitfield. */
 assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
@@ -131,6 +133,13 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
+
+        sd_varlink *link;
+        SET_FOREACH(link, u->varlink_refs) {
+                r = varlink_serialize_connection_id(link, "varlink-ref", f);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to serialize Varlink unit reference, ignoring: %m");
+        }
 
         if (!switching_root) {
                 if (u->job) {
@@ -316,6 +325,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         r = strv_extend(&u->deserialized_refs, v);
                         if (r < 0)
                                 return log_oom();
+                        continue;
+                } else if (streq(l, "varlink-ref")) {
+                        (void) unit_add_varlink_ref_by_id(u, v);
                         continue;
 
                 } else if (streq(l, "invocation-id")) {
