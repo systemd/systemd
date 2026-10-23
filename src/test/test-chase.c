@@ -1116,6 +1116,13 @@ TEST(trailing_dot_dot_below_root) {
         ASSERT_STREQ(path, "..");
         ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
 
+        /* A result of "." refers to dir_fd, so the fd refers to dir_fd as well. */
+        path = mfree(path);
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat(root_fd, a_fd, "b/..", CHASE_PARENT, &path, &fd));
+        ASSERT_STREQ(path, ".");
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, a_fd));
+
         path = mfree(path);
         fd = safe_close(fd);
         ASSERT_OK(chaseat(root_fd, root_fd, "a/b/..", CHASE_PARENT, &path, &fd));
