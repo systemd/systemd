@@ -624,8 +624,8 @@ static CacheResult context_process_cache(Context *c) {
                 return context_log_errno(c, LOG_ERR, r, "Failed to decode cached token data: %m");
 
         if (d.until > c->timestamp) {
-                c->token_string = strdup(d.token);
-                if (!c->token_string)
+                /* On retries we might still have a token */
+                if (free_and_strdup(&c->token_string, d.token) < 0)
                         return context_log_oom(c);
 
                 context_log(c, LOG_INFO, "Reusing cached token.");
