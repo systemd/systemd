@@ -237,6 +237,7 @@ simple_tests += files(
         'test-user-util.c',
         'test-utf8.c',
         'test-validatefs-util.c',
+        'test-varlink-serialize.c',
         'test-verbs.c',
         'test-voa-util.c',
         'test-vpick.c',

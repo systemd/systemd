@@ -768,6 +768,21 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
+                } else if (streq(l, "varlink-server-connection")) {
+                        sd_varlink_server *server = NULL;
+
+                        if (m->objective != MANAGER_RELOAD) {
+                                r = manager_setup_varlink_server(m);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                else
+                                        server = m->varlink_server;
+                        }
+
+                        r = varlink_deserialize(server, f, fds);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to restore Varlink connection, ignoring: %m");
+
                 } else if ((val = startswith(l, "varlink-server-metrics-"))) {
                         if (m->objective == MANAGER_RELOAD)
                                 /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
