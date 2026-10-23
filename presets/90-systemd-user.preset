@@ -11,5 +11,6 @@
 # enabled by default, even if the distribution follows a general default-off
 # policy.
 
+enable systemd-storage-fs.socket
 enable systemd-tmpfiles-setup.service
 enable systemd-tmpfiles-clean.timer

@@ -1667,10 +1667,15 @@ node /org/freedesktop/systemd1 {
       <filename>/etc/</filename>). The second one controls whether symlinks pointing to other units shall be
       replaced if necessary. This method returns one boolean and an array of the changes made. The boolean
       signals whether the unit files contained any enablement information (i.e. an [Install] section). The
-      changes array consists of structures with three strings: the type of the change (one of
-      <literal>symlink</literal> or <literal>unlink</literal>), the file name of the symlink and the
-      destination of the symlink. Note that most of the following calls return a changes list in the same
-      format.</para>
+      changes array consists of structures with three strings: the type of the change, the file name of the
+      symlink and the destination of the symlink. The type is one of <literal>symlink</literal>,
+      <literal>unlink</literal>, <literal>mask-dependency</literal> (an entry resolving to
+      <filename>/dev/null</filename>, which the service manager ignores when loading dependencies, was placed
+      over a dependency symlink the vendor ships below <filename>/usr/</filename>, whose path is reported as
+      the destination) or
+      <literal>unmask-dependency</literal> (such a symlink was removed again). Clients should ignore types
+      they do not know, as further ones may be added. Note that most of the following calls return a changes
+      list in the same format.</para>
 
       <para>Similarly, <function>DisableUnitFiles()</function> disables one or more units in the system,
       i.e. removes all symlinks to them in <filename>/etc/</filename> and <filename>/run/</filename>.</para>
