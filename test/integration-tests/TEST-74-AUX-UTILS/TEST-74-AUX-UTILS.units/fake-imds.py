@@ -24,7 +24,13 @@ def sd_notify(state: str) -> bool:
 
 class Handler(BaseHTTPRequestHandler):
     tokens_issued = 0
-    expired_token = None
+    # path → token which expired there
+    expired_tokens = {}
+
+    def token_expired(self) -> bool:
+        """Expire the first token presented for this path, so that the client needs to refresh it."""
+        token = self.headers.get('X-Fake-IMDS-Token')
+        return Handler.expired_tokens.setdefault(self.path, token) == token
 
     def send_text(self, body: bytes):
         self.send_response(200)
@@ -42,14 +48,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/expiring':
-            # The first token presented here expires, so that the client needs to refresh it
-            token = self.headers.get('X-Fake-IMDS-Token')
-            if Handler.expired_token is None:
-                Handler.expired_token = token
-            if token == Handler.expired_token:
+            if self.token_expired():
                 self.send_error(401)
             else:
                 self.send_text(b'fresh')
+        elif self.path == '/expiring-busy':
+            self.send_error(401 if self.token_expired() else 503)
         elif self.path == '/unauthorized':
             self.send_error(401)
         elif self.path == '/userdata':
