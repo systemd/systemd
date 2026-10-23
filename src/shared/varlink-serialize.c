@@ -183,7 +183,7 @@ static void varlink_deserialize_done(VarlinkDeserialize *p) {
         free(p->fds);
 }
 
-int varlink_deserialize(sd_varlink_server *s, FILE *f, FDSet *fds) {
+int varlink_deserialize(sd_varlink_server *s, FILE *f, FDSet *fds, uint64_t *ret_cookie) {
         _cleanup_(varlink_deserialize_done) VarlinkDeserialize p = {
                 .socket_fd = -EBADF,
                 .timeout = USEC_INFINITY,
@@ -205,11 +205,13 @@ int varlink_deserialize(sd_varlink_server *s, FILE *f, FDSet *fds) {
                         break;
 
                 /* Consume the entire subsection on reload or error, preserving the following manager state. */
-                if (!s || ret < 0)
+                if ((!s && !ret_cookie) || ret < 0)
                         continue;
 
                 if ((value = startswith(line, "socket-cookie=")))
                         r = safe_atou64(value, &p.cookie);
+                else if (!s)
+                        continue;
                 else if ((value = startswith(line, "socket-fd="))) {
                         r = deserialize_fd(fds, value);
                         if (r >= 0) {
@@ -250,8 +252,18 @@ int varlink_deserialize(sd_varlink_server *s, FILE *f, FDSet *fds) {
                         ret = varlink_server_log_errno(s, r, "Invalid serialized Varlink connection field, skipping connection: %m");
         }
 
-        if (!s || ret < 0)
+        if (ret < 0)
                 return ret;
+
+        if (!s) {
+                if (ret_cookie) {
+                        if (p.cookie == 0)
+                                return -EINVAL;
+                        *ret_cookie = p.cookie;
+                }
+
+                return 0;
+        }
 
         const unsigned supported_flags = JSON_STREAM_BOUNDED_READS|JSON_STREAM_INPUT_SENSITIVE|
                 JSON_STREAM_ALLOW_FD_PASSING_INPUT|JSON_STREAM_ALLOW_FD_PASSING_OUTPUT|
@@ -318,6 +330,8 @@ int varlink_deserialize(sd_varlink_server *s, FILE *f, FDSet *fds) {
         p.n_fds = 0;
 
         sd_varlink_unref(TAKE_PTR(connection)); /* Leave the server's reference in place. */
+        if (ret_cookie)
+                *ret_cookie = cookie;
         return 0;
 }
 
