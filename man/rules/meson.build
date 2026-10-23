@@ -1082,6 +1082,7 @@ manpages = [
    'systemd-factory-reset@.service'],
   ''],
  ['systemd-firstboot', '1', ['systemd-firstboot.service'], 'ENABLE_FIRSTBOOT'],
+ ['systemd-firstboot-generator', '8', [], 'ENABLE_FIRSTBOOT'],
  ['systemd-fsck@.service',
   '8',
   ['systemd-fsck', 'systemd-fsck-root.service', 'systemd-fsck-usr.service'],
