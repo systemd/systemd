@@ -8,7 +8,7 @@
 This is based on crypttab(5).
 
 -->
-<refentry id="veritytab" conditional='HAVE_LIBCRYPTSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="veritytab" conditional='ENABLE_VERITYSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>veritytab</title>

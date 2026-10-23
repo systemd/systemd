@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-storage-block_.service"
+<refentry id="systemd-storage-block_.service" conditional="ENABLE_STORAGE"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
