@@ -1048,14 +1048,14 @@ static int on_sigtstp(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         r = sigprocmask_many(SIG_UNBLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to unblock SIGTSTP: %m"));
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to unblock SIGTSTP: %m"));
 
         if (raise(SIGTSTP) < 0)
                 log_debug_errno(errno, "Failed to raise SIGTSTP, ignoring: %m");
 
         r = sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to block SIGTSTP: %m"));
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to block SIGTSTP: %m"));
 
         r = modify_console(c);
         if (r < 0)
