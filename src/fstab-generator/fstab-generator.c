@@ -906,6 +906,50 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
+/* Returns true if 'path' is exactly a mount point in our mount namespace. This only parses
+ * /proc/self/mountinfo and never touches the mounted file system, hence cannot block on an
+ * unreachable network server. Unlike path_is_mount_point() it does not access 'path' at all. */
+static bool path_is_listed_in_mountinfo(const char *path) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(path);
+
+        f = fopen("/proc/self/mountinfo", "re");
+        if (!f)
+                return false;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *target = NULL;
+                const char *p;
+                int r;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r <= 0) /* EOF or error */
+                        return false;
+
+                p = line;
+
+                /* Skip: mount ID, parent ID, major:minor, root */
+                for (unsigned i = 0; i < 4; i++) {
+                        _cleanup_free_ char *skip = NULL;
+
+                        r = extract_first_word(&p, &skip, NULL, 0);
+                        if (r <= 0)
+                                break;
+                }
+                if (r <= 0)
+                        continue;
+
+                /* Fifth field: the mount point, with octal escapes (e.g. \040 for a space) */
+                r = extract_first_word(&p, &target, NULL, EXTRACT_CUNESCAPE);
+                if (r <= 0)
+                        continue;
+
+                if (path_equal(target, path))
+                        return true;
+        }
+}
+
 static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
@@ -915,6 +959,27 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
         assert(type);
         assert(STR_IN_SET(type, "where", "what"));
         assert(ret);
+
+        /* chase() has to query the root inode of a file system if the last component of the path is a
+         * mount point. If that is a network file system whose server is unreachable, this blocks in D
+         * state. We are run synchronously by PID 1, which kills us after a timeout and then fails to start
+         * up the manager after a reexec. Entries in mountinfo are canonical already, so there is nothing
+         * to resolve. */
+        if (!prefix_sysroot && streq(type, "where") && path_is_absolute(path)) {
+                _cleanup_free_ char *s = strdup(path);
+                if (!s)
+                        return log_oom();
+
+                path_simplify(s);
+
+                if (path_is_listed_in_mountinfo(s)) {
+                        log_debug("'%s' is an existing mount point, not canonicalizing it.", s);
+
+                        changed = !streq(path, s);
+                        *ret = TAKE_PTR(s);
+                        return changed;
+                }
+        }
 
         // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
         // /sysroot on error below.
