@@ -394,16 +394,17 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                         break;
                 }
 
-        /* Also drop any unit-change varlink reference streaming to this link.
-         * A varlink link attaches to at most one unit, so stop after the first match. */
+        /* An AcquireReference() call may pin multiple units through the same connection. */
         Unit *u;
-        HASHMAP_FOREACH(u, m->units)
-                if (u->varlink_unit_change == link) {
+        HASHMAP_FOREACH(u, m->units) {
+                unit_remove_varlink_ref(u, link);
+
+                if (u->varlink_unit_change == link)
                         u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
-                        break;
-                }
+        }
 
         varlink_job_drop_stashed_client(m, link);
+        varlink_unit_drop_stashed_refs(m, link);
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -454,6 +455,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Unit.EnqueueJob", vl_method_enqueue_unit_job,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
                         "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
+                        "io.systemd.Unit.AcquireReference", vl_method_acquire_reference,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
@@ -645,6 +647,7 @@ void manager_varlink_done(Manager *m) {
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
         m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
+        m->stashed_varlink_unit_refs = hashmap_free(m->stashed_varlink_unit_refs);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
@@ -703,4 +706,6 @@ void manager_varlink_disconnect_unclaimed(Manager *m) {
                 if (r > 0)
                         log_debug("Disconnected %i varlink connections with pending method calls nobody claimed after deserialization.", r);
         }
+
+        varlink_unit_flush_stashed_refs(m);
 }
