@@ -260,6 +260,11 @@ systemd-run --wait --pty true
 systemd-run --wait --pty echo pty-regular-file >/tmp/pty-regular.out
 grep pty-regular-file /tmp/pty-regular.out >/dev/null
 rm -f /tmp/pty-regular.out
+
+# The shared file offset keeps "trailer" from clobbering our output
+{ echo header; systemd-run --wait --pty --quiet echo hello; echo trailer; } >/tmp/pty-offset.out
+[[ "$(tr -d '\r' </tmp/pty-offset.out)" == "$(printf 'header\nhello\ntrailer')" ]]
+rm -f /tmp/pty-offset.out
 systemd-run --wait --machine=.host --pty true
 systemd-run --json=short true | jq . >/dev/null
 systemd-run --json=pretty true | jq . >/dev/null
