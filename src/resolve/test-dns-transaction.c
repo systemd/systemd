@@ -14,6 +14,14 @@
 #include "set.h"
 #include "tests.h"
 
+/* The levels used here: classic DNS via UDP with EDNS0, and with the DO bit on top */
+static const DnsServerFeatureLevel level_edns0 = {
+        .transport = DNS_TRANSPORT_DNS, .edns = DNS_SERVER_EDNS_LEVEL_EDNS0, .udp = true,
+};
+static const DnsServerFeatureLevel level_do = {
+        .transport = DNS_TRANSPORT_DNS, .edns = DNS_SERVER_EDNS_LEVEL_DO, .udp = true,
+};
+
 typedef struct TransactionEnv {
         Manager manager;
         DnsScope *scope;
@@ -240,7 +248,7 @@ TEST(dns_transaction_process_reply_do_allow_downgrade) {
         _cleanup_(transaction_env_teardown) TransactionEnv env = {};
         DnsTransaction *t;
 
-        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_DO,
+        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, level_do,
                                    /* bypass_do= */ -1, /* server_incapable= */ false);
 
         /* Sent with DO, so the reply is validated as usual: the DS lookup is requested, and fails here */
@@ -278,19 +286,20 @@ TEST(dns_transaction_process_reply_no_do_server_back_at_do) {
         DnsTransaction *t;
 
         transaction_env_setup(&env, DNSSEC_ALLOW_DOWNGRADE);
-        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
-        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.server->verified_feature_level = level_do;
+        env.server->possible_feature_level = level_do;
 
         /* A query sent below DO while the server was degraded, whose reply arrives once the server is back
          * at DO, e.g. because the grace period ended in between */
-        transaction_setup_sent(&env, DNS_SERVER_FEATURE_LEVEL_EDNS0, /* bypass_do= */ -1, &t, &reply);
+        transaction_setup_sent(&env, level_edns0, /* bypass_do= */ -1, &t, &reply);
         dns_transaction_process_reply(t, reply, /* encrypted= */ false);
 
         /* Accepted as unsigned, as it cannot be validated, but not cached, as later lookups go out with DO
          * and get validated */
         ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
         ASSERT_EQ(t->answer_dnssec_result, DNSSEC_INCOMPATIBLE_SERVER);
-        ASSERT_EQ(dns_server_possible_feature_level(env.server), DNS_SERVER_FEATURE_LEVEL_DO);
+        ASSERT_STREQ(dns_server_feature_level_to_string(dns_server_possible_feature_level(env.server)),
+                     dns_server_feature_level_to_string(level_do));
         ASSERT_EQ(dns_cache_size(&env.scope->cache), 0u);
 
         t->block_gc--;
@@ -302,7 +311,7 @@ TEST(dns_transaction_process_reply_bypass_do_degraded_server) {
         DnsTransaction *t;
 
         /* A client query with DO, passed on as is to a server that packet loss degraded below DO */
-        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_EDNS0,
+        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, level_edns0,
                                    /* bypass_do= */ 1, /* server_incapable= */ false);
 
         /* The query went out with DO whatever the server is at, so the reply is validated as usual: the DS
@@ -321,7 +330,7 @@ TEST(dns_transaction_process_reply_bypass_no_do) {
         DnsTransaction *t;
 
         /* A client query without DO, passed on as is to a server that is at DO */
-        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, DNS_SERVER_FEATURE_LEVEL_DO,
+        t = process_unsigned_reply(&env, DNSSEC_ALLOW_DOWNGRADE, level_do,
                                    /* bypass_do= */ 0, /* server_incapable= */ false);
 
         /* The query went out without DO whatever the server is at, so the reply is accepted as unsigned,
@@ -347,8 +356,8 @@ TEST(dns_transaction_process_reply_do_cached_auxiliary) {
         DnsTransaction *t, *aux = NULL;
 
         transaction_env_setup(&env, DNSSEC_ALLOW_DOWNGRADE);
-        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
-        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.server->verified_feature_level = level_do;
+        env.server->possible_feature_level = level_do;
 
         /* The DS lookup the reply needs, already answered from the cache on a retry, so that server and
          * feature level are still those of an earlier attempt that went out below DO */
@@ -362,7 +371,7 @@ TEST(dns_transaction_process_reply_do_cached_auxiliary) {
         aux->answer_rcode = DNS_RCODE_SUCCESS;
         aux->state = DNS_TRANSACTION_SUCCESS;
 
-        transaction_setup_sent(&env, DNS_SERVER_FEATURE_LEVEL_DO, /* bypass_do= */ -1, &t, &reply);
+        transaction_setup_sent(&env, level_do, /* bypass_do= */ -1, &t, &reply);
         dns_transaction_process_reply(t, reply, /* encrypted= */ false);
 
         /* The stale feature level of the auxiliary transaction must not turn off validation */
