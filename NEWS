@@ -55,6 +55,13 @@ CHANGES WITH 263 in spe:
           SendHostnameUpdates=no setting in the [DHCPv4] and [DHCPv6]
           sections.
 
+        * systemd-networkd now generates an IPv6 link-local address on
+          WireGuard interfaces by default, like on other interfaces.
+          Previously, LinkLocalAddressing= was ignored for WireGuard
+          interfaces, and an IPv6 link-local address could only be assigned
+          with Address=. The previous behaviour may be restored with
+          LinkLocalAddressing=no.
+
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
@@ -114,6 +121,10 @@ CHANGES WITH 263 in spe:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
+
+        * As mentioned above, an IPv6 link-local address is now generated on
+          WireGuard interfaces by default. This is useful e.g. for running
+          routing protocols like Babel over the tunnel.
 
         * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
           clients now follows the system hostname. The new
