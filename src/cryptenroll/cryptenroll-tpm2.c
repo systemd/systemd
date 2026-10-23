@@ -387,8 +387,16 @@ int enroll_tpm2(const EnrollContext *c,
                 }
         }
 
+        /* Only load the public key if there are PCRs to bind it to. The sealing policy includes the key
+         * whenever one is loaded, but unsealing only uses it if the PCR mask is set, hence a key without
+         * PCRs would result in a slot that can't be unlocked. Refuse an explicitly specified key or
+         * signature then, instead of silently enrolling without the signed policy. */
+        if (pubkey_pcr_mask == 0 && (c->tpm2_public_key || c->tpm2_signature))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "TPM2 PCR public key or signature specified, but no PCRs to bind it to, refusing.");
+
         TPM2B_PUBLIC public = {};
-        if (c->tpm2_public_key || c->tpm2_load_public_key) {
+        if (pubkey_pcr_mask != 0 && (c->tpm2_public_key || c->tpm2_load_public_key)) {
                 r = tpm2_load_pcr_public_key(c->tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
                         if (c->tpm2_public_key || c->tpm2_signature || r != -ENOENT)
