@@ -620,7 +620,7 @@ static int import_imds_public_addresses(sd_varlink *link) {
 
         if (sd_json_variant_elements(aj) == 0) {
                 log_debug("No IMDS public addresses known, not writing our RRs.");
-                return 0;
+                return ret;
         }
 
         _cleanup_free_ char *text = NULL;
@@ -633,7 +633,7 @@ static int import_imds_public_addresses(sd_varlink *link) {
                 return log_error_errno(r, "Failed to write IMDS RR data: %m");
 
         log_debug("IMDS public addresses written out.");
-        return 1;
+        return ret;
 }
 
 static int import_imds_ssh_key(sd_varlink *link) {
