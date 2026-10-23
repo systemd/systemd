@@ -48,7 +48,7 @@ foreach item : [
         ['ptyctl',              ''],
         ['resolvectl',          'ENABLE_RESOLVE'],
         ['run0',                ''],
-        ['storagectl',          ''],
+        ['storagectl',          'ENABLE_STORAGE'],
         ['systemd-analyze',     ''],
         ['systemd-cat',         ''],
         ['systemd-cgls',        ''],
