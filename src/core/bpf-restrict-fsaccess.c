@@ -40,6 +40,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = "restrict-fsaccess-bpf-map-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -68,6 +69,9 @@ assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
  * width so widening initramfs_s_dev fails the build instead of silently
  * clearing only the low bytes. */
 assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev) == sizeof(uint32_t));
+/* NUM_PROTECTED_OBJS in the BPF program must match the link list. */
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_prog_ids) == _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_link_ids) == _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
@@ -84,6 +88,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = (obj)->links.restrict_fsaccess_bpf_map_guard,              \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -340,25 +345,27 @@ int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
         }
 }
 
-/* Partial deserialization (some FDs but not all) is fatal: continuing
- * would leave enforcement incomplete. */
+/* Returns the number of deserialized link FDs. Links are only ever appended, so the set of an older PID 1
+ * is a prefix of ours. Anything else is partial and refused. */
 static int restrict_fsaccess_have_deserialized_fds(Manager *m) {
-        size_t count = 0;
+        size_t n = 0;
 
         assert(m);
 
-        FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds)
-                if (*fd >= 0)
-                        count++;
+        FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds) {
+                size_t idx = fd - m->restrict_fsaccess_link_fds;
 
-        if (count == 0)
-                return 0;
-        if (count == ELEMENTSOF(m->restrict_fsaccess_link_fds))
-                return 1;
+                if (*fd < 0)
+                        continue;
 
-        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
-                               "bpf-restrict-fsaccess: Only %zu of %zu link FDs deserialized, refusing to continue with partial enforcement.",
-                               count, ELEMENTSOF(m->restrict_fsaccess_link_fds));
+                if (idx != n)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "bpf-restrict-fsaccess: Link FD for %s deserialized, but not those of the programs before it, refusing to continue with partial enforcement.",
+                                               restrict_fsaccess_link_names[idx]);
+                n++;
+        }
+
+        return n;
 }
 
 /* Close the initramfs trust window after switch_root by clearing initramfs_s_dev
@@ -474,7 +481,8 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
  * corrupted serialization file could leave FDs pointing at arbitrary kernel
  * objects; a stale FD could point at a BPF link of an entirely different type
  * (e.g. kprobe-multi). Verify both link type and attach type so a substituted
- * FD that happens to be a BPF link still fails the check. */
+ * FD that happens to be a BPF link still fails the check. Links an older
+ * PID 1 didn't have are absent. */
 static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
         int r;
 
@@ -489,6 +497,9 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
                 struct bpf_link_info info = {};
                 uint32_t len = sizeof(info);
                 const char *name = restrict_fsaccess_link_names[fd - m->restrict_fsaccess_link_fds];
+
+                if (*fd < 0)
+                        continue;
 
                 r = sym_bpf_obj_get_info_by_fd(*fd, &info, &len);
                 if (r < 0)
@@ -527,12 +538,22 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                log_info("bpf-restrict-fsaccess: Recovered link FDs from previous exec, programs still attached.");
+                bool complete = (size_t) r == ELEMENTSOF(m->restrict_fsaccess_link_fds);
+
+                if (complete)
+                        log_info("bpf-restrict-fsaccess: Recovered link FDs from previous exec, programs still attached.");
+                else
+                        log_notice("bpf-restrict-fsaccess: Recovered %i of %zu link FDs from a previous version, the programs "
+                                   "added since are not attached until the next boot.",
+                                   r, ELEMENTSOF(m->restrict_fsaccess_link_fds));
 
                 r = restrict_fsaccess_validate_deserialized_fds(m);
                 if (r < 0)
                         return r;
-                if (m->switching_root) {
+
+                /* Only write to our own .bss layout. The previous PID 1 cleared this before
+                 * switching root anyway. */
+                if (m->switching_root && complete) {
                         if (m->restrict_fsaccess_bss_map_fd < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADF),
                                                        "bpf-restrict-fsaccess: Cannot clear initramfs trust after switch_root.");
