@@ -568,7 +568,8 @@
         <constant>AT_EXECVE_CHECK</constant> flag with the verdict a real execution of the file would get, so
         that script interpreters honouring <constant>SECBIT_EXEC_RESTRICT_FILE</constant> can enforce the policy
         for the scripts they run. This requires kernel v6.14 or newer. Only the file itself is checked, not the
-        interpreter or the libraries it needs.</para>
+        interpreter or the libraries it needs. Set <varname>SecureBits=exec-restrict-file
+        exec-restrict-file-locked</varname> to ask such interpreters to enforce the policy.</para>
 
         <para>Note that, without further measures to secure the system, kexec can be used to circumvent
         this.</para>
@@ -586,6 +587,33 @@
         </para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SecureBits=</varname></term>
+
+        <listitem><para>Takes a whitespace-separated list of secure bits to set on the service manager itself,
+        with the same values as the unit setting of the same name, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Secure
+        bits except <literal>keep-caps</literal> are inherited, so they apply to all processes the service
+        manager starts, and units can only add to them. Bits set together with their <literal>-locked</literal>
+        variant cannot be cleared by a later configuration change either. If unset, the secure bits are left
+        untouched. The setting is meant for the <literal>exec-</literal> bits and their locks, which are also all
+        the user service manager may set. They require kernel v6.14 or newer, older kernels refuse them and the
+        service manager fails to start. The other bits apply to the service manager's own re-execution as well
+        and are better set per unit.</para>
+
+        <para>Together with <varname>RestrictFileSystemAccess=</varname>, <literal>exec-restrict-file
+        exec-restrict-file-locked</literal> asks interpreters that support the executability check to refuse
+        scripts the policy would not execute, including shell start-up files outside the trusted image, and
+        <literal>exec-deny-interactive exec-deny-interactive-locked</literal> asks them to refuse interactive
+        input, including commands passed via <command>sh -c</command> or standard input, which only suits
+        systems without interactive logins.</para>
+
+        <para>Note that creating or joining a user namespace resets all secure bits, which the unit setting
+        <varname>RestrictNamespaces=</varname> can prevent.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
