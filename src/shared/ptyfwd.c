@@ -1369,9 +1369,11 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority) {
                         return r;
         }
 
-        r = sd_event_source_set_priority(f->stdout_event_source, priority);
-        if (r < 0)
-                return r;
+        if (f->stdout_event_source) {
+                r = sd_event_source_set_priority(f->stdout_event_source, priority);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_source_set_priority(f->master_event_source, priority);
         if (r < 0)
