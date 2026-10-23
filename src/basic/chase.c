@@ -609,18 +609,23 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 _cleanup_close_ int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
 
-                                /* If fd_parent is the root directory, openat(fd_parent, "..") returns the
+                                /* With CHASE_PARENT, the returned fd refers to the result itself if the
+                                 * result is "." or "/". fd_parent refers to the result in that case already.
+                                 * If fd_parent is the root directory, openat(fd_parent, "..") returns the
                                  * directory above the root. We treat the root directory as its own parent
                                  * instead, like we do for "/..". */
-                                if (root_fd != XAT_FDROOT) {
+                                bool stay = empty_or_root(done);
+                                if (!stay && root_fd != XAT_FDROOT) {
                                         r = chase_statx_is_root(&stx_parent, &root_stx);
                                         if (r < 0)
                                                 return r;
-                                        if (r > 0) {
-                                                stx = stx_parent;
-                                                close_and_replace(fd, fd_parent);
-                                                break;
-                                        }
+
+                                        stay = r > 0;
+                                }
+                                if (stay) {
+                                        stx = stx_parent;
+                                        close_and_replace(fd, fd_parent);
+                                        break;
                                 }
 
                                 fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
