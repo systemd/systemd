@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "iovec-util.h"
 
 #if ENABLE_TPM
 
@@ -23,6 +24,12 @@ char *description, bool *ret_measured);
 EFI_STATUS tpm_log_tagged_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, uint32_t event_id, const char16_t *description, bool *ret_measured);
 
 EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured);
+
+/* Record the measurements that couldn't be made for lack of a TPM, as TCG_PCR_EVENT2 records. They are
+ * kept pending after tpm_replay_log_start() until tpm_replay_log_settle() decides whether to keep them. */
+void tpm_replay_log_start(void);
+void tpm_replay_log_settle(bool enable);
+const struct iovec* tpm_replay_log(void);
 
 #else
 
@@ -60,6 +67,16 @@ static inline EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool
         if (ret_measured)
                 *ret_measured = false;
         return EFI_SUCCESS;
+}
+
+static inline void tpm_replay_log_start(void) {
+}
+
+static inline void tpm_replay_log_settle(bool enable) {
+}
+
+static inline const struct iovec* tpm_replay_log(void) {
+        return NULL;
 }
 
 #endif

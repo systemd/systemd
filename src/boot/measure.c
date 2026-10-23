@@ -3,9 +3,11 @@
 #if ENABLE_TPM
 
 #include "efi-log.h"
+#include "iovec-util.h"
 #include "measure.h"
 #include "proto/cc-measurement.h"
 #include "proto/tcg.h"
+#include "sha256.h"
 #include "tpm2-pcr.h"
 #include "util.h"
 
@@ -283,6 +285,177 @@ static EFI_STATUS cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, s
         return EFI_SUCCESS;
 }
 
+/* Without a TPM, nothing keeps track of what we would have measured. Hence record it ourselves, so that
+ * the OS can replay it into a software TPM. The records use the format of the TCG crypto agile event log
+ * (TCG_PCR_EVENT2) with a single SHA-256 digest. Only the PCRs owned by the OS are recorded, i.e., PCRs 11,
+ * 12 and 13, as the firmware ones can't be replayed consistently anyway.
+ * This is opt-in via systemd.tpm2_measured_os=1 on the kernel command line, to not hash the UKI when
+ * not needed. The command line is only settled after the UKI sections were measured, hence until then the
+ * events are only kept pending. Small buffers are copied, the large ones are sections of the UKI image,
+ * which stays in memory, hence they are only hashed once the decision is made. */
+typedef enum ReplayLogState {
+        REPLAY_LOG_OFF,
+        REPLAY_LOG_PENDING,
+        REPLAY_LOG_ON,
+} ReplayLogState;
+
+#define REPLAY_LOG_COPY_MAX (64U * 1024U)
+
+typedef struct PendingEvent {
+        uint32_t pcrindex;
+        uint32_t event_type;   /* EV_IPL or EV_EVENT_TAG */
+        uint32_t event_id;     /* Only used for EV_EVENT_TAG */
+        const void *data;      /* Not owned, points to 'copy' or into the UKI image */
+        size_t size;
+        void *copy;            /* Owned copy of small data, NULL if 'data' points into the UKI image */
+        char16_t *description; /* Owned */
+} PendingEvent;
+
+static void pending_event_done(PendingEvent *e) {
+        assert(e);
+
+        /* 'data' might point to 'copy', hence reset it too */
+        e->data = NULL;
+        e->size = 0;
+        e->copy = mfree(e->copy);
+        e->description = mfree(e->description);
+}
+
+static DEFINE_ARRAY_FREE_FUNC(pending_event_free_array, PendingEvent, pending_event_done);
+
+/* TCG_PCR_EVENT2 with a single SHA-256 digest, followed by the event data */
+typedef struct ReplayLogRecord {
+        uint32_t pcr_index;
+        uint32_t event_type;
+        uint32_t digest_count;
+        uint16_t hash_alg;
+        uint8_t digest[SHA256_DIGEST_SIZE];
+        uint32_t event_size;
+} _packed_ ReplayLogRecord;
+
+/* TCG_PCClientTaggedEvent, followed by the tagged event data */
+typedef struct ReplayLogTag {
+        uint32_t event_id;
+        uint32_t event_data_size;
+} _packed_ ReplayLogTag;
+
+static ReplayLogState replay_log_state = REPLAY_LOG_OFF;
+static PendingEvent *pending_events = NULL;
+static size_t n_pending_events = 0;
+static struct iovec replay_log = {};
+
+static void replay_log_record(
+                uint32_t pcrindex,
+                uint32_t event_type,
+                uint32_t event_id,
+                const void *data,
+                size_t size,
+                const char16_t *description) {
+
+        assert(description);
+        assert(IN_SET(event_type, EV_IPL, EV_EVENT_TAG));
+
+        size_t description_size = strsize16(description);
+        size_t event_size = description_size;
+        if (event_type == EV_EVENT_TAG)
+                event_size += sizeof(ReplayLogTag);
+
+        ReplayLogRecord record = {
+                .pcr_index = pcrindex,
+                .event_type = event_type,
+                .digest_count = 1,
+                .hash_alg = 0x000B, /* TPM2_ALG_SHA256 */
+                .event_size = event_size,
+        };
+        sha256_direct(data, size, record.digest);
+
+        size_t record_size = sizeof(record) + event_size;
+        replay_log.iov_base = xrealloc(replay_log.iov_base, replay_log.iov_len, replay_log.iov_len + record_size);
+        uint8_t *p = (uint8_t*) replay_log.iov_base + replay_log.iov_len;
+
+        p = mempcpy(p, &record, sizeof(record));
+        if (event_type == EV_EVENT_TAG) {
+                ReplayLogTag tag = {
+                        .event_id = event_id,
+                        .event_data_size = description_size,
+                };
+                p = mempcpy(p, &tag, sizeof(tag));
+        }
+        memcpy(p, description, description_size);
+
+        replay_log.iov_len += record_size;
+}
+
+static void replay_log_append(
+                uint32_t pcrindex,
+                uint32_t event_type,
+                uint32_t event_id,
+                EFI_PHYSICAL_ADDRESS buffer,
+                size_t buffer_size,
+                const char16_t *description) {
+
+        /* PCRs 0…7 belong to the firmware and can't be replayed consistently. This skips our SMBIOS
+         * measurement into PCR 1. */
+        if (pcrindex < 8)
+                return;
+
+        switch (replay_log_state) {
+
+        case REPLAY_LOG_OFF:
+                return;
+
+        case REPLAY_LOG_PENDING: {
+                PendingEvent e = {
+                        .pcrindex = pcrindex,
+                        .event_type = event_type,
+                        .event_id = event_id,
+                        .data = PHYSICAL_ADDRESS_TO_POINTER(buffer),
+                        .size = buffer_size,
+                        .description = xstrdup16(description),
+                };
+                if (buffer_size <= REPLAY_LOG_COPY_MAX)
+                        e.data = e.copy = xmemdup(e.data, buffer_size);
+
+                pending_events = xrealloc(
+                                pending_events,
+                                n_pending_events * sizeof(PendingEvent),
+                                (n_pending_events + 1) * sizeof(PendingEvent));
+                pending_events[n_pending_events++] = e;
+                return;
+        }
+
+        case REPLAY_LOG_ON:
+                replay_log_record(pcrindex, event_type, event_id, PHYSICAL_ADDRESS_TO_POINTER(buffer), buffer_size, description);
+                return;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+void tpm_replay_log_start(void) {
+        replay_log_state = REPLAY_LOG_PENDING;
+}
+
+void tpm_replay_log_settle(bool enable) {
+        if (replay_log_state != REPLAY_LOG_PENDING)
+                return;
+
+        if (enable)
+                FOREACH_ARRAY(e, pending_events, n_pending_events)
+                        replay_log_record(e->pcrindex, e->event_type, e->event_id, e->data, e->size, e->description);
+
+        pending_event_free_array(pending_events, n_pending_events);
+        pending_events = NULL;
+        n_pending_events = 0;
+
+        replay_log_state = enable ? REPLAY_LOG_ON : REPLAY_LOG_OFF;
+}
+
+const struct iovec* tpm_replay_log(void) {
+        return &replay_log;
+}
+
 EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_STATUS err;
         bool tpm_ret_measured, cc_ret_measured;
@@ -307,6 +480,9 @@ EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, siz
         err = tcg2_log_ipl_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
         if (err != EFI_SUCCESS)
                 return err;
+
+        if (!tpm_ret_measured)
+                replay_log_append(pcrindex, EV_IPL, /* event_id= */ 0, buffer, buffer_size, description);
 
         if (ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;
@@ -347,6 +523,9 @@ EFI_STATUS tpm_log_tagged_event(
         err = tcg2_log_tagged_event(pcrindex, buffer, buffer_size, event_id, description, &tpm_ret_measured);
         if (err != EFI_SUCCESS)
                 return err;
+
+        if (!tpm_ret_measured)
+                replay_log_append(pcrindex, EV_EVENT_TAG, event_id, buffer, buffer_size, description);
 
         if (ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;

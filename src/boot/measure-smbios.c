@@ -100,7 +100,9 @@ void measure_smbios(void) {
                 return;
 
         /* Measure SMBIOS type 1 (system information), type 2 (baseboard information) and type 11 (OEM
-         * strings) into PCR 1, in a single pass over the SMBIOS table. */
+         * strings) into PCR 1, in a single pass over the SMBIOS table. Unlike our other measurements, this
+         * is not recorded for the replay into a software TPM, as PCR 1 belongs to the firmware, see
+         * replay_log_append(). */
         smbios_foreach(measure_smbios_object, &measured);
 
         /* If we measured something, tell the OS which PCR we used (and suppress a second pass). */
