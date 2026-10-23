@@ -867,6 +867,30 @@ int fd_reopen_propagate_append_and_position(int fd, int flags) {
         return new_fd;
 }
 
+int fd_dup_or_reopen_stdio_nonblock(int fd, int mode) {
+        /* Output to regular files and block devices is dup'ed rather than reopened, so that the file offset
+         * stays shared with the caller and whatever it writes after us doesn't overwrite our output, as in
+         * "{ echo header; systemd-run --pty echo hello; echo trailer; } > out". They never block, hence
+         * O_NONBLOCK is not needed. Input is always reopened privately: we read ahead whether or not the data
+         * is consumed, and a shared offset would eat input the caller still expects to read itself, as in
+         * "while read -r l; do systemd-run --pty ...; done < list". */
+
+        assert(fd >= 0);
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY));
+
+        if (mode == O_WRONLY) {
+                struct stat st;
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
+                        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+        }
+
+        /* O_NOCTTY, so that reopening a tty doesn't make it our controlling terminal if we lack one */
+        return fd_reopen_propagate_append_and_position(fd, mode|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+}
+
 int fd_reopen_condition(
                 int fd,
                 int flags,
