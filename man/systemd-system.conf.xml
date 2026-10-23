@@ -564,6 +564,12 @@
         layer may still control a binary's ownership and setuid bits. Multi-device filesystems such as
         btrfs are unsupported.</para>
 
+        <para>Since v263, the policy also answers <function>execveat()</function> queries carrying the
+        <constant>AT_EXECVE_CHECK</constant> flag with the verdict a real execution of the file would get, so
+        that script interpreters honouring <constant>SECBIT_EXEC_RESTRICT_FILE</constant> can enforce the policy
+        for the scripts they run. This requires kernel v6.14 or newer. Only the file itself is checked, not the
+        interpreter or the libraries it needs.</para>
+
         <para>Note that, without further measures to secure the system, kexec can be used to circumvent
         this.</para>
 
