@@ -235,6 +235,13 @@ CHANGES WITH 263 in spe:
           Rust, and is hence only built if Rust support is enabled with the
           new -Drust= build option.
 
+        Changes in systemd-cryptsetup:
+
+        * systemd-cryptsetup gained support for a new friendly-name= option in
+          /etc/crypttab. It can be used to override the default device
+          description shown when the user is asked for the passphrase or PKCS#11
+          token PIN to unlock a device.
+
         Changes in varlinkctl:
 
         * varlinkctl serve gained a --polkit-action= switch which verifies
