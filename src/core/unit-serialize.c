@@ -19,6 +19,7 @@
 #include "unit.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink-serialize.h"
 
 /* Make sure out values fit in the bitfield. */
 assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
@@ -131,6 +132,19 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
+
+        sd_varlink *link;
+        SET_FOREACH(link, u->varlink_refs) {
+                uint64_t cookie;
+
+                r = varlink_get_socket_cookie(link, &cookie);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item_format(f, "varlink-ref", "%" PRIu64, cookie);
+                if (r < 0)
+                        return r;
+        }
 
         if (!switching_root) {
                 if (u->job) {
@@ -314,6 +328,11 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
 
                 } else if (streq(l, "ref")) {
                         r = strv_extend(&u->deserialized_refs, v);
+                        if (r < 0)
+                                return log_oom();
+                        continue;
+                } else if (streq(l, "varlink-ref")) {
+                        r = strv_extend(&u->deserialized_varlink_refs, v);
                         if (r < 0)
                                 return log_oom();
                         continue;

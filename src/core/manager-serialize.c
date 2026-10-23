@@ -224,6 +224,25 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        _cleanup_set_free_ Set *serialized_varlink_refs = NULL;
+        HASHMAP_FOREACH_KEY(u, t, m->units) {
+                if (u->id != t)
+                        continue;
+
+                sd_varlink *link;
+                SET_FOREACH(link, u->varlink_refs) {
+                        r = set_ensure_put(&serialized_varlink_refs, &trivial_hash_ops, link);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        r = varlink_serialize(link, "varlink-server-connection", f, fds);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to serialize unit reference connection: %m");
+                }
+        }
+
         r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
                 return r;
@@ -802,8 +821,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = manager_setup_varlink_server(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
-                        else
-                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+                        else {
+                                r = varlink_server_deserialize_one(m->varlink_server, val, fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to restore Varlink server state, ignoring: %m");
+                        }
 
                 } else if (startswith(l, "restrict-fsaccess-"))
                         deserialize_restrict_fsaccess(m, l, fds);
