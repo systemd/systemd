@@ -89,3 +89,21 @@ pub fn reopen(fd: BorrowedFd<'_>, flags: c_int) -> Result<OwnedFd> {
     // SAFETY: plain call into libsystemd-shared, the new descriptor or -errno is ours.
     unsafe { OwnedFd::from_return(sys::fd_reopen(fd.as_raw(), flags)) }
 }
+
+/// `loop_write()`: writes all of `buf` to an open descriptor, not a placeholder.
+pub fn loop_write(fd: BorrowedFd<'_>, buf: &[u8]) -> Result<()> {
+    if fd.as_raw() < 0 {
+        return Err(Errno::EBADF);
+    }
+    // SAFETY: buf is valid for buf.len() bytes.
+    check(unsafe { sys::loop_write(fd.as_raw(), buf.as_ptr().cast(), buf.len()) }).map(|_| ())
+}
+
+/// `fchmod()`.
+pub fn fchmod(fd: BorrowedFd<'_>, mode: sys::mode_t) -> Result<()> {
+    // SAFETY: plain call into libc.
+    if unsafe { sys::fchmod(fd.as_raw(), mode) } < 0 {
+        return Err(Errno::last_os_error());
+    }
+    Ok(())
+}
