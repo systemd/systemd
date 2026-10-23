@@ -72,6 +72,13 @@ if want_tests != 'false' and conf.get('HAVE_BLKID') == 1
              args : exe.full_path(),
              depends : exe,
              suite : 'boot')
+
+        test('test-bootctl-install',
+             files('test-bootctl-install.sh'),
+             args : [exe.full_path(),
+                     bootlibdir],
+             depends : exe,
+             suite : 'boot')
 endif
 
 ############################################################
