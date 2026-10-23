@@ -181,3 +181,5 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path);
 static inline int path_is_network_fs_harder(const char *path) {
         return path_is_network_fs_harder_at(AT_FDCWD, path);
 }
+
+int path_is_mount_point_in_mountinfo(const char *path);
