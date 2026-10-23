@@ -40,6 +40,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = "restrict-fsaccess-bpf-map-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -70,6 +71,11 @@ assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
  * width so widening initramfs_s_dev fails the build instead of silently
  * clearing only the low bytes. */
 assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev) == sizeof(uint32_t));
+/* NUM_PROTECTED_OBJS in the BPF program must match the link list. */
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_prog_ids) ==
+          _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_link_ids) ==
+          _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
@@ -86,6 +92,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = (obj)->links.restrict_fsaccess_bpf_map_guard,              \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -496,7 +503,7 @@ static const struct {
         uint32_t bss_size;
         size_t n_links;
 } restrict_fsaccess_previous_versions[] = {
-        { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD + 1 }, /* v261, v262 */
+        { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC }, /* v261, v262 */
 };
 
 /* Validate that deserialized FDs actually reference our LSM BPF links. A
