@@ -105,7 +105,13 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
-TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    TRIES_FILE="$KERNEL_INSTALL_CONF_ROOT/tries"
+elif [ -f /etc/kernel/tries ]; then
+    TRIES_FILE=/etc/kernel/tries
+else
+    TRIES_FILE=/usr/lib/kernel/tries
+fi
 
 if [ -f "$TRIES_FILE" ]; then
     read -r TRIES <"$TRIES_FILE"
