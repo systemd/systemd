@@ -314,7 +314,7 @@ static int vl_method_set_memory(sd_varlink *link, sd_json_variant *parameters, s
         if (r != 0)
                 return r;
 
-        r = vmspawn_memory_set_target(ctx->bridge->memory, link, bytes);
+        r = vmspawn_memory_set_target(ctx->bridge->memory, link, FLAGS_SET(flags, SD_VARLINK_METHOD_MORE), bytes);
         if (r == -EOPNOTSUPP)
                 return sd_varlink_error(link, "io.systemd.MachineInstance.NotSupported", NULL);
         if (r == -ERANGE)
@@ -448,6 +448,9 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
 
         /* Propagate connection loss by closing all subscriber connections */
         drain_event_subscribers(&ctx->subscribed);
+
+        if (ctx->bridge->memory)
+                vmspawn_memory_disconnect(ctx->bridge->memory);
 }
 
 int vmspawn_varlink_setup(
