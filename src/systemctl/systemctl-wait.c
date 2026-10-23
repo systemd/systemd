@@ -70,7 +70,7 @@ int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot wait for template unit %s.", name);
 
         /* We need the full bus for this, since we reference the unit with RefUnit(), so that it is not
-         * released while we are waiting for it, and its final state remains queriable. */
+         * released while we are waiting for it, and its final state remains queryable. */
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
