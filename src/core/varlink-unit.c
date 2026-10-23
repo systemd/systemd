@@ -10,6 +10,7 @@
 #include "dbus-job.h"
 #include "execute.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "install.h"
 #include "job.h"
 #include "json-util.h"
@@ -24,6 +25,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "varlink.h"
 #include "varlink-automount.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
@@ -1184,6 +1186,239 @@ static int prepare_unit_names(sd_varlink *link, char **names) {
 
         strv_uniq(names);
         return 0;
+}
+
+int unit_add_varlink_ref(Unit *u, sd_varlink *link) {
+        int r;
+
+        assert(u);
+        assert(link);
+
+        r = set_ensure_put(&u->varlink_refs, &varlink_hash_ops, link);
+        if (r > 0)
+                sd_varlink_ref(link);
+        return r;
+}
+
+DEFINE_PRIVATE_HASH_OPS_FULL(
+                varlink_unit_ref_hash_ops,
+                char, string_hash_func, string_compare_func, free,
+                sd_varlink, sd_varlink_unref);
+
+static int varlink_unit_stash_ref(Manager *m, sd_varlink *link) {
+        _cleanup_free_ char *key = NULL;
+        const char *id;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        r = sd_varlink_get_connection_id(link, &id);
+        if (r < 0)
+                return r;
+        if (hashmap_get(m->stashed_varlink_unit_refs, id) == link)
+                return 0;
+
+        key = strdup(id);
+        if (!key)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&m->stashed_varlink_unit_refs, &varlink_unit_ref_hash_ops, key, link);
+        if (r <= 0)
+                return r;
+
+        TAKE_PTR(key);
+        sd_varlink_ref(link);
+        return 0;
+}
+
+int unit_add_varlink_ref_by_id(Unit *u, const char *id) {
+        int r;
+
+        assert(u);
+        assert(id);
+
+        sd_varlink *link = hashmap_get(u->manager->stashed_varlink_unit_refs, id);
+        if (!link) {
+                r = manager_varlink_claim_connection(u->manager, id, &link);
+                if (r < 0)
+                        return r;
+
+                /* Claiming is one-shot, but the same connection can appear in several units' state. */
+                r = varlink_unit_stash_ref(u->manager, link);
+                if (r < 0) {
+                        (void) sd_varlink_close(link);
+                        return log_unit_warning_errno(u, r, "Failed to stash Varlink unit reference, disconnecting: %m");
+                }
+        }
+
+        r = unit_add_varlink_ref(u, link);
+        if (r < 0) {
+                (void) sd_varlink_close(link);
+                return log_unit_warning_errno(u, r, "Failed to restore Varlink unit reference: %m");
+        }
+
+        return 0;
+}
+
+void unit_release_varlink_refs(Unit *u) {
+        sd_varlink *link;
+        int r;
+
+        assert(u);
+
+        while ((link = set_steal_first(u->varlink_refs))) {
+                if (MANAGER_IS_RELOADING(u->manager)) {
+                        r = varlink_unit_stash_ref(u->manager, link);
+                        if (r >= 0) {
+                                sd_varlink_unref(link);
+                                continue;
+                        }
+
+                        log_unit_warning_errno(u, r, "Failed to stash Varlink unit reference, disconnecting: %m");
+                }
+
+                sd_varlink_close_unref(link);
+        }
+
+        u->varlink_refs = set_free(u->varlink_refs);
+}
+
+void varlink_unit_drop_stashed_refs(Manager *m, sd_varlink *link) {
+        sd_varlink *stashed;
+        const char *id;
+
+        assert(m);
+        assert(link);
+
+        HASHMAP_FOREACH_KEY(stashed, id, m->stashed_varlink_unit_refs)
+                if (stashed == link) {
+                        _cleanup_free_ char *key = NULL;
+
+                        sd_varlink_unref(hashmap_remove2(m->stashed_varlink_unit_refs, id, (void**) &key));
+                        break;
+                }
+}
+
+void varlink_unit_flush_stashed_refs(Manager *m) {
+        sd_varlink *link;
+        Unit *u;
+        const char *name;
+        int r;
+
+        assert(m);
+
+        _cleanup_hashmap_free_ Hashmap *refs = TAKE_PTR(m->stashed_varlink_unit_refs);
+        if (hashmap_isempty(refs))
+                return;
+
+        HASHMAP_FOREACH_KEY(u, name, m->units) {
+                if (name != u->id)
+                        continue;
+
+                SET_FOREACH(link, u->varlink_refs) {
+                        _cleanup_free_ char *key = NULL;
+                        const char *id;
+
+                        r = sd_varlink_get_connection_id(link, &id);
+                        if (r < 0) {
+                                log_unit_warning_errno(u, r, "Failed to get Varlink unit reference ID, ignoring: %m");
+                                continue;
+                        }
+
+                        sd_varlink_unref(hashmap_remove2(refs, id, (void**) &key));
+                }
+        }
+
+        HASHMAP_FOREACH(link, refs) {
+                log_info("Varlink unit references did not survive deserialization, disconnecting.");
+                (void) sd_varlink_close(link);
+        }
+}
+
+void unit_remove_varlink_ref(Unit *u, sd_varlink *link) {
+        assert(u);
+        assert(link);
+
+        if (!set_remove(u->varlink_refs, link))
+                return;
+
+        sd_varlink_unref(link);
+        if (set_isempty(u->varlink_refs))
+                unit_add_to_gc_queue(u);
+}
+
+int vl_method_acquire_reference(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "names", SD_JSON_VARIANT_ARRAY, dispatch_unit_names, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_set_free_ Set *units = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        Unit *u;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &names);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        r = prepare_unit_names(link, names);
+        if (r != 0)
+                return r;
+
+        STRV_FOREACH(name, names) {
+                /* Like Unit.Ref() on D-Bus, allow pinning a not-found unit before creating it transiently. */
+                r = manager_load_unit(m, *name, /* path= */ NULL, &error, &u);
+                if (r < 0)
+                        return varlink_reply_bus_error(link, r, &error);
+
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.systemd1.manage-units",
+                                (const char**) STRV_MAKE("unit", u->id, "verb", "ref"),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+
+                r = mac_selinux_unit_access_check_varlink(u, link, "start");
+                if (r < 0)
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+
+                r = set_ensure_put(&units, &trivial_hash_ops, u);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_varlink_set_serialize_pending(link, true);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(u, units) {
+                r = unit_add_varlink_ref(unit_follow_merge(u), link);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        r = sd_varlink_notify(link, /* parameters= */ NULL);
+        if (r < 0)
+                goto rollback;
+
+        return r;
+
+rollback:
+        SET_FOREACH(u, units)
+                unit_remove_varlink_ref(unit_follow_merge(u), link);
+
+        return r;
 }
 
 int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
