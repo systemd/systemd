@@ -8,7 +8,7 @@
 static void* idn_dl = NULL;
 
 DLSYM_PROTOTYPE(idn2_lookup_u8) = NULL;
-const char *(*sym_idn2_strerror)(int rc) _const_ = NULL;
+DLSYM_PROTOTYPE(idn2_strerror) = NULL;
 DLSYM_PROTOTYPE(idn2_to_unicode_8z8z) = NULL;
 
 #endif
