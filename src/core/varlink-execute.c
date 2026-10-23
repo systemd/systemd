@@ -1450,7 +1450,7 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
  *   parse_offset  - offsetof() into TransientExecContextParameters; 0 if dispatch writes via &p directly.
  *   json_flags    - Per-field flags forwarded to sd_json_dispatch_full().
  *   apply         - Writes the parsed value to ExecContext. Returns 0 on success (whether or not
- *                   the property was set), <0 on error. The central loop prefixes EINVAL errors with json_name.
+ *                   the property was set), <0 on error. EINVAL error field paths are prefixed with json_name.
  *   tristate      - If true, the int at parse_offset is initialized to -1 (absent sentinel) by
  *                   transient_exec_context_parameters_init(). Used for tristate bools and enum
  *                   fields (both treat negative as absent). Defaults to false.

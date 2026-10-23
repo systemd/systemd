@@ -6,6 +6,20 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+expect_set_properties_invalid_parameter() {
+    local payload="$1" field="$2"
+    varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+                    /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "$payload" \
+        | jq -e --arg f "$field" '.parameter == $f' >/dev/null
+}
+
+expect_set_properties_property_not_supported() {
+    local payload="$1" field="$2"
+    varlinkctl call --graceful=io.systemd.Unit.PropertyNotSupported \
+                    /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "$payload" \
+        | jq -e --arg f "$field" '.property == $f' >/dev/null
+}
+
 testcase_list() {
     # test io.systemd.Unit
     varlinkctl info /run/systemd/io.systemd.Manager
@@ -26,7 +40,20 @@ testcase_list() {
 
 testcase_set_properties() {
     varlinkctl call --graceful=io.systemd.Unit.NoSuchUnit /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties '{"runtime": true, "name": "non-existent.service", "properties": {"Markers": ["needs-restart"]}}' |& grep "io.systemd.Unit.NoSuchUnit"
-    varlinkctl call --graceful=io.systemd.Unit.PropertyNotSupported /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties '{"runtime": false, "name": "systemd-journald.service", "properties": {"Markers": ["needs-restart"]}}' | jq -e '.property == "runtime"'
+
+    expect_set_properties_property_not_supported \
+        '{"runtime":false,"name":"systemd-journald.service","properties":{"Markers":["needs-restart"]}}' \
+        "runtime"
+    [[ -z "$(systemctl show -P Markers systemd-journald.service)" ]]
+
+    expect_set_properties_invalid_parameter \
+        '{"runtime":true,"name":"systemd-journald.service","properties":{"Markers":["needs-restart","invalid"]}}' \
+        "properties.Markers"
+    [[ -z "$(systemctl show -P Markers systemd-journald.service)" ]]
+
+    expect_set_properties_invalid_parameter \
+        '{"properties":{"Markers":[]},"runtime":true,"name":"bad/unit.service"}' \
+        "name"
 }
 
 testcase_contexts() {
