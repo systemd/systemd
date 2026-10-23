@@ -105,6 +105,19 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
+# Read the devicetree configuration file before anything is removed or installed below, so that a
+# configuration file that is refused leaves the existing loader entries, kernel image and devicetree
+# blob of this kernel version untouched.
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
+        read -r DEVICETREE <"$KERNEL_INSTALL_CONF_ROOT/devicetree"
+    fi
+elif [ -f /etc/kernel/devicetree ]; then
+    read -r DEVICETREE </etc/kernel/devicetree
+elif [ -f /usr/lib/kernel/devicetree ]; then
+    read -r DEVICETREE </usr/lib/kernel/devicetree
+fi
+
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
 
 if [ -f "$TRIES_FILE" ]; then
@@ -138,15 +151,6 @@ install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
 }
 chown root:root "$KERNEL_DEST" || :
 
-if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
-    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
-        read -r DEVICETREE <"$KERNEL_INSTALL_CONF_ROOT/devicetree"
-    fi
-elif [ -f /etc/kernel/devicetree ]; then
-    read -r DEVICETREE </etc/kernel/devicetree
-elif [ -f /usr/lib/kernel/devicetree ]; then
-    read -r DEVICETREE </usr/lib/kernel/devicetree
-fi
 if [ -n "$DEVICETREE" ]; then
     for prefix in \
         "$KERNEL_INSTALL_CONF_ROOT" \
