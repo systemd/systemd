@@ -669,6 +669,7 @@ static int update_efi_boot_binaries(
 static int copy_one_file(
                 InstallContext *c,
                 const char *name,
+                bool from_image,
                 bool force) {
 
         int r, ret = 0;
@@ -686,9 +687,11 @@ static int copy_one_file(
         if (!sp)
                 return log_oom();
 
+        /* Prefer the directory we enumerated. In auto mode, retain the per-file host fallback for
+         * image entries that disappeared or are dangling symlinks. */
         _cleanup_free_ char *source_path = NULL;
         _cleanup_close_ int source_fd = -EBADF;
-        if (IN_SET(c->install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE)) {
+        if (from_image) {
                 source_fd = chase_and_openat(
                                 c->root_fd,
                                 c->root_fd,
@@ -698,8 +701,9 @@ static int copy_one_file(
                                 &source_path);
                 if (source_fd < 0 && (source_fd != -ENOENT || c->install_source != INSTALL_SOURCE_AUTO))
                         return log_error_errno(source_fd, "Failed to resolve path '%s' under directory '%s': %m", sp, c->root);
-
-                /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
+                if (source_fd < 0)
+                        log_debug("'%s' not found under '%s', trying the host.",
+                                  sp, empty_to_root(c->root));
         }
         if (source_fd < 0) {
                 source_fd = chase_and_open(
@@ -826,16 +830,44 @@ static int copy_one_file(
         return ret;
 }
 
+static int dir_has_boot_loader(DIR *d, const char *path, const char *arch) {
+        /* Checks whether the directory has the systemd-boot binary that install_binaries() is supposed to
+         * install. Only systemd-boot itself counts, not any other EFI binary that happens to match. Unless
+         * installing for all architectures, it also has to be the one for the requested architecture, i.e.
+         * the one that copy_one_file() also installs as BOOT<ARCH>.EFI, and not e.g.
+         * "systemd-boot-extrax64.efi". */
+
+        assert(d);
+        assert(path);
+
+        const char *suffix = strjoina(arch, ".efi");
+        const char *suffix_signed = strjoina(arch, ".efi.signed");
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", path)) {
+                if (!endswith_no_case(de->d_name, suffix) && !endswith_no_case(de->d_name, suffix_signed))
+                        continue;
+
+                const char *e = startswith(de->d_name, "systemd-boot");
+                if (e && (isempty(arch) || STRCASE_IN_SET(e, suffix, suffix_signed)))
+                        return true;
+        }
+
+        return false;
+}
+
 static int install_binaries(
                 InstallContext *c,
                 const char *arch) {
 
-        int r;
+        int r, ret = 0;
 
         assert(c);
 
+        const char *fn = strjoina("systemd-boot", isempty(arch) ? "*" : arch, ".efi");
+
         _cleanup_free_ char *source_path = NULL;
         _cleanup_closedir_ DIR *d = NULL;
+        bool from_image = false, found_loader = false;
         if (IN_SET(c->install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE)) {
                 r = chase_and_opendirat(
                                 c->root_fd,
@@ -846,10 +878,27 @@ static int install_binaries(
                                 &d);
                 if (r < 0 && (r != -ENOENT || c->install_source != INSTALL_SOURCE_AUTO))
                         return log_error_errno(r, "Failed to resolve path '%s' under directory '%s': %m", BOOTLIBDIR, c->root);
+                if (r >= 0) {
+                        r = dir_has_boot_loader(d, source_path, arch);
+                        if (r < 0)
+                                return r;
+
+                        found_loader = r > 0;
+
+                        /* In auto mode, also try the host if the image has no boot loader for us. Without a
+                         * root directory, the image is the host, there is nothing else to try then. */
+                        from_image = found_loader || c->install_source == INSTALL_SOURCE_IMAGE || !c->root;
+                        if (!from_image)
+                                log_debug("No '%s' boot loader binary found in '%s', trying the host.",
+                                          fn, source_path);
+                }
 
                 /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         }
-        if (!d) {
+        if (!from_image) {
+                d = safe_closedir(d);
+                source_path = mfree(source_path);
+
                 r = chase_and_opendir(
                                 BOOTLIBDIR,
                                 /* root= */ NULL,
@@ -862,7 +911,30 @@ static int install_binaries(
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path '%s': %m", BOOTLIBDIR);
+
+                r = dir_has_boot_loader(d, source_path, arch);
+                if (r < 0)
+                        return r;
+
+                found_loader = r > 0;
         }
+
+        /* An existing source directory without a suitable boot loader is no better than a missing one:
+         * don't claim success if there is nothing to install (#41312). Check this before copying anything,
+         * so that a failed installation doesn't leave other binaries behind in /EFI/systemd/, which would
+         * make systemd-boot look installed. */
+        if (!found_loader) {
+                if (c->graceful) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                 "No '%s' boot loader binary found in '%s', skipping.", fn, source_path);
+                        return 0;
+                }
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No '%s' boot loader binary found in '%s'.", fn, source_path);
+        }
+
+        rewinddir(d);
 
         const char *suffix = strjoina(arch, ".efi");
         const char *suffix_signed = strjoina(arch, ".efi.signed");
@@ -880,15 +952,15 @@ static int install_binaries(
                 } else if (!endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
-                k = copy_one_file(c, de->d_name, c->operation == INSTALL_NEW);
+                k = copy_one_file(c, de->d_name, from_image, c->operation == INSTALL_NEW);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
                 if (c->graceful && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
-                RET_GATHER(r, k);
+                RET_GATHER(ret, k);
         }
 
-        return r;
+        return ret;
 }
 
 static int install_loader_config(InstallContext *c) {
