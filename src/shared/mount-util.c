@@ -2269,3 +2269,27 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
 
         return false;
 }
+
+int path_is_mount_point_in_mountinfo(const char *path) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        assert(path);
+
+        if (isempty(path))
+                return false;
+
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
+        if (r < 0)
+                return r;
+
+        /* Note: sym_mnt_table_find_target() compares exact canonical strings and does not call
+         * realpath() or stat(), because the table is parsed without a path cache (mnt_table_set_cache()).
+         * This guarantees we will not trigger remote VFS lookups or block in D-state on unreachable shares. */
+        return sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD) != NULL;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
