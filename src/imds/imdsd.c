@@ -923,6 +923,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
 
                 /* Automatically retry on some transient errors from curl itself */
                 r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
 
@@ -975,6 +977,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
                 r = context_validate_data_http_status(c, status);
                 if (r == -ENOENT)
                         return context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
                 if (r == 0) /* Immediately restarted */
