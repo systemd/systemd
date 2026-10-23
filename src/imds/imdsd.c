@@ -635,9 +635,38 @@ static CacheResult context_process_cache(Context *c) {
         return CACHE_RESULT_MISS;
 }
 
+static int context_restart(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Restarts the current request after context_reset_for_refresh(). Failures are reported via
+         * context_fail(), which returns 0, hence this always returns 0. *
+
+        /* Maybe some other instance was successful in the meantime and already found something? */
+        CacheResult cr = context_process_cache(c);
+        if (cr < 0)
+                return context_fail(c, cr);
+        if (cr == CACHE_RESULT_HIT) {
+                context_success(c);
+                return 0;
+        }
+        if (cr == CACHE_RESULT_KEY_NOT_FOUND)
+                return context_fail(c, context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found"));
+
+        r = context_acquire_token(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        r = context_acquire_data(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        return 0;
+}
+
 static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        int r;
 
         assert(s);
 
@@ -645,32 +674,7 @@ static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
 
         context_log(c, LOG_DEBUG, "Retrying...");
 
-        /* Maybe some other instance was successful in the meantime and already found something? */
-        CacheResult cr = context_process_cache(c);
-        if (cr < 0) {
-                context_fail(c, cr);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_HIT) {
-                context_success(c);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                context_fail(c, context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found"));
-                return 0;
-        }
-
-        r = context_acquire_token(c);
-        if (r < 0) {
-                context_fail(c, r);
-                return 0;
-        }
-
-        r = context_acquire_data(c);
-        if (r < 0)
-                context_fail(c, r);
-
-        return 0;
+        return context_restart(c);
 }
 
 static int context_schedule_retry(Context *c) {
