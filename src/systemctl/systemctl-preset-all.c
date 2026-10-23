@@ -30,6 +30,10 @@ int verb_preset_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 (void) install_changes_dump(r, "preset all", changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
+
+                r = daemon_reload_after_vendor_install();
+                if (r < 0)
+                        return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;

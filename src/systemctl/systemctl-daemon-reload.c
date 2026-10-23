@@ -62,6 +62,17 @@ int daemon_reload(enum action action, bool graceful) {
         return 1;
 }
 
+int daemon_reload_after_vendor_install(void) {
+        /* We wrote below /usr/ on a system whose manager is running, so it has not seen any of this yet.
+         * Every other reason to end up on the client side leaves no manager to tell. Graceful: the files are
+         * already in place, and failing to reach the manager must not turn that into an error. */
+
+        if (install_client_side() != INSTALL_CLIENT_SIDE_VENDOR || arg_no_reload)
+                return 0;
+
+        return daemon_reload(ACTION_RELOAD, /* graceful= */ true);
+}
+
 int verb_daemon_reload(int argc, char *argv[], uintptr_t _data, void *userdata) {
         enum action a;
         int r;
