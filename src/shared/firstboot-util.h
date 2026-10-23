@@ -4,7 +4,7 @@
 #include "forward.h"
 
 /* Parsed value of the systemd.firstboot= kernel command line option, honoured by systemd-firstboot,
- * homectl's firstboot logic and systemd-cryptenroll. */
+ * systemd-firstboot-generator, homectl's firstboot logic and systemd-cryptenroll. */
 typedef enum FirstBootMode {
         FIRSTBOOT_NO,           /* "no": don't prompt, don't auto-configure */
         FIRSTBOOT_INTERACTIVE,  /* "interactive" or unset: prompt as needed */

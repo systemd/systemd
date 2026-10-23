@@ -33,9 +33,17 @@ at_exit() {
     [[ -n "${WROOT:-}" ]] && rm -rf "$WROOT"
     [[ -n "${WCREDS:-}" ]] && rm -rf "$WCREDS"
     [[ -n "${WWORDS:-}" ]] && rm -rf "$WWORDS"
+    [[ -n "${WETC:-}" ]] && rm -rf "$WETC"
     restore_etc_hostname
 
     restore_locale
+
+    if [[ -d /run/systemd/system/systemd-firstboot.service.d ]]; then
+        systemctl stop systemd-firstboot.service
+        systemctl reset-failed systemd-firstboot.service
+        rm -rf /run/systemd/system/systemd-firstboot.service.d
+        systemctl daemon-reload
+    fi
 }
 
 trap at_exit EXIT
@@ -392,3 +400,25 @@ grep -q "LANG=no_NO.UTF-8" "${ROOT}/etc/otherpath/locale.conf"
 grep -q "KEYMAP=no" "${ROOT}/etc/otherpath/vconsole.conf"
 grep -q "weirdpaths2" "${ROOT}/etc/otherpath/hostname"
 [[ "$(readlink "${ROOT}/etc/otherpath/localtime")" = "../../usr/share/zoneinfo/Europe/Oslo" ]]
+
+# mkosi.conf boots with systemd.firstboot=no, so systemd-firstboot-generator detached the service from the
+# console. It must then apply credentials without using any terminal. Set a TTYPath= that can't be opened,
+# so that any attempt to use it fails the start, like on a machine without a console. Only pass the
+# timezone credential, and redirect it away from the host's /etc.
+[[ "$(systemctl show -P StandardInput systemd-firstboot.service)" == null ]]
+WETC="$(mktemp -d)"
+mkdir -p /run/systemd/system/systemd-firstboot.service.d
+cat >/run/systemd/system/systemd-firstboot.service.d/50-test.conf <<EOF
+[Unit]
+ConditionFirstBoot=
+
+[Service]
+TTYPath=/dev/nonexistent-console
+Environment=SYSTEMD_ETC_LOCALTIME=$WETC/localtime
+# Don't let system credentials (e.g. from mkosi) take precedence
+ImportCredential=
+SetCredential=firstboot.timezone:Europe/Berlin
+EOF
+systemctl daemon-reload
+systemctl restart systemd-firstboot.service
+[[ "$(readlink "$WETC/localtime")" =~ /Europe/Berlin$ ]]
