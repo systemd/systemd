@@ -12,6 +12,11 @@
 #define LOADER_GUID \
         { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
+/* The vendor UUID of systemd's own EFI variables, e.g. FactoryResetRequest, see EFI_VENDOR_SYSTEMD in
+ * userspace. */
+#define SYSTEMD_GUID \
+        { 0x8cf2644b, 0x4b0b, 0x428f, { 0x93, 0x87, 0x6d, 0x87, 0x60, 0x50, 0xdc, 0x67 } }
+
 EFI_STATUS efivar_set_str16(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags);
 EFI_STATUS efivar_set_uint64_str16(const EFI_GUID *vendor, const char16_t *name, uint64_t i, uint32_t flags);
