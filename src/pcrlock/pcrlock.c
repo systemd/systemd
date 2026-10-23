@@ -1060,6 +1060,10 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
                 if (r < 0)
                         return r;
 
+                /* validate_firmware_event() sized the digest list from the algorithms in the log header,
+                 * but a record may name the same algorithm more than once, hence make sure the walk below
+                 * covers exactly the part of the record that was checked. */
+                const uint8_t *digests_end = (const uint8_t*) payload - sizeof(uint32_t);
                 const void *ha, *ha_next = NULL;
                 ha = (const uint8_t*) event + offsetof(TCG_PCR_EVENT2, digests.digests);
                 assert(event->digests.count == n_algorithms);
@@ -1079,6 +1083,9 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
                         if (j >= n_algorithms)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Hash algorithms in event log record not among those advertised by log header.");
 
+                        if (offsetof(TPMT_HA, digest) + algorithms[j].digestSize > (size_t) (digests_end - (const uint8_t*) ha))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Digests in event log record exceed size advertised by log header.");
+
                         ha_next = (const uint8_t*) ha + offsetof(TPMT_HA, digest) + algorithms[j].digestSize;
 
                         if (!tpm2_hash_alg_to_string(hash_alg))
@@ -1093,6 +1100,9 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add bank to event log record: %m");
                 }
+
+                if ((const uint8_t*) ha != digests_end)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Digests in event log record don't match size advertised by log header.");
 
                 /* Try to extract a descriptive text */
                 r = event_log_record_extract_firmware_description(record);
