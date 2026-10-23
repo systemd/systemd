@@ -11133,7 +11133,12 @@ static int parse_argv(int argc, char *argv[]) {
                         log_debug("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
         }
 
-        if (auto_public_key_pcr_mask) {
+        /* Only bind to an automatically found public key if the firmware provides a TPM.
+         * Otherwise, e.g., with a software TPM, systemd-stub could not measure the UKI into
+         * PCR 11 and the signed values would never match. With --tpm2-device-key= we enroll
+         * for another TPM that the local one tells nothing about, hence keep the binding then. */
+        if (auto_public_key_pcr_mask &&
+            (arg_tpm2_public_key || arg_tpm2_device_key || tpm2_is_fully_supported())) {
                 assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
         }
