@@ -161,7 +161,7 @@ static inline int make_null_stdio(void) {
         })
 
 int fd_reopen(int fd, int flags);
-int fd_reopen_propagate_append_and_position(int fd, int flags);
+int fd_dup_or_reopen_stdio_nonblock(int fd, int mode);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
 
 int fd_is_opath(int fd);

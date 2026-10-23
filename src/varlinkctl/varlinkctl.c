@@ -651,7 +651,7 @@ static int dup_stdio_fd(int fd, int flags, int *ret_nonblock_reset) {
         /* SPLICE_F_NONBLOCK only covers the forwarder's internal pipe, hence stdin/stdout must be
          * O_NONBLOCK themselves. Reopen (as ptyfwd does) so that the invoking shell's open file description
          * is not switched to non-blocking too. Sockets cannot be reopened, hence the fallback. */
-        r = fd_reopen_propagate_append_and_position(fd, flags|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        r = fd_dup_or_reopen_stdio_nonblock(fd, flags);
         if (r >= 0) {
                 *ret_nonblock_reset = -EBADF;
                 return r;
