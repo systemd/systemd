@@ -17,7 +17,15 @@
 #include "timer.h"
 #include "unit.h"
 #include "varlink-idl-common.h"
+#include "varlink-idl-util.h"
 #include "varlink-io.systemd.Unit.h"
+
+TEST(ref_units_requires_more) {
+        const sd_varlink_symbol *method = ASSERT_NOT_NULL(
+                        varlink_idl_find_symbol(&vl_interface_io_systemd_Unit, SD_VARLINK_METHOD, "RefUnits"));
+
+        ASSERT_TRUE(FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_MORE));
+}
 
 TEST(unit_enums_idl) {
         /* ExecContext enums */
