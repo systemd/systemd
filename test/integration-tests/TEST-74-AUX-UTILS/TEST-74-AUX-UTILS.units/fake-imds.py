@@ -22,8 +22,36 @@ def sd_notify(state: str) -> bool:
 
 
 class Handler(BaseHTTPRequestHandler):
+    tokens_issued = 0
+    expired_token = None
+
+    def send_text(self, body: bytes):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.send_header('Content-Length', len(body))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_PUT(self):
+        if self.path == '/token':
+            Handler.tokens_issued += 1
+            self.send_text(f'token{Handler.tokens_issued}'.encode())
+        else:
+            self.send_error(404)
+
     def do_GET(self):
-        if self.path == '/userdata':
+        if self.path == '/expiring':
+            # The first token presented here expires, so that the client needs to refresh it
+            token = self.headers.get('X-Fake-IMDS-Token')
+            if Handler.expired_token is None:
+                Handler.expired_token = token
+            if token == Handler.expired_token:
+                self.send_response(401)
+                self.send_header('Content-Length', 0)
+                self.end_headers()
+            else:
+                self.send_text(b'fresh')
+        elif self.path == '/userdata':
             body = b'{"systemd.credentials":[{"name":"acredtest","text":"avalue"}]}'
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')
