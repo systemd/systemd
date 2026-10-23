@@ -194,7 +194,6 @@ struct Context {
         struct curl_slist *request_header_token, *request_header_data;
         sd_event_source *retry_source;
         unsigned n_retry;
-        usec_t retry_interval_usec;
 
         /* Mode 2 "indirect": we fork off a number of children which go to the network on behalf of us,
          * because we have multiple network interfaces to deal with. */
@@ -701,15 +700,11 @@ static int context_schedule_retry(Context *c) {
         if (c->n_retry >= RETRY_MAX)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EUCLEAN), "Retry limits reached, refusing.");
 
-        if (c->n_retry == 0)
-                c->retry_interval_usec = RETRY_MIN_USEC;
-        else if (c->retry_interval_usec < RETRY_MAX_USEC / 2)
-                c->retry_interval_usec *= 2;
-        else
-                c->retry_interval_usec = RETRY_MAX_USEC;
+        /* Exponential backoff, counting all retries of this request, including token refreshes */
+        usec_t interval = MIN(RETRY_MIN_USEC << c->n_retry, RETRY_MAX_USEC);
 
         c->n_retry++;
-        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(c->retry_interval_usec, USEC_PER_MSEC));
+        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(interval, USEC_PER_MSEC));
 
         context_reset_for_refresh(c);
 
@@ -717,7 +712,7 @@ static int context_schedule_retry(Context *c) {
                         c->event,
                         &c->retry_source,
                         CLOCK_BOOTTIME,
-                        c->retry_interval_usec,
+                        interval,
                         /* accuracy= */ 0,
                         on_retry,
                         c,
