@@ -261,13 +261,13 @@ TEST(patch_bypass_reply_packet_truncated_sections) {
                 const char *layout;
         } table[] = {
                 /* Cut in the answer section */
-                {  512,  464, "ab||O"     },
+                {  512U,  464U, "ab||O"     },
                 /* Cut in the authority section */
-                {  900,  896, "abc|n|O"   },
+                {  900U,  896U, "abc|n|O"   },
                 /* Cut in front of the first additional RR, the OPT RR is moved up to the cut */
-                { 1200, 1112, "abc|no|O"  },
+                { 1200U, 1112U, "abc|no|O"  },
                 /* Cut behind the OPT RR, which stays in place */
-                { 1400, 1328, "abc|no|xO" },
+                { 1400U, 1328U, "abc|no|xO" },
         };
         _cleanup_(dns_packet_unrefp) DnsPacket *original = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;

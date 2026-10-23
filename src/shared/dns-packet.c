@@ -984,13 +984,13 @@ int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
 
         /* Cut after the last complete RR that fits into max_size. As compression pointers only point
          * backwards, any such prefix stays valid. The OPT RR is usually last, hence if requested reserve
-         * room for it and move it behind the prefix. Only do so if its owner is the literal root name
-         * RFC 6891 requires, as a compression pointer might not be valid elsewhere. */
+         * room for it and move it behind the prefix. */
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         for (unsigned i = 0; i < DNS_PACKET_QDCOUNT(p); i++) {
-                r = dns_packet_read_key(p, NULL, NULL, NULL);
+                r = dns_packet_read_key(p, /* ret= */ NULL, /* ret_cache_flush_or_qu= */ NULL,
+                                        /* ret_start= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -999,6 +999,10 @@ int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
         if (end > max_size)
                 return -EMSGSIZE;
 
+        /* Only move the OPT RR if its owner is the literal root name, i.e. the single zero byte of the empty
+         * root label, rather than a compression pointer to a root label elsewhere: after the move, such a
+         * pointer might point into the RR itself or into the part that is cut off. opt_min_size also counts
+         * the name as one byte. */
         if (reserve_opt && p->opt_start != SIZE_MAX && DNS_PACKET_DATA(p)[p->opt_start] == 0) {
                 if (end + p->opt_size <= max_size)
                         opt_move_size = p->opt_size;
@@ -1012,7 +1016,7 @@ int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
                 size_t start;
                 bool is_opt;
 
-                r = dns_packet_read_rr(p, NULL, NULL, &start);
+                r = dns_packet_read_rr(p, /* ret= */ NULL, /* ret_cache_flush= */ NULL, &start);
                 if (r < 0)
                         return r;
 
@@ -1026,8 +1030,8 @@ int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
                 n_rr++;
         }
 
-        n_an = MIN(n_rr, (unsigned) DNS_PACKET_ANCOUNT(p));
-        n_ns = MIN(n_rr - n_an, (unsigned) DNS_PACKET_NSCOUNT(p));
+        n_an = MIN(n_rr, DNS_PACKET_ANCOUNT(p));
+        n_ns = MIN(n_rr - n_an, DNS_PACKET_NSCOUNT(p));
         n_ar = n_rr - n_an - n_ns;
 
         if (!opt_kept && opt_move_size > 0) {
