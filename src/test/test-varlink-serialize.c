@@ -63,6 +63,29 @@ static int reply(sd_varlink *link, sd_json_variant *parameters, const char *erro
         return sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
 }
 
+static int deserialize_connection(sd_varlink_server *s, FILE *f, FDSet *fds, uint64_t *ret_cookie) {
+        _cleanup_(varlink_deserialize_freep) VarlinkDeserialize *state = NULL;
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = deserialize_read_line(f, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENODATA;
+
+                const char *value = startswith(line, "varlink-connection-");
+                if (!value)
+                        return -EINVAL;
+
+                r = varlink_deserialize_one(s, value, fds, &state, ret_cookie);
+                if (r != 0)
+                        return r;
+        }
+}
+
 static void test_pending_stream(bool partial_write, bool disconnect) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL, *restored_server = NULL;
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *client = NULL, *restored = NULL;
@@ -110,28 +133,27 @@ static void test_pending_stream(bool partial_write, bool disconnect) {
         uint64_t cookie;
         ASSERT_OK(varlink_get_socket_cookie(original.call, &cookie));
         ASSERT_OK(open_serialization_file("test-varlink", &f));
-        ASSERT_OK(varlink_serialize(original.call, "connection", f, fds));
+        ASSERT_OK(varlink_serialize(original.call, f, fds));
         ASSERT_EQ(fdset_size(fds), 2U); /* Only the socket and the received descriptor. */
         ASSERT_OK(finish_serialization_file(f));
         ASSERT_OK_POSITIVE(deserialize_read_line(f, &line));
-        ASSERT_STREQ(line, "connection");
+        ASSERT_NOT_NULL(startswith(line, "varlink-connection-socket-cookie="));
         line = mfree(line);
 
         unsigned output_records = 0;
         while (ASSERT_OK(deserialize_read_line(f, &line)) > 0) {
-                if (startswith(line, "output-buffer="))
+                if (startswith(line, "varlink-connection-output-buffer="))
                         output_records++;
                 line = mfree(line);
         }
         ASSERT_GT(output_records, 1U);
 
         rewind(f);
-        ASSERT_OK_POSITIVE(deserialize_read_line(f, &line));
-        ASSERT_OK(varlink_deserialize(/* s= */ NULL, f, fds));
+        uint64_t skipped_cookie;
+        ASSERT_OK(deserialize_connection(/* s= */ NULL, f, fds, &skipped_cookie));
+        ASSERT_EQ(skipped_cookie, cookie);
         ASSERT_EQ(fdset_size(fds), 2U);
-        line = mfree(line);
         rewind(f);
-        ASSERT_OK_POSITIVE(deserialize_read_line(f, &line));
 
         original.call = sd_varlink_close_unref(original.call);
         ASSERT_EQ(sd_varlink_server_current_connections(server), 0U);
@@ -139,8 +161,10 @@ static void test_pending_stream(bool partial_write, bool disconnect) {
 
         make_server(&restored_server, &restored_context);
         ASSERT_OK(sd_event_new(&event));
-        ASSERT_OK(sd_varlink_server_attach_event(restored_server, event, 0));
-        ASSERT_OK(varlink_deserialize(restored_server, f, fds));
+        ASSERT_OK(sd_varlink_server_attach_event(restored_server, event, /* priority= */ 0));
+        uint64_t restored_cookie;
+        ASSERT_OK(deserialize_connection(restored_server, f, fds, &restored_cookie));
+        ASSERT_EQ(restored_cookie, cookie);
         ASSERT_TRUE(fdset_isempty(fds));
         restored = sd_varlink_ref(ASSERT_NOT_NULL(varlink_server_get_connection(restored_server, cookie)));
         ASSERT_EQ(sd_varlink_server_current_connections(restored_server), 1U);
@@ -167,7 +191,7 @@ static void test_pending_stream(bool partial_write, bool disconnect) {
         sd_varlink_set_userdata(client, &restored_context);
         ASSERT_OK(sd_varlink_bind_reply(client, reply));
         ASSERT_OK(sd_varlink_set_relative_timeout(client, 5 * USEC_PER_SEC));
-        ASSERT_OK(sd_varlink_attach_event(client, event, 0));
+        ASSERT_OK(sd_varlink_attach_event(client, event, /* priority= */ 0));
         ASSERT_OK(sd_event_loop(event));
         ASSERT_EQ(restored_context.n_replies, 1U);
         ASSERT_EQ(restored_context.n_calls, 0U);
@@ -194,11 +218,36 @@ TEST(invalid_connection_record) {
 
         make_server(&server, &context);
         ASSERT_OK(open_serialization_file("test-varlink", &f));
-        fputs("stream-flags=invalid\nsocket-cookie=1\n\nnext=record\n", f);
+        fputs("varlink-connection-socket-cookie=1\n"
+              "varlink-connection-stream-flags=invalid\n"
+              "varlink-connection-socket-fd=0\n"
+              "next=record\n", f);
         ASSERT_OK(finish_serialization_file(f));
-        ASSERT_ERROR(varlink_deserialize(server, f, fds), EINVAL);
+        uint64_t cookie = UINT64_MAX;
+        ASSERT_ERROR(deserialize_connection(server, f, fds, &cookie), EINVAL);
+        ASSERT_EQ(cookie, UINT64_MAX);
         ASSERT_OK_POSITIVE(deserialize_read_line(f, &line));
         ASSERT_STREQ(line, "next=record");
+}
+
+TEST(skip_invalid_connection_record) {
+        _cleanup_fdset_free_ FDSet *fds = ASSERT_NOT_NULL(fdset_new());
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+        uint64_t cookie = UINT64_MAX;
+
+        ASSERT_OK(open_serialization_file("test-varlink", &f));
+        fputs("varlink-connection-socket-cookie=invalid\n"
+              "varlink-connection-socket-fd=0\n"
+              "next=record\n", f);
+        ASSERT_OK(finish_serialization_file(f));
+        ASSERT_ERROR(deserialize_connection(/* s= */ NULL, f, fds, &cookie), EINVAL);
+        ASSERT_EQ(cookie, UINT64_MAX);
+        ASSERT_OK_POSITIVE(deserialize_read_line(f, &line));
+        ASSERT_STREQ(line, "next=record");
+
+        rewind(f);
+        ASSERT_OK(deserialize_connection(/* s= */ NULL, f, fds, /* ret_cookie= */ NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

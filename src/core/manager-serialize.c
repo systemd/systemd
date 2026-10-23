@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
@@ -16,6 +17,7 @@
 #include "job.h"
 #include "manager.h"
 #include "manager-serialize.h"
+#include "memstream-util.h"
 #include "parse-util.h"
 #include "serialize.h"
 #include "set.h"
@@ -28,6 +30,7 @@
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-serialize.h"
+#include "varlink-util.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
         assert(ret_f);
@@ -223,6 +226,43 @@ int manager_serialize(
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
         if (r < 0)
                 return r;
+
+        _cleanup_set_free_ Set *varlink_connections = NULL;
+        if (!switching_root) {
+                Job *j;
+
+                HASHMAP_FOREACH(j, m->jobs) {
+                        if (!j->varlink)
+                                continue;
+
+                        r = set_ensure_put(&varlink_connections, &trivial_hash_ops, j->varlink);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        sd_varlink *link;
+        SET_FOREACH(link, varlink_connections) {
+                _cleanup_(memstream_done) MemStream ms = {};
+                _cleanup_free_ char *state = NULL;
+
+                /* Do not leave a partial connection record in the manager state on failure. */
+                FILE *connection_file = memstream_init(&ms);
+                if (!connection_file) {
+                        log_warning_errno(errno, "Failed to allocate Varlink serialization buffer, skipping connection: %m");
+                        continue;
+                }
+
+                r = varlink_serialize(link, connection_file, fds);
+                if (r >= 0)
+                        r = memstream_finalize(&ms, &state, /* ret_size= */ NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to serialize Varlink connection, skipping: %m");
+                        continue;
+                }
+
+                fputs(state, f);
+        }
 
         r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
@@ -572,6 +612,7 @@ static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds)
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        _cleanup_(varlink_deserialize_freep) VarlinkDeserialize *varlink_state = NULL;
         int r;
 
         assert(m);
@@ -779,7 +820,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
-                } else if (streq(l, "varlink-server-connection")) {
+                } else if ((val = startswith(l, "varlink-connection-"))) {
                         sd_varlink_server *server = NULL;
 
                         if (m->objective != MANAGER_RELOAD) {
@@ -790,9 +831,27 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                         server = m->varlink_server;
                         }
 
-                        r = varlink_deserialize(server, f, fds);
-                        if (r < 0)
+                        uint64_t cookie;
+                        r = varlink_deserialize_one(server, val, fds, &varlink_state, &cookie);
+                        if (r < 0) {
                                 log_warning_errno(r, "Failed to restore Varlink connection, ignoring: %m");
+                                continue;
+                        }
+                        if (r == 0)
+                                continue;
+
+                        sd_varlink *link = varlink_server_get_connection(m->varlink_server, cookie);
+                        if (!link) {
+                                log_warning("Varlink connection %" PRIu64 " was not restored, ignoring.", cookie);
+                                continue;
+                        }
+
+                        r = set_ensure_put(&m->deserialized_varlink_connections, &varlink_hash_ops, link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to track deserialized Varlink connection, disconnecting: %m");
+                                (void) sd_varlink_close(link);
+                        } else if (r > 0)
+                                sd_varlink_ref(link);
 
                 } else if ((val = startswith(l, "varlink-server-metrics-"))) {
                         if (m->objective == MANAGER_RELOAD)
@@ -813,8 +872,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = manager_setup_varlink_server(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
-                        else
-                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+                        else {
+                                r = varlink_server_deserialize_one(m->varlink_server, val, fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to restore Varlink server state, ignoring: %m");
+                        }
 
                 } else if (startswith(l, "restrict-fsaccess-"))
                         deserialize_restrict_fsaccess(m, l, fds);
@@ -870,6 +932,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         } else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
+        }
+
+        if (varlink_state) {
+                log_warning("Incomplete serialized Varlink connection, ignoring.");
+                varlink_state = varlink_deserialize_free(varlink_state);
         }
 
         return manager_deserialize_units(m, f, fds);
