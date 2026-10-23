@@ -476,6 +476,60 @@ TEST(fd_reopen) {
         assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
 }
 
+TEST(fd_dup_or_reopen_stdio_nonblock) {
+        _cleanup_(unlink_tempfilep) char path[] = "/tmp/test-fd-dup-or-reopen-stdio-nonblock.XXXXXX";
+        _cleanup_close_ int fd = -EBADF, nfd = -EBADF;
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        char buf[4] = {};
+        int fl;
+
+        ASSERT_OK(fd = mkostemp_safe(path));
+        ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_WRONLY));
+        ASSERT_OK_EQ_ERRNO(write(nfd, "hello", 5), (ssize_t) 5);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_CUR), (off_t) 5);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_NONBLOCK));
+        ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_NONBLOCK));
+        nfd = safe_close(nfd);
+        fd = safe_close(fd);
+
+        ASSERT_OK_ERRNO(fd = open(path, O_WRONLY|O_APPEND|O_CLOEXEC));
+        ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_WRONLY));
+        ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_APPEND));
+        nfd = safe_close(nfd);
+        fd = safe_close(fd);
+
+        /* Reading ahead must not move the offset of the original fd */
+        ASSERT_OK_ERRNO(fd = open(path, O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 2, SEEK_SET), (off_t) 2);
+        ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_RDONLY));
+        ASSERT_OK_EQ_ERRNO(read(nfd, buf, sizeof(buf) - 1), (ssize_t) 3);
+        ASSERT_STREQ(buf, "llo");
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_CUR), (off_t) 2);
+        ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_NONBLOCK));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_NONBLOCK));
+        nfd = safe_close(nfd);
+        fd = safe_close(fd);
+
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+        ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(p[0], O_RDONLY));
+        ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_NONBLOCK));
+        ASSERT_OK_ERRNO(fl = fcntl(p[0], F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_NONBLOCK));
+        nfd = safe_close(nfd);
+
+        ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(p[1], O_WRONLY));
+        ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_NONBLOCK));
+        ASSERT_OK_ERRNO(fl = fcntl(p[1], F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_NONBLOCK));
+}
+
 TEST(fd_reopen_condition) {
         _cleanup_close_ int fd1 = -EBADF, fd3 = -EBADF;
         int fd2, fl;
