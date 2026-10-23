@@ -181,3 +181,9 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path);
 static inline int path_is_network_fs_harder(const char *path) {
         return path_is_network_fs_harder_at(AT_FDCWD, path);
 }
+
+/* Checks if path is an active mount target in /proc/self/mountinfo via libmount string lookup.
+ * path must be an absolute, canonical path without trailing slashes. Does not perform VFS
+ * lookups or stat() calls, guaranteeing it will not block on unreachable network shares.
+ * Returns > 0 if mounted, 0 if not mounted, or negative errno on failure. */
+int path_is_mount_point_in_mountinfo(const char *path);
