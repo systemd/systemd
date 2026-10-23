@@ -51,6 +51,16 @@ static int chase_statx(int fd, struct statx *ret) {
                         ret);
 }
 
+static int chase_statx_is_root(const struct statx *stx, const struct statx *root_stx) {
+        assert(stx);
+        assert(root_stx);
+
+        if (!statx_inode_same(stx, root_stx))
+                return false;
+
+        return statx_mount_same(stx, root_stx);
+}
+
 static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags) {
         /* Open the target of a chase operation via openat2(), translating the relevant ChaseFlags into
          * RESOLVE_* and O_* flags and verifying MUST_BE_REGULAR/SOCKET via fstat after the open. Returns
@@ -514,8 +524,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                          * dir_fd, not that we're at the chroot boundary. */
                         if (root_fd != XAT_FDROOT) {
                                 bool is_root = root_fd == dir_fd && empty_or_root(done);
-                                if (!is_root && statx_inode_same(&stx, &root_stx)) {
-                                        r = statx_mount_same(&stx, &root_stx);
+                                if (!is_root) {
+                                        r = chase_statx_is_root(&stx, &root_stx);
                                         if (r < 0)
                                                 return r;
 
@@ -598,6 +608,25 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
                                 _cleanup_close_ int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
+
+                                /* With CHASE_PARENT, the returned fd refers to the result itself if the
+                                 * result is "." or "/". fd_parent refers to the result in that case already.
+                                 * If fd_parent is the root directory, openat(fd_parent, "..") returns the
+                                 * directory above the root. We treat the root directory as its own parent
+                                 * instead, like we do for "/..". */
+                                bool stay = empty_or_root(done);
+                                if (!stay && root_fd != XAT_FDROOT) {
+                                        r = chase_statx_is_root(&stx_parent, &root_stx);
+                                        if (r < 0)
+                                                return r;
+
+                                        stay = r > 0;
+                                }
+                                if (stay) {
+                                        stx = stx_parent;
+                                        close_and_replace(fd, fd_parent);
+                                        break;
+                                }
 
                                 fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
                                 if (fd_grandparent < 0)

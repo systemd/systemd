@@ -17,6 +17,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
@@ -1088,6 +1089,49 @@ TEST(trailing_dot_dot) {
         ASSERT_PATH_EQ(fdpath, expected2);
 }
 
+TEST(trailing_dot_dot_below_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, a_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        _cleanup_free_ char *sub = ASSERT_PTR(path_join(t, "a/b"));
+        ASSERT_OK(mkdir_p(sub, 0700));
+        root_fd = ASSERT_OK_ERRNO(open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        a_fd = ASSERT_OK_ERRNO(openat(root_fd, "a", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(symlinkat("..", root_fd, "a/up"));
+
+        /* The parent of the root directory is the root directory itself. */
+        FOREACH_STRING(p, "..", "a/..", "/a/..", "a/up") {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                log_debug("/* %s(%s) */", __func__, p);
+
+                ASSERT_OK(chaseat(root_fd, root_fd, p, CHASE_PARENT, &path, &fd));
+                ASSERT_STREQ(path, ".");
+                ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
+        }
+
+        _cleanup_free_ char *path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, a_fd, "..", CHASE_PARENT, &path, &fd));
+        ASSERT_STREQ(path, "..");
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
+
+        /* A result of "." refers to dir_fd, so the fd refers to dir_fd as well. */
+        path = mfree(path);
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat(root_fd, a_fd, "b/..", CHASE_PARENT, &path, &fd));
+        ASSERT_STREQ(path, ".");
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, a_fd));
+
+        path = mfree(path);
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat(root_fd, root_fd, "a/b/..", CHASE_PARENT, &path, &fd));
+        ASSERT_STREQ(path, "a");
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, root_fd));
+}
+
 TEST(use_chase_as_mkdir_p) {
         _cleanup_free_ char *p = NULL;
         ASSERT_OK_ERRNO(asprintf(&p, "/tmp/chasemkdir%" PRIu64 "/a/b/c", random_u64()));
@@ -1119,7 +1163,7 @@ TEST(use_chase_as_mkdir_p) {
 TEST(chase_mode) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *f = NULL, *l = NULL, *al = NULL;
-        _cleanup_close_ int tfd = -EBADF, bfd = -EBADF, fd = -EBADF;
+        _cleanup_close_ int tfd = -EBADF, bfd = -EBADF, cfd = -EBADF, fd = -EBADF;
 
         ASSERT_OK(mkdtemp_malloc(NULL, &t));
         ASSERT_OK_ERRNO(chmod(t, 0755));
@@ -1210,14 +1254,17 @@ TEST(chase_mode) {
         ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MAX_MODE, NULL, NULL));
 
         /* Starting below the root: a trailing ".." with CHASE_PARENT checks the grandparent, which the walk
-         * never entered on the way down */
+         * never entered on the way down. For "c/.." from "b", the result is ".", which refers to "b".
+         * chaseat() doesn't open "a" in that case. */
         WITH_UMASK(0022)
                 ASSERT_OK(mkdir_p(c, 0755));
         ASSERT_OK_ERRNO(bfd = open(b, O_PATH|O_DIRECTORY|O_CLOEXEC));
-        ASSERT_OK(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL));
+        ASSERT_OK_ERRNO(cfd = open(c, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL));
         ASSERT_OK_ERRNO(chmod(a, 0777));
-        ASSERT_ERROR(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL), ENOLINK);
         ASSERT_ERROR(chaseat(tfd, bfd, "..", CHASE_MAX_MODE, NULL, NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, NULL, NULL));
         ASSERT_OK_ERRNO(chmod(a, 0755));
 
         /* The root is checked like the starting directory when ".." climbs into it, and not at all when the
