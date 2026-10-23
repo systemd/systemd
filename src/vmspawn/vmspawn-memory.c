@@ -1,22 +1,91 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "qmp-client.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "vmspawn-memory.h"
 #include "vmspawn-qmp.h"
+
+/* Partial convergence is normal (unmovable pages, deflate-on-oom). QEMU throttles
+ * BALLOON_CHANGE to one per second, so this is several missed updates. */
+#define MEMORY_STALL_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
 VmspawnMemory* vmspawn_memory_free(VmspawnMemory *m) {
         if (!m)
                 return NULL;
 
+        sd_event_source_disable_unref(m->stall_timer);
+        sd_varlink_unref(m->progress_link);
         return mfree(m);
+}
+
+static int memory_send_progress(VmspawnMemory *m, sd_varlink *link, bool final) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("targetBytes", m->target),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("actualBytes", m->actual));
+        if (r < 0)
+                return r;
+
+        return final ? sd_varlink_reply(link, v) : sd_varlink_notify(link, v);
+}
+
+static void memory_end_progress(VmspawnMemory *m, const char *error) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        int r;
+
+        assert(m);
+
+        m->stall_timer = sd_event_source_disable_unref(m->stall_timer);
+
+        link = TAKE_PTR(m->progress_link);
+        if (!link)
+                return;
+
+        r = error ? sd_varlink_error(link, error, NULL) : memory_send_progress(m, link, /* final= */ true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to end SetMemory() call, ignoring: %m");
+}
+
+static int on_stall_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        VmspawnMemory *m = ASSERT_PTR(userdata);
+
+        log_debug("Guest memory size stopped at %" PRIu64 " KiB, short of target %" PRIu64 " KiB.",
+                  m->actual / U64_KB, m->target / U64_KB);
+
+        memory_end_progress(m, /* error= */ NULL);
+        return 0;
+}
+
+static int memory_progress_rearm(VmspawnMemory *m) {
+        assert(m);
+
+        return event_reset_time_relative(
+                        qmp_client_get_event(m->bridge->qmp),
+                        &m->stall_timer,
+                        CLOCK_MONOTONIC,
+                        MEMORY_STALL_TIMEOUT_USEC,
+                        /* accuracy= */ 0,
+                        on_stall_timer,
+                        m,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "vmspawn-memory-stall",
+                        /* force_reset= */ true);
 }
 
 static int memory_update_actual(VmspawnMemory *m, sd_json_variant *v) {
@@ -33,11 +102,29 @@ static int memory_update_actual(VmspawnMemory *m, sd_json_variant *v) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse balloon size reported by QEMU, ignoring: %m");
 
-        if (actual != m->actual)
-                log_debug("Guest memory size is now %" PRIu64 " KiB (target %" PRIu64 " KiB).",
-                          actual / U64_KB, m->target / U64_KB);
+        if (actual == m->actual)
+                return 0;
 
+        log_debug("Guest memory size is now %" PRIu64 " KiB (target %" PRIu64 " KiB).",
+                  actual / U64_KB, m->target / U64_KB);
         m->actual = actual;
+
+        if (!m->progress_link)
+                return 0;
+
+        if (actual == m->target) {
+                memory_end_progress(m, /* error= */ NULL);
+                return 0;
+        }
+
+        r = memory_send_progress(m, m->progress_link, /* final= */ false);
+        if (r >= 0)
+                r = memory_progress_rearm(m);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to continue SetMemory() call, ending it: %m");
+                memory_end_progress(m, /* error= */ NULL);
+        }
+
         return 0;
 }
 
@@ -65,6 +152,7 @@ typedef struct SetTargetRequest {
         VmspawnMemory *m;
         sd_varlink *link;       /* ref'd */
         uint64_t bytes;
+        bool more;
 } SetTargetRequest;
 
 static SetTargetRequest* set_target_request_free(SetTargetRequest *req) {
@@ -85,16 +173,29 @@ static int on_balloon_complete(
                 void *userdata) {
 
         _cleanup_(set_target_request_freep) SetTargetRequest *req = ASSERT_PTR(userdata);
+        VmspawnMemory *m = req->m;
+        int r;
 
         assert(client);
 
         if (error < 0)
                 return vmspawn_qmp_reply_error(req->link, error_desc, error);
 
-        req->m->target = req->bytes;
+        m->target = req->bytes;
         log_debug("Requested guest memory size %" PRIu64 " KiB.", req->bytes / U64_KB);
 
-        return sd_varlink_reply(req->link, NULL);
+        /* There is one target at a time, so a call still waiting for the previous one ends here. */
+        memory_end_progress(m, "io.systemd.MachineInstance.Superseded");
+
+        if (!req->more || m->actual == m->target)
+                return memory_send_progress(m, req->link, /* final= */ true);
+
+        r = memory_progress_rearm(m);
+        if (r < 0)
+                return sd_varlink_error_errno(req->link, r);
+
+        m->progress_link = TAKE_PTR(req->link);
+        return 0;
 }
 
 static int memory_refresh(VmspawnMemory *m) {
@@ -112,7 +213,7 @@ static int memory_refresh(VmspawnMemory *m) {
                                  m);
 }
 
-int vmspawn_memory_set_target(VmspawnMemory *m, sd_varlink *link, uint64_t bytes) {
+int vmspawn_memory_set_target(VmspawnMemory *m, sd_varlink *link, bool more, uint64_t bytes) {
         _cleanup_(set_target_request_freep) SetTargetRequest *req = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         int r;
@@ -143,6 +244,7 @@ int vmspawn_memory_set_target(VmspawnMemory *m, sd_varlink *link, uint64_t bytes
                 .m = m,
                 .link = sd_varlink_ref(link),
                 .bytes = bytes,
+                .more = more,
         };
 
         r = qmp_client_invoke(m->bridge->qmp,

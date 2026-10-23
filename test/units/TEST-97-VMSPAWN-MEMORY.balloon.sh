@@ -39,8 +39,8 @@ memory() {
     varlinkctl call "$CTL" io.systemd.MachineInstance.Describe '{}' | jq -r ".memory.${1:?}"
 }
 
-# wait_for_actual BYTES: wait until the guest has converged to BYTES. The first call also covers the
-# nested guest booting far enough to load its balloon driver, which can be slow without KVM.
+# wait_for_actual BYTES: wait until the guest has converged to BYTES. Used for the first shrink only, which
+# also covers the nested guest booting far enough to load its balloon driver, possibly slow without KVM.
 wait_for_actual() {
     local want="${1:?}" deadline=$((SECONDS + 120))
     until [[ "$(memory actualBytes)" -eq "$want" ]]; do
@@ -50,6 +50,17 @@ wait_for_actual() {
         fi
         sleep 1
     done
+}
+
+# set_memory_and_wait BYTES WANT: SetMemory() with 'more', which follows the guest until it settles. Its final
+# reply must report WANT as both the target and the current size. How many notifications precede it depends
+# on how fast the guest moves, so the count is only printed. varlinkctl prints the replies of a 'more' call as
+# a JSON text sequence, each starting with a record separator, hence jq --seq.
+set_memory_and_wait() {
+    local bytes="${1:?}" want="${2:?}" out="$WORKDIR/set-memory.json"
+    timeout 60 varlinkctl call --more "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$bytes}" >"$out"
+    echo "SetMemory($bytes) sent $(grep -c $'^\x1e' "$out") message(s)"
+    jq --seq -s -e "last | .targetBytes == $want and .actualBytes == $want" "$out"
 }
 
 # Direct kernel boot of the built image on an ephemeral overlay. The serial console carries guest output
@@ -77,22 +88,32 @@ assert_eq "$(memory configuredBytes)" "$RAM"
 assert_eq "$(memory targetBytes)" "$RAM"
 assert_eq "$(memory actualBytes)" "$RAM"
 
-# Shrink. The target moves immediately, the guest follows asynchronously.
-varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$SMALL}"
-assert_eq "$(memory targetBytes)" "$SMALL"
-wait_for_actual "$SMALL"
-
-# Unaligned requests are rounded up to the balloon's granularity before the guest sees them, so that it
-# can settle exactly on the target.
+# Shrink to an unaligned size. Without 'more' the call returns once QEMU accepted the target, which is rounded
+# up to the balloon's granularity so that the guest can settle exactly on it. The guest follows
+# asynchronously, once it has loaded its balloon driver.
 ROUNDED=$((SMALL + 64 * 1024))
-varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$((SMALL + 1))}"
+assert_eq "$(varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$((SMALL + 1))}" | jq -r .targetBytes)" "$ROUNDED"
 assert_eq "$(memory targetBytes)" "$ROUNDED"
 wait_for_actual "$ROUNDED"
 
 # Grow back. The guest reclaims its pages by faulting them in, nothing has to be handed over.
-varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$RAM}"
-assert_eq "$(memory targetBytes)" "$RAM"
-wait_for_actual "$RAM"
+set_memory_and_wait "$RAM" "$RAM"
+
+# Shrink again, now following the guest with 'more'.
+set_memory_and_wait "$SMALL" "$SMALL"
+
+# A newer request replaces the target and ends a still pending call. With the vCPUs paused the guest cannot
+# follow, so the first call is guaranteed to be pending when the second one arrives.
+varlinkctl call "$CTL" io.systemd.MachineInstance.Pause '{}'
+varlinkctl call --more "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$RAM}" &>"$WORKDIR/superseded.log" &
+PENDING_PID=$!
+timeout 10 bash -c "until [[ \"\$(varlinkctl call '$CTL' io.systemd.MachineInstance.Describe '{}' | jq -r .memory.targetBytes)\" -eq $RAM ]]; do sleep .2; done"
+varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$SMALL}"
+rc=0
+wait "$PENDING_PID" || rc=$?
+assert_neq "$rc" 0
+assert_in Superseded "$(cat "$WORKDIR/superseded.log")"
+varlinkctl call "$CTL" io.systemd.MachineInstance.Resume '{}'
 
 # Out of range: zero, and anything above the boot RAM the balloon cannot grow past. varlinkctl renders
 # org.varlink.service.InvalidParameter as "Invalid argument" and prints the error payload after it.
