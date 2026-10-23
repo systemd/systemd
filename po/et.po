@@ -3,13 +3,14 @@
 # H A <contact+fedora@hen.ee>, 2022, 2025.
 # Henri Aunin <contact+fedora@hen.ee>, 2025, 2026.
 # Priit Jõerüüt <jrtkbfdr@users.noreply.translate.fedoraproject.org>, 2025, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-26 10:57+0100\n"
-"PO-Revision-Date: 2026-08-02 00:09+0000\n"
-"Last-Translator: Priit Jõerüüt "
-"<jrtkbfdr@users.noreply.translate.fedoraproject.org>\n"
+"PO-Revision-Date: 2026-10-23 07:18+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
 "systemd/main/et/>\n"
 "Language: et\n"
@@ -17,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.10.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -888,13 +889,15 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Halda kohalikke virtuaalmasinaid ja konteinerpilte"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"Autentimine on vajalik, et hallata kohalikke virtuaalmasinaid ja "
+"konteinerpilte."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
