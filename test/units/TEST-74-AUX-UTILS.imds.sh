@@ -48,12 +48,24 @@ IMDSD_TOKEN=("${IMDSD[@]}" --interface=dummy0 --token-url=http://192.168.47.11:8
 assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" /expiring)" "fresh"
 assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" --data-url=http://192.168.47.11:1 /expiring)" "fresh"
 
+# Running out of token refreshes is reported as timeout
+(! "${IMDSD_TOKEN[@]}" /unauthorized 2>"$WORK_DIR/unauthorized.err")
+cat "$WORK_DIR/unauthorized.err"
+grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/unauthorized.err" >/dev/null
+(! grep -F "Overall timeout reached" "$WORK_DIR/unauthorized.err" >/dev/null)
+
 # Missing keys: both real and fake IMDS answer 404 with a non-empty body
 (! "${IMDSD[@]}" /nonexistent 2>"$WORK_DIR/imdsd.err")
 cat "$WORK_DIR/imdsd.err"
 # expect specific, not generic error
 grep -F "io.systemd.InstanceMetadata.KeyNotFound" "$WORK_DIR/imdsd.err" >/dev/null
 (! grep -F "io.systemd.System" "$WORK_DIR/imdsd.err" >/dev/null)
+
+# Running out of retries for connection errors is reported as timeout. Slow, as this waits for all retries.
+(! "${IMDSD[@]}" --interface=dummy0 --data-url=http://192.168.47.11:1 /hostname 2>"$WORK_DIR/refused.err")
+cat "$WORK_DIR/refused.err"
+(! grep -F "Overall timeout reached" "$WORK_DIR/refused.err" >/dev/null)
+grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/refused.err" >/dev/null
 
 # Then, try it as Varlink service
 mkdir -p /run/systemd/system/systemd-imdsd@.service.d/

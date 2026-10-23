@@ -49,6 +49,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(401)
             else:
                 self.send_text(b'fresh')
+        elif self.path == '/unauthorized':
+            self.send_error(401)
         elif self.path == '/userdata':
             body = b'{"systemd.credentials":[{"name":"acredtest","text":"avalue"}]}'
             self.send_response(200)
