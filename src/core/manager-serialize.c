@@ -228,6 +228,18 @@ int manager_serialize(
                 return r;
 
         _cleanup_set_free_ Set *varlink_connections = NULL;
+        HASHMAP_FOREACH_KEY(u, t, m->units) {
+                if (u->id != t)
+                        continue;
+
+                sd_varlink *link;
+                SET_FOREACH(link, u->varlink_refs) {
+                        r = set_ensure_put(&varlink_connections, &trivial_hash_ops, link);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (!switching_root) {
                 Job *j;
 

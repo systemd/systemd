@@ -122,6 +122,38 @@ static void verify_varlink_jobs(Manager *m) {
                 ASSERT_OK_POSITIVE(sd_varlink_process(client));
 }
 
+static void verify_varlink_refs(Manager *m) {
+        _cleanup_(unit_freep) Unit *u = NULL, *stub = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *first = NULL, *second = NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair));
+        ASSERT_OK(sd_varlink_connect_fd(&first, pair[0]));
+        TAKE_FD(pair[0]);
+        ASSERT_OK(sd_varlink_connect_fd(&second, pair[1]));
+        TAKE_FD(pair[1]);
+
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "varlink-ref-target.service", &u));
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "varlink-ref-stub.service", &stub));
+        ASSERT_EQ(unit_add_varlink_ref(u, first), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, first), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, second), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, second), 0);
+
+        ASSERT_OK(unit_merge(u, stub));
+        ASSERT_EQ(set_size(u->varlink_refs), 2U);
+        ASSERT_TRUE(set_isempty(stub->varlink_refs));
+        stub = unit_free(stub);
+        ASSERT_GT(sd_varlink_is_connected(first), 0);
+        ASSERT_GT(sd_varlink_is_connected(second), 0);
+
+        unit_remove_varlink_ref(u, first);
+        ASSERT_EQ(set_size(u->varlink_refs), 1U);
+        ASSERT_TRUE(set_contains(u->varlink_refs, second));
+        unit_remove_varlink_ref(u, second);
+        ASSERT_TRUE(set_isempty(u->varlink_refs));
+}
+
 static void verify_dependency_atoms(void) {
         UnitDependencyAtom combined = 0, multi_use_atoms = 0;
 
@@ -376,6 +408,7 @@ int main(int argc, char *argv[]) {
         ASSERT_EQ(mm, 3U*5U*7U*11U*13U);
 
         verify_dependency_atoms();
+        verify_varlink_refs(m);
         verify_varlink_jobs(m);
 
         /* Test adding multiple Slice= dependencies; only the last should remain */
