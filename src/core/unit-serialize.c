@@ -135,12 +135,16 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         if (!switching_root) {
                 if (u->job) {
                         fputs("job\n", f);
-                        job_serialize(u->job, f);
+                        r = job_serialize(u->job, f);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (u->nop_job) {
                         fputs("job\n", f);
-                        job_serialize(u->nop_job, f);
+                        r = job_serialize(u->nop_job, f);
+                        if (r < 0)
+                                return r;
                 }
         }
 

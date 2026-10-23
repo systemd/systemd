@@ -112,6 +112,10 @@ UNIT
 
     timeout 10 bash -c 'until systemctl show -P ActiveState varlink-test-slow.service | grep activating >/dev/null; do sleep 0.5; done'
 
+    systemctl daemon-reload
+    systemctl daemon-reexec
+    kill -0 "$watcher_pid"
+
     # The pending start job keeps the stream open; each line is a unit notification.
     sleep 1
     notifications=$(wc -l </tmp/enqueue-notifications.json)
