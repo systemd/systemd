@@ -68,6 +68,9 @@ grep -F "io.systemd.InstanceMetadata.KeyNotFound" "$WORK_DIR/imdsd.err" >/dev/nu
 # reuses it.
 (! RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" /busy 2>"$WORK_DIR/busy.err") &
 BUSY_PID=$!
+# Retries after a token refresh still back off; also in parallel
+(! SYSTEMD_LOG_LEVEL=debug "${IMDSD_TOKEN[@]}" /expiring-busy 2>"$WORK_DIR/expiring-busy.err") &
+EXPIRING_BUSY_PID=$!
 (! "${IMDSD[@]}" --interface=dummy0 --data-url=http://192.168.47.11:1 /hostname 2>"$WORK_DIR/refused.err")
 cat "$WORK_DIR/refused.err"
 (! grep -F "Overall timeout reached" "$WORK_DIR/refused.err" >/dev/null)
@@ -78,6 +81,10 @@ grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/busy.err" >/dev/null
 grep -F "Reusing cached token." "$WORK_DIR/busy.err" >/dev/null
 # fails right away, does not hang until the overall timeout
 (! grep -F "Overall timeout reached" "$WORK_DIR/busy.err" >/dev/null)
+wait "$EXPIRING_BUSY_PID"
+cat "$WORK_DIR/expiring-busy.err"
+# The token refresh is the first retry, so the first 503 is the second one
+grep -F "Retry attempt #2 in 40ms" "$WORK_DIR/expiring-busy.err" >/dev/null
 
 # Then, try it as Varlink service
 mkdir -p /run/systemd/system/systemd-imdsd@.service.d/
