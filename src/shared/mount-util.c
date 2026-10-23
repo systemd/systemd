@@ -2269,3 +2269,22 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
 
         return false;
 }
+
+int path_is_mount_point_in_mountinfo(const char *path) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        if (empty_or_root(path))
+                return true;
+
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        return sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD) != NULL;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
