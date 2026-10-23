@@ -21,6 +21,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "in-addr-util.h"
@@ -29,6 +30,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -906,7 +908,130 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
-static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
+static int canonicalize_network_mount_path(const char *path, bool prefix_sysroot, char **ret) {
+        _cleanup_free_ char *parent = NULL, *filename = NULL, *chased_parent = NULL, *candidate = NULL, *target = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* For network mounts, avoid traversing into an already mounted remote share with chase(),
+         * as an unreachable remote share will cause VFS lookups to block in D-state.
+         *
+         * If the target path is already an active mount point in /proc/self/mountinfo,
+         * skip chasing the last component to avoid entering the mounted remote share.
+         * If the last component is not a symlink, candidate is already the canonical path. */
+        r = path_extract_directory(path, &parent);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return 0;
+
+        r = path_extract_filename(path, &filename);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return 0;
+
+        r = chase(parent, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &chased_parent, NULL);
+        if (r >= 0)
+                candidate = path_join(chased_parent, filename);
+        else if (prefix_sysroot)
+                candidate = path_join("/sysroot", path);
+        else
+                candidate = strdup(path);
+
+        if (!candidate)
+                return log_oom();
+
+        path_simplify(candidate);
+
+        r = path_is_mount_point_in_mountinfo(candidate);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Mountinfo check not supported for '%s', falling back: %m", candidate);
+                else
+                        log_warning_errno(r, "Failed to check mountinfo for candidate '%s', falling back: %m", candidate);
+                return 0;
+        }
+        if (r > 0) {
+                *ret = TAKE_PTR(candidate);
+                return 1;
+        }
+
+        r = readlink_malloc(candidate, &target);
+        if (r >= 0) {
+                _cleanup_free_ char *target_dir = NULL, *target_fn = NULL, *chased_target_dir = NULL, *resolved_target = NULL;
+
+                /* Collapse any '..' components by chasing the symlink target's parent directory
+                 * without traversing the final mount component. Note: candidate already carries
+                 * the /sysroot prefix if prefix_sysroot was set, so chase without CHASE_PREFIX_ROOT
+                 * to avoid double prefixing. */
+                if (path_extract_directory(target, &target_dir) >= 0 && path_extract_filename(target, &target_fn) >= 0) {
+                        const char *chase_root = prefix_sysroot ? "/sysroot" : NULL;
+
+                        if (path_is_absolute(target)) {
+                                _cleanup_free_ char *prefixed_dir = prefix_sysroot ? path_join("/sysroot", target_dir) : TAKE_PTR(target_dir);
+                                if (prefixed_dir)
+                                        (void) chase(prefixed_dir, chase_root, CHASE_NONEXISTENT, &chased_target_dir, NULL);
+                        } else {
+                                _cleanup_free_ char *candidate_dir = NULL;
+                                if (path_extract_directory(candidate, &candidate_dir) >= 0) {
+                                        _cleanup_free_ char *joined_dir = path_join(candidate_dir, target_dir);
+                                        if (joined_dir)
+                                                (void) chase(joined_dir, chase_root, CHASE_NONEXISTENT, &chased_target_dir, NULL);
+                                }
+                        }
+
+                        if (chased_target_dir)
+                                resolved_target = path_join(chased_target_dir, target_fn);
+                }
+
+                if (!resolved_target) {
+                        if (path_is_absolute(target))
+                                resolved_target = prefix_sysroot ? path_join("/sysroot", target) : TAKE_PTR(target);
+                        else {
+                                _cleanup_free_ char *candidate_dir = NULL;
+                                r = path_extract_directory(candidate, &candidate_dir);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return 0;
+                                resolved_target = path_join(candidate_dir, target);
+                        }
+                }
+
+                if (!resolved_target)
+                        return log_oom();
+
+                path_simplify(resolved_target);
+                r = path_is_mount_point_in_mountinfo(resolved_target);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                log_debug_errno(r, "Mountinfo check not supported for symlink target '%s', falling back: %m", resolved_target);
+                        else
+                                log_warning_errno(r, "Failed to check mountinfo for symlink target '%s', falling back: %m", resolved_target);
+                        return 0;
+                }
+                if (r > 0) {
+                        *ret = TAKE_PTR(resolved_target);
+                        return 1;
+                }
+        } else if (IN_SET(r, -EINVAL, -ENOENT)) {
+                /* Not a symlink: candidate is already canonical relative to chased parent */
+                *ret = TAKE_PTR(candidate);
+                return 1;
+        } else if (r == -ENOMEM)
+                return log_oom();
+
+        return 0;
+}
+
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, bool is_network, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
         int r;
@@ -916,20 +1041,28 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
         assert(STR_IN_SET(type, "where", "what"));
         assert(ret);
 
-        // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
-        // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+        if (is_network) {
+                r = canonicalize_network_mount_path(path, prefix_sysroot, &p);
+                if (r < 0)
+                        return r;
+        }
 
-                if (prefix_sysroot)
-                        p = path_join("/sysroot", path);
-                else
-                        p = strdup(path);
-                if (!p)
-                        return log_oom();
+        if (!p) {
+                /* FIXME: when chase() learns to chase non-existent paths, drop the prefixing with
+                 * /sysroot on error below. */
+                r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
-                path_simplify(p);
+                        if (prefix_sysroot)
+                                p = path_join("/sysroot", path);
+                        else
+                                p = strdup(path);
+                        if (!p)
+                                return log_oom();
+
+                        path_simplify(p);
+                }
         }
 
         changed = !streq(path, p);
@@ -998,8 +1131,12 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+         * target is the final directory.
+         *
+         * For network filesystems (e.g. NFS, CIFS), chase only the parent directory to resolve
+         * parent symlinks while avoiding traversing into the network mount target itself, preventing
+         * D-state hangs on unreachable shares. */
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, mount_is_network(fstype, options), &where);
         if (r < 0)
                 return r;
         where_changed = r > 0;
@@ -1008,7 +1145,7 @@ static int parse_fstab_one(
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
                 _cleanup_free_ char *p = NULL;
 
-                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, /* is_network= */ false, &p);
                 if (r < 0)
                         return r;
 
