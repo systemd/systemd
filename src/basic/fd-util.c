@@ -827,7 +827,7 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
-int fd_reopen_propagate_append_and_position(int fd, int flags) {
+static int fd_reopen_propagate_append_and_position(int fd, int flags) {
         /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
          * keep current file position.
          *
@@ -865,6 +865,39 @@ int fd_reopen_propagate_append_and_position(int fd, int flags) {
         }
 
         return new_fd;
+}
+
+int fd_dup_or_reopen_stdio_nonblock(int fd, int mode) {
+        /* IO on some fd types (pipes, ttys, …) might block, while on others (regular files, block devices, …)
+         * it never does. In asynchronous programs it's hence often desirable to acquire O_NONBLOCK copies of
+         * existing fds, without disturbing the O_NONBLOCK flag for everything else that has the fd open.
+         * However, we shouldn't copy too eagerly, because decoupling O_NONBLOCK via fd_reopen() also
+         * decouples the file offset, which might not be desirable. Thankfully, potentially blocking fds
+         * typically have no file offset concept, while those which never block do. Hence, let's do a simple
+         * dup for the latter and an fd_reopen() for the former.
+         *
+         * This is particularly useful when operating with generic fds such as stdin/stdout/stderr, where we
+         * want temporarily asynchronous behaviour but still update the file offset regularly, as in
+         * "{ echo header; systemd-run --pty echo hello; echo trailer; } > out".
+         *
+         * Input is always reopened privately though: we read ahead whether or not the data is consumed, and
+         * a shared offset would eat input the caller still expects to read itself, as in
+         * "while read -r l; do systemd-run --pty ...; done < list". */
+
+        assert(fd >= 0);
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY));
+
+        if (mode == O_WRONLY) {
+                struct stat st;
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
+                        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+        }
+
+        /* O_NOCTTY, so that reopening a tty doesn't make it our controlling terminal if we lack one */
+        return fd_reopen_propagate_append_and_position(fd, mode|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
 }
 
 int fd_reopen_condition(
