@@ -1166,6 +1166,25 @@ static int dispatch_unit_names(const char *name, sd_json_variant *variant, sd_js
         return strv_free_and_replace(*ret, l);
 }
 
+static int prepare_unit_names(sd_varlink *link, char **names) {
+        int r;
+
+        assert(link);
+
+        /* Callers without privileges get a polkit query for each unit, and every answer restarts the method
+         * call, so bound the work they can ask for. */
+        if (strv_length(names) > MANAGER_MAX_POLKIT_NAMES) {
+                r = varlink_check_peer_privilege(link);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "names");
+        }
+
+        strv_uniq(names);
+        return 0;
+}
+
 int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "names",             SD_JSON_VARIANT_ARRAY,   dispatch_unit_names,       offsetof(EnqueueJobParameters, names),               SD_JSON_MANDATORY },
@@ -1193,6 +1212,10 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         if (r != 0)
                 return r;
 
+        r = prepare_unit_names(link, p.names);
+        if (r != 0)
+                return r;
+
         size_t n = strv_length(p.names);
         bool notify = p.notify_job_changes > 0 || p.notify_unit_changes > 0;
 
@@ -1202,16 +1225,6 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         /* A notification stream currently tracks only one job and unit. */
         if (n > 1 && notify)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
-
-        /* Callers without privileges get a polkit query for each unit, and every answer restarts the method
-         * call, so bound the work they can ask for. Same as for the D-Bus EnqueueUnitJobMany() method. */
-        if (n > MANAGER_MAX_POLKIT_NAMES) {
-                r = varlink_check_peer_privilege(link);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return sd_varlink_error_invalid_parameter_name(link, "names");
-        }
 
         /* Resolve aliases before authorization, and pass the canonical unit name to polkit. */
         STRV_FOREACH(name, p.names) {
