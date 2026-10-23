@@ -98,6 +98,20 @@ CHANGES WITH 263 in spe:
           systemd-sysupdate. The Credential= match in .network, .netdev, and
           .link files is unchanged.
 
+        Changes in the system and service manager:
+
+        * RestrictFileSystemAccess= now answers execveat() queries carrying
+          the AT_EXECVE_CHECK flag (Linux 6.14 or newer) with the verdict a
+          real execution of the file would get, so that script interpreters
+          honouring SECBIT_EXEC_RESTRICT_FILE can enforce the policy for the
+          scripts they run.
+
+        * A new SecureBits= setting in system.conf and user.conf sets secure
+          bits on the service manager itself, so that all processes inherit
+          them. With RestrictFileSystemAccess=, exec-restrict-file and its
+          locked variant make interpreters that support the executability
+          check enforce the policy for their scripts.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
