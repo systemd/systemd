@@ -782,16 +782,7 @@ static int context_validate_data_http_status(Context *c, long status) {
 
                 context_flush_token(c);
                 context_reset_for_refresh(c);
-
-                r = context_acquire_token(c);
-                if (r < 0)
-                        return r;
-
-                r = context_acquire_data(c);
-                if (r < 0)
-                        return r;
-
-                return 0; /* restarted right-away */
+                return context_restart(c); /* restarted right-away */
         }
 
         if (status == 404) {

@@ -18,8 +18,10 @@ at_exit() {
     ip link del dummy0
     rm -f /run/credstore/firstboot.hostname /run/credstore/acredtest /run/systemd/system/systemd-imdsd@.service.d/50-env.conf
     rmdir /run/systemd/system/systemd-imdsd@.service.d
+    rm -rf "$WORK_DIR"
 }
 
+WORK_DIR="$(mktemp -d)"
 trap at_exit EXIT
 
 systemd-run -p Type=notify --unit=fake-imds /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-imds.py
@@ -38,6 +40,13 @@ assert_eq "$("${IMDSD[@]}" --well-known=hostname)" "piff"
 assert_eq "$("${IMDSD[@]}" --well-known=userdata)" "$USERDATA"
 assert_eq "$("${IMDSD[@]}" /hostname)" "piff"
 assert_eq "$("${IMDSD[@]}" /userdata)" "$USERDATA"
+
+# A request restarted with a new token after 401 still caches its result: a second request must find it in
+# the cache, as its data URL is unreachable.
+mkdir "$WORK_DIR/runtime"
+IMDSD_TOKEN=("${IMDSD[@]}" --interface=dummy0 --token-url=http://192.168.47.11:8088/token --token-header-name=X-Fake-IMDS-Token)
+assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" /expiring)" "fresh"
+assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" --data-url=http://192.168.47.11:1 /expiring)" "fresh"
 
 # Then, try it as Varlink service
 mkdir -p /run/systemd/system/systemd-imdsd@.service.d/
