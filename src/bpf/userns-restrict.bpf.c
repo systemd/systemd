@@ -34,8 +34,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
  * nsfs) from leaving objects owned by their transient UID/GID range behind on file systems that outlive the
  * namespace. Transient ranges are recycled, so any such object would later be owned by an unrelated client.
  *
- * This hooks into the various path-based LSM entrypoints that control inode creation as well as chown(), and
- * for each asks the only two questions that matter:
+ * The inode and path variants check inode creation and ownership changes against two conditions:
  *
  *   a) Does the file system die together with the user namespace? Superblocks record the user namespace they
  *      were mounted in, so this is simply whether sb->s_user_ns sits at or below the provisioned namespace.
@@ -68,6 +67,8 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
+#define ATTR_UID (1U << 1)
+#define ATTR_GID (1U << 2)
 
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
@@ -232,8 +233,7 @@ static int uid_gid_map_translate(const struct uid_gid_map *map, uid_t id, bool u
  * the passed ID creates an object on the given mount. The gid flag selects the GID maps over the UID maps.
  * Stores UID_GID_INVALID if the ID does not map, in which case the kernel refuses the operation with
  * EOVERFLOW anyway, see fsuidgid_has_mapping(). Returns negative if a map could not be read. */
-static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
-        const struct mnt_idmap *idmap;
+static int mount_map_id(const struct mnt_idmap *idmap, struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
         const struct uid_gid_map *m;
         int r;
 
@@ -241,7 +241,6 @@ static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, 
         if (!ret)
                 return -EINVAL;
 
-        idmap = mnt->mnt_idmap;
         if (!idmap) {
                 *ret = id;
                 return 0;
@@ -249,17 +248,18 @@ static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, 
 
         m = gid ? &idmap->gid_map : &idmap->uid_map;
 
-        /* Both nop_mnt_idmap and invalid_mnt_idmap carry empty maps. For the former that is an identity
-         * mapping; for the latter the operation fails later on regardless, so treating it as identity only
-         * ever makes us stricter. */
-        if (m->nr_extents > 0) {
-                r = uid_gid_map_translate(m, id, /* up= */ true, &id);
-                if (r < 0)
-                        return r;
-                if (id == UID_GID_INVALID) {
-                        *ret = UID_GID_INVALID;
-                        return 0;
-                }
+        /* nop_mnt_idmap bypasses the filesystem idmap in from_vfsuid()/from_vfsgid(). */
+        if (m->nr_extents == 0) {
+                *ret = id;
+                return 0;
+        }
+
+        r = uid_gid_map_translate(m, id, /* up= */ true, &id);
+        if (r < 0)
+                return r;
+        if (id == UID_GID_INVALID) {
+                *ret = UID_GID_INVALID;
+                return 0;
         }
 
         /* initial_idmapping(): the initial user namespace is the only one without a parent. */
@@ -275,13 +275,13 @@ static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, 
  * namespace (every mount of it shares that one), and it cannot be idmapped. That's fine: DAC makes sure a
  * transient range only ever owns the cgroup delegated to it via AddControlGroupToUserNamespace(), which we
  * remove along with the client, best-effort (a cgroup that refuses to go away outlives its range). */
-static bool mount_is_exempt(struct vfsmount *v) {
-        return v->mnt_sb->s_magic == CGROUP2_SUPER_MAGIC;
+static bool superblock_is_exempt(struct super_block *sb) {
+        return sb->s_magic == CGROUP2_SUPER_MAGIC;
 }
 
 /* Common tail of the inode creation hooks: would the object the calling task is about to create end up
  * owned by a transient ID on a file system that outlives the user namespace that ID was handed to? */
-static int validate_mount(struct vfsmount *v, int ret) {
+static int validate_creation(const struct mnt_idmap *idmap, struct super_block *sb, int ret) {
         struct user_namespace *managed, *fs_userns;
         const struct cred *cred;
         struct task_struct *task;
@@ -297,21 +297,16 @@ static int validate_mount(struct vfsmount *v, int ret) {
         if (!cred)
                 return -EPERM;
 
-        /* fsuid/fsgid are the UID/GID in the initial user namespace. Anything outside the transient ranges
-         * is never recycled by us, hence there's nothing to protect. */
-        if (!uid_is_transient(cred->fsuid.val) && !uid_is_transient((uid_t) cred->fsgid.val))
-                return 0;
-
         r = find_managed_userns(cred->user_ns, &managed);
         if (r < 0)
                 return r;
         if (r == 0) /* Not provisioned by nsresourced? Then this is none of our business. */
                 return 0;
 
-        if (mount_is_exempt(v))
+        if (superblock_is_exempt(sb))
                 return 0;
 
-        fs_userns = v->mnt_sb->s_user_ns;
+        fs_userns = sb->s_user_ns;
 
         /* Does the file system die together with the user namespace? Then nothing it carries can outlive
          * the transient range, and we can allow this. */
@@ -323,11 +318,11 @@ static int validate_mount(struct vfsmount *v, int ret) {
 
         /* Refuse if we cannot resolve where the IDs land: an ID we failed to translate is not an ID we know
          * to be harmless. */
-        r = mount_map_id(v, fs_userns, cred->fsuid.val, /* gid= */ false, &uid);
+        r = mount_map_id(idmap, fs_userns, cred->fsuid.val, /* gid= */ false, &uid);
         if (r < 0)
                 return r;
 
-        r = mount_map_id(v, fs_userns, (uid_t) cred->fsgid.val, /* gid= */ true, &gid);
+        r = mount_map_id(idmap, fs_userns, (uid_t) cred->fsgid.val, /* gid= */ true, &gid);
         if (r < 0)
                 return r;
 
@@ -339,8 +334,7 @@ static int validate_mount(struct vfsmount *v, int ret) {
         return -EPERM;
 }
 
-SEC("lsm/path_chown")
-int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
+static int validate_chown(struct super_block *sb, uid_t uid, uid_t gid, int ret) {
         struct user_namespace *managed;
         const struct cred *cred;
         struct task_struct *task;
@@ -363,44 +357,108 @@ int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long u
         if (r == 0)
                 return 0;
 
-        if (mount_is_exempt(path->mnt))
+        if (superblock_is_exempt(sb))
                 return 0;
 
-        r = userns_is_below(managed, path->mnt->mnt_sb->s_user_ns);
+        r = userns_is_below(managed, sb->s_user_ns);
         if (r < 0)
                 return r;
         if (r > 0)
                 return 0;
 
-        /* Unlike the creation hooks this one is handed the IDs with the mount's idmapping already applied,
-         * i.e. the ones that end up on disk, hence we can look at them directly. See chown_common() in the
-         * kernel sources. */
-        if (uid_is_transient((uid_t) uid) || uid_is_transient((uid_t) gid))
+        if (uid_is_transient(uid) || uid_is_transient(gid))
                 return -EPERM;
 
         return 0;
 }
 
+SEC("lsm/path_chown")
+int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
+        /* chown_common() applies the mount idmap before calling the path hook. */
+        return validate_chown(path->mnt->mnt_sb, (uid_t) uid, (uid_t) gid, ret);
+}
+
 SEC("lsm/path_mkdir")
 int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry, umode_t mode, int ret) {
-        return validate_mount(dir->mnt, ret);
+        return validate_creation(dir->mnt->mnt_idmap, dir->mnt->mnt_sb, ret);
 }
 
 /* The mknod hook covers all file creations, including regular files, in case the reader is looking for a
  * missing hook for open(). */
 SEC("lsm/path_mknod")
 int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
-        return validate_mount(dir->mnt, ret);
+        return validate_creation(dir->mnt->mnt_idmap, dir->mnt->mnt_sb, ret);
 }
 
 SEC("lsm/path_symlink")
 int BPF_PROG(userns_restrict_path_symlink, const struct path *dir, struct dentry *dentry, const char *old_name, int ret) {
-        return validate_mount(dir->mnt, ret);
+        return validate_creation(dir->mnt->mnt_idmap, dir->mnt->mnt_sb, ret);
 }
 
 SEC("lsm/path_link")
 int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct path *new_dir, struct dentry *new_dentry, int ret) {
-        return validate_mount(new_dir->mnt, ret);
+        return validate_creation(new_dir->mnt->mnt_idmap, new_dir->mnt->mnt_sb, ret);
+}
+
+SEC("lsm/inode_create")
+int BPF_PROG(userns_restrict_inode_create, const struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, int ret) {
+        return validate_creation(idmap, dir->i_sb, ret);
+}
+
+SEC("lsm/inode_mkdir")
+int BPF_PROG(userns_restrict_inode_mkdir, const struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, int ret) {
+        return validate_creation(idmap, dir->i_sb, ret);
+}
+
+SEC("lsm/inode_mknod")
+int BPF_PROG(userns_restrict_inode_mknod, const struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int ret) {
+        return validate_creation(idmap, dir->i_sb, ret);
+}
+
+SEC("lsm/inode_symlink")
+int BPF_PROG(userns_restrict_inode_symlink, const struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, const char *old_name, int ret) {
+        return validate_creation(idmap, dir->i_sb, ret);
+}
+
+SEC("lsm/inode_link")
+int BPF_PROG(userns_restrict_inode_link, const struct mnt_idmap *idmap, struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry, int ret) {
+        return validate_creation(idmap, dir->i_sb, ret);
+}
+
+/* Older vmlinux.h files lack the VFS ID fields in struct iattr. */
+struct iattr___local {
+        unsigned ia_valid;
+        struct {
+                uid_t val;
+        } ia_vfsuid, ia_vfsgid;
+} __attribute__((preserve_access_index));
+
+SEC("lsm/inode_setattr")
+int BPF_PROG(userns_restrict_inode_setattr, const struct mnt_idmap *idmap, struct dentry *dentry, struct iattr___local *attr, int ret) {
+        struct super_block *sb;
+        uid_t uid = UID_GID_INVALID, gid = UID_GID_INVALID;
+        int r;
+
+        if (ret != 0)
+                return ret;
+
+        if (!(attr->ia_valid & (ATTR_UID|ATTR_GID)))
+                return 0;
+
+        sb = dentry->d_sb;
+        if (attr->ia_valid & ATTR_UID) {
+                r = mount_map_id(idmap, sb->s_user_ns, attr->ia_vfsuid.val, /* gid= */ false, &uid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (attr->ia_valid & ATTR_GID) {
+                r = mount_map_id(idmap, sb->s_user_ns, (uid_t) attr->ia_vfsgid.val, /* gid= */ true, &gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return validate_chown(sb, uid, gid, ret);
 }
 
 /* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
