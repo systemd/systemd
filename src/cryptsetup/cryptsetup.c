@@ -123,6 +123,7 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static char *arg_friendly_name = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -140,6 +141,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_friendly_name, freep);
 
 COMMAND(
         "systemd-cryptsetup\0",
@@ -642,6 +644,22 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
+        } else if ((val = startswith(option, "x-systemd.friendly-name="))) {
+
+                /* Longest prompt with this name is "PIN has been entered incorrectly previously..." in
+                 * pkcs11_token_login (in src/shared/pkcs11-util.c), which also includes the token label
+                 * (up to 32 bytes), so cap the friendly name at 100 bytes to ensure that the prompt isn't
+                 * too big for a Plymouth message (see plymouth_build_password_packet in
+                 * src/shared/plymouth-util.c). */
+                if (!string_is_safe(val, 0) || strlen(val) > 100) {
+                        log_warning("Invalid x-systemd.friendly-name= option \"%s\", ignoring.", val);
+                        return 0;
+                }
+
+                r = free_and_strdup(&arg_friendly_name, val);
+                if (r < 0)
+                        return log_oom();
+
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -776,6 +794,9 @@ static char *friendly_disk_name(const char *src, const char *vol) {
 
         assert(src);
         assert(vol);
+
+        if (arg_friendly_name)
+                return strdup(arg_friendly_name);
 
         description = disk_description(src);
         mount_point = disk_mount_point(vol);

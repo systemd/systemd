@@ -1036,6 +1036,20 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>x-systemd.friendly-name=</option></term>
+
+        <listitem><para>Takes a string that overrides the device description shown when the user is asked for the
+        passphrase or PKCS#11 token PIN for this device. The name must be at most 100 bytes. Invalid names are
+        ignored. (A warning is logged, and the automatically generated description is used instead.)</para>
+
+        <para>Note that the name cannot contain whitespace, because fields in <filename>/etc/crypttab</filename>
+        are whitespace-delimited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is
