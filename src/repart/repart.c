@@ -6085,7 +6085,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                arg_tpm2_public_key_policyref,
+                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
                                 blobs,
@@ -11133,9 +11133,21 @@ static int parse_argv(int argc, char *argv[]) {
                         log_debug("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
         }
 
+        /* Only bind to an automatically found public key if the firmware provides a TPM.
+         * Otherwise, e.g., with a software TPM, systemd-stub could not measure the UKI into
+         * PCR 11 and the signed values would never match. With --tpm2-device-key= we enroll
+         * for another TPM that the local one tells nothing about, hence keep the binding then. */
         if (auto_public_key_pcr_mask) {
-                assert(arg_tpm2_public_key_pcr_mask == 0);
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                if (arg_tpm2_public_key || arg_tpm2_device_key || tpm2_is_fully_supported()) {
+                        assert(arg_tpm2_public_key_pcr_mask == 0);
+                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                } else {
+                        _cleanup_free_ void *pubkey = NULL;
+                        size_t pubkey_size;
+
+                        if (tpm2_load_pcr_public_key(/* path= */ NULL, &pubkey, &pubkey_size) >= 0)
+                                log_debug("Not binding to the automatically found PCR public key, as the firmware provides no TPM.");
+                }
         }
 
         if (arg_pretty < 0 && isatty_safe(STDOUT_FILENO))
