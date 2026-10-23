@@ -314,7 +314,7 @@ static int vl_method_set_memory(sd_varlink *link, sd_json_variant *parameters, s
         if (r != 0)
                 return r;
 
-        r = vmspawn_memory_set_target(ctx->bridge->memory, link, bytes);
+        r = vmspawn_memory_set_target(ctx->bridge->memory, link, FLAGS_SET(flags, SD_VARLINK_METHOD_MORE), bytes);
         if (r == -EOPNOTSUPP)
                 return sd_varlink_error(link, "io.systemd.MachineInstance.NotSupported", NULL);
         if (r == -ERANGE)
