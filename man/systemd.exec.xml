@@ -963,7 +963,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <option>exec-restrict-file</option>, <option>exec-restrict-file-locked</option>,
         <option>exec-deny-interactive</option>, and <option>exec-deny-interactive-locked</option>.
         This option may appear more than once, in which case the secure bits are
-        ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
+        ORed. If the empty string is assigned to this option, the bits are reset to 0. Bits set for the service
+        manager itself, see <varname>SecureBits=</varname> in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        are inherited and cannot be cleared here, the listed bits are added to them. This does not affect commands
         prefixed with <literal>+</literal>. See <citerefentry
         project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and <ulink url="https://docs.kernel.org/userspace-api/check_exec.html">Executability check</ulink> for
