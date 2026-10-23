@@ -21,6 +21,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "in-addr-util.h"
@@ -906,7 +907,77 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
-static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
+static int canonicalize_network_mount_path(const char *path, bool prefix_sysroot, char **ret) {
+        _cleanup_free_ char *candidate = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        if (prefix_sysroot)
+                candidate = path_join("/sysroot", path);
+        else
+                candidate = strdup(path);
+        if (!candidate)
+                return log_oom();
+
+        path_simplify(candidate);
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+
+        /* Parse /proc/self/mountinfo in memory without a path cache.
+         * Note: sym_mnt_table_find_target() with MNT_ITER_BACKWARD compares exact canonical
+         * strings of the topmost visible mount and does not call stat() or realpath().
+         * This guarantees we will not trigger remote VFS lookups or block in D-state. */
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
+        if (r < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                return 0;
+        }
+
+        /* 1. Direct active mount point check */
+        if (sym_mnt_table_find_target(table, candidate, MNT_ITER_BACKWARD)) {
+                log_debug("'%s' is an active mount point in mountinfo, using without chasing.", candidate);
+                *ret = TAKE_PTR(candidate);
+                return 1;
+        }
+
+        /* 2. Direct symlink check */
+        _cleanup_free_ char *target = NULL;
+        r = readlink_malloc(candidate, &target);
+        if (r >= 0) {
+                _cleanup_free_ char *resolved_target = NULL;
+                if (path_is_absolute(target)) {
+                        if (prefix_sysroot) {
+                                resolved_target = path_join("/sysroot", target);
+                                if (!resolved_target)
+                                        return log_oom();
+                        } else
+                                resolved_target = TAKE_PTR(target);
+                } else {
+                        _cleanup_free_ char *dir = NULL;
+                        r = path_extract_directory(candidate, &dir);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract directory of '%s': %m", candidate);
+                        resolved_target = path_join(dir, target);
+                        if (!resolved_target)
+                                return log_oom();
+                }
+
+                path_simplify(resolved_target);
+                if (sym_mnt_table_find_target(table, resolved_target, MNT_ITER_BACKWARD)) {
+                        log_debug("Symlink target '%s' is an active mount point in mountinfo, using without chasing.", resolved_target);
+                        *ret = TAKE_PTR(resolved_target);
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, bool is_network, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
         int r;
@@ -916,20 +987,28 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
         assert(STR_IN_SET(type, "where", "what"));
         assert(ret);
 
-        // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
-        // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+        if (is_network) {
+                r = canonicalize_network_mount_path(path, prefix_sysroot, &p);
+                if (r < 0)
+                        return r;
+        }
 
-                if (prefix_sysroot)
-                        p = path_join("/sysroot", path);
-                else
-                        p = strdup(path);
-                if (!p)
-                        return log_oom();
+        if (!p) {
+                /* FIXME: when chase() learns to chase non-existent paths, drop the prefixing with
+                 * /sysroot on error below. */
+                r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
-                path_simplify(p);
+                        if (prefix_sysroot)
+                                p = path_join("/sysroot", path);
+                        else
+                                p = strdup(path);
+                        if (!p)
+                                return log_oom();
+
+                        path_simplify(p);
+                }
         }
 
         changed = !streq(path, p);
@@ -998,8 +1077,12 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+         * target is the final directory.
+         *
+         * For network filesystems (e.g. NFS, CIFS), if the target or its direct symlink target is
+         * already an active mount point in /proc/self/mountinfo, skip chase() to avoid traversing
+         * into a possibly unreachable share (D-state hang). */
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, mount_is_network(fstype, options), &where);
         if (r < 0)
                 return r;
         where_changed = r > 0;
@@ -1008,7 +1091,7 @@ static int parse_fstab_one(
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
                 _cleanup_free_ char *p = NULL;
 
-                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, /* is_network= */ false, &p);
                 if (r < 0)
                         return r;
 
