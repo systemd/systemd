@@ -906,7 +906,7 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
-static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, bool is_network, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
         int r;
@@ -916,20 +916,49 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
         assert(STR_IN_SET(type, "where", "what"));
         assert(ret);
 
-        // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
-        // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        if (is_network) {
+                _cleanup_free_ char *parent = NULL, *filename = NULL, *chased_parent = NULL;
+
+                /* For network mounts, avoid traversing the mount target itself with chase(), as an already
+                 * mounted but unreachable remote share will cause VFS lookups to block in D-state. Chase only
+                 * the parent directory and append the last component, so parent symlinks are resolved. */
+                if (path_extract_directory(path, &parent) >= 0 && path_extract_filename(path, &filename) >= 0) {
+                        r = chase(parent, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &chased_parent, NULL);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to chase parent of '%s', using as-is: %m", path);
+                                if (prefix_sysroot)
+                                        p = path_join("/sysroot", path);
+                                else
+                                        p = strdup(path);
+                        } else
+                                p = path_join(chased_parent, filename);
+
+                        if (!p)
+                                return log_oom();
+
+                        path_simplify(p);
+                        r = 0;
+                } else
+                        r = -EADDRNOTAVAIL;
+        } else
+                r = -EAGAIN;
+
         if (r < 0) {
-                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+                // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
+                // /sysroot on error below.
+                r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
-                if (prefix_sysroot)
-                        p = path_join("/sysroot", path);
-                else
-                        p = strdup(path);
-                if (!p)
-                        return log_oom();
+                        if (prefix_sysroot)
+                                p = path_join("/sysroot", path);
+                        else
+                                p = strdup(path);
+                        if (!p)
+                                return log_oom();
 
-                path_simplify(p);
+                        path_simplify(p);
+                }
         }
 
         changed = !streq(path, p);
@@ -998,8 +1027,12 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+         * target is the final directory.
+         *
+         * For network filesystems (e.g. NFS, CIFS), chase only the parent directory to resolve
+         * parent symlinks while avoiding traversing into the network mount target itself, preventing
+         * D-state hangs on unreachable shares. */
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, mount_is_network(fstype, options), &where);
         if (r < 0)
                 return r;
         where_changed = r > 0;
@@ -1008,7 +1041,7 @@ static int parse_fstab_one(
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
                 _cleanup_free_ char *p = NULL;
 
-                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, /* is_network= */ false, &p);
                 if (r < 0)
                         return r;
 
