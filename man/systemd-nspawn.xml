@@ -1911,7 +1911,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         broker monitors, while in <option>broker-log</option> mode it is additionally written to the logs.
         The registered pseudo TTY may be listed, monitored or hung up via
         <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
-        <option>broker</option> and <option>broker-log</option> modes were added in version 262.
+        <option>broker</option> and <option>broker-log</option> modes were added in version 263.
         Defaults to <option>interactive</option> if
         <command>systemd-nspawn</command> is invoked from a terminal, and <option>read-only</option>
         otherwise.</para>

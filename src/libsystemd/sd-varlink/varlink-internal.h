@@ -87,6 +87,8 @@ typedef struct sd_varlink {
 
         VarlinkState state;
         sd_varlink_server *server;
+        uint64_t socket_cookie;
+        LIST_FIELDS(sd_varlink, connections);
 
         /* Transport layer: input/output buffers, fd passing, output queue, read/write/parse
          * step functions, sd-event integration (input/output/time event sources, idle
@@ -139,6 +141,7 @@ typedef struct sd_varlink_server {
         sd_varlink_server_flags_t flags;
 
         LIST_HEAD(VarlinkServerSocket, sockets);
+        LIST_HEAD(sd_varlink, connections);
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */

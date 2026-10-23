@@ -1648,6 +1648,7 @@ typedef struct RunContext {
         char *bus_path;
         char *start_job;
         int pty_fd;
+        bool unit_ref_by_broker;
 
         /* Bus objects */
         sd_bus *bus;
@@ -1657,6 +1658,7 @@ typedef struct RunContext {
 
         /* Current state of the unit */
         char *job;
+        char *load_state;
 
         /* The final state and exit data of the unit */
         UnitResult result;
@@ -1685,6 +1687,7 @@ static void run_context_done(RunContext *c) {
         unit_result_done(&c->result);
 
         free(c->job);
+        free(c->load_state);
         free(c->unit);
         free(c->bus_path);
         free(c->start_job);
@@ -1700,53 +1703,14 @@ static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
         return run_context_reconnect(c);
 }
 
-static int run_context_reconnect(RunContext *c) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+static int run_context_schedule_reconnect(RunContext *c, int error) {
         int r;
 
         assert(c);
+        assert(error < 0);
 
         run_context_detach_bus(c);
-
-        r = connect_bus(&bus);
-        if (r < 0)
-                goto retry_timer;
-
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               c->bus_path,
-                               "org.freedesktop.systemd1.Unit",
-                               "Ref",
-                               &error,
-                               /* ret_reply= */ NULL,
-                               /* types= */ NULL);
-        if (r < 0) {
-                /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
-                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
-                        goto retry_timer;
-
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                        log_warning_errno(r, "Unit deactivated during reconnection to the bus, exiting.");
-                else
-                        log_error_errno(r, "Failed to re-add reference to unit: %s", bus_error_message(&error, r));
-
-                (void) sd_event_exit(c->event, EXIT_FAILURE);
-                return r;
-        }
-
-        r = run_context_attach_bus(c, bus);
-        if (r < 0) {
-                (void) sd_event_exit(c->event, EXIT_FAILURE);
-                return r;
-        }
-
-        log_info("Reconnected to bus.");
-
-        return run_context_update(c);
-
-retry_timer:
-        log_warning_errno(r, "Failed to reconnect, retrying in 2s: %m");
+        log_warning_errno(error, "Failed to reconnect, retrying in 2s: %m");
 
         r = event_reset_time_relative(
                         c->event,
@@ -1763,6 +1727,57 @@ retry_timer:
         }
 
         return 0;
+}
+
+static int run_context_reconnect(RunContext *c) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(c);
+
+        run_context_detach_bus(c);
+
+        r = connect_bus(&bus);
+        if (r < 0)
+                goto retry_timer;
+
+        if (!c->unit_ref_by_broker) {
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       c->bus_path,
+                                       "org.freedesktop.systemd1.Unit",
+                                       "Ref",
+                                       &error,
+                                       /* ret_reply= */ NULL,
+                                       /* types= */ NULL);
+                if (r < 0) {
+                        /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
+                        if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
+                                goto retry_timer;
+
+                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                log_warning_errno(r, "Unit deactivated during reconnection to the bus, exiting.");
+                        else
+                                log_error_errno(r, "Failed to re-add reference to unit: %s", bus_error_message(&error, r));
+
+                        (void) sd_event_exit(c->event, EXIT_FAILURE);
+                        return r;
+                }
+        }
+
+        r = run_context_attach_bus(c, bus);
+        if (r < 0) {
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return r;
+        }
+
+        log_info("Reconnected to bus.");
+
+        return run_context_update(c);
+
+retry_timer:
+        return run_context_schedule_reconnect(c, r);
 }
 
 static int run_context_check_started(RunContext *c) {
@@ -1845,7 +1860,8 @@ static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
 static int run_context_update(RunContext *c) {
 
         static const struct bus_properties_map map[] = {
-                { "Job", "(uo)", map_job, offsetof(RunContext, job) },
+                { "Job",       "(uo)", map_job, offsetof(RunContext, job)        },
+                { "LoadState", "s",    NULL,    offsetof(RunContext, load_state) },
                 {}
         };
 
@@ -1874,14 +1890,16 @@ static int run_context_update(RunContext *c) {
         if (r < 0) {
                 /* If this is a connection error, then try to reconnect. This might be because the service
                  * manager is being restarted. Handle this gracefully. */
-                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error)) {
-                        log_info_errno(r, "Bus call failed due to connection problems. Trying to reconnect...");
-                        /* Not propagating error, because we handled it already, by reconnecting. */
-                        return run_context_reconnect(c);
-                }
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
+                        return run_context_schedule_reconnect(c, r);
 
                 (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
+        }
+
+        if (c->unit_ref_by_broker && !streq_ptr(c->load_state, "loaded")) {
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Referenced unit '%s' is no longer loaded.", c->unit);
         }
 
         r = run_context_check_started(c);
@@ -2409,12 +2427,20 @@ static bool ptybroker_compatible(void) {
                 !arg_timer_property &&
                 !arg_verbose &&
                 !arg_root_directory &&
-                arg_shell &&
+                (arg_shell || !arg_via_shell) &&
+                (!arg_description || strlen(arg_description) <= PTY_BROKER_DESCRIPTION_MAX) &&
                 arg_job_mode == JOB_FAIL &&
                 !arg_area &&
                 !arg_empower &&
                 (!arg_pam_name || streq(arg_pam_name, "systemd-run0")) &&
                 arg_ignore_sigpipe <= 0;
+}
+
+static int on_unit_reference_lost(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        RunContext *c = ASSERT_PTR(userdata);
+
+        log_error("PTY broker lost the service unit reference.");
+        return sd_event_exit(c->event, EXIT_FAILURE);
 }
 
 static int start_via_ptybroker(void) {
@@ -2439,7 +2465,12 @@ static int start_via_ptybroker(void) {
                 return log_error_errno(r, "Failed to enable file descriptor passing on ptybrokerd connection: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
-        r = pty_broker_terminal_settings_to_json(&ts);
+        if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO))
+                r = pty_broker_terminal_settings_to_json(&ts);
+        else
+                /* Match the D-Bus path: an explicitly requested PTY must not turn captured output into
+                 * terminal output. In particular, TERM=dumb suppresses PAM's session OSC sequences. */
+                r = sd_json_buildo(&ts, SD_JSON_BUILD_PAIR("envTERM", JSON_BUILD_CONST_STRING("dumb")));
         if (r < 0)
                 return log_error_errno(r, "Failed to build terminal settings: %m");
 
@@ -2461,6 +2492,7 @@ static int start_via_ptybroker(void) {
                         &output_fd,
                         SD_JSON_BUILD_PAIR("frontendType", JSON_BUILD_CONST_STRING("null")),
                         SD_JSON_BUILD_PAIR("backendType", JSON_BUILD_CONST_STRING("shell")),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("referenceUnit", true),
                         SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
                         SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("user", arg_exec_user),
@@ -2485,16 +2517,29 @@ static int start_via_ptybroker(void) {
 
         struct {
                 const char *unit;
-        } p = {};
+                unsigned unit_reference_fd_idx;
+        } p = {
+                .unit_reference_fd_idx = UINT_MAX,
+        };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "unit", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, unit), 0 },
+                { "unit",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, unit),                  SD_JSON_MANDATORY },
+                { "unitReferenceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         voffsetof(p, unit_reference_fd_idx), SD_JSON_MANDATORY },
                 {}
         };
 
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse AcquirePty() reply: %m");
+
+        _cleanup_close_ int unit_reference_fd = sd_varlink_take_fd(vl, p.unit_reference_fd_idx);
+        if (unit_reference_fd < 0)
+                return log_error_errno(unit_reference_fd, "Failed to take unit reference file descriptor from ptybrokerd: %m");
+
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *unit_reference_event = NULL;
+        r = sd_event_add_io(c.event, &unit_reference_event, unit_reference_fd, EPOLLERR, on_unit_reference_lost, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch unit reference: %m");
 
         r = same_fd(input_fd, output_fd);
         if (r < 0)
@@ -2505,46 +2550,21 @@ static int start_via_ptybroker(void) {
         c.pty_fd = TAKE_FD(input_fd); /* The monitor fd is a socket, not a pty master, but close enough */
         output_fd = safe_close(output_fd);
 
-        /* If the broker told us which unit runs the shell, watch it via the bus, just like we watch the
-         * transient unit in the D-Bus code path: that way we can wait for it and propagate its exit status.
-         * Pin it with a reference first, so that it is not cleaned up before we managed to read its
-         * result. If that doesn't work out (e.g. the shell already exited and the unit is gone) fall back to
-         * simply exiting once the monitor connection is dropped. */
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        if (p.unit) {
-                c.unit = strdup(p.unit);
-                if (!c.unit)
-                        return log_oom();
-
-                c.bus_path = unit_dbus_path_from_name(c.unit);
-                if (!c.bus_path)
-                        return log_oom();
-
-                r = connect_bus(&bus);
-                if (r < 0)
-                        return r;
-
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = sd_bus_call_method(bus,
-                                       "org.freedesktop.systemd1",
-                                       c.bus_path,
-                                       "org.freedesktop.systemd1.Unit",
-                                       "Ref",
-                                       &error,
-                                       /* ret_reply= */ NULL,
-                                       /* types= */ NULL);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add reference to unit '%s', assuming it is already gone: %s",
-                                        c.unit, bus_error_message(&error, r));
-                        c.unit = mfree(c.unit);
-                        c.bus_path = mfree(c.bus_path);
-                        bus = sd_bus_flush_close_unref(bus);
-                }
-        }
-
+        /* The broker pins the unit until we close unit_reference_fd, including after the PTY hangs up.
+         * Only query its state here: taking our own reference would require a second polkit authorization. */
+        c.unit_ref_by_broker = true;
+        c.unit = strdup(p.unit);
         if (!c.unit)
-                /* Without a unit to wait for, exit immediately when our pty monitor dies */
-                arg_wait = false;
+                return log_oom();
+
+        c.bus_path = unit_dbus_path_from_name(c.unit);
+        if (!c.bus_path)
+                return log_oom();
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = connect_bus(&bus);
+        if (r < 0)
+                return r;
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         if (arg_exec_user && !terminal_is_dumb()) {
@@ -2559,23 +2579,19 @@ static int start_via_ptybroker(void) {
         if (r < 0)
                 return r;
 
-        if (bus) {
-                r = run_context_attach_bus(&c, bus);
-                if (r < 0)
-                        return r;
+        r = run_context_attach_bus(&c, bus);
+        if (r < 0)
+                return r;
 
-                r = run_context_update(&c);
-                if (r < 0)
-                        return r;
-        }
+        r = run_context_update(&c);
+        if (r < 0)
+                return r;
 
         r = sd_event_loop(c.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
-
-        /* If we had no unit to watch we have no idea how the shell exited, assume success */
-        if (!c.unit)
-                return EXIT_SUCCESS;
+        if (r != 0)
+                return EXIT_FAILURE;
 
         return unit_result_to_exit_status(&c.result);
 }
