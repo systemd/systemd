@@ -365,14 +365,10 @@ testcase_exec_sandbox() {
     defer_transient_cleanup varlink-transient-sandbox.service
     result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-sandbox.service","Exec":{"ProtectSystem":"strict","ProtectHome":"read_only","PrivateTmp":"disconnected","PrivateNetwork":"yes","PrivateUsers":"self"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
-    echo "$result" | jq -e '.context.Exec.ProtectSystem == "strict"'
-    echo "$result" | jq -e '.context.Exec.ProtectHome == "read_only"'
     echo "$result" | jq -e '.context.Exec.PrivateTmp == "disconnected"'
     echo "$result" | jq -e '.context.Exec.PrivateNetwork == "yes"'
     echo "$result" | jq -e '.context.Exec.PrivateUsers == "self"'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-sandbox.service; do sleep 0.5; done'
-    systemctl show -P ProtectSystem varlink-transient-sandbox.service | grep '^strict$' >/dev/null
-    systemctl show -P ProtectHome varlink-transient-sandbox.service | grep '^read-only$' >/dev/null
     systemctl show -P PrivateTmpEx varlink-transient-sandbox.service | grep '^disconnected$' >/dev/null
     systemctl show -P PrivateNetwork varlink-transient-sandbox.service | grep '^yes$' >/dev/null
     systemctl show -P PrivateUsersEx varlink-transient-sandbox.service | grep '^self$' >/dev/null
@@ -383,6 +379,18 @@ testcase_exec_sandbox() {
     grep '^PrivateTmp=disconnected$' "$fragment" >/dev/null
     grep '^PrivateNetwork=yes$'      "$fragment" >/dev/null
     grep '^PrivateUsers=self$'       "$fragment" >/dev/null
+
+    # In coverage builds a service.d drop-in sets ProtectSystem=no and ProtectHome=no for all
+    # services so gcov can write its *.gcda files. It overrides the transient settings, so the
+    # effective values can't be checked there.
+    if [[ -n "${COVERAGE_BUILD_DIR:-}" ]]; then
+        return 0
+    fi
+
+    echo "$result" | jq -e '.context.Exec.ProtectSystem == "strict"'
+    echo "$result" | jq -e '.context.Exec.ProtectHome == "read_only"'
+    systemctl show -P ProtectSystem varlink-transient-sandbox.service | grep '^strict$' >/dev/null
+    systemctl show -P ProtectHome varlink-transient-sandbox.service | grep '^read-only$' >/dev/null
 
     # The sandbox is live, not just recorded: the unit only succeeds if /usr is read-only
     # and its network namespace differs from PID 1's. Both readlinks are captured first, so
