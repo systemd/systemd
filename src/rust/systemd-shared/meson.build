@@ -44,10 +44,10 @@ endforeach
 
 ############################################################
 
-# systemd_shared_sys: raw FFI bindings for everything libsystemd-shared exports. Static inline helpers only
-# exist in headers, so bindgen also writes C trampolines for them. Those are compiled into the Rust
-# consumers, which is exactly what happens with C consumers (inlining), hence the shared library itself
-# stays untouched.
+# systemd_shared_sys: raw FFI bindings for the libsystemd-shared helpers Rust code uses, bindings.h lists
+# their headers. Static inline helpers only exist in headers, so bindgen also writes C trampolines for them.
+# Those are compiled into the Rust consumers, which is exactly what happens with C consumers (inlining),
+# hence the shared library itself stays untouched.
 systemd_shared_sys_gen = rust.bindgen(
         input : 'bindings.h',
         output : 'systemd_shared_sys_generated.rs',
@@ -102,16 +102,10 @@ systemd_shared_sys_gen = rust.bindgen(
                 '--allowlist-var', 'stdout',
                 # bindgen mis-serializes pointer-to-array parameters of static inline functions, see
                 # https://github.com/rust-lang/rust-bindgen/issues/3403.
-                '--blocklist-function', 'close_pairp|locale_variables_freep',
+                '--blocklist-function', 'close_pairp',
                 # Refers to the linker-generated bounds of the SYSTEMD_VERBS section, which only exists in
                 # programs defining verbs in C.
                 '--blocklist-function', 'verb_help_auto',
-                # Journal objects are packed structs with flexible array members, bindgen derives Debug for
-                # them inconsistently.
-                '--no-debug', 'ObjectHeader|Object|.*Object',
-                # bindgen >= 0.73 aligns the unions in these packed structs, which rustc refuses (E0588). Rust
-                # code has no use for them.
-                '--opaque-type', 'EntryObject__packed|EntryArrayObject|_IMAGE_OPTIONAL_HEADER|PeHeader',
         ])
 
 libsystemd_shared_sys_wrappers = static_library(
@@ -140,17 +134,6 @@ libsystemd_shared_sys = static_library(
         rust_args : ['--cap-lints', 'allow'],
         link_with : [libsystemd_shared_sys_wrappers],
         dependencies : [shared_link_dep])
-
-if want_tests != 'false'
-        test('check-bindings-header',
-             python,
-             args : [files('check-bindings-header.py'),
-                     files('bindings.h'),
-                     meson.project_source_root() / 'src/basic',
-                     meson.project_source_root() / 'src/shared',
-                     meson.project_source_root() / 'src/systemd'],
-             suite : 'dist')
-endif
 
 ############################################################
 
