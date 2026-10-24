@@ -251,6 +251,8 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('sleep', type : 'feature',
+       description : 'install systemd-sleep and associated files')
 option('storagetm', type : 'boolean',
        description : 'support for Storage Target Mode')
 option('sysext', type : 'boolean',
