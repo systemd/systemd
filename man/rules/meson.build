@@ -1381,11 +1381,11 @@ manpages = [
   '8',
   ['systemd-vconsole-setup'],
   'ENABLE_VCONSOLE'],
- ['systemd-veritysetup-generator', '8', [], 'HAVE_LIBCRYPTSETUP'],
+ ['systemd-veritysetup-generator', '8', [], 'ENABLE_VERITYSETUP'],
  ['systemd-veritysetup@.service',
   '8',
   ['systemd-veritysetup'],
-  'HAVE_LIBCRYPTSETUP'],
+  'ENABLE_VERITYSETUP'],
  ['systemd-vmspawn', '1', [], 'ENABLE_VMSPAWN'],
  ['systemd-volatile-root.service', '8', ['systemd-volatile-root'], ''],
  ['systemd-vpick', '1', [], ''],
@@ -1531,6 +1531,6 @@ manpages = [
  ['userdbctl', '1', [], 'ENABLE_USERDB'],
  ['varlinkctl', '1', [], ''],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE'],
- ['veritytab', '5', [], 'HAVE_LIBCRYPTSETUP']
+ ['veritytab', '5', [], 'ENABLE_VERITYSETUP']
 ]
 # Really, do not edit.
