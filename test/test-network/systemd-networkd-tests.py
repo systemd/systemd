@@ -8600,6 +8600,21 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
+    def test_dhcp_server_static_lease_client_id(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-client-static-lease-client-id.network',
+            '25-dhcp-server-static-lease-client-id.network',
+        )
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.201 (DHCPv4 via 10.1.1.1)', output)
+        self.assertNotIn('10.1.1.202', output)
+        self.assertIn('DHCPv4 Client ID: IAID:0x12345678/DUID', output)
+
     def test_dhcp_server_static_lease_hostname_simple(self):
         copy_network_unit(
             '25-veth.netdev',
