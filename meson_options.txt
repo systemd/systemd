@@ -288,6 +288,8 @@ option('varlink-monitord', type : 'boolean',
        description : 'install the systemd-varlink-monitord daemon')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
+option('veritysetup', type : 'feature',
+       description : 'install systemd-veritysetup and associated files')
 option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-vmspawn tool')
 option('xdg-autostart', type : 'boolean',
