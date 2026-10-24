@@ -16,3 +16,5 @@ typedef enum FirstBootMode {
 DECLARE_STRING_TABLE_LOOKUP(firstboot_mode, FirstBootMode);
 
 int firstboot_mode_from_cmdline(FirstBootMode *ret, char **reterr_value);
+
+int firstboot_select_console(char **ttys);
