@@ -145,11 +145,20 @@ int bus_image_common_get_metadata(
                 flags |= input_flags;
         }
 
+        /* Inspecting an image loop-mounts it as root, so we authenticate extension images that are
+         * specified by path like the image itself. */
+        bool extension_by_path = false;
+        STRV_FOREACH(i, extension_images)
+                if (!image_name_is_valid(*i)) {
+                        extension_by_path = true;
+                        break;
+                }
+
         r = bus_image_acquire(m,
                               message,
                               name_or_path,
                               image,
-                              BUS_IMAGE_AUTHENTICATE_BY_PATH,
+                              extension_by_path ? BUS_IMAGE_AUTHENTICATE_ALL : BUS_IMAGE_AUTHENTICATE_BY_PATH,
                               "org.freedesktop.portable1.inspect-images",
                               &image,
                               error);
