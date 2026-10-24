@@ -117,11 +117,11 @@ units = [
         },
         {
           'file' : 'integritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
         },
         {
           'file' : 'integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'kexec.target' },
@@ -200,7 +200,7 @@ units = [
         { 'file' : 'remote-fs.target' },
         {
           'file' : 'remote-integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         {
