@@ -189,10 +189,12 @@ see the real `argv`. `test/test-cli-parity.sh` runs `src/test/test-cli-c.c` and
 `src/test/test-cli-rust.rs`, which declare the same command, with forty sets of
 arguments and compares output and exit status.
 
-Everything in `src/basic/`, `src/shared/` and the `sd-*.h` headers, as well as
-the libc and kernel constants used by systemd, is available as
-`systemd_shared::sys::<C name>`. Static inline helpers work too, bindgen
-generates C wrappers for them. The `HAVE_*` and `ENABLE_*` conditions of
+The helpers of `src/basic/`, `src/shared/` and the `sd-*.h` headers that Rust
+code uses, as well as the libc and kernel constants used by systemd, are
+available as `systemd_shared::sys::<C name>`.
+`src/rust/systemd-shared/bindings.h` lists the headers; a wrapper that needs
+another one adds it there. Static inline helpers work too, bindgen generates C
+wrappers for them. The `HAVE_*` and `ENABLE_*` conditions of
 `config.h` are available as cfgs, i.e. `#[cfg(HAVE_OPENSSL)]` corresponds to
 `#if HAVE_OPENSSL`.
 
@@ -224,6 +226,12 @@ Some things to keep in mind:
   Rust is not much bigger than its C equivalent. Stripped release builds:
   `test-cli-rust` is 29 KB, 24 KB with `-Db_lto=true`, `test-cli-c` is 16 KB.
 
+- Optional libraries are loaded at runtime with the `dlopen_*()` helpers of
+  libsystemd-shared, like in C. Declare such dependencies with
+  `libcrypto_note!()`, `libkmod_note!()` or `elf_note_dlopen!()`, so that
+  they are recorded in the `.note.dlopen` section of the program, where
+  packaging tools pick them up.
+
 - Rust programs are covered by `test-link-abi` too, so they may not use glibc
   symbols that are newer than the baseline the C programs are held to.
 
@@ -245,8 +253,7 @@ Some things to keep in mind:
   build. Like for C, `--werror` turns rustc warnings into errors.
 
 - `meson test -C build --suite rust` runs the Rust test programs, and
-  `meson test -C build --suite dist` includes the rustfmt check, the check that
-  `src/rust/systemd-shared/bindings.h` covers every header, and
+  `meson test -C build --suite dist` includes the rustfmt check and
   `test-link-abi`. `ninja -C build clippy` runs clippy, and
   `ninja -C build rustdoc` builds the documentation of the crates. meson writes
   a `rust-project.json` for rust-analyzer into the build directory. clippy looks
