@@ -184,7 +184,7 @@ option('firstboot', type : 'boolean',
 option('growfs', type : 'feature',
        description : 'install systemd-growfs, systemd-makefs and associated files')
 option('hibernate', type : 'boolean',
-       description : 'support for hibernation')
+       description : 'support for hibernation (requires sleep support)')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-homed stack')
 option('hostnamed', type : 'boolean',
@@ -251,6 +251,8 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('sleep', type : 'feature',
+       description : 'install systemd-sleep and associated files')
 option('storagetm', type : 'boolean',
        description : 'support for Storage Target Mode')
 option('sysext', type : 'boolean',
