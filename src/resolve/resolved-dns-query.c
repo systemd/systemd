@@ -1097,6 +1097,14 @@ int dns_query_go(DnsQuery *q) {
         return dns_query_go_scopes(q);
 }
 
+static int dns_query_copy_answer_ede(DnsQuery *q, DnsTransaction *t) {
+        assert(q);
+        assert(t);
+
+        q->answer_ede_rcode = t->answer_ede_rcode;
+        return free_and_strdup_warn(&q->answer_ede_msg, t->answer_ede_msg);
+}
+
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         bool has_authenticated = false, has_non_authenticated = false, has_confidential = false, has_non_confidential = false;
@@ -1120,6 +1128,8 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 state = DNS_TRANSACTION_ERRNO;
                 q->answer = dns_answer_unref(q->answer);
                 q->answer_rcode = 0;
+                q->answer_ede_rcode = _DNS_EDE_RCODE_INVALID;
+                q->answer_ede_msg = mfree(q->answer_ede_msg);
                 q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 q->answer_query_flags = 0;
                 q->answer_errno = c->error_code;
@@ -1143,10 +1153,20 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 /* Override non-successful previous answers */
                                 DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                                 q->answer_query_flags = dns_transaction_source_to_query_flags(t->answer_source);
+
+                                r = dns_query_copy_answer_ede(q, t);
+                                if (r < 0)
+                                        goto fail;
                         }
 
                         q->answer_rcode = t->answer_rcode;
                         q->answer_errno = 0;
+
+                        if (q->answer_ede_rcode < 0 && t->answer_ede_rcode >= 0) {
+                                r = dns_query_copy_answer_ede(q, t);
+                                if (r < 0)
+                                        goto fail;
+                        }
 
                         DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
 
@@ -1186,8 +1206,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
                         DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
-                        q->answer_ede_rcode = t->answer_ede_rcode;
-                        r = free_and_strdup_warn(&q->answer_ede_msg, t->answer_ede_msg);
+                        r = dns_query_copy_answer_ede(q, t);
                         if (r < 0)
                                 goto fail;
                         q->answer_dnssec_result = t->answer_dnssec_result;

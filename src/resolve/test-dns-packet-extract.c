@@ -3520,6 +3520,78 @@ TEST(packet_ede_rcode_non_ede_code) {
         ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), ENOENT);
 }
 
+TEST(packet_ede_rcode_after_non_ede_code) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *ret_ede_msg;
+        int ret_ede_rcode;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x15,
+        /* NSID */      0x00, 0x03,
+                        0x00, 0x04,
+                        'n', 'o', 'd', 'e',
+        /* EDE */       0x00, 0x0f,
+                        0x00, 0x09,
+                        0x00, 0x12,     /* Prohibited */
+                        'b', 'l', 'o', 'c', 'k', 'd', 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_OK(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg));
+        ASSERT_EQ(ret_ede_rcode, DNS_EDE_RCODE_PROHIBITED);
+        ASSERT_STREQ(ret_ede_msg, "blockd");
+}
+
+TEST(packet_ede_rcode_no_extra_text) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *ret_ede_msg;
+        int ret_ede_rcode;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x06,
+        /* EDE */       0x00, 0x0f,
+                        0x00, 0x02,
+                        0x00, 0x04      /* Forged Answer */
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_OK(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg));
+        ASSERT_EQ(ret_ede_rcode, DNS_EDE_RCODE_FORGED_ANSWER);
+        ASSERT_STREQ(ret_ede_msg, "");
+}
+
 TEST(packet_ede_rcode_malformed_ede_payload) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         int ret_ede_rcode;
@@ -3551,6 +3623,38 @@ TEST(packet_ede_rcode_malformed_ede_payload) {
         ASSERT_OK(dns_packet_extract(packet));
 
         ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), ENOENT);
+}
+
+TEST(packet_ede_rcode_truncated_info_code) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int ret_ede_rcode;
+        char *ret_ede_msg;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x05,
+        /* EDE */       0x00, 0x0f,
+                        0x00, 0x01,
+                        0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), EBADMSG);
 }
 
 /* ================================================================
@@ -4698,9 +4802,26 @@ TEST(dns_ede_rcode_is_dnssec) {
         ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NO_ZONE_KEY_BIT));
         ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NSEC_MISSING));
 
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_OTHER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_STALE_ANSWER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_FORGED_ANSWER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_CACHED_ERROR));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NOT_READY));
         ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_BLOCKED));
         ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_CENSORED));
-        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_OTHER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_FILTERED));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_PROHIBITED));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NOT_AUTHORITATIVE));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NOT_SUPPORTED));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_UNREACH_AUTHORITY));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NET_ERROR));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_INVALID_DATA));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_SIG_NEVER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_TOO_EARLY));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_UNSUPPORTED_NSEC3_ITER));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_TRANSPORT_POLICY));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_SYNTHESIZED));
 }
 
 /* ================================================================
@@ -4731,22 +4852,37 @@ TEST(format_dns_rcode) {
  * ================================================================ */
 
 TEST(format_dns_ede_rcode) {
-        const char *str;
-
-        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_DNSSEC_BOGUS);
-        ASSERT_STREQ(str, "DNSSEC Bogus");
-
-        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SIG_EXPIRED);
-        ASSERT_STREQ(str, "Signature Expired");
-
-        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_CENSORED);
-        ASSERT_STREQ(str, "Censored");
-
-        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_OTHER);
-        ASSERT_STREQ(str, "Other");
-
-        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER);
-        ASSERT_STREQ(str, "Stale NXDOMAIN Answer");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_OTHER), "Other");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG), "Unsupported DNSKEY Algorithm");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST), "Unsupported DS Digest Type");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_STALE_ANSWER), "Stale Answer");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_FORGED_ANSWER), "Forged Answer");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_DNSSEC_INDETERMINATE), "DNSSEC Indeterminate");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_DNSSEC_BOGUS), "DNSSEC Bogus");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SIG_EXPIRED), "Signature Expired");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SIG_NOT_YET_VALID), "Signature Not Yet Valid");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_DNSKEY_MISSING), "DNSKEY Missing");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_RRSIG_MISSING), "RRSIG Missing");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NO_ZONE_KEY_BIT), "No Zone Key Bit Set");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NSEC_MISSING), "NSEC Missing");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_CACHED_ERROR), "Cached Error");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NOT_READY), "Not Ready");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_BLOCKED), "Blocked");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_CENSORED), "Censored");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_FILTERED), "Filtered");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_PROHIBITED), "Prohibited");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER), "Stale NXDOMAIN Answer");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NOT_AUTHORITATIVE), "Not Authoritative");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NOT_SUPPORTED), "Not Supported");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_UNREACH_AUTHORITY), "No Reachable Authority");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_NET_ERROR), "Network Error");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_INVALID_DATA), "Invalid Data");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SIG_NEVER), "Signature Never Valid");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_TOO_EARLY), "Too Early");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_UNSUPPORTED_NSEC3_ITER), "Unsupported NSEC3 Iterations");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_TRANSPORT_POLICY), "Impossible Transport Policy");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SYNTHESIZED), "Synthesized");
+        ASSERT_STREQ(FORMAT_DNS_EDE_RCODE(65000), "65000");
 }
 
 /* ================================================================
