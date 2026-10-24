@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -29,7 +30,7 @@ static int write_and_symlink(
                 const char *suffix,
                 WriteStringFileFlags extra_flags) {
 
-        _cleanup_free_ char *j = NULL, *f = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *j = NULL, *f = NULL, *q = NULL;
         int r;
 
         assert(root);
@@ -46,27 +47,34 @@ static int write_and_symlink(
         if (!f)
                 return log_oom();
 
-        p = path_join(root, "/run/host/userdb/", f);
-        if (!p)
+        if (asprintf(&q, UID_FMT "%s", uid, suffix) < 0)
                 return log_oom();
 
-        if (asprintf(&q, "%s/run/host/userdb/" UID_FMT "%s", root, uid, suffix) < 0)
-                return log_oom();
+        /* Resolve the directory within the container's root, so that symlinks in the image cannot redirect
+         * our writes onto the host. */
+        _cleanup_close_ int dir_fd = chase_and_open(
+                        "/run/host/userdb",
+                        root,
+                        CHASE_PREFIX_ROOT|CHASE_NO_AUTOFS,
+                        O_DIRECTORY|O_CLOEXEC,
+                        /* ret_path= */ NULL);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open /run/host/userdb: %m");
 
-        if (symlink(f, q) < 0)
-                return log_error_errno(errno, "Failed to create symlink '%s': %m", q);
+        if (symlinkat(f, dir_fd, q) < 0)
+                return log_error_errno(errno, "Failed to create symlink '/run/host/userdb/%s': %m", q);
 
-        r = userns_lchown(q, 0, 0);
+        r = userns_chown_at(dir_fd, q, 0, 0, AT_SYMLINK_NOFOLLOW);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", q);
+                return log_error_errno(r, "Failed to adjust access mode of '/run/host/userdb/%s': %m", q);
 
-        r = write_string_file(p, j, WRITE_STRING_FILE_CREATE|extra_flags);
+        r = write_string_file_at(dir_fd, f, j, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_NOFOLLOW|extra_flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", p);
+                return log_error_errno(r, "Failed to write /run/host/userdb/%s: %m", f);
 
-        r = userns_lchown(p, 0, 0);
+        r = userns_chown_at(dir_fd, f, 0, 0, AT_SYMLINK_NOFOLLOW);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
+                return log_error_errno(r, "Failed to adjust access mode of '/run/host/userdb/%s': %m", f);
 
         return 0;
 }
