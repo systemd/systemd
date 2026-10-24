@@ -564,6 +564,7 @@ static int journal_file_verify_machine_id(JournalFile *f) {
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -605,6 +606,17 @@ static int journal_file_verify_header(JournalFile *f) {
 
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
+        if (header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                /* The cached stat may be older than the header read above. The writer extends the file
+                 * before bumping arena_size, so refreshing the stat once and re-checking should be
+                 * sufficient to tell a transient race apart from actual corruption. */
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+
+                if (header_size + arena_size > (uint64_t) f->last_stat.st_size)
+                        return -ENODATA;
+        }
 
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
@@ -735,7 +747,6 @@ static int journal_file_verify_header(JournalFile *f) {
 
         if (journal_file_writable(f)) {
                 uint8_t state;
-                int r;
 
                 r = journal_file_verify_machine_id(f);
                 if (r < 0)
