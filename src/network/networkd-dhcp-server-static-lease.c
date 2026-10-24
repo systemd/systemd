@@ -17,7 +17,6 @@ static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
                 hashmap_remove(static_lease->network->dhcp_static_leases_by_section, static_lease->section);
 
         config_section_free(static_lease->section);
-        free(static_lease->client_id);
         free(static_lease->hostname);
         return mfree(static_lease);
 }
@@ -78,6 +77,8 @@ static int lease_new_static(Network *network, const char *filename, unsigned sec
 }
 
 static int static_lease_verify(DHCPStaticLease *static_lease) {
+        int r;
+
         if (section_is_invalid(static_lease->section))
                 return -EINVAL;
 
@@ -89,13 +90,19 @@ static int static_lease_verify(DHCPStaticLease *static_lease) {
 
         /* TODO: check that the address is in the pool. */
 
-        if (static_lease->client_id_size == 0 || !static_lease->client_id)
+        if (ether_addr_is_null(&static_lease->hw_addr))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: DHCP static lease without MACAddress= field configured. "
                                          "Ignoring [DHCPServerStaticLease] section from line %u.",
                                          static_lease->section->filename, static_lease->section->line);
 
-        assert(static_lease->client_id_size == ETH_ALEN + 1);
+        /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
+        r = sd_dhcp_client_id_set(&static_lease->client_id, 1, &static_lease->hw_addr, ETH_ALEN);
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "%s: Failed to set client ID of DHCP static lease. "
+                                         "Ignoring [DHCPServerStaticLease] section from line %u: %m",
+                                         static_lease->section->filename, static_lease->section->line);
 
         return 0;
 }
@@ -174,7 +181,6 @@ int config_parse_dhcp_static_lease_hwaddr(
         _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
         Network *network = ASSERT_PTR(userdata);
         struct ether_addr hwaddr;
-        uint8_t *c;
         int r;
 
         assert(filename);
@@ -186,8 +192,7 @@ int config_parse_dhcp_static_lease_hwaddr(
                 return log_oom();
 
         if (isempty(rvalue)) {
-                lease->client_id = mfree(lease->client_id);
-                lease->client_id_size = 0;
+                lease->hw_addr = ETHER_ADDR_NULL;
                 TAKE_PTR(lease);
                 return 0;
         }
@@ -204,16 +209,7 @@ int config_parse_dhcp_static_lease_hwaddr(
                 return 0;
         }
 
-        c = new(uint8_t, ETH_ALEN + 1);
-        if (!c)
-                return log_oom();
-
-        /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
-        c[0] = 0x01;
-        memcpy(c + 1, &hwaddr, ETH_ALEN);
-
-        free_and_replace(lease->client_id, c);
-        lease->client_id_size = ETH_ALEN + 1;
+        lease->hw_addr = hwaddr;
 
         TAKE_PTR(lease);
         return 0;
