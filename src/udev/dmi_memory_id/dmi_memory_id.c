@@ -603,14 +603,18 @@ static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devme
 }
 
 /* Same thing for SMBIOS3 entry points */
-static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
+static int smbios3_decode(const uint8_t *buf, size_t size, const char *devmem, bool no_file_offset) {
         uint64_t offset;
 
-        /* Don't let checksum run beyond the buffer */
-        if (buf[0x06] > 0x20)
+        /* Don't let checksum run beyond the buffer, and reject entry points shorter than the SMBIOS3 format. */
+        if (buf[0x06] < 0x18 || buf[0x06] > 0x20)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Entry point length too large (%"PRIu8" bytes, expected %u).",
-                                       buf[0x06], 0x18U);
+                                       "Entry point length out of range (%"PRIu8" bytes, expected between %u and %u).",
+                                       buf[0x06], 0x18U, 0x20U);
+        if (buf[0x06] > size)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry point length (%"PRIu8" bytes) exceeds buffer size (%zu).",
+                                       buf[0x06], size);
 
         if (!verify_checksum(buf, buf[0x06]))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
@@ -709,7 +713,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (size >= 24 && memory_startswith(buf, size, "_SM3_"))
-                return smbios3_decode(buf, arg_source_file, no_file_offset);
+                return smbios3_decode(buf, size, arg_source_file, no_file_offset);
         if (size >= 31 && memory_startswith(buf, size, "_SM_"))
                 return smbios_decode(buf, arg_source_file, no_file_offset);
         if (size >= 15 && memory_startswith(buf, size, "_DMI_"))
