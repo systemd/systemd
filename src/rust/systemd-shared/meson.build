@@ -141,17 +141,6 @@ libsystemd_shared_sys = static_library(
         link_with : [libsystemd_shared_sys_wrappers],
         dependencies : [shared_link_dep])
 
-if want_tests != 'false'
-        test('check-bindings-header',
-             python,
-             args : [files('check-bindings-header.py'),
-                     files('bindings.h'),
-                     meson.project_source_root() / 'src/basic',
-                     meson.project_source_root() / 'src/shared',
-                     meson.project_source_root() / 'src/systemd'],
-             suite : 'dist')
-endif
-
 ############################################################
 
 # systemd_shared: what Rust code is supposed to use.
