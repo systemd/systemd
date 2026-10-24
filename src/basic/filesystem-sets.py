@@ -264,9 +264,23 @@ _Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
 #include "filesystems.h"
 #include "stat-util.h"
 
+/* The magic numbers of all filesystems, a zero-terminated run per filesystem. Most filesystems have a single
+ * magic number, hence each keyword entry only stores the index of its run instead of a fixed-size array. */
+static const statfs_f_type_t filesystem_magics[] = {''')
+
+    index = {}
+    n = 0
+    for name, magics in NAME_TO_MAGIC.items():
+        index[name] = n
+        n += len(magics) + 1
+        print(f'        /* {name} */ {", ".join(magics)}, 0,')
+
+    print('''\
+};
+
 struct FilesystemMagic {
         const char *name;
-        statfs_f_type_t magic[FILESYSTEM_MAGIC_MAX];
+        uint16_t magic_index; /* index into filesystem_magics */
 };
 %}
 struct FilesystemMagic;
@@ -279,8 +293,8 @@ struct FilesystemMagic;
 %struct-type
 %includes
 %%''')
-    for name, magics in NAME_TO_MAGIC.items():
-        print(f'{name + ",":16} {{{", ".join(magics)}}}')
+    for name in NAME_TO_MAGIC:
+        print(f'{name + ",":16} {index[name]}')
 
 
 def generate_fs_type_to_string():
