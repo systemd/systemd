@@ -1143,9 +1143,9 @@ if test -f /sys/class/dmi/id/board_vendor && ! systemd-detect-virt --container ;
     systemd-analyze chid --json=pretty
 fi
 
-systemd-analyze condition --instance=tmp --unit=systemd-growfs@.service
-systemd-analyze verify --instance=tmp --man=no systemd-growfs@.service
-systemd-analyze security --instance=tmp systemd-growfs@.service
+systemd-analyze condition --instance=tmp --unit=user@.service
+systemd-analyze verify --instance=tmp --man=no user@.service
+systemd-analyze security --instance=tmp user@.service
 
 systemd-analyze has-tpm2 ||:
 if systemd-analyze has-tpm2 -q ; then
