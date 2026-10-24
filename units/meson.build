@@ -28,6 +28,10 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        {
+          'file' : 'systemd-cryptsetup-failure@.target',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+        },
         { 'file' : 'debug-shell.service.in' },
         {
           'file' : 'dev-hugepages.mount',
