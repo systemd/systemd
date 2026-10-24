@@ -1711,6 +1711,13 @@ static int fixup_environment(void) {
         if (r < 0)
                 return r;
         if (r > 0) {
+                if (!term_env_valid(term)) {
+                        log_debug("Ignoring invalid terminal type from 'TERM=' kernel command line");
+                        term = mfree(term);
+                        r = 0;
+                }
+        }
+        if (r > 0) {
                 /* If we pick up $TERM, then also pick up $COLORTERM, $NO_COLOR */
                 FOREACH_STRING(v, "COLORTERM", "NO_COLOR") {
                         _cleanup_free_ char *vv = NULL;
@@ -1721,8 +1728,7 @@ static int fixup_environment(void) {
                                 return -errno;
                 }
         } else {
-                /* If no $TERM is set then look for the per-tty variable instead */
-                r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
+                r = proc_cmdline_console_term(&term);
                 if (r < 0)
                         return r;
         }

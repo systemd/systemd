@@ -1434,6 +1434,87 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
         return rows != UINT_MAX || cols != UINT_MAX;
 }
 
+int proc_cmdline_tty_term(const char *tty, char **ret) {
+        int r;
+
+        assert(tty);
+        assert(ret);
+
+        /* Looks for a systemd.tty.term.<tty>= kernel command line option for the given tty and returns its
+         * value. Like proc_cmdline_tty_size() the tty name is taken without the /dev/ prefix. Returns 1 and
+         * sets *ret if a valid, non-empty value was found, 0 if there is no such key (because it is unset,
+         * has an empty value, or the tty name cannot appear in an option name), and a negative errno on
+         * failure. Returns -EINVAL if the key contains an invalid terminal type. */
+
+        tty = skip_dev_prefix(tty);
+        if (!in_charset(tty, ALPHANUMERICAL "-_")) {
+                *ret = NULL;
+                return 0; /* Names containing e.g. '/' cannot appear in an option name. */
+        }
+
+        _cleanup_free_ char *key = strjoin("systemd.tty.term.", tty);
+        if (!key)
+                return -ENOMEM;
+
+        _cleanup_free_ char *value = NULL;
+        r = proc_cmdline_get_key(key, /* flags= */ 0, &value);
+        if (r < 0)
+                return r;
+        if (r == 0 || isempty(value)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!term_env_valid(value))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(value);
+        return 1;
+}
+
+int proc_cmdline_console_term(char **ret) {
+        _cleanup_free_ char *resolved = NULL, *term = NULL;
+        int r;
+
+        assert(ret);
+
+        r = resolve_dev_console(&resolved);
+        if (r < 0)
+                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+        else if (!tty_is_vc(resolved)) {
+                r = proc_cmdline_tty_term(resolved, &term);
+                if (r == -EINVAL)
+                        log_debug("Ignoring invalid terminal type for '%s' from kernel cmdline", resolved);
+                else if (r < 0) {
+                        if (r == -ENOMEM)
+                                return r;
+                        log_debug_errno(r, "Failed to read TERM for '%s' from cmdline, ignoring: %m", resolved);
+                }
+                else if (r > 0)
+                        goto found;
+        }
+
+        r = proc_cmdline_tty_term("/dev/console", &term);
+        if (r == -EINVAL) {
+                log_debug("Ignoring invalid terminal type for 'console' from kernel cmdline");
+                r = 0;
+        }
+        if (r < 0) {
+                if (r == -ENOMEM)
+                        return r;
+                log_debug_errno(r, "Failed to read TERM for 'console' from cmdline, ignoring: %m");
+                r = 0;
+        }
+        if (r == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+found:
+        *ret = TAKE_PTR(term);
+        return 1;
+}
+
 /* intended to be used as a SIGWINCH sighandler */
 void columns_lines_cache_reset(int signum) {
         cached_columns = 0;
