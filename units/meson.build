@@ -217,7 +217,10 @@ units = [
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
         { 'file' : 'sigpwr.target' },
-        { 'file' : 'sleep.target' },
+        {
+          'file' : 'sleep.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'slices.target' },
         { 'file' : 'smartcard.target' },
         { 'file' : 'sockets.target' },
@@ -228,7 +231,10 @@ units = [
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'suspend.target' },
+        {
+          'file' : 'suspend.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'swap.target' },
         {
           'file' : 'sys-fs-fuse-connections.mount',
@@ -923,7 +929,10 @@ units = [
           'file' : 'systemd-suspend-then-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'systemd-suspend.service.in' },
+        {
+          'file' : 'systemd-suspend.service.in',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         {
           'file' : 'systemd-sysctl.service.in',
           'symlinks' : ['sysinit.target.wants/'],
