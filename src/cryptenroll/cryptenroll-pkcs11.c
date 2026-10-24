@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "cryptenroll-pkcs11.h"
 #include "crypto-util.h"
+#include "cryptsetup-pkcs11.h"
 #include "cryptsetup-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "pkcs11-util.h"
 
@@ -123,5 +126,83 @@ int enroll_pkcs11(const EnrollContext *c, struct crypt_device *cd, const struct 
         return keyslot;
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 key enrollment not supported.");
+#endif
+}
+
+int load_volume_key_pkcs11(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                struct iovec *ret_vk) {
+
+#if HAVE_P11KIT
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL;
+        _cleanup_free_ char *discovered_uri = NULL;
+        _cleanup_free_ void *discovered_key = NULL;
+        size_t decrypted_key_size, discovered_key_size = 0;
+        struct iovec key_data;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
+        ssize_t passphrase_size;
+        const char *node, *uri;
+        int r, keyslot = -1;
+
+        assert_se(c);
+        assert_se(c->node);
+        assert_se(cd);
+        assert_se(ret_vk);
+
+        assert_se(node = sym_crypt_get_device_name(cd));
+
+        /* Discover the (single) "systemd-pkcs11" JSON token enrolled in the LUKS2 header, which carries
+         * the PKCS#11 URI the key was enrolled for and the RSA-encrypted secret to decrypt via that
+         * token. This is the same metadata systemd-cryptsetup itself uses to unlock at boot. */
+        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &rsa_padding, &keyslot);
+        if (r == -ENOTUNIQ)
+                return log_error_errno(r, "Multiple PKCS#11 tokens enrolled, cannot automatically determine which to unlock with.");
+        if (r == -ENXIO)
+                return log_error_errno(r, "No PKCS#11 token enrolled in LUKS2 header, cannot unlock via PKCS#11.");
+        if (r < 0)
+                return r;
+
+        /* If the user passed an explicit URI, use it to select the physical PKCS#11 slot/module (useful
+         * if multiple physical tokens are plugged in simultaneously), but still use the encrypted key
+         * blob we found in the LUKS2 header. */
+        uri = c->unlock_pkcs11_token_uri ?: discovered_uri;
+        key_data = IOVEC_MAKE(discovered_key, discovered_key_size);
+
+        r = decrypt_pkcs11_key(
+                        node,
+                        node,
+                        uri,
+                        rsa_padding,
+                        /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0,
+                        &key_data,
+                        /* until= */ 0,
+                        c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
+                        &decrypted_key, &decrypted_key_size);
+        if (r == -EAGAIN)
+                return log_error_errno(r, "PKCS#11 token not found. Please plug it in and try again.");
+        if (r < 0)
+                return r;
+
+        /* Because cryptenroll requires a LUKS header, we can assume that this device is not a PLAIN
+         * device. In this case, we need to base64 encode the secret to use as the passphrase. */
+        passphrase_size = base64mem(decrypted_key, decrypted_key_size, &passphrase);
+        if (passphrase_size < 0)
+                return log_oom();
+
+        r = sym_crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
+                        passphrase,
+                        passphrase_size);
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via PKCS#11 token failed: %m");
+
+        return r;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 unlocking not supported.");
 #endif
 }

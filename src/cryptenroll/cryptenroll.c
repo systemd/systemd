@@ -65,6 +65,7 @@ static char *arg_unlock_keyfile = NULL;
 static UnlockType arg_unlock_type = UNLOCK_PASSWORD;
 static char *arg_unlock_fido2_device = NULL;
 static char *arg_unlock_tpm2_device = NULL;
+static char *arg_unlock_pkcs11_token_uri = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_fido2_salt_file = NULL;
@@ -105,6 +106,7 @@ assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_keyfile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_unlock_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_salt_file, freep);
@@ -174,6 +176,7 @@ void enroll_context_done(EnrollContext *c) {
         c->unlock_keyfile = mfree(c->unlock_keyfile);
         c->unlock_fido2_device = mfree(c->unlock_fido2_device);
         c->unlock_tpm2_device = mfree(c->unlock_tpm2_device);
+        c->unlock_pkcs11_token_uri = mfree(c->unlock_pkcs11_token_uri);
         c->unlock_password = erase_and_free(c->unlock_password);
         c->passphrase = erase_and_free(c->passphrase);
         c->recovery_key = erase_and_free(c->recovery_key);
@@ -478,6 +481,28 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_unlock_type = UNLOCK_TPM2;
                         arg_unlock_tpm2_device = TAKE_PTR(device);
+                        break;
+                }
+
+                OPTION_LONG("unlock-pkcs11-token-uri", "URI|auto",
+                            "Use a PKCS#11 token to unlock the volume"): {
+                        _cleanup_free_ char *uri = NULL;
+
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        if (!streq(opts.arg, "auto")) {
+                                if (!pkcs11_uri_valid(opts.arg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 URI: %s", opts.arg);
+
+                                uri = strdup(opts.arg);
+                                if (!uri)
+                                        return log_oom();
+                        }
+
+                        arg_unlock_type = UNLOCK_PKCS11;
+                        arg_unlock_pkcs11_token_uri = TAKE_PTR(uri);
                         break;
                 }
 
@@ -925,6 +950,10 @@ int prepare_luks(
                 r = load_volume_key_tpm2(c, cd, &vk);
                 break;
 
+        case UNLOCK_PKCS11:
+                r = load_volume_key_pkcs11(c, cd, &vk);
+                break;
+
         case UNLOCK_HEADLESS:
                 if (tpm2_is_mostly_supported()) {
                         log_info("TPM2 support available, trying unlocking via TPM2…");
@@ -979,6 +1008,7 @@ static int enroll_context_from_args(EnrollContext *c) {
             strdup_to(&c->unlock_keyfile, arg_unlock_keyfile) < 0 ||
             strdup_to(&c->unlock_fido2_device, arg_unlock_fido2_device) < 0 ||
             strdup_to(&c->unlock_tpm2_device, arg_unlock_tpm2_device) < 0 ||
+            strdup_to(&c->unlock_pkcs11_token_uri, arg_unlock_pkcs11_token_uri) < 0 ||
             strdup_to(&c->fido2_device, arg_fido2_device) < 0 ||
             strdup_to(&c->fido2_salt_file, arg_fido2_salt_file) < 0 ||
             strdup_to(&c->pkcs11_token_uri, arg_pkcs11_token_uri) < 0 ||
