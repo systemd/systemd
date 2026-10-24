@@ -665,6 +665,13 @@ testcase_bind_user() {
                    --bind-user=nspawn-bind-user-1 \
                    bash -xec 'test -e /run/host/home/nspawn-bind-user-1/foo'
 
+    # --bind-user-group= does not check that the group exists, and is what makes the membership files appear
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-group=nspawn-bind-group \
+                   bash -xec 'test -e /run/host/userdb/nspawn-bind-user-1:nspawn-bind-group.membership'
+
     systemd-nspawn --directory="$root" \
                    --private-users=pick \
                    --private-users-ownership=chown \
