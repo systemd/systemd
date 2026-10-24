@@ -144,6 +144,21 @@
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>Replace the machine ID even if <filename>/etc/machine-id</filename> already holds
+        a valid one, or the <literal>uninitialized</literal> marker. The new ID is always taken from the
+        random pool. May not be combined with <option>--commit</option>.</para>
+
+        <para>Requires <option>--root=</option> or <option>--image=</option>: this is for giving a fresh
+        identity to an offline image, so that systems installed by cloning it do not all share the ID baked
+        into it. Changing the machine ID of a running system is not supported, as it is cached by everything
+        that has read it, PID 1 included.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
