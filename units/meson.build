@@ -389,8 +389,14 @@ units = [
         },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
-        { 'file' : 'systemd-growfs-root.service.in' },
-        { 'file' : 'systemd-growfs@.service.in' },
+        {
+          'file' : 'systemd-growfs-root.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
+        {
+          'file' : 'systemd-growfs@.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
         { 'file' : 'systemd-halt.service' },
         {
           'file' : 'systemd-hibernate-clear.service.in',
