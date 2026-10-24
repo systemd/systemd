@@ -1028,24 +1028,8 @@ int ethtool_set_nic_cqe_coalesce_settings(
                         return r;
         }
 
-        r = sd_genl_message_new(*genl, ETHTOOL_GENL_NAME, ETHTOOL_MSG_COALESCE_SET, &m);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_open_container(m, ETHTOOL_A_COALESCE_HEADER);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_DEV_INDEX, ifindex);
-        if (r < 0)
-                return r;
-
         /* ETHTOOL_MSG_COALESCE_SET does not send a reply, but make sure we only ever get the ACK. */
-        r = sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_FLAGS, ETHTOOL_FLAG_OMIT_REPLY);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_close_container(m);
+        r = sd_genl_message_new_ethtool(*genl, ETHTOOL_MSG_COALESCE_SET, ifindex, ETHTOOL_FLAG_OMIT_REPLY, &m);
         if (r < 0)
                 return r;
 
