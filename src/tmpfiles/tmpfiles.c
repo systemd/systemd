@@ -966,6 +966,28 @@ static mode_t process_mask_perms(mode_t mode, mode_t current) {
         return mode;
 }
 
+static int handle_perms_error(
+                int r,
+                mode_t st_mode,
+                const char *op,
+                const char *path) {
+
+        assert(r < 0);
+        assert(op);
+        assert(path);
+
+        /* Only character and block devices tolerate privilege errors (e.g. unprivileged user
+         * namespaces or containers where static device nodes are bind-mounted from the host).
+         * Errors on regular files, directories, and non-privilege errors remain fatal.
+         * Note: ACL and xattr modifications are handled separately in fd_set_acls/fd_set_xattrs. */
+        if ((S_ISCHR(st_mode) || S_ISBLK(st_mode)) && ERRNO_IS_PRIVILEGE(r)) {
+                log_warning_errno(r, "Lacking privilege to change permissions on device node %s, skipping: %m", path);
+                return 0;
+        }
+
+        return log_error_errno(r, "%s() of %s failed: %m", op, path);
+}
+
 static int fd_set_perms(
                 Context *c,
                 Item *i,
@@ -1030,8 +1052,11 @@ static int fd_set_perms(
                                            "%s \"%s\" to mode %o", path, m);
                                 if (!arg_dry_run) {
                                         r = fchmod_opath(fd, m);
-                                        if (r < 0)
-                                                return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                                        if (r < 0) {
+                                                r = handle_perms_error(r, st->st_mode, "fchmod", path);
+                                                if (r < 0)
+                                                        return r;
+                                        }
                                 }
                         }
                 }
@@ -1045,8 +1070,11 @@ static int fd_set_perms(
                     fchownat(fd, "",
                              new_uid != st->st_uid ? new_uid : UID_INVALID,
                              new_gid != st->st_gid ? new_gid : GID_INVALID,
-                             AT_EMPTY_PATH) < 0)
-                        return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+                             AT_EMPTY_PATH) < 0) {
+                        r = handle_perms_error(-errno, st->st_mode, "fchownat", path);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         /* Now, apply the final mode. We do this in two cases: when the user set a mode explicitly, or after a
@@ -1058,8 +1086,11 @@ static int fd_set_perms(
                         log_action("Would change", "Changing", "%s \"%s\" to mode %o", path, new_mode);
                         if (!arg_dry_run) {
                                 r = fchmod_opath(fd, new_mode);
-                                if (r < 0)
-                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                                if (r < 0) {
+                                        r = handle_perms_error(r, st->st_mode, "fchmod", path);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
                 }
         }
