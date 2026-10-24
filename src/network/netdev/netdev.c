@@ -307,7 +307,7 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
-static int netdev_attach(NetDev *netdev) {
+int netdev_attach(NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -1068,8 +1068,9 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
-        /* skip out early if configuration does not match the environment */
-        if (!condition_test_list_net(netdev_raw->conditions, environ, NULL, NULL, NULL))
+        /* Skip out early if configuration does not match the environment, unless in test mode. */
+        if (!manager->test_mode &&
+            !condition_test_list_net(netdev_raw->conditions, environ, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "%s: Conditions in the file do not match the system environment, skipping.", filename);
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID)
