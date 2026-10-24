@@ -115,6 +115,7 @@ foreach dirname : [
         'TEST-95-DBUS-RECONNECT',
         'TEST-96-PTYBROKER',
         'TEST-97-VMSPAWN-MEMORY',
+        'TEST-98-KEYRING-SETUP',
 ]
         subdir(dirname)
 endforeach
