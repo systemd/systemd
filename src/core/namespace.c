@@ -2619,7 +2619,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
-        MStackFlags mstack_flags = 0;
+        /* Defer the stack's own bind@/robind@/tmpfs@ entries past apply_mounts(), so the service
+         * manager's mounts cannot silently cover one. Set once here rather than OR-ed in at each
+         * use: the assembly phase and the deferred phase must agree, and two copies can drift. */
+        MStackFlags mstack_flags = MSTACK_DEFER_MOUNT;
         int r;
 
         assert(p);
@@ -2635,7 +2638,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         bool ro = namespace_read_only(p);
         if (ro) {
                 dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
-                mstack_flags |= MSTACK_RDONLY;
+                /* BINDS_RDONLY alongside RDONLY: the two are independent by design (see mstack.h), and
+                 * a read-only namespace wants the bind@ entries read-only too - including at
+                 * mstack_open_images() time, where a writable dissect would run fsck()/growfs against
+                 * the backing image. */
+                mstack_flags |= MSTACK_RDONLY|MSTACK_BINDS_RDONLY;
         }
 
         _cleanup_close_ int _root_mount_fd = -EBADF;
@@ -3188,7 +3195,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags,
+                                       /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return r;
 
@@ -3211,6 +3219,17 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         r = apply_mounts(&ml, root, p, reterr_path);
         if (r < 0)
                 return r;
+
+        /* And only now the stack's own bind@/robind@/tmpfs@ entries, so that they land on top of what we
+         * just mounted rather than under it. PrivateTmp= and friends still get to establish their
+         * filesystems; an entry naming the same path is then layered over the result, which is what
+         * writing it down explicitly asks for. Attaching them before apply_mounts() would let those
+         * mounts cover the entry without a word. */
+        if (p->rootfs && p->rootfs->mstack_loaded) {
+                r = mstack_apply_bind_mounts_late(p->rootfs->mstack_loaded, root, mstack_flags);
+                if (r < 0)
+                        return r;
+        }
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
