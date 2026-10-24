@@ -77,6 +77,16 @@ int sd_pid_get_machine_name(pid_t pid, char **ret_machine);
  * hierarchy. */
 int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup);
 
+/* Get systemd non-slice unit (i.e. service) control group from PID,
+ * for system services. This will return an error for non-service
+ * processes. */
+int sd_pid_get_unit_cgroup(pid_t pid, char **ret_cgroup);
+
+/* Get systemd non-slice unit (i.e. service) control group from PID,
+ * for user services. This will return an error for non-service
+ * processes. */
+int sd_pid_get_user_unit_cgroup(pid_t pid, char **ret_cgroup);
+
 /* Equivalent to the corresponding sd_pid_get* functions, but take a
  * PIDFD instead of a PID, to ensure there can be no possible PID
  * recycle issues before/after the calls. */
@@ -88,6 +98,8 @@ int sd_pidfd_get_slice(int pidfd, char **ret_slice);
 int sd_pidfd_get_user_slice(int pidfd, char **ret_slice);
 int sd_pidfd_get_machine_name(int pidfd, char **ret_machine);
 int sd_pidfd_get_cgroup(int pidfd, char **ret_cgroup);
+int sd_pidfd_get_unit_cgroup(int pidfd, char **ret_cgroup);
+int sd_pidfd_get_user_unit_cgroup(int pidfd, char **ret_cgroup);
 
 /* Similar to sd_pid_get_session(), but retrieves data about the peer
  * of a connected AF_UNIX socket */
