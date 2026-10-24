@@ -278,8 +278,12 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Instead of sending the reply back right away, we just remember that we need to and then send it
          * after the reload is finished. That way the caller knows when the reload finished. */
 
-        assert(!manager->pending_reload_message_vl);
-        assert(!manager->pending_reload_message_dbus);
+        /* See method_reload(). */
+        if (manager->pending_reload_message_vl || manager->pending_reload_message_dbus) {
+                log_warning("Reloading request rejected, reply to previous reload still pending.");
+                return sd_varlink_error_errno(link, -EBUSY);
+        }
+
         manager->pending_reload_message_vl = sd_varlink_ref(link);
 
         manager->objective = MANAGER_RELOAD;
