@@ -291,6 +291,31 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
+static int get_auth_cn(gnutls_x509_crt_t client_cert, char **buf) {
+        size_t len = 0;
+        int r;
+
+        assert(buf);
+        assert(*buf == NULL);
+
+        r = sym_gnutls_x509_crt_get_dn_by_oid(client_cert, GNUTLS_OID_X520_COMMON_NAME, 0, 0, NULL, &len);
+        if (r == GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE) {
+                log_error("gnutls_x509_crt_get_dn_by_oid failed, common name (2.5.4.3) not available");
+                return r;
+        }
+        if (r != GNUTLS_E_SHORT_MEMORY_BUFFER) {
+                log_error("gnutls_x509_crt_get_dn_by_oid failed");
+                return r;
+        }
+
+        *buf = malloc(len);
+        if (!*buf)
+                return log_oom();
+
+        sym_gnutls_x509_crt_get_dn_by_oid(client_cert, GNUTLS_OID_X520_COMMON_NAME, 0, 0, *buf, &len);
+        return 0;
+}
+
 static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
         assert(p);
 
@@ -298,7 +323,7 @@ static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
                 sym_gnutls_x509_crt_deinit(*p);
 }
 
-int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
+int check_permissions(struct MHD_Connection *connection, int *code, char **hostname, bool use_common_name) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
         _cleanup_(gnutls_x509_crt_deinitp) gnutls_x509_crt_t client_cert = NULL;
@@ -332,11 +357,20 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
                 return -EPERM;
         }
 
-        r = get_auth_dn(client_cert, &buf);
-        if (r < 0) {
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
-                                    "Failed to determine distinguished name from certificate");
-                return -EPERM;
+        if (use_common_name) {
+                r = get_auth_cn(client_cert, &buf);
+                if (r < 0) {
+                        *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, 
+                                            "Failed to determine common name from certificate");
+                        return -EPERM;
+                }
+        } else {
+                r = get_auth_dn(client_cert, &buf);
+                if (r < 0) {
+                        *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
+                                            "Failed to determine distinguished name from certificate");
+                        return -EPERM;
+                }
         }
 
         log_debug("Connection from %s", buf);
@@ -354,7 +388,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 }
 
 #else
-_noreturn_ int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
+_noreturn_ int check_permissions(struct MHD_Connection *connection, int *code, char **hostname, bool use_common_name) {
         assert_not_reached();
 }
 
