@@ -1795,6 +1795,7 @@ conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-
 
 conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
 conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
+conf.set10('ENABLE_GROWFS', get_option('growfs').allowed())
 
 foreach tuple : [
                 ['analyze'],
@@ -3446,6 +3447,7 @@ foreach tuple : [
         ['efi'],
         ['environment.d'],
         ['firstboot'],
+        ['growfs'],
         ['hibernate'],
         ['homed'],
         ['hostnamed'],

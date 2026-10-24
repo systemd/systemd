@@ -181,6 +181,8 @@ option('environment-d', type : 'boolean',
        description : 'support for environment.d')
 option('firstboot', type : 'boolean',
        description : 'install systemd-firstboot')
+option('growfs', type : 'feature',
+       description : 'install systemd-growfs, systemd-makefs, and associated files')
 option('hibernate', type : 'boolean',
        description : 'support for hibernation')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
