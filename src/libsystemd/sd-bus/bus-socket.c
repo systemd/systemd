@@ -23,12 +23,14 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "notify-recv.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -1173,7 +1175,39 @@ int bus_socket_connect(sd_bus *b) {
         return bus_socket_start_auth(b);
 }
 
+static int bus_socket_prepare_notify(char **ret_dir, char **ret_path) {
+        _cleanup_(rmdir_and_freep) char *dir = NULL;
+        _cleanup_(unlink_and_freep) char *path = NULL;
+        _cleanup_free_ char *template = NULL;
+        const char *tmp;
+        int r;
+
+        r = tmp_dir(&tmp);
+        if (r < 0)
+                return r;
+        template = path_join(tmp, "sd-busexec-XXXXXX");
+        if (!template)
+                return -ENOMEM;
+        r = mkdtemp_malloc(template, &dir);
+        if (r < 0)
+                return r;
+        path = path_join(dir, "notify");
+        if (!path)
+                return -ENOMEM;
+
+        _cleanup_close_ int fd = notify_socket_prepare_fd(path, /* accept_fds= */ false, /* ret_path= */ NULL);
+        if (fd < 0)
+                return fd;
+
+        *ret_dir = TAKE_PTR(dir);
+        *ret_path = TAKE_PTR(path);
+        return TAKE_FD(fd);
+}
+
 int bus_socket_exec(sd_bus *b) {
+        _cleanup_close_ int notify_fd = -EBADF;
+        _cleanup_(rmdir_and_freep) char *notify_dir = NULL;
+        _cleanup_(unlink_and_freep) char *notify_path = NULL;
         int s[2], r;
 
         assert(b);
@@ -1194,9 +1228,16 @@ int bus_socket_exec(sd_bus *b) {
                           b->exec_argv && !line ? "…" : "");
         }
 
+        /* Reserve the transport descriptors before attempting optional error reporting. */
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
                 return -errno;
+
+        /* A private directory prevents other users from filling the notification queue and blocking
+         * the transport's sd_notify() calls. */
+        notify_fd = bus_socket_prepare_notify(&notify_dir, &notify_path);
+        if (notify_fd < 0)
+                log_debug_errno(notify_fd, "Failed to prepare exec transport notification socket, proceeding without it: %m");
 
         r = pidref_safe_fork_full(
                         "(sd-busexec)",
@@ -1211,14 +1252,24 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
+                if (notify_path) {
+                        if (setenv("NOTIFY_SOCKET", notify_path, 1) < 0)
+                                (void) unsetenv("NOTIFY_SOCKET");
+                } else
+                        (void) unsetenv("NOTIFY_SOCKET");
+
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
                 else
                         execvp(b->exec_path, STRV_MAKE(b->exec_path));
 
+                (void) sd_notifyf(/* unset_environment= */ false, "ERRNO=%i", errno);
                 _exit(EXIT_FAILURE);
         }
 
+        b->busexec_notify_fd = TAKE_FD(notify_fd);
+        b->busexec_notify_path = TAKE_PTR(notify_path);
+        b->busexec_notify_dir = TAKE_PTR(notify_dir);
         safe_close(s[1]);
         b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 

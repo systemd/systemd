@@ -136,6 +136,7 @@ sd_network_sources = files(
 ############################################################
 
 libsystemd_sources = files(
+        'notify-recv.c',
         'sd-hwdb/sd-hwdb.c',
         'sd-resolve/sd-resolve.c',
 ) + sd_journal_sources + sd_id128_sources + sd_daemon_sources \
