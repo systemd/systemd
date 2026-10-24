@@ -1676,6 +1676,15 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         /* Write a log message noting the unit or process who requested the Reload() */
         log_caller(message, m, "Reload");
 
+        /* The reply to the previous Reload() is normally sent before the next request is dispatched.
+         * If it is still pending, refuse rather than drop it. Do this before the rate limit check, so
+         * that a refused request doesn't use up a token. */
+        if (m->pending_reload_message_dbus || m->pending_reload_message_vl) {
+                log_warning("Reloading request rejected, reply to previous reload still pending.");
+                return sd_bus_error_set_errnof(reterr_error, EBUSY,
+                                               "Reload() request rejected, previous reload still in progress.");
+        }
+
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
@@ -1689,8 +1698,6 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message_dbus);
-        assert(!m->pending_reload_message_vl);
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
