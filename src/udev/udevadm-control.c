@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "creds-util.h"
 #include "log.h"
@@ -26,6 +27,7 @@ static bool arg_ping = false;
 static bool arg_reload = false;
 static bool arg_exit = false;
 static int arg_max_children = -1;
+static bool arg_get_log_level = false;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
 static int arg_trace = -1;
@@ -75,6 +77,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_log_level = log_level_from_string(opts.arg);
                         if (arg_log_level < 0)
                                 return log_error_errno(arg_log_level, "Failed to parse log level '%s': %m", opts.arg);
+                        break;
+
+                OPTION_LONG("get-log-level", NULL, "Get the udev log level for the daemon"):
+                        arg_get_log_level = true;
                         break;
 
                 OPTION('s', "stop-exec-queue", NULL, "Do not execute events, queue only"):
@@ -169,6 +175,31 @@ static int send_control_commands(void) {
                 r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters= */ NULL, /* reply= */ NULL);
                 if (r < 0)
                         return r;
+        }
+
+        if (arg_get_log_level) {
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        {"level", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY},
+                        {}
+                };
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ char *level_str = NULL;
+                int64_t level;
+
+                r = varlink_call_and_log(link, "io.systemd.service.GetLogLevel", /* parameters = */ NULL, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_dispatch(link, v, dispatch_table, &level);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dispatch server response: %m");
+
+                r = log_level_to_string_alloc(r, &level_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert log level to string: %m");
+
+                printf("%s\n", level_str);
         }
 
         if (arg_log_level >= 0) {
