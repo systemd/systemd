@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -9,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "nspawn.h"
@@ -17,22 +19,21 @@
 #include "strv.h"
 #include "user-record.h"
 #include "group-record.h"
-#include "path-util.h"
 #include "string-util.h"
 #include "user-util.h"
 
 static int write_and_symlink(
-                const char *root,
+                int dir_fd,
                 sd_json_variant *v,
                 const char *name,
                 uid_t uid,
                 const char *suffix,
                 WriteStringFileFlags extra_flags) {
 
-        _cleanup_free_ char *j = NULL, *f = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *j = NULL, *f = NULL, *q = NULL;
         int r;
 
-        assert(root);
+        assert(dir_fd >= 0);
         assert(v);
         assert(name);
         assert(uid_is_valid(uid));
@@ -46,34 +47,31 @@ static int write_and_symlink(
         if (!f)
                 return log_oom();
 
-        p = path_join(root, "/run/host/userdb/", f);
-        if (!p)
+        if (asprintf(&q, UID_FMT "%s", uid, suffix) < 0)
                 return log_oom();
 
-        if (asprintf(&q, "%s/run/host/userdb/" UID_FMT "%s", root, uid, suffix) < 0)
-                return log_oom();
+        if (symlinkat(f, dir_fd, q) < 0)
+                return log_error_errno(errno, "Failed to create symlink '/run/host/userdb/%s': %m", q);
 
-        if (symlink(f, q) < 0)
-                return log_error_errno(errno, "Failed to create symlink '%s': %m", q);
-
-        r = userns_lchown(q, 0, 0);
+        r = userns_chown_at(dir_fd, q, 0, 0, AT_SYMLINK_NOFOLLOW);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", q);
+                return log_error_errno(r, "Failed to adjust access mode of '/run/host/userdb/%s': %m", q);
 
-        r = write_string_file(p, j, WRITE_STRING_FILE_CREATE|extra_flags);
+        r = write_string_file_at(dir_fd, f, j, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_NOFOLLOW|extra_flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", p);
+                return log_error_errno(r, "Failed to write /run/host/userdb/%s: %m", f);
 
-        r = userns_lchown(p, 0, 0);
+        r = userns_chown_at(dir_fd, f, 0, 0, AT_SYMLINK_NOFOLLOW);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
+                return log_error_errno(r, "Failed to adjust access mode of '/run/host/userdb/%s': %m", f);
 
         return 0;
 }
 
-static int write_membership(const char *root, const char *user, const char *group) {
+static int write_membership(int dir_fd, const char *user, const char *group) {
         int r;
 
+        assert(dir_fd >= 0);
         assert(user);
         assert(group);
 
@@ -81,26 +79,17 @@ static int write_membership(const char *root, const char *user, const char *grou
         if (!membership)
                 return log_oom();
 
-        _cleanup_free_ char *p = path_join("/run/host/userdb/", membership);
-        if (!p)
-                return log_oom();
-
-        _cleanup_close_ int fd = chase_and_open(
-                        p,
-                        root,
-                        CHASE_PREFIX_ROOT|CHASE_NO_AUTOFS,
-                        O_WRONLY|O_CREAT|O_CLOEXEC,
-                        /* ret_path= */ NULL);
+        _cleanup_close_ int fd = xopenat(dir_fd, membership, O_WRONLY|O_CREAT|O_NOFOLLOW|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to create %s: %m", p);
+                return log_error_errno(fd, "Failed to create /run/host/userdb/%s: %m", membership);
 
         r = userns_chown_at(fd, /* fname= */ NULL, /* uid= */ 0, /* gid= */ 0, /* flags= */ 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
+                return log_error_errno(r, "Failed to adjust access mode of '/run/host/userdb/%s': %m", membership);
 
         r = loop_write(fd, "{}\n", SIZE_MAX);
         if (r < 0)
-                return log_error_errno(r, "Failed to write empty JSON object into %s: %m", p);
+                return log_error_errno(r, "Failed to write empty JSON object into /run/host/userdb/%s: %m", membership);
 
         return 0;
 }
@@ -132,6 +121,17 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/userdb: %m");
 
+        /* Resolve the directory once within the container's root, so that symlinks in the image cannot
+         * redirect our writes onto the host. */
+        _cleanup_close_ int dir_fd = chase_and_open(
+                        "/run/host/userdb",
+                        root,
+                        CHASE_PREFIX_ROOT|CHASE_NO_AUTOFS,
+                        O_DIRECTORY|O_CLOEXEC,
+                        /* ret_path= */ NULL);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open /run/host/userdb: %m");
+
         FOREACH_ARRAY(d, c->data, c->n_data) {
                 _cleanup_(group_record_unrefp) GroupRecord *stripped_group = NULL, *shadow_group = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *stripped_user = NULL, *shadow_user = NULL;
@@ -143,7 +143,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
 
                 if (!sd_json_variant_is_blank_object(shadow_group->json)) {
                         r = write_and_symlink(
-                                        root,
+                                        dir_fd,
                                         shadow_group->json,
                                         d->payload_group->group_name,
                                         d->payload_group->gid,
@@ -159,7 +159,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                         return log_error_errno(r, "Failed to strip privileged information from group record: %m");
 
                 r = write_and_symlink(
-                                root,
+                                dir_fd,
                                 stripped_group->json,
                                 d->payload_group->group_name,
                                 d->payload_group->gid,
@@ -169,7 +169,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                         return r;
 
                 STRV_FOREACH(u, stripped_group->members) {
-                        r = write_membership(root, *u, stripped_group->group_name);
+                        r = write_membership(dir_fd, *u, stripped_group->group_name);
                         if (r < 0)
                                 return r;
                 }
@@ -181,7 +181,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
 
                 if (!sd_json_variant_is_blank_object(shadow_user->json)) {
                         r = write_and_symlink(
-                                        root,
+                                        dir_fd,
                                         shadow_user->json,
                                         d->payload_user->user_name,
                                         d->payload_user->uid,
@@ -197,7 +197,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                         return log_error_errno(r, "Failed to strip privileged information from user record: %m");
 
                 r = write_and_symlink(
-                                root,
+                                dir_fd,
                                 stripped_user->json,
                                 d->payload_user->user_name,
                                 d->payload_user->uid,
@@ -207,7 +207,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                         return r;
 
                 STRV_FOREACH(g, stripped_user->member_of) {
-                        r = write_membership(root, stripped_user->user_name, *g);
+                        r = write_membership(dir_fd, stripped_user->user_name, *g);
                         if (r < 0)
                                 return r;
                 }
