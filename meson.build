@@ -1793,6 +1793,27 @@ conf.set10('ENABLE_NSPAWN', feature.allowed())
 
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
+conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
+conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
+conf.set10('ENABLE_GROWFS', get_option('growfs').allowed())
+conf.set10('ENABLE_SLEEP', get_option('sleep').allowed())
+conf.set10('ENABLE_STORAGE', get_option('storage').allowed())
+
+have = get_option('integritysetup').require(
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        error_message : 'libcryptsetup required for systemd-integritysetup').allowed()
+conf.set10('ENABLE_INTEGRITYSETUP', have)
+
+have = get_option('veritysetup').require(
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        error_message : 'libcryptsetup required for systemd-veritysetup').allowed()
+conf.set10('ENABLE_VERITYSETUP', have)
+
+have = get_option('validatefs').require(
+        conf.get('HAVE_BLKID') == 1,
+        error_message : 'blkid required for systemd-validatefs').allowed()
+conf.set10('ENABLE_VALIDATEFS', have)
+
 foreach tuple : [
                 ['analyze'],
                 ['backlight'],
@@ -3434,13 +3455,16 @@ foreach tuple : [
 
         # components
         ['backlight'],
+        ['battery-check'],
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['clonesetup'],
         ['coredump'],
         ['efi'],
         ['environment.d'],
         ['firstboot'],
+        ['growfs'],
         ['hibernate'],
         ['homed'],
         ['hostnamed'],
@@ -3448,6 +3472,7 @@ foreach tuple : [
         ['imds'],
         ['importd'],
         ['initrd'],
+        ['integritysetup'],
         ['kernel-install'],
         ['localed'],
         ['logind'],
@@ -3471,6 +3496,8 @@ foreach tuple : [
         ['resolve'],
         ['rfkill'],
         ['rust',                   have_rust],
+        ['sleep'],
+        ['storage'],
         ['sysext'],
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
@@ -3482,7 +3509,9 @@ foreach tuple : [
         ['timesyncd'],
         ['tmpfiles'],
         ['userdb'],
+        ['validatefs'],
         ['vconsole'],
+        ['veritysetup'],
         ['vmspawn'],
         ['xdg-autostart'],
 

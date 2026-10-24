@@ -45,7 +45,7 @@ foreach item : [
         ['_sd_machines',              'ENABLE_MACHINED'],
         ['_sd_outputmodes',           ''],
         ['_sd_unit_files',            ''],
-        ['_storagectl',               ''],
+        ['_storagectl',               'ENABLE_STORAGE'],
         ['_systemd',                  ''],
         ['_systemd-analyze',          ''],
         ['_systemd-cryptenroll',      'HAVE_LIBCRYPTSETUP'],

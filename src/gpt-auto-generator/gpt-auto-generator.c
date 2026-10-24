@@ -205,7 +205,7 @@ static int add_veritysetup(
                 const char *mount_opts,
                 MountPointFlags flags) {
 
-#if HAVE_LIBCRYPTSETUP
+#if ENABLE_VERITYSETUP
         int r;
 
         assert(id);
@@ -305,7 +305,7 @@ static int add_veritysetup(
 
         return 0;
 #else
-        log_warning("Compiled without libcryptsetup support, skipping verity setup for '%s'.", id);
+        log_warning("Compiled without systemd-veritysetup support, skipping verity setup for '%s'.", id);
         return 0;
 #endif
 }

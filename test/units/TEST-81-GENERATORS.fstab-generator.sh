@@ -284,7 +284,12 @@ check_fstab_mount_units() {
                 link_endswith "$out_dir/${unit}.wants/$service" "/lib/systemd/system/systemd-growfs@.service"
             elif [[ "$opt" == x-systemd.validatefs ]]; then
                 service="$(systemd-escape --template=systemd-validatefs@.service --path "$where")"
-                link_endswith "$out_dir/${unit}.wants/$service" "/lib/systemd/system/systemd-validatefs@.service"
+                if [[ -x /usr/lib/systemd/systemd-validatefs ]]; then
+                    link_endswith "$out_dir/${unit}.wants/$service" "/lib/systemd/system/systemd-validatefs@.service"
+                else
+                    test ! -e "$out_dir/${unit}.wants/$service"
+                    test ! -L "$out_dir/${unit}.wants/$service"
+                fi
             elif [[ "$opt" == bg ]] && [[ "$fstype" =~ ^(nfs|nfs4)$ ]]; then
                 # We "convert" nfs bg mounts to fg, so we can do the job-control
                 # ourselves
