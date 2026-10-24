@@ -205,7 +205,7 @@ units = [
         },
         {
           'file' : 'remote-veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
@@ -263,7 +263,7 @@ units = [
         {
           'file' : 'system-systemd-veritysetup.slice',
           'name' : 'system-systemd\\x2dveritysetup.slice',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         { 'file' : 'system-update-cleanup.service' },
         { 'file' : 'system-update-pre.target' },
@@ -1196,11 +1196,11 @@ units = [
         },
         {
           'file' : 'veritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         {
           'file' : 'veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
 ]
