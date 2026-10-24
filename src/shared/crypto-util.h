@@ -454,6 +454,8 @@ int openssl_load_x509_certificate(
 
 int openssl_load_x509_certificate_from_pem(const struct iovec *pem, X509 **ret, bool *ret_more);
 
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret);
+
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,

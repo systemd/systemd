@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>          /* IWYU pragma: keep */
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -246,6 +247,42 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
                 p += k;
                 nbytes -= k;
         } while (nbytes > 0);
+
+        return 0;
+}
+
+int loop_send(int fd, const void *buf, size_t nbytes, int flags) {
+        const uint8_t *p = buf;
+        int r;
+
+        assert(fd >= 0);
+        assert(buf || nbytes == 0);
+
+        while (nbytes > 0) {
+                /* On a blocking socket, send() would block the thread, and with it every fiber of the thread.
+                 * MSG_DONTWAIT makes send() fail with EAGAIN instead, and fd_wait_for_event() then suspends
+                 * only the current fiber. */
+                ssize_t k = send(fd, p, nbytes, flags|MSG_DONTWAIT);
+                if (k < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        if (errno != EAGAIN)
+                                return -errno;
+
+                        /* We ignore POLLERR and POLLHUP here. The next send() reports the error. */
+                        r = fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
+                        if (r < 0 && r != -EINTR)
+                                return r;
+
+                        continue;
+                }
+                if (_unlikely_(k == 0))
+                        return -EIO;
+
+                assert((size_t) k <= nbytes);
+                p += k;
+                nbytes -= k;
+        }
 
         return 0;
 }
