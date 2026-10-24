@@ -65,7 +65,7 @@ units = [
         },
         {
           'file' : 'systemd-battery-check.service.in',
-          'conditions' : ['ENABLE_INITRD'],
+          'conditions' : ['ENABLE_BATTERY_CHECK', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
         {
