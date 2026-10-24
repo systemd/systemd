@@ -239,6 +239,15 @@ int sd_genl_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, const char *fa
                       sd_netlink_destroy_t destroy_callback,
                       void *userdata, const char *description);
 
+/* genl (ethtool) */
+int sd_genl_message_new_ethtool(
+                sd_netlink *nl,
+                uint8_t cmd,
+                uint16_t header_attr,
+                int ifindex,
+                uint32_t ethtool_header_flags,
+                sd_netlink_message **ret);
+
 /* slot */
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_netlink_slot);
 
