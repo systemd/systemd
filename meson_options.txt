@@ -253,6 +253,8 @@ option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('sleep', type : 'feature',
        description : 'install systemd-sleep and associated files')
+option('storage', type : 'feature',
+       description : 'install systemd-storage-block, systemd-storage-fs, storagectl and associated files')
 option('storagetm', type : 'boolean',
        description : 'support for Storage Target Mode')
 option('sysext', type : 'boolean',
