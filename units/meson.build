@@ -15,6 +15,7 @@ units = [
         { 'file' : 'capsule.slice' },
         {
           'file' : 'clonesetup.target',
+          'conditions' : ['ENABLE_CLONESETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'console-getty.service.in' },

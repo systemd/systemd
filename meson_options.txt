@@ -167,6 +167,8 @@ option('battery-check', type : 'feature',
        description : 'install systemd-battery-check and associated files')
 option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
+option('clonesetup', type : 'feature',
+       description : 'install systemd-clonesetup and associated files')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('create-log-dirs', type : 'boolean',
