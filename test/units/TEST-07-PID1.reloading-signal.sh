@@ -13,11 +13,23 @@ set -o pipefail
 # not consume send_reloading_done before that happened, otherwise the
 # Reloading(false) signal is lost and clients waiting for it to detect the
 # end of the reexec time out.
+#
+# Replies to Reload() calls must not be held back until then: a second
+# Reload() arriving while the first reply was still pending used to trip an
+# assertion in method_reload()/vl_method_reload_manager() and freeze PID 1.
 
 MONITOR_LOG=/run/TEST-07-PID1-reloading-signal.log
 MONITOR_UNIT=
+DBUS_CGROUP=
+
+bus_freeze() {
+    [[ -n "$DBUS_CGROUP" ]] || return 0
+    echo "${1:?}" >"$DBUS_CGROUP/cgroup.freeze"
+}
 
 at_exit() {
+    # Thawing twice is harmless.
+    bus_freeze 0 2>/dev/null || :
     [[ -n "$MONITOR_UNIT" ]] && systemctl stop "$MONITOR_UNIT" 2>/dev/null || :
     rm -f "$MONITOR_LOG"
 }
@@ -69,5 +81,34 @@ stop_monitor
 # are re-added only after the asynchronous API bus setup finished.
 start_monitor
 systemctl daemon-reexec
+wait_for_reloading false
+stop_monitor
+
+# Reloads over D-Bus and Varlink must be answered while the reexecuted manager
+# waits for the GetId reply, and Reloading(false) must still follow. Freeze the
+# bus daemon via its cgroup: "systemctl freeze/thaw" go through the bus daemon
+# itself, so they cannot be used on it.
+start_monitor
+DBUS_CGROUP="/sys/fs/cgroup$(systemctl show -P ControlGroup dbus.service)"
+bus_freeze 1
+timeout 10 bash -c "until grep -q '^frozen 1$' $DBUS_CGROUP/cgroup.events; do sleep .1; done"
+systemctl daemon-reexec
+
+timeout 10 systemctl daemon-reload
+timeout 10 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+
+pids=()
+for _ in 1 2; do
+    timeout 15 systemctl daemon-reload &
+    pids+=("$!")
+    timeout 15 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}' &
+    pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+    wait "$pid"
+done
+
+bus_freeze 0
+DBUS_CGROUP=
 wait_for_reloading false
 stop_monitor
