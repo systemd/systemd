@@ -43,6 +43,7 @@ typedef struct Link {
 
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
+        usec_t current_dns_server_switched_usec;
         unsigned n_dns_servers;
 
         LIST_HEAD(DnsSearchDomain, search_domains);

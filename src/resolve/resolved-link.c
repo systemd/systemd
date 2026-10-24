@@ -3,6 +3,7 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
@@ -767,6 +768,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
         if (s)
                 log_link_debug(l, "Switching to DNS server %s.", strna(dns_server_string_full(s)));
 
+        assert_se(sd_event_now(l->manager->event, CLOCK_BOOTTIME, &l->current_dns_server_switched_usec) >= 0);
+
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
 
@@ -782,6 +785,16 @@ DnsServer *link_get_dns_server(Link *l) {
 
         if (!l->current_dns_server)
                 link_set_dns_server(l, l->dns_servers);
+
+        if (l->current_dns_server && l->current_dns_server != l->dns_servers &&
+            l->manager->retry_primary_dns_server_usec > 0) {
+                usec_t ts;
+
+                assert_se(sd_event_now(l->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
+
+                if (l->current_dns_server_switched_usec + l->manager->retry_primary_dns_server_usec <= ts)
+                        link_set_dns_server(l, l->dns_servers);
+        }
 
         return l->current_dns_server;
 }
