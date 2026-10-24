@@ -64,7 +64,6 @@ shared_sources = files(
         'dissect-image.c',
         'dm-util.c',
         'dns-answer.c',
-        'dns-configuration.c',
         'dns-domain.c',
         'dns-packet.c',
         'dns-question.c',

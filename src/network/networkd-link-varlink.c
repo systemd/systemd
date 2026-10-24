@@ -12,6 +12,9 @@
 #include "networkd-link-varlink.h"
 #include "networkd-manager.h"
 #include "networkd-setlink.h"
+#include "networkd-state-file.h"
+#include "ordered-set.h"
+#include "resolve-varlink-util.h"
 
 int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, DispatchLinkFlag flags, Link **ret) {
         struct {
@@ -223,6 +226,69 @@ int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, s
                 return log_link_warning_errno(link, r, "Failed to reconfigure link: %m");
         if (r > 0)
                 return 0; /* Reply will be sent asynchronously via vlink */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "servers", SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_context_array, offsetof(DNSConfiguration, dns_servers), SD_JSON_MANDATORY               },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,             offsetof(DNSConfiguration, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
+                {},
+        };
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        Link *link = NULL;
+        r = link_get_by_index(manager, c->ifindex, &link);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-dns-servers",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        struct in_addr_full **dns_servers = NULL;
+        size_t n_dns_servers = 0;
+        CLEANUP_ARRAY(dns_servers, n_dns_servers, in_addr_full_free_array);
+
+        DNSServer *s;
+        ORDERED_SET_FOREACH(s, c->dns_servers) {
+                if (!GREEDY_REALLOC0(dns_servers, n_dns_servers + 1))
+                        return log_oom();
+
+                r = in_addr_full_new(
+                                s->family,
+                                &s->in_addr.address,
+                                s->port,
+                                s->ifindex,
+                                s->server_name,
+                                &dns_servers[n_dns_servers++]);
+                if (r < 0)
+                        return r;
+        }
+
+        link_set_dns(link, TAKE_PTR(dns_servers), n_dns_servers);
+
+        r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+        if (r < 0)
+                return r;
 
         return sd_varlink_reply(vlink, NULL);
 }
