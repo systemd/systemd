@@ -77,7 +77,9 @@ int path_extract_image_name(const char *path, char **ret) {
                 return r;
         if (r != O_DIRECTORY) {
                 /* Chop off any image suffixes we recognize (unless we already know this must refer to some dir) */
-                char *m = ENDSWITH_SET(fn, ".sysext.raw", ".confext.raw", ".raw");
+                char *m = ENDSWITH_SET(fn,
+                                       ".sysext.raw.zst", ".confext.raw.zst", ".raw.zst",
+                                       ".sysext.raw", ".confext.raw", ".raw");
                 if (m)
                         *m = 0;
         }

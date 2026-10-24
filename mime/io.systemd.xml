@@ -7,12 +7,14 @@
     <comment>System Extension DDI</comment>
     <generic-icon name="application-x-addon"/>
     <glob pattern="*.sysext.raw"/>
+    <glob pattern="*.sysext.raw.zst"/>
   </mime-type>
   <mime-type type="application/x.systemd-confext">
     <sub-class-of type="application/vnd.efi.img"/>
     <comment>Configuration Extension DDI</comment>
     <generic-icon name="application-x-addon"/>
     <glob pattern="*.confext.raw"/>
+    <glob pattern="*.confext.raw.zst"/>
   </mime-type>
   <mime-type type="application/x.systemd-home">
     <sub-class-of type="application/vnd.efi.img"/>

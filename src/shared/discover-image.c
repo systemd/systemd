@@ -619,7 +619,7 @@ static int image_make(
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
-        } else if (S_ISREG(st->st_mode) && (endswith(path, ".raw") || pretty)) {
+        } else if (S_ISREG(st->st_mode) && (ENDSWITH_SET(path, ".raw.zst", ".raw") || pretty)) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -633,7 +633,7 @@ static int image_make(
                         r = extract_image_basename(
                                         path,
                                         image_class_suffix_to_string(c),
-                                        STRV_MAKE(".raw"),
+                                        STRV_MAKE(".raw.zst", ".raw"),
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -830,7 +830,7 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         assert(image_name);
 
         FOREACH_STRING(v_suffix, "", ".v")
-                FOREACH_STRING(format_suffix, "", ".raw", ".mstack") {
+                FOREACH_STRING(format_suffix, "", ".raw", ".raw.zst", ".mstack") {
                         _cleanup_free_ char *j = NULL;
                         const char *class_suffix;
 
@@ -922,9 +922,9 @@ int image_find(RuntimeScope scope,
                         if (fstat(fd, &st) < 0)
                                 return -errno;
 
-                        if (endswith(fname, ".raw")) {
+                        if (ENDSWITH_SET(fname, ".raw.zst", ".raw")) {
                                 if (!S_ISREG(st.st_mode)) {
-                                        log_debug("Ignoring non-regular file '%s' with .raw suffix.", fname);
+                                        log_debug("Ignoring non-regular file '%s' with raw image suffix.", fname);
                                         continue;
                                 }
                         } else if (endswith(fname, ".mstack")) {
@@ -949,7 +949,7 @@ int image_find(RuntimeScope scope,
                                 *ASSERT_PTR(endswith(suffix, ".v")) = 0;
 
                                 PickFilter filter = {
-                                        .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
+                                        .type_mask = ENDSWITH_SET(suffix, ".raw.zst", ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                         .basename = name,
                                         .architecture = _ARCHITECTURE_INVALID,
                                         .suffix = suffix,
@@ -1141,7 +1141,7 @@ int image_discover(
                                 r = extract_image_basename(
                                                 fname,
                                                 image_class_suffix_to_string(class),
-                                                STRV_MAKE(".raw"),
+                                                STRV_MAKE(".raw.zst", ".raw"),
                                                 &pretty,
                                                 /* ret_suffix= */ NULL);
                                 if (r < 0) {
@@ -1162,7 +1162,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         nov,
                                                         image_class_suffix_to_string(class),
-                                                        STRV_MAKE(".raw", ".mstack", ""),
+                                                        STRV_MAKE(".raw.zst", ".raw", ".mstack", ""),
                                                         &pretty,
                                                         &suffix);
                                         if (r < 0) {
@@ -1171,7 +1171,7 @@ int image_discover(
                                         }
 
                                         PickFilter filter = {
-                                                .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
+                                                .type_mask = ENDSWITH_SET(suffix, ".raw.zst", ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                                 .basename = pretty,
                                                 .architecture = _ARCHITECTURE_INVALID,
                                                 .suffix = suffix,
