@@ -1794,6 +1794,7 @@ conf.set10('ENABLE_NSPAWN', feature.allowed())
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
 conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
+conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
 
 foreach tuple : [
                 ['analyze'],
@@ -3440,6 +3441,7 @@ foreach tuple : [
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['clonesetup'],
         ['coredump'],
         ['efi'],
         ['environment.d'],
