@@ -2004,7 +2004,7 @@ static int verb_reset_server_features(int argc, char *argv[], uintptr_t _data, v
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
 }
 
-static int print_question(char prefix, const char *color, sd_json_variant *question) {
+static void print_question(char prefix, const char *color, sd_json_variant *question) {
         sd_json_variant *q = NULL;
         int r;
 
@@ -2027,8 +2027,6 @@ static int print_question(char prefix, const char *color, sd_json_variant *quest
                        ansi_normal(),
                        dns_resource_key_to_string(key, buf, sizeof(buf)));
         }
-
-        return 0;
 }
 
 static int print_answer(sd_json_variant *answer) {

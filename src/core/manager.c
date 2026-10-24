@@ -1975,7 +1975,7 @@ int manager_dispatch_external_fd_to_unit(
         return 1; /* fd consumed */
 }
 
-static int manager_distribute_listen_fds_named(Manager *m, Hashmap *named_listen_fds) {
+static void manager_distribute_listen_fds_named(Manager *m, Hashmap *named_listen_fds) {
         assert(m);
 
         /* Route fds whose LISTEN_FDNAMES name was a numeric index into the matching unit's fd store.
@@ -1985,7 +1985,7 @@ static int manager_distribute_listen_fds_named(Manager *m, Hashmap *named_listen
          * are still cleaned up by the hashmap's destructor on the caller side. */
 
         if (MANAGER_IS_TEST_RUN(m))
-                return 0;
+                return;
 
         for (;;) {
                 _cleanup_(listen_fds_tag_freep) ListenFDsTag *t = NULL;
@@ -2006,8 +2006,6 @@ static int manager_distribute_listen_fds_named(Manager *m, Hashmap *named_listen
 
                 (void) manager_dispatch_external_fd_to_unit(m, t->unit_id, t->fdname, t->index, TAKE_FD(fd), "LISTEN_FDS");
         }
-
-        return 0;
 }
 
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
@@ -2245,7 +2243,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
                 /* Pick up fds passed via the LISTEN_FDS=/LISTEN_FDNAMES= protocol that are tagged with a
                  * unit id ("unit-id|fdname"), and route them into the matching unit's fd store. Untagged
                  * fds remain in 'fds' and are handed to socket units below as before. */
-                (void) manager_distribute_listen_fds_named(m, named_listen_fds);
+                manager_distribute_listen_fds_named(m, named_listen_fds);
 
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
                  * some file descriptors to us pre-initialized. This enables socket-based activation of entire

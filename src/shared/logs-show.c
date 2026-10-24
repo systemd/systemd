@@ -1525,19 +1525,18 @@ int show_journal_entry(
         return r;
 }
 
-static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
+static void maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
         assert(f);
         assert(flags);
 
         if (!(*flags & OUTPUT_BEGIN_NEWLINE))
-                return 0;
+                return;
 
         /* Print a beginning new line if that's request, but only once
          * on the first line we print. */
 
         fputc('\n', f);
         *flags &= ~OUTPUT_BEGIN_NEWLINE;
-        return 0;
 }
 
 int show_journal(

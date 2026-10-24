@@ -121,7 +121,7 @@ static int dhcp_request_set_maximum_message_size(DHCPRequest *req) {
         return 0;
 }
 
-static int dhcp_request_set_lifetime(DHCPRequest *req, sd_dhcp_server *server) {
+static void dhcp_request_set_lifetime(DHCPRequest *req, sd_dhcp_server *server) {
         assert(req);
         assert(req->message);
         assert(server);
@@ -139,8 +139,6 @@ static int dhcp_request_set_lifetime(DHCPRequest *req, sd_dhcp_server *server) {
         /* If the requested lifetime is too long, then cap it with the maximum lease time. */
         if (server->max_lease_time > 0 && req->lifetime > server->max_lease_time)
                 req->lifetime = server->max_lease_time;
-
-        return 0;
 }
 
 static int dhcp_server_parse_message(sd_dhcp_server *server, const struct iovec *iov, DHCPRequest **ret) {
@@ -204,7 +202,7 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, const struct iovec 
         (void) dhcp_request_set_maximum_message_size(req);
 
         /* Lifetime: optional */
-        (void) dhcp_request_set_lifetime(req, server);
+        dhcp_request_set_lifetime(req, server);
 
         /* Parameter Request List: optional */
         (void) dhcp_message_get_option_parameter_request_list(message, &req->parameter_request_list);
