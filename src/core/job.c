@@ -179,7 +179,8 @@ void job_uninstall(Job *j) {
         if (!MANAGER_IS_RELOADING(j->manager)) {
                 bus_job_send_removed_signal(j);
                 varlink_job_send_removed_signal(j);
-        }
+        } else
+                varlink_job_stash_client(j);
 
         *pj = NULL;
 
@@ -1374,6 +1375,7 @@ int job_coldplug(Job *j) {
         /* After deserialization is complete and the bus connection
          * set up again, let's start watching our subscribers again */
         (void) bus_job_coldplug_bus_track(j);
+        varlink_job_unstash_client(j);
 
         if (j->state == JOB_WAITING)
                 job_add_to_run_queue(j);
