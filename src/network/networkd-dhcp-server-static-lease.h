@@ -22,4 +22,5 @@ void network_drop_invalid_static_leases(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_hwaddr);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_client_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_hostname);

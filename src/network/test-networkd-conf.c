@@ -4,6 +4,7 @@
 #include "hexdecoct.h"
 #include "net-condition.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-route.h"
@@ -236,6 +237,95 @@ TEST(config_parse_address) {
         test_config_parse_address_one("::1/128", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
         test_config_parse_address_one("::1/129", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
+}
+
+static void test_config_parse_dhcp_static_lease_one(
+                const char *hwaddr,
+                const char *client_id,
+                const void *expected,
+                size_t expected_size) {
+
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
+        DHCPStaticLease *lease;
+
+        log_debug("/* %s(MACAddress=%s, ClientIdentifier=%s) */",
+                  __func__, strnull(hwaddr), strnull(client_id));
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_NOT_NULL(network = new0(Network, 1));
+        network->n_ref = 1;
+        network->manager = manager;
+        ASSERT_NOT_NULL(network->filename = strdup("hogehoge.network"));
+
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*",
+                                                  &network->match.ifname, network));
+        ASSERT_OK_ZERO(config_parse_dhcp_static_lease_address(
+                                       "network", "filename", 1, "section", 1,
+                                       "Address", 0, "10.1.1.2", NULL, network));
+        if (hwaddr)
+                ASSERT_OK_ZERO(config_parse_dhcp_static_lease_hwaddr(
+                                               "network", "filename", 1, "section", 1,
+                                               "MACAddress", 0, hwaddr, NULL, network));
+        if (client_id)
+                ASSERT_OK_ZERO(config_parse_dhcp_static_lease_client_id(
+                                               "network", "filename", 1, "section", 1,
+                                               "ClientIdentifier", 0, client_id, NULL, network));
+        ASSERT_OK(network_verify(network));
+
+        if (!expected) {
+                ASSERT_TRUE(hashmap_isempty(network->dhcp_static_leases_by_section));
+                return;
+        }
+
+        ASSERT_EQ(hashmap_size(network->dhcp_static_leases_by_section), 1u);
+        ASSERT_NOT_NULL(lease = hashmap_first(network->dhcp_static_leases_by_section));
+        ASSERT_EQ(lease->client_id.size, expected_size);
+        ASSERT_EQ(memcmp(lease->client_id.raw, expected, expected_size), 0);
+}
+
+TEST(config_parse_dhcp_static_lease) {
+        static const uint8_t by_hwaddr[] = { 0x01, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc };
+        static const uint8_t by_iaid_duid[] = {
+                0xff,                   /* type: IAID and DUID */
+                0x12, 0x34, 0x56, 0x78, /* IAID */
+                0x00, 0x02,             /* DUID type: vendor */
+                0x00, 0x00, 0xab, 0x11, /* DUID data */
+        };
+        static const uint8_t by_string[] = { 0x00, 0x66, 0x6f, 0x6f };
+        uint8_t longest[MAX_CLIENT_ID_LEN];
+        char s[(MAX_CLIENT_ID_LEN + 1) * 3];
+
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", NULL, by_hwaddr, sizeof(by_hwaddr));
+        test_config_parse_dhcp_static_lease_one(NULL, "01:12:34:56:78:9a:bc", by_hwaddr, sizeof(by_hwaddr));
+        test_config_parse_dhcp_static_lease_one(NULL, "ff:12:34:56:78:00:02:00:00:AB:11",
+                                                by_iaid_duid, sizeof(by_iaid_duid));
+        test_config_parse_dhcp_static_lease_one(NULL, "00:66:6f:6f", by_string, sizeof(by_string));
+
+        /* Neither or both of MACAddress= and ClientIdentifier= */
+        test_config_parse_dhcp_static_lease_one(NULL, NULL, NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "01:12:34:56:78:9a:bc", NULL, 0);
+
+        /* Invalid client IDs */
+        test_config_parse_dhcp_static_lease_one(NULL, "", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01:2", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01:123", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01:xy", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "0112", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01::12", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, ":01:12", NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "01:12:", NULL, 0);
+
+        /* The longest client ID, and one byte longer */
+        memset(longest, 0xaa, sizeof(longest));
+        for (size_t i = 0; i < MAX_CLIENT_ID_LEN + 1; i++)
+                memcpy(s + i * 3, "aa:", 3);
+        s[MAX_CLIENT_ID_LEN * 3 - 1] = '\0';
+        test_config_parse_dhcp_static_lease_one(NULL, s, longest, sizeof(longest));
+        s[MAX_CLIENT_ID_LEN * 3 - 1] = ':';
+        s[(MAX_CLIENT_ID_LEN + 1) * 3 - 1] = '\0';
+        test_config_parse_dhcp_static_lease_one(NULL, s, NULL, 0);
 }
 
 TEST(config_parse_match_ifnames) {

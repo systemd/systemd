@@ -4371,23 +4371,39 @@ ServerAddress=192.168.0.1/24</programlisting>
   <refsect1>
     <title>[DHCPServerStaticLease] Section Options</title>
     <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to assign a
-    fixed IPv4 address to a specific device based on its MAC address. This section can be specified multiple
-    times.</para>
+    fixed IPv4 address to a specific device based on its MAC address or client identifier. This section can be
+    specified multiple times.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
 
-        <listitem><para>The hardware address of a device to match. This key is mandatory.</para>
+        <listitem><para>The hardware address of a device to match. Either this or
+        <varname>ClientIdentifier=</varname> must be specified, but not both.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ClientIdentifier=</varname></term>
+
+        <listitem><para>The DHCP client identifier (option 61) of a device to match, including its type
+        byte, as colon-separated hexadecimal bytes, e.g. <literal>ff:12:34:56:78:00:02:00:00:ab:11</literal>
+        for a client identifier that consists of an IAID and a DUID (RFC 4361). It must be between 2 and
+        255 bytes long. Either this or <varname>MACAddress=</varname> must be specified, but not both.
+        Note that <varname>MACAddress=</varname> also matches a device that does not send a client
+        identifier, or sends one built from its hardware address, while this matches only a device that
+        sends exactly the specified client identifier.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Address=</varname></term>
 
         <listitem><para>The IPv4 address that should be assigned to the device that was matched with
-        <varname>MACAddress=</varname>. This key is mandatory.</para>
+        <varname>MACAddress=</varname> or <varname>ClientIdentifier=</varname>. This key is
+        mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
@@ -4400,7 +4416,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         <literal>mydevice.example.com</literal>), following RFC 1123 naming conventions. Each label can be
         up to 63 characters, with a total maximum length of 253 characters for FQDNs. When this option is
         set, the DHCP server will include the hostname in DHCP replies (both OFFER and ACK) to the client
-        with the matched MAC address.</para>
+        with the matched MAC address or client identifier.</para>
 
         <para>The server automatically selects the appropriate DHCP option based on the hostname format:
         simple hostnames (single DNS label) are sent via option 12 (Host Name) per RFC 2132, while FQDNs

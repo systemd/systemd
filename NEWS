@@ -148,6 +148,11 @@ CHANGES WITH 263 in spe:
           The reason is also exposed in the new ConfiguringReasons field of
           the interface description provided over Varlink.
 
+        * The [DHCPServerStaticLease] section gained a new ClientIdentifier=
+          setting, which may be used instead of MACAddress= to assign a static
+          address to a client based on the client identifier it sends, e.g.
+          an IAID and DUID.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate's "update" command acquired a new --loop= switch.
