@@ -269,6 +269,22 @@ def test_conditionalized_execute_bit():
     assert 'user:root:rwx' in c.stdout and 'group:root:r-x' in c.stdout
 
 
+EX_CANTCREAT = 73  # from sysexits.h
+
+
+def test_device_node_perms():
+    if not os.path.exists('/dev/null') or os.getuid() == 0:
+        return
+    target_uid = 65534 if os.getuid() != 65534 else 65533
+    # Device node: privilege error tolerated on chown in unprivileged mode (exit 0)
+    test_line(f'z /dev/null 0666 {target_uid} {target_uid}', user=True, returncode=0)
+    # Regular file: privilege error remains fatal (EX_CANTCREAT / exit 73)
+    temp = Path(temp_dir.name, 'regular-file')
+    temp.touch(mode=0o644)
+    test_line(f'z {temp} 0666 {target_uid} {target_uid}', user=True, returncode=EX_CANTCREAT)
+
+
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -283,3 +299,4 @@ if __name__ == '__main__':
     test_base64()
 
     test_conditionalized_execute_bit()
+    test_device_node_perms()
