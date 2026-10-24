@@ -209,20 +209,25 @@ static int parse_one_option(const char *option) {
                 arg_key_size = key_size / 8;
 
         } else if ((val = startswith(option, "sector-size="))) {
+                unsigned sector_size;
 
-                r = safe_atou(val, &arg_sector_size);
+                r = safe_atou(val, &sector_size);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-                if (arg_sector_size % 2) {
-                        log_warning("sector-size= not a multiple of 2, ignoring.");
+                if (!ISPOWEROF2(sector_size)) {
+                        log_warning("sector-size= not a power of 2, ignoring.");
                         return 0;
                 }
 
-                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE)
+                if (sector_size < CRYPT_SECTOR_SIZE || sector_size > CRYPT_MAX_SECTOR_SIZE) {
                         log_warning("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
+                        return 0;
+                }
+
+                arg_sector_size = sector_size;
 
         } else if ((val = startswith(option, "key-slot=")) ||
                    (val = startswith(option, "keyslot="))) {
