@@ -309,6 +309,26 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
         return added;
 }
 
+static int synthesize_localhost_address_ptr(const union in_addr_union *address, DnsAnswer **answer) {
+        int r;
+
+        assert(address);
+        assert(answer);
+
+        if (address->in.s_addr != htobe32(INADDR_LOCALADDRESS))
+                return 0;
+
+        r = dns_answer_reserve(answer, 1);
+        if (r < 0)
+                return r;
+
+        r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int synthesize_gateway_rr(
                 Manager *m,
                 const DnsResourceKey *key,
@@ -555,14 +575,17 @@ int dns_synthesize_answer(
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
-                        int v, w, u;
+                        int v = 0, w, u;
 
-                        if (!shall_synthesize_own_hostname_rrs())
-                                continue;
-
-                        v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
-                        if (v < 0)
-                                return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
+                        if (shall_synthesize_own_hostname_rrs()) {
+                                v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
+                                if (v < 0)
+                                        return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
+                        } else if (af == AF_INET) {
+                                v = synthesize_localhost_address_ptr(&address, &answer);
+                                if (v < 0)
+                                        return log_error_errno(v, "Failed to synthesize localhost PTR RR: %m");
+                        }
 
                         w = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
                         if (w < 0)
