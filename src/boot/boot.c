@@ -1558,7 +1558,7 @@ static void boot_entry_add_type1(
         TAKE_PTR(entry);
 }
 
-static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
+static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value, bool *ret_is_numeric) {
         _cleanup_free_ char16_t *value = NULL;
         EFI_STATUS err;
 
@@ -1571,14 +1571,20 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
 
         if (streq16(value, u"menu-disabled")) {
                 *ret_value = TIMEOUT_MENU_DISABLED;
+                if (ret_is_numeric)
+                        *ret_is_numeric = false;
                 return EFI_SUCCESS;
         }
         if (streq16(value, u"menu-force")) {
                 *ret_value = TIMEOUT_MENU_FORCE;
+                if (ret_is_numeric)
+                        *ret_is_numeric = false;
                 return EFI_SUCCESS;
         }
         if (streq16(value, u"menu-hidden")) {
                 *ret_value = TIMEOUT_MENU_HIDDEN;
+                if (ret_is_numeric)
+                        *ret_is_numeric = false;
                 return EFI_SUCCESS;
         }
 
@@ -1587,6 +1593,8 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
                 return EFI_INVALID_PARAMETER;
 
         *ret_value = MIN(timeout, TIMEOUT_TYPE_MAX);
+        if (ret_is_numeric)
+                *ret_is_numeric = true;
         return EFI_SUCCESS;
 }
 
@@ -1631,20 +1639,22 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config_defaults_load_from_file(config, content);
         }
 
-        err = efivar_get_timeout(u"LoaderConfigTimeout", &config->timeout_sec_efivar);
+        err = efivar_get_timeout(
+                        u"LoaderConfigTimeout",
+                        &config->timeout_sec_efivar,
+                        /* ret_is_numeric= */ NULL);
         if (err == EFI_SUCCESS)
                 config->timeout_sec = config->timeout_sec_efivar;
         else if (err != EFI_NOT_FOUND)
                 log_warning_status(err, "Error reading LoaderConfigTimeout EFI variable, ignoring: %m");
         config_timeout_load_from_smbios(config);
 
-        err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
-        if (err == EFI_SUCCESS) {
+        /* Numeric oneshot values get the menu even when set to 0, as per the BLI */
+        err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec, &config->force_menu);
+        if (err == EFI_SUCCESS)
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeoutOneShot", EFI_VARIABLE_NON_VOLATILE);
-
-                config->force_menu = true; /* force the menu when this is set */
-        } else if (err != EFI_NOT_FOUND)
+        else if (err != EFI_NOT_FOUND)
                 log_warning_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable, ignoring: %m");
 
         uint64_t value;
