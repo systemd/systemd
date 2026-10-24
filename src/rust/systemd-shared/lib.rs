@@ -2,9 +2,9 @@
 
 //! Rust interface to libsystemd-shared.
 //!
-//! [`sys`] is the bindgen-generated FFI crate: every function, type and constant of `src/basic/`,
-//! `src/shared/`, the public `sd-*.h` headers and the libc/kernel surface systemd code sees, with C trampolines
-//! for the static inline helpers. Nothing in it is safe to call; the modules here wrap what programs need in the
+//! [`sys`] is the bindgen-generated FFI crate: the libsystemd-shared helpers Rust code uses, from the headers
+//! `bindings.h` lists, plus the libc/kernel constants systemd code passes around, with C trampolines for the
+//! static inline helpers. Nothing in it is safe to call; the modules here wrap what programs need in the
 //! idiomatic form: owned types with `Drop` for what C frees explicitly, [`Result`] for the negative-errno
 //! convention, `log_*!` macros that feed systemd's logging and the command line framework of the C
 //! programs. A program that needs something [`sys`] has and this crate lacks adds the wrapper here.
