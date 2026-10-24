@@ -644,6 +644,20 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("LLDP neighbors grouped by interface"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Neighbors, LLDPNeighborsByInterface, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SubscribeLLDPNeighbors,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("Filter by interface index (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Filter by interface name (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("LLDP neighbors grouped by interface, in the same format as returned by "
+                                         "GetLLDPNeighbors(). Without a filter, interfaces without any LLDP neighbors "
+                                         "are omitted. With a filter, the interface is always listed, possibly with an "
+                                         "empty list of neighbors. If LLDP reception is not enabled on the filtered "
+                                         "interface, its list of neighbors stays empty."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Neighbors, LLDPNeighborsByInterface, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetPersistentStorage,
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
@@ -651,6 +665,7 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_ERROR(AlreadyReloading);
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
+static SD_VARLINK_DEFINE_ERROR(InterfaceRemoved);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
@@ -659,6 +674,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetStates,
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
+                SD_VARLINK_SYMBOL_COMMENT("Subscribes to LLDP neighbors, optionally of a single interface. The current "
+                                          "list is sent first, and the full list is sent again whenever the LLDP "
+                                          "neighbors change. If the filtered interface is removed, the call is "
+                                          "terminated with the InterfaceRemoved error."),
+                &vl_method_SubscribeLLDPNeighbors,
                 &vl_method_Reload,
                 &vl_method_SetPersistentStorage,
                 &vl_type_Address,
@@ -693,4 +713,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_RoutingPolicyRule,
                 &vl_type_SIP,
                 &vl_error_AlreadyReloading,
-                &vl_error_StorageReadOnly);
+                &vl_error_StorageReadOnly,
+                SD_VARLINK_SYMBOL_COMMENT("The interface watched by SubscribeLLDPNeighbors() was removed"),
+                &vl_error_InterfaceRemoved);

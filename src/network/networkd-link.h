@@ -200,6 +200,7 @@ typedef struct Link {
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
+        Set *lldp_neighbors_subscriptions;
 
         /* This is about LLDP transmission */
         sd_lldp_tx *lldp_tx;

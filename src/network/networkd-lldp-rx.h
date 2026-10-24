@@ -12,6 +12,9 @@ typedef enum LLDPMode {
 } LLDPMode;
 
 int link_lldp_rx_configure(Link *link);
+int link_lldp_rx_stop(Link *link);
+void link_lldp_rx_free(Link *link);
+void link_lldp_rx_notify_names_changed(Link *link);
 
 DECLARE_STRING_TABLE_LOOKUP(lldp_mode, LLDPMode);
 
