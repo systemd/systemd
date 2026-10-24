@@ -145,11 +145,20 @@ int bus_image_common_get_metadata(
                 flags |= input_flags;
         }
 
+        /* Inspecting an image loop-mounts it as root, so we authenticate extension images that are
+         * specified by path like the image itself. */
+        bool extension_by_path = false;
+        STRV_FOREACH(i, extension_images)
+                if (!image_name_is_valid(*i)) {
+                        extension_by_path = true;
+                        break;
+                }
+
         r = bus_image_acquire(m,
                               message,
                               name_or_path,
                               image,
-                              BUS_IMAGE_AUTHENTICATE_BY_PATH,
+                              extension_by_path ? BUS_IMAGE_AUTHENTICATE_ALL : BUS_IMAGE_AUTHENTICATE_BY_PATH,
                               "org.freedesktop.portable1.inspect-images",
                               &image,
                               error);
@@ -397,6 +406,8 @@ int bus_image_common_attach(
                         flags,
                         &changes,
                         &n_changes,
+                        /* detach_changes= */ NULL,
+                        /* n_detach_changes= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -714,23 +725,6 @@ int bus_image_common_reattach(
         if (r == 0) /* Will call us back */
                 return 1;
 
-        /* portable_attach() checks this too, but by then the image is detached already. */
-        r = portable_profile_validate(m->runtime_scope, profile, error);
-        if (r < 0)
-                return r;
-
-        r = portable_detach(
-                        m->runtime_scope,
-                        sd_bus_message_get_bus(message),
-                        image->path,
-                        extension_images,
-                        flags,
-                        &changes_detached,
-                        &n_changes_detached,
-                        error);
-        if (r < 0)
-                return r;
-
         r = portable_attach(
                         m->runtime_scope,
                         sd_bus_message_get_bus(message),
@@ -742,6 +736,8 @@ int bus_image_common_reattach(
                         flags,
                         &changes_attached,
                         &n_changes_attached,
+                        &changes_detached,
+                        &n_changes_detached,
                         error);
         if (r < 0)
                 return r;

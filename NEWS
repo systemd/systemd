@@ -46,6 +46,25 @@ CHANGES WITH 263 in spe:
           of source:destination. Unknown flags are shown numerically so newer
           manager properties can still be displayed.
 
+        * dm-verity signatures of disk images are now only required if the
+          image policy allows "signed" but not "verity" for the partition,
+          such as RootImagePolicy=root=signed or the built-in policies for
+          untrusted images, for example in systemd-mountfsd. With the other
+          default policies, an image whose signature is missing, malformed or
+          can't be validated is set up with Verity alone. A signature is
+          valid if the kernel or a certificate in /etc/verity.d/ validates
+          it. systemd-veritysetup no longer fails if
+          root-hash-signature=auto finds no signature, and gained a
+          root-hash-signature-required option, which
+          systemd-gpt-auto-generator passes if systemd.image_policy=
+          requires a signature. systemd-mountfsd only shares Verity devices
+          for trusted images. It asks polkit if the image policy denies
+          setting up Verity, or if the client's image policy doesn't overlap
+          with its own. portablectl attach refuses images whose dm-verity
+          signature the host doesn't trust, instead of failing when the
+          service starts. systemd-portabled asks polkit before it inspects
+          extension images that are specified by path.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
