@@ -163,6 +163,8 @@ option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 option('backlight', type : 'boolean',
        description : 'install systemd-backlight')
+option('battery-check', type : 'feature',
+       description : 'install systemd-battery-check and associated files')
 option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
 option('coredump', type : 'boolean',
