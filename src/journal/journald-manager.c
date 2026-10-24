@@ -1270,16 +1270,57 @@ void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *f
         }
 }
 
+/* Tests the per-client (per-unit) journal rate limit for a message. Returns true if the message
+ * may be processed, false if it was suppressed by the rate limit.
+ *
+ * This must be called before any message is forwarded: the rate limit historically only gated
+ * journal storage in manager_dispatch_message(), while the transport paths forward messages to
+ * syslog/kmsg/console/wall before that point. A unit flooding its stdout/stderr would therefore
+ * be silent in the journal but unlimited on the legacy syslog socket. See
+ * https://github.com/systemd/systemd/issues/13425. */
+bool manager_message_ratelimit_allowed(
+                Manager *m,
+                ClientContext *c,
+                int priority) {
+
+        uint64_t available = 0;
+        int rl;
+
+        assert(m);
+
+        if (!c || !c->unit)
+                return true;
+
+        (void) manager_determine_space(m, &available, /* limit= */ NULL);
+
+        rl = journal_ratelimit_test(
+                        &m->ratelimit_groups_by_id,
+                        c->unit,
+                        c->log_ratelimit_interval,
+                        c->log_ratelimit_burst,
+                        LOG_PRI(priority),
+                        available);
+        if (rl == 0)
+                return false;
+
+        /* Write a suppression message if we suppressed something */
+        if (rl > 1)
+                manager_driver_message(m, c->pid,
+                                      LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_DROPPED_STR),
+                                      LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
+                                      LOG_ITEM("N_DROPPED=%i", rl - 1));
+
+        return true;
+}
+
 void manager_dispatch_message(
                 Manager *m,
                 struct iovec *iovec, size_t n, size_t mm,
                 ClientContext *c,
                 const struct timeval *tv,
                 int priority,
-                pid_t object_pid) {
-
-        uint64_t available = 0;
-        int rl;
+                pid_t object_pid,
+                bool check_ratelimit) {
 
         assert(m);
         assert(iovec || n == 0);
@@ -1295,26 +1336,11 @@ void manager_dispatch_message(
         if (m->config.storage == STORAGE_NONE)
                 return;
 
-        if (c && c->unit) {
-                (void) manager_determine_space(m, &available, /* limit= */ NULL);
-
-                rl = journal_ratelimit_test(
-                                &m->ratelimit_groups_by_id,
-                                c->unit,
-                                c->log_ratelimit_interval,
-                                c->log_ratelimit_burst,
-                                LOG_PRI(priority),
-                                available);
-                if (rl == 0)
-                        return;
-
-                /* Write a suppression message if we suppressed something */
-                if (rl > 1)
-                        manager_driver_message(m, c->pid,
-                                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_DROPPED_STR),
-                                              LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
-                                              LOG_ITEM("N_DROPPED=%i", rl - 1));
-        }
+        /* Transport paths that already called manager_message_ratelimit_allowed() before
+         * forwarding pass check_ratelimit=false to avoid consuming the rate limit budget
+         * twice. */
+        if (check_ratelimit && !manager_message_ratelimit_allowed(m, c, priority))
+                return;
 
         manager_dispatch_message_real(m, iovec, n, mm, c, tv, priority, object_pid);
 }

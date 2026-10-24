@@ -412,7 +412,7 @@ void process_audit_string(Manager *m, int type, const char *data, size_t size) {
 
         manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), NULL,
                                  TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
-                                 LOG_NOTICE, 0);
+                                 LOG_NOTICE, 0, /* check_ratelimit= */ true);
 
         /* free() all entries that map_all_fields() added. All others are allocated on the stack, constant,
          * or freed by their _cleanup_ attributes. */
