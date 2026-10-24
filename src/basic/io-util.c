@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>          /* IWYU pragma: keep */
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -53,7 +54,9 @@ int flush_fd(int fd) {
                 if (r == 0)
                         return count;
 
-                l = read(fd, buf, sizeof(buf));
+                l = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+                if (l < 0 && errno == ENOTSOCK)
+                        l = read(fd, buf, sizeof(buf));
                 if (l < 0) {
                         if (errno == EINTR)
                                 continue;
