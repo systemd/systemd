@@ -269,6 +269,16 @@ def test_conditionalized_execute_bit():
     assert 'user:root:rwx' in c.stdout and 'group:root:r-x' in c.stdout
 
 
+def test_device_node_perms():
+    if os.path.exists('/dev/null'):
+        # Device node: privilege error on chown is tolerated (exit 0)
+        test_line('z /dev/null 0666 65534 65534', user=True, returncode=0)
+        # Regular file: privilege error remains fatal (exit 73 / EX_CANTCREAT)
+        temp = Path(temp_dir.name, 'regular-file')
+        temp.touch(mode=0o644)
+        test_line(f'z {temp} 0666 65534 65534', user=True, returncode=73)
+
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -283,3 +293,4 @@ if __name__ == '__main__':
     test_base64()
 
     test_conditionalized_execute_bit()
+    test_device_node_perms()
