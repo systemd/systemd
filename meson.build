@@ -1797,6 +1797,11 @@ conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
 conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
 conf.set10('ENABLE_GROWFS', get_option('growfs').allowed())
 
+have = get_option('integritysetup').require(
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        error_message : 'libcryptsetup required for systemd-integritysetup').allowed()
+conf.set10('ENABLE_INTEGRITYSETUP', have)
+
 foreach tuple : [
                 ['analyze'],
                 ['backlight'],
@@ -3455,6 +3460,7 @@ foreach tuple : [
         ['imds'],
         ['importd'],
         ['initrd'],
+        ['integritysetup'],
         ['kernel-install'],
         ['localed'],
         ['logind'],
