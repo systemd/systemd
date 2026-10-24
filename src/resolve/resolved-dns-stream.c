@@ -502,6 +502,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
         dns_server_unref(s->server);
 
         ordered_set_free(s->write_queue);
+        set_free(s->queries);
 
         return mfree(s);
 }
