@@ -615,14 +615,17 @@ TEST(genl_ethtool) {
 
         ASSERT_OK(sd_genl_socket_open(&genl));
 
-        r = sd_genl_message_new(genl, ETHTOOL_GENL_NAME, ETHTOOL_MSG_COALESCE_SET, &m);
+        r = sd_genl_message_new_ethtool(
+                        genl,
+                        ETHTOOL_MSG_COALESCE_SET,
+                        ETHTOOL_A_COALESCE_HEADER,
+                        LOOPBACK_IFINDEX,
+                        ETHTOOL_FLAG_OMIT_REPLY,
+                        &m);
         if (r == -EOPNOTSUPP)
                 return (void) log_tests_skipped("ethtool netlink is not supported");
         ASSERT_OK(r);
 
-        ASSERT_OK(sd_netlink_message_open_container(m, ETHTOOL_A_COALESCE_HEADER));
-        ASSERT_OK(sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_DEV_INDEX, LOOPBACK_IFINDEX));
-        ASSERT_OK(sd_netlink_message_close_container(m));
         ASSERT_OK(sd_netlink_message_append_u32(m, ETHTOOL_A_COALESCE_RX_CQE_FRAMES, 8));
         ASSERT_OK(sd_netlink_message_append_u32(m, ETHTOOL_A_COALESCE_RX_CQE_NSECS, 1000));
         /* Check that the policy set for the command is used. */
@@ -635,16 +638,26 @@ TEST(genl_ethtool) {
         ASSERT_NULL(m = sd_netlink_message_unref(m));
 
         /* Commands without policy set are refused. */
-        ASSERT_ERROR(sd_genl_message_new(genl, ETHTOOL_GENL_NAME, ETHTOOL_MSG_RINGS_SET, &m), EOPNOTSUPP);
+        ASSERT_ERROR(sd_genl_message_new_ethtool(
+                                     genl,
+                                     ETHTOOL_MSG_RINGS_SET,
+                                     ETHTOOL_A_RINGS_HEADER,
+                                     LOOPBACK_IFINDEX,
+                                     ETHTOOL_FLAG_OMIT_REPLY,
+                                     &m),
+                     EOPNOTSUPP);
 
         /* Replies are not supported yet, and must be dropped without breaking the socket. As the header
          * attribute of ETHTOOL_MSG_LINKSTATE_GET is the same as the one of ETHTOOL_MSG_COALESCE_SET, let's
          * build the request by rewriting the command, which does not require any privileges. The kernel
          * sends ETHTOOL_MSG_LINKSTATE_GET_REPLY, which must be dropped, followed by the ACK. */
-        ASSERT_OK(sd_genl_message_new(genl, ETHTOOL_GENL_NAME, ETHTOOL_MSG_COALESCE_SET, &m));
-        ASSERT_OK(sd_netlink_message_open_container(m, ETHTOOL_A_LINKSTATE_HEADER));
-        ASSERT_OK(sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_DEV_INDEX, LOOPBACK_IFINDEX));
-        ASSERT_OK(sd_netlink_message_close_container(m));
+        ASSERT_OK(sd_genl_message_new_ethtool(
+                                  genl,
+                                  ETHTOOL_MSG_COALESCE_SET,
+                                  ETHTOOL_A_COALESCE_HEADER,
+                                  LOOPBACK_IFINDEX,
+                                  /* ethtool_header_flags= */ 0,
+                                  &m));
         ((struct genlmsghdr*) NLMSG_DATA(m->hdr))->cmd = ETHTOOL_MSG_LINKSTATE_GET;
         ASSERT_OK(sd_netlink_call(genl, m, /* timeout= */ 0, &reply));
         ASSERT_TRUE(sd_netlink_message_is_error(reply));
