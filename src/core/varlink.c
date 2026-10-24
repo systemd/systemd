@@ -385,14 +385,14 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                         break;
                 }
 
-        /* Also drop any unit-change varlink reference streaming to this link.
-         * A varlink link attaches to at most one unit, so stop after the first match. */
+        /* A RefUnits() call may pin multiple units through the same connection. */
         Unit *u;
-        HASHMAP_FOREACH(u, m->units)
-                if (u->varlink_unit_change == link) {
+        HASHMAP_FOREACH(u, m->units) {
+                unit_remove_varlink_ref(u, link);
+
+                if (u->varlink_unit_change == link)
                         u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
-                        break;
-                }
+        }
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -443,6 +443,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Unit.EnqueueJob", vl_method_enqueue_unit_job,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
                         "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
+                        "io.systemd.Unit.RefUnits", vl_method_ref_units,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
