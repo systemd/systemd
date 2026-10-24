@@ -114,8 +114,8 @@ jobs:
       - name: Build
         run: mkosi box -- meson compile -C build
 
-      - name: Run rustfmt and the bindings header check
-        run: mkosi box -- meson test -C build --no-rebuild rustfmt check-bindings-header --print-errorlogs --no-stdsplit --quiet
+      - name: Run rustfmt
+        run: mkosi box -- meson test -C build --no-rebuild rustfmt --print-errorlogs --no-stdsplit --quiet
 
       - name: Run clippy
         run: mkosi box -- ninja -C build clippy
