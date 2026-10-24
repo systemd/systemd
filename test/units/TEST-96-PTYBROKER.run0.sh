@@ -6,8 +6,15 @@ set -o pipefail
 # Tests for interactive run0 shells, which are started via the PTY broker if
 # possible.
 
+holders=()
+
 at_exit() {
     set +e
+    if [[ ${#holders[@]} -gt 0 ]]; then
+        kill "${holders[@]}"
+        wait "${holders[@]}"
+    fi
+    systemctl start systemd-ptybrokerd.socket
     rm -f /tmp/pty96-run0-*
 }
 
@@ -36,3 +43,51 @@ chmod +x /tmp/pty96-run0-shell
 script -qec 'run0 --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
 [[ "${RC:-0}" == 7 ]]
 test -e /tmp/pty96-run0-ok
+
+# The reference FD must outlive the PTY and remain valid across manager reload and reexecution.
+# shellcheck disable=SC2016
+timeout 60 varlinkctl --exec call /run/systemd/io.systemd.PTYBroker io.systemd.PTYBroker.AcquirePty \
+    '{"frontendType":"null","backendType":"shell","viaShell":false,"commandLine":["/bin/sh","-c","exit 47"],"referenceUnit":true}' \
+    -- bash -euxc '
+        read -r unit reference < <(jq -er "[.unit, .unitReferenceFileDescriptor] | @tsv")
+        [[ "$LISTEN_FDS" == 1 && "$reference" == 0 ]]
+        until [[ "$(systemctl show -P ActiveState "$unit")" == failed ]]; do sleep .1; done
+        for operation in daemon-reload daemon-reexec; do
+            systemctl "$operation"
+            [[ "$(systemctl show -P ExecMainStatus "$unit")" == 47 ]]
+        done
+        exec 3>&-
+        until [[ "$(systemctl show -P LoadState "$unit")" == not-found ]]; do sleep .1; done
+    '
+
+# More references than PID 1's 128-per-UID connection limit must not exhaust its root connections.
+for i in {1..130}; do
+    ready="/tmp/pty96-run0-reference-$i"
+    # shellcheck disable=SC2016
+    varlinkctl --exec call /run/systemd/io.systemd.PTYBroker io.systemd.PTYBroker.AcquirePty \
+        '{"frontendType":"null","backendType":"shell","viaShell":false,"commandLine":["/bin/true"],"referenceUnit":true}' \
+        -- bash -ec 'jq -er .unit >"$1"; exec sleep infinity' _ "$ready" &
+    holders+=("$!")
+    # shellcheck disable=SC2016
+    timeout 10 bash -ec 'until test -s "$1"; do kill -0 "$2"; sleep .1; done' _ "$ready" "$!"
+done
+systemctl daemon-reexec
+varlinkctl --quiet call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+kill "${holders[0]}"
+wait "${holders[0]}" || :
+unset 'holders[0]'
+unit=$(</tmp/pty96-run0-reference-1)
+# shellcheck disable=SC2016
+timeout 10 bash -c 'until [[ "$(systemctl show -P LoadState "$1")" == not-found ]]; do sleep .1; done' _ "$unit"
+unit=$(</tmp/pty96-run0-reference-130)
+[[ "$(systemctl show -P LoadState "$unit")" == loaded ]]
+kill "${holders[@]}"
+wait "${holders[@]}" || :
+holders=()
+# shellcheck disable=SC2016
+timeout 10 bash -c 'until [[ "$(systemctl show -P LoadState "$1")" == not-found ]]; do sleep .1; done' _ "$unit"
+
+# run0 must still work when the broker is not installed or its socket is disabled.
+systemctl stop systemd-ptybrokerd.service systemd-ptybrokerd.socket
+[[ "$(run0 --pty echo -n foo)" == foo ]]
+systemctl start systemd-ptybrokerd.socket
