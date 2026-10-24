@@ -21,6 +21,7 @@ except ImportError:
     id128 = None
 
 EX_DATAERR = 65  # from sysexits.h
+EX_CANTCREAT = 73  # from sysexits.h
 EXIT_TEST_SKIP = 77
 
 exe_with_args = sys.argv[1:]
@@ -269,6 +270,24 @@ def test_conditionalized_execute_bit():
     assert 'user:root:rwx' in c.stdout and 'group:root:r-x' in c.stdout
 
 
+def test_device_node_perms():
+    if os.getuid() == 0:
+        return
+    if not os.path.exists('/dev/null'):
+        return
+    c = subprocess.run(
+        exe_with_args + ['--create', '-', '--user'],
+        input='z /dev/null 0666 0 0\n',
+        text=True,
+        capture_output=True,
+    )
+    assert c.returncode == 0, f'Expected 0 for device node, got {c.returncode}: {c.stderr}'
+    # Regular file: privilege error must remain fatal when not owner
+    temp = Path(temp_dir.name, 'regular-file')
+    temp.touch(mode=0o644)
+    test_line(f'z {temp} 0666 0 0', user=True, returncode=EX_CANTCREAT)
+
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -283,3 +302,4 @@ if __name__ == '__main__':
     test_base64()
 
     test_conditionalized_execute_bit()
+    test_device_node_perms()
