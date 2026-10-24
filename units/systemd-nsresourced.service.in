@@ -41,8 +41,6 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service bpf perf_event_open open_by_handle_at
 Type=notify
-NotifyAccess=all
-FileDescriptorStoreMax=4096
 {{SERVICE_WATCHDOG}}
 
 [Install]
