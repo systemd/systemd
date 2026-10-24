@@ -29,3 +29,10 @@ Address=10.1.1.4
 [DHCPServerStaticLease]
 MACAddress=12:34:56:78:9a:bf
 Address=10.1.1.5
+
+[DHCPServerStaticLease]
+ClientIdentifier=duid
+IAID=0x12345678
+DUIDType=vendor
+DUIDRawData=00:00:ab:11
+Address=10.1.1.6
