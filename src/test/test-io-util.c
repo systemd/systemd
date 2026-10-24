@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "fd-util.h"
@@ -90,6 +91,38 @@ TEST(pwrite_full) {
         ASSERT_OK(pwrite_full(fd, "abc", 3, 5));
         ASSERT_EQ(pread(fd, buf, sizeof(buf), 5), (ssize_t) sizeof(buf));
         ASSERT_EQ(memcmp(buf, "abc", 3), 0);
+}
+
+TEST(flush_fd) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR, dgram[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC|O_NONBLOCK));
+        ASSERT_OK_EQ_ERRNO(write(pipe_fds[1], "foo", 3), (ssize_t) 3);
+        ASSERT_OK_EQ(flush_fd(pipe_fds[0]), 3);
+        ASSERT_OK_ZERO(flush_fd(pipe_fds[0]));
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, dgram));
+        ASSERT_OK_EQ_ERRNO(send(dgram[1], "a", 1, 0), (ssize_t) 1);
+        ASSERT_OK_EQ_ERRNO(send(dgram[1], "bc", 2, 0), (ssize_t) 2);
+        ASSERT_OK_EQ(flush_fd(dgram[0]), 3);
+        ASSERT_OK_ZERO(flush_fd(dgram[0]));
+}
+
+TEST(flush_fd_blocking_socket) {
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        int lowat = 2;
+
+        /* A blocking socket that polls readable but where a blocking read() would wait for more data, as
+         * happens when another process sharing the socket dequeues the data between poll() and read().
+         * SO_RCVLOWAT on an AF_UNIX stream socket reproduces this deterministically: POLLIN is reported
+         * for one queued byte, while read() waits for two. */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair));
+        ASSERT_OK_ERRNO(setsockopt(pair[0], SOL_SOCKET, SO_RCVLOWAT, &lowat, sizeof(lowat)));
+        ASSERT_OK_EQ_ERRNO(send(pair[1], "x", 1, 0), (ssize_t) 1);
+
+        alarm(10);
+        ASSERT_OK_EQ(flush_fd(pair[0]), 1);
+        alarm(0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
