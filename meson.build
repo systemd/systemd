@@ -1804,6 +1804,11 @@ have = get_option('integritysetup').require(
         error_message : 'libcryptsetup required for systemd-integritysetup').allowed()
 conf.set10('ENABLE_INTEGRITYSETUP', have)
 
+have = get_option('validatefs').require(
+        conf.get('HAVE_BLKID') == 1,
+        error_message : 'blkid required for systemd-validatefs').allowed()
+conf.set10('ENABLE_VALIDATEFS', have)
+
 foreach tuple : [
                 ['analyze'],
                 ['backlight'],
@@ -3499,6 +3504,7 @@ foreach tuple : [
         ['timesyncd'],
         ['tmpfiles'],
         ['userdb'],
+        ['validatefs'],
         ['vconsole'],
         ['vmspawn'],
         ['xdg-autostart'],
