@@ -3286,6 +3286,73 @@ int config_parse_documentation(
         return 0;
 }
 
+int config_parse_tags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                u->tags = hashmap_free(u->tags);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                _cleanup_free_ char *tag = NULL;
+                r = unit_full_printf(u, word, &tag);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
+
+                /* Separate the tag name from optional value */
+                const char *tag_value = NULL;
+                char *eq = strchr(tag, '=');
+                if (eq) {
+                        *eq = '\0';
+                        tag_value = eq + 1;
+                }
+
+                if (!unit_tag_name_is_valid(tag)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Unit tag name is invalid, ignoring: %s", tag);
+                        continue;
+                }
+
+                if (!unit_tag_value_is_valid(tag_value)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Unit tag '%s' value is invalid, ignoring: %s", tag, tag_value);
+                        continue;
+                }
+
+                r = unit_set_tag(u, tag, tag_value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to store unit tag '%s': %m", tag);
+        }
+}
+
 #if HAVE_SECCOMP
 int config_parse_syscall_filter(
                 const char *unit,
@@ -6408,6 +6475,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_condition_string, "CONDITION" },
                 { config_parse_unit_slice,            "SLICE" },
                 { config_parse_documentation,         "URL" },
+                { config_parse_tags,                  "TAGS" },
                 { config_parse_service_timeout,       "SECONDS" },
                 { config_parse_emergency_action,      "ACTION" },
                 { config_parse_set_status,            "STATUS" },

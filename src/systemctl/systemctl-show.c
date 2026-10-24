@@ -192,6 +192,7 @@ typedef struct UnitStatusInfo {
         const char *following;
 
         char **documentation;
+        char **tags;
 
         const char *fragment_path;
         const char *source_path;
@@ -312,6 +313,7 @@ typedef struct UnitStatusInfo {
 
 static void unit_status_info_done(UnitStatusInfo *info) {
         strv_free(info->documentation);
+        strv_free(info->tags);
         strv_free(info->dropin_paths);
         strv_free(info->triggered_by);
         strv_free(info->triggers);
@@ -620,6 +622,10 @@ static void print_status_info(
 
                 printf("   %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
         }
+
+        STRV_FOREACH_PAIR(tag_name, tag_val, i->tags)
+                printf("   %*s %s%s%s\n", 9, tag_name == i->tags ? "Tags:" : "",
+                       *tag_name, isempty(*tag_val) ? "" : "=", *tag_val);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf("   %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
@@ -1173,6 +1179,30 @@ static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                 .quota_usage = quota_usage,
                 .quota_limit = quota_limit
         };
+
+        return 0;
+}
+
+static int map_tags(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *tag_name, *tag_value;
+        char ***p = userdata;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "{ss}", &tag_name, &tag_value)) > 0) {
+                r = strv_extend_many(p, tag_name, tag_value);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2177,6 +2207,21 @@ static int print_property(
                         bus_print_property_value(name, expected_value, flags, joined);
 
                         return 1;
+                } else if (streq(name, "Tags")) {
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        const char *tag_name, *tag_value;
+                        while ((r = sd_bus_message_read(m, "{ss}", &tag_name, &tag_value)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s%s%s",
+                                                          tag_name, tag_value ? "=" : "", tag_value);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
                 }
 
                 break;
@@ -2228,6 +2273,7 @@ static int show_one(
                 { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
                 { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "Tags",                           "a{ss}",           map_tags,       offsetof(UnitStatusInfo, tags),                             },
                 { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
                 { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                       },
                 { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                     },
