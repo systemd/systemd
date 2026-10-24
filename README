@@ -92,6 +92,11 @@ REQUIREMENTS:
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
 
+        systemd-nsresourced uses inode LSM hooks when the kernel passes mount
+        idmaps to them. On kernels without this support, it uses path hooks and
+        refuses OverlayFS uppers that can record transient user or group IDs on
+        file systems that outlive the user namespace.
+
         Kernel Config Options:
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it is OK to disable all controllers)
