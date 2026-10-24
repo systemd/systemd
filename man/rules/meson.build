@@ -1376,7 +1376,7 @@ manpages = [
  ['systemd-update-utmp.service', '8', ['systemd-update-utmp'], 'ENABLE_UTMP'],
  ['systemd-user-sessions.service', '8', ['systemd-user-sessions'], 'HAVE_PAM'],
  ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],
- ['systemd-validatefs@.service', '8', [], 'HAVE_BLKID'],
+ ['systemd-validatefs@.service', '8', [], 'ENABLE_VALIDATEFS'],
  ['systemd-vconsole-setup.service',
   '8',
   ['systemd-vconsole-setup'],

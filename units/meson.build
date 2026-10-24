@@ -1157,7 +1157,7 @@ units = [
         },
         {
           'file' : 'systemd-validatefs@.service.in',
-          'conditions' : ['HAVE_BLKID'],
+          'conditions' : ['ENABLE_VALIDATEFS'],
         },
         {
           'file' : 'systemd-varlink-monitord.socket',
