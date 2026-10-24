@@ -316,6 +316,14 @@ All tools:
   user/group records for dynamically registered service users (i.e. users
   registered through `DynamicUser=1`).
 
+* `$SYSTEMD_NSS_SERVER_SIDE_NSS=1` - if set, `nss-systemd` also queries the
+  `io.systemd.NameServiceSwitch` and `io.systemd.Multiplexer` userdb services.
+  `systemd-userdbd.service` implements the services and looks up the user/group
+  records via glibc NSS. Set this in a sandbox that has the host's userdb
+  sockets bind mounted into `/run/systemd/userdb/`, to resolve the host's users
+  and groups. Outside of such a sandbox, `getent passwd` and `getent group` list
+  the records of the other NSS modules twice.
+
 * `$SYSTEMD_NSS_LOG_LEVEL=<level>` — If set, sets the log level for `nss-systemd`
   and other NSS plugins specifically. Takes priority over `$SYSTEMD_LOG_LEVEL`.
 
@@ -582,6 +590,18 @@ disk images with `--image=` or similar:
   unspecified the image dissection logic will automatically probe the file
   system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
   for ESP and XBOOTLDR where the file system type is set to VFAT.
+
+* `$SYSTEMD_DISSECT_VALIDATEFS=` — takes a boolean, which controls whether to
+  validate the constraints a file system declares about itself via the
+  `user.validatefs.*` extended attributes on its root inode (as set by
+  `systemd-repart`'s `AddValidateFS=` setting, see
+  `systemd-validatefs@.service(8)`), when mounting partitions of a disk image.
+  Defaults to on, in which case a partition whose file system constraints are
+  not fulfilled (for example because it is mounted to a different place than
+  it declares, or because it declares GPT partition metadata constraints but
+  is not placed on a GPT partition) is refused. Set this to "0" to disable
+  validation. Note that when the image is mounted via `systemd-mountfsd`, the
+  environment of the daemon matters, not the one of the client.
 
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
@@ -920,3 +940,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   notification carries no list of updated resources. This is useful to
   unconditionally trigger follow-up work such as relinking a kernel or
   recomputing a TPM policy.
+
+`systemd-report-geoip`:
+
+* `$SYSTEMD_REPORT_GEOIP_ENDPOINT` – takes an HTTP endpoint
+  URL. Overrides the GeoIP endpoint to use.

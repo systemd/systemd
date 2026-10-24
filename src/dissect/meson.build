@@ -7,7 +7,6 @@ endif
 executables += [
         executable_template + {
                 'name' : 'systemd-dissect',
-                'public' : true,
                 'sources' : files('dissect.c'),
                 'dependencies' : [
                         libarchive_cflags,

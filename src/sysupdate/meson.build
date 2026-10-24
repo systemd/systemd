@@ -3,11 +3,11 @@
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
         'sysupdate-cleanup.c',
-        'sysupdate-config.c',
         'sysupdate-feature.c',
         'sysupdate-instance.c',
         'sysupdate-partition.c',
         'sysupdate-pattern.c',
+        'sysupdate-provider.c',
         'sysupdate-resource.c',
         'sysupdate-target.c',
         'sysupdate-transfer.c',
@@ -15,6 +15,8 @@ systemd_sysupdate_sources = files(
         'sysupdate.c',
 )
 systemd_sysupdate_export_sources = files(
+        'sysupdate-component.c',
+        'sysupdate-config.c',
         'sysupdate-update-set-flags.c',
         'sysupdate-util.c',
 )
@@ -26,7 +28,6 @@ systemd_updatectl_sources = files(
 executables += [
         libexec_template + {
                 'name' : 'systemd-sysupdate',
-                'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdate_sources,
                 'export' : systemd_sysupdate_export_sources,
@@ -43,7 +44,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'updatectl',
-                'public' : true,
                 'sources' : systemd_updatectl_sources,
                 'import' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],

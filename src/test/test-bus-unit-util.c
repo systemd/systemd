@@ -16,6 +16,122 @@
 static sd_bus *arg_bus = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
 
+static void assert_directory_property(
+                sd_bus_message *m,
+                const char *property,
+                const char* const* sources,
+                const char *destination,
+                uint64_t flags) {
+
+        const char *name;
+
+        ASSERT_OK_POSITIVE(sd_bus_message_enter_container(m, 'r', "sv"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "s", &name));
+        ASSERT_STREQ(name, property);
+        ASSERT_OK_POSITIVE(sd_bus_message_enter_container(m, 'v', destination ? "a(sst)" : "as"));
+
+        if (destination) {
+                ASSERT_OK_POSITIVE(sd_bus_message_enter_container(m, 'a', "(sst)"));
+                STRV_FOREACH(source, sources) {
+                        const char *actual_source, *actual_destination;
+                        uint64_t actual_flags;
+
+                        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "(sst)",
+                                                           &actual_source, &actual_destination, &actual_flags));
+                        ASSERT_STREQ(actual_source, *source);
+                        ASSERT_STREQ(actual_destination, destination);
+                        ASSERT_EQ(actual_flags, flags);
+                }
+                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+                ASSERT_OK(sd_bus_message_exit_container(m));
+        } else {
+                _cleanup_strv_free_ char **actual = NULL;
+
+                ASSERT_OK_POSITIVE(sd_bus_message_read_strv(m, &actual));
+                ASSERT_EQ(strv_length(actual), strv_length((char**) sources));
+                for (size_t i = 0; i < strv_length(actual); i++)
+                        ASSERT_STREQ(actual[i], sources[i]);
+        }
+
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+        ASSERT_OK(sd_bus_message_exit_container(m));
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+        ASSERT_OK(sd_bus_message_exit_container(m));
+}
+
+static void test_directory_assignment_one(
+                const char *field,
+                const char *value,
+                const char *property,
+                const char* const* sources,
+                const char *destination,
+                uint64_t flags) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_free_ char *assignment = NULL;
+
+        ASSERT_NOT_NULL(assignment = strjoin(field, "=", value));
+        ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
+        ASSERT_EQ(bus_append_unit_property_assignment(m, UNIT_SERVICE, assignment), 1);
+        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
+        ASSERT_OK(sd_bus_message_rewind(m, true));
+        assert_directory_property(m, property, sources, destination, flags);
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, true));
+}
+
+TEST(directory_properties) {
+        static const struct {
+                const char *field;
+                const char *symlink_field;
+        } properties[] = {
+                { "RuntimeDirectory",       "RuntimeDirectorySymlink"       },
+                { "StateDirectory",         "StateDirectorySymlink"         },
+                { "CacheDirectory",         "CacheDirectorySymlink"         },
+                { "LogsDirectory",          "LogsDirectorySymlink"          },
+                { "ConfigurationDirectory", "ConfigurationDirectorySymlink" },
+        };
+
+        FOREACH_ELEMENT(p, properties) {
+                test_directory_assignment_one(p->field, "myapp subdir", p->field,
+                                              STRV_MAKE_CONST("myapp", "subdir"), /* destination= */ NULL, 0);
+                test_directory_assignment_one(p->field, "myapp\\\\:colon", p->field,
+                                              STRV_MAKE_CONST("myapp:colon"), /* destination= */ NULL, 0);
+                test_directory_assignment_one(p->field, "", p->field,
+                                              /* sources= */ NULL, /* destination= */ NULL, 0);
+                test_directory_assignment_one(p->field, "myapp::ro", p->symlink_field,
+                                              STRV_MAKE_CONST("myapp"), "", EXEC_DIRECTORY_READ_ONLY);
+
+                if (!streq(p->field, "ConfigurationDirectory")) {
+                        test_directory_assignment_one(p->field, "myapp:link", p->symlink_field,
+                                                      STRV_MAKE_CONST("myapp"), "link", 0);
+                        test_directory_assignment_one(p->field, "myapp:link:ro", p->symlink_field,
+                                                      STRV_MAKE_CONST("myapp"), "link", EXEC_DIRECTORY_READ_ONLY);
+                }
+
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_free_ char *assignment = NULL;
+
+                ASSERT_NOT_NULL(assignment = strjoin(p->field, "=plain myapp::ro"));
+                ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
+                ASSERT_EQ(bus_append_unit_property_assignment(m, UNIT_SERVICE, assignment), 1);
+                ASSERT_OK(sd_bus_message_seal(m, 1, 0));
+                ASSERT_OK(sd_bus_message_rewind(m, true));
+                assert_directory_property(m, p->field, STRV_MAKE_CONST("plain"), /* destination= */ NULL, 0);
+                assert_directory_property(m, p->symlink_field, STRV_MAKE_CONST("myapp"), "", EXEC_DIRECTORY_READ_ONLY);
+                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, true));
+        }
+}
+
+TEST(exec_directory_flags) {
+        ASSERT_STREQ(exec_directory_flags_to_string(0), "");
+        ASSERT_STREQ(exec_directory_flags_to_string(EXEC_DIRECTORY_READ_ONLY), "ro");
+        ASSERT_NULL(exec_directory_flags_to_string(EXEC_DIRECTORY_ONLY_CREATE));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 32));
+        ASSERT_NULL(exec_directory_flags_to_string((UINT64_C(1) << 32) | EXEC_DIRECTORY_READ_ONLY));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 63));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_MAX));
+}
+
 static void test_transient_settings_one(UnitType type, const char* const* lines) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -417,7 +533,6 @@ TEST(execute_properties) {
                         "NoExecPaths=/tmp /var/tmp",
                         "ExecSearchPath=/usr/bin:/usr/local/bin",
                         "ExtensionDirectories=/var/lib/extensions /opt/extensions",
-                        "ConfigurationDirectory=myapp subdir",
                         "SupplementaryGroups=wheel audio video",
                         "SystemCallArchitectures=native x86-64",
 
@@ -597,6 +712,27 @@ TEST(execute_properties) {
                         "CacheDirectory=myapp subdir",
                         "LogsDirectory=myapp",
                         "LogsDirectory=myapp subdir",
+                        "ConfigurationDirectory=myapp",
+                        "ConfigurationDirectory=myapp subdir",
+
+                        "StateDirectory=myapp:link",
+                        "StateDirectory=myapp:link:ro",
+                        "StateDirectory=myapp::ro",
+                        "RuntimeDirectory=myapp::ro",
+                        "CacheDirectory=myapp::ro",
+                        "LogsDirectory=myapp::ro",
+                        /* ConfigurationDirectory= takes flags, but no symlink destination */
+                        "ConfigurationDirectory=myapp::ro",
+                        /* A literal colon in a directory name needs an extra level of escaping */
+                        "StateDirectory=myapp\\\\:colon",
+                        "ConfigurationDirectory=myapp\\\\:colon",
+                        "-EINVAL ConfigurationDirectory=myapp:link",
+                        "-EINVAL ConfigurationDirectory=myapp:link:ro",
+                        "-EINVAL StateDirectory=myapp::rw",
+                        "-EINVAL ConfigurationDirectory=myapp::rw",
+                        /* An empty assignment resets the list */
+                        "StateDirectory=",
+                        "ConfigurationDirectory=",
 
                         "ProtectHostname=true",
                         "ProtectHostname=false",

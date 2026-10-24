@@ -24,8 +24,8 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Enroll,
                 SD_VARLINK_SUPPORTS_MORE,
-                SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on."),
-                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on. If omitted or null the default node backing /var/ is used."),
+                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mechanism, EnrollMechanism, 0),
 
@@ -75,8 +75,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListSlots,
                 SD_VARLINK_REQUIRES_MORE,
-                SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on."),
-                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on. If omitted or null the default node backing /var/ is used."),
+                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("A currently enrolled keyslot index."),
                 SD_VARLINK_DEFINE_OUTPUT(slot, SD_VARLINK_INT, SD_VARLINK_NULLABLE),

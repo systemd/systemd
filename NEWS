@@ -11,6 +11,41 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The io.systemd.Unit.SetProperties() Varlink method now accepts a
+          dedicated UnitProperties input type containing only Markers. Clients
+          using generated bindings may need updates. The Markers JSON
+          representation is unchanged. Calls with runtime=false, previously
+          accepted without persistence, are now rejected; callers should pass
+          runtime=true.
+
+        * ConfigurationDirectory= passed as a transient-unit property over
+          D-Bus now uses the same directory:symlink:flags parser as the other
+          *Directory= settings, allowing the read-only flag with an empty
+          symlink field. Literal colons need an additional level of escaping
+          in the client value. For example, use the shell-quoted argument
+          --property='ConfigurationDirectory=foo\\:bar' for a directory named
+          foo:bar. Unit file syntax and the signature of the plain D-Bus
+          string array property are unchanged.
+
+        * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
+          CacheDirectory= and LogsDirectory= now reset the corresponding
+          directory list instead of being ignored. ConfigurationDirectory=
+          continues to support resetting the list with an empty assignment.
+
+        * Transient *Directory= drop-ins now escape colons and quotes in
+          paths set through either D-Bus signature, preserving the paths
+          when the unit is reloaded.
+
+        * The *DirectorySymlink D-Bus properties now reject source and
+          destination paths equal to or below private/, which is reserved for
+          DynamicUser= directories. Unit files reject these symlink destinations
+          too, matching the existing restriction on source paths.
+
+        * systemctl show now includes directory flags in *DirectorySymlink
+          values. Read-only entries are shown as source:destination:ro instead
+          of source:destination. Unknown flags are shown numerically so newer
+          manager properties can still be displayed.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
@@ -20,16 +55,67 @@ CHANGES WITH 263 in spe:
         * systemd-networkd now updates the hostname sent by the DHCPv4 and
           DHCPv6 clients when the system hostname is changed. Previously, the
           hostname known when the interface was configured was sent until the
-          interface was reconfigured. The DHCPv4 lease is renewed immediately
-          to send the new hostname, while for DHCPv6 the new hostname is sent
-          on the next renewal. Since some DHCP servers provide different
-          settings depending on the hostname sent by the client, the previous
-          behaviour may be restored with the new SendHostnameUpdates=no
-          setting in the [DHCPv4] and [DHCPv6] sections.
+          interface was reconfigured. The DHCPv4 and DHCPv6 leases are renewed
+          immediately to send the new hostname. Since some DHCP servers
+          provide different settings depending on the hostname sent by the
+          client, the previous behaviour may be restored with the new
+          SendHostnameUpdates=no setting in the [DHCPv4] and [DHCPv6]
+          sections.
+
+        * systemd-networkd now generates an IPv6 link-local address on
+          WireGuard interfaces by default, like on other interfaces.
+          Previously, LinkLocalAddressing= was ignored for WireGuard
+          interfaces, and an IPv6 link-local address could only be assigned
+          with Address=. The previous behaviour may be restored with
+          LinkLocalAddressing=no.
 
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
+
+        * systemd-sysext/systemd-confext now match IMAGE_ID= and
+          IMAGE_VERSION= fields from extension-release files against the host
+          os-release. If an extension declares IMAGE_ID= or IMAGE_VERSION=, the
+          host must declare the same field with a matching value, or the
+          extension is rejected. Previously these fields were ignored during
+          validation and could appear in extension-release files as harmless
+          descriptive metadata. Extensions that set IMAGE_ID= or IMAGE_VERSION=
+          without intending them as host constraints should remove these fields
+          or prefix them with SYSEXT_/CONFEXT_ to describe the extension
+          itself.
+
+        * The file system constraints encoded in the user.validatefs.*
+          extended attributes (as written by systemd-repart's AddValidateFS=
+          setting, which is enabled by default for most file systems) are now
+          also enforced when mounting partitions of disk images, i.e. via
+          systemd-dissect, systemd-nspawn, systemd-sysext, portabled,
+          systemd-mountfsd and RootImage=. Any constraint that is set must be
+          fulfilled: in particular this means that file systems carrying GPT
+          partition label or type constraints may no longer be used as bare
+          file system images without partition table (for example
+          partitions split out of a DDI via systemd-repart --split=yes), and
+          file systems declared for a specific mount point may no longer be
+          used as root file system. Set AddValidateFS=no when building such
+          images, or set $SYSTEMD_DISSECT_VALIDATEFS=0 when using them to
+          restore the previous behaviour.
+
+        * ConditionCredential= and AssertCredential= now also search the
+          credential store directories (/etc/credstore/, /run/credstore/,
+          /usr/lib/credstore/, their .encrypted counterparts, and the XDG
+          counterparts for the per-user service manager), the same way
+          ImportCredential= does. Previously they only checked the credentials
+          passed into the service manager itself. This makes credentials
+          imported by e.g. "systemd-imds --import" usable for conditionalizing
+          units. Units with such conditions may now start (or, with "!", be
+          skipped) because of credential store entries that were not intended
+          as per-boot switches. The same applies to SuggestOnCredential= in
+          systemd-sysupdate. The Credential= match in .network, .netdev, and
+          .link files is unchanged.
+
+        * systemd may now optionally be built with support for programs
+          written in Rust, controlled by the new -Drust= meson option. This
+          adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
+          optional build dependencies.
 
         Changes in systemd-udevd:
 
@@ -48,10 +134,24 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        * As mentioned above, an IPv6 link-local address is now generated on
+          WireGuard interfaces by default. This is useful e.g. for running
+          routing protocols like Babel over the tunnel.
+
         * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
           clients now follows the system hostname. The new
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
+
+        * "networkctl renew" now renews the DHCPv6 lease too, not only the
+          DHCPv4 lease. When the DHCPv6 client runs in the information
+          request mode, the information, e.g. DNS servers, is requested
+          again.
+
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReasons field of
+          the interface description provided over Varlink.
 
         Changes in systemd-sysupdate:
 
@@ -78,6 +178,16 @@ CHANGES WITH 263 in spe:
           are now measured into PCR 12 as tagged events when Secure Boot is
           disabled. Existing PCR 12 policies for such entries need to be
           updated to include the new measurement.
+
+        Changes in libsystemd:
+
+        * sd-varlink-idl.h gained SD_VARLINK_EXPERIMENTAL, which may be used
+          to mark Varlink interfaces, methods, errors, types, fields and enum
+          values as experimental, together with _FULL variants of the
+          definition macros that take flags. The marker is informational
+          only, calls are not refused. Experimental items are shown with a
+          "# [Experimental]" comment line in the interface description, which
+          sd_varlink_idl_parse() turns back into the flag.
 
 CHANGES WITH 262:
 

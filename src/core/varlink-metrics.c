@@ -13,45 +13,121 @@
 #include "varlink-metrics.h"
 #include "version.h"
 
-static int active_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+typedef enum ManagerMetric {
+        MANAGER_METRIC_ACTIVE_TIMESTAMP,
+        MANAGER_METRIC_INACTIVE_EXIT_TIMESTAMP,
+        MANAGER_METRIC_STATE_CHANGE_TIMESTAMP,
+        MANAGER_METRIC_UNIT_ACTIVE_STATE,
+        MANAGER_METRIC_UNIT_LOAD_STATE,
+        MANAGER_METRIC_JOBS_QUEUED,
+        MANAGER_METRIC_N_RESTARTS,
+        MANAGER_METRIC_STATUS_ERRNO,
+        MANAGER_METRIC_UNITS_BY_LOAD_STATE_TOTAL,
+        MANAGER_METRIC_UNITS_BY_STATE_TOTAL,
+        MANAGER_METRIC_UNITS_BY_TYPE_TOTAL,
+        MANAGER_METRIC_UNITS_TOTAL,
+        MANAGER_METRIC_RELOAD_COUNT,
+        MANAGER_METRIC_SYSTEM_STATE,
+        MANAGER_METRIC_VERSION,
+        _MANAGER_METRIC_MAX,
+        _MANAGER_METRIC_INVALID = -EINVAL,
+} ManagerMetric;
+
+static const MetricFamily metric_family_table[_MANAGER_METRIC_MAX + 1];
+
+static int unit_metrics_build_json(
+                sd_varlink *vl,
+                Unit *unit,
+                sd_json_variant *enter_fields,
+                sd_json_variant *exit_fields) {
+
+        int r;
+
+        assert(vl);
+        assert(unit);
+
+        r = metric_build_send_unsigned(
+                        metric_family_table + MANAGER_METRIC_ACTIVE_TIMESTAMP,
+                        vl,
+                        unit->id,
+                        unit->active_enter_timestamp.realtime,
+                        enter_fields);
+        if (r < 0)
+                return r;
+
+        r = metric_build_send_unsigned(
+                        metric_family_table + MANAGER_METRIC_ACTIVE_TIMESTAMP,
+                        vl,
+                        unit->id,
+                        unit->active_exit_timestamp.realtime,
+                        exit_fields);
+        if (r < 0)
+                return r;
+
+        r = metric_build_send_unsigned(
+                        metric_family_table + MANAGER_METRIC_INACTIVE_EXIT_TIMESTAMP,
+                        vl,
+                        unit->id,
+                        unit->inactive_exit_timestamp.realtime,
+                        /* fields= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = metric_build_send_unsigned(
+                        metric_family_table + MANAGER_METRIC_STATE_CHANGE_TIMESTAMP,
+                        vl,
+                        unit->id,
+                        unit->state_change_timestamp.realtime,
+                        /* fields= */ NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sub_state_fields = NULL;
+        r = sd_json_buildo(&sub_state_fields, SD_JSON_BUILD_PAIR_STRING("sub_state", unit_sub_state_to_string(unit)));
+        if (r < 0)
+                return r;
+
+        r = metric_build_send_string(
+                        metric_family_table + MANAGER_METRIC_UNIT_ACTIVE_STATE,
+                        vl,
+                        unit->id,
+                        unit_active_state_to_string(unit_active_state(unit)),
+                        sub_state_fields);
+        if (r < 0)
+                return r;
+
+        return metric_build_send_string(
+                        metric_family_table + MANAGER_METRIC_UNIT_LOAD_STATE,
+                        vl,
+                        unit->id,
+                        unit_load_state_to_string(unit->load_state),
+                        /* fields= */ NULL);
+}
+
+static int units_metrics_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Unit *unit;
         char *key;
         int r;
 
-        assert(mf && mf->name);
+        assert(mf);
         assert(vl);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *enter_fields = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *enter_fields = NULL, *exit_fields = NULL;
         r = sd_json_buildo(&enter_fields, SD_JSON_BUILD_PAIR_STRING("event", "enter"));
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *exit_fields = NULL;
         r = sd_json_buildo(&exit_fields, SD_JSON_BUILD_PAIR_STRING("event", "exit"));
         if (r < 0)
                 return r;
 
         HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
+                /* Ignore aliases. */
                 if (key != unit->id)
                         continue;
 
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                unit->id,
-                                unit->active_enter_timestamp.realtime,
-                                enter_fields);
-                if (r < 0)
-                        return r;
-
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                unit->id,
-                                unit->active_exit_timestamp.realtime,
-                                exit_fields);
+                r = unit_metrics_build_json(vl, unit, enter_fields, exit_fields);
                 if (r < 0)
                         return r;
         }
@@ -59,31 +135,159 @@ static int active_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, v
         return 0;
 }
 
-static int inactive_exit_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+static int service_metrics_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        Unit *unit;
-        char *key;
         int r;
 
-        assert(mf && mf->name);
+        assert(mf);
         assert(vl);
 
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                Service *service = SERVICE(unit);
 
                 r = metric_build_send_unsigned(
-                                mf,
+                                metric_family_table + MANAGER_METRIC_N_RESTARTS,
                                 vl,
                                 unit->id,
-                                unit->inactive_exit_timestamp.realtime,
+                                service->n_restarts,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                metric_family_table + MANAGER_METRIC_STATUS_ERRNO,
+                                vl,
+                                unit->id,
+                                (uint64_t) service->status_errno,
                                 /* fields= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+static int units_totals_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        uint64_t by_type[_UNIT_TYPE_MAX] = {}, by_state[_UNIT_ACTIVE_STATE_MAX] = {},
+                 by_load_state[_UNIT_LOAD_STATE_MAX] = {}, total = 0;
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(mf);
+        assert(vl);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* Ignore aliases. */
+                if (key != unit->id)
+                        continue;
+
+                by_type[unit->type]++;
+                by_state[unit_active_state(unit)]++;
+                by_load_state[unit->load_state]++;
+                total++;
+        }
+
+        for (UnitLoadState state = 0; state < _UNIT_LOAD_STATE_MAX; state++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *load_state_fields = NULL;
+
+                r = sd_json_buildo(&load_state_fields, SD_JSON_BUILD_PAIR_STRING("load_state", unit_load_state_to_string(state)));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                metric_family_table + MANAGER_METRIC_UNITS_BY_LOAD_STATE_TOTAL,
+                                vl,
+                                /* object= */ NULL,
+                                by_load_state[state],
+                                load_state_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        for (UnitActiveState state = 0; state < _UNIT_ACTIVE_STATE_MAX; state++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *active_state_fields = NULL;
+
+                r = sd_json_buildo(&active_state_fields, SD_JSON_BUILD_PAIR_STRING("state", unit_active_state_to_string(state)));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                metric_family_table + MANAGER_METRIC_UNITS_BY_STATE_TOTAL,
+                                vl,
+                                /* object= */ NULL,
+                                by_state[state],
+                                active_state_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        for (UnitType type = 0; type < _UNIT_TYPE_MAX; type++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *type_fields = NULL;
+
+                r = sd_json_buildo(&type_fields, SD_JSON_BUILD_PAIR_STRING("type", unit_type_to_string(type)));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                metric_family_table + MANAGER_METRIC_UNITS_BY_TYPE_TOTAL,
+                                vl,
+                                /* object= */ NULL,
+                                by_type[type],
+                                type_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return metric_build_send_unsigned(
+                        metric_family_table + MANAGER_METRIC_UNITS_TOTAL,
+                        vl,
+                        /* object= */ NULL,
+                        total,
+                        /* fields= */ NULL);
+}
+
+static int jobs_queued_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        return metric_build_send_unsigned(
+                        mf,
+                        vl,
+                        /* object= */ NULL,
+                        hashmap_size(manager->jobs),
+                        /* fields= */ NULL);
+}
+
+static int reload_count_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        return metric_build_send_unsigned(
+                        mf,
+                        vl,
+                        /* object= */ NULL,
+                        manager->reload_count,
+                        /* fields= */ NULL);
+}
+
+static int system_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        return metric_build_send_string(
+                        mf,
+                        vl,
+                        /* object= */ NULL,
+                        manager_state_to_string(manager_state(manager)),
+                        /* fields= */ NULL);
 }
 
 static int version_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
@@ -325,397 +529,94 @@ static int manager_timestamps_describe(sd_varlink *link) {
         return 0;
 }
 
-static int state_change_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        Unit *unit;
-        char *key;
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                unit->id,
-                                unit->state_change_timestamp.realtime,
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int status_errno_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                unit->id,
-                                (uint64_t) SERVICE(unit)->status_errno,
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int unit_active_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        Unit *unit;
-        char *key;
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                r = metric_build_send_string(
-                                mf,
-                                vl,
-                                unit->id,
-                                unit_active_state_to_string(unit_active_state(unit)),
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int unit_load_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        Unit *unit;
-        char *key;
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                r = metric_build_send_string(
-                                mf,
-                                vl,
-                                unit->id,
-                                unit_load_state_to_string(unit->load_state),
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int nrestarts_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                unit->id,
-                                SERVICE(unit)->n_restarts,
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int reload_count_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        return metric_build_send_unsigned(
-                        mf,
-                        vl,
-                        /* object= */ NULL,
-                        manager->reload_count,
-                        /* fields= */ NULL);
-}
-
-static int units_by_type_total_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        for (UnitType type = 0; type < _UNIT_TYPE_MAX; type++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-                uint64_t counter = 0;
-
-                LIST_FOREACH(units_by_type, _u, manager->units_by_type[type])
-                        counter++;
-
-                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", unit_type_to_string(type)));
-                if (r < 0)
-                        return r;
-
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                /* object= */ NULL,
-                                counter,
-                                fields);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int units_by_state_total_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        uint64_t counters[_UNIT_ACTIVE_STATE_MAX] = {};
-        Unit *unit;
-        char *key;
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        /* TODO need a rework probably with state counter */
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                counters[unit_active_state(unit)]++;
-        }
-
-        for (UnitActiveState state = 0; state < _UNIT_ACTIVE_STATE_MAX; state++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-
-                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("state", unit_active_state_to_string(state)));
-                if (r < 0)
-                        return r;
-
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                /* object= */ NULL,
-                                counters[state],
-                                fields);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int jobs_queued_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        return metric_build_send_unsigned(
-                        mf,
-                        vl,
-                        /* object= */ NULL,
-                        hashmap_size(manager->jobs),
-                        /* fields= */ NULL);
-}
-
-static int system_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        return metric_build_send_string(
-                        mf,
-                        vl,
-                        /* object= */ NULL,
-                        manager_state_to_string(manager_state(manager)),
-                        /* fields= */ NULL);
-}
-
-static int units_by_load_state_total_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        uint64_t counters[_UNIT_LOAD_STATE_MAX] = {};
-        Unit *unit;
-        char *key;
-        int r;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                counters[unit->load_state]++;
-        }
-
-        for (UnitLoadState state = 0; state < _UNIT_LOAD_STATE_MAX; state++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-
-                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("load_state", unit_load_state_to_string(state)));
-                if (r < 0)
-                        return r;
-
-                r = metric_build_send_unsigned(
-                                mf,
-                                vl,
-                                /* object= */ NULL,
-                                counters[state],
-                                fields);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int units_total_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        uint64_t count = 0;
-        Unit *unit;
-        char *key;
-
-        assert(mf && mf->name);
-        assert(vl);
-
-        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
-                /* ignore aliases */
-                if (key != unit->id)
-                        continue;
-
-                count++;
-        }
-
-        return metric_build_send_unsigned(
-                        mf,
-                        vl,
-                        /* object= */ NULL,
-                        count,
-                        /* fields= */ NULL);
-}
-
-static const MetricFamily metric_family_table[] = {
-        /* Keep metrics ordered alphabetically */
-        {
+static const MetricFamily metric_family_table[_MANAGER_METRIC_MAX + 1] = {
+        /* Keep metrics grouped by generator. */
+        [MANAGER_METRIC_ACTIVE_TIMESTAMP] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ActiveTimestamp",
                 .description = "Per unit metric: timestamp of active state transitions in microseconds; 0 indicates the transition has not occurred",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = active_timestamp_build_json,
+                .generate = units_metrics_build_json,
         },
-        {
+        [MANAGER_METRIC_INACTIVE_EXIT_TIMESTAMP] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InactiveExitTimestamp",
                 .description = "Per unit metric: timestamp when the unit last exited the inactive state in microseconds; 0 indicates the transition has not occurred",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = inactive_exit_timestamp_build_json,
         },
-        {
+        [MANAGER_METRIC_STATE_CHANGE_TIMESTAMP] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StateChangeTimestamp",
+                .description = "Per unit metric: timestamp of the last state change in microseconds; 0 indicates no state change has occurred",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+        },
+        [MANAGER_METRIC_UNIT_ACTIVE_STATE] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
+                .description = "Per unit metric: active state, with the type-specific sub state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+        },
+        [MANAGER_METRIC_UNIT_LOAD_STATE] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitLoadState",
+                .description = "Per unit metric: load state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+        },
+        /* Keep those ↑ grouped with units_metrics_build_json(). */
+        [MANAGER_METRIC_JOBS_QUEUED] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "JobsQueued",
                 .description = "Number of jobs currently queued",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = jobs_queued_build_json,
         },
-        {
+        [MANAGER_METRIC_N_RESTARTS] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
-                .generate = nrestarts_build_json,
+                .generate = service_metrics_build_json,
         },
-        {
+        [MANAGER_METRIC_STATUS_ERRNO] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StatusErrno",
+                .description = "Per service metric: errno status of the service",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ grouped with service_metrics_build_json(). */
+        [MANAGER_METRIC_UNITS_BY_LOAD_STATE_TOTAL] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByLoadStateTotal",
+                .description = "Total number of units by load state",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_totals_build_json,
+        },
+        [MANAGER_METRIC_UNITS_BY_STATE_TOTAL] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
+                .description = "Total number of units of different state",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+        },
+        [MANAGER_METRIC_UNITS_BY_TYPE_TOTAL] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByTypeTotal",
+                .description = "Total number of units of different types",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+        },
+        [MANAGER_METRIC_UNITS_TOTAL] = {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsTotal",
+                .description = "Total number of units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ grouped with units_totals_build_json(). */
+        [MANAGER_METRIC_RELOAD_COUNT] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ReloadCount",
                 .description = "Number of successful manager reloads since startup; resets across daemon-reexec",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = reload_count_build_json,
         },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StateChangeTimestamp",
-                .description = "Per unit metric: timestamp of the last state change in microseconds; 0 indicates no state change has occurred",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = state_change_timestamp_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StatusErrno",
-                .description = "Per service metric: errno status of the service",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = status_errno_build_json,
-        },
-        {
+        [MANAGER_METRIC_SYSTEM_STATE] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SystemState",
                 .description = "Overall system state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = system_state_build_json,
         },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
-                .description = "Per unit metric: active state",
-                .type = METRIC_FAMILY_TYPE_STRING,
-                .generate = unit_active_state_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitLoadState",
-                .description = "Per unit metric: load state",
-                .type = METRIC_FAMILY_TYPE_STRING,
-                .generate = unit_load_state_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByLoadStateTotal",
-                .description = "Total number of units by load state",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = units_by_load_state_total_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
-                .description = "Total number of units of different state",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = units_by_state_total_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByTypeTotal",
-                .description = "Total number of units of different types",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = units_by_type_total_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsTotal",
-                .description = "Total number of units",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = units_total_build_json,
-        },
-        {
+        [MANAGER_METRIC_VERSION] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Version",
                 .description = "Version of systemd",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = version_build_json,
         },
-        {}
+        [_MANAGER_METRIC_MAX] = {},
 };
 
 int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

@@ -91,3 +91,29 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   converted into an enum without introducing a breaking change. This allows the
   interface to evolve from loosely defined string values to a more explicit and
   type-safe enumeration once the valid options are well established.
+
+# Experimental interfaces
+
+- New interfaces, methods, errors, types, fields and enum values may be marked
+  as experimental with `SD_VARLINK_EXPERIMENTAL`, using the `_FULL` variants of
+  the definition macros, or the field flags. Experimental items may change
+  incompatibly or be removed without advance notice. The marker is shown as a
+  `# [Experimental]` comment in the interface description, and is purely
+  informational: calls to experimental methods are not refused.
+
+- Mark a whole interface as experimental with `SD_VARLINK_DEFINE_INTERFACE_FULL`
+  if it belongs to a component that is documented as experimental. Otherwise,
+  mark only the items that are experimental.
+
+- Non-experimental items must not depend on experimental ones: a field that is
+  not experimental (and is not part of an experimental method, type, error or
+  interface) must not refer to an experimental type. Experimental fields of
+  non-experimental methods, types and errors must be nullable, so that callers
+  and implementations of the stable parts can ignore them. Experimental enum
+  values are only permitted in experimental enums, since a non-experimental
+  field of the enum type might otherwise carry them. These rules are checked by
+  `varlinkctl validate-idl`, and by the unit tests for the interfaces shipped
+  with systemd.
+
+- To stabilize an item, drop the marker. Any experimental types it uses then
+  need to be stabilized too.

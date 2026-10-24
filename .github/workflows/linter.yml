@@ -57,7 +57,7 @@ jobs:
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
-      - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
+      - uses: systemd/mkosi@131adaca5eb5f1551bc564ae4497ff940890a374
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
@@ -97,7 +97,8 @@ jobs:
           fi
 
       - name: Configure meson
-        run: mkosi box -- env CC=clang CXX=clang++ meson setup build
+        # Rust warnings are errors only with --werror, which the C build of this job does not want.
+        run: mkosi box -- env CC=clang CXX=clang++ meson setup -Drust=enabled -Drust_args=-Dwarnings build
 
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
@@ -109,3 +110,12 @@ jobs:
         run: |
           mkosi box -- ninja -C build update-man-rules
           git diff --exit-code -- man/rules/meson.build
+
+      - name: Build
+        run: mkosi box -- meson compile -C build
+
+      - name: Run rustfmt and the bindings header check
+        run: mkosi box -- meson test -C build --no-rebuild rustfmt check-bindings-header --print-errorlogs --no-stdsplit --quiet
+
+      - name: Run clippy
+        run: mkosi box -- ninja -C build clippy

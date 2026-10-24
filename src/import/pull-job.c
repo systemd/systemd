@@ -5,10 +5,14 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "compress.h"
 #include "crypto-util.h"
 #include "curl-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -21,6 +25,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "time-util.h"
+#include "web-util.h"
 #include "xattr-util.h"
 
 static int http_status_ok(CURLcode status) {
@@ -47,6 +52,14 @@ void pull_job_close_disk_fd(PullJob *j) {
         j->disk_fd = -EBADF;
 }
 
+static void pull_job_provider_done(PullJob *j) {
+        assert(j);
+
+        j->provider_source = sd_event_source_disable_unref(j->provider_source);
+        j->provider_link = sd_varlink_close_unref(j->provider_link);
+        j->provider_fd = safe_close(j->provider_fd);
+}
+
 PullJob* pull_job_unref(PullJob *j) {
         if (!j)
                 return NULL;
@@ -54,7 +67,10 @@ PullJob* pull_job_unref(PullJob *j) {
         pull_job_close_disk_fd(j);
 
         curl_slot_unref(j->slot);
-        sym_curl_slist_free_all(j->request_header);
+        pull_job_provider_done(j);
+        if (j->request_header) /* libcurl might not even be loaded if we never had a curl transfer */
+                sym_curl_slist_free_all(j->request_header);
+        sd_event_unref(j->event);
 
         j->compress = compressor_free(j->compress);
 
@@ -90,6 +106,9 @@ static int pull_job_finish(PullJob *j, int ret) {
 
         if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
                 return 0;
+
+        /* Stop listening for further data, if we are using the Varlink transport */
+        j->provider_source = sd_event_source_disable_unref(j->provider_source);
 
         if (ret == 0) {
                 j->state = PULL_JOB_DONE;
@@ -139,6 +158,7 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         }
 
         j->slot = curl_slot_unref(j->slot);
+        pull_job_provider_done(j);
 
         j->compress = compressor_free(j->compress);
 
@@ -185,6 +205,8 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                                                                      * already, we might as well write it to
                                                                      * disk to the max */
         }
+
+        import_digest_update(&j->decoded_digest, p, sz);
 
         if (j->disk_fd >= 0) {
 
@@ -281,6 +303,9 @@ static int pull_job_open_disk(PullJob *j) {
                 }
         }
 
+        /* Start from scratch, in case we are restarted */
+        import_digest_reset(&j->decoded_digest);
+
         if (j->calc_checksum) {
                 r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
@@ -320,6 +345,129 @@ static int pull_job_begin_running(PullJob *j) {
                 return r;
 
         return 0;
+}
+
+static int pull_job_complete(PullJob *j) {
+        int r;
+
+        assert(j);
+
+        /* Called once the transport delivered all data of the download: finalizes decompression, verifies
+         * the size and checksum, and finishes off the target file. Returns 0 like pull_job_finish(). */
+
+        if (j->state == PULL_JOB_ANALYZING) {
+                /* When the transfer finished while we were still looking for a compression magic header, use
+                 * the configured algorithm, or assume the content isn't compressed and write it out as is. */
+                r = decompressor_force(&j->compress, j->compression >= 0 ? j->compression : COMPRESSION_NONE);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+
+                r = pull_job_begin_running(j);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+        }
+
+        if (j->state != PULL_JOB_RUNNING)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
+
+        /* Finalize decompressor. */
+        r = decompressor_push(j->compress, /* data= */ NULL, /* size= */ 0, pull_job_write_uncompressed, j);
+        if (r < 0)
+                return pull_job_finish(j, r);
+
+        uint64_t cl = pull_job_content_length_effective(j);
+        if (cl != UINT64_MAX &&
+            cl != j->written_compressed)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated."));
+
+        if (j->checksum_ctx) {
+                unsigned checksum_len;
+
+                iovec_done(&j->checksum);
+                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
+                if (!j->checksum.iov_base)
+                        return pull_job_finish(j, log_oom());
+
+                r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
+                if (r == 0)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum."));
+                assert(checksum_len <= EVP_MAX_MD_SIZE);
+                j->checksum.iov_len = checksum_len;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
+                        if (!h)
+                                return pull_job_finish(j, log_oom());
+
+                        log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
+                }
+
+                if (iovec_is_set(&j->expected_checksum) &&
+                    !iovec_equal(&j->checksum, &j->expected_checksum))
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
+        }
+
+        r = import_digest_verify(&j->decoded_digest);
+        if (r < 0)
+                return pull_job_finish(j, r);
+
+        if (j->disk_fd >= 0 && j->zero_fill) {
+                r = import_zero_fill(j->disk_fd, j->offset, j->uncompressed_max, j->written_uncompressed);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+        }
+
+        /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
+         * offset is specified, which indicates we only own the file partially) */
+
+        if (j->disk_fd >= 0) {
+
+                if (S_ISREG(j->disk_stat.st_mode)) {
+
+                        if (j->offset == UINT64_MAX) {
+
+                                if (j->written_compressed > 0) {
+                                        /* Make sure the file size is right, in case the file was sparse and
+                                         * we just moved to the last part. */
+                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0)
+                                                return pull_job_finish(j, log_error_errno(errno, "Failed to truncate file: %m"));
+                                }
+
+                                if (j->etag)
+                                        (void) fsetxattr(j->disk_fd, "user.source_etag", j->etag, strlen(j->etag), 0);
+                                if (j->url)
+                                        (void) fsetxattr(j->disk_fd, "user.source_url", j->url, strlen(j->url), 0);
+
+                                if (j->mtime != 0) {
+                                        struct timespec ut;
+
+                                        timespec_store(&ut, j->mtime);
+
+                                        if (futimens(j->disk_fd, (struct timespec[]) { ut, ut }) < 0)
+                                                log_debug_errno(errno, "Failed to adjust atime/mtime of created image, ignoring: %m");
+
+                                        r = fd_setcrtime(j->disk_fd, j->mtime);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to adjust crtime of created image, ignoring: %m");
+                                }
+                        }
+
+                        if (j->sync) {
+                                r = fsync_full(j->disk_fd);
+                                if (r < 0)
+                                        return pull_job_finish(j, log_error_errno(r, "Failed to synchronize file to disk: %m"));
+                        }
+
+                } else if (S_ISBLK(j->disk_stat.st_mode) && j->sync) {
+
+                        if (fsync(j->disk_fd) < 0)
+                                return pull_job_finish(j, log_error_errno(errno, "Failed to synchronize block device: %m"));
+                }
+        }
+
+        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
+
+        return pull_job_finish(j, 0);
 }
 
 static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
@@ -405,123 +553,48 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
         }
 
-        if (j->state == PULL_JOB_ANALYZING) {
-                /* When curl finished the download while we were still looking for a compression magic
-                 * header the content isn't compressed but should be written out as is. */
-                assert(result == CURLE_OK);
+        return pull_job_complete(j);
+}
 
-                r = decompressor_force_off(&j->compress);
-                if (r < 0)
-                        return pull_job_finish(j, r);
+static bool pull_job_http_status_ok(PullJob *j) {
+        long status;
 
-                r = pull_job_begin_running(j);
-                if (r < 0)
-                        return pull_job_finish(j, r);
-        }
+        assert(j);
 
-        if (j->state != PULL_JOB_RUNNING)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
+        /* Returns false if this is an HTTP transfer and the response so far isn't a 2xx one */
 
-        /* Finalize decompressor. */
-        r = decompressor_push(j->compress, /* data= */ NULL, /* size= */ 0, pull_job_write_uncompressed, j);
-        if (r < 0)
-                return pull_job_finish(j, r);
+        if (!j->slot)
+                return true;
 
-        uint64_t cl = pull_job_content_length_effective(j);
-        if (cl != UINT64_MAX &&
-            cl != j->written_compressed)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated."));
+        if (sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status) != CURLE_OK)
+                return true;
 
-        if (j->checksum_ctx) {
-                unsigned checksum_len;
-
-                iovec_done(&j->checksum);
-                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
-                if (!j->checksum.iov_base)
-                        return pull_job_finish(j, log_oom());
-
-                r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
-                if (r == 0)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum."));
-                assert(checksum_len <= EVP_MAX_MD_SIZE);
-                j->checksum.iov_len = checksum_len;
-
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
-                        if (!h)
-                                return pull_job_finish(j, log_oom());
-
-                        log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
-                }
-
-                if (iovec_is_set(&j->expected_checksum) &&
-                    !iovec_equal(&j->checksum, &j->expected_checksum))
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
-        }
-
-        if (j->disk_fd >= 0 && j->zero_fill) {
-                r = import_zero_fill(j->disk_fd, j->offset, j->uncompressed_max, j->written_uncompressed);
-                if (r < 0)
-                        return pull_job_finish(j, r);
-        }
-
-        /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
-         * offset is specified, which indicates we only own the file partially) */
-
-        if (j->disk_fd >= 0) {
-
-                if (S_ISREG(j->disk_stat.st_mode)) {
-
-                        if (j->offset == UINT64_MAX) {
-
-                                if (j->written_compressed > 0) {
-                                        /* Make sure the file size is right, in case the file was sparse and
-                                         * we just moved to the last part. */
-                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0)
-                                                return pull_job_finish(j, log_error_errno(errno, "Failed to truncate file: %m"));
-                                }
-
-                                if (j->etag)
-                                        (void) fsetxattr(j->disk_fd, "user.source_etag", j->etag, strlen(j->etag), 0);
-                                if (j->url)
-                                        (void) fsetxattr(j->disk_fd, "user.source_url", j->url, strlen(j->url), 0);
-
-                                if (j->mtime != 0) {
-                                        struct timespec ut;
-
-                                        timespec_store(&ut, j->mtime);
-
-                                        if (futimens(j->disk_fd, (struct timespec[]) { ut, ut }) < 0)
-                                                log_debug_errno(errno, "Failed to adjust atime/mtime of created image, ignoring: %m");
-
-                                        r = fd_setcrtime(j->disk_fd, j->mtime);
-                                        if (r < 0)
-                                                log_debug_errno(r, "Failed to adjust crtime of created image, ignoring: %m");
-                                }
-                        }
-
-                        if (j->sync) {
-                                r = fsync_full(j->disk_fd);
-                                if (r < 0)
-                                        return pull_job_finish(j, log_error_errno(r, "Failed to synchronize file to disk: %m"));
-                        }
-
-                } else if (S_ISBLK(j->disk_stat.st_mode) && j->sync) {
-
-                        if (fsync(j->disk_fd) < 0)
-                                return pull_job_finish(j, log_error_errno(errno, "Failed to synchronize block device: %m"));
-                }
-        }
-
-        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
-
-        return pull_job_finish(j, 0);
+        return status == 0 || http_status_ok(status);
 }
 
 static int pull_job_detect_compression(PullJob *j) {
         int r;
 
         assert(j);
+
+        if (j->compression >= 0) {
+                /* The body of an HTTP error response (e.g. a 404 page) is not encoded with the algorithm we
+                 * expect, hence don't feed it into the decompressor, but drop it. The job will fail with the
+                 * HTTP error once the transfer finished. */
+                if (!pull_job_http_status_ok(j)) {
+                        iovec_done(&j->payload);
+                        return 0;
+                }
+
+                /* We were told which algorithm to expect, hence don't guess from the data, but strictly use
+                 * that one. */
+                r = decompressor_force(&j->compress, j->compression);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize decompressor: %m");
+
+                log_debug("Using configured compression: %s", compression_to_string(j->compression));
+                return pull_job_begin_running(j);
+        }
 
         r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
@@ -534,6 +607,33 @@ static int pull_job_detect_compression(PullJob *j) {
         return pull_job_begin_running(j);
 }
 
+static int pull_job_process_data(PullJob *j, const void *p, size_t sz) {
+        assert(j);
+        assert(p || sz == 0);
+
+        /* Feeds a chunk of downloaded data into the job, regardless of the transport it arrived through */
+
+        switch (j->state) {
+
+        case PULL_JOB_ANALYZING:
+                /* Let's first check what it actually is */
+                if (!iovec_append(&j->payload, &IOVEC_MAKE((void*) p, sz)))
+                        return log_oom();
+
+                return pull_job_detect_compression(j);
+
+        case PULL_JOB_RUNNING:
+                return pull_job_write_compressed(j, &IOVEC_MAKE((void*) p, sz));
+
+        case PULL_JOB_DONE:
+        case PULL_JOB_FAILED:
+                return -ESTALE;
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         PullJob *j = ASSERT_PTR(userdata);
         size_t sz = size * nmemb;
@@ -541,42 +641,13 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         assert(contents);
 
-        switch (j->state) {
-
-        case PULL_JOB_ANALYZING:
-                /* Let's first check what it actually is */
-                if (!iovec_append(&j->payload, &IOVEC_MAKE(contents, sz))) {
-                        r = log_oom();
-                        goto fail;
-                }
-
-                r = pull_job_detect_compression(j);
-                if (r < 0)
-                        goto fail;
-
-                break;
-
-        case PULL_JOB_RUNNING:
-                r = pull_job_write_compressed(j, &IOVEC_MAKE(contents, sz));
-                if (r < 0)
-                        goto fail;
-
-                break;
-
-        case PULL_JOB_DONE:
-        case PULL_JOB_FAILED:
-                r = -ESTALE;
-                goto fail;
-
-        default:
-                assert_not_reached();
+        r = pull_job_process_data(j, contents, sz);
+        if (r < 0) {
+                pull_job_finish(j, r);
+                return 0;
         }
 
         return sz;
-
-fail:
-        pull_job_finish(j, r);
-        return 0;
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
@@ -700,32 +771,36 @@ fail:
         return 0;
 }
 
-static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
-        PullJob *j = ASSERT_PTR(userdata);
+static void pull_job_report_progress(PullJob *j, uint64_t total, uint64_t current) {
         unsigned percent;
         usec_t n;
 
-        if (dltotal <= 0)
-                return 0;
+        assert(j);
 
-        percent = ((100 * dlnow) / dltotal);
+        /* Reports download progress, regardless of the transport. 'total' may be UINT64_MAX or zero if the
+         * total size is unknown, in which case nothing is reported. */
+
+        if (total <= 0 || total == UINT64_MAX || current > total)
+                return;
+
+        percent = ((100 * current) / total);
         n = now(CLOCK_MONOTONIC);
 
         if (n > j->last_status_usec + USEC_PER_SEC &&
             percent != j->progress_percent &&
-            dlnow < dltotal) {
+            current < total) {
 
-                if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
+                if (n - j->start_usec > USEC_PER_SEC && current > 0) {
                         usec_t left, done;
 
                         done = n - j->start_usec;
-                        left = (usec_t) (((double) done * (double) dltotal) / dlnow) - done;
+                        left = (usec_t) (((double) done * (double) total) / current) - done;
 
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
                                  pull_job_description(j),
                                  FORMAT_TIMESPAN(left, USEC_PER_SEC),
-                                 FORMAT_BYTES((uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
+                                 FORMAT_BYTES((uint64_t) ((double) current / ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, pull_job_description(j));
 
@@ -735,13 +810,22 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
                 if (j->on_progress)
                         j->on_progress(j);
         }
+}
 
+static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        PullJob *j = ASSERT_PTR(userdata);
+
+        if (dltotal <= 0 || dlnow < 0)
+                return 0;
+
+        pull_job_report_progress(j, (uint64_t) dltotal, (uint64_t) dlnow);
         return 0;
 }
 
 int pull_job_new(
                 PullJob **ret,
                 const char *url,
+                sd_event *event,
                 CurlGlue *glue,
                 void *userdata) {
 
@@ -749,7 +833,8 @@ int pull_job_new(
         _cleanup_free_ char *u = NULL;
 
         assert(url);
-        assert(glue);
+        assert(event);
+        assert(!glue || curl_glue_get_event(glue) == event);
         assert(ret);
 
         u = strdup(url);
@@ -763,8 +848,11 @@ int pull_job_new(
         *j = (PullJob) {
                 .state = PULL_JOB_INIT,
                 .disk_fd = -EBADF,
+                .compression = _COMPRESSION_INVALID,
                 .close_disk_fd = true,
+                .provider_fd = -EBADF,
                 .userdata = userdata,
+                .event = sd_event_ref(event),
                 .glue = glue,
                 .content_length = UINT64_MAX,
                 .start_usec = now(CLOCK_MONOTONIC),
@@ -802,6 +890,178 @@ int pull_job_add_request_header(PullJob *j, const char *hdr) {
         return 0;
 }
 
+static int pull_job_provider_on_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        PullJob *j = ASSERT_PTR(userdata);
+        uint8_t buffer[32 * 1024];
+        ssize_t n;
+        int r;
+
+        assert(fd >= 0);
+
+        n = read(fd, buffer, sizeof(buffer));
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return pull_job_finish(j, log_error_errno(errno, "Failed to read from resource provider for %s: %m", j->url));
+        }
+        if (n == 0) /* EOF: the provider has sent everything */
+                return pull_job_complete(j);
+
+        r = pull_job_process_data(j, buffer, (size_t) n);
+        if (r < 0)
+                return pull_job_finish(j, r);
+
+        pull_job_report_progress(j, pull_job_content_length_effective(j), j->written_compressed);
+        return 0;
+}
+
+static int pull_job_provider_on_upgrade(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        _cleanup_close_ int in = input_fd, out = output_fd; /* We own these now */
+        PullJob *j = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+                return 0;
+
+        /* The provider accepted the request, from now on the connection carries the raw resource data. We
+         * only ever read from it, hence close the output side right-away. */
+        out = safe_close(out);
+
+        r = fd_nonblock(in, true);
+        if (r < 0)
+                return pull_job_finish(j, log_error_errno(r, "Failed to make resource provider connection non-blocking: %m"));
+
+        r = sd_event_add_io(j->event, &j->provider_source, in, EPOLLIN, pull_job_provider_on_io, j);
+        if (r < 0)
+                return pull_job_finish(j, log_error_errno(r, "Failed to add resource provider connection to event loop: %m"));
+
+        (void) sd_event_source_set_description(j->provider_source, "pull-provider-io");
+
+        j->provider_fd = TAKE_FD(in);
+        return 0;
+}
+
+static int pull_job_provider_on_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        PullJob *j = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+                return 0;
+
+        if (error_id) {
+                if (streq(error_id, "io.systemd.ResourceProvider.NoSuchResource")) {
+
+                        if (j->on_not_found) {
+                                _cleanup_free_ char *new_url = NULL;
+
+                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
+                                r = j->on_not_found(j, &new_url);
+                                if (r < 0)
+                                        return pull_job_finish(j, r);
+                                if (r > 0) { /* A new url to use */
+                                        assert(new_url);
+
+                                        r = pull_job_restart(j, new_url);
+                                        if (r < 0)
+                                                return pull_job_finish(j, r);
+
+                                        return 0;
+                                }
+                        }
+
+                        return pull_job_finish(j, log_notice_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "Resource provider request for %s failed: resource does not exist.", j->url));
+                }
+
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Resource provider request for %s failed: %s", j->url, error_id));
+        }
+
+        /* The provider may announce the size of the resource, which we use for progress reporting and to detect truncation */
+        struct {
+                uint64_t size;
+        } p = {
+                .size = UINT64_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "size", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, size), 0 },
+                {},
+        };
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return pull_job_finish(j, log_error_errno(r, "Resource provider returned invalid reply for %s: %m", j->url));
+
+        if (p.size != UINT64_MAX) {
+                j->content_length = p.size;
+
+                uint64_t cl = pull_job_content_length_effective(j);
+                if (cl != UINT64_MAX && cl > j->compressed_max)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EFBIG), "Resource too large: %" PRIu64 " bytes.", cl));
+        }
+
+        /* The upgrade callback is invoked next, and takes it from there */
+        return 0;
+}
+
+static int pull_job_begin_provider(PullJob *j) {
+        _cleanup_free_ char *socket_path = NULL, *resource = NULL;
+        int r;
+
+        assert(j);
+
+        /* Transport for "provider:[/path/to/socket]/resource" URLs: connect to the specified Varlink service,
+         * request the resource with a protocol upgrade, and then read the raw data from the connection. */
+
+        r = provider_url_parse(j->url, &socket_path, &resource);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse provider URL '%s': %m", j->url);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, socket_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to resource provider '%s': %m", socket_path);
+
+        (void) sd_varlink_set_description(vl, socket_path);
+        sd_varlink_set_userdata(vl, j);
+
+        r = sd_varlink_attach_event(vl, j->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach resource provider connection to event loop: %m");
+
+        r = sd_varlink_bind_reply(vl, pull_job_provider_on_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind reply callback: %m");
+
+        r = sd_varlink_bind_upgrade(vl, pull_job_provider_on_upgrade);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind upgrade callback: %m");
+
+        r = sd_varlink_invoke_and_upgradebo(
+                        vl,
+                        "io.systemd.ResourceProvider.AcquireResource",
+                        SD_JSON_BUILD_PAIR_STRING("name", resource));
+        if (r < 0)
+                return log_error_errno(r, "Failed to request resource '%s' from '%s': %m", resource, socket_path);
+
+        log_debug("Requesting resource '%s' from resource provider '%s'.", resource, socket_path);
+
+        j->provider_link = TAKE_PTR(vl);
+        j->state = PULL_JOB_ANALYZING;
+
+        return 0;
+}
+
 int pull_job_begin(PullJob *j) {
         int r;
 
@@ -809,6 +1069,12 @@ int pull_job_begin(PullJob *j) {
 
         if (j->state != PULL_JOB_INIT)
                 return -EBUSY;
+
+        if (provider_url_is_valid(j->url))
+                return pull_job_begin_provider(j);
+
+        /* Everything else is transported via curl */
+        assert(j->glue);
 
         _cleanup_(curl_easy_cleanupp) CURL *easy = NULL;
         r = curl_glue_make(&easy, j->url);

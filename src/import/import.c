@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
@@ -16,6 +17,7 @@
 #include "import-tar.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -29,10 +31,13 @@
 static char *arg_image_root = NULL;
 static ImportFlags arg_import_flags = IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
+static Compression arg_compression = _COMPRESSION_INVALID;
+static struct iovec arg_decoded_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_decoded_checksum, iovec_done);
 
 COMMAND(
         "systemd-import\0",
@@ -191,6 +196,8 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         import,
                         fd,
                         normalized,
+                        arg_compression,
+                        &arg_decoded_checksum,
                         arg_import_flags & IMPORT_FLAGS_MASK_TAR);
         if (r < 0)
                 return log_error_errno(r, "Failed to import image: %m");
@@ -263,6 +270,8 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_offset,
                         arg_size_max,
+                        arg_compression,
+                        &arg_decoded_checksum,
                         arg_import_flags & IMPORT_FLAGS_MASK_RAW);
         if (r < 0)
                 return log_error_errno(r, "Failed to import image: %m");
@@ -375,6 +384,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_size_max = u;
                         break;
                 }
+
+                OPTION_LONG("compression", "ALGORITHM",
+                            "Compression algorithm of the input, one of: 'auto', 'none', 'gzip', 'xz', 'zstd', 'bzip2', 'lz4'"):
+                        r = import_parse_compression_argument("--compression=", opts.arg, &arg_compression);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("verify-decoded", "SHA256",
+                            "Verify the decoded (i.e. decompressed) input against the specified SHA256 hash"):
+                        r = import_parse_sha256_argument("--verify-decoded=", opts.arg, &arg_decoded_checksum);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):

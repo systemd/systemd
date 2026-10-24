@@ -60,16 +60,20 @@ jobs:
             release: rolling
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             vm: 1
+            rust: 1
           - distro: debian
             release: stable
+            rust: 1
           - distro: debian
             release: testing
             shim: 1
+            rust: 1
           - distro: debian
             release: testing
             runner: ubuntu-24.04-arm
             no_qemu: 1
             no_kvm: 1
+            rust: 1
           - distro: ubuntu
             release: noble
           - distro: ubuntu
@@ -80,8 +84,10 @@ jobs:
             llvm: 1
           - distro: fedora
             release: rawhide
+            rust: 1
           - distro: opensuse
             release: tumbleweed
+            rust: 1
           - distro: centos
             release: "9"
           - distro: centos
@@ -95,7 +101,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
+      - uses: systemd/mkosi@131adaca5eb5f1551bc564ae4497ff940890a374
         with:
           # Bootstrapping a Nura tools tree on the Ubuntu host needs apk
           apk: ${{ matrix.distro == 'nura' }}
@@ -147,7 +153,9 @@ jobs:
                   WITH_DEBUG=1
                   CFLAGS="${{ matrix.cflags || '-Og' }}"
                   SANITIZERS="${{ matrix.sanitizers || '' }}"
-                  MESON_OPTIONS=--werror
+                  # Where the toolchain is known to be new enough, a toolchain that quietly stops being
+                  # found fails the build instead of silently dropping Rust.
+                  MESON_OPTIONS="--werror${{ matrix.rust && ' -Drust=enabled' || '' }}"
                   LLVM="${{ matrix.llvm || 0 }}"
                   SYSEXT=1
 

@@ -5,6 +5,7 @@ project('systemd', 'c',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu17',
+                'rust_std=2021',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
@@ -40,6 +41,9 @@ conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : '
 
 fs = import('fs')
 
+# ninja runs a build command again when its command line changes. An absolute path on a command line
+# changes when the source and build directories are reconfigured at a different absolute path. Build
+# commands should therefore refer to the source directory through relative_source_path.
 if meson.version().version_compare('>=1.3.0')
         relative_source_path = fs.relative_to(meson.project_source_root(),
                                               meson.project_build_root())
@@ -366,6 +370,129 @@ if add_languages('cpp', native : false, required : fuzzer_build)
         cxx_cmd = ' '.join(cxx.cmd_array())
 else
         cxx_cmd = ''
+endif
+
+#####################################################################
+
+rust_feature = get_option('rust')
+# The oldest rustc we support. Also handed to bindgen, so that the generated bindings never require a
+# newer compiler than the hand-written code does.
+rust_msrv = '1.85'
+bindgen_min_version = '0.71.1'
+have_rust = false
+
+if rust_feature.allowed()
+        # The rust module's bindgen() integration needs this meson version.
+        if meson.version().version_compare('< 1.4.0')
+                if rust_feature.enabled()
+                        error('Rust support requires meson >= 1.4.0, found @0@'.format(meson.version()))
+                endif
+                message('Rust support requires meson >= 1.4.0, disabling')
+        elif meson.is_cross_build()
+                if rust_feature.enabled()
+                        error('Rust support is not available when cross-compiling yet')
+                endif
+                message('Rust support is not available when cross-compiling yet, disabling')
+        else
+                have_rust = add_languages('rust', native : false, required : rust_feature)
+        endif
+endif
+
+if have_rust
+        rustc = meson.get_compiler('rust')
+        if rustc.version().version_compare('< ' + rust_msrv)
+                if rust_feature.enabled()
+                        error('rustc >= @0@ is required, found @1@'.format(rust_msrv, rustc.version()))
+                endif
+                message('rustc >= @0@ is required, found @1@, disabling Rust support'.format(rust_msrv, rustc.version()))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        bindgen = find_program('bindgen', required : rust_feature, version : '>= ' + bindgen_min_version)
+        have_rust = bindgen.found()
+
+        # 0.72.0 generates bindings that do not compile, 0.72.1 fixed that.
+        if have_rust and bindgen.version() == '0.72.0'
+                if rust_feature.enabled()
+                        error('bindgen 0.72.0 is known to be broken, use 0.71.1 or >= 0.72.1')
+                endif
+                message('bindgen 0.72.0 is known to be broken, disabling Rust support')
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        # bindgen parses C with libclang, which it loads at run time, so find_program() proves nothing about
+        # it. Run it once over a header that reports the libclang version and contains the construct bindgen
+        # < 0.72.1 mishandles with libclang >= 22 (https://github.com/rust-lang/rust-bindgen/pull/3278).
+        bindgen_probe = run_command(bindgen, files('tools/bindgen-probe.h'), '--formatter', 'none', check : false)
+        libclang_version = ''
+        if bindgen_probe.returncode() == 0
+                foreach line : bindgen_probe.stderr().split('\n')
+                        if line.contains('clang version ')
+                                libclang_version = line.split('clang version ')[1].split(' ')[0]
+                        endif
+                endforeach
+        endif
+
+        if libclang_version == ''
+                if rust_feature.enabled()
+                        error('bindgen cannot generate bindings, is libclang installed?\n' + bindgen_probe.stderr())
+                endif
+                message('bindgen cannot generate bindings, disabling Rust support')
+                have_rust = false
+        elif libclang_version.version_compare('>= 22') and bindgen.version().version_compare('< 0.72.1') and not bindgen_probe.stdout().contains('pub foo')
+                if rust_feature.enabled()
+                        error('bindgen @0@ does not work with libclang @1@, use bindgen >= 0.72.1'.format(bindgen.version(), libclang_version))
+                endif
+                message('bindgen @0@ does not work with libclang @1@, disabling Rust support'.format(bindgen.version(), libclang_version))
+                have_rust = false
+        endif
+endif
+
+conf.set10('HAVE_RUST', have_rust)
+
+if have_rust
+        rustfmt = find_program('rustfmt', required : false)
+
+        # Warnings are errors only under --werror, like for C.
+        rust_args = [
+                '-Dnon_ascii_idents',
+                '-Dunsafe_op_in_unsafe_fn',
+                '-Wmissing_docs',
+                '-Wrust_2018_idioms',
+                '-Wunreachable_pub',
+                '-Wclippy::undocumented_unsafe_blocks',
+                '-Wclippy::unnecessary_safety_comment',
+                '-Wclippy::unnecessary_safety_doc',
+                '-Wclippy::ptr_as_ptr',
+                '-Wclippy::ptr_cast_constness',
+                '-Wclippy::ref_as_ptr',
+                '-Wclippy::as_ptr_cast_mut',
+                '-Wclippy::cast_lossless',
+                '-Wclippy::dbg_macro',
+                '-Wrustdoc::missing_crate_level_docs',
+                # rustc's default depends on the optimization level. C code in systemd checks its arithmetic
+                # where it matters, Rust code does not get to wrap silently either.
+                '-Coverflow-checks=yes',
+                # Unwinding could not cross the C frames of an event loop anyway, and without std there is no
+                # unwinder.
+                '-Cpanic=abort',
+        ]
+        # meson passes source paths relative to the build directory, which is what file!() and hence
+        # CODE_FILE= in the journal would show. Strip the prefix like PROJECT_FILE does for C. This also
+        # makes the paths in the debug info relative to the source root (--remap-path-scope=macro would
+        # limit it to file!(), but rustdoc does not accept that flag on stable).
+        rust_args += ['--remap-path-prefix=' + relative_source_path + '/=']
+        add_project_arguments(rust_args, language : 'rust')
+
+        summary({
+                'rustc'    : rustc.version(),
+                'bindgen'  : bindgen.version(),
+                'libclang' : libclang_version,
+        }, section : 'Rust')
 endif
 
 if want_libfuzzer
@@ -779,7 +906,8 @@ endif
 time_epoch = get_option('time-epoch')
 if time_epoch <= 0
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
-        if time_epoch == '' and git.found() and fs.is_dir('.git')
+        # .git is a file instead of a directory in a git worktree.
+        if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
                                          check : false)
@@ -980,6 +1108,9 @@ conf.set_quoted('DNS_SERVERS', dns_servers)
 
 ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
+
+geoip_endpoint = get_option('geoip-endpoint')
+conf.set_quoted('GEOIP_ENDPOINT', geoip_endpoint)
 
 default_locale = get_option('default-locale')
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
@@ -1841,7 +1972,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2_py, config_h]
+jinja2_cmdline = [python, meson_render_jinja2_py, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -1859,14 +1990,15 @@ simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
+rust_sources = []
 executables_by_name = {}
 exported_by_name = {}
 fuzzer_exes = []
 sources = []
 
-# binaries that have --help and are intended for use by humans,
-# usually, but not always, installed in /usr/bin.
-public_programs = []
+# All installed programs and aliases: dependencies of the mkosi target, and checked for
+# working --help and --version below.
+install_programs = []
 
 # D-Bus introspection XML export
 dbus_programs = []
@@ -1945,6 +2077,12 @@ subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/libudev')
+
+# The Rust bits need meson 1.4.0, the project floor is older. meson checks feature versions against the
+# version compared here instead of the floor, for everything subdir() evaluates.
+if meson.version().version_compare('>= 1.4.0')
+        subdir('src/rust/systemd-shared')
+endif
 
 libsystemd = shared_library(
         'systemd',
@@ -2043,12 +2181,16 @@ endif
 
 #####################################################################
 
+# Every test executable has systemd-runtest.env as a link dependency, so ninja relinks every test when
+# the file changes. Absolute paths in the file would change whenever the build directory moves. The paths
+# are therefore relative to the build directory. tests.c and test-sysusers.sh resolve them against the
+# directory that contains the file.
 runtest_env = custom_target(
         output : 'systemd-runtest.env',
         command : ['printf',
                    'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
-                   meson.project_source_root() / 'test',
-                   meson.project_build_root() / 'catalog'],
+                   relative_source_path / 'test',
+                   'catalog'],
         capture: true,
         depends : catalogs,
         build_by_default : true)
@@ -2083,7 +2225,7 @@ endif
 #                      of the executable.
 #   'conditions'     : a list of config options that must all be enabled for the
 #                      symlink to be created.
-#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+#   'dbus'           : same meaning as for the executable itself, but for the alias.
 # The symlinks are also created in the build directory, pointing to the executable in
 # the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
@@ -2116,6 +2258,36 @@ test_additional_kwargs = {
         'c_args' : test_cflags,
         'link_depends' : runtest_env,
 }
+
+if have_rust
+        # Programs written in Rust go into executables like the C ones, the 'rust' key tells them apart. The
+        # crate root comes first. No .standalone variants, they always link libsystemd-shared dynamically.
+        rust_executable_template = {
+                'rust' : true,
+                'include_directories' : [],
+                'link_with' : [libsystemd_shared_rs],
+                'install_rpath' : pkglibdir,
+                'install' : 'yes',
+                'build_by_default' : true,
+                # meson keeps rustc's own library directory in the runpath of Rust programs that link a shared
+                # library (it is only needed for Rust dylibs, which we do not use) and cannot grow a runpath
+                # when installing. Add a build-only entry that is at least as long as the installed runpath, so
+                # that install always succeeds, and let fix-rust-rpath.py drop the leftover entry afterwards.
+                # Both become no-ops once meson stops adding the directory.
+                'build_rpath' : meson.project_build_root() / pkglibdir.strip('/'),
+                # Nothing from the crates is exported. The linker exports what a DSO in the link also defines,
+                # and a stub of the crates would then preempt it for the libraries a program loads.
+                'link_args' : ['-Wl,--exclude-libs,ALL'],
+                'rust_args' : rust_cfg_args,
+        }
+
+        rust_test_template = rust_executable_template + {
+                'build_by_default' : want_tests != 'false',
+                'install' : install_tests ? 'yes' : 'no',
+                'install_dir' : unittestsdir,
+                'suite' : 'rust',
+        }
+endif
 
 fuzz_template = executable_template + {
         'build_by_default' : want_fuzz_tests,
@@ -2251,6 +2423,7 @@ subdir('src/pcrextend')
 subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
+subdir('src/ptybroker')
 subdir('src/ptyfwd')
 subdir('src/quotacheck')
 subdir('src/random-seed')
@@ -2334,6 +2507,7 @@ foreach dict : executables
 
         is_test = name.startswith('test-')
         is_fuzz = name.startswith('fuzz-')
+        is_rust = dict.get('rust', false)
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2370,22 +2544,24 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
+                if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static', 'symlinks']
+                           'bpf_programs', 'link_args_static', 'symlinks', 'rust']
                         continue
                 endif
 
                 kwargs += { key : val }
         endforeach
 
-        foreach key, val : executable_additional_kwargs
-                kwargs += { key : [ kwargs.get(key, []), val ]}
-        endforeach
+        if not is_rust
+                foreach key, val : executable_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ]}
+                endforeach
+        endif
 
         include_directories = dict['include_directories']
-        if not is_test and exe_sources.length() > 0
+        if not is_test and not is_rust and exe_sources.length() > 0
                 include_directories += fs.parent(exe_sources[0])
         endif
 
@@ -2398,6 +2574,9 @@ foreach dict : executables
         if is_test
                 kwargs += { 'install_dir' : kwargs.get('install_dir') / dict.get('type', '') }
                 foreach key, val : test_additional_kwargs
+                        if is_rust and key == 'c_args'
+                                continue
+                        endif
                         kwargs += { key : [ kwargs.get(key, []), val ] }
                 endforeach
         endif
@@ -2418,7 +2597,7 @@ foreach dict : executables
         install = dict.get('install')
         build_by_default = dict.get('build_by_default')
         install_standalone = false
-        if not (is_test or is_fuzz)
+        if not (is_test or is_fuzz or is_rust)
                 foreach pattern : standalone_binaries
                         if name.contains(pattern)
                                 install_standalone = true
@@ -2432,7 +2611,7 @@ foreach dict : executables
                 build_by_default_shared = build_by_default
                 build_by_default_static = build_by_default and (install_standalone or want_dlopen_tests)
         elif install == 'static'
-                if is_test or is_fuzz
+                if is_test or is_fuzz or is_rust
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
                 endif
                 name_shared = name + '.shared'
@@ -2456,7 +2635,15 @@ foreach dict : executables
         )
 
         executables_by_name += { name_shared : exe }
-        sources += exe_sources
+        if is_rust
+                rust_sources += exe_sources
+                if install_shared
+                        meson.add_install_script(python, fix_rust_rpath_py, pkglibdir,
+                                                 kwargs.get('install_dir', bindir) / name)
+                endif
+        else
+                sources += exe_sources
+        endif
 
         if 'export' in dict
                 exported_by_name += {
@@ -2471,12 +2658,12 @@ foreach dict : executables
                 if dict.get('dbus', false)
                         dbus_programs += exe
                 endif
-                if dict.get('public', false)
-                        public_programs += exe
+                if install_shared and not is_test and not is_fuzz
+                        install_programs += exe
                 endif
         endif
 
-        if not is_test and not is_fuzz
+        if not is_test and not is_fuzz and not is_rust
                 link_with_static = []
                 foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
@@ -2513,8 +2700,8 @@ foreach dict : executables
                         if dict.get('dbus', false) and not build_by_default_shared
                                 dbus_programs += exe_static
                         endif
-                        if dict.get('public', false)
-                                public_programs += exe_static
+                        if install_static
+                                install_programs += exe_static
                         endif
                 endif
         endif
@@ -2553,8 +2740,8 @@ foreach dict : executables
                                         if symlink.get('dbus', false)
                                                 dbus_programs += link
                                         endif
-                                        if symlink.get('public', false)
-                                                public_programs += link
+                                        if install_primary
+                                                install_programs += link
                                         endif
                                 endif
                         endif
@@ -2682,11 +2869,11 @@ foreach dict : modules
         kwargs += {
                 'link_args' : [
                         kwargs.get('link_args', []),
-                        '-Wl,--version-script=' + dict.get('version-script'),
+                        '-Wl,--version-script=' + relative_source_path / dict.get('version-script'),
                 ],
                 'link_depends' : [
                         kwargs.get('link_depends', []),
-                        dict.get('version-script'),
+                        files(dict.get('version-script')),
                 ],
         }
         foreach key, val : module_additional_kwargs
@@ -2785,7 +2972,7 @@ ukify = custom_target(
         depends : ukify_depends,
         install_dir : bindir)
 if want_ukify
-        public_programs += ukify
+        install_programs += ukify
 
         # symlink for backwards compatibility after rename
         install_symlink('ukify',
@@ -2796,13 +2983,22 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
-mkosi_depends = public_programs
+mkosi_depends = install_programs
 
 foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyutil']
         if executable in executables_by_name
                 mkosi_depends += [executables_by_name[executable]]
         endif
 endforeach
+
+#####################################################################
+
+if have_rust and want_tests != 'false' and rustfmt.found() and rust_sources.length() > 0
+        test('rustfmt',
+             rustfmt,
+             args : ['--check', '--edition', '2021', rust_sources],
+             suite : 'dist')
+endif
 
 if mkosi.found()
         custom_target(
@@ -2890,9 +3086,16 @@ endif
 
 #####################################################################
 
-foreach exec : public_programs
+# Aliases whose command line follows other conventions
+check_help_exclude = [
+        'mount.ddi',      # mount helpers implement the mount(8) interface
+        'mount.mstack',
+        'mount.storage',
+]
+
+foreach exec : install_programs
         name = fs.name(exec.full_path())
-        if want_tests != 'false'
+        if want_tests != 'false' and name not in check_help_exclude
                 test('check-version-' + name,
                      check_version_sh,
                      suite : 'dist',
@@ -2998,13 +3201,27 @@ if meson.version().version_compare('>=1.4.0')
                         inputs += header
                 endif
 
+                # Generated sources are in the build directory, which is often build/ below the
+                # source directory. Relative to the source directory, the path of a generated
+                # source starts with build/ instead of src/ and gets no clang-tidy-<directory> suite.
+                root = meson.project_source_root()
+                if source.full_path().startswith(meson.project_build_root() + '/')
+                        root = meson.project_build_root()
+                endif
+
+                suites = ['clang-tidy']
+                parts = fs.relative_to(source.full_path(), root).split('/')
+                if parts.length() > 2 and parts[0] == 'src'
+                        suites += 'clang-tidy-@0@'.format(parts[1])
+                endif
+
                 foreach input : inputs
                         if clang_tidy.found()
                                 test(
                                         'clang-tidy-@0@'.format(fs.name(input)),
                                         clang_tidy,
                                         args : ['-p', meson.project_build_root(), input],
-                                        suite : 'clang-tidy',
+                                        suite : suites,
                                         depends : generated_sources,
                                 )
                         endif
@@ -3040,17 +3257,19 @@ if spatch.found()
         endforeach
 endif
 
-symbol_analysis_exes = []
-foreach name, exe : executables_by_name
-        symbol_analysis_exes += exe
-endforeach
+if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
+        symbol_analysis_exes = []
+        foreach name, exe : executables_by_name
+                symbol_analysis_exes += exe
+        endforeach
 
-test(
-        'libshared-unused-symbols',
-        find_unused_library_symbols_py,
-        suite : 'unused-symbols',
-        args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
-)
+        test(
+                'libshared-unused-symbols',
+                find_unused_library_symbols_py,
+                suite : 'unused-symbols',
+                args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
+        )
+endif
 
 run_target(
         'check-api-docs',
@@ -3070,7 +3289,7 @@ if not meson.is_cross_build()
                 output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
-                command : [dbus_exporter_py, '@OUTPUT@', dbus_programs])
+                command : [python, dbus_exporter_py, '@OUTPUT@', dbus_programs])
 endif
 
 custom_target(
@@ -3078,8 +3297,9 @@ custom_target(
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [meson_extract_unit_files_py,
-                   meson.project_build_root()])
+        command : [python,
+                   meson_extract_unit_files_py,
+                   '.'])
 
 #####################################################################
 
@@ -3149,6 +3369,7 @@ summary({
         'default LLMNR mode'                        : default_llmnr,
         'default DNS servers'                       : dns_servers.split(' '),
         'default NTP servers'                       : ntp_servers.split(' '),
+        'default GeoIP endpoint'                    : geoip_endpoint,
         'default net.naming_scheme= value'          : default_net_naming_scheme,
         'default KillUserProcesses= value'          : kill_user_processes,
         'default locale'                            : default_locale,
@@ -3249,6 +3470,7 @@ foreach tuple : [
         ['report'],
         ['resolve'],
         ['rfkill'],
+        ['rust',                   have_rust],
         ['sysext'],
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],

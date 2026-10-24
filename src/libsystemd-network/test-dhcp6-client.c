@@ -887,12 +887,14 @@ static void test_client_verify_solicit(const DHCP6Message *msg, size_t len) {
         assert_se(memcmp(msg, msg_solicit, len - sizeof(be16_t)) == 0);
 }
 
+/* The FQDN set while the client is running, in the wire format. */
+static const uint8_t new_fqdn[] = {
+        0x04, 'n', 'e', 'x', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+};
+
 static void test_client_verify_solicit_with_new_fqdn(const DHCP6Message *msg, size_t len) {
         static const uint8_t old_fqdn[] = {
                 0x04, 'h', 'o', 's', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
-        };
-        static const uint8_t new_fqdn[] = {
-                0x04, 'n', 'e', 'x', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         };
         uint8_t expected[sizeof(msg_solicit)];
         uint8_t *p;
@@ -908,6 +910,18 @@ static void test_client_verify_solicit_with_new_fqdn(const DHCP6Message *msg, si
         ASSERT_EQ(len, sizeof(expected));
         /* The elapsed time value is not deterministic. Skip it. */
         ASSERT_EQ(memcmp(msg, expected, len - sizeof(be16_t)), 0);
+}
+
+static void test_client_verify_renew_with_new_fqdn(const DHCP6Message *msg, size_t len) {
+        const uint8_t *options = msg->options;
+        size_t options_len = len - offsetof(DHCP6Message, options);
+
+        log_debug("/* %s */", __func__);
+
+        ASSERT_EQ(msg->type, DHCP6_MESSAGE_RENEW);
+        /* RENEW is sent to the server which provided the lease, and carries the new FQDN. */
+        ASSERT_NOT_NULL(memmem_safe(options, options_len, server_id, sizeof(server_id)));
+        ASSERT_NOT_NULL(memmem_safe(options, options_len, new_fqdn, sizeof(new_fqdn)));
 }
 
 static void test_client_verify_release(const DHCP6Message *msg, size_t len) {
@@ -1040,9 +1054,23 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
                 log_debug("/* %s (event=information-request) */", __func__);
 
-                assert_se(test_client_sent_message_count == 1);
+                ASSERT_TRUE(IN_SET(test_client_sent_message_count, 1, 2));
 
                 test_lease_common(client);
+
+                if (test_client_sent_message_count == 1) {
+                        /* Starting the client again, e.g. on RA, is refused within the information refresh
+                         * time, but the lease must be kept. */
+                        ASSERT_OK(sd_dhcp6_client_start(client));
+                        ASSERT_FALSE(sd_dhcp6_client_is_running(client));
+                        test_lease_common(client);
+
+                        /* In the information request mode, the information is requested again. */
+                        ASSERT_OK(sd_dhcp6_client_send_renew(client));
+                        ASSERT_OK(dhcp6_client_set_transaction_id(
+                                        client, ((const DHCP6Message*) msg_reply)->transaction_id));
+                        break;
+                }
 
                 assert_se(sd_dhcp6_client_set_information_request(client, false) >= 0);
                 assert_se(sd_dhcp6_client_start(client) >= 0);
@@ -1052,12 +1080,12 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
                 log_debug("/* %s (event=ip-acquire) */", __func__);
 
-                assert_se(IN_SET(test_client_sent_message_count, 3, 5));
+                ASSERT_TRUE(IN_SET(test_client_sent_message_count, 4, 6, 7));
 
                 test_lease_managed(client);
 
                 switch (test_client_sent_message_count) {
-                case 3:
+                case 4:
                         /* The FQDN can be changed while the client is running, and the new one is sent
                          * in the following messages. */
                         ASSERT_OK(sd_dhcp6_client_set_fqdn(client, "next.lab.intra"));
@@ -1067,7 +1095,14 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                         assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
                         break;
 
-                case 5:
+                case 6:
+                        /* Renew the lease on request, e.g. to send the new FQDN immediately. */
+                        ASSERT_OK(sd_dhcp6_client_send_renew(client));
+                        ASSERT_OK(dhcp6_client_set_transaction_id(
+                                        client, ((const DHCP6Message*) msg_reply)->transaction_id));
+                        break;
+
+                case 7:
                         assert_se(sd_event_exit(sd_dhcp6_client_get_event(client), 0) >= 0);
                         break;
 
@@ -1083,7 +1118,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
 
                 log_debug("/* %s (event=test-advertised) */", __func__);
 
-                assert_se(test_client_sent_message_count == 2);
+                ASSERT_EQ(test_client_sent_message_count, 3u);
 
                 test_lease_managed(client);
 
@@ -1109,30 +1144,37 @@ int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *p
 
         switch (test_client_sent_message_count) {
         case 0:
+        case 1:
                 test_client_verify_information_request(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
 
-        case 1:
+        case 2:
                 test_client_verify_solicit(packet, len);
                 assert_se(write(test_fd[1], msg_advertise, sizeof(msg_advertise)) == sizeof(msg_advertise));
                 break;
 
-        case 2:
+        case 3:
                 test_client_callback(client_ref, DHCP6_CLIENT_EVENT_TEST_ADVERTISED, NULL);
                 test_client_verify_request(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
 
-        case 3:
+        case 4:
                 test_client_verify_release(packet, len);
                 /* when stopping, dhcp6 client doesn't wait for release server reply */
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
 
-        case 4:
+        case 5:
                 test_client_verify_solicit_with_new_fqdn(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
+                break;
+
+        case 6:
+                test_client_verify_renew_with_new_fqdn(packet, len);
+                ASSERT_OK_EQ_ERRNO(write(test_fd[1], msg_reply, sizeof(msg_reply)),
+                                   (ssize_t) sizeof(msg_reply));
                 break;
 
         default:
@@ -1177,6 +1219,9 @@ TEST(dhcp6_client) {
         assert_se(sd_dhcp6_client_set_information_request(client, true) >= 0);
         assert_se(sd_dhcp6_client_set_callback(client, test_client_callback, NULL) >= 0);
 
+        /* Nothing to renew when the client is not running. */
+        ASSERT_OK_ZERO(sd_dhcp6_client_send_renew(client));
+
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
         assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
@@ -1185,7 +1230,7 @@ TEST(dhcp6_client) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        assert_se(test_client_sent_message_count == 5);
+        ASSERT_EQ(test_client_sent_message_count, 7u);
 
         assert_se(!sd_dhcp6_client_unref(client_ref));
         test_fd[1] = safe_close(test_fd[1]);

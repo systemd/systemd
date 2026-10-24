@@ -801,7 +801,7 @@ static int context_update_kernel_hostname(
 
         /* ... and the ultimate fallback */
         } else {
-                hn = _hn_free = get_default_hostname();
+                hn = _hn_free = get_default_hostname_or_fallback();
                 if (!hn)
                         return log_oom();
 
@@ -1069,7 +1069,7 @@ static int property_get_hostname(
                 if (r != -ENXIO)
                         return r;
 
-                hn = get_default_hostname();
+                hn = get_default_hostname_or_fallback();
                 if (!hn)
                         return -ENOMEM;
         }
@@ -1104,7 +1104,7 @@ static int property_get_default_hostname(
 
         _cleanup_free_ char *hn = NULL;
 
-        hn = get_default_hostname();
+        hn = get_default_hostname_or_fallback();
         if (!hn)
                 return log_oom();
 
@@ -1122,25 +1122,16 @@ static void context_determine_hostname_source(Context *c) {
 
         (void) gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hostname);
 
-        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]))
+        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS])) {
                 c->hostname_source = HOSTNAME_STATIC;
-        else {
-                _cleanup_free_ char *fallback = NULL;
-
-                /* If the hostname was not set by us, try to figure out where it came from. If we set it to
-                 * the default hostname, the file will tell us. We compare the string because it is possible
-                 * that the hostname was set by an older version that had a different fallback, in the initrd
-                 * or before we reexecuted. */
-
-                r = read_one_line_file("/run/systemd/default-hostname", &fallback);
-                if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
-
-                if (streq_ptr(fallback, hostname))
-                        c->hostname_source = HOSTNAME_DEFAULT;
-                else
-                        c->hostname_source = HOSTNAME_TRANSIENT;
+                return;
         }
+
+        r = hostname_matches_default(hostname);
+        if (r < 0)
+                log_warning_errno(r, "Failed to check whether hostname is the recorded default, assuming not: %m");
+
+        c->hostname_source = r > 0 ? HOSTNAME_DEFAULT : HOSTNAME_TRANSIENT;
 }
 
 static int property_get_hostname_source(
@@ -1685,7 +1676,10 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (!j)
                 return log_oom();
 
-        if (!machine_tag_list_is_valid(tags))
+        r = machine_tag_list_is_valid(tags);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags '%s'", j);
 
         context_read_machine_info(c);
@@ -1761,11 +1755,18 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!machine_tag_list_is_valid(add)) {
+        r = machine_tag_list_is_valid(add);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(add, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
-        if (!machine_tag_list_is_valid(remove)) {
+
+        r = machine_tag_list_is_valid(remove);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(remove, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
         }
@@ -1964,7 +1965,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         context_read_os_release(c);
         context_determine_hostname_source(c);
 
-        dhn = get_default_hostname();
+        dhn = get_default_hostname_or_fallback();
         if (!dhn)
                 return log_oom();
 
@@ -2559,11 +2560,24 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
          * check for the field's presence separately. */
         bool reset = sd_json_variant_by_key(parameters, "set");
 
-        if (reset && !machine_tag_list_is_valid(p.set))
-                return sd_varlink_error_invalid_parameter_name(link, "set");
-        if (!machine_tag_list_is_valid(p.add))
+        if (reset) {
+                r = machine_tag_list_is_valid(p.set);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "set");
+        }
+
+        r = machine_tag_list_is_valid(p.add);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
-        if (!machine_tag_list_is_valid(p.remove))
+
+        r = machine_tag_list_is_valid(p.remove);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "remove");
 
         context_read_machine_info(c);

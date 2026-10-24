@@ -184,6 +184,9 @@
         <para>When downloading images of this type no image verification is done beyond the usual
         authentication of the HTTPS certificates.</para>
 
+        <para>Images in Docker's "Image Manifest V2, Schema 2" format, from which the OCI image format was
+        derived, may be downloaded too.</para>
+
         <para>Note that pressing Control-c during execution of this command will not abort the download. Use
         <command>cancel-transfer</command>, described below.</para>
 

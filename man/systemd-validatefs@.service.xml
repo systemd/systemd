@@ -74,6 +74,21 @@
     <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool
     generates these extended attributes automatically for the file systems it puts together, which may be
     controlled with the <varname>AddValidateFS=</varname> configuration option.</para>
+
+    <para>The same constraints are also enforced whenever partitions of a disk image are mounted via the
+    generic image dissection logic, i.e. by
+    <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    or the <varname>RootImage=</varname> setting in unit files. In this case the mount point is checked
+    relative to the image's root directory. Any constraint that is set must be fulfilled in full: if
+    <varname>user.validatefs.gpt_label</varname> or <varname>user.validatefs.gpt_type_uuid</varname> are
+    set, but the file system is not placed on a GPT partition (for example because the image is a bare file
+    system image, or uses an MBR partition table) the mount is refused. This validation may be turned off by
+    setting the <varname>$SYSTEMD_DISSECT_VALIDATEFS</varname> environment variable to
+    <literal>0</literal>.</para>
   </refsect1>
 
   <refsect1>
@@ -108,6 +123,7 @@
       <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

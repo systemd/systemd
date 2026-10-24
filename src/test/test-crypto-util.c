@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "crypto-util.h"
+#include "iovec-util.h"
+#include "memory-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -633,6 +638,116 @@ TEST(string_hashsum) {
         ASSERT_OK(string_hashsum("", 0, "SHA256", &out4));
         /* echo -n '' | sha256sum - */
         ASSERT_STREQ(out4, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+}
+
+TEST(openssl_load_x509_certificate_from_pem) {
+        _cleanup_(X509_freep) X509 *plain = NULL, *skipped = NULL, *first = NULL, *first_again = NULL,
+                *bad = NULL;
+        uint8_t fp[X509_FINGERPRINT_SIZE], fp2[X509_FINGERPRINT_SIZE];
+        bool more;
+
+        static const char pem[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBmTCCAT+gAwIBAgIUZ4uOZJsauyCZT+Y1n4/gzCOZTtEwCgYIKoZIzj0EAwIw\n"
+                "ITEfMB0GA1UEAwwWdGVzdC1rZXlyaW5nLXV0aWwtY2VydDAgFw0yNjA4MzEwNzUx\n"
+                "MTRaGA8yMTI2MDgwNzA3NTExNFowITEfMB0GA1UEAwwWdGVzdC1rZXlyaW5nLXV0\n"
+                "aWwtY2VydDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNc3AuZYdnff2T2SsQLk\n"
+                "KnlchPOXz0jdcdZi69553EmFhlanCE/4TAgCobz9Nx2cXzkMeAKgvQrVUiMVPhY+\n"
+                "9QSjUzBRMB0GA1UdDgQWBBQUL7BjFMmgrpesb8YFEFMwCXmfHjAfBgNVHSMEGDAW\n"
+                "gBQUL7BjFMmgrpesb8YFEFMwCXmfHjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49\n"
+                "BAMCA0gAMEUCIA8Qpr29PVqMLOyyMqx1R1+NcwjbDWWQJsymyQGhhUW0AiEA2wlv\n"
+                "xf2X2CHdKDFOguJGhrj+rG4UJ+IEPmTRbRRAvL0=\n"
+                "-----END CERTIFICATE-----\n";
+        static const char pem2[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBoDCCAUegAwIBAgIUIaxtB5yuXspbj70dHTXLYpiAXIQwCgYIKoZIzj0EAwIw\n"
+                "JTEjMCEGA1UEAwwadGVzdC1rZXlyaW5nLXV0aWwtc3RyYW5nZXIwIBcNMjYwODMx\n"
+                "MDc1MTE0WhgPMjEyNjA4MDcwNzUxMTRaMCUxIzAhBgNVBAMMGnRlc3Qta2V5cmlu\n"
+                "Zy11dGlsLXN0cmFuZ2VyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgABkdJI8\n"
+                "jo/ql7tzpucCX2Rd7qpj58sRBiLt7xU2mrICIOg5Pd3Bb/mMTQE6DqYj0g2uN2DU\n"
+                "gd6WZzxkMwARaaNTMFEwHQYDVR0OBBYEFOUypKpAR+0EhRQ9VlR9ffURVrcJMB8G\n"
+                "A1UdIwQYMBaAFOUypKpAR+0EhRQ9VlR9ffURVrcJMA8GA1UdEwEB/wQFMAMBAf8w\n"
+                "CgYIKoZIzj0EAwIDRwAwRAIgYE0WHkumPoEm/0k1XaBby4DsaVP9IIq670yLTwIM\n"
+                "PeMCICvGIAjV5sZNAGyE1bRNIO2x8/tU8eimhPHMzjfN1u+h\n"
+                "-----END CERTIFICATE-----\n";
+
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(pem), &plain, &more));
+        ASSERT_FALSE(more);
+        ASSERT_OK(x509_fingerprint(plain, fp));
+
+        /* Anything before the first CERTIFICATE block is skipped */
+        _cleanup_free_ char *prefixed = strjoin("Bag Attributes\n    friendlyName: pkcs12\n", pem);
+        ASSERT_NOT_NULL(prefixed);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(prefixed), &skipped, &more));
+        ASSERT_FALSE(more);
+        ASSERT_OK(x509_fingerprint(skipped, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+
+        /* The first certificate wins, the second is reported, and ret_more is optional */
+        _cleanup_free_ char *two = strjoin(pem, pem2);
+        ASSERT_NOT_NULL(two);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(two), &first, &more));
+        ASSERT_TRUE(more);
+        ASSERT_OK(x509_fingerprint(first, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(two), &first_again,
+                                                         /* ret_more= */ NULL));
+        ASSERT_OK(x509_fingerprint(first_again, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+
+        static const char garbage[] = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
+        ASSERT_FAIL(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(garbage), &bad, &more));
+        ASSERT_ERROR(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(NULL, 0), &bad, &more), EBADMSG);
+}
+
+TEST(x509_new_self_signed) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL, *cert2 = NULL;
+        _cleanup_(erase_and_freep) char *key_pem = NULL;
+        _cleanup_free_ char *pubkey_pem = NULL, *cert_pubkey_pem = NULL;
+
+        ASSERT_OK(rsa_pkey_new(2048, &key));
+        ASSERT_OK(openssl_private_key_to_pem_traditional(key, &key_pem));
+        ASSERT_TRUE(startswith(key_pem, "-----BEGIN RSA PRIVATE KEY-----\n"));
+
+        ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *cert_pubkey = ASSERT_NOT_NULL(sym_X509_get_pubkey(cert));
+        ASSERT_OK(openssl_pubkey_to_pem(key, &pubkey_pem));
+        ASSERT_OK(openssl_pubkey_to_pem(cert_pubkey, &cert_pubkey_pem));
+        ASSERT_STREQ(pubkey_pem, cert_pubkey_pem);
+
+        _cleanup_free_ char *subject = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_subject_name(cert), NULL, 0));
+        ASSERT_STREQ(subject, "/CN=systemd test");
+        _cleanup_free_ char *issuer = ASSERT_NOT_NULL(sym_X509_NAME_oneline(sym_X509_get_issuer_name(cert), NULL, 0));
+        ASSERT_STREQ(issuer, subject);
+        ASSERT_EQ(sym_X509_verify(cert, key), 1);
+
+        ASSERT_ERROR(x509_new_self_signed(key, "systemd test", UINT_MAX, &cert2), ERANGE);
+}
+
+TEST(x509_new_self_signed_no_digest) {
+        FOREACH_STRING(algorithm, "ED25519", "ED448", "ML-DSA-44") {
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+                _cleanup_(X509_freep) X509 *cert = NULL;
+
+                /* OpenSSL supports ML-DSA since version 3.5. EVP_PKEY_CTX_new_from_name() fails for
+                 * "ML-DSA-44" on older versions. */
+                sym_ERR_clear_error();
+                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new_from_name(
+                                /* libctx= */ NULL, algorithm, /* propquery= */ NULL);
+                if (!ctx) {
+                        (void) log_openssl_errors(LOG_DEBUG, "%s is not supported by libcrypto, skipping", algorithm);
+                        continue;
+                }
+
+                log_debug("Testing %s", algorithm);
+
+                ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen_init(ctx));
+                ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen(ctx, &key));
+
+                ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+                ASSERT_EQ(sym_X509_verify(cert, key), 1);
+        }
 }
 
 static int intro(void) {

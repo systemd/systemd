@@ -727,8 +727,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO
  KEYBOARD_KEY_d9=unknown
  KEYBOARD_KEY_d2=sysrq                                  # Fn+Print = SYSRQ
 
-# Pavilion gaming 15-dk1* (lid keys)
+# Pavilion gaming 15-dk* (lid keys)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:br*:efr*:svnHP:pnHPPavilionGamingLaptop15-dk1*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:br*:efr*:svnHP:pnHPPavilionGamingLaptop15-dk0*:*
  KEYBOARD_KEY_d7=unknown
  KEYBOARD_KEY_d8=unknown
 
@@ -1257,6 +1258,8 @@ evdev:input:b0003v17EFp60C[368]*-e0,1,4,k*,F0,*ram4,lsfw
 
 # Lenovo Thinkbook 16 G6+ 2024
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
+# Lenovo ThinkBook 16 G7+ 2025
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21TL:pvr*
  KEYBOARD_KEY_0a=!9
  KEYBOARD_KEY_0b=!0
 
@@ -1714,6 +1717,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Stealth*14*:*
  KEYBOARD_KEY_76=touchpad_toggle                        # Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
  KEYBOARD_KEY_f2=rotate_display                         # Fn+F12 Screen rotation
@@ -1726,6 +1730,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
 # Keymaps for MSI Modern 15 H AI C1MG
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15HAIC1MG:*
  KEYBOARD_KEY_d7=bluetooth                              # Fn+F6 Bluetooth key
+
+# Keymaps for MSI Modern 15 B13M
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15B13M:*
+ KEYBOARD_KEY_c0=camera                                 # Fn+F6 Webcam toggle
 
 # MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM, MSI Claw A8 BZ2EM
 evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T41:*

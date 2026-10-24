@@ -3077,8 +3077,7 @@ int config_parse_log_namespace(
                 return 0;
         }
 
-        free_and_replace(c->log_namespace, k);
-        return 0;
+        return free_and_replace(c->log_namespace, k);
 }
 
 int config_parse_unit_condition_path(
@@ -4645,6 +4644,12 @@ int config_parse_exec_directories(
                         r = path_simplify_and_warn(dresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
                         if (r < 0)
                                 continue;
+
+                        if (path_startswith(dresolved, "private")) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "%s= symlink can't be 'private', ignoring assignment: %s", lvalue, tuple);
+                                continue;
+                        }
                 }
 
                 ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
@@ -5741,8 +5746,7 @@ int config_parse_pid_file(
         if (r < 0)
                 return r;
 
-        free_and_replace(*s, n);
-        return 0;
+        return free_and_replace(*s, n);
 }
 
 int config_parse_exit_status(
@@ -6541,8 +6545,8 @@ int config_parse_output_restricted(
                         return 0;
                 }
 
-                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD) || exec_output_is_file(t)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Standard output types socket, fd:, file:, append:, truncate: are not supported as defaults, ignoring: %s", rvalue);
+                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD) || exec_output_is_file(t) || exec_output_is_broker(t)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Standard output types socket, fd:, file:, append:, truncate:, broker, broker-log are not supported as defaults, ignoring: %s", rvalue);
                         return 0;
                 }
         }

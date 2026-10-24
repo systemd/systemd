@@ -1423,6 +1423,27 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         return 0;
 }
 
+int sd_dhcp6_client_send_renew(sd_dhcp6_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(client->event, -EINVAL);
+
+        /* In the information request mode, the client is stopped after a reply is received, but the lease
+         * is kept. Let's request the information again without waiting for the information refresh time. */
+        if (client->information_request && client->state == DHCP6_STATE_STOPPED && client->lease) {
+                client->information_request_time_usec = now(CLOCK_MONOTONIC);
+                return client_start_transaction(client, DHCP6_STATE_INFORMATION_REQUEST);
+        }
+
+        /* A lease can be renewed only when it is acquired. Otherwise, this does nothing. */
+        if (client->state != DHCP6_STATE_BOUND)
+                return 0;
+
+        /* Same as when T1 expires. */
+        (void) event_source_disable(client->timeout_t1);
+
+        return client_start_transaction(client, DHCP6_STATE_RENEW);
+}
+
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
         if (!client)
                 return false;
@@ -1440,10 +1461,6 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(in6_addr_is_link_local(&client->local_address) > 0, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
         assert_return(client->information_request || client->request_ia != 0, -EINVAL);
-
-        /* Even if the client is in the STOPPED state, the lease acquired in the previous information
-         * request may be stored. */
-        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         r = client_ensure_iaid(client);
         if (r < 0)
@@ -1484,12 +1501,18 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (client->information_request) {
                 usec_t t = now(CLOCK_MONOTONIC);
 
+                /* Keep the lease acquired in the previous information request, so that the information
+                 * can be requested again by sd_dhcp6_client_send_renew(). */
                 if (t < usec_add(client->information_request_time_usec, client->information_refresh_time_usec))
                         return 0;
 
                 client->information_request_time_usec = t;
                 state = DHCP6_STATE_INFORMATION_REQUEST;
         }
+
+        /* Even if the client is in the STOPPED state, the lease acquired in the previous information
+         * request may be stored. */
+        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         log_dhcp6_client(client, "Starting in %s mode",
                          client->information_request ? "Information request" : "Solicit");

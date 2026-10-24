@@ -199,8 +199,8 @@ int find_suitable_partition(
                 if (smallest.partno != SIZE_MAX && smallest.size <= pinfo.size) /* already found smaller */
                         continue;
 
-                smallest = pinfo;
-                pinfo = (PartitionInfo) PARTITION_INFO_NULL;
+                partition_info_destroy(&smallest);
+                smallest = TAKE_GENERIC(pinfo, PartitionInfo, PARTITION_INFO_NULL);
         }
 
         if (smallest.partno == SIZE_MAX)

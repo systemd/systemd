@@ -14,6 +14,14 @@
 #include "log.h"
 #include "main-func.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-time-wait-sync\0",
+        "Wait until the kernel time is synchronized.",
+        .man_pages = "systemd-time-wait-sync.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct ClockState {
         int timerfd_fd;                  /* non-negative is descriptor from timerfd_create */
@@ -179,6 +187,12 @@ static int run(int argc, char * argv[]) {
                 .run_systemd_timesync_wd = -1,
         };
         int r;
+
+        log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         r = sd_event_default(&event);
         if (r < 0)

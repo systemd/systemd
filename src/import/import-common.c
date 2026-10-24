@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "capability-util.h"
 #include "compress.h"
@@ -13,9 +14,12 @@
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "import-common.h"
+#include "iovec-util.h"
 #include "libarchive-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "os-util.h"
@@ -24,8 +28,47 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "tar-util.h"
 #include "tmpfile-util.h"
+
+static int drain_null_padding(int fd) {
+        uint64_t n = 0;
+
+        assert(fd >= 0);
+
+        /* libarchive stops reading as soon as it encounters the end-of-archive marker, but tar archives are
+         * usually padded with zeroes to a full record size (10K for GNU tar) after it. Read and discard
+         * that, so that the writing side doesn't get EPIPE when it pushes the final bytes after we exited
+         * already. Insist that this padding is actually all zeroes though, and refuse any other trailing
+         * garbage. */
+
+        for (;;) {
+                uint8_t buf[64U*1024U];
+                ssize_t l;
+
+                l = read(fd, buf, sizeof(buf));
+                if (l < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to read trailing archive padding: %m");
+                }
+                if (l == 0)
+                        break;
+
+                if (!memeqzero(buf, l))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Non-zero trailing data after end of archive, refusing.");
+
+                n += l;
+        }
+
+        if (n > 0)
+                log_debug("Discarded %" PRIu64 " bytes of zero padding after end of archive.", n);
+
+        return 0;
+}
 
 int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         int r;
@@ -95,6 +138,9 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                         log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_x(pipefd[0], tree_fd, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (drain_null_padding(pipefd[0]) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
@@ -454,5 +500,110 @@ int import_zero_fill(int fd, uint64_t offset, uint64_t size_max, uint64_t skip) 
         if (r < 0)
                 return log_error_errno(r, "Failed to fill up destination with zeroes: %m");
 
+        return 0;
+}
+
+void import_digest_init(ImportDigest *d, const struct iovec *expected) {
+        assert(d);
+
+        /* If 'expected' is NULL or empty, verification is turned off */
+
+        *d = (ImportDigest) {
+                .enabled = iovec_is_set(expected),
+        };
+
+        if (d->enabled) {
+                assert(expected->iov_len == sizeof(d->expected));
+                memcpy(d->expected, expected->iov_base, sizeof(d->expected));
+        }
+
+        import_digest_reset(d);
+}
+
+void import_digest_reset(ImportDigest *d) {
+        assert(d);
+
+        if (d->enabled)
+                sha256_init_ctx(&d->ctx);
+}
+
+void import_digest_update(ImportDigest *d, const void *p, size_t sz) {
+        assert(d);
+        assert(p || sz == 0);
+
+        if (d->enabled)
+                sha256_process_bytes(p, sz, &d->ctx);
+}
+
+int import_digest_verify(ImportDigest *d) {
+        uint8_t digest[SHA256_DIGEST_SIZE];
+
+        assert(d);
+
+        if (!d->enabled)
+                return 0;
+
+        sha256_finish_ctx(&d->ctx, digest);
+
+        if (memcmp(digest, d->expected, sizeof(digest)) != 0) {
+                _cleanup_free_ char *h = hexmem(digest, sizeof(digest)), *e = hexmem(d->expected, sizeof(d->expected));
+
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "SHA256 digest of decoded data (%s) does not match expected digest (%s), refusing.",
+                                       strna(h), strna(e));
+        }
+
+        log_debug("SHA256 digest of decoded data matches expected digest.");
+        return 0;
+}
+
+int import_parse_sha256_argument(const char *option, const char *s, struct iovec *checksum) {
+        uint8_t digest[SHA256_DIGEST_SIZE];
+        int r;
+
+        assert(option);
+        assert(s);
+        assert(checksum);
+
+        /* Parses a SHA256 digest in hexadecimal notation. An empty string resets the setting. */
+
+        if (isempty(s)) {
+                iovec_done(checksum);
+                return 0;
+        }
+
+        r = parse_sha256(s, digest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s argument, 64 hexadecimal characters expected: %s", option, s);
+
+        r = iovec_done_and_memdup(checksum, &IOVEC_MAKE(digest, sizeof(digest)));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int import_parse_compression_argument(const char *option, const char *s, Compression *ret) {
+        assert(option);
+        assert(s);
+        assert(ret);
+
+        /* Parses the argument of a --compression= switch: "auto" selects detection from the data (i.e.
+         * _COMPRESSION_INVALID), otherwise the algorithm by name, including "none". */
+
+        if (streq(s, "auto")) {
+                *ret = _COMPRESSION_INVALID;
+                return 0;
+        }
+
+        /* The string table calls COMPRESSION_NONE "uncompressed" (for importd compatibility), accept the
+         * more natural "none" too. */
+        Compression c = streq(s, "none") ? COMPRESSION_NONE : compression_from_string_harder(s);
+        if (c < 0)
+                return log_error_errno(c, "Failed to parse %s argument, unknown compression algorithm: %s", option, s);
+        if (!compression_supported(c))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compression algorithm specified in %s argument not supported: %s", option, s);
+
+        *ret = c;
         return 0;
 }

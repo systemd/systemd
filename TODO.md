@@ -127,6 +127,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- sysupdate: add mode where download entries can be explicitly revoked or
+  implicitly by removing them from the listings, which would cause local
+  removal.
+
+- image version pin logic, which allows us to pin root fs, confext, sysext ddis
+  in their versions. make it a short string. then have a small service that at
+  boot generates a credential from it, and then issues bootctl link-auto to
+  create a boot menu entry from it that pins a working version. also add
+  ability to "unpin" versions after successful sysupdate download.
+
+- vmspawn: pass in a document as credential that carries host ids, signed by
+  the TPM, so that we can determine relationshiops between VMs and bare metal
+  in our mgmt UIs. On COCO use chip ids (amd) instead.
+
 - systemd-report needs an upload queue. After all it records resource usage,
   and it would be useful to collect this data even when networking is not
   available, and upload it once it is. Make this smart, i.e. introduce a
@@ -149,9 +163,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysupdate: add health check logic, revert updates if fail
 
-- sysupdate: add flag field for features and components, to require a restart
-  of the update loop once they have been updated.
-
 - confext/sysext: add policy file concept: json files that encode for relevant
   confext/sysext ddis rules when to enable them, i.e. version checks. also use
   it for the garbage collector
@@ -165,6 +176,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   be useful in particular in CoCo scenarios where a disk encryption key is only
   handed out once an attestation run completed, and might be delivered to the
   node asynchronously.
+
+- ptybroker: maybe dlopen() libtsm and render terminal data locally for the
+  trackBuffer
 
 - acquire a TSA from time stamping server, include it in report
 
@@ -252,13 +266,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   sequences of this type, so that every step of the way we get the right
   behaviour.
 
-- implement "varlinkctl trace" or so, that watches socket traffic on a group of
-  processes (select by pid, select by cgroup, select by all machine), and shows
-  traffic of all sockets marked via the new varlink socket xattrs. Use BPF for
-  all of that of course.
-
-- add tooling for generating dictionary-based hostnames
-
 - do not pull dbus daemon/broker anymore, instead lazy activate it. Given how
   the Varlinkifcation has progressed various non-desktop usescase might not
   need D-Bus running at all anymore.
@@ -268,14 +275,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   multiple tables from the same tool we want to separate things with a title,
   hence we might as well associate the title with the table itself, and
   streamline a few things.
-
-- sysupdate: offer reading transfer files/components/features optionally from
-  some JSON fragment rather than transfer files, so that we can update it
-  independently from any DDI, and it needs no activation cycle. Why? so that
-  making additional transfers/components/features available can be done without
-  reloading confext/sysext, and out-band with other configuration changes.
-
-- sysupdate: go through all components, and update them all, one by one.
 
 - pcrextend: we probably should measure /etc/machine-info during boot somehow
 
@@ -340,7 +339,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - **systemd-sysinstall:**
   - read installation definition from json file
-  - polkit support in sysinstall
   - sysinstall: permit driving installer via credentials
   - add --offline=no mode where we talk to socket based services rather than forking off
   - if a user doesn't pick a locale during boot into installer, don't ask again after install, because we suppressed credential propagation
@@ -565,9 +563,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   that we create the dir in question when the service is started. Example:
 
   ReadWritePaths=:/var/lib/foobar
-
-- add some service that makes an atomic snapshot of PCR state and event log up
-  to that point available, possibly even with quote by the TPM.
 
 - add some special mode to LogsDirectory=/StateDirectory=… that allows
   declaring these directories without necessarily pulling in deps for them, or
@@ -1186,8 +1181,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     with the privkey, then use that as luks key to unlock the home dir. Will not
     work for ECDSA keys since their signatures contain a random component, but
     will work for RSA and Ed25519 keys.
-
-- honour validatefs xattrs in dissect-image.c too
 
 - hook up journald with TPMs? measure new journal records to the TPM in regular
   intervals, validate the journal against current TPM state with that. (taking
@@ -2666,7 +2659,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - download multiple arbitrary patterns from same source
   - SHA256SUMS format with bearer tokens for each resource to download
   - decrypt SHA256SUMS with key from tpm
-  - turn http backend stuff int plugin via varlink
   - for each transfer support looking at multiple sources,
     pick source with newest entry. If multiple sources have the same entry, use
     first configured source. Usecase: "sideload" components from local dirs,
@@ -2674,8 +2666,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - support "revoked" items, which cause the client to
     downgrade/upgrade
   - introduce per-user version that can update per-user installed dDIs
-  - make transport pluggable, so people can plug casync or
-    similar behind it, instead of http.
 
 - sysusers: allow specifying a path to an inode *and* a literal UID in the UID
   column, so that if the inode exists it is used, and if not the literal UID is

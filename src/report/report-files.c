@@ -11,12 +11,24 @@
 #include "log.h"
 #include "metrics.h"
 #include "path-util.h"
-#include "report-files.h"
+#include "report-server.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "varlink-idl-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-files\0",
+        "Report the contents of files as system report metrics.",
+        .man_pages = "systemd-report-files@.service(8)\0",
+        .option_namespace = "common",
+);
+
+const sd_varlink_server_flags_t report_server_flags = 0;
+
+#define METRIC_IO_SYSTEMD_FILES_PREFIX "io.systemd.Files."
 
 /* Upper bounds, to protect against pathologically large directories or files. */
 #define REPORT_FILES_MAX 1024U
@@ -201,7 +213,7 @@ static int build_file_metrics(MetricFamily **ret) {
         return 0;
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         _cleanup_(metric_family_array_freep) MetricFamily *families = NULL;
@@ -212,7 +224,7 @@ int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_var
         return metrics_method_list(families, link, parameters, flags, /* userdata= */ NULL);
 }
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         _cleanup_(metric_family_array_freep) MetricFamily *families = NULL;
@@ -221,4 +233,8 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         return metrics_method_describe(families, link, parameters, flags, /* userdata= */ NULL);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

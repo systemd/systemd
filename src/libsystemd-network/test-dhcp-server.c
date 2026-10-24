@@ -9,10 +9,13 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "set.h"
 #include "tests.h"
 
 TEST(basic) {
@@ -323,6 +326,167 @@ TEST(dhcp_server_process_message) {
         dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, htobe32(INADDR_LOOPBACK + 42)));
         ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+}
+
+TEST(dhcp_server_rapid_commit_ipv6_only_preferred) {
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(
+                                  m,
+                                  BOOTREQUEST,
+                                  0x12345678,
+                                  ARPHRD_ETHER,
+                                  &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, DHCP_DISCOVER));
+        ASSERT_OK(dhcp_message_append_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT));
+
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, MIN_V6ONLY_WAIT_USEC));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        /* Client does not request option 108, rapid commit is honored. */
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        /* Client requests option 108, the reply would contain it, so rapid commit must not be honored. */
+        _cleanup_set_free_ Set *prl = NULL;
+        ASSERT_OK(set_ensure_put(&prl, /* hash_ops= */ NULL, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)));
+        ASSERT_OK(dhcp_message_append_option_parameter_request_list(m, prl));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+
+        /* Option 108 disabled on the server, rapid commit is honored again. */
+        ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, 0));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+}
+
+static void set_message_type(sd_dhcp_message *m, uint8_t type) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_MESSAGE_TYPE);
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, type));
+}
+
+static void set_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *client_id) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_CLIENT_IDENTIFIER);
+        ASSERT_OK(dhcp_message_append_option_client_id(m, client_id));
+}
+
+static void check_bound_lease(sd_dhcp_server *server, be32_t address, const sd_dhcp_client_id *client_id) {
+        sd_dhcp_server_lease *lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        ASSERT_NOT_NULL(lease);
+        ASSERT_TRUE(client_id_equal(&lease->client_id, client_id));
+        ASSERT_EQ(hashmap_size(server->bound_leases_by_client_id), 1u);
+}
+
+TEST(dhcp_server_static_lease_client_id_change) {
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+        be32_t static_address = htobe32(INADDR_LOOPBACK + 42);
+
+        /* The client ID generated from the hardware address, e.g. sent by dhclient without -i. */
+        sd_dhcp_client_id client_id_mac = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+        };
+        /* Node-specific client IDs (RFC 4361), e.g. sent by dhclient -i or by systemd-networkd. */
+        sd_dhcp_client_id client_id_duid, client_id_duid_other;
+        ASSERT_OK(sd_dhcp_client_id_set_raw(
+                        &client_id_duid,
+                        (const uint8_t[]) { 0xff, 0x12, 0x34, 0x56, 0x78, 0x00, 0x04, 0xde, 0xad },
+                        9));
+        ASSERT_OK(sd_dhcp_client_id_set_raw(
+                        &client_id_duid_other,
+                        (const uint8_t[]) { 0xff, 0x12, 0x34, 0x56, 0x78, 0x00, 0x04, 0xbe, 0xef },
+                        9));
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
+                                                8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = static_address },
+                        client_id_mac.raw,
+                        client_id_mac.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(m, BOOTREQUEST, 0x12345678, ARPHRD_ETHER, &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                                                  htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, static_address));
+
+        /* The host acquires the static address with the client ID generated from its hardware address. */
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_mac);
+
+        /* The same host requests the static address with a node-specific client ID. The bound lease with
+         * the old client ID must not prevent the host from acquiring its static address. */
+        set_client_id(m, &client_id_duid);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_duid);
+
+        /* Another host with the same hardware address and another node-specific client ID, e.g. an ipvlan
+         * L2 child, must not take over the address. */
+        set_client_id(m, &client_id_duid_other);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_ERROR(process_one(server, m), EADDRINUSE);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
+        check_bound_lease(server, static_address, &client_id_duid);
+
+        /* Another host with the client ID previously used by the host must not take over the address. */
+        m->header.chaddr[5] = 'X';
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_ERROR(process_one(server, m), EADDRINUSE);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
+        check_bound_lease(server, static_address, &client_id_duid);
+        m->header.chaddr[5] = 'F';
+
+        /* The host goes back to the client ID generated from its hardware address, with Rapid Commit. */
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK(dhcp_message_append_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_mac);
 }
 
 TEST(sd_dhcp_server_set_static_lease) {

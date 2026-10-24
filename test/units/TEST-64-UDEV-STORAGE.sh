@@ -174,9 +174,72 @@ testcase_virtio_scsi_basic() {
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
 }
 
+diskhealth_available() {
+    # systemd-report is optional
+    systemctl cat systemd-report-diskhealth.socket >/dev/null
+}
+
+diskhealth_list() {
+    systemctl start systemd-report-diskhealth.socket
+    varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {}
+}
+
+diskhealth_value() {
+    local metrics="${1:?}" metric="${2:?}" object="${3:?}"
+
+    echo "$metrics" | jq --seq -r --arg n "io.systemd.DiskHealth.$metric" --arg o "$object" 'select(.name == $n and .object == $o) | .value | tostring'
+}
+
+write_block_hwdb() {
+    mkdir -p /etc/udev/hwdb.d
+    printf 'block::name:QEMU NVMe Ctrl:*\n %s\n' "$@" >/etc/udev/hwdb.d/99-test-block.hwdb
+    systemd-hwdb update
+    # udevd checks for a new hwdb.bin at most every 3 seconds. Without a reload, the next event can still use
+    # the old hwdb.
+    udevadm control --reload
+}
+
+check_block_io_timeout() {
+    local disk original timeout
+
+    disk="$(readlink -f /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef0)"
+    timeout="/sys/class/block/${disk##*/}/queue/io_timeout"
+    original="$(<"$timeout")"
+
+    # The kernel stores the timeout in jiffies and converts it back to milliseconds when io_timeout is read.
+    # 60000 ms and 45000 ms are a whole number of jiffies for every HZ value, so io_timeout reads back 60000
+    # and 45000 exactly.
+    write_block_hwdb ID_BLOCK_IO_TIMEOUT_MS=60000
+    udevadm trigger --settle --action=add "$disk"
+    [[ "$(<"$timeout")" == 60000 ]]
+
+    # 61-block-hwdb.rules only writes the timeout on add events, so a change event keeps the value that was
+    # set at runtime.
+    echo 45000 >"$timeout"
+    udevadm trigger --settle --action=change "$disk"
+    [[ "$(<"$timeout")" == 45000 ]]
+
+    # The kernel converts 4294967295 ms to its largest timeout. The value that io_timeout reads back depends
+    # on HZ, but it is always larger than 60000.
+    write_block_hwdb ID_BLOCK_IO_TIMEOUT_MS=max
+    udevadm trigger --settle --action=add "$disk"
+    (( $(<"$timeout") > 60000 ))
+
+    # 90-iocost.rules uses the IOCOST_SOLUTIONS property that 61-block-hwdb.rules imports from the hwdb.
+    # udevadm test doesn't run "iocost apply", which would fail for a solution that doesn't exist.
+    write_block_hwdb IOCOST_SOLUTIONS=test
+    udevadm test --action=add --json=short "/sys/class/block/${disk##*/}" 2>/dev/null |
+        jq -r '.queuedCommands[].command' | grep "^iocost apply $disk\$" >/dev/null
+
+    rm /etc/udev/hwdb.d/99-test-block.hwdb
+    systemd-hwdb update
+    udevadm control --reload
+    echo "$original" >"$timeout"
+}
+
 testcase_nvme_basic() {
     local expected_symlinks=()
-    local i
+    local i metrics name metric
 
     for i in {0..2}; do
         expected_symlinks+=(
@@ -223,6 +286,32 @@ testcase_nvme_basic() {
 
     lsblk --noheadings | grep "^nvme"
     [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 12 ]]
+
+    # systemd-hwdb update is very slow with sanitizers in a VM without acceleration, so we skip the hwdb
+    # checks there.
+    if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        check_block_io_timeout
+    fi
+
+    # The disk health report must cover the NVMe disks, including the SMART data of the (healthy) emulated
+    # controllers.
+    if ! diskhealth_available; then
+        echo "systemd-report-diskhealth not available, skipping disk health checks."
+        return 0
+    fi
+
+    metrics="$(diskhealth_list)"
+    for i in {0..2}; do
+        name="$(readlink -f /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1)"
+        [[ "$(diskhealth_value "$metrics" DiskSerial "$name")" == "deadbeef$i" ]]
+        [[ "$(diskhealth_value "$metrics" DiskModel "$name")" == "QEMU NVMe Ctrl" ]]
+        [[ "$(diskhealth_value "$metrics" DiskSizeBytes "$name")" == "$((1024 * 1024))" ]]
+        [[ "$(diskhealth_value "$metrics" NVMeCriticalWarning "$name")" == 0 ]]
+        [[ "$(diskhealth_value "$metrics" NVMeMediaErrors "$name")" == 0 ]]
+        for metric in NVMeAvailableSparePercent NVMePercentageUsed DiskPowerCycles DiskPowerOnHours; do
+            [[ "$(diskhealth_value "$metrics" "$metric" "$name")" =~ ^[0-9]+$ ]]
+        done
+    done
 }
 
 testcase_nvme_subsystem() {
@@ -236,6 +325,29 @@ testcase_nvme_subsystem() {
     )
 
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+
+    # If the kernel supports native NVMe multipath, the shared namespaces are exposed as block devices below
+    # the (virtual) NVMe subsystem device, which must be reported by the disk health report nonetheless,
+    # including the vendor of the PCI device of the controller, as NVMe disks carry no vendor information.
+    # The latter is only available if the hwdb carries PCI data, which is not the case on all distributions.
+    if ! diskhealth_available; then
+        echo "systemd-report-diskhealth not available, skipping disk health checks."
+        return 0
+    fi
+
+    local i metrics name vendor
+    metrics="$(diskhealth_list)"
+    for i in /dev/disk/by-path/*pci*-nvme-16 /dev/disk/by-path/*pci*-nvme-17; do
+        name="$(readlink -f "$i")"
+        [[ "$(diskhealth_value "$metrics" DiskSizeBytes "$name")" == "$((1024 * 1024))" ]]
+        [[ "$(diskhealth_value "$metrics" NVMeCriticalWarning "$name")" == 0 ]]
+
+        [[ "$i" =~ .*pci-([^/]+)-nvme-[0-9]+$ ]]
+        vendor="$(udevadm info --query=property --value --property=ID_VENDOR_FROM_DATABASE "/sys/bus/pci/devices/${BASH_REMATCH[1]}")"
+        if [[ -n "$vendor" ]]; then
+            [[ "$(diskhealth_value "$metrics" DiskVendor "$name")" == "$vendor" ]]
+        fi
+    done
 }
 
 testcase_virtio_scsi_identically_named_partitions() {

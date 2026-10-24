@@ -215,7 +215,7 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
         try:
             zstd = try_import('compression.zstd')
             data = f.read(size)
-            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(data))
+            return cast(bytes, zstd.zstd.decompress(data))
         except ValueError:
             zstd = try_import('zstandard')
             data = f.read(size)
@@ -251,7 +251,7 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
     if start.startswith(b'\x28\xb5\x2f\xfd'):
         try:
             zstd = try_import('compression.zstd')
-            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(f.read()))
+            return cast(bytes, zstd.zstd.decompress(f.read()))
         except ValueError:
             zstd = try_import('zstandard')
             return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
@@ -722,6 +722,25 @@ def check_inputs(opts: UkifyConfig) -> None:
 
 
 def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
+    # A repeated PCR key pair is safe, but different outputs must not overwrite one another.
+    outputs: dict[Path, tuple[str, tuple[Optional[Path], Optional[Path]], int]] = {}
+    groups = [
+        ('SecureBoot', opts.sb_key, opts.sb_cert),
+        *(
+            ('PCR', priv_key, pub_key)
+            for priv_key, pub_key, _, _, _ in key_path_groups(opts, include_extra=False)
+        ),
+    ]
+    for kind, private, public in groups:
+        pair = (Path(private).resolve() if private else None, Path(public).resolve() if public else None)
+        for role, output_path in enumerate(pair):
+            if output_path is None:
+                continue
+            owner = (kind, pair, role)
+            if output_path in outputs and outputs[output_path] != owner:
+                raise ValueError(f'Conflicting key output path: {output_path}')
+            outputs[output_path] = owner
+
     # Raise if any of the keys and certs are found on disk
     paths: Iterator[Union[str, Path, None]] = itertools.chain(
         (opts.sb_key, opts.sb_cert),
@@ -1745,7 +1764,13 @@ def generate_keys(opts: UkifyConfig) -> None:
 
         work = True
 
+    generated: set[tuple[Path, Optional[Path]]] = set()
     for priv_key, pub_key, _, _, _ in key_path_groups(opts, include_extra=False):
+        pair = (Path(priv_key).resolve(), Path(pub_key).resolve() if pub_key else None)
+        if pair in generated:
+            continue
+        generated.add(pair)
+
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
         print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)

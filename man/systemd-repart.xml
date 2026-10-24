@@ -853,8 +853,8 @@ echo "Hello World" >tree/etc/motd
 cat >tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
 ID=fedora
 VERSION_ID=38
-IMAGE_ID=my-motd
-IMAGE_VERSION=7
+CONFEXT_IMAGE_ID=my-motd
+CONFEXT_IMAGE_VERSION=7
 EOF
 systemd-repart -C \
   --private-key=verity-private-key.pem \
@@ -878,8 +878,8 @@ echo "Hello World" >tree/usr/foo
 cat >tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
 ID=fedora
 VERSION_ID=38
-IMAGE_ID=my-foo
-IMAGE_VERSION=7
+SYSEXT_IMAGE_ID=my-foo
+SYSEXT_IMAGE_VERSION=7
 EOF
 systemd-repart --make-ddi=sysext \
   --private-key-source=engine:pkcs11 \

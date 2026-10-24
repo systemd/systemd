@@ -16,6 +16,7 @@
 
 import base64
 import glob
+import io
 import json
 import os
 import pathlib
@@ -85,6 +86,73 @@ def test_round_up():
     assert ukify.round_up(4095) == 4096
     assert ukify.round_up(4096) == 4096
     assert ukify.round_up(4097) == 8192
+
+
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zstd_frames(tmp_path, frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    assert ukify.maybe_decompress(path) == payload
+
+
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zboot_zstd_frames(frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    # The kernel build appends a size word outside the declared compressed payload.
+    kernel = io.BytesIO(header + compressed + struct.pack('<I', len(payload)))
+    assert ukify.get_zboot_kernel(kernel) == payload
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zstd_invalid_tail(tmp_path, tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.maybe_decompress(path)
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zboot_zstd_invalid_tail(tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    kernel = io.BytesIO(header + compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.get_zboot_kernel(kernel)
 
 
 def test_namespace_creation():
@@ -1242,6 +1310,97 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
         assert all('sig' in policy for policy in policies)
 
     shutil.rmtree(tmp_path)
+
+
+@pytest.mark.parametrize(
+    'options',
+    [
+        ['--pcr-private-key=shared', '--pcr-public-key=shared'],
+        ['--pcr-private-key=shared', '--pcr-public-key=sub/../shared'],
+        ['--secureboot-private-key=shared', '--secureboot-certificate=shared'],
+        [
+            '--pcr-private-key=shared',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=first',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=second',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--secureboot-private-key=shared',
+            '--secureboot-certificate=cert',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=public',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=shared',
+            '--pcr-private-key=pcr',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=public',
+            '--pcr-private-key=private',
+            '--pcr-public-key=public',
+        ],
+    ],
+)
+def test_genkey_conflicting_outputs(tmp_path, monkeypatch, options):
+    (tmp_path / 'sub').mkdir()
+    args = ['ukify', 'genkey', '--config=/dev/null']
+    for option in options:
+        key, path = option.split('=')
+        args.append(f'{key}={tmp_path / path}')
+
+    monkeypatch.setattr(sys, 'argv', args)
+    with pytest.raises(ValueError, match='Conflicting key output path'):
+        ukify.main()
+    assert list(tmp_path.rglob('*')) == [tmp_path / 'sub']
+
+
+@pytest.mark.parametrize('alias', ['', 'sub/..'])
+def test_genkey_repeated_pair(tmp_path, monkeypatch, alias):
+    serialization = pytest.importorskip('cryptography.hazmat.primitives.serialization')
+    (tmp_path / 'sub').mkdir()
+    private, public = tmp_path / 'private.pem', tmp_path / 'public.pem'
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            '--config=/dev/null',
+            f'--pcr-private-key={private}',
+            f'--pcr-public-key={public}',
+            f'--pcr-private-key={tmp_path / alias / "private.pem"}',
+            f'--pcr-public-key={tmp_path / alias / "public.pem"}',
+            '--sign-initrd-pcrs',
+        ]
+    )
+    ukify.check_cert_and_keys_nonexistent(opts)
+
+    generate = ukify.generate_priv_pub_key_pair
+    calls = []
+
+    def generate_once():
+        calls.append(True)
+        return generate()
+
+    monkeypatch.setattr(ukify, 'generate_priv_pub_key_pair', generate_once)
+    ukify.generate_keys(opts)
+
+    assert len(calls) == 1
+    priv = serialization.load_pem_private_key(private.read_bytes(), password=None)
+    pub = serialization.load_pem_public_key(public.read_bytes())
+    assert priv.public_key().public_numbers() == pub.public_numbers()
 
 
 def test_key_cert_generation(tmp_path):

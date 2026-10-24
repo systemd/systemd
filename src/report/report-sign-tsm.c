@@ -3,16 +3,13 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "build.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "main-func.h"
+#include "report-server.h"
 #include "sha256.h"
 #include "string-util.h"
 #include "tsm-report.h"
-#include "varlink-io.systemd.Report.Signer.h"
-#include "varlink-util.h"
 #include "verbs.h"
 
 COMMAND(
@@ -20,7 +17,10 @@ COMMAND(
         "Get an attestation report via configfs Trusted Security Module (TSM) "
         "that includes the hash of the system report.",
         .man_pages = "systemd-report-sign-tsm@.service(8)\0",
+        .option_namespace = "common",
 );
+
+const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY;
 
 typedef struct SignParameters {
         struct iovec digest;
@@ -38,7 +38,7 @@ static int vl_method_sign(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "digest",    SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec,     offsetof(SignParameters, digest),    SD_JSON_MANDATORY },
+                { "digest",    SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec32,   offsetof(SignParameters, digest),    SD_JSON_MANDATORY },
                 { "algorithm", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(SignParameters, algorithm), SD_JSON_MANDATORY },
                 {}
         };
@@ -56,8 +56,7 @@ static int vl_method_sign(
 
         if (!streq(sp.algorithm, "SHA256"))
                 return sd_varlink_error_invalid_parameter_name(link, "algorithm");
-        if (sp.digest.iov_len != SHA256_DIGEST_SIZE)
-                return sd_varlink_error_invalid_parameter_name(link, "digest");
+        assert(sp.digest.iov_len == SHA256_DIGEST_SIZE);
 
         uint8_t report_data[TSM_REPORT_DATA_SIZE] = {};
         memcpy(report_data, sp.digest.iov_base, sp.digest.iov_len);
@@ -83,73 +82,6 @@ static int vl_method_sign(
                                                                                         "manifestblob", JSON_BUILD_IOVEC_BASE64(&report->manifestblob))))));
 }
 
-static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
-        int r;
-
-        r = varlink_server_new(&vs, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY, /* userdata= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-        r = sd_varlink_server_add_interface(vs, &vl_interface_io_systemd_Report_Signer);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-        r = sd_varlink_server_bind_method(vs, "io.systemd.Report.Signer.Sign", vl_method_sign);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-        r = sd_varlink_server_loop_auto(vs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-        return 0;
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_signer_interface(server, vl_method_sign);
 }
-
-static int parse_argv(int argc, char *argv[]) {
-        int r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        if (option_parser_get_n_args(&opts) > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
-
-        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program can only run as a Varlink service.");
-
-        return 1;
-}
-
-static int run(int argc, char *argv[]) {
-        int r;
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        return vl_server();
-}
-
-DEFINE_MAIN_FUNCTION(run);

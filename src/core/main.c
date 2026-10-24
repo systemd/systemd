@@ -3523,8 +3523,7 @@ static int save_env(void) {
         if (!l)
                 return log_oom();
 
-        strv_free_and_replace(saved_env, l);
-        return 0;
+        return strv_free_and_replace(saved_env, l);
 }
 
 static int run_systemd(int argc, char *argv[]) {

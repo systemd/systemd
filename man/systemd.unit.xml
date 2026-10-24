@@ -1580,6 +1580,18 @@
           <filename>unit@.service</filename> service instance belonging to the user. The argument must be a
           valid credential name.</para>
 
+          <para>If no such credential was passed into the service manager, the credential stores are searched
+          too, i.e. the same directories that <varname>ImportCredential=</varname> searches (see
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+          such as <filename>/etc/credstore/</filename>, <filename>/run/credstore/</filename>,
+          <filename>/usr/lib/credstore/</filename> and their <filename>.encrypted</filename> counterparts for
+          the system service manager, and <filename>$XDG_CONFIG_HOME/credstore/</filename>,
+          <filename>$XDG_RUNTIME_DIR/credstore/</filename>, <filename>$HOME/.local/lib/credstore/</filename>
+          and their <filename>.encrypted</filename> counterparts for the per-user service manager. Hence any
+          credential that <varname>ImportCredential=</varname> would pass to a service also satisfies this
+          condition. For encrypted credentials only their existence is checked, they are not decrypted. Before
+          version 263, only the credentials passed into the service manager were checked.</para>
+
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
@@ -2115,11 +2127,12 @@
           <para>Tags may be parameterized with a value in the form
           <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal>; the
           <literal>=</literal> and the value are part of the tag and thus part of the string the pattern is
-          matched against. Hence <literal>ConditionMachineTag=role=webserver</literal> matches the tag
-          <literal>role=webserver</literal> exactly, <literal>ConditionMachineTag=role=*</literal> matches any
-          value assigned to the <literal>role</literal> key, and <literal>ConditionMachineTag=role</literal>
-          (without <literal>=</literal>) does <emphasis>not</emphasis> match <literal>role=webserver</literal>.
-          See
+          matched against. Hence <literal>ConditionMachineTag=company.role=webserver</literal> matches the
+          tag <literal>company.role=webserver</literal> exactly,
+          <literal>ConditionMachineTag=company.role=*</literal> matches any value assigned to the
+          <literal>company.role</literal> key, and <literal>ConditionMachineTag=company.role</literal>
+          (without <literal>=</literal>) does <emphasis>not</emphasis> match
+          <literal>company.role=webserver</literal>. See
           <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for the precise syntax of machine tags.</para>
 

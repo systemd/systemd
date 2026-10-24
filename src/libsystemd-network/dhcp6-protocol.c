@@ -14,7 +14,7 @@ static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
         [DHCP6_STATE_STOPPING]            = "stopping",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_state, DHCP6State);
 
 static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_SOLICIT]             = "Solicit",

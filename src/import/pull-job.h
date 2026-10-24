@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 
+#include "compress.h"
+#include "import-common.h"
 #include "pull-forward.h"
 
 typedef enum PullJobState {
@@ -35,9 +37,15 @@ typedef struct PullJob {
         PullJobProgress on_progress;
         PullJobNotFound on_not_found;
 
-        CurlGlue *glue;
+        sd_event *event;
+        CurlGlue *glue; /* May be NULL if the URL is transported via a resource provider rather than curl */
         CurlSlot *slot;
         struct curl_slist *request_header;
+
+        /* For provider:[…]/… URLs, which are transported via a Varlink connection instead of curl */
+        sd_varlink *provider_link;
+        int provider_fd;
+        sd_event_source *provider_source;
 
         char *etag;
         char **old_etags;
@@ -62,6 +70,7 @@ typedef struct PullJob {
         usec_t mtime;
         char *content_type;
 
+        Compression compression; /* the algorithm to decompress with, or _COMPRESSION_INVALID to detect it from the data */
         Compressor *compress;
 
         unsigned progress_percent;
@@ -74,6 +83,8 @@ typedef struct PullJob {
         struct iovec checksum;
         struct iovec expected_checksum;
 
+        ImportDigest decoded_digest; /* digest of the decoded data, to verify if enabled */
+
         bool sync;
         bool force_memory;
         bool zero_fill;
@@ -81,7 +92,7 @@ typedef struct PullJob {
         char *authentication_challenge;
 } PullJob;
 
-int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata);
+int pull_job_new(PullJob **ret, const char *url, sd_event *event, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);

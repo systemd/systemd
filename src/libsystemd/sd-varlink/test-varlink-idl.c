@@ -43,6 +43,7 @@
 #include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
+#include "varlink-io.systemd.PTYBroker.h"
 #include "varlink-io.systemd.Repart.h"
 #include "varlink-io.systemd.Report.h"
 #include "varlink-io.systemd.Report.Signer.h"
@@ -50,11 +51,13 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.ResourceProvider.h"
 #include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-io.systemd.SysInstall.h"
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-io.systemd.SysUpdate.Notify.h"
+#include "varlink-io.systemd.SysUpdate.Provider.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -166,6 +169,38 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MethodTest,
                 &vl_error_ErrorTest);
 
+static SD_VARLINK_DEFINE_ENUM_TYPE_FULL(
+                ExperimentalEnumTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_ENUM_VALUE(foo),
+                SD_VARLINK_DEFINE_ENUM_VALUE_FULL(bar, SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                ExperimentalStructTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(y, SD_VARLINK_INT, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY|SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ExperimentalMethodTest,
+                SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(e, ExperimentalEnumTest, SD_VARLINK_NULLABLE|SD_VARLINK_EXPERIMENTAL),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(s, ExperimentalStructTest, SD_VARLINK_MAP|SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_ERROR_FULL(
+                ExperimentalErrorTest,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_STRING, SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_INTERFACE_FULL(
+                xyz_experimental,
+                "xyz.experimental",
+                SD_VARLINK_EXPERIMENTAL,
+                &vl_type_ExperimentalEnumTest,
+                &vl_type_ExperimentalStructTest,
+                &vl_method_ExperimentalMethodTest,
+                &vl_error_ExperimentalErrorTest);
+
 static void test_parse_format_one(const sd_varlink_interface *iface) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *text = NULL, *text2 = NULL;
@@ -224,6 +259,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Network_Link,
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
+                &vl_interface_io_systemd_PTYBroker,
                 &vl_interface_io_systemd_Repart,
                 &vl_interface_io_systemd_Report,
                 &vl_interface_io_systemd_Report_Signer,
@@ -231,11 +267,13 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
+                &vl_interface_io_systemd_ResourceProvider,
                 &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
                 &vl_interface_io_systemd_SysInstall,
                 &vl_interface_io_systemd_SysUpdate,
                 &vl_interface_io_systemd_SysUpdate_Notify,
+                &vl_interface_io_systemd_SysUpdate_Provider,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
@@ -247,6 +285,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_sysext,
                 &vl_interface_org_varlink_service,
                 &vl_interface_xyz_test,
+                &vl_interface_xyz_experimental,
         };
 
         bool sep = false;
@@ -256,6 +295,288 @@ TEST(parse_format) {
                 test_parse_format_one(*i);
                 sep = true;
         }
+}
+
+TEST(experimental) {
+        ASSERT_TRUE(FLAGS_SET(vl_interface_xyz_experimental.interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalStructTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_method_ExperimentalMethodTest.symbol_flags, SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_error_ExperimentalErrorTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_FALSE(FLAGS_SET(vl_type_ExperimentalEnumTest.fields[0].field_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.fields[1].field_flags, SD_VARLINK_EXPERIMENTAL));
+
+        ASSERT_OK(varlink_idl_consistent(&vl_interface_xyz_experimental, LOG_ERR));
+}
+
+static bool symbol_is_experimental(const sd_varlink_interface *iface, const char *name) {
+        return FLAGS_SET(ASSERT_PTR(varlink_idl_find_symbol(iface, _SD_VARLINK_SYMBOL_TYPE_INVALID, name))->symbol_flags,
+                         SD_VARLINK_EXPERIMENTAL);
+}
+
+static bool field_is_experimental(const sd_varlink_interface *iface, const char *symbol, const char *field) {
+        const sd_varlink_symbol *s = ASSERT_PTR(varlink_idl_find_symbol(iface, _SD_VARLINK_SYMBOL_TYPE_INVALID, symbol));
+        return FLAGS_SET(ASSERT_PTR(varlink_idl_find_field(s, field))->field_flags, SD_VARLINK_EXPERIMENTAL);
+}
+
+TEST(experimental_roundtrip) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free_ char *text = NULL;
+        const sd_varlink_symbol *symbol;
+
+        ASSERT_OK(sd_varlink_idl_format(&vl_interface_xyz_experimental, &text));
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+
+        ASSERT_TRUE(FLAGS_SET(parsed->interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalEnumTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalStructTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalMethodTest"));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "ExperimentalErrorTest"));
+        ASSERT_FALSE(field_is_experimental(parsed, "ExperimentalEnumTest", "foo"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalEnumTest", "bar"));
+        ASSERT_FALSE(field_is_experimental(parsed, "ExperimentalStructTest", "x"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalStructTest", "y"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalMethodTest", "e"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalMethodTest", "s"));
+        ASSERT_TRUE(field_is_experimental(parsed, "ExperimentalErrorTest", "x"));
+
+        /* Other flags of an experimental field must survive the roundtrip too */
+        symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_STRUCT_TYPE, "ExperimentalStructTest"));
+        ASSERT_EQ((uint64_t) ASSERT_PTR(varlink_idl_find_field(symbol, "y"))->field_flags,
+                  (uint64_t) (SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY|SD_VARLINK_EXPERIMENTAL));
+}
+
+TEST(experimental_parse) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        const sd_varlink_symbol *foo, *method;
+        const sd_varlink_field *b;
+        size_t n_markers = 0;
+
+        static const char text[] =
+                "# Some interface\n"
+                "# [Experimental]\n"
+                "interface xyz.parse\n"
+                "\n"
+                "# [Experimental]\n"
+                "# A comment between marker and symbol\n"
+                "type Foo (\n"
+                "\t# [Experimental]\n"
+                "\ta: ?int,\n"
+                "\tb: (\n"
+                "\t\t# [Experimental]\n"
+                "\t\tc: string\n"
+                "\t)\n"
+                ")\n"
+                "\n"
+                "# This mentions [Experimental] but is not a marker\n"
+                "type Bar (\n"
+                "\t# [experimental]\n"
+                "\tx,\n"
+                "\t# [Experimental]\n"
+                "\ty\n"
+                ")\n"
+                "\n"
+                "method Baz(\n"
+                "\t# [Experimental]\n"
+                "\tz: ?Bar\n"
+                ") -> ()\n";
+
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+
+        ASSERT_TRUE(FLAGS_SET(parsed->interface_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_TRUE(symbol_is_experimental(parsed, "Foo"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "b"));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Bar"));
+        ASSERT_FALSE(field_is_experimental(parsed, "Bar", "x"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Bar", "y"));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Baz"));
+        ASSERT_TRUE(field_is_experimental(parsed, "Baz", "z"));
+
+        /* Anonymous nested struct */
+        foo = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_STRUCT_TYPE, "Foo"));
+        b = ASSERT_PTR(varlink_idl_find_field(foo, "b"));
+        ASSERT_TRUE(FLAGS_SET(ASSERT_PTR(varlink_idl_find_field(ASSERT_PTR(b->symbol), "c"))->field_flags, SD_VARLINK_EXPERIMENTAL));
+
+        /* The markers are turned into flags rather than kept as comments, hence each is output once */
+        ASSERT_OK(sd_varlink_idl_format(parsed, &formatted));
+        for (const char *m = formatted; (m = strstr(m, "# [Experimental]\n")); m++)
+                n_markers++;
+        ASSERT_EQ(n_markers, 6U);
+        ASSERT_NOT_NULL(strstr(formatted, "# [experimental]\n"));
+
+        /* A marker that is not followed by an item is accepted, but dropped */
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse("interface xyz.parse\n"
+                                       "type Foo (a: int)\n"
+                                       "# [Experimental]\n", NULL, NULL, &parsed));
+        ASSERT_FALSE(symbol_is_experimental(parsed, "Foo"));
+        ASSERT_NULL(parsed->symbols[1]);
+
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse("interface xyz.parse\n"
+                                       "method Foo(\n"
+                                       "\t# [Experimental]\n"
+                                       ") -> (a: int)\n", NULL, NULL, &parsed));
+        method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Foo"));
+        ASSERT_FALSE(FLAGS_SET(method->symbol_flags, SD_VARLINK_EXPERIMENTAL));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_EQ(method->fields[1].field_type, _SD_VARLINK_FIELD_TYPE_END_MARKER);
+
+        /* … and in particular doesn't end up marking the first output field when formatted and parsed again */
+        formatted = mfree(formatted);
+        ASSERT_OK(sd_varlink_idl_format(parsed, &formatted));
+        parsed = sd_varlink_interface_free(parsed);
+        ASSERT_OK(sd_varlink_idl_parse(formatted, NULL, NULL, &parsed));
+        ASSERT_FALSE(field_is_experimental(parsed, "Foo", "a"));
+        ASSERT_OK(varlink_idl_consistent(parsed, LOG_DEBUG));
+}
+
+static int parse_and_check_consistent(const char *text) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+
+        ASSERT_OK(sd_varlink_idl_parse(text, NULL, NULL, &parsed));
+        return varlink_idl_consistent(parsed, LOG_DEBUG);
+}
+
+TEST(experimental_consistent) {
+        /* Experimental types may be used by experimental fields (which then must be nullable if the symbol
+         * is not experimental), by experimental symbols, and anywhere in an experimental interface. */
+        ASSERT_OK(parse_and_check_consistent(
+                        "interface xyz.good\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Values (stable)\n"
+                        "# [Experimental]\n"
+                        "type ExpValues (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        ")\n"
+                        "type Stable (\n"
+                        "\tv: Values,\n"
+                        "\t# [Experimental]\n"
+                        "\tev: ?ExpValues,\n"
+                        "\t# [Experimental]\n"
+                        "\te: ?Exp,\n"
+                        "\t# [Experimental]\n"
+                        "\tanon: ?(x: Exp, y: []Exp)\n"
+                        ")\n"
+                        "# [Experimental]\n"
+                        "type AlsoExp (\n"
+                        "\te: Exp,\n"
+                        "\t# [Experimental]\n"
+                        "\tf: Exp,\n"
+                        "\tanon: (x: Exp)\n"
+                        ")\n"
+                        "# [Experimental]\n"
+                        "method ExpMethod(e: Exp) -> (e: [string]Exp)\n"
+                        "method StableMethod(\n"
+                        "\t# [Experimental]\n"
+                        "\te: ?Exp\n"
+                        ") -> (s: Stable)\n"
+                        "# [Experimental]\n"
+                        "error ExpError(e: Exp)\n"));
+
+        ASSERT_OK(parse_and_check_consistent(
+                        "# [Experimental]\n"
+                        "interface xyz.good\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (e: Exp)\n"
+                        "method StableMethod(e: Exp) -> (s: Stable)\n"));
+
+        /* Non-experimental fields must not refer to experimental types */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (e: ?Exp)\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a, b)\n"
+                        "method StableMethod() -> (e: ?[]Exp)\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "error StableError(e: ?Exp)\n"), EUCLEAN);
+
+        /* … not even from within an anonymous type */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "# [Experimental]\n"
+                        "type Exp (a: int)\n"
+                        "type Stable (anon: ?(x: ?(y: ?Exp)))\n"), EUCLEAN);
+
+        /* Experimental fields of non-experimental symbols must be nullable */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Stable (\n"
+                        "\t# [Experimental]\n"
+                        "\te: int\n"
+                        ")\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "method StableMethod(\n"
+                        "\t# [Experimental]\n"
+                        "\te: []string\n"
+                        ") -> ()\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Stable (anon: ?(\n"
+                        "\t# [Experimental]\n"
+                        "\te: int\n"
+                        "))\n"), EUCLEAN);
+
+        /* Experimental enum values are not permitted in non-experimental enums */
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "type Values (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        ")\n"), EUCLEAN);
+        ASSERT_ERROR(parse_and_check_consistent(
+                        "interface xyz.bad\n"
+                        "method StableMethod() -> (v: (\n"
+                        "\tstable,\n"
+                        "\t# [Experimental]\n"
+                        "\texp\n"
+                        "))\n"), EUCLEAN);
+}
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                BadFlagsStructTest,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_DEFINE_FIELD(x, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_INTERFACE(
+                xyz_bad_symbol_flags,
+                "xyz.badsymbolflags",
+                &vl_type_BadFlagsStructTest);
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                BadFlagsEnumTest,
+                SD_VARLINK_DEFINE_ENUM_VALUE_FULL(foo, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_INTERFACE(
+                xyz_bad_enum_value_flags,
+                "xyz.badenumvalueflags",
+                &vl_type_BadFlagsEnumTest);
+
+static SD_VARLINK_DEFINE_INTERFACE_FULL(
+                xyz_bad_interface_flags,
+                "xyz.badinterfaceflags",
+                1 << 0, /* not a valid interface flag */
+                &vl_type_ExperimentalEnumTest);
+
+TEST(invalid_flags) {
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_symbol_flags, LOG_DEBUG), EUCLEAN);
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_enum_value_flags, LOG_DEBUG), EUCLEAN);
+        ASSERT_ERROR(varlink_idl_consistent(&vl_interface_xyz_bad_interface_flags, LOG_DEBUG), EUCLEAN);
 }
 
 TEST(parse) {
@@ -270,6 +591,16 @@ TEST(parse) {
 
         assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
+        parsed = sd_varlink_interface_free(parsed);
+
+        /* Named types referenced from within anonymous types must be resolved too */
+        ASSERT_OK(sd_varlink_idl_parse("interface quu.waa\n"
+                                       "type Foo (a: int)\n"
+                                       "type Bar (b: ?(c: Foo, d: (e: []Foo)))\n"
+                                       "method Baz(f: (g: Foo)) -> ()\n", NULL, NULL, &parsed));
+        test_parse_format_one(parsed);
+        ASSERT_ERROR(sd_varlink_idl_parse("interface quu.waa\n"
+                                          "type Bar (b: (c: Foo))\n", NULL, NULL, NULL), ENETUNREACH); /* unresolved nested type */
 
         assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
                                        "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */

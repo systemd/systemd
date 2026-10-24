@@ -70,6 +70,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -94,6 +95,7 @@
 #include "utf8.h"
 #include "verbs.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
 #include "vmspawn-qmp.h"
@@ -890,7 +892,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Input/Output"): {}
 
                 OPTION_LONG("console", "MODE",
-                            "Console mode (interactive, native, gui, read-only or headless)"):
+                            "Console mode (interactive, native, gui, read-only, headless, broker or broker-log)"):
                         arg_console_mode = console_mode_from_string(opts.arg);
                         if (arg_console_mode < 0)
                                 return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", opts.arg);
@@ -1379,6 +1381,40 @@ static int add_vsock_credential(int vsock_fd) {
                 return -ENOMEM;
 
         return machine_credential_add(&arg_credentials, "vmm.notify_socket", value, SIZE_MAX);
+}
+
+static int append_credential(const char *id, const char *data) {
+        int r;
+
+        assert(id);
+        assert(data);
+
+        MachineCredential *existing = machine_credential_find(&arg_credentials, id);
+        if (!existing) {
+                r = machine_credential_add(&arg_credentials, id, data, SIZE_MAX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add %s credential: %m", id);
+
+                return 0;
+        }
+
+        if (existing->size >= INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Existing %s credential is too large (%zu bytes).",
+                                       id, existing->size);
+
+        _cleanup_free_ char *combined = NULL;
+        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
+                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, data);
+        else
+                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, data);
+        if (r < 0)
+                return log_oom();
+
+        free_and_replace_full(existing->data, combined, erase_and_free);
+        existing->size = r;
+
+        return 0;
 }
 
 static int cmdline_add_kernel_cmdline(char ***cmdline, int smbios_dir_fd, const char *smbios_dir) {
@@ -2762,6 +2798,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
+        bool balloon = arg_confidential_computing == COCO_NO;
+        uint64_t ram;
         int r;
 
         CLEANUP_ARRAY(children, n_children, fork_notify_terminate_many);
@@ -2896,7 +2934,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
+        ram = DIV_ROUND_UP(arg_ram, U64_MB) * U64_MB;
+        if (asprintf(&mem, "%" PRIu64 "M", ram / U64_MB) < 0)
                 return log_oom();
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
@@ -2998,9 +3037,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_confidential_computing == COCO_NO) {
+        if (balloon) {
                 r = qemu_config_section(config_file, "device", "balloon0",
                                         "driver", "virtio-balloon",
+                                        "deflate-on-oom", "on",
                                         "free-page-reporting", "on");
                 if (r < 0)
                         return r;
@@ -3233,7 +3273,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, console_backend_fd = -EBADF;
+        _cleanup_free_ char *console_pty_name = NULL;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
@@ -3280,6 +3321,51 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 break;
         }
+
+        case CONSOLE_BROKER:
+        case CONSOLE_BROKER_LOG:
+                /* In broker mode ptybrokerd owns the frontend (the "master" side) of the pseudo TTY and
+                 * takes care of its output itself — discarding it, or, for broker-log, additionally writing
+                 * it to the logs. It hands us a monitor connection which we forward the local terminal to
+                 * (used as PTY forwarder "master"), plus the backend (the "slave" side) which we pass on to
+                 * QEMU as its console. */
+                /* The broker's operations are gated by polkit, hence make sure an authentication agent is
+                 * around in case we need to authenticate interactively. */
+                (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+                r = pty_broker_acquire_pty(
+                                arg_runtime_scope,
+                                arg_console_mode == CONSOLE_BROKER_LOG ? "log" : "null",
+                                /* name= */ NULL,
+                                arg_ask_password,
+                                &master,
+                                &console_backend_fd,
+                                &console_pty_name);
+                if (r < 0)
+                        return r;
+
+                if (!arg_quiet && !isempty(console_pty_name))
+                        log_info("Broker registered console pseudo TTY under name '%s'.", console_pty_name);
+
+                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                if (r < 0)
+                        return log_oom();
+
+                /* Hand QEMU the already-open backend (slave) fd rather than a filesystem path: register it
+                 * in an fd set and point the chardev at it. The fd survives the fork because it's added to
+                 * pass_fds (QEMU is forked with FORK_CLOEXEC_OFF). */
+                r = cmdline_add_fdset(&cmdline, &pass_fds, &n_pass_fds, QEMU_FDSET_CONSOLE, console_backend_fd, "/dev/console");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "chardev", "console",
+                                        "backend", "serial",
+                                        "path", FORMAT_QEMU_FDSET_PATH(QEMU_FDSET_CONSOLE),
+                                        "mux", "off");
+                if (r < 0)
+                        return r;
+
+                break;
 
         case CONSOLE_GUI:
                 /* -vga is a convenience option, keep on cmdline */
@@ -3527,7 +3613,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ char *fstab_extra = NULL;
+        _cleanup_free_ char *fstab_extra = NULL, *fstab_extra_initrd = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
@@ -3568,8 +3654,24 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_target)
                         return log_oom();
 
-                if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
+                /* switch-root moves the initrd's /run onto /sysroot/run. The moved /run hides any mount that
+                 * the initrd placed below /sysroot/run. We therefore mount targets below /run at /run in the
+                 * initrd. switch-root then moves the mount together with /run. fstab-generator reads
+                 * fstab.extra.initrd only in the initrd. The fstab.extra entry without x-initrd.mount mounts
+                 * the target when the VM boots without an initrd. A target such as /run/x/../../srv resolves
+                 * to /srv. An fstab.extra.initrd entry for that target would mount over /srv in the initrd.
+                 * path_startswith() doesn't check the components after the prefix. path_is_safe() therefore
+                 * refuses every ".." component in the target. */
+                bool below_run = path_is_safe(m->target) && !isempty(path_startswith(m->target, "/run"));
+
+                if (below_run &&
+                    strextendf(&fstab_extra_initrd, "%s %s virtiofs %s\n",
                                id, escaped_target, m->read_only ? "ro" : "rw") < 0)
+                        return log_oom();
+
+                if (strextendf(&fstab_extra, "%s %s virtiofs %s%s\n",
+                               id, escaped_target, m->read_only ? "ro" : "rw",
+                               below_run ? "" : ",x-initrd.mount") < 0)
                         return log_oom();
 
                 if (!GREEDY_REALLOC(config.virtiofs.entries, config.virtiofs.n_entries + 1))
@@ -3583,31 +3685,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (fstab_extra) {
-                /* If the user already specified a fstab.extra credential, combine it with ours */
-                MachineCredential *existing = machine_credential_find(&arg_credentials, "fstab.extra");
-                if (existing) {
-                        _cleanup_free_ char *combined = NULL;
+                r = append_credential("fstab.extra", fstab_extra);
+                if (r < 0)
+                        return r;
+        }
 
-                        if (existing->size >= INT_MAX)
-                                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                                       "Existing fstab.extra credential is too large (%zu bytes).",
-                                                       existing->size);
-
-                        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
-                                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
-                        else
-                                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, fstab_extra);
-                        if (r < 0)
-                                return log_oom();
-
-                        erase_and_free(existing->data);
-                        existing->data = TAKE_PTR(combined);
-                        existing->size = r;
-                } else {
-                        r = machine_credential_add(&arg_credentials, "fstab.extra", fstab_extra, SIZE_MAX);
-                        if (r < 0)
-                                return r;
-                }
+        if (fstab_extra_initrd) {
+                r = append_credential("fstab.extra.initrd", fstab_extra_initrd);
+                if (r < 0)
+                        return r;
         }
 
         _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
@@ -3980,7 +4066,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_close_ int child_pty = -EBADF;
-        if (master >= 0) {
+        if (console_backend_fd >= 0) {
+                /* Broker mode: QEMU's stdio should be the broker-provided backend (slave), not derived from
+                 * the monitor connection (which is 'master' here). Reopen it to get an independent open file
+                 * description, so FORK_REARRANGE_STDIO can move it onto stdin/stdout/stderr without disturbing
+                 * the fd we hand QEMU's console chardev via the fd set. */
+                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (child_pty < 0)
+                        return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
+        } else if (master >= 0) {
                 child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
@@ -4009,12 +4103,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Not owned. Disarmed once the guest runs, as then the console has its output instead of QEMU's. */
-        _cleanup_(flush_console_to_stderrp) int early_console = master;
+        /* Not owned. Disarmed once the guest runs, as then the console has its output instead of QEMU's. In
+         * broker mode 'master' is the monitor connection to ptybrokerd rather than a non-blocking PTY master:
+         * it is blocking and never hits EOF/EIO, hence don't try to flush it. */
+        _cleanup_(flush_console_to_stderrp) int early_console =
+                IN_SET(arg_console_mode, CONSOLE_BROKER, CONSOLE_BROKER_LOG) ? -EBADF : master;
 
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+
+        /* In broker mode QEMU has inherited the console backend (slave) fd via the fd set; release our copy
+         * so we don't keep the pseudo TTY's backend side pinned open for the VM's entire lifetime. */
+        console_backend_fd = safe_close(console_backend_fd);
 
         r = prepare_device_info(&config);
         if (r < 0)
@@ -4047,6 +4148,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return r;
 
         r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_memory_setup(bridge, ram, balloon);
         if (r < 0)
                 return r;
 
@@ -4521,7 +4626,7 @@ static int run(int argc, char *argv[]) {
                 log_info("%s %sSpawning VM %s on %s.%s",
                          glyph(GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal());
 
-                if (arg_console_mode == CONSOLE_INTERACTIVE)
+                if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_BROKER, CONSOLE_BROKER_LOG))
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
                 else if (arg_console_mode == CONSOLE_NATIVE)

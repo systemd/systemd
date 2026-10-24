@@ -164,7 +164,6 @@ man_page_depends += bpf_delegate_xml
 
 generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
 libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
-libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 core_includes = [include_directories('.'), includes]
 
@@ -194,7 +193,7 @@ libcore = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
+        link_depends : libshared_sym,
         link_whole: libcore_static,
         link_with : libshared,
         install : true,
@@ -234,7 +233,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd',
                 'dbus' : true,
-                'public' : true,
                 'sources' : systemd_sources,
                 'link_args_static' : systemd_link_args,
                 'link_with' : [
@@ -251,7 +249,6 @@ executables += [
                         {
                                 # Alias for external callers when the executor is built into systemd
                                 'name' : 'systemd-executor',
-                                'public' : true,
                                 'conditions' : ['SYSTEMD_MULTICALL_BINARY'],
                         },
                 ],
@@ -285,7 +282,6 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') != 1
         executables += [
                 libexec_template + {
                         'name' : 'systemd-executor',
-                        'public' : true,
                         'sources' : systemd_executor_sources,
                         'link_with' : [
                                 libcore,

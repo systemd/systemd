@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "chattr-util.h"
@@ -391,11 +392,13 @@ static Compression compression_requested(void) {
 static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
-                JournalFile *template) {
+                JournalFile *template,
+                const sd_id128_t *seqnum_id) {
 
         int r;
 
         assert(f);
+        POINTER_MAY_BE_NULL(seqnum_id);
 
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
         bool seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_auth_load(f) >= 0;
@@ -423,10 +426,16 @@ static int journal_file_init_header(
                 return r; /* If we have no valid machine ID (test environment?), let's simply leave the
                            * machine ID field all zeroes. */
 
-        if (template) {
-                h.seqnum_id = template->header->seqnum_id;
+        if (template)
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
-        } else
+
+        /* The sequence number ID of the caller takes precedence over the one of the template. The first
+         * entry appended to an empty file also replaces the ID in the header with the one of the caller. */
+        if (seqnum_id && !sd_id128_is_null(*seqnum_id))
+                h.seqnum_id = *seqnum_id;
+        else if (template)
+                h.seqnum_id = template->header->seqnum_id;
+        else
                 h.seqnum_id = h.file_id;
 
         return pwrite_full(f->fd, &h, sizeof(h), 0);
@@ -1786,7 +1795,7 @@ static int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                r = journal_file_data_payload(f, o, p, NULL, 0, 0, &d, &rsize);
+                r = journal_file_data_payload(f, o, p, /* field= */ NULL, /* field_length= */ 0, &d, &rsize);
                 if (r < 0)
                         return r;
                 assert(r > 0); /* journal_file_data_payload() always returns > 0 if no field is provided. */
@@ -2054,11 +2063,16 @@ static int maybe_decompress_payload(
                 Compression compression,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
+        int r;
+
         assert(f);
+        assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         /* We can't read objects larger than 4G on a 32-bit machine */
 #if __SIZEOF_SIZE_T__ == 4
@@ -2066,14 +2080,16 @@ static int maybe_decompress_payload(
                 return -E2BIG;
 #endif
 
+        size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) && field_length > 0 ? field_length + 1 : 0;
+
         if (compression != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                 size_t rsize;
-                int r;
 
                 if (field) {
-                        r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
-                                                  field_length, '=');
+                        r = decompress_startswith_journal(
+                                        compression, payload, size, &f->compress_buffer,
+                                        field, field_length, '=');
                         if (r < 0)
                                 return log_debug_errno(r,
                                                        "Cannot decompress %s object of length %" PRIu64 ": %m",
@@ -2088,18 +2104,31 @@ static int maybe_decompress_payload(
                         }
 
                         /* Caller only wants to check field existence, skip full decompression */
-                        if (!ret_data && !ret_size)
+                        if (fd < 0 && !ret_data && !ret_size)
                                 return 1;
                 }
 
-                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
-                if (r < 0)
-                        return r;
+                if (fd >= 0) {
+                        r = decompress_blob_to_fd_journal(
+                                        compression, payload, size, fd,
+                                        DATA_SIZE_MAX, skip, ret_size);
+                        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
+                                /* The caller journal_get_data() ignores these errors. Let's use a different
+                                 * error code in that case. Otherwise, junk data may be prepended to the
+                                 * beginning even on success. */
+                                return -EIO;
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
+                        if (r < 0)
+                                return r;
 
-                if (ret_data)
-                        *ret_data = f->compress_buffer;
-                if (ret_size)
-                        *ret_size = rsize;
+                        if (ret_data)
+                                *ret_data = (uint8_t*) f->compress_buffer + skip;
+                        if (ret_size)
+                                *ret_size = rsize - skip;
+                }
 #else
                 return -EPROTONOSUPPORT;
 #endif
@@ -2112,6 +2141,15 @@ static int maybe_decompress_payload(
                         return 0;
                 }
 
+                payload += skip;
+                size -= skip;
+
+                if (fd >= 0) {
+                        r = loop_write(fd, payload, size);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (ret_data)
                         *ret_data = payload;
                 if (ret_size)
@@ -2121,13 +2159,14 @@ static int maybe_decompress_payload(
         return 1;
 }
 
-int journal_file_data_payload(
+int journal_file_data_payload_full(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2137,6 +2176,7 @@ int journal_file_data_payload(
 
         assert(f);
         assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         if (!o) {
                 r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
@@ -2154,8 +2194,9 @@ int journal_file_data_payload(
         if (c < 0)
                 return -EPROTONOSUPPORT;
 
-        return maybe_decompress_payload(f, journal_file_data_payload_field(f, o), size, c, field,
-                                        field_length, data_threshold, ret_data, ret_size);
+        return maybe_decompress_payload(
+                        f, journal_file_data_payload_field(f, o), size, c, field, field_length,
+                        flags, fd, ret_data, ret_size);
 }
 
 int journal_file_data_payload_pinned(
@@ -2163,7 +2204,6 @@ int journal_file_data_payload_pinned(
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2181,7 +2221,9 @@ int journal_file_data_payload_pinned(
         if (r < 0)
                 return r;
 
-        return journal_file_data_payload(f, o, offset, field, field_length, data_threshold, ret_data, ret_size);
+        return journal_file_data_payload(
+                        f, o, offset, field, field_length,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
@@ -2212,14 +2254,15 @@ int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint
         return 0;
 }
 
-int journal_file_entry_field_payload(
+int journal_file_entry_field_payload_full(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
                 uint64_t i,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2235,12 +2278,12 @@ int journal_file_entry_field_payload(
         if (i >= n)
                 return -EADDRNOTAVAIL;
 
-        return journal_file_data_payload(
+        return journal_file_data_payload_full(
                         f,
                         /* o= */ NULL,
                         journal_file_entry_item_object_offset(f, o, i),
                         field, field_length,
-                        data_threshold,
+                        flags, fd,
                         ret_data, ret_size);
 }
 
@@ -4337,7 +4380,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   m->n_max_files);
 }
 
-int journal_file_open(
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -4347,6 +4390,7 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         bool newly_created = false;
@@ -4442,7 +4486,7 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-                r = journal_file_init_header(f, file_flags, template);
+                r = journal_file_init_header(f, file_flags, template, seqnum_id);
                 if (r < 0)
                         goto fail;
 
@@ -4720,7 +4764,6 @@ int journal_file_copy_entry(
                 r = journal_file_entry_field_payload(
                                 from, o, p, i,
                                 /* field= */ NULL, /* field_length= */ 0,
-                                /* data_threshold= */ 0,
                                 &data, &l);
                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);

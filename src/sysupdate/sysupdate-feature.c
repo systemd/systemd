@@ -2,11 +2,15 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "hash-funcs.h"
+#include "json-util.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-config.h"
@@ -112,6 +116,73 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         return 0;
 }
 
+static int dispatch_feature_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **id = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (!feature_name_valid(sd_json_variant_string(variant)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid feature name.", strna(name));
+
+        if (free_and_strdup(id, sd_json_variant_string(variant)) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+static int dispatch_feature_appstream(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **appstream = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        /* The field is an array, to leave room for multiple catalogs per feature in the future, but for now
+         * we only support a single one, like the AppStream= setting in .feature files does. */
+
+        if (sd_json_variant_is_null(variant) || sd_json_variant_is_blank_array(variant)) {
+                *appstream = mfree(*appstream);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        if (sd_json_variant_elements(variant) > 1)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' lists more than one URL, which is not supported.", strna(name));
+
+        return json_dispatch_http_url(name, sd_json_variant_by_index(variant, 0), flags, appstream);
+}
+
+int feature_from_json(Feature *f, sd_json_variant *v, const char *origin) {
+        int r;
+
+        assert(f);
+        assert(origin);
+
+        /* Fills in a feature definition from a JSON object, as acquired from a component provider, the
+         * equivalent of feature_read_definition() for .feature files. Note that in contrast to the
+         * configuration files no specifier expansion takes place, and no conditions are supported. 'origin'
+         * identifies where the data came from, for logging purposes. */
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",            SD_JSON_VARIANT_STRING,  dispatch_feature_id,        offsetof(Feature, id),            SD_JSON_MANDATORY },
+                { "description",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,    offsetof(Feature, description),   SD_JSON_NULLABLE },
+                { "documentation", SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,    offsetof(Feature, documentation), SD_JSON_NULLABLE },
+                { "appStream",     SD_JSON_VARIANT_ARRAY,   dispatch_feature_appstream, offsetof(Feature, appstream),     SD_JSON_NULLABLE },
+                { "enabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,   offsetof(Feature, enabled),       SD_JSON_NULLABLE },
+                { "suggested",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(Feature, suggest),       SD_JSON_NULLABLE },
+                {},
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse feature definition from %s: %m", origin);
+
+        return 0;
+}
+
 int feature_is_suggested(const Feature *f) {
         assert(f);
 
@@ -121,5 +192,5 @@ int feature_is_suggested(const Feature *f) {
         if (!f->suggest_on) /* no condition → false */
                 return false;
 
-        return condition_test_list(f->suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return condition_test_list(f->suggest_on, environ, RUNTIME_SCOPE_SYSTEM, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }

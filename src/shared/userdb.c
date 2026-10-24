@@ -687,7 +687,7 @@ static int userdb_start_query(
         }
 
         /* First, let's talk to the multiplexer, if we can */
-        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
+        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_SERVER_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
                 r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, query);
@@ -722,7 +722,7 @@ static int userdb_start_query(
                  * (and when we run as part of systemd-userdbd.service we don't want to talk to ourselves
                  * anyway). */
                 is_nss = streq(de->d_name, "io.systemd.NameServiceSwitch");
-                if ((flags & (USERDB_EXCLUDE_NSS|USERDB_AVOID_MULTIPLEXER)) && is_nss)
+                if ((flags & (USERDB_EXCLUDE_SERVER_NSS|USERDB_AVOID_MULTIPLEXER)) && is_nss)
                         continue;
 
                 /* Similar for the drop-in service */
@@ -1004,7 +1004,7 @@ static int userdb_by_name_fallbacks(
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && !iterator->nss_covered) {
                 /* Make sure the NSS lookup doesn't recurse back to us. */
 
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1128,7 +1128,7 @@ static int userdb_by_uid_fallbacks(
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
                         /* Client-side NSS fallback */
@@ -1231,7 +1231,7 @@ int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret
                         /* sfilter= */ NULL,
                         flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;
@@ -1500,7 +1500,7 @@ static int groupdb_by_name_fallbacks(
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
                         r = nss_group_record_by_name(name, !FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW), ret);
@@ -1610,7 +1610,7 @@ static int groupdb_by_gid_fallbacks(
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
                         r = nss_group_record_by_gid(gid, !FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW), ret);
@@ -1712,7 +1712,7 @@ int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **re
                         /* sfilter= */ NULL,
                         flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;
@@ -1909,7 +1909,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
                         /* sfilter= */ NULL,
                         flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;
@@ -1960,7 +1960,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
                         /* sfilter= */ NULL,
                         flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -2012,7 +2012,7 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
                         /* sfilter= */ NULL,
                         flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_CLIENT_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;

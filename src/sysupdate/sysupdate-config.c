@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "condition.h"
-#include "conf-parser.h"
 #include "log.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -51,6 +50,90 @@ int config_parse_url_specifiers(
         return free_and_replace(*s, resolved);
 }
 
+int config_parse_protect_version(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char ***protected_versions = ASSERT_PTR(data);
+        const char *root = userdata;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *protected_versions = strv_free(*protected_versions);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "ProtectVersion= string is not valid, ignoring: %s", resolved);
+                return 0;
+        }
+
+        r = strv_extend(protected_versions, resolved);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_version_bound(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char **version = ASSERT_PTR(data);
+        const char *root = userdata;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *version = mfree(*version);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= string is not valid, ignoring: %s", lvalue, resolved);
+                return 0;
+        }
+
+        return free_and_replace(*version, resolved);
+}
+
 static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]        = "SuggestOnArchitecture",
         [CONDITION_FIRMWARE]            = "SuggestOnFirmware",
@@ -66,24 +149,6 @@ static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
-
-static const char* const component_success_action_table[_COMPONENT_SUCCESS_ACTION_MAX] = {
-        [COMPONENT_SUCCESS_CONTINUE] = "continue",
-        [COMPONENT_SUCCESS_RESTART]  = "restart",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_success_action, ComponentSuccessAction);
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_component_success_action, component_success_action, ComponentSuccessAction);
-
-static const char* const component_failure_action_table[_COMPONENT_FAILURE_ACTION_MAX] = {
-        [COMPONENT_FAILURE_CONTINUE] = "continue",
-        [COMPONENT_FAILURE_FAIL]     = "fail",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_failure_action, ComponentFailureAction);
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_component_failure_action, component_failure_action, ComponentFailureAction);
 
 int config_parse_url_specifiers_many(
                 const char *unit,

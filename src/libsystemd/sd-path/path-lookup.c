@@ -176,6 +176,30 @@ int state_directory_generic(RuntimeScope scope, const char *suffix, char **ret) 
         }
 }
 
+int state_directory(RuntimeScope scope, const char *fallback_suffix, char **ret) {
+        int r;
+
+        assert(ret);
+
+        /* Accept $STATE_DIRECTORY as authoritative, i.e. only works for our service's own state dir, as
+         * fallback_suffix is ignored if $STATE_DIRECTORY is set.
+         *
+         * If $STATE_DIRECTORY is missing, apply the fallback suffix to /var/lib/, or $XDG_STATE_HOME if we
+         * are in a user runtime scope.
+         *
+         * Return value indicates whether the suffix was applied or not. */
+
+        const char *e = secure_getenv("STATE_DIRECTORY");
+        if (e)
+                return strdup_to(ret, e);
+
+        r = state_directory_generic(scope, fallback_suffix, ret);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
@@ -364,8 +388,6 @@ static int acquire_lookup_dirs(
 }
 
 static int patch_root_prefix(char **p, const char *root_dir) {
-        char *c;
-
         assert(p);
 
         if (!root_dir)
@@ -374,12 +396,11 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         if (!*p)
                 return 0;
 
-        c = path_join(root_dir, *p);
+        char *c = path_join(root_dir, *p);
         if (!c)
                 return -ENOMEM;
 
-        free_and_replace(*p, c);
-        return 0;
+        return free_and_replace(*p, c);
 }
 
 static int patch_root_prefix_strv(char **l, const char *root_dir) {

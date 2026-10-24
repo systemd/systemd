@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <poll.h>
 #include <signal.h>
+#include <termios.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -11,9 +15,12 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -21,10 +28,13 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -69,11 +79,49 @@ typedef enum {
 } Order;
 
 typedef enum {
+        COLUMN_PATH      = ORDER_PATH,
+        COLUMN_TASKS     = ORDER_TASKS,
+        COLUMN_CPU       = ORDER_CPU,
+        COLUMN_MEMORY    = ORDER_MEMORY,
+        COLUMN_IO_INPUT  = ORDER_IO,
+        COLUMN_IO_OUTPUT = _ORDER_MAX,
+        _COLUMN_MAX,
+        _COLUMN_INVALID  = -EINVAL,
+} Column;
+
+typedef enum {
         CPU_PERCENTAGE,
         CPU_TIME,
         _CPU_MAX,
         _CPU_INVALID = -EINVAL,
 } CPUType;
+
+typedef struct Context {
+        sd_future *fiber;
+        sd_event_source *signal_sources[3]; /* SIGWINCH, SIGTSTP, SIGCONT */
+
+        char *root;
+        Hashmap *groups_by_path;
+
+        /* Running sum of memory.current across depth-1 children, filled in by
+         * process() during the refresh() walk and consumed by display() for
+         * the root row when arg_root_memory_mode == ROOT_MEMORY_CGROUP. */
+        uint64_t root_children_memory_sum;
+
+        unsigned iteration;
+        usec_t last_refresh;
+        bool immediate_refresh;
+
+        char **message;
+        usec_t message_lifetime;
+
+        usec_t next_display;
+
+        int poll_fd;
+
+        struct termios saved_termios;
+        bool termios_saved;
+} Context;
 
 #define DEFAULT_MAXIMUM_DEPTH 3
 
@@ -83,7 +131,7 @@ static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 static const char *arg_machine = NULL;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
@@ -91,6 +139,8 @@ static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
 static bool arg_root_memory_system = false; /* false — default, sum of memory.current over direct children, */
                                             /* true — whole system, /proc/meminfo (MemTotal - MemAvailable) */
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 COMMAND(
         "systemd-cgtop\0",
@@ -126,31 +176,50 @@ static Group *group_free(Group *g) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare, Group, group_free);
 
-static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
-        if (arg_raw) {
-               (void) snprintf(buf, l, USEC_FMT, t);
-               return buf;
-        }
-        return format_timespan(buf, l, t, accuracy);
+static void save_console(Context *c) {
+        assert(c);
+
+        if (c->termios_saved)
+                return;
+
+        if (tcgetattr(STDIN_FILENO, &c->saved_termios) >= 0)
+                c->termios_saved = true;
 }
 
-#define BUFSIZE1 CONST_MAX(FORMAT_TIMESPAN_MAX, DECIMAL_STR_MAX(usec_t))
-#define MAYBE_FORMAT_TIMESPAN(t, accuracy) \
-        maybe_format_timespan((char[BUFSIZE1]){}, BUFSIZE1, t, accuracy)
+static int modify_console(Context *c) {
+        assert(c);
 
-static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
-        if (!is_valid)
-                return "-";
-        if (arg_raw) {
-                (void) snprintf(buf, l, "%" PRIu64, t);
-                return buf;
-        }
-        return format_bytes(buf, l, t);
+        if (!c->termios_saved)
+                return 0;
+
+        struct termios t = c->saved_termios;
+        termios_disable_echo(&t);
+        return RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &t));
 }
 
-#define BUFSIZE2 CONST_MAX(FORMAT_BYTES_MAX, DECIMAL_STR_MAX(uint64_t))
-#define MAYBE_FORMAT_BYTES(is_valid, t) \
-        maybe_format_bytes((char[BUFSIZE2]){}, BUFSIZE2, is_valid, t)
+static void restore_console(Context *c) {
+        assert(c);
+
+        if (!c->termios_saved)
+                return;
+
+        (void) tcsetattr(STDIN_FILENO, TCSANOW, &c->saved_termios);
+}
+
+static void context_done(Context *c) {
+        assert(c);
+
+        restore_console(c);
+
+        /* We live on the stack of the main fiber, but the event loop is not ours: it is the default one,
+         * which outlives us. Make sure that no handler can be invoked with a dangling pointer to us. */
+        FOREACH_ELEMENT(s, c->signal_sources)
+                *s = sd_event_source_disable_unref(*s);
+
+        free(c->root);
+        hashmap_free(c->groups_by_path);
+        strv_free(c->message);
+}
 
 static bool is_root_cgroup(const char *path) {
 
@@ -598,116 +667,162 @@ static int group_compare(Group * const *a, Group * const *b) {
         return path_compare(x->path, y->path);
 }
 
-static void display(Hashmap *a, uint64_t root_children_memory_sum) {
+static int table_add_bytes(Table *table, bool is_valid, uint64_t t) {
+        if (!is_valid)
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        if (arg_raw)
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT64, &t);
+
+        return table_add_cell(table, /* ret_cell= */ NULL, TABLE_SIZE, &t);
+}
+
+static int display(Context *c) {
+        int r;
+
+        assert(c);
+
+        _cleanup_(table_unrefp) Table *table = table_new(
+                        "CGroup",
+                        arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
+                        arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
+                        "Memory", "Input/s", "Output/s");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        if (on_tty())
+                table_set_width(table, columns());
+        else
+                table_set_header(table, false);
+
+        for (Column col = 0; col < _COLUMN_MAX; col++) {
+                TableCell *cell = ASSERT_PTR(table_get_cell(table, 0, col));
+
+                (void) table_set_uppercase(table, cell, false);
+
+                if (col == (Column) arg_order ||
+                    (IN_SET(col, COLUMN_IO_INPUT, COLUMN_IO_OUTPUT) && arg_order == ORDER_IO))
+                        (void) table_set_color(table, cell, ansi_highlight());
+
+                switch (col) {
+                case COLUMN_PATH:
+                        (void) table_set_weight(table, cell, 100000);
+                        (void) table_set_ellipsize_percent(table, cell, 33);
+                        break;
+
+                case COLUMN_TASKS:
+                        (void) table_set_minimum_width(table, cell, 7);
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+
+                case COLUMN_CPU: {
+                        unsigned n_cpus = 16;
+                        (void) cpus_online(&n_cpus);
+                        (void) table_set_minimum_width(table, cell, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+                }
+                case COLUMN_MEMORY:
+                case COLUMN_IO_INPUT:
+                case COLUMN_IO_OUTPUT:
+                        (void) table_set_minimum_width(table, cell, 8);
+                        (void) table_set_align_percent(table, cell, 100);
+                        (void) table_set_ellipsize_percent(table, cell, 100);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        Group **array = newa(Group*, hashmap_size(c->groups_by_path));
+
+        unsigned n = 0;
         Group *g;
-        Group **array;
-        signed path_columns;
-        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3, /* 3 for ellipsize() to work properly */
-                maxpcpu = 6; /* minimum width for "%CPU" header */
-
-        assert(a);
-
-        if (!terminal_is_dumb())
-                fputs(ANSI_HOME_CLEAR, stdout);
-
-        array = newa(Group*, hashmap_size(a));
-
-        HASHMAP_FOREACH(g, a)
+        HASHMAP_FOREACH(g, c->groups_by_path)
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
         typesafe_qsort(array, n, group_compare);
 
-        /* Find the longest names in one run */
-        for (unsigned j = 0; j < n; j++) {
-                maxtcpu = MAX(maxtcpu,
-                              strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
-                maxtpath = MAX(maxtpath,
-                               strlen(array[j]->path));
-        }
-
-        if (arg_cpu_type == CPU_PERCENTAGE) {
-                unsigned n_cpus;
-                if (cpus_online(&n_cpus) >= 0)
-                        maxpcpu = MAX(maxpcpu, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
-        }
-
-        rows = lines();
+        unsigned rows = lines();
         if (rows <= 10)
                 rows = 10;
 
-        if (on_tty()) {
-                const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? (int) maxpcpu : (int) maxtcpu;
-
-                path_columns = columns() - 36 - cpu_len;
-                if (path_columns < 10)
-                        path_columns = 10;
-
-                on = ansi_highlight_underline();
-                off = ansi_underline();
-
-                printf("%s%s%-*s%s %s%7s%s %s%*s%s %s%8s%s %s%8s%s %s%8s%s%s\n",
-                       ansi_underline(),
-                       arg_order == ORDER_PATH ? on : "", path_columns, "CGroup",
-                       arg_order == ORDER_PATH ? off : "",
-                       arg_order == ORDER_TASKS ? on : "",
-                       arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
-                       arg_order == ORDER_TASKS ? off : "",
-                       arg_order == ORDER_CPU ? on : "",
-                       cpu_len,
-                       arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
-                       arg_order == ORDER_CPU ? off : "",
-                       arg_order == ORDER_MEMORY ? on : "", "Memory",
-                       arg_order == ORDER_MEMORY ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Input/s",
-                       arg_order == ORDER_IO ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Output/s",
-                       arg_order == ORDER_IO ? off : "",
-                       ansi_normal());
-        } else
-                path_columns = maxtpath;
+        /* Keep lines for message and table header. */
+        unsigned m = strv_length(c->message) + !strv_isempty(c->message) + on_tty() + 1;
 
         for (unsigned j = 0; j < n; j++) {
-                _cleanup_free_ char *ellipsized = NULL;
-                const char *path;
-
-                if (on_tty() && j + 6 > rows)
+                if (on_tty() && j + m >= rows)
                         break;
 
                 g = array[j];
 
-                path = empty_to_root(g->path);
-                ellipsized = ellipsize(path, path_columns, 33);
+                _cleanup_free_ char *escaped = utf8_escape_non_printable(empty_to_root(g->path));
+                if (!escaped)
+                        return log_oom();
 
-                if (is_root_cgroup(g->path) && arg_root_memory_system) {
-                        g->memory = root_children_memory_sum;
-                        g->memory_valid = true;
-                }
-
-                printf("%-*s", path_columns, ellipsized ?: path);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_PATH, escaped);
+                if (r < 0)
+                        return table_log_add_error(r);
 
                 if (g->n_tasks_valid)
-                        printf(" %7" PRIu64, g->n_tasks);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT64, &g->n_tasks);
                 else
-                        fputs("       -", stdout);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
 
                 if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
-                                printf(" %*.1f", (int) maxpcpu, g->cpu_fraction*100);
+                                r = table_add_many(
+                                                table,
+                                                TABLE_DOUBLE, g->cpu_fraction * 100,
+                                                TABLE_SET_DECIMALS, 1);
                         else
-                                printf(" %*s", (int) maxpcpu, "-");
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 } else
-                        printf(" %*s",
-                               (int) maxtcpu,
-                               MAYBE_FORMAT_TIMESPAN((usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
+                        r = table_add_many(
+                                        table,
+                                        arg_raw ? TABLE_UINT64 : TABLE_TIMESPAN,
+                                        g->cpu_usage / NSEC_PER_USEC);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->memory_valid, g->memory));
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->io_valid, g->io_input_bps));
-                printf(" %8s", MAYBE_FORMAT_BYTES(g->io_valid, g->io_output_bps));
+                if (is_root_cgroup(g->path) && arg_root_memory_system) {
+                        g->memory = c->root_children_memory_sum;
+                        g->memory_valid = true;
+                }
 
-                putchar('\n');
+                r = table_add_bytes(table, g->memory_valid, g->memory);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_bytes(table, g->io_valid, g->io_input_bps);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_bytes(table, g->io_valid, g->io_output_bps);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
+
+        if (!terminal_is_dumb())
+                fputs(ANSI_HOME_CLEAR, stdout);
+
+        r = table_print(table);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        STRV_FOREACH(s, c->message) {
+                fputs("\n", stdout);
+                fputs(*s, stdout);
+        }
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -841,10 +956,128 @@ static int parse_argv(int argc, char *argv[]) {
         if (n_args > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments.");
-        if (n_args == 1)
-                arg_root = option_parser_get_args(&opts)[0];
+        if (n_args == 1) {
+                const char *p = option_parser_get_args(&opts)[0];
+                r = path_simplify_alloc(p, &arg_root);
+                if (r < 0)
+                        return log_oom();
+
+                if (!path_is_normalized(arg_root))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CGroup path '%s' cannot be normalized.", p);
+        }
 
         return 1;
+}
+
+static int step(Context *c, usec_t t) {
+        int r;
+
+        assert(c);
+
+        if (t >= usec_add(c->last_refresh, arg_delay) || c->immediate_refresh) {
+
+                c->root_children_memory_sum = 0;
+
+                _cleanup_hashmap_free_ Hashmap *previous = TAKE_PTR(c->groups_by_path);
+                c->groups_by_path = hashmap_new(&group_hash_ops);
+                if (!c->groups_by_path)
+                        return log_oom();
+
+                r = refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
+                            &c->root_children_memory_sum, /* ret= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to refresh: %m");
+
+                c->last_refresh = t;
+                c->immediate_refresh = false;
+        }
+
+        if (c->message_lifetime > 0 && c->message_lifetime <= t) {
+                c->message = strv_free(c->message);
+                c->message_lifetime = 0;
+        }
+
+        r = display(c);
+        if (r < 0)
+                return r;
+
+        c->next_display = MIN(usec_add(c->last_refresh, arg_delay), c->message_lifetime ?: USEC_INFINITY);
+
+        if (arg_iterations > 0 && c->iteration >= arg_iterations)
+                return 0; /* finished */
+
+        if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
+                fputs("\n", stdout);
+        fflush(stdout);
+
+        return 1;
+}
+
+static int redisplay(Context *c) {
+        assert(c);
+
+        c->next_display = 0;
+
+        /* Only for the event source handlers below, which don't run on a fiber: the main fiber is suspended
+         * in sd_fiber_ppoll() at this point, wake it up so that it looks at next_display again. The fiber
+         * sees -EBUSY for such an unrelated wakeup. If it is not suspended (anymore), it looks at
+         * next_display before it suspends the next time anyway, so a lost wakeup costs nothing. */
+        return sd_fiber_resume(c->fiber, 0);
+}
+
+static int on_sigwinch(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        assert(si);
+        assert(si->ssi_signo == SIGWINCH);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        return redisplay(c);
+}
+
+static int on_sigtstp(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGTSTP);
+
+        /* restore console setting before raising SIGTSTP */
+        restore_console(c);
+
+        r = sigprocmask_many(SIG_UNBLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to unblock SIGTSTP: %m"));
+
+        if (raise(SIGTSTP) < 0)
+                log_debug_errno(errno, "Failed to raise SIGTSTP, ignoring: %m");
+
+        r = sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to block SIGTSTP: %m"));
+
+        r = modify_console(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to update terminfo: %m"));
+
+        return redisplay(c);
+}
+
+static int on_sigcont(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(si);
+        assert(si->ssi_signo == SIGCONT);
+
+        columns_lines_cache_reset(si->ssi_signo);
+
+        r = modify_console(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to update terminfo: %m"));
+
+        return redisplay(c);
 }
 
 static const char* counting_what(void) {
@@ -856,179 +1089,231 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-static int loop(const char *root) {
-        _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
-        unsigned iteration = 0;
-        usec_t last_refresh = 0;
-        bool immediate_refresh = false;
-        /* Running sum of memory.current across depth-1 children, filled in by
-         * process() during the refresh() walk and consumed by display() for
-         * the root row when arg_root_memory_mode == ROOT_MEMORY_CGROUP. */
-        uint64_t root_children_memory_sum = 0;
+_printf_(3, 4)
+static int set_message(Context *c, usec_t t, const char *format, ...) {
+        _cleanup_free_ char *str = NULL;
+        va_list ap;
         int r;
 
-        a = hashmap_new(&group_hash_ops);
-        b = hashmap_new(&group_hash_ops);
-        if (!a || !b)
+        assert(c);
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&str, format, ap);
+        va_end(ap);
+        if (r < 0)
                 return log_oom();
 
-        for (;;) {
-                usec_t t;
-                char key;
+        char **v = strv_split_newlines(str);
+        if (!v)
+                return log_oom();
 
-                t = now(CLOCK_MONOTONIC);
+        strv_free_and_replace(c->message, v);
+        c->message_lifetime = usec_add(now(CLOCK_MONOTONIC), t);
+        return 0;
+}
 
-                if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
+static int on_key(Context *c, char key) {
+        int r = 0;
 
-                        root_children_memory_sum = 0;
+        assert(c);
 
-                        r = refresh(root, a, b, iteration++, /* depth= */ 0,
-                                    &root_children_memory_sum, /* ret= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to refresh: %m");
+        /* Returns 0 if the user asked us to quit, and > 0 otherwise. */
 
-                        hashmap_clear(b);
-                        SWAP_TWO(a, b);
-
-                        last_refresh = t;
-                        immediate_refresh = false;
-                }
-
-                display(b, root_children_memory_sum);
-
-                if (arg_iterations && iteration >= arg_iterations)
-                        return 0;
-
-                if (!on_tty()) /* non-TTY: Empty newline as delimiter between polls */
-                        fputs("\n", stdout);
+        if (on_tty()) { /* TTY: Clear any user keystroke */
+                fputs("\r \r", stdout);
                 fflush(stdout);
+        }
 
-                if (arg_batch)
-                        (void) usleep_safe(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
+        switch (key) {
+
+        case ' ':
+                c->immediate_refresh = true;
+                break;
+
+        case 'q':
+                return 0;
+
+        case 'p':
+                arg_order = ORDER_PATH;
+                break;
+
+        case 't':
+                arg_order = ORDER_TASKS;
+                break;
+
+        case 'c':
+                arg_order = ORDER_CPU;
+                break;
+
+        case 'm':
+                arg_order = ORDER_MEMORY;
+                break;
+
+        case 'i':
+                arg_order = ORDER_IO;
+                break;
+
+        case '%':
+                arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
+                break;
+
+        case '/':
+                arg_root_memory_system = !arg_root_memory_system;
+                c->immediate_refresh = true;
+                break;
+
+        case 'k':
+                arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
+                r = set_message(c, USEC_PER_SEC, "Counting: %s.", counting_what());
+                break;
+
+        case 'P':
+                arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                r = set_message(c, USEC_PER_SEC, "Counting: %s.", counting_what());
+                break;
+
+        case 'r':
+                if (arg_count == COUNT_PIDS)
+                        r = set_message(c, USEC_PER_SEC, "\aCannot toggle recursive counting, not available in task counting mode.");
                 else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
-                        if (r == -ETIMEDOUT)
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Couldn't read key: %m");
+                        arg_recursive = !arg_recursive;
+                        r = set_message(c, USEC_PER_SEC, "Recursive process counting: %s", yes_no(arg_recursive));
                 }
+                break;
 
-                if (on_tty()) { /* TTY: Clear any user keystroke */
-                        fputs("\r \r", stdout);
-                        fflush(stdout);
-                }
+        case '+':
+                arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
+                r = set_message(c, USEC_PER_SEC, "Increased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                break;
 
-                if (arg_batch)
-                        continue;
+        case '-':
+                if (arg_delay <= USEC_PER_MSEC*500)
+                        arg_delay = USEC_PER_MSEC*250;
+                else
+                        arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
-                switch (key) {
+                r = set_message(c, USEC_PER_SEC, "Decreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
+                break;
 
-                case ' ':
-                        immediate_refresh = true;
-                        break;
-
-                case 'q':
-                        return 0;
-
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
-                        break;
-
-                case '/':
-                        arg_root_memory_system = !arg_root_memory_system;
-                        immediate_refresh = true;
-                        break;
-
-                case 'k':
-                        arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'P':
-                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
-                        fprintf(stdout, "\nCounting: %s.", counting_what());
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case 'r':
-                        if (arg_count == COUNT_PIDS)
-                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
-                        else {
-                                arg_recursive = !arg_recursive;
-                                fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
-                        }
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '+':
-                        arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '-':
-                        if (arg_delay <= USEC_PER_MSEC*500)
-                                arg_delay = USEC_PER_MSEC*250;
-                        else
-                                arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
-
-                        fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
-                        fflush(stdout);
-                        sleep(1);
-                        break;
-
-                case '?':
-                case 'h':
-
-                        fprintf(stdout,
+        case '?':
+        case 'h':
+                r = set_message(c, 3 * USEC_PER_SEC,
                                 "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
                                 "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
                                 "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
                                 "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
                                 ansi_highlight(), ansi_normal());
-                        fflush(stdout);
-                        sleep(3);
-                        break;
+                break;
 
-                default:
-                        if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
-                        else
-                                fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
-                        fflush(stdout);
-                        sleep(1);
+        default:
+                if (key < ' ')
+                        r = set_message(c, USEC_PER_SEC, "Unknown key '\\x%x'. Ignoring.", (unsigned) key);
+                else
+                        r = set_message(c, USEC_PER_SEC, "Unknown key '%c'. Ignoring.", key);
+        }
+        if (r < 0)
+                return r;
+
+        c->next_display = 0;
+        return 1;
+}
+
+static int loop(Context *c) {
+        int r;
+
+        assert(c);
+
+        for (;;) {
+                usec_t t = now(CLOCK_MONOTONIC);
+
+                if (t >= c->next_display) {
+                        r = step(c, t);
+                        if (r <= 0)
+                                return r;
+
+                        t = now(CLOCK_MONOTONIC);
                 }
+
+                /* This waits for a key or for the next redraw, whichever comes first. A negative fd is
+                 * ignored by poll(), which is how we deal with batch mode and EOF on stdin.
+                 *
+                 * Never pass a zero timeout here: the fiber would not suspend, hence the event loop would
+                 * not run and signals (e.g. SIGINT) might not be processed, if redrawing takes longer than
+                 * the delay. Hence wait at least 1 usec. */
+                r = fd_wait_for_event(c->poll_fd, POLLIN, MAX(usec_sub_unsigned(c->next_display, t), 1u));
+                if (r == -EBUSY)
+                        continue; /* A signal handler called redisplay(). */
+                if (r == -ECANCELED)
+                        return r; /* SIGINT or SIGTERM */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for stdin: %m");
+                if (r == 0)
+                        continue; /* Time to redraw. */
+
+                /* The fd is ready, hence this does not block. We deliberately don't use sd_fiber_read()
+                 * here, which would flip O_NONBLOCK on the terminal, which is shared with the shell. */
+
+                assert(c->poll_fd >= 0);
+
+                char key;
+                ssize_t n = read(c->poll_fd, &key, 1);
+                if (n < 0) {
+                        if (ERRNO_IS_TRANSIENT(errno))
+                                continue;
+
+                        return log_error_errno(errno, "Failed to read from stdin: %m");
+                }
+                if (n == 0) { /* EOF */
+                        c->poll_fd = -EBADF;
+                        continue;
+                }
+
+                r = on_key(c, key);
+                if (r <= 0)
+                        return r;
         }
 }
 
+static int setup_loop(Context *c) {
+        sd_event *e = ASSERT_PTR(sd_fiber_get_event());
+        int r;
+
+        assert(c);
+
+        c->fiber = sd_fiber_get_current();
+
+        r = sd_event_set_signal_exit(e, true);
+        if (r < 0)
+                return r;
+
+        /* on terminal size change */
+        r = sd_event_add_signal(e, &c->signal_sources[0], SIGWINCH | SD_EVENT_SIGNAL_PROCMASK, on_sigwinch, c);
+        if (r < 0)
+                return r;
+
+        /* on Ctrl+z */
+        r = sd_event_add_signal(e, &c->signal_sources[1], SIGTSTP | SD_EVENT_SIGNAL_PROCMASK, on_sigtstp, c);
+        if (r < 0)
+                return r;
+
+        /* on continue */
+        r = sd_event_add_signal(e, &c->signal_sources[2], SIGCONT | SD_EVENT_SIGNAL_PROCMASK, on_sigcont, c);
+        if (r < 0)
+                return r;
+
+        if (c->poll_fd >= 0) {
+                save_console(c);
+
+                r = modify_console(c);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
-        _cleanup_free_ char *root = NULL;
         CGroupMask mask;
         int r;
 
@@ -1050,17 +1335,34 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
-        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
+        _cleanup_(context_done) Context c = {
+                .immediate_refresh = true,
+                .poll_fd = arg_batch ? -EBADF : STDIN_FILENO,
+        };
+
+        r = show_cgroup_get_path_and_warn(arg_machine, skip_leading_chars(arg_root, "/"), &c.root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
-        log_debug("CGroup path: %s", root);
-
-        signal(SIGWINCH, columns_lines_cache_reset);
+        log_debug("CGroup path: %s", c.root);
 
         if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
-        return loop(root);
+        if (arg_iterations == 1)
+                return step(&c, /* t= */ 0);
+
+        r = setup_loop(&c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event loop: %m");
+
+        r = loop(&c);
+
+        if (on_tty()) {
+                fputs("\n", stdout);
+                fflush(stdout);
+        }
+
+        return r;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_FIBER(run);

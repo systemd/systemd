@@ -553,6 +553,114 @@ $imgs/zzz8 : start=     6422488, size=      131072, type=4D21B016-B534-45C2-A9FB
     losetup -d "$loop"
 }
 
+testcase_empty_force_block_device() {
+    local defs imgs loop before partition_fd
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping block device overwrite tests in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # Repart enforces a 32M minimum for ext4, even if SizeMaxBytes= is smaller.
+    tee "$defs/10-data.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=original
+Format=ext4
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    tee "$defs/20-extra.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=extra
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=create \
+                   --size=128M \
+                   --dry-run=no \
+                   "$imgs/force.img"
+
+    loop="$(losetup --partscan --show --find "$imgs/force.img")"
+    # shellcheck disable=SC2064
+    trap "losetup -d '$loop'; rm -rf '$defs' '$imgs'" RETURN ERR
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
+
+    # Test dry run mode
+    before="$(sfdisk -d "$loop")"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=yes \
+                   "$loop"
+
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((32 * 1024 * 1024))"
+    assert_eq "$(blockdev --getsize64 "${loop}p2")" "$((32 * 1024 * 1024))"
+
+    # An open partition prevents the initial BLKRRPART, but must not prevent an offline overwrite.
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<"${loop}p2"
+    fi
+
+    # Recreating even the same layout must not collide with the old kernel partition devices.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop" 2>&1 | tee "$imgs/recreate.log"
+
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<&-
+        if built_with_musl; then
+            grep -F "Failed to reread partition table after wiping, ignoring: Resource busy" "$imgs/recreate.log"
+        else
+            grep -F "Failed to reread partition table after wiping, ignoring: Device or resource busy" "$imgs/recreate.log"
+        fi
+    fi
+
+    assert_eq "$(grep -Fc 'Informing kernel about changed partitions...' "$imgs/recreate.log")" 1
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1" "${loop}p2"
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" original
+
+    # Also replace the layout with a partition overlapping both old partitions.
+    rm "$defs/20-extra.conf"
+    sed -i -e 's/Label=original/Label=replacement/' -e 's/32M/64M/g' "$defs/10-data.conf"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop"
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "${loop}p2"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((64 * 1024 * 1024))"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" replacement
+    assert_not_in "${loop}p2 :" "$(sfdisk -d "$loop")"
+}
+
 testcase_copy_from_grain_padding() {
     local defs imgs output
 

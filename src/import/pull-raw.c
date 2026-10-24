@@ -111,7 +111,6 @@ int raw_pull_new(
                 RawPullFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *p = NULL;
         _cleanup_free_ char *root = NULL;
@@ -132,10 +131,6 @@ int raw_pull_new(
                         return r;
         }
 
-        r = curl_glue_new(&g, e);
-        if (r < 0)
-                return r;
-
         p = new(RawPull, 1);
         if (!p)
                 return -ENOMEM;
@@ -145,7 +140,6 @@ int raw_pull_new(
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
                 .event = TAKE_PTR(e),
-                .glue = TAKE_PTR(g),
                 .offset = UINT64_MAX,
         };
 
@@ -797,14 +791,17 @@ int raw_pull_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
         assert(p);
         assert(url);
+        assert(compression < _COMPRESSION_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -814,7 +811,7 @@ int raw_pull_start(
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !iovec_is_set(checksum));
 
-        if (!http_url_is_valid(url) && !file_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !pull_validate_local(local, flags))
@@ -830,13 +827,23 @@ int raw_pull_start(
         p->flags = flags;
         p->verify = verify;
 
+        /* Everything but provider: URLs is transported via curl, hence set up the curl glue on first use. This
+         * also defers loading libcurl to this point, so that pulling from a resource provider works without it. */
+        if (!provider_url_is_valid(url) && !p->glue) {
+                r = curl_glue_new(&p->glue, p->event);
+                if (r < 0)
+                        return r;
+        }
+
         /* Queue job for the image itself */
-        r = pull_job_new(&p->raw_job, url, p->glue, p);
+        r = pull_job_new(&p->raw_job, url, p->event, p->glue, p);
         if (r < 0)
                 return r;
 
         p->raw_job->on_finished = raw_pull_job_on_finished;
         p->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
+        p->raw_job->compression = compression;
+        import_digest_init(&p->raw_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->raw_job->expected_checksum))
@@ -862,7 +869,9 @@ int raw_pull_start(
                 p->raw_job->offset = p->offset = offset;
         p->raw_job->zero_fill = FLAGS_SET(flags, IMPORT_ZERO_FILL);
 
-        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
+        /* A previously downloaded image is neither keyed by the compression algorithm nor was it
+         * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
+        if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_REG, ".raw-", ".raw", &p->raw_job->old_etags);
                 if (r < 0)
                         return r;
@@ -873,6 +882,7 @@ int raw_pull_start(
                         &p->signature_job,
                         verify,
                         url,
+                        p->event,
                         p->glue,
                         raw_pull_job_on_finished,
                         p);
@@ -886,6 +896,7 @@ int raw_pull_start(
                                 raw_strip_suffixes,
                                 ".nspawn",
                                 verify,
+                                p->event,
                                 p->glue,
                                 raw_pull_job_on_open_disk_settings,
                                 raw_pull_job_on_finished,
@@ -901,6 +912,7 @@ int raw_pull_start(
                                 raw_strip_suffixes,
                                 ".roothash",
                                 verify,
+                                p->event,
                                 p->glue,
                                 raw_pull_job_on_open_disk_roothash,
                                 raw_pull_job_on_finished,
@@ -916,6 +928,7 @@ int raw_pull_start(
                                 raw_strip_suffixes,
                                 ".roothash.p7s",
                                 verify,
+                                p->event,
                                 p->glue,
                                 raw_pull_job_on_open_disk_roothash_signature,
                                 raw_pull_job_on_finished,
@@ -931,6 +944,7 @@ int raw_pull_start(
                                 raw_strip_suffixes,
                                 ".verity",
                                 verify,
+                                p->event,
                                 p->glue,
                                 raw_pull_job_on_open_disk_verity,
                                 raw_pull_job_on_finished,

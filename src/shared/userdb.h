@@ -14,23 +14,25 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserDBIterator*, userdb_iterator_free);
 
 typedef enum UserDBFlags {
         /* The main sources */
-        USERDB_EXCLUDE_NSS               = 1 << 0,  /* don't do client-side nor server-side NSS */
-        USERDB_EXCLUDE_VARLINK           = 1 << 1,  /* don't talk to any varlink services */
-        USERDB_EXCLUDE_DROPIN            = 1 << 2,  /* don't load drop-in user/group definitions */
+        USERDB_EXCLUDE_CLIENT_NSS        = 1 << 0,  /* don't do client-side NSS */
+        USERDB_EXCLUDE_SERVER_NSS        = 1 << 1,  /* don't do server-side NSS (io.systemd.NameServiceSwitch, io.systemd.Multiplexer) */
+        USERDB_EXCLUDE_VARLINK           = 1 << 2,  /* don't talk to any varlink services */
+        USERDB_EXCLUDE_DROPIN            = 1 << 3,  /* don't load drop-in user/group definitions */
 
         /* Modifications */
-        USERDB_SUPPRESS_SHADOW           = 1 << 3,  /* don't do client-side shadow calls (server side might happen though) */
-        USERDB_EXCLUDE_DYNAMIC_USER      = 1 << 4,  /* exclude looking up in io.systemd.DynamicUser */
-        USERDB_AVOID_MULTIPLEXER         = 1 << 5,  /* exclude looking up via io.systemd.Multiplexer */
-        USERDB_DONT_SYNTHESIZE_INTRINSIC = 1 << 6,  /* don't synthesize root/nobody */
-        USERDB_DONT_SYNTHESIZE_FOREIGN   = 1 << 7,  /* don't synthesize foreign UID records */
+        USERDB_SUPPRESS_SHADOW           = 1 << 4,  /* don't do client-side shadow calls (server side might happen though) */
+        USERDB_EXCLUDE_DYNAMIC_USER      = 1 << 5,  /* exclude looking up in io.systemd.DynamicUser */
+        USERDB_AVOID_MULTIPLEXER         = 1 << 6,  /* exclude looking up via io.systemd.Multiplexer */
+        USERDB_DONT_SYNTHESIZE_INTRINSIC = 1 << 7,  /* don't synthesize root/nobody */
+        USERDB_DONT_SYNTHESIZE_FOREIGN   = 1 << 8,  /* don't synthesize foreign UID records */
 
         /* Combinations */
+        USERDB_EXCLUDE_NSS = USERDB_EXCLUDE_CLIENT_NSS|USERDB_EXCLUDE_SERVER_NSS,
         USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
         USERDB_DROPIN_ONLY = USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
 
-        USERDB_PARSE_NUMERIC             = 1 << 8,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
-        USERDB_SYNTHESIZE_NUMERIC        = 1 << 9,  /* synthesize system UID/GID even if it does not exist */
+        USERDB_PARSE_NUMERIC             = 1 << 9,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
+        USERDB_SYNTHESIZE_NUMERIC        = 1 << 10, /* synthesize system UID/GID even if it does not exist */
 } UserDBFlags;
 
 /* Well-known errors we'll return here:

@@ -2,10 +2,12 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
 #include "extract-word.h"
 #include "format-table.h"
+#include "json-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "options.h"
@@ -70,6 +72,75 @@ static bool verb_is_metadata(const Verb *verb) {
         /* A metadata entry that is not a real verb, i.e. either the command and group markers. */
         return  FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_COMMAND_MARKER) ||
                 FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
+}
+
+static const char* invoked_name(void) {
+        /* The name the program was invoked as, i.e. the alias in case of a multicall binary.
+         * $SYSTEMD_INVOKED_AS overrides argv[0], as in invoked_as(). */
+        return empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
+                ?: program_invocation_short_name;
+}
+
+static const Verb* find_invoked_command_in_namespace(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                bool exact,
+                const CommandDescription **ret_cmd) {
+
+        /* Find a command in the namespace named like the program, or with a name contained in the
+         * program name if !exact. */
+
+        const char *invoked = invoked_name();
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        continue;
+
+                const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
+                if (!streq_ptr(cmd->option_namespace, option_namespace))
+                        continue;
+
+                NULSTR_FOREACH(name, cmd->names)
+                        if (exact ? streq(invoked, name) : !!strstr(invoked, name)) {
+                                if (ret_cmd)
+                                        *ret_cmd = cmd;
+                                return verb;
+                        }
+        }
+
+        return NULL;
+}
+
+const Verb* _verbs_find_invoked_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *option_namespace,
+                const CommandDescription **ret_cmd) {
+
+        /* In a multicall binary several commands may share the option namespace, so prefer the one
+         * named like the program. Otherwise accept a command whose name is contained in the program
+         * name, e.g. "systemd-sysroot-fstab-check.real": this is how invoked_as() matches when a
+         * multicall binary picks its mode, so the help describes the mode that runs. Fall back to the
+         * first command in the namespace.
+         *
+         * Only commands in the namespace are considered, since the caller parses the options of that
+         * namespace. A command named like the program but with its own options, e.g. homectl when
+         * the fallback shell runs with $SYSTEMD_INVOKED_AS=homectl, is skipped. */
+
+        const Verb *v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ true, ret_cmd);
+        if (v)
+                return v;
+
+        v = find_invoked_command_in_namespace(verbs, verbs_end, option_namespace,
+                                              /* exact= */ false, ret_cmd);
+        if (v)
+                return v;
+
+        return _verbs_find_command(verbs, verbs_end, option_namespace, ret_cmd);
 }
 
 const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name) {
@@ -522,14 +593,10 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
 static void help_cmdline(const char *arguments) {
         assert(arguments);
 
-        const char *progname =
-                empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
-                ?: program_invocation_short_name;
-
         printf("%s>%s %s %s\n",
                ansi_grey(),
                ansi_normal(),
-               progname,
+               invoked_name(),
                arguments);
 }
 
@@ -679,27 +746,51 @@ int _command_print_verb_help(
         return 0;
 }
 
+static int synopsis_build_json(const char *argspec, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(ret);
+
+        /* "synopsis" is an array of usage lines, each itself an array of strings. Our synopsis
+         * lines are passed through whole, as a single string each, since they are written for
+         * display and do not split into words cleanly, e.g. "[CONFIGURATION FILE…]". */
+
+        NULSTR_FOREACH(spec, argspec) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRV(STRV_MAKE(spec)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON array to array: %m");
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int verb_build_json(
                 const Verb *verb,
+                const char *group,
                 const Option options[],
                 const Option options_end[],
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL, *synopsis = NULL;
         int r;
 
         assert(verb);
         assert(verb->verb);
         assert(ret);
 
-        /* Verbs are represented as command objects, as described in the CLI-Introspection
-         * Specification (https://uapi-group.org/specifications/specs/cli_introspection/).
-         * In particular, a verb which declares an option namespace carries its own "options"
-         * array, just like the top-level command object.
+        /* Verbs are represented as nested command objects, as described in the CLI-Introspection
+         * Specification (https://uapi-group.org/specifications/specs/cli_introspection/). In
+         * particular, a verb which declares an option namespace carries its own option objects in
+         * "arguments", just like the top-level command object. "sections" names the group the verb
+         * is listed under in the help output, "Commands" for the default group (see
+         * print_verb_option_help()).
          *
-         * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields
-         * are extensions not (yet) covered by the specification. Note that the argument
-         * counts include the verb itself. */
+         * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields are extensions
+         * not (yet) covered by the specification, hence carry the "x-systemd." prefix which the
+         * specification requires for vendor extensions. Note that the argument counts include the
+         * verb itself. */
 
         if (verb->option_namespace) {
                 r = options_build_json(options, options_end, verb->option_namespace,
@@ -708,31 +799,43 @@ static int verb_build_json(
                         return r;
         }
 
+        r = synopsis_build_json(verb->argspec, &synopsis);
+        if (r < 0)
+                return r;
+
         r = sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "command"),
+                        SD_JSON_BUILD_PAIR_STRING("id", verb->verb),
                         SD_JSON_BUILD_PAIR_STRV("names", STRV_MAKE(verb->verb)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->help,
-                                        "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
+                                        "help", SD_JSON_BUILD_STRING(verb->help)),
+                        SD_JSON_BUILD_PAIR_STRV("sections", STRV_MAKE(group ?: "Commands")),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!opts,
+                                        "arguments", SD_JSON_BUILD_VARIANT(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->footer,
                                         "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(verb->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(
-                                        verb->min_args != VERB_ANY,
-                                        "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        verb->max_args != VERB_ANY,
-                                        "maxArguments", SD_JSON_BUILD_UNSIGNED(verb->max_args)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        FLAGS_SET(verb->flags, VERB_DEFAULT),
-                                        "isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                                        !!synopsis,
+                                        "synopsis", SD_JSON_BUILD_VARIANT(synopsis)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_DEPRECATED),
                                         "isDeprecated", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->min_args != VERB_ANY,
+                                        "x-systemd.minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->max_args != VERB_ANY,
+                                        "x-systemd.maxArguments", SD_JSON_BUILD_UNSIGNED(verb->max_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_DEFAULT),
+                                        "x-systemd.isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_ONLINE_ONLY),
-                                        "isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
+                                        "x-systemd.isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -746,7 +849,8 @@ static int command_build_json(
                 const Option options_end[],
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *opts = NULL, *cmds = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *docs = NULL,
+                *opts = NULL, *args = NULL, *synopsis = NULL;
         int r;
 
         assert(cmdverb);
@@ -764,45 +868,88 @@ static int command_build_json(
         }
         assert(names);  /* At least the primary name must be defined */
 
+        NULSTR_FOREACH(page, cmd->man_pages) {
+                const char *uri = strjoina("man:", page);
+
+                r = sd_json_variant_append_arrayb(&docs, SD_JSON_BUILD_STRING(uri));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON string to array: %m");
+        }
+
+        /* "arguments" lists the option objects first, followed by the verbs as nested command objects. */
         r = options_build_json(options, options_end, cmd->option_namespace, cmd->option_groups, &opts);
         if (r < 0)
                 return r;
 
+        sd_json_variant *o;
+        JSON_VARIANT_ARRAY_FOREACH(o, opts) {
+                r = sd_json_variant_append_array(&args, o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        const char *group = NULL;
         for (const Verb *verb = verbverbs; verb < verbs_end; verb++) {
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;  /* Start of entries for another command */
 
-                if (FLAGS_SET(verb->flags, VERB_GROUP_MARKER))
+                if (FLAGS_SET(verb->flags, VERB_GROUP_MARKER)) {
+                        group = verb->verb;
                         continue;
+                }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
-                r = verb_build_json(verb, options, options_end, &o);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = verb_build_json(verb, group, options, options_end, &v);
                 if (r < 0)
                         return r;
 
-                r = sd_json_variant_append_array(&cmds, o);
+                r = sd_json_variant_append_array(&args, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append JSON object to array: %m");
         }
+
+        r = synopsis_build_json(cmd->argspec, &synopsis);
+        if (r < 0)
+                return r;
+
+        /* Following the example in the specification, list the major version followed by the full
+         * version, unless they are the same. */
+        _cleanup_strv_free_ char **versions = strv_new(PROJECT_VERSION_STR, PROJECT_VERSION_FULL);
+        if (!versions)
+                return log_oom();
+        strv_uniq(versions);
 
         _cleanup_strv_free_ char **features = strv_split(systemd_features, /* separators= */ NULL);
         if (!features)
                 return log_oom();
 
+        /* The "id" is the primary name, as recommended by the specification. */
         r = sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "command"),
+                        SD_JSON_BUILD_PAIR_STRING("id", cmd->names),
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
                         SD_JSON_BUILD_PAIR_STRING("project", "systemd"),
-                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL),
+                        SD_JSON_BUILD_PAIR_STRV("versions", versions),
                         SD_JSON_BUILD_PAIR_STRV("features", features),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!docs,
+                                        "documentation", SD_JSON_BUILD_VARIANT(docs)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->abstract,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->footer,
                                         "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!cmds, "verbs", SD_JSON_BUILD_VARIANT(cmds)));
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!synopsis,
+                                        "synopsis", SD_JSON_BUILD_VARIANT(synopsis)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!args,
+                                        "arguments", SD_JSON_BUILD_VARIANT(args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(cmd->flags, COMMAND_EXPERIMENTAL),
+                                        "isExperimental", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -848,7 +995,7 @@ int _introspect_cli(
                         &w,
                         SD_JSON_BUILD_PAIR_STRING(
                                         "mediaType",
-                                        "application/vnd.io.systemd.cli-introspection-0"),
+                                        "application/vnd.uapi-group.cli-introspection"),
                         SD_JSON_BUILD_PAIR_VARIANT("commands", commands));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
@@ -858,4 +1005,103 @@ int _introspect_cli(
                 return log_error_errno(r, "Failed to print JSON object: %m");
 
         return 0;
+}
+
+int _common_parse_argv(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                OptionParserMode mode,
+                size_t min_args, size_t max_args,
+                char ***ret_args) {
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(mode >= 0 && mode < _OPTION_PARSER_MODE_MAX);
+        assert(min_args <= max_args);
+        assert(ret_args || max_args == 0);
+
+        /* The COMMAND description must reference the option namespace defined below, otherwise
+         * --help and --introspect-cli would not find the options. */
+        const CommandDescription *cmd = NULL;
+        assert_se(_verbs_find_invoked_command(verbs, verbs_end, "common", &cmd));
+        assert(streq_ptr(cmd->option_namespace, "common"));
+
+        OptionParser opts = { argc, argv, mode, .namespace = "common" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_NAMESPACE("common"): {}
+
+                OPTION_COMMON_HELP:
+                        return _command_print_help_full(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        cmd->names,
+                                        /* footer_ansi_seq= */ NULL);
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return _introspect_cli(
+                                        verbs, verbs_end,
+                                        options, options_end,
+                                        SD_JSON_FORMAT_OFF);
+                }
+
+        size_t n = option_parser_get_n_args(&opts);
+        if (max_args == 0 && n > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        if (n < min_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
+        if (n > max_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
+
+        if (ret_args)
+                *ret_args = option_parser_get_args(&opts);
+        return 1; /* Further action */
+}
+
+int _common_parse_argv_passthrough(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[]) {
+
+        assert(argc >= 0);
+        assert(argv);
+
+        /* Find out whether the command line consists of nothing but common options with a quiet dry run on
+         * a copy, since the parser reorders argv and complains about unknown options. */
+        _cleanup_free_ char **copy = newdup(char*, argv, argc + 1);
+        if (!copy)
+                return log_oom();
+
+        OptionParser opts = { argc, copy, .namespace = "common", .log_level_shift = LOG_DEBUG - LOG_ERR };
+        bool refused = false;
+
+        for (;;) {
+                int c = option_parse(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, &opts);
+                if (c == 0)
+                        break;
+                if (c == -EPERM) {
+                        /* An experimental common option which this build refuses. Report that below, like
+                         * any other program does, rather than passing the option on. */
+                        refused = true;
+                        break;
+                }
+                if (c < 0)
+                        return 1; /* Not a common option, the program passes the command line on. */
+        }
+
+        if (!refused && option_parser_get_n_args(&opts) > 0)
+                return 1; /* Positional arguments are passed on too. */
+
+        return _common_parse_argv(verbs, verbs_end, options, options_end, argc, argv, OPTION_PARSER_NORMAL,
+                                  /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
 }
