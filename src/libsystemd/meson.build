@@ -111,6 +111,7 @@ sd_path_sources = files(
 
 sd_netlink_sources = files(
         'sd-netlink/netlink-genl.c',
+        'sd-netlink/netlink-message-genl-ethtool.c',
         'sd-netlink/netlink-message-nfnl.c',
         'sd-netlink/netlink-message-rtnl.c',
         'sd-netlink/netlink-message.c',
