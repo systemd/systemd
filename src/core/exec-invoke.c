@@ -6779,6 +6779,9 @@ int exec_invoke(
                  * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
                  * requires CAP_SETPCAP. */
                 r = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
+                /* The service manager's bits are inherited by everything it starts, units only add to them. */
+                if (r > 0)
+                        secure_bits |= r;
                 if (r != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the
                          * effective set here.
