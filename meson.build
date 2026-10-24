@@ -1796,6 +1796,7 @@ conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-
 conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
 conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
 conf.set10('ENABLE_GROWFS', get_option('growfs').allowed())
+conf.set10('ENABLE_SLEEP', get_option('sleep').allowed())
 
 have = get_option('integritysetup').require(
         conf.get('HAVE_LIBCRYPTSETUP') == 1,
@@ -1813,7 +1814,7 @@ foreach tuple : [
                 ['environment-d'],
                 ['firstboot'],
                 ['gshadow',         get_option('libc') != 'musl', 'musl does not support it'],
-                ['hibernate'],
+                ['hibernate',       conf.get('ENABLE_SLEEP') == 1, 'sleep support is disabled'],
                 ['hostnamed'],
                 ['hwdb'],
                 ['idn',             conf.get('HAVE_NI_IDN') == 1, 'NI_IDN is not defined'],
@@ -3484,6 +3485,7 @@ foreach tuple : [
         ['resolve'],
         ['rfkill'],
         ['rust',                   have_rust],
+        ['sleep'],
         ['sysext'],
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
