@@ -162,6 +162,9 @@ executables += [
                 'sources' : files('test-dns-zone.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-resolved-mdns.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolved-link.c'),
         },
         resolve_test_template + {
