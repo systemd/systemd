@@ -199,6 +199,8 @@ option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'install the systemd-importd daemon')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
        description : 'install configuration files and directories')
+option('integritysetup', type : 'feature',
+       description : 'install systemd-integritysetup and associated files')
 option('kernel-install', type: 'boolean', value: true,
        description : 'install kernel-install and associated files')
 option('ldconfig', type : 'boolean',
