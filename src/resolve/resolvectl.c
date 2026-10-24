@@ -21,7 +21,6 @@
 #include "bus-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
-#include "dns-configuration.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
