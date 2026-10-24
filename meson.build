@@ -1793,6 +1793,8 @@ conf.set10('ENABLE_NSPAWN', feature.allowed())
 
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
+conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
+
 foreach tuple : [
                 ['analyze'],
                 ['backlight'],
@@ -3434,6 +3436,7 @@ foreach tuple : [
 
         # components
         ['backlight'],
+        ['battery-check'],
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
