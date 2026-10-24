@@ -1024,17 +1024,21 @@ units = [
         },
         {
           'file' : 'systemd-storage-block.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-block@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storage-fs.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-fs@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storagetm.service.in',
