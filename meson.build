@@ -1797,6 +1797,7 @@ conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
 conf.set10('ENABLE_CLONESETUP', get_option('clonesetup').allowed())
 conf.set10('ENABLE_GROWFS', get_option('growfs').allowed())
 conf.set10('ENABLE_SLEEP', get_option('sleep').allowed())
+conf.set10('ENABLE_STORAGE', get_option('storage').allowed())
 
 have = get_option('integritysetup').require(
         conf.get('HAVE_LIBCRYPTSETUP') == 1,
@@ -3486,6 +3487,7 @@ foreach tuple : [
         ['rfkill'],
         ['rust',                   have_rust],
         ['sleep'],
+        ['storage'],
         ['sysext'],
         ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
