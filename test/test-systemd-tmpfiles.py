@@ -269,6 +269,26 @@ def test_conditionalized_execute_bit():
     assert 'user:root:rwx' in c.stdout and 'group:root:r-x' in c.stdout
 
 
+EX_CANTCREAT = 73  # from sysexits.h
+
+
+def test_device_node_perms():
+    if not os.path.exists('/dev/null'):
+        return
+    target_uid = 65534 if os.getuid() != 65534 else 65533
+    c = subprocess.run(
+        exe_with_args + ['--create', '-', '--user'],
+        input=f'z /dev/null 0666 {target_uid} {target_uid}\n',
+        text=True,
+        capture_output=True,
+    )
+    assert c.returncode in (0, EX_CANTCREAT), f'Expected 0 or {EX_CANTCREAT} for device node, got {c.returncode}'
+    # Regular file: privilege error must remain fatal when not owner
+    if os.getuid() != 0:
+        temp = Path(temp_dir.name, 'regular-file')
+        temp.touch(mode=0o644)
+        test_line(f'z {temp} 0666 {target_uid} {target_uid}', user=True, returncode=EX_CANTCREAT)
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -283,3 +303,4 @@ if __name__ == '__main__':
     test_base64()
 
     test_conditionalized_execute_bit()
+    test_device_node_perms()
