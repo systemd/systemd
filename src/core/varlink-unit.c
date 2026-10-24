@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "manager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "scope.h"
@@ -33,6 +34,7 @@
 #include "varlink-mount.h"
 #include "varlink-path.h"
 #include "varlink-scope.h"
+#include "varlink-serialize.h"
 #include "varlink-service.h"
 #include "varlink-socket.h"
 #include "varlink-swap.h"
@@ -933,6 +935,123 @@ static int dispatch_unit_names(const char *name, sd_json_variant *variant, sd_js
                                         "JSON field '%s' contains an invalid unit name.", strna(name));
 
         return strv_free_and_replace(*ret, l);
+}
+
+int unit_add_varlink_ref(Unit *u, sd_varlink *link) {
+        int r;
+
+        assert(u);
+        assert(link);
+
+        r = set_ensure_put(&u->varlink_refs, &varlink_hash_ops, link);
+        if (r > 0)
+                sd_varlink_ref(link);
+        return r;
+}
+
+int unit_add_varlink_ref_by_id(Unit *u, const char *id) {
+        uint64_t cookie;
+        int r;
+
+        assert(u);
+        assert(id);
+
+        r = safe_atou64(id, &cookie);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to parse Varlink reference ID '%s': %m", id);
+
+        sd_varlink *link = varlink_server_get_connection(u->manager->varlink_server, cookie);
+        if (!link)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENOENT), "Varlink reference connection '%s' was not restored.", id);
+
+        r = unit_add_varlink_ref(u, link);
+        if (r < 0) {
+                (void) sd_varlink_close(link);
+                return log_unit_warning_errno(u, r, "Failed to restore Varlink unit reference: %m");
+        }
+
+        return 0;
+}
+
+void unit_remove_varlink_ref(Unit *u, sd_varlink *link) {
+        assert(u);
+        assert(link);
+
+        if (!set_remove(u->varlink_refs, link))
+                return;
+
+        sd_varlink_unref(link);
+        if (set_isempty(u->varlink_refs))
+                unit_add_to_gc_queue(u);
+}
+
+int vl_method_ref_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "names", SD_JSON_VARIANT_ARRAY, dispatch_unit_names, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_set_free_ Set *units = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        Unit *u;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &names);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        strv_uniq(names);
+
+        STRV_FOREACH(name, names) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.systemd1.manage-units",
+                                (const char**) STRV_MAKE("unit", *name, "verb", "ref"),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        STRV_FOREACH(name, names) {
+                /* Like Unit.Ref() on D-Bus, allow pinning a not-found unit before creating it transiently. */
+                r = manager_load_unit(m, *name, /* path= */ NULL, &error, &u);
+                if (r < 0)
+                        return varlink_reply_bus_error(link, r, &error);
+
+                r = mac_selinux_unit_access_check_varlink(u, link, "start");
+                if (r < 0)
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+
+                r = set_ensure_put(&units, &trivial_hash_ops, u);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(u, units) {
+                r = unit_add_varlink_ref(unit_follow_merge(u), link);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        r = sd_varlink_notify(link, /* parameters= */ NULL);
+        if (r < 0)
+                goto rollback;
+
+        return r;
+
+rollback:
+        SET_FOREACH(u, units)
+                unit_remove_varlink_ref(unit_follow_merge(u), link);
+
+        return r;
 }
 
 int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

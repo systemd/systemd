@@ -185,7 +185,9 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
         free(pty->backend_path);
         free(pty->unit);
 
+        unit_reference_free(pty->unit_reference);
         sd_varlink_close_unref(pty->start_shell_link);
+        sd_json_variant_unref(pty->start_shell_parameters);
 
         sd_varlink_unref(pty->acquire_link);
         sd_json_variant_unref(pty->acquire_reply);
