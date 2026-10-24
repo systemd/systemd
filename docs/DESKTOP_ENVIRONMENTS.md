@@ -86,6 +86,9 @@ This has the following advantages:
    Note that this naming scheme might be a unit alias, so runtime detection
    must check the entire name-array of a unit, rather than just its unit ID.
 
+ * Whenever a unit complies with this convention, systemd will tag that unit's
+   cgroup with the `user.app_id` xattr.
+
 TODO: Define the name of slices that should be used.
 This could be `app-<launcher>-<ApplicationID>-<RANDOM>.slice`.
 
