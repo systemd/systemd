@@ -131,7 +131,7 @@ static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_AUTO]             = _CRED_AUTO,
         [CRED_KEY_TYPE_AUTO_INITRD]      = _CRED_AUTO_INITRD,
         [CRED_KEY_TYPE_HOST]             = CRED_AES256_GCM_BY_HOST,
-        [CRED_KEY_TYPE_TPM2]             = CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2]             = _CRED_AUTO_TPM2,
         [CRED_KEY_TYPE_TPM2_PUBLIC]      = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
         [CRED_KEY_TYPE_HOST_TPM2]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
         [CRED_KEY_TYPE_TPM2_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
@@ -612,6 +612,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
                 (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
                 r = ipc_encrypt_credential(
+                                arg_with_key,
                                 name,
                                 timestamp,
                                 arg_not_after,
@@ -994,20 +995,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (uid_is_valid(arg_uid)) {
                 /* If a UID is specified, then switch to scoped credentials */
 
-                if (sd_id128_equal(arg_with_key, _CRED_AUTO))
-                        arg_with_key = _CRED_AUTO_SCOPED;
-                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED))
-                        arg_with_key = CRED_AES256_GCM_BY_HOST_SCOPED;
-                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED))
-                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED;
-                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED))
-                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED;
-                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK))
-                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK;
-                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK))
-                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK;
-                else
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key not available in --uid= scoped mode, refusing.");
+                r = credential_key_make_scoped(&arg_with_key);
+                if (r < 0)
+                        return log_error_errno(r, "Selected key not available in --uid= scoped mode, refusing.");
         }
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
@@ -1229,6 +1219,14 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
+        if (sd_id128_is_null(p.with_key))
+                p.with_key = _CRED_AUTO;
+        if (p.scope == CREDENTIAL_USER) {
+                r = credential_key_make_scoped(&p.with_key);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "withKey");
+        }
+
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
@@ -1249,7 +1247,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         r = encrypt_credential_and_warn(
-                        sd_id128_is_null(p.with_key) ? (p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO) : p.with_key,
+                        p.with_key,
                         p.name,
                         p.timestamp,
                         p.not_after,
