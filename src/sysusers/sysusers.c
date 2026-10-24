@@ -478,7 +478,7 @@ static const char* pick_shell(const Item *i) {
                 return i->shell;
         if (i->uid_set && i->uid == 0)
                 return default_root_shell(arg_root);
-        return NOLOGIN;
+        return nologin_shell();
 }
 
 static int read_shell_credential(const Item *i, char **ret) {
