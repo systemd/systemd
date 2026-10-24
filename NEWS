@@ -172,6 +172,13 @@ CHANGES WITH 263 in spe:
           this is mostly useful where the value of PCR 11 in the initrd is
           predictable.
 
+        Changes in systemd-boot, systemd-stub & bootctl:
+
+        * DeviceTrees referenced by Boot Loader Specification Type #1 entries
+          are now measured into PCR 12 as tagged events when Secure Boot is
+          disabled. Existing PCR 12 policies for such entries need to be
+          updated to include the new measurement.
+
         Changes in libsystemd:
 
         * sd-varlink-idl.h gained SD_VARLINK_EXPERIMENTAL, which may be used
