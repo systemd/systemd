@@ -1380,6 +1380,7 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(on_abnormal),
                 SD_VARLINK_DEFINE_ENUM_VALUE(on_watchdog),
                 SD_VARLINK_DEFINE_ENUM_VALUE(on_abort),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_oom_kill),
                 SD_VARLINK_DEFINE_ENUM_VALUE(always));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
