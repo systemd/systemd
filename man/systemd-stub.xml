@@ -257,7 +257,8 @@
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
       <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will add
       a SBAT policy by default if none is passed when building addons. For more information on SBAT see
-      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.</para>
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>. Addons that
+      carry no signature at all may optionally be trusted on first use instead, see below.</para>
 
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
       to the kernel command line. UKI command line options are listed first, then options from addons in
@@ -404,7 +405,61 @@
     a short identifying string that identifies the profile
     (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human-readable
     string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
-    Device'</literal>).</para>
+    Device'</literal>). <literal>TOFU=</literal> takes a boolean and enables trusting addons on first use
+    when booting this profile, see below. It defaults to off.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Trusting Addons On First Use</title>
+
+    <para>Addons that are not signed with a key the firmware or Shim trusts are normally ignored when Secure
+    Boot is enabled. This is a problem for customizations of an already signed, immutable OS image that a
+    customer cannot sign, for example trust anchors for extension images or settings for
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>. For
+    this case <command>systemd-stub</command> can trust such addons on first use ("TOFU"), if the booted UKI
+    profile enables it via <literal>TOFU=1</literal> in its <literal>.profile</literal> section. Only addons
+    that carry no signature at all are eligible: an addon with a signature the firmware rejected is either
+    revoked or signed with an untrusted key, and is never trusted on first use. Likewise an addon whose
+    Authenticode SHA256 hash is listed in <varname>dbx</varname>, or in Shim's
+    <varname>MokListX</varname>, is never trusted on first use, also not if it was recorded before it was
+    revoked. A UKI without profiles, or a
+    profile without this setting, never trusts unsigned addons. The mechanism is only active while Secure
+    Boot is enabled: without it the firmware loads unsigned addons anyway, and no record is created or
+    consulted. It also requires the UKI's <literal>.osrel</literal> section to carry an
+    <varname>ID=</varname> field.</para>
+
+    <para>On the first boot of a profile with TOFU enabled, the SHA256 hashes of all unsigned addons are
+    recorded in an EFI variable <varname>StubTofuRecord-<replaceable>ID</replaceable></varname>, before any of
+    them is used. The variable is written without the <constant>EFI_VARIABLE_RUNTIME_ACCESS</constant>
+    attribute, so that it cannot be read or modified by the OS, and it is pinned to the
+    <varname>IMAGE_ID=</varname> (or <varname>ID=</varname>) field of the UKI's <literal>.osrel</literal>
+    section, so that different OSes installed on the same system do not share it. Files that are not valid
+    addons or do not match the UKI are not recorded. The record is written even if no unsigned addons were
+    found, so that nothing can be added later without a factory reset. If any addon could not be read, or the
+    record could not be written, no unsigned addon is used on that boot, and enrolment is attempted again on
+    the next boot. The same applies when booted via a boot loader that provides no file system access to the
+    UKI, or does not pass its path, as the UKI-specific addon directory cannot be found then. Only addons whose hash is in the written record are used, on the first and on subsequent
+    boots, any other unsigned addon is ignored with an error message. Signed addons are unaffected.</para>
+
+    <para>Addons trusted on first use are read and parsed by <command>systemd-stub</command> itself rather
+    than loaded by the firmware, and are never executed. As the firmware hence does not measure them into TPM
+    PCR 4, the whole addon file is measured into PCR 12 (if a TPM is present) with an event tag of its own,
+    before the sections taken from it are measured as usual. Every addon that is trusted on first use is
+    measured, even if it is then ignored, e.g. because its <literal>.uname</literal> section does not match a
+    different UKI booted later. The <literal>.dtbauto</literal> and <literal>.efifw</literal> sections are not
+    supported in such addons.</para>
+
+    <para>To forget the recorded addons, request a factory reset via
+    <citerefentry><refentrytitle>systemd-factory-reset</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which sets the <varname>FactoryResetRequest</varname> EFI variable. On the next boot of a profile with TOFU
+    enabled <command>systemd-stub</command> asks on the console whether to forget the trusted addons, and
+    does so if confirmed within 30s. The request is honoured only if the <varname>ID=</varname> and
+    <varname>IMAGE_ID=</varname> fields it carries match the UKI's <literal>.osrel</literal> section, the
+    same way the OS itself decides whether the request is meant for it. This also works if the record is
+    damaged and could not be read. No unsigned addon is used on that boot, nor on any later boot while the
+    factory reset request is still pending, i.e. until the OS completed the reset. The addons present after
+    that are trusted on first use again. Note that deleting an addon from the ESP does not withdraw trust from
+    it, and forgetting the record does not remove any addon.</para>
   </refsect1>
 
   <refsect1>
@@ -663,6 +718,26 @@
         this variable will be set to <literal>0</literal> unconditionally.)</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubTofuState</varname></term>
+        <term><varname>StubTofuAddons</varname></term>
+
+        <listitem><para>Set if the booted profile enables trusting addons on first use, Secure Boot is
+        enabled, and the UKI's <literal>.osrel</literal> section carries <varname>ID=</varname>.
+        <varname>StubTofuState</varname> is <literal>enrolled</literal> if the record of trusted addons was
+        written on this boot, <literal>verified</literal> if an existing record was used,
+        <literal>forgotten</literal> if the record was deleted on this boot due to a factory reset request,
+        <literal>reset-pending</literal> if there is no record but the factory reset has not completed yet,
+        <literal>incomplete</literal> if the record could not be completed or written and enrolment is
+        retried on the next boot, and <literal>damaged</literal> if the record could not be read or deleted.
+        In all but the first two cases no unsigned addon is trusted on this boot.
+        <varname>StubTofuAddons</varname> lists the addons that were trusted on first use and used on this
+        boot, with their full path on the ESP, as a series of NUL-terminated UTF-16 strings, like
+        <varname>LoaderEntries</varname>. It is not set if no addon was trusted on first use.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
