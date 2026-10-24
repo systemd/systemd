@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1-or-later
 
 -->
-<refentry id="integritytab" conditional='HAVE_LIBCRYPTSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="integritytab" conditional='ENABLE_INTEGRITYSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>integritytab</title>
