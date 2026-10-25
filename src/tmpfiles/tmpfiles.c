@@ -3725,10 +3725,8 @@ static int clean_remove_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
-
-        if (!i->age_set)
-                return 0;
 
         _cleanup_free_ char *name = NULL;
         bool must_be_directory;
@@ -3792,6 +3790,7 @@ static int clean_item_instance_from_dir(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
         assert(d);
         assert(sx);
@@ -3845,6 +3844,7 @@ static int clean_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
 
         _cleanup_closedir_ DIR *d = NULL;
@@ -3868,10 +3868,8 @@ static int clean_recursive_remove_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
-
-        if (!i->age_set)
-                return 0;
 
         _cleanup_free_ char *name = NULL;
         bool must_be_directory;
@@ -3922,6 +3920,9 @@ static int clean_recursive_remove_item_instance(
 static int clean_item(Context *c, Item *i) {
         assert(c);
         assert(i);
+
+        if (!i->age_set)
+                return 0;
 
         log_debug("Running clean action for entry %c %s", (char) i->type, i->path);
 
