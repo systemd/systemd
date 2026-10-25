@@ -958,6 +958,21 @@ def test_parse_efifw_dir(tmp_path):
     assert (fwname + payload) == blob[ukify.EFIFW_HEADER_SIZE :]
 
 
+def test_parse_hwid_dir():
+    # test-chid-match only checks the .hwids data that generate-hwids-section.py generates. If ukify
+    # generates different data, systemd-stub can fail to find the device in the .hwids section of a UKI.
+    bootdir = pathlib.Path(__file__).parent / '../../boot'
+    hwiddir = bootdir / 'hwids/test'
+    p = subprocess.run(
+        [sys.executable, bootdir / 'generate-hwids-section.py', hwiddir],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    expected = bytes(int(b, 16) for b in re.findall(r'0x([0-9A-F]{2}),', p.stdout))
+    assert ukify.parse_hwid_dir(hwiddir) == expected
+
+
 def test_inspect_json_alternative_set_sections(tmp_path, capsys):
     # '.dtbauto' and '.efifw' are alternative-sets (one entry per hardware variant): every occurrence
     # must be preserved, and they are always reported as a list, even for a single entry. The two are
