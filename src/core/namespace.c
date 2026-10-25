@@ -2695,6 +2695,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                  * cannot be found, then fallback to the slow path (full dissect). */
                                 r = dissected_image_new_from_existing_verity(
                                                 p->rootfs->image,
+                                                p->rootfs->image_fd,
                                                 p->verity,
                                                 p->root_image_options,
                                                 p->root_image_policy,
