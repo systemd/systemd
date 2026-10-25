@@ -1017,6 +1017,12 @@ int journal_file_verify(
 
         assert(f);
 
+        /* Header verification done on open is typically relaxed; verify it strictly here. */
+        f->verifying = true;
+        r = journal_file_verify_header(f);
+        if (r < 0)
+                return log_error_errno(r, "Journal file header is broken: %m");
+
         if (key) {
                 r = journal_file_auth_load_key(f, key);
                 if (r < 0)
