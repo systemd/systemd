@@ -153,6 +153,9 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
+                'sources' : files('test-dns-scope.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),
         },
         resolve_test_template + {
