@@ -3,7 +3,7 @@
 # vi: ts=2 sw=2 et:
 
 version: v1.0
-name: Debian autopkgtest (LXC)
+name: autopkgtest (LXC)
 agent:
   machine:
     type: e1-standard-2
@@ -21,7 +21,7 @@ blocks:
   - name: "Setup & test"
     task:
       jobs:
-        - name: "Install dependencies & run the Debian autopkgtest"
+        - name: "Install dependencies & run the autopkgtest"
           commands:
             - checkout --use-cache
             - .semaphore/semaphore-runner.sh SETUP
