@@ -131,7 +131,6 @@
 #include "dlopen-note.h"
 #include "dm-util.h"
 #include "dns-answer.h"
-#include "dns-configuration.h"
 #include "dns-def.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
