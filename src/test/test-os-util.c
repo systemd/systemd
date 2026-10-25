@@ -3,12 +3,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "discover-image.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -139,6 +143,89 @@ TEST(os_release_support_ended) {
                 log_info_errno(r, "Failed to check host: %m");
         else
                 log_info_errno(r, "Host is supported: %s", yes_no(!r));
+}
+
+static void test_path_extract_image_name_one(const char *path, const char *expected) {
+        _cleanup_free_ char *name = NULL;
+
+        ASSERT_OK_ZERO(path_extract_image_name(path, &name));
+        ASSERT_STREQ(name, expected);
+}
+
+TEST(path_extract_image_name) {
+        test_path_extract_image_name_one("foo.raw", "foo");
+        test_path_extract_image_name_one("foo.raw.zst", "foo");
+        test_path_extract_image_name_one("foo.sysext.raw", "foo");
+        test_path_extract_image_name_one("foo.sysext.raw.zst", "foo");
+        test_path_extract_image_name_one("foo.confext.raw", "foo");
+        test_path_extract_image_name_one("foo.confext.raw.zst", "foo");
+        test_path_extract_image_name_one("/var/lib/extensions/foo.raw", "foo");
+        test_path_extract_image_name_one("/var/lib/extensions/foo.raw.zst", "foo");
+        test_path_extract_image_name_one("/var/lib/confexts/bar.raw.zst", "bar");
+        test_path_extract_image_name_one("foo_1.0.raw", "foo");
+        test_path_extract_image_name_one("foo_1.0.raw.zst", "foo");
+        test_path_extract_image_name_one("foo+2.raw.zst", "foo");
+        test_path_extract_image_name_one("my-image.sysext.raw.zst", "my-image");
+        test_path_extract_image_name_one("my-image.confext.raw.zst", "my-image");
+}
+
+TEST(image_discover_raw_zst) {
+        _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free_ char *ext_dir = NULL, *conf_dir = NULL;
+        Image *img;
+
+        ASSERT_OK_ZERO(mkdtemp_malloc("/tmp/test-discover-image.XXXXXX", &tempdir));
+
+        assert_se(ext_dir = path_join(tempdir, "/var/lib/extensions"));
+        ASSERT_OK_ZERO(mkdir_p(ext_dir, 0755));
+        assert_se(conf_dir = path_join(tempdir, "/var/lib/confexts"));
+        ASSERT_OK_ZERO(mkdir_p(conf_dir, 0755));
+
+        _cleanup_free_ char *p1 = NULL, *p2 = NULL, *p3 = NULL, *p4 = NULL;
+        assert_se(p1 = path_join(ext_dir, "ext1.raw"));
+        ASSERT_OK_ZERO(touch(p1));
+        assert_se(p2 = path_join(ext_dir, "ext2.raw.zst"));
+        ASSERT_OK_ZERO(touch(p2));
+        assert_se(p3 = path_join(ext_dir, "ext3.sysext.raw.zst"));
+        ASSERT_OK_ZERO(touch(p3));
+        assert_se(p4 = path_join(conf_dir, "conf1.confext.raw.zst"));
+        ASSERT_OK_ZERO(touch(p4));
+
+        ASSERT_OK_ZERO(image_discover(RUNTIME_SCOPE_SYSTEM, IMAGE_SYSEXT, tempdir, &images));
+        ASSERT_NOT_NULL(img = hashmap_get(images, "ext1"));
+        ASSERT_EQ(img->type, IMAGE_RAW);
+        ASSERT_NOT_NULL(img = hashmap_get(images, "ext2"));
+        ASSERT_EQ(img->type, IMAGE_RAW);
+        ASSERT_NOT_NULL(img = hashmap_get(images, "ext3"));
+        ASSERT_EQ(img->type, IMAGE_RAW);
+        ASSERT_NULL(hashmap_get(images, "conf1"));
+
+        images = hashmap_free(images);
+        ASSERT_OK_ZERO(image_discover(RUNTIME_SCOPE_SYSTEM, IMAGE_CONFEXT, tempdir, &images));
+        ASSERT_NOT_NULL(img = hashmap_get(images, "conf1"));
+        ASSERT_EQ(img->type, IMAGE_RAW);
+        ASSERT_NULL(hashmap_get(images, "ext1"));
+        ASSERT_NULL(hashmap_get(images, "ext2"));
+        ASSERT_NULL(hashmap_get(images, "ext3"));
+
+        _cleanup_(image_unrefp) Image *found = NULL;
+        ASSERT_OK_POSITIVE(image_find(RUNTIME_SCOPE_SYSTEM, IMAGE_SYSEXT, "ext2", tempdir, &found));
+        ASSERT_EQ(found->type, IMAGE_RAW);
+        ASSERT_STREQ(found->name, "ext2");
+        ASSERT_TRUE(endswith(found->path, "ext2.raw.zst"));
+
+        found = image_unref(found);
+        ASSERT_OK_POSITIVE(image_find(RUNTIME_SCOPE_SYSTEM, IMAGE_SYSEXT, "ext3", tempdir, &found));
+        ASSERT_EQ(found->type, IMAGE_RAW);
+        ASSERT_STREQ(found->name, "ext3");
+        ASSERT_TRUE(endswith(found->path, "ext3.sysext.raw.zst"));
+
+        found = image_unref(found);
+        ASSERT_OK_POSITIVE(image_find(RUNTIME_SCOPE_SYSTEM, IMAGE_CONFEXT, "conf1", tempdir, &found));
+        ASSERT_EQ(found->type, IMAGE_RAW);
+        ASSERT_STREQ(found->name, "conf1");
+        ASSERT_TRUE(endswith(found->path, "conf1.confext.raw.zst"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
