@@ -59,6 +59,7 @@ systemctl daemon-reload
 SIGTEST_GPGHOME=
 SIGTEST_OTHERHOME=
 ZEROFILL_LOOP=
+ZEROFILL_MOUNT=
 RPTEST_GPGHOME=
 
 at_exit() {
@@ -91,6 +92,9 @@ at_exit() {
     fi
     if [ "$SIGTEST_OTHERHOME" != "" ]; then
         gpgconf --homedir "$SIGTEST_OTHERHOME" --kill all 2>/dev/null
+    fi
+    if [ "$ZEROFILL_MOUNT" != "" ]; then
+        umount "$ZEROFILL_MOUNT"
     fi
     if [ "$ZEROFILL_LOOP" != "" ]; then
         losetup --detach "$ZEROFILL_LOOP"
@@ -1483,6 +1487,7 @@ test_zero_fill_partition() {
     local ptype_name="${3:?}"       # matching partition type identifier for MatchPartitionType=
     local setting="${4}"            # explicit PartitionZeroFill= line, or empty to test the default
     local expect_zeroed="${5:?}"    # whether the tail of the partition is expected to be zeroed out
+    local in_use="${6:-no}"
     local sigdir="$WORKDIR/zerofill-source"
     local defdir="$WORKDIR/zerofill-defs"
     local backing="$WORKDIR/zerofill-disk.raw"
@@ -1491,9 +1496,12 @@ test_zero_fill_partition() {
     rm -rf "$sigdir" "$defdir" "$backing"
     mkdir -p "$sigdir" "$defdir"
     truncate -s 4M "$backing"
+    if [[ "$in_use" == yes ]]; then
+        truncate -s 16M "$backing"
+    fi
 
     if [[ -e /dev/loop-control ]]; then
-        blockdev="$(losetup --find --show "$backing")"
+        blockdev="$(losetup --find --show --partscan "$backing")"
         ZEROFILL_LOOP="$blockdev"
     else
         blockdev="$backing"
@@ -1506,6 +1514,17 @@ unit: sectors
 size=64, type=$ptype_uuid, name=_empty
 size=64, type=$ptype_uuid, name=_empty
 EOF
+
+    if [[ "$in_use" == yes ]]; then
+        sfdisk --append "$blockdev" <<EOF
+size=16384, type=0fc63daf-8483-4772-8e79-3d69d8477de4, name=mounted
+EOF
+        udevadm wait --timeout=30 --settle "${blockdev}p3"
+        mkfs.ext4 -q "${blockdev}p3"
+        mkdir -p "$WORKDIR/zerofill-mount"
+        mount -o ro "${blockdev}p3" "$WORKDIR/zerofill-mount"
+        ZEROFILL_MOUNT="$WORKDIR/zerofill-mount"
+    fi
 
     if [[ "$source_type" == "url-file" ]]; then
         source_path="file://$sigdir"
@@ -1558,16 +1577,19 @@ EOF
     # v3 and v4 must have replaced v1 and v2
     (! sfdisk --json "$blockdev" | jq -e '.partitiontable.partitions[] | select(.name == "sig-v1" or .name == "sig-v2")' >/dev/null)
 
-    # And the partition table itself (including the backup GPT at the end of the device, right after the last
-    # slot) must be intact
+    # And the partition table itself (including the backup GPT at the end of the device) must be intact
     sfdisk --verify "$blockdev"
 
+    if [[ "$ZEROFILL_MOUNT" != "" ]]; then
+        umount "$ZEROFILL_MOUNT"
+        ZEROFILL_MOUNT=
+    fi
     if [[ "$ZEROFILL_LOOP" != "" ]]; then
         losetup --detach "$ZEROFILL_LOOP"
         ZEROFILL_LOOP=
     fi
 
-    rm -rf "$sigdir" "$defdir" "$backing"
+    rm -rf "$sigdir" "$defdir" "$backing" "$WORKDIR/zerofill-mount"
 }
 
 test_zero_fill() {
@@ -1590,6 +1612,15 @@ test_zero_fill() {
     test_zero_fill_partition regular-file "$generic_uuid" linux-generic "" 0
     test_zero_fill_partition regular-file "$generic_uuid" linux-generic "PartitionZeroFill=yes" 1
     test_zero_fill_partition url-file "$generic_uuid" linux-generic "PartitionZeroFill=yes" 1
+
+    # A mounted partition prevents BLKZEROOUT from claiming the disk and invalidating dirty pages.
+    # Updating other partitions must still work: https://github.com/systemd/systemd/issues/44317
+    if [[ -e /dev/loop-control ]]; then
+        test_zero_fill_partition regular-file "$vsig_uuid" root-x86-64-verity-sig "" 1 yes
+        test_zero_fill_partition url-file "$vsig_uuid" root-x86-64-verity-sig "" 1 yes
+    else
+        echo "Skipping zero-fill tests with a mounted partition: no loopback device support."
+    fi
 }
 
 test_signature_verification() {

@@ -965,7 +965,9 @@ int blockdev_zero_out(int fd, uint64_t offset, uint64_t size) {
         /* Now let the kernel zero out the aligned part in the middle, if it can */
         if (ioctl(fd, BLKZEROOUT, (uint64_t[2]) { aligned_start, aligned_end - aligned_start }) < 0) {
 
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                /* If another partition on the disk is in use, the kernel may fail to invalidate dirty
+                 * pages with EBUSY. Buffered writes can still zero out the range in that case. */
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EBUSY)
                         return log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT: %m");
 
                 log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT, writing zeroes manually: %m");
