@@ -19,4 +19,8 @@ ENV{ID_PERSIST}=="0", TEST=="power/persist", \
 ENV{ID_AUTOSUSPEND_DELAY_MS}!="", TEST=="power/control", \
   ATTR{power/autosuspend_delay_ms}="$env{ID_AUTOSUSPEND_DELAY_MS}"
 
+# Prevent D3cold (slot power removal) if hwdb says so.
+ENV{ID_D3COLD_ALLOWED}=="0", TEST=="d3cold_allowed", \
+  ATTR{d3cold_allowed}="0"
+
 LABEL="autosuspend_end"
