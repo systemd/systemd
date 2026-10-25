@@ -1497,8 +1497,8 @@ static const ImagePolicy image_policy = {
         .n_policies = 4,
         .policies = {
                 /* We mount / and /usr/ so that we can get access to /etc/machine-id and /etc/kernel/ */
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_ABSENT },
                 { PARTITION_ESP,      PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_XBOOTLDR, PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
@@ -1612,7 +1612,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
         _cleanup_close_ int root_fd = -EBADF;
-        r = mount_image_privately_interactively(
+        r = mount_image_privately_full(
                         context->node,
                         &image_policy,
                         DISSECT_IMAGE_REQUIRE_ROOT |
@@ -1624,6 +1624,8 @@ static int sysinstall_context_run(SysInstallContext *context) {
                         DISSECT_IMAGE_USR_NO_ROOT |
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES,
+                        /* interactive= */ false,
+                        /* passphrase= */ "",
                         &root_dir,
                         &root_fd,
                         &loop_device);
