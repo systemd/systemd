@@ -113,7 +113,7 @@
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images; any files with the
-    <filename>.raw</filename> suffix are considered disk image based extension images. When invoked in the
+    <filename>.raw</filename> or <filename>.raw.zst</filename> suffix are considered disk image based extension images. When invoked in the
     initrd, the additional directory <filename>/.extra/sysext/</filename> is included in the directories that
     are searched for extension images. Note however, that by default a tighter image policy applies to images
     found there, though, see below. This directory is populated by
@@ -156,7 +156,7 @@
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
     installed extension images are automatically activated at boot. However, you can place an empty directory
-    named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
+    named like the extension (without <filename>.raw</filename> or <filename>.raw.zst</filename>) in <filename>/etc/extensions/</filename> to "mask"
     an extension with the same name in a system folder with lower precedence. It is also possible to disable
     automatic merging altogether using the <varname>rd.systemd.sysext=</varname>, <varname>rd.systemd.confext=</varname>,
     <varname>systemd.sysext=</varname>, and <varname>systemd.confext=</varname> kernel command line options.
@@ -220,7 +220,7 @@
     carrying large binary images, however is still useful for carrying symlinks to them. The primary place
     for installing configuration extensions is <filename>/var/lib/confexts/</filename>. Any directories found
     in these search directories are considered directory based confext images; any files with the
-    <filename>.raw</filename> suffix are considered disk image based confext images.</para>
+    <filename>.raw</filename> or <filename>.raw.zst</filename> suffix are considered disk image based confext images.</para>
 
     <para>Again, just like sysext images, the confext images will contain a
     <filename>/etc/extension-release.d/extension-release.<replaceable>NAME</replaceable></filename>
