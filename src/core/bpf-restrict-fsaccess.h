@@ -15,6 +15,7 @@ typedef enum RestrictFileSystemAccess {
 const char* restrict_filesystem_access_to_string(RestrictFileSystemAccess i) _const_;
 RestrictFileSystemAccess restrict_filesystem_access_from_string(const char *s) _pure_;
 
+/* Append only: on reexec the links of an older PID 1 are accepted as a prefix of this list. */
 enum {
         RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY,
         RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE,
