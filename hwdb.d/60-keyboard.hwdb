@@ -1727,6 +1727,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Stealth*14*:*
  KEYBOARD_KEY_97=unknown                                # Lid close
  KEYBOARD_KEY_98=unknown                                # Lid open
 
+# MSI Stealth 14 Studio
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Stealth*14*:*
+ KEYBOARD_KEY_56=backslash                              # Extra backslash key between AltGr and Ctrl
+
 # Keymaps for MSI Modern 15 H AI C1MG
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15HAIC1MG:*
  KEYBOARD_KEY_d7=bluetooth                              # Fn+F6 Bluetooth key
