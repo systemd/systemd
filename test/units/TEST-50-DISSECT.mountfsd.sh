@@ -20,6 +20,8 @@ fi
 at_exit() {
     set +e
 
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-shared"
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-copy-privileged"
     umount -R /tmp/unpriv/mount
     rmdir /tmp/unpriv
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
@@ -124,8 +126,46 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
 
-# If the kernel support is present unprivileged user units should be able to use verity images too
+# Unprivileged user units can use signed verity images if the kernel supports signature verification.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-shared"
+    shared_device="$(stat -c %D "$IMAGE_DIR/verity-shared")"
+
+    assert_eq "$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        stat -c %D /)" "$shared_device"
+
+    ln "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-hardlink.gpt"
+    assert_eq "$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-hardlink.gpt" \
+        stat -c %D /)" "$shared_device"
+
+    cp --reflink=auto "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-copy.gpt"
+    copy_device="$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-copy.gpt" \
+        stat -c %D /)"
+    assert_neq "$copy_device" "$shared_device"
+
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$IMAGE_DIR/verity-copy.gpt" "$IMAGE_DIR/verity-copy-privileged"
+    assert_eq "$(stat -c %D "$IMAGE_DIR/verity-copy-privileged")" "$shared_device"
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-copy-privileged"
+
+    privileged_device="$(varlinkctl --exec --push-fd="$IMAGE_DIR/verity-copy.gpt" call \
+        /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage \
+        '{"imageFileDescriptor":0,"veritySharing":true}' -- stat -Lc %D /proc/self/fd/3)"
+    assert_eq "$privileged_device" "$shared_device"
+
+    cp --reflink=auto "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-forged.gpt"
+    mkdir "$IMAGE_DIR/verity-forged-root"
+    mksquashfs "$IMAGE_DIR/verity-forged-root" "$IMAGE_DIR/verity-forged.squashfs" -noappend
+    dd if="$IMAGE_DIR/verity-forged.squashfs" of="$IMAGE_DIR/verity-forged.gpt" \
+        bs=512 seek="$(sfdisk --json "$IMAGE_DIR/verity-forged.gpt" | jq -r '.partitiontable.partitions[0].start')" conv=notrunc
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-forged.gpt" \
+        true)
+
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-shared"
+
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
@@ -141,12 +181,12 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
     # Mount options should not be allowed without elevated privileges
@@ -181,7 +221,7 @@ EOF
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
 
     rm -f /etc/polkit-1/rules.d/mountoptions.rules
     systemctl try-reload-or-restart polkit.service

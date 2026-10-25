@@ -64,7 +64,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(mountOptions, SD_VARLINK_STRING, SD_VARLINK_MAP|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to relax the extension release checks when mounting the image."),
                 SD_VARLINK_DEFINE_INPUT(relaxExtensionReleaseChecks, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
+                SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash. For unprivileged clients, the backing image file must also match."),
                 SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI."),
                 SD_VARLINK_DEFINE_INPUT(verityDataFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
