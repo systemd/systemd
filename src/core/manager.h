@@ -516,6 +516,8 @@ typedef struct Manager {
 
         /* Whether the ptrace seccomp filter is installed in this process; it survives execve() */
         bool restrict_fsaccess_ptrace_filter;
+        /* The link FDs came from an older version, whose .bss layout differs from ours. */
+        bool restrict_fsaccess_foreign_bss;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
