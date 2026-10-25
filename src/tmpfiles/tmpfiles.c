@@ -3847,10 +3847,12 @@ static int clean_item_instance(
         assert(i);
         assert(instance);
 
+        if (!i->age_set)
+                return 0;
+
         _cleanup_closedir_ DIR *d = NULL;
         struct statx sx;
         bool mountpoint;
-
         r = opendir_and_stat(instance, &d, &sx, &mountpoint);
         if (r <= 0)
                 return r;
