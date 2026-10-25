@@ -963,12 +963,24 @@ int blockdev_zero_out(int fd, uint64_t offset, uint64_t size) {
                 return r;
 
         /* Now let the kernel zero out the aligned part in the middle, if it can */
-        if (ioctl(fd, BLKZEROOUT, (uint64_t[2]) { aligned_start, aligned_end - aligned_start }) < 0) {
+        uint64_t range[] = { aligned_start, aligned_end - aligned_start };
+        r = RET_NERRNO(ioctl(fd, BLKZEROOUT, range));
+        if (r == -EBUSY) {
+                /* If another partition is in use, our payload and incomplete-sector writes may prevent
+                 * the kernel from invalidating dirty pages. Synchronize them and retry once to retain
+                 * offloading before falling back to buffered writes. */
+                log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT, synchronizing and retrying: %m");
 
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT: %m");
+                if (fdatasync(fd) < 0)
+                        return log_debug_errno(errno, "Failed to synchronize block device before zeroing out: %m");
 
-                log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT, writing zeroes manually: %m");
+                r = RET_NERRNO(ioctl(fd, BLKZEROOUT, range));
+        }
+        if (r < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(r) && r != -EBUSY)
+                        return log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT: %m");
+
+                log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT, writing zeroes manually: %m");
 
                 r = write_zeroes(fd, aligned_start, aligned_end - aligned_start);
                 if (r < 0)
