@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 #include <pthread.h>
+#include <threads.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
@@ -377,8 +378,8 @@ static void base_set_dirty(HashmapBase *h) {
 #define hashmap_set_dirty(h) base_set_dirty(HASHMAP_BASE(h))
 
 static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
-        static uint8_t current[HASH_KEY_SIZE];
-        static bool current_initialized = false;
+        static thread_local uint8_t current[HASH_KEY_SIZE];
+        static thread_local bool current_initialized = false;
 
         /* Returns a hash function key to use. In order to keep things
          * fast we will not generate a new key each time we allocate a
