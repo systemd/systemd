@@ -154,6 +154,7 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-dns-scope.c'),
+                'link_args' : ['-Wl,--wrap=manager_send'],
         },
         resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),

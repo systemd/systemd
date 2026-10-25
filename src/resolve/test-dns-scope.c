@@ -2,20 +2,47 @@
 
 #include "sd-event.h"
 
+#include "bitmap.h"
 #include "dns-answer.h"
 #include "dns-packet.h"
+#include "dns-question.h"
 #include "dns-rr.h"
 #include "hashmap.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-dns-zone.h"
+#include "resolved-link.h"
+#include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "tests.h"
 
 typedef struct ScopeEnv {
         Manager manager;
         DnsScope scope;
+        Link link;
+        DnsPacket *sent;
+        unsigned n_sent;
 } ScopeEnv;
+
+/* The linker needs external linkage for --wrap=manager_send. */
+/* NOLINTNEXTLINE(misc-use-internal-linkage) */
+int __wrap_manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination,
+                        uint16_t port, const union in_addr_union *source, DnsPacket *p);
+
+/* Capture the packet at the transport boundary, without sending multicast traffic on the test host. */
+int __wrap_manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination,
+                        uint16_t port, const union in_addr_union *source, DnsPacket *p) {
+        ScopeEnv *env = container_of(m, ScopeEnv, manager);
+
+        ASSERT_EQ(family, AF_INET);
+        ASSERT_EQ(port, LLMNR_PORT);
+        ASSERT_EQ(ifindex, env->link.ifindex);
+        dns_packet_unref(env->sent);
+        env->sent = dns_packet_ref(p);
+        env->n_sent++;
+        return 0;
+}
 
 static void scope_env_setup(ScopeEnv *env, DnsProtocol protocol) {
         assert(env);
@@ -25,11 +52,13 @@ static void scope_env_setup(ScopeEnv *env, DnsProtocol protocol) {
         };
 
         ASSERT_OK(sd_event_new(&env->manager.event));
+        env->link = (Link) { .manager = &env->manager, .ifindex = 1 };
 
         /* Not created via dns_scope_new(), as multicast scopes require a link and would join the multicast
          * groups on real sockets. Only what dns_scope_check_conflicts() needs is set up here. */
         env->scope = (DnsScope) {
                 .manager = &env->manager,
+                .link = &env->link,
                 .protocol = protocol,
                 .family = AF_INET,
                 .cache.cache_max = DEFAULT_CACHE_MAX,
@@ -57,6 +86,11 @@ static void scope_env_teardown(ScopeEnv *env) {
         sd_event_source_disable_unref(env->scope.conflict_event_source);
         dns_cache_flush(&env->scope.cache);
         dns_zone_flush(&env->scope.zone);
+        while (env->scope.transactions)
+                dns_transaction_free(env->scope.transactions);
+        hashmap_free(env->scope.transactions_by_key);
+        hashmap_free(env->manager.dns_transactions);
+        dns_packet_unref(env->sent);
         sd_event_unref(env->manager.event);
 }
 
@@ -137,6 +171,7 @@ static void check_conflicts_between_two_responders(ScopeEnv *env) {
 
 TEST(dns_scope_check_conflicts_llmnr_sends_advisory) {
         _cleanup_(scope_env_teardown) ScopeEnv env = {};
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *expected = NULL;
 
         scope_env_setup(&env, DNS_PROTOCOL_LLMNR);
         check_conflicts_between_two_responders(&env);
@@ -144,6 +179,25 @@ TEST(dns_scope_check_conflicts_llmnr_sends_advisory) {
         /* LLMNR announces the conflict with a query that has the "C" bit set */
         ASSERT_EQ(ordered_hashmap_size(env.scope.conflict_queue), 1u);
         ASSERT_NOT_NULL(env.scope.conflict_event_source);
+
+        ASSERT_OK(sd_event_source_set_time(env.scope.conflict_event_source, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(env.manager.event, 0));
+        ASSERT_EQ(env.n_sent, 1u);
+        ASSERT_NOT_NULL(env.sent);
+        ASSERT_EQ(DNS_PACKET_QR(env.sent), 0);
+        ASSERT_EQ(DNS_PACKET_LLMNR_C(env.sent), 1);
+        ASSERT_EQ(DNS_PACKET_QDCOUNT(env.sent), 1);
+        ASSERT_EQ(DNS_PACKET_ANCOUNT(env.sent), 0);
+        ASSERT_EQ(DNS_PACKET_NSCOUNT(env.sent), 0);
+        ASSERT_EQ(DNS_PACKET_ARCOUNT(env.sent), 1);
+        ASSERT_OK(dns_packet_extract(env.sent));
+        expected = a_rr("host.local", 0xc0000265);
+        ASSERT_EQ(dns_question_size(env.sent->question), 1u);
+        ASSERT_OK_POSITIVE(dns_question_contains_key(env.sent->question, expected->key));
+        ASSERT_EQ(dns_answer_size(env.sent->answer), 1u);
+        ASSERT_TRUE(dns_answer_contains(env.sent->answer, expected));
+        ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
+        ASSERT_NULL(env.scope.conflict_event_source);
 }
 
 TEST(dns_scope_check_conflicts_mdns_no_advisory) {
@@ -153,6 +207,84 @@ TEST(dns_scope_check_conflicts_mdns_no_advisory) {
         check_conflicts_between_two_responders(&env);
 
         /* mDNS has no such advisory, differing answers from several responders are not our business */
+        ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
+        ASSERT_NULL(env.scope.conflict_event_source);
+        ASSERT_OK(sd_event_run(env.manager.event, 0));
+        ASSERT_EQ(env.n_sent, 0u);
+}
+
+TEST(dns_scope_check_conflicts_mdns_nsec_no_advisory) {
+        _cleanup_(scope_env_teardown) ScopeEnv env = {};
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cached = NULL, *received = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        union in_addr_union first = { .in.s_addr = htobe32(0xc0000201) },
+                            second = { .in.s_addr = htobe32(0xc0000202) };
+
+        scope_env_setup(&env, DNS_PROTOCOL_MDNS);
+        cached = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "host.local");
+        ASSERT_NOT_NULL(cached);
+        cached->ttl = 120;
+        cached->nsec.next_domain_name = strdup("host.local");
+        ASSERT_NOT_NULL(cached->nsec.next_domain_name);
+        cached->nsec.types = bitmap_new();
+        ASSERT_NOT_NULL(cached->nsec.types);
+        ASSERT_OK(bitmap_set(cached->nsec.types, DNS_TYPE_AAAA));
+
+        received = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "host.local");
+        ASSERT_NOT_NULL(received);
+        received->ttl = 120;
+        received->nsec.next_domain_name = strdup("host.local");
+        ASSERT_NOT_NULL(received->nsec.next_domain_name);
+        received->nsec.types = bitmap_new();
+        ASSERT_NOT_NULL(received->nsec.types);
+        ASSERT_OK(bitmap_set(received->nsec.types, DNS_TYPE_AAAA));
+        ASSERT_OK(bitmap_set(received->nsec.types, DNS_TYPE_A));
+
+        cache_put_from(&env.scope, cached, &first);
+        ASSERT_TRUE(dns_cache_check_conflicts(&env.scope.cache, received, AF_INET, &second));
+        p = make_reply(DNS_PROTOCOL_MDNS, received, &second);
+        dns_scope_check_conflicts(&env.scope, p);
+        ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
+        ASSERT_NULL(env.scope.conflict_event_source);
+        ASSERT_OK(sd_event_run(env.manager.event, 0));
+        ASSERT_EQ(env.n_sent, 0u);
+}
+
+TEST(dns_scope_check_conflicts_mdns_own_record) {
+        _cleanup_(scope_env_teardown) ScopeEnv env = {};
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *own = NULL, *received = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        union in_addr_union sender = { .in.s_addr = htobe32(0xc0000202) };
+        DnsTransaction *t;
+        DnsZoneItem *item;
+
+        scope_env_setup(&env, DNS_PROTOCOL_MDNS);
+        own = a_rr("host.local", 0xc0000264);
+        received = a_rr("host.local", 0xc0000265);
+        ASSERT_OK(dns_zone_put(&env.scope.zone, &env.scope, own, /* probe= */ false));
+        item = dns_zone_get(&env.scope.zone, own);
+        ASSERT_NOT_NULL(item);
+        ASSERT_EQ((int) item->state, DNS_ZONE_ITEM_ESTABLISHED);
+
+        /* Reuse a pending probe so verification does not need real sockets or multicast membership. */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "host.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_transaction_new(&t, &env.scope, key, /* bypass= */ NULL,
+                                      SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE));
+        t->state = DNS_TRANSACTION_PENDING;
+
+        p = make_reply(DNS_PROTOCOL_MDNS, own, &sender);
+        dns_scope_check_conflicts(&env.scope, p);
+        ASSERT_EQ((int) item->state, DNS_ZONE_ITEM_ESTABLISHED);
+        ASSERT_NULL(item->probe_transaction);
+
+        p = dns_packet_unref(p);
+        p = make_reply(DNS_PROTOCOL_MDNS, received, &sender);
+        dns_scope_check_conflicts(&env.scope, p);
+        ASSERT_EQ((int) item->state, DNS_ZONE_ITEM_VERIFYING);
+        ASSERT_PTR_EQ(item->probe_transaction, t);
+        ASSERT_TRUE(t->probing);
         ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
         ASSERT_NULL(env.scope.conflict_event_source);
 }
