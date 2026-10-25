@@ -581,6 +581,7 @@ static DIR* opendir_nomod(const char *path) {
 
 static int opendir_and_stat(
                 const char *path,
+                bool ignore_opendir_failure,
                 DIR **ret,
                 struct statx *ret_sx,
                 bool *ret_mountpoint) {
@@ -601,9 +602,10 @@ static int opendir_and_stat(
 
         d = opendir_nomod(path);
         if (!d) {
-                bool ignore = IN_SET(errno, ENOENT, ENOTDIR);
+                bool ignore = ignore_opendir_failure || IN_SET(errno, ENOENT, ENOTDIR);
                 r = log_full_errno(ignore ? LOG_DEBUG : LOG_ERR,
-                                   errno, "Failed to open directory %s: %m", path);
+                                   errno, "Failed to open directory '%s'%s: %m",
+                                   path, ignore ? ", ignoring" : "");
                 if (!ignore)
                         return r;
 
@@ -3308,7 +3310,7 @@ static int remove_recursive(
         bool mountpoint;
         int r;
 
-        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
+        r = opendir_and_stat(instance, /* ignore_opendir_failure= */ false, &d, &sx, &mountpoint);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3851,7 +3853,10 @@ static int clean_item_instance(
         struct statx sx;
         bool mountpoint;
 
-        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
+        r = opendir_and_stat(
+                        instance,
+                        /* ignore_opendir_failure= */ i->type == IGNORE_PATH && !i->age_set,
+                        &d, &sx, &mountpoint);
         if (r <= 0)
                 return r;
 
