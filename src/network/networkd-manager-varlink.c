@@ -21,6 +21,7 @@
 #include "string-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.Network.Link.h"
+#include "varlink-io.systemd.Resolve.Link.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -310,6 +311,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         s,
                         &vl_interface_io_systemd_Network,
                         &vl_interface_io_systemd_Network_Link,
+                        &vl_interface_io_systemd_Resolve_Link,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Network interface to varlink server: %m");
@@ -328,6 +330,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.Link.Renew",           vl_method_link_renew,
                         "io.systemd.Network.Link.ForceRenew",      vl_method_link_force_renew,
                         "io.systemd.Network.Link.Reconfigure",     vl_method_link_reconfigure,
+                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.Reload",               vl_method_reload,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,

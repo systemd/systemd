@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h> /* IFF_LOOPBACK */
+
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -14,6 +16,8 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "resolve-varlink-util.h"
+#include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-query.h"
@@ -24,11 +28,13 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-util.h"
 #include "varlink-io.systemd.Resolve.h"
+#include "varlink-io.systemd.Resolve.Link.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
@@ -1181,22 +1187,36 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         return 1;
 }
 
-static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+static int verify_polkit_full(sd_varlink *link, sd_json_variant *parameters, const char *action, sd_json_dispatch_flags_t flags, const char **details) {
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
         int r;
-        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
-        if (r != 0)
+        const char *bad_field = NULL;
+        r = sd_json_dispatch_full(
+                        parameters,
+                        dispatch_table_polkit_only,
+                        /* bad= */ NULL,
+                        flags,
+                        /* userdata= */ NULL,
+                        &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;
+        }
 
         return varlink_verify_polkit_async(
                                 link,
                                 m->bus,
                                 action,
-                                /* details= */ NULL,
+                                details,
                                 &m->polkit_registry);
+}
+
+static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+        return verify_polkit_full(link, parameters, action, /* flags= */ 0, /* details= */ NULL);
 }
 
 static int vl_method_browse_services(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
@@ -1458,6 +1478,88 @@ static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *p
         return sd_varlink_reply(link, configuration);
 }
 
+static int vl_get_link(sd_varlink *vlink, int ifindex, Link **ret_link) {
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(vlink)));
+
+        assert(ret_link);
+
+        if (ifindex <= 0)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("ifindex"));
+
+        Link *link = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("ifindex"));
+
+        if (FLAGS_SET(link->flags, IFF_LOOPBACK))
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.IsLoopback", NULL);
+
+        if (link->is_managed)
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.ManagedByNetworkd", NULL);
+
+        *ret_link = link;
+        return 0;
+}
+
+static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "servers", SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_context_array, offsetof(DNSConfiguration, dns_servers), SD_JSON_MANDATORY               },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,             offsetof(DNSConfiguration, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, c->ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dns-servers",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        struct in_addr_full **dns_servers = NULL;
+        size_t n_dns_servers = 0;
+        CLEANUP_ARRAY(dns_servers, n_dns_servers, in_addr_full_free_array);
+
+        DNSServer *s;
+        ORDERED_SET_FOREACH(s, c->dns_servers) {
+                if (!GREEDY_REALLOC0(dns_servers, n_dns_servers + 1))
+                        return log_oom();
+
+                r = in_addr_full_new(
+                                s->family,
+                                &s->in_addr.address,
+                                s->port,
+                                s->ifindex,
+                                s->server_name,
+                                &dns_servers[n_dns_servers++]);
+                if (r < 0)
+                        return r;
+        }
+
+        r = link_set_dns_servers(l, dns_servers, n_dns_servers, RESOLVE_CONFIG_SOURCE_VARLINK);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1526,6 +1628,7 @@ static int varlink_main_server_init(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Resolve,
+                        &vl_interface_io_systemd_Resolve_Link,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Resolve interface to varlink server: %m");
@@ -1541,7 +1644,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
                         "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
-                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
+                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration,
+                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
