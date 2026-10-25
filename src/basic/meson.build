@@ -55,6 +55,7 @@ basic_sources = files(
         'in-addr-util.c',
         'initrd-util.c',
         'inotify-util.c',
+        'io-uring-util.c',
         'io-util.c',
         'iovec-util.c',
         'iovec-wrapper.c',
