@@ -1323,6 +1323,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         int r;
 
         assert(scope);
+        assert(scope->protocol == DNS_PROTOCOL_LLMNR);
         assert(rr);
 
         /* We don't send these queries immediately. Instead, we queue them, and send them after some jitter
@@ -1396,6 +1397,14 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
                  * found one, we won't check any further */
                 r = dns_zone_check_conflicts(&scope->zone, rr);
                 if (r != 0)
+                        continue;
+
+                /* Advisory conflict queries only exist in LLMNR (RFC 4795, section 4.2). In mDNS several
+                 * responders may legitimately answer for the same name (e.g. the SRP advertising proxies
+                 * of Thread border routers), only conflicts with our own records matter (RFC 6762,
+                 * section 9), and queries must not have the AA bit set (RFC 6762, section 18.4). Every
+                 * responder would answer the advisory again, which we'd take as yet another conflict. */
+                if (scope->protocol != DNS_PROTOCOL_LLMNR)
                         continue;
 
                 /* Check for conflicts against the local cache. If so,
