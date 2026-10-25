@@ -5440,7 +5440,7 @@ int exec_invoke(
          * but seen from the outside (covers userns mappings) */
         uid_t uid = UID_INVALID, saved_uid = getuid(), outside_uid = UID_INVALID;
         gid_t gid = GID_INVALID, saved_gid = getgid(), outside_gid = GID_INVALID;
-        int secure_bits;
+        int secure_bits, inherited_secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
         int named_iofds[3] = EBADF_TRIPLET;
@@ -5453,6 +5453,10 @@ int exec_invoke(
         assert(runtime);
         assert(cgroup_context);
         assert(exit_status);
+
+        /* Creating or joining a user namespace resets the secure bits, so take what the service manager passed
+         * down before that happens. */
+        inherited_secure_bits = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
 
         LOG_CONTEXT_PUSH_EXEC(context, params);
 
@@ -6778,6 +6782,10 @@ int exec_invoke(
                 /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential
                  * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
                  * requires CAP_SETPCAP. */
+                /* The service manager's bits are inherited by everything it starts, units only add to them. */
+                if (inherited_secure_bits > 0)
+                        secure_bits |= inherited_secure_bits;
+
                 r = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
                 if (r != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the
