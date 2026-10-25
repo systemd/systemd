@@ -973,6 +973,94 @@ int dns_packet_truncate_opt(DnsPacket *p) {
         return 1;
 }
 
+int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
+        const size_t opt_min_size = 1 + 2 + 2 + 4 + 2; /* Root name, TYPE, CLASS, TTL, RDLENGTH */
+        unsigned n_rr = 0, n_an, n_ns, n_ar;
+        size_t end, opt_move_size = 0;
+        bool opt_kept = false;
+        int r;
+
+        assert(p);
+
+        /* Cut after the last complete RR that fits into max_size. As compression pointers only point
+         * backwards, any such prefix stays valid. The OPT RR is usually last, hence if requested reserve
+         * room for it and move it behind the prefix. */
+
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        for (unsigned i = 0; i < DNS_PACKET_QDCOUNT(p); i++) {
+                r = dns_packet_read_key(p, /* ret= */ NULL, /* ret_cache_flush_or_qu= */ NULL,
+                                        /* ret_start= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        end = p->rindex;
+        if (end > max_size)
+                return -EMSGSIZE;
+
+        /* Only move the OPT RR if its owner is the literal root name, i.e. the single zero byte of the empty
+         * root label, rather than a compression pointer to a root label elsewhere: after the move, such a
+         * pointer might point into the RR itself or into the part that is cut off. opt_min_size also counts
+         * the name as one byte. */
+        if (reserve_opt && p->opt_start != SIZE_MAX && DNS_PACKET_DATA(p)[p->opt_start] == 0) {
+                if (end + p->opt_size <= max_size)
+                        opt_move_size = p->opt_size;
+                else if (end + opt_min_size <= max_size)
+                        /* No room for the options? Then keep only the fixed part, which carries the UDP
+                         * payload size, extended RCODE and flags. */
+                        opt_move_size = opt_min_size;
+        }
+
+        for (unsigned i = 0; i < DNS_PACKET_RRCOUNT(p) && p->rindex < p->size; i++) {
+                size_t start;
+                bool is_opt;
+
+                r = dns_packet_read_rr(p, /* ret= */ NULL, /* ret_cache_flush= */ NULL, &start);
+                if (r < 0)
+                        return r;
+
+                is_opt = start == p->opt_start;
+
+                if (p->rindex + (!opt_kept && !is_opt ? opt_move_size : 0) > max_size)
+                        break;
+
+                opt_kept = opt_kept || is_opt;
+                end = p->rindex;
+                n_rr++;
+        }
+
+        n_an = MIN(n_rr, DNS_PACKET_ANCOUNT(p));
+        n_ns = MIN(n_rr - n_an, DNS_PACKET_NSCOUNT(p));
+        n_ar = n_rr - n_an - n_ns;
+
+        if (!opt_kept && opt_move_size > 0) {
+                assert(end + opt_move_size <= max_size);
+
+                memmove(DNS_PACKET_DATA(p) + end, DNS_PACKET_DATA(p) + p->opt_start, opt_move_size);
+                if (opt_move_size < p->opt_size)
+                        /* RDLENGTH */
+                        unaligned_write_be16(DNS_PACKET_DATA(p) + end + opt_min_size - sizeof(uint16_t), 0);
+
+                p->opt_start = end;
+                p->opt_size = opt_move_size;
+                end += opt_move_size;
+                n_ar++;
+        } else if (!opt_kept) {
+                p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
+
+        dns_packet_truncate(p, end);
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        DNS_PACKET_HEADER(p)->ancount = htobe16(n_an);
+        DNS_PACKET_HEADER(p)->nscount = htobe16(n_ns);
+        DNS_PACKET_HEADER(p)->arcount = htobe16(n_ar);
+
+        return 0;
+}
+
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start) {
 
         size_t saved_size, rdlength_offset, end, rdlength, rds;
