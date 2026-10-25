@@ -153,6 +153,13 @@ CHANGES WITH 263 in spe:
           The reason is also exposed in the new ConfiguringReasons field of
           the interface description provided over Varlink.
 
+        * The [DHCPServerStaticLease] section gained new ClientIdentifier=,
+          IAID=, DUIDType=, and DUIDRawData= settings. With
+          ClientIdentifier=duid, a static address is assigned to a client
+          based on the IAID and DUID it sends, instead of its hardware
+          address. This is useful e.g. to tell apart hosts that share a
+          hardware address, like ipvlan interfaces in L2 mode.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate's "update" command acquired a new --loop= switch.

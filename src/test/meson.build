@@ -487,6 +487,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
