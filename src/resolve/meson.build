@@ -171,6 +171,9 @@ executables += [
                 'sources' : files('test-dns-server.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-stream.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-transaction.c'),
                 'conditions' : ['HAVE_OPENSSL'],
         },
