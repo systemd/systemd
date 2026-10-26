@@ -5,6 +5,10 @@
 
 #if ENABLE_UTMP || ENABLE_LOGIND
 
+/* Strips escape sequences and control characters from a message that is about to be broadcast to
+ * other users' terminals. Returns NULL on allocation failure. */
+char *wall_sanitize_message(const char *message);
+
 int wall(
         const char *message,
         const char *username,
