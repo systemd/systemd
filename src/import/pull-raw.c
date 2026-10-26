@@ -42,6 +42,8 @@ typedef struct RawPull {
 
         uint64_t offset;
 
+        bool replace_cached; /* Don't reuse old downloads, replace the one with the same ETag instead */
+
         PullJob *raw_job;
         PullJob *checksum_job;
         PullJob *signature_job;
@@ -484,6 +486,7 @@ static int raw_pull_rename_auxiliary_file(
                         AT_FDCWD, *temp_path,
                         AT_FDCWD, *path,
                         INSTALL_READ_ONLY|
+                        (p->replace_cached ? INSTALL_REPLACE : 0) |
                         (p->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", *path);
@@ -600,11 +603,9 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                         raw_pull_report_progress(p, RAW_FINALIZING);
 
-                        /* With a pinned checksum old downloads are not reused, so replace any copy cached
-                         * under the same ETag with the one we just verified. */
                         r = install_file(AT_FDCWD, p->temp_path,
                                          AT_FDCWD, p->final_path,
-                                         (iovec_is_set(&p->raw_job->expected_checksum) ? INSTALL_REPLACE : 0) |
+                                         (p->replace_cached ? INSTALL_REPLACE : 0) |
                                          (p->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY : 0) |
                                          (p->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                         if (r < 0) {
@@ -874,13 +875,15 @@ int raw_pull_start(
 
         /* A previously downloaded image is neither keyed by the compression algorithm nor was it
          * necessarily verified against the requested checksum or decoded digest, hence don't reuse it if
-         * any of these is requested. */
+         * any of these is requested. Instead let the fresh download replace a copy cached under the same
+         * ETag. */
         if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 &&
             !iovec_is_set(checksum) && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_REG, ".raw-", ".raw", &p->raw_job->old_etags);
                 if (r < 0)
                         return r;
-        }
+        } else
+                p->replace_cached = true;
 
         r = pull_make_verification_jobs(
                         &p->checksum_job,
