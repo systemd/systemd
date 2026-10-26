@@ -526,7 +526,10 @@
         basic settings at first boot, even if those settings are not initialized yet. If set to
         <literal>headless</literal>, interactive prompts are suppressed just like with <literal>no</literal>,
         but non-interactive auto-configuration that requires no user input is still performed (for example,
-        selecting the sole installed locale, or applying settings passed in via credentials).</para>
+        selecting the sole installed locale, or applying settings passed in via credentials). In both cases,
+        <citerefentry><refentrytitle>systemd-firstboot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        detaches <filename>systemd-firstboot.service</filename> from the console, so that it also works on
+        systems without one.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -543,6 +546,7 @@
       <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-firstboot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
