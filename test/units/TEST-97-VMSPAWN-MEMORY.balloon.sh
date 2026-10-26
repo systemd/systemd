@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Balloon: shrink a running guest below its boot RAM through SetMemory() and grow it back.
+# Balloon: shrink a running guest below its boot RAM through SetMemory() and grow it back, and check the
+# memory statistics the guest reports through the balloon device.
 
 set -eux
 set -o pipefail
@@ -63,6 +64,23 @@ set_memory_and_wait() {
     jq --seq -s -e "last | .targetBytes == $bytes and .actualBytes == $bytes" "$out"
 }
 
+# wait_for_stats_after USEC: wait until the guest has sent a statistics report newer than USEC, in µs since
+# the epoch. Reports have a granularity of one second, and the first one needs the balloon driver loaded.
+wait_for_stats_after() {
+    local after="${1:?}" deadline=$((SECONDS + 120)) last
+    while :; do
+        last="$(memory stats.lastUpdateUSec)"
+        if [[ "$last" != null ]] && (( last > after )); then
+            return 0
+        fi
+        if (( SECONDS >= deadline )); then
+            echo >&2 "Timed out waiting for a statistics report newer than $after, got $last"
+            return 1
+        fi
+        sleep 1
+    done
+}
+
 # Direct kernel boot of the built image on an ephemeral overlay. The serial console carries guest output
 # from early boot on. It goes, together with vmspawn's debug log, into the log file and into the journal
 # under the machine name, which ends up in the CI artifacts: journalctl -t vmspawn-memory-balloon-<pid>
@@ -88,6 +106,17 @@ assert_eq "$(memory configuredBytes)" "$RAM"
 assert_eq "$(memory targetBytes)" "$RAM"
 assert_eq "$(memory actualBytes)" "$RAM"
 
+# Statistics show up once the guest reports. The kernel keeps part of the RAM for itself, so the total it
+# sees is somewhat below --ram=.
+wait_for_stats_after 0
+TOTAL="$(memory stats.totalBytes)"
+assert_le "$TOTAL" "$RAM"
+assert_ge "$TOTAL" $((RAM * 3 / 4))
+assert_le "$(memory stats.freeBytes)" "$TOTAL"
+
+# Polling continues: a newer report follows.
+wait_for_stats_after "$(memory stats.lastUpdateUSec)"
+
 # Shrink to an unaligned size. Without 'more' the call returns once QEMU accepted the target, which is rounded
 # up to the balloon's granularity so that the guest can settle exactly on it. The guest follows
 # asynchronously, once it has loaded its balloon driver.
@@ -95,6 +124,12 @@ ROUNDED=$((SMALL + 64 * 1024))
 assert_eq "$(varlinkctl call "$CTL" io.systemd.MachineInstance.SetMemory "{\"bytes\":$((SMALL + 1))}" | jq -r .targetBytes)" "$ROUNDED"
 assert_eq "$(memory targetBytes)" "$ROUNDED"
 wait_for_actual "$ROUNDED"
+
+# The balloon takes its pages out of the guest's free memory. With deflate-on-oom the guest keeps counting
+# them in its total, so that stays. Wait for a report from after the shrink, statistics lag behind.
+wait_for_stats_after "$(date +%s%6N)"
+assert_eq "$(memory stats.totalBytes)" "$TOTAL"
+assert_le "$(memory stats.freeBytes)" $((TOTAL - (RAM - ROUNDED)))
 
 # Grow back. The guest reclaims its pages by faulting them in, nothing has to be handed over.
 set_memory_and_wait "$RAM"
