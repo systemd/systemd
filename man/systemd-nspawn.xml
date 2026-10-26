@@ -1973,10 +1973,16 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
           <para>Note: when <command>systemd-nspawn</command> runs as systemd system service it can propagate
           the credentials it received via <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-          to the container payload. A systemd service manager running as PID 1 in the container can further
-          propagate them to the services it itself starts. It is thus possible to easily propagate credentials
-          from a parent service manager to a container manager service and from there into its payload. This
-          can even be done recursively.</para>
+          to the container payload, if they are passed on with
+          <option>--load-credential=<replaceable>ID</replaceable>:<replaceable>ID</replaceable></option>,
+          i.e. if <replaceable>PATH</replaceable> is the name of a credential rather than a path. A systemd
+          service manager running as PID 1 in the container can further propagate them to the services it
+          itself starts. It is thus possible to easily propagate credentials from a parent service manager to a
+          container manager service and from there into its payload. This can even be done recursively. For
+          <filename>systemd-nspawn@.service</filename>, credentials may also be passed with the
+          <varname>SetCredential=</varname> and <varname>LoadCredential=</varname> settings in
+          <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
 
           <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
