@@ -226,6 +226,12 @@ Some things to keep in mind:
   Rust is not much bigger than its C equivalent. Stripped release builds:
   `test-cli-rust` is 29 KB, 24 KB with `-Db_lto=true`, `test-cli-c` is 16 KB.
 
+- Optional libraries are loaded at runtime with the `dlopen_*()` helpers of
+  libsystemd-shared, like in C. Declare such dependencies with
+  `libcrypto_note!()`, `libkmod_note!()` or `elf_note_dlopen!()`, so that
+  they are recorded in the `.note.dlopen` section of the program, where
+  packaging tools pick them up.
+
 - Rust programs are covered by `test-link-abi` too, so they may not use glibc
   symbols that are newer than the baseline the C programs are held to.
 
