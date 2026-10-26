@@ -89,6 +89,7 @@ REQUIREMENTS:
                      ≥ 6.19 for PIDFD_INFO_SUPPORTED_MASK and PIDFD_INFO_COREDUMP_SIGNAL
                      ≥ 7.0 for the .dm-verity keyring provisioned by systemd-keyring-setup
                      ≥ 7.1 for PIDFD_INFO_COREDUMP_CODE
+                     ≥ 7.4 for SO_PEERPIDFD_THREAD
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
