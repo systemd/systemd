@@ -338,6 +338,10 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
 
         manager->pending_reload_message_vl = sd_varlink_ref(link);
 
+        assert(!manager->pending_reexecute_message_vl);
+        assert(!manager->pending_reexecute_message_dbus);
+
+        manager->pending_reexecute_message_vl = sd_varlink_ref(link);
         manager->objective = MANAGER_REEXECUTE;
 
         return 1;
