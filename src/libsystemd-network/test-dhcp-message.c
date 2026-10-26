@@ -452,6 +452,7 @@ TEST(dhcp_message) {
         /* 6rd */
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, 33, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, 127, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, 32, 0, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 0, sixrd_br_addresses), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, SIZE_MAX, sixrd_br_addresses), ENOBUFS);
         ASSERT_OK(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses));
@@ -589,6 +590,21 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_TRUE(strv_equal(strv, expected));
 
         ASSERT_OK(dump_dhcp_message(m, STRV_MAKE("119", "120"), DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
+}
+
+TEST(6rd_zero_prefixlen) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        /* IPv4MaskLen=32 and 6rdPrefixLen=0 make the delegated prefix ::/0. */
+        static const uint8_t option[] = {
+                32, 0,
+                0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                192, 0, 2, 1,
+        };
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_6RD, sizeof(option), option));
+        ASSERT_ERROR(dhcp_message_get_option_6rd(m, NULL, NULL, NULL, NULL, NULL), EBADMSG);
 }
 
 static void test_domains_fail(size_t len, const uint8_t *data) {
