@@ -628,6 +628,36 @@ static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
         return sd_event_exit(event, error < 0 ? error : 0);
 }
 
+static int dup_stdio_fd(int fd, int flags, int *ret_nonblock_reset) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret_nonblock_reset);
+
+        /* SPLICE_F_NONBLOCK only covers the forwarder's internal pipe, hence stdin/stdout must be
+         * O_NONBLOCK themselves. Reopen (as ptyfwd does) so that the invoking shell's open file description
+         * is not switched to non-blocking too. Sockets cannot be reopened, hence the fallback. */
+        r = fd_reopen_propagate_append_and_position(fd, flags|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (r >= 0) {
+                *ret_nonblock_reset = -EBADF;
+                return r;
+        }
+
+        log_debug_errno(r, "Failed to reopen fd %i, using a dup instead: %m", fd);
+
+        _cleanup_close_ int dup_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dup_fd < 0)
+                return -errno;
+
+        /* The dup shares the open file description, whoever uses it after us expects it blocking again. */
+        r = fd_nonblock(dup_fd, true);
+        if (r < 0)
+                return r;
+        *ret_nonblock_reset = r > 0 ? fd : -EBADF;
+
+        return TAKE_FD(dup_fd);
+}
+
 /* This will only return if something goes wrong, otherwise the exec_cmdline
  * is run and replaces our code. */
 static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
@@ -821,18 +851,29 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
 
         /* No --exec: bidirectional proxy between stdin/stdout and the upgraded socket */
 
+        /* splice() into a socket honours the socket's O_NONBLOCK, not SPLICE_F_NONBLOCK. */
+        r = fd_nonblock(input_fd, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set upgraded input fd to non-blocking mode: %m");
+
+        r = fd_nonblock(output_fd, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set upgraded output fd to non-blocking mode: %m");
+
         /* Use a clean event loop just for the forwarding to avoid any interference. */
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        _cleanup_close_ int stdin_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
-        if (stdin_fd < 0)
-                return log_error_errno(errno, "Failed to dup stdin: %m");
+        _cleanup_(nonblock_resetp) int stdin_nonblock_reset = -EBADF, stdout_nonblock_reset = -EBADF;
 
-        _cleanup_close_ int stdout_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        _cleanup_close_ int stdin_fd = dup_stdio_fd(STDIN_FILENO, O_RDONLY, &stdin_nonblock_reset);
+        if (stdin_fd < 0)
+                return log_error_errno(stdin_fd, "Failed to dup stdin: %m");
+
+        _cleanup_close_ int stdout_fd = dup_stdio_fd(STDOUT_FILENO, O_WRONLY, &stdout_nonblock_reset);
         if (stdout_fd < 0)
-                return log_error_errno(errno, "Failed to dup stdout: %m");
+                return log_error_errno(stdout_fd, "Failed to dup stdout: %m");
 
         r = socket_forward_new_pair(
                         event,
