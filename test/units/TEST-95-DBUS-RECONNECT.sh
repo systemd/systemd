@@ -21,6 +21,7 @@ EOF
 
 at_exit() {
     rm -f "$marker" "$release" "$notify" "$reloaded"
+    systemctl kill --signal=CONT dbus.service 2>/dev/null || :
     systemctl stop \
               dbus-reconnect-recover.service \
               dbus-reconnect-stop.service \
@@ -28,7 +29,8 @@ at_exit() {
               dbus-reconnect-drop.service \
               dbus-reconnect-notify.service \
               dbus-reconnect-notify-target.service \
-              dbus-reconnect-reexec.service 2>/dev/null || :
+              dbus-reconnect-reexec.service \
+              dbus-reconnect-pending-getid.service 2>/dev/null || :
 }
 
 trap at_exit EXIT
@@ -165,5 +167,24 @@ systemctl daemon-reexec
 touch "$marker"
 poll "$unit" SubState running
 systemctl stop "$unit"
+
+# a Type=dbus unit loaded while the async GetId() reply is still pending reaches running without error
+unit=dbus-reconnect-pending-getid.service
+reset_failed "$unit"
+rm -f "$marker"
+systemctl kill --signal=STOP dbus.service
+systemctl daemon-reexec
+systemd-run \
+    --no-block \
+    --unit="$unit" \
+    -p Type=dbus \
+    -p BusName="$name" \
+    -p Restart=no \
+    "$holder" "$name" "$marker"
+systemctl kill --signal=CONT dbus.service
+poll "$unit" SubState running
+systemctl stop "$unit"
+journalctl --sync
+(! journalctl -q -b --grep '[F]ailed to subscribe to NameOwnerChanged')
 
 touch /testok
