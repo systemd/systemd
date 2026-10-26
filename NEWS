@@ -132,6 +132,11 @@ CHANGES WITH 263 in spe:
           adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
           optional build dependencies.
 
+        Changes in systemd-logind:
+
+        * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
+          since logind does not accept delay locks for any other operation.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
