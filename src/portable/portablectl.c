@@ -498,6 +498,8 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return r;
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         r = determine_matches(argv[1], argv + 2, true, &matches);
         if (r < 0)
                 return r;

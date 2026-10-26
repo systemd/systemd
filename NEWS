@@ -58,6 +58,9 @@ CHANGES WITH 263 in spe:
           valid if the kernel or a certificate in /etc/verity.d/ validates
           it.
 
+        * systemd-portabled now asks polkit before it inspects extension
+          images that are specified by path.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
