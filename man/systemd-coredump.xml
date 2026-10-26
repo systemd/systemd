@@ -417,6 +417,19 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
       </varlistentry>
 
       <varlistentry>
+        <term><varname>COREDUMP_TID=</varname></term>
+        <term><varname>COREDUMP_THREAD_NAME=</varname></term>
+        <listitem><para>The thread number (TID) and name
+        (<filename>/proc/<replaceable>pid</replaceable>/task/<replaceable>tid</replaceable>/comm</filename>)
+        of the thread that received the fatal signal. For single-threaded processes the TID is the same as
+        the PID. Like <varname>COREDUMP_PID=</varname>, the TID is the value as seen in the namespace where
+        <filename>systemd-coredump</filename> is running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>COREDUMP_BY_PIDFD=</varname></term>
         <listitem><para>If the crashed process was analyzed using a PIDFD provided by the kernel (requires
         kernel v6.16) then this field will be present and set to <literal>1</literal>. If this field is
@@ -724,6 +737,16 @@ flags:   ...
         </para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>user.coredump.tid</varname></term>
+        <term><varname>user.coredump.thread_name</varname></term>
+
+        <listitem><para>Those are the same as <varname>COREDUMP_TID=</varname> and
+        <varname>COREDUMP_THREAD_NAME=</varname>, described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
     </variablelist>
 
