@@ -2748,6 +2748,8 @@ static int mount_tunnel_dig(const char *root) {
 
         r = bind_remount_one(q, MS_RDONLY, MS_RDONLY);
         if (r < 0)
+                r = mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        if (r < 0)
                 return log_error_errno(r, "Failed to make %s read-only: %m", q);
 
         return 0;
