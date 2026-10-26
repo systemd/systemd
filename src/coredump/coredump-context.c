@@ -8,6 +8,7 @@
 #include "coredump-context.h"
 #include "coredump-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
@@ -741,7 +742,14 @@ int coredump_context_parse_from_peer(CoredumpContext *context) {
         } else
                 context->got_code = false;
 
-        r = get_crashing_tid(context->pidref.pid, &context->tidref);
+        r = getpeerpidfd_full(context->input_fd, PIDFD_THREAD);
+        if (r >= 0)
+                r = pidref_set_pidfd_consume(&context->tidref, r);
+        else if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                // FIXME: This compatibility code path shall be removed once kernel 7.4
+                //        becomes the new minimal baseline
+                r = get_crashing_tid(context->pidref.pid, &context->tidref);
+        }
         if (r < 0)
                 log_warning_errno(r, "Failed to get crashing TID of process ["PID_FMT"], ignoring: %m", context->pidref.pid);
 
