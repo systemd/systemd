@@ -26,7 +26,7 @@ at_exit() {
     mv -f /run/systemd/tpm2-pcr-signature.json.bak /run/systemd/tpm2-pcr-signature.json
     rm -f /tmp/tpm2-pcr-private-key.pem /tmp/tpm2-pcr-public-key.pem /tmp/tpm2-pcr-signature.json.valid
     rm -rf /run/nvpcr /tmp/nvpcr
-    rm -f /var/tmp/nvpcr.raw /run/verity.d/test-70-nvpcr.crt
+    rm -f /var/tmp/nvpcr.raw /var/tmp/nvpcr-untrusted.raw /run/verity.d/test-70-nvpcr.crt
     rm -f /run/systemd/nvpcr/test.auth /run/systemd/nvpcr/test2.auth /run/systemd/nvpcr/aaa.auth /run/systemd/nvpcr/zzz.auth /run/systemd/nvpcr/unauth.auth /run/systemd/nvpcr/unauth2.auth
     rm -f /tmp/test.policy
     rm -f /run/systemd/tpm2-nv-space-exhausted-orderly
@@ -368,17 +368,9 @@ fi
 mkdir -p /tmp/nvpcr/tree
 touch /tmp/nvpcr/tree/file
 
-if machine_supports_verity_keyring; then
-    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
-        systemd-repart -P \
-                    -s /tmp/nvpcr/tree \
-                    --certificate=/usr/share/mkosi.crt \
-                    --private-key=/usr/share/mkosi.key \
-                    /var/tmp/nvpcr.raw
-else
-    OPENSSL_CONFIG="/tmp/nvpcr/opensslconfig"
-    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >"${OPENSSL_CONFIG:?}" <<EOF
+OPENSSL_CONFIG="/tmp/nvpcr/opensslconfig"
+# Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+cat >"${OPENSSL_CONFIG:?}" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -393,6 +385,14 @@ CN = Common Name
 emailAddress = test@email.com
 EOF
 
+if machine_supports_verity_keyring; then
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+        systemd-repart -P \
+                    -s /tmp/nvpcr/tree \
+                    --certificate=/usr/share/mkosi.crt \
+                    --private-key=/usr/share/mkosi.key \
+                    /var/tmp/nvpcr.raw
+else
     openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
                 -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
                 -keyout /tmp/nvpcr/test-70-nvpcr.key -out /tmp/nvpcr/test-70-nvpcr.crt
@@ -412,5 +412,23 @@ cp /run/log/systemd/tpm2-measure.log /tmp/nvpcr/log-before
 
 systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/nvpcr.raw
 
+# The record of a validated signature ends with the serial and the issuer of the signer.
 set +o pipefail
-diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -F '"content":{"nvIndexName":"verity","string":"verity:'
+diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -E '"content":\{"nvIndexName":"verity","string":"verity:[^"]*:[0-9a-f]+:[0-9a-f]+/[^"]+"'
+
+# If neither the kernel nor userspace can validate the signature, only the root hash is measured, without
+# the signer. Neither the kernel keyring nor /run/verity.d/ contains the certificate of the untrusted key.
+openssl req -config "$OPENSSL_CONFIG" -subj="/CN=untrusted" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout /tmp/nvpcr/untrusted.key -out /tmp/nvpcr/untrusted.crt
+
+SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+    systemd-repart -P \
+                -s /tmp/nvpcr/tree \
+                --certificate=/tmp/nvpcr/untrusted.crt \
+                --private-key=/tmp/nvpcr/untrusted.key \
+                /var/tmp/nvpcr-untrusted.raw
+
+cp /run/log/systemd/tpm2-measure.log /tmp/nvpcr/log-before
+systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/nvpcr-untrusted.raw
+diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -E '"content":\{"nvIndexName":"verity","string":"verity:[^"]*:"'
