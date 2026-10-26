@@ -8,7 +8,7 @@
  *                                                Kill the process to detach (synchronous
  *                                                via bpf_link_put_direct on last FD close).
  *   test-bpf-restrict-fsaccess check               — Run PID 1's prerequisite checks and install its
- *                                                ptrace seccomp filter
+ *                                                seccomp filters
  *   test-bpf-restrict-fsaccess mmap-exec PATH      — Attempt PROT_READ|PROT_EXEC mmap of PATH
  *   test-bpf-restrict-fsaccess anon-mmap-exec      — Attempt anonymous PROT_READ|PROT_EXEC mmap
  *   test-bpf-restrict-fsaccess mprotect-exec PATH  — mmap PATH PROT_READ, then mprotect to PROT_EXEC
@@ -18,6 +18,8 @@
  *   test-bpf-restrict-fsaccess procmem-cow PATH    — mmap PROT_EXEC, then rewrite it via /proc/self/mem
  *   test-bpf-restrict-fsaccess poketext            — install ptrace seccomp, verify PTRACE_POKE{TEXT,DATA}
  *                                                are denied
+ *   test-bpf-restrict-fsaccess read-implies-exec   — install personality seccomp, verify READ_IMPLIES_EXEC
+ *                                                is refused
  *
  * The probes exit with 0 if the operation was allowed (the bypass works), 1 if
  * it was refused with the errno the mechanism under test produces, 2 if it
@@ -33,6 +35,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -308,9 +311,50 @@ static int do_poketext_seccomp(void) {
         return r;
 }
 
+/* Self-contained check of the personality() block, like "poketext". With READ_IMPLIES_EXEC set brk()
+ * extends the heap writable and executable without passing through any of the BPF hooks. */
+static int do_read_implies_exec_seccomp(void) {
+        int current, r;
+
+        current = safe_personality(PERSONALITY_INVALID);
+        if (current < 0) {
+                log_error_errno(current, "Failed to query the personality: %m");
+                return PROBE_ERROR;
+        }
+
+        /* Positive control: without the filter the flag can be set, so that a denial below really is the
+         * filter's. */
+        r = safe_personality(current | READ_IMPLIES_EXEC);
+        if (r < 0) {
+                log_error_errno(r, "personality(READ_IMPLIES_EXEC) failed without the filter: %m");
+                return PROBE_ERROR;
+        }
+        r = safe_personality(current);
+        if (r < 0) {
+                log_error_errno(r, "Failed to restore the personality: %m");
+                return PROBE_ERROR;
+        }
+
+        r = seccomp_restrict_read_implies_exec();
+        if (r < 0) {
+                log_error_errno(r, "Failed to install personality seccomp filter: %m");
+                return PROBE_ERROR;
+        }
+
+        r = safe_personality(current | READ_IMPLIES_EXEC);
+        if (r < 0) {
+                log_info_errno(r, "personality(READ_IMPLIES_EXEC) denied: %m");
+                return probe_denied(r, -EPERM);
+        }
+
+        log_info("personality(READ_IMPLIES_EXEC) succeeded, seccomp NOT enforcing");
+        return PROBE_ALLOWED;
+}
+
 static int usage(void) {
         log_error("Usage: %s attach|check|mmap-exec PATH|anon-mmap-exec|mprotect-exec PATH|"
-                  "mmap-wx PATH|mprotect-cow-exec PATH|mprotect-wx PATH|procmem-cow PATH|poketext",
+                  "mmap-wx PATH|mprotect-cow-exec PATH|mprotect-wx PATH|procmem-cow PATH|poketext|"
+                  "read-implies-exec",
                   program_invocation_short_name);
         /* Not EXIT_FAILURE, which is PROBE_DENIED. */
         return PROBE_ERROR;
@@ -325,6 +369,8 @@ static int dispatch_probe(int argc, char *argv[]) {
                         return do_anon_mmap_exec();
                 if (streq(verb, "poketext"))
                         return do_poketext_seccomp();
+                if (streq(verb, "read-implies-exec"))
+                        return do_read_implies_exec_seccomp();
                 return -ENOENT;
         }
 
@@ -423,11 +469,16 @@ static int do_check(void) {
         if (r < 0)
                 return r;
 
-        /* PID 1 refuses the policy without the ptrace filter, mirror that. */
+        /* PID 1 refuses the policy without its seccomp filters, mirror that. */
         r = seccomp_restrict_ptrace();
         if (r < 0)
                 return log_error_errno(r, "Failed to install the ptrace seccomp filter: %m");
         log_info("ptrace seccomp filter: installed");
+
+        r = seccomp_restrict_read_implies_exec();
+        if (r < 0)
+                return log_error_errno(r, "Failed to install the personality seccomp filter: %m");
+        log_info("personality seccomp filter: installed");
 
         /* Last: linking attaches bprm_check for an instant with an empty trust map, during which every
          * execve() on the system is denied. Keep that window out of the cheap failure paths above. */
