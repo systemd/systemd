@@ -19,6 +19,8 @@
   <refnamediv>
     <refname>systemd-firstboot</refname>
     <refname>systemd-firstboot.service</refname>
+    <refname>systemd-firstboot.socket</refname>
+    <refname>systemd-firstboot@.service</refname>
     <refpurpose>Initialize basic system settings on or before the first boot-up of a system</refpurpose>
   </refnamediv>
 
@@ -29,6 +31,8 @@
     </cmdsynopsis>
 
     <para><filename>systemd-firstboot.service</filename></para>
+    <para><filename>systemd-firstboot.socket</filename></para>
+    <para><filename>systemd-firstboot@.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -93,6 +97,15 @@
     mounted but not booted disk images and in early boot. It is not
     recommended to use <command>systemd-firstboot</command> on the
     running system after it has been set up.</para>
+
+    <para>Applying settings non-interactively, to the host, a root directory or a disk image, is also
+    available via the <filename>/run/systemd/io.systemd.FirstBoot</filename> Varlink service (implemented via
+    the <filename>systemd-firstboot.socket</filename>/<filename>systemd-firstboot@.service</filename> units),
+    for root only. The reply lists which of the settings were actually written, as settings that are already
+    configured are skipped, like on the command line. Disk images are set up without asking for anything,
+    hence encrypted images need to be unlockable without a passphrase. Use <command>varlinkctl introspect
+    /run/systemd/io.systemd.FirstBoot</command> for a description of the interface, which is experimental for
+    now.</para>
   </refsect1>
 
   <refsect1>

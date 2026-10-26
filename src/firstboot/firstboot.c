@@ -32,6 +32,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "kbd-util.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
@@ -57,6 +58,8 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "varlink-io.systemd.FirstBoot.h"
+#include "varlink-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
 
@@ -666,7 +669,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
                         log_info("Copied host's /etc/localtime.");
-                        return 0;
+                        return 1;
                 }
         }
 
@@ -687,7 +690,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
         log_info("/etc/localtime written");
-        return 0;
+        return 1;
 }
 
 static int hostname_is_ok(const char *name, void *userdata) {
@@ -809,7 +812,7 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                                           "Failed to set static hostname, writing /etc/hostname directly: %s", error_id);
                 else {
                         log_info("Static hostname configured via systemd-hostnamed.");
-                        return 0;
+                        return 1;
                 }
         }
 
@@ -821,7 +824,7 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
         log_info("/etc/hostname written.");
-        return 0;
+        return 1;
 }
 
 static int process_machine_id(int rfd) {
@@ -855,7 +858,7 @@ static int process_machine_id(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/machine-id: %m");
 
         log_info("/etc/machine-id written.");
-        return 0;
+        return 1;
 }
 
 static int process_machine_tags(int rfd) {
@@ -921,7 +924,7 @@ static int process_machine_tags(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/machine-info: %m");
 
         log_info("/etc/machine-info written.");
-        return 0;
+        return 1;
 }
 
 static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
@@ -1330,7 +1333,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to write /etc/shadow: %m");
 
         log_info("/etc/shadow written.");
-        return 0;
+        return 1;
 }
 
 static int process_kernel_cmdline(int rfd) {
@@ -1364,7 +1367,7 @@ static int process_kernel_cmdline(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/kernel/cmdline: %m");
 
         log_info("/etc/kernel/cmdline written.");
-        return 0;
+        return 1;
 }
 
 static int reset_one(int rfd, const char *path) {
@@ -1722,11 +1725,400 @@ static void end_marker(void) {
         fflush(stdout);
 }
 
-static int run(int argc, char *argv[]) {
+static int apply(char ***ret_applied, const char **ret_invalid_parameter) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        _cleanup_strv_free_ char **applied = NULL;
         _cleanup_close_ int rfd = -EBADF;
+        int r;
+
+        /* Applies the settings in the arg_* variables to the host, or the root directory or image to
+         * operate on, exactly as parse_argv() left them. On success, optionally returns the names of the
+         * settings that were written, as the Varlink interface calls them. On failure, optionally returns
+         * the name of the Varlink parameter the failure is attributable to, if any. */
+
+        bool offline = arg_root || arg_image;
+
+        r = mac_init();
+        if (r < 0)
+                return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively_full(
+                                arg_image,
+                                arg_image_policy,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_FSCK |
+                                DISSECT_IMAGE_GROWFS |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
+                                arg_headless ? ASK_PASSWORD_HEADLESS : 0,
+                                &mounted_dir,
+                                &rfd,
+                                &loop_device);
+                if (r < 0) {
+                        if (ret_invalid_parameter && IN_SET(r, -ENOENT, -ENOTDIR, -EISDIR))
+                                *ret_invalid_parameter = "image";
+                        return r;
+                }
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        } else {
+                rfd = open(empty_to_root(arg_root), O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0) {
+                        if (ret_invalid_parameter && IN_SET(errno, ENOENT, ENOTDIR))
+                                *ret_invalid_parameter = "root";
+                        return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
+                }
+        }
+
+        r = mac_label_context_new(arg_root, &arg_label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
+
+        LOG_SET_PREFIX(arg_image ?: arg_root);
+        DEFER_VOID_CALL(end_marker);
+        DEFER_VOID_CALL(chrome_hide);
+
+        /* We check these conditions here instead of in parse_argv() so that we can take the root directory
+         * into account. */
+
+        if (arg_keymap && !keymap_is_ok(arg_keymap, FD_TO_PTR(rfd))) {
+                if (ret_invalid_parameter)
+                        *ret_invalid_parameter = "keymap";
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
+        }
+        if (arg_locale && !locale_is_ok(arg_locale, FD_TO_PTR(rfd))) {
+                if (ret_invalid_parameter)
+                        *ret_invalid_parameter = "locale";
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
+        }
+        if (arg_locale_messages && !locale_is_ok(arg_locale_messages, FD_TO_PTR(rfd))) {
+                if (ret_invalid_parameter)
+                        *ret_invalid_parameter = "localeMessages";
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
+        }
+
+        if (arg_root_shell) {
+                r = find_shell(rfd, arg_root_shell);
+                if (r < 0) {
+                        if (ret_invalid_parameter)
+                                *ret_invalid_parameter = "rootShell";
+                        return r;
+                }
+        }
+
+        r = process_reset(rfd);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
+        r = process_locale(rfd, &mute_console_link);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (!offline)
+                        (void) reload_system_manager(&bus);
+                if (arg_locale && strv_extend(&applied, "locale") < 0)
+                        return log_oom();
+                if (arg_locale_messages && strv_extend(&applied, "localeMessages") < 0)
+                        return log_oom();
+        }
+
+        r = process_keymap(rfd, &mute_console_link);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (!offline)
+                        (void) reload_vconsole(&bus);
+                if (strv_extend(&applied, "keymap") < 0)
+                        return log_oom();
+        }
+
+        r = process_timezone(rfd, &mute_console_link);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "timezone") < 0)
+                return log_oom();
+
+        r = process_hostname(rfd, &mute_console_link);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "hostname") < 0)
+                return log_oom();
+
+        r = process_root_account(rfd, &mute_console_link);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (arg_root_password && strv_extend(&applied, arg_root_password_is_hashed ? "rootPasswordHashed" : "rootPassword") < 0)
+                        return log_oom();
+                if (arg_root_shell && strv_extend(&applied, "rootShell") < 0)
+                        return log_oom();
+        }
+
+        r = process_kernel_cmdline(rfd);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "kernelCommandLine") < 0)
+                return log_oom();
+
+        r = process_machine_id(rfd);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "machineId") < 0)
+                return log_oom();
+
+        r = process_machine_tags(rfd);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "machineTags") < 0)
+                return log_oom();
+
+        if (ret_applied)
+                *ret_applied = TAKE_PTR(applied);
+
+        return 0;
+}
+
+typedef struct SettingsParameters {
+        char *locale;
+        char *locale_messages;
+        char *keymap;
+        char *timezone;
+        char *hostname;
+        char *machine_id;
+        char **machine_tags;
+        char *root_password;
+        char *root_password_hashed;
+        char *root_shell;
+        char *kernel_command_line;
+} SettingsParameters;
+
+typedef struct ConfigureParameters {
+        char *root;
+        char *image;
+        char *image_policy;
+        SettingsParameters settings;
+        bool force;
+} ConfigureParameters;
+
+static void configure_parameters_done(ConfigureParameters *p) {
+        assert(p);
+
+        free(p->root);
+        free(p->image);
+        free(p->image_policy);
+
+        free(p->settings.locale);
+        free(p->settings.locale_messages);
+        free(p->settings.keymap);
+        free(p->settings.timezone);
+        free(p->settings.hostname);
+        free(p->settings.machine_id);
+        strv_free(p->settings.machine_tags);
+        erase_and_free(p->settings.root_password);
+        erase_and_free(p->settings.root_password_hashed);
+        free(p->settings.root_shell);
+        free(p->settings.kernel_command_line);
+}
+
+static int dispatch_settings(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "locale",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, locale),               SD_JSON_NULLABLE},
+                { "localeMessages",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, locale_messages),      SD_JSON_NULLABLE},
+                { "keymap",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, keymap),               SD_JSON_NULLABLE},
+                { "timezone",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, timezone),             SD_JSON_NULLABLE},
+                { "hostname",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, hostname),             SD_JSON_NULLABLE},
+                { "machineId",          SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, machine_id),           SD_JSON_NULLABLE},
+                { "machineTags",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(SettingsParameters, machine_tags),         SD_JSON_NULLABLE },
+                { "rootPassword",       SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, root_password),        SD_JSON_NULLABLE},
+                { "rootPasswordHashed", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, root_password_hashed), SD_JSON_NULLABLE},
+                { "rootShell",          SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, root_shell),           SD_JSON_NULLABLE},
+                { "kernelCommandLine",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(SettingsParameters, kernel_command_line),  SD_JSON_NULLABLE},
+                {}
+        };
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        return sd_json_dispatch(variant, dispatch_table, flags, userdata);
+}
+
+static void reset_arguments(void) {
+        /* Resets everything a previous call on the same connection might have set, back to the defaults
+         * parse_argv() would otherwise provide */
+
+        arg_root = mfree(arg_root);
+        arg_image = mfree(arg_image);
+        arg_image_policy = image_policy_free(arg_image_policy);
+        arg_locale = mfree(arg_locale);
+        arg_locale_messages = mfree(arg_locale_messages);
+        arg_keymap = mfree(arg_keymap);
+        arg_timezone = mfree(arg_timezone);
+        arg_hostname = mfree(arg_hostname);
+        arg_machine_id = SD_ID128_NULL;
+        arg_machine_tags = strv_free(arg_machine_tags);
+        arg_root_password = erase_and_free(arg_root_password);
+        arg_root_password_is_hashed = false;
+        arg_root_shell = mfree(arg_root_shell);
+        arg_kernel_cmdline = mfree(arg_kernel_cmdline);
+        arg_force = false;
+        arg_label_context = mac_label_context_free(arg_label_context);
+}
+
+static int vl_method_configure(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "root",        SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(ConfigureParameters, root),         SD_JSON_STRICT|SD_JSON_NULLABLE },
+                { "image",       SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(ConfigureParameters, image),        SD_JSON_STRICT|SD_JSON_NULLABLE },
+                { "imagePolicy", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(ConfigureParameters, image_policy), SD_JSON_NULLABLE },
+                { "settings",    SD_JSON_VARIANT_OBJECT,  dispatch_settings,        offsetof(ConfigureParameters, settings),     SD_JSON_NULLABLE },
+                { "force",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(ConfigureParameters, force),        SD_JSON_NULLABLE },
+                {}
+        };
+
+        _cleanup_(configure_parameters_done) ConfigureParameters p = {};
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* A root directory of "/" means the host, like on the command line */
+        if (empty_or_root(p.root))
+                p.root = mfree(p.root);
+
+        /* The same checks the respective command line options apply */
+
+        if (p.root && p.image)
+                return sd_varlink_error_invalid_parameter_name(link, "image");
+
+        _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
+        if (p.image_policy) {
+                r = image_policy_from_string(p.image_policy, /* graceful= */ false, &policy);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "imagePolicy");
+        }
+
+        if (p.settings.keymap && !keymap_is_valid(p.settings.keymap))
+                return sd_varlink_error_invalid_parameter_name(link, "keymap");
+        if (p.settings.timezone && !timezone_is_valid(p.settings.timezone, LOG_DEBUG))
+                return sd_varlink_error_invalid_parameter_name(link, "timezone");
+
+        if (p.settings.hostname) {
+                if (!hostname_is_valid(p.settings.hostname, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
+                        return sd_varlink_error_invalid_parameter_name(link, "hostname");
+
+                hostname_cleanup(p.settings.hostname);
+        }
+
+        /* Parsed here rather than by the dispatcher, so that the error names the field rather than the
+         * settings object. The all-zero ID means "not specified" internally, hence refuse it. */
+        sd_id128_t machine_id = SD_ID128_NULL;
+        if (p.settings.machine_id) {
+                r = sd_id128_from_string(p.settings.machine_id, &machine_id);
+                if (r < 0 || sd_id128_is_null(machine_id))
+                        return sd_varlink_error_invalid_parameter_name(link, "machineId");
+        }
+
+        /* Validates, deduplicates and sorts the tags, like the command line parser does */
+        _cleanup_strv_free_ char **machine_tags = NULL;
+        if (p.settings.machine_tags) {
+                r = machine_tags_from_strv(p.settings.machine_tags, /* graceful= */ false, &machine_tags);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "machineTags");
+        }
+
+        if (p.settings.root_password && p.settings.root_password_hashed)
+                return sd_varlink_error_invalid_parameter_name(link, "rootPasswordHashed");
+        if (p.settings.root_shell && !valid_shell(p.settings.root_shell))
+                return sd_varlink_error_invalid_parameter_name(link, "rootShell");
+
+        if (!sd_id128_is_null(machine_id) && !p.root && !p.image && !p.force)
+                return sd_varlink_error_invalid_parameter_name(link, "machineId");
+
+        if (!p.settings.locale && !p.settings.locale_messages && !p.settings.keymap && !p.settings.timezone &&
+            !p.settings.hostname && sd_id128_is_null(machine_id) && strv_isempty(machine_tags) &&
+            !p.settings.root_password && !p.settings.root_password_hashed && !p.settings.root_shell &&
+            !p.settings.kernel_command_line)
+                return sd_varlink_error(link, "io.systemd.FirstBoot.NoSettings", NULL);
+
+        reset_arguments();
+
+        arg_root = TAKE_PTR(p.root);
+        arg_image = TAKE_PTR(p.image);
+        arg_image_policy = TAKE_PTR(policy);
+        arg_locale = TAKE_PTR(p.settings.locale);
+        arg_locale_messages = TAKE_PTR(p.settings.locale_messages);
+        arg_keymap = TAKE_PTR(p.settings.keymap);
+        arg_timezone = TAKE_PTR(p.settings.timezone);
+        arg_hostname = TAKE_PTR(p.settings.hostname);
+        arg_machine_id = machine_id;
+        arg_machine_tags = TAKE_PTR(machine_tags);
+        arg_root_password_is_hashed = !!p.settings.root_password_hashed;
+        arg_root_password = TAKE_PTR(p.settings.root_password) ?: TAKE_PTR(p.settings.root_password_hashed);
+        arg_root_shell = TAKE_PTR(p.settings.root_shell);
+        arg_kernel_cmdline = TAKE_PTR(p.settings.kernel_command_line);
+        arg_force = p.force;
+
+        _cleanup_strv_free_ char **applied = NULL;
+        const char *invalid_parameter = NULL;
+        r = apply(&applied, &invalid_parameter);
+
+        /* Don't keep the applied settings, in particular the root password, around for longer than
+         * needed. */
+        reset_arguments();
+
+        if (r < 0) {
+                if (invalid_parameter)
+                        return sd_varlink_error_invalid_parameter_name(link, invalid_parameter);
+
+                return sd_varlink_error_errno(link, r);
+        }
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("applied", applied));
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service. Configuring the host or writing into disk images is a privileged
+         * operation, hence only accept root clients. The input may carry a root password, hence treat it as
+         * sensitive. */
+
+        /* There's no console to ask anything on, in particular no passphrase for encrypted images. */
+        arg_headless = true;
+
+        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_INPUT_SENSITIVE, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_FirstBoot);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.FirstBoot.Configure", vl_method_configure);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
+static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
@@ -1738,6 +2130,17 @@ static int run(int argc, char *argv[]) {
         PASSWORD_NOTE(suggested);
         TPM2_NOTE(suggested);
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                log_setup();
+
+                umask(0022);
+
+                return vl_server();
+        }
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -1746,9 +2149,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        bool offline = arg_root || arg_image;
-
-        if (!offline) {
+        if (!arg_root && !arg_image) {
                 /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
                  * command line option, because we are called to provision the host with basic settings (as
                  * opposed to some other file system tree/image) */
@@ -1768,104 +2169,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        r = mac_init();
-        if (r < 0)
-                return r;
-
-        if (arg_image) {
-                assert(!arg_root);
-
-                r = mount_image_privately_interactively(
-                                arg_image,
-                                arg_image_policy,
-                                DISSECT_IMAGE_GENERIC_ROOT |
-                                DISSECT_IMAGE_REQUIRE_ROOT |
-                                DISSECT_IMAGE_VALIDATE_OS |
-                                DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_FSCK |
-                                DISSECT_IMAGE_GROWFS |
-                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
-                                &mounted_dir,
-                                &rfd,
-                                &loop_device);
-                if (r < 0)
-                        return r;
-
-                arg_root = strdup(mounted_dir);
-                if (!arg_root)
-                        return log_oom();
-        } else {
-                rfd = open(empty_to_root(arg_root), O_DIRECTORY|O_CLOEXEC);
-                if (rfd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
-        }
-
-        r = mac_label_context_new(arg_root, &arg_label_context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
-
-        LOG_SET_PREFIX(arg_image ?: arg_root);
-        DEFER_VOID_CALL(end_marker);
-        DEFER_VOID_CALL(chrome_hide);
-
-        /* We check these conditions here instead of in parse_argv() so that we can take the root directory
-         * into account. */
-
-        if (arg_keymap && !keymap_is_ok(arg_keymap, FD_TO_PTR(rfd)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
-        if (arg_locale && !locale_is_ok(arg_locale, FD_TO_PTR(rfd)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
-        if (arg_locale_messages && !locale_is_ok(arg_locale_messages, FD_TO_PTR(rfd)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
-
-        if (arg_root_shell) {
-                r = find_shell(rfd, arg_root_shell);
-                if (r < 0)
-                        return r;
-        }
-
-        r = process_reset(rfd);
-        if (r < 0)
-                return r;
-
-        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
-        r = process_locale(rfd, &mute_console_link);
-        if (r < 0)
-                return r;
-        if (r > 0 && !offline)
-                (void) reload_system_manager(&bus);
-
-        r = process_keymap(rfd, &mute_console_link);
-        if (r < 0)
-                return r;
-        if (r > 0 && !offline)
-                (void) reload_vconsole(&bus);
-
-        r = process_timezone(rfd, &mute_console_link);
-        if (r < 0)
-                return r;
-
-        r = process_hostname(rfd, &mute_console_link);
-        if (r < 0)
-                return r;
-
-        r = process_root_account(rfd, &mute_console_link);
-        if (r < 0)
-                return r;
-
-        r = process_kernel_cmdline(rfd);
-        if (r < 0)
-                return r;
-
-        r = process_machine_id(rfd);
-        if (r < 0)
-                return r;
-
-        r = process_machine_tags(rfd);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return apply(/* ret_applied= */ NULL, /* ret_invalid_parameter= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -23,6 +23,7 @@
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-io.systemd.FactoryReset.h"
+#include "varlink-io.systemd.FirstBoot.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.InstanceMetadata.h"
@@ -239,6 +240,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Credentials,
                 &vl_interface_io_systemd_CryptEnroll,
                 &vl_interface_io_systemd_FactoryReset,
+                &vl_interface_io_systemd_FirstBoot,
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
                 &vl_interface_io_systemd_InstanceMetadata,
