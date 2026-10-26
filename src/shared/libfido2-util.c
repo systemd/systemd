@@ -386,10 +386,8 @@ static int fido2_is_cred_in_specific_token(
 static void plymouth_start_interaction(const char *text, bool *ret_displayed) {
         assert(ret_displayed);
 
-        if (plymouth_send_msg(text, /* pause_spinner= */ true) < 0)
-                return;
-
-        *ret_displayed = true;
+        if (plymouth_show_message(text) > 0)
+                *ret_displayed = true;
 }
 
 static void plymouth_end_interaction(bool *displayed) {
@@ -398,9 +396,7 @@ static void plymouth_end_interaction(bool *displayed) {
         if (!*displayed)
                 return;
 
-        /* In theory 'm' should hide a message, but it doesn't work (long standing issue).
-         * As a workaround, sending a single NUL byte hides the previous messages. */
-        (void) plymouth_send_msg("", /* pause_spinner= */ false);
+        plymouth_hide_message();
 }
 
 static int fido2_use_hmac_hash_specific_token(
