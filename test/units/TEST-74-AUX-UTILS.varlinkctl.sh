@@ -380,6 +380,23 @@ echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 
+# Test 3: --polkit-action=: root passes without a polkit round trip, an unprivileged user is denied
+# because no policy grants the (nonexistent) action.
+chmod 755 "$(dirname "$SERVE_SOCKET")"
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve --polkit-action=io.systemd.test.serve io.systemd.test.Reverse rev)
+chmod 666 "$SERVE_SOCKET"
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+echo "$result" | grep "dlrow olleh" >/dev/null
+result="$( (! echo "hello world" | run0 -u testuser varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}' 2>&1) )"
+echo "$result" | grep "PermissionDenied" >/dev/null
+(! echo "$result" | grep "dlrow olleh" >/dev/null)
+# --polkit-action= is rejected for verbs other than serve
+(! varlinkctl call --polkit-action=io.systemd.test.serve "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+
 # Verify consistent handling of omitted/null/empty parameters
 check_output_is_empty_object() {
     REPLY="$1"

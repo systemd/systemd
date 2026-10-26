@@ -192,6 +192,12 @@ CHANGES WITH 263 in spe:
           "# [Experimental]" comment line in the interface description, which
           sd_varlink_idl_parse() turns back into the flag.
 
+        Changes in varlinkctl:
+
+        * varlinkctl serve gained a --polkit-action= switch which verifies
+          via polkit that the client is authorized for the specified action
+          before the connection is upgraded and the command is executed.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
