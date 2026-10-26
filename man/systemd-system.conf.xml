@@ -571,6 +571,11 @@
         interpreter or the libraries it needs. Set <varname>SecureBits=exec-restrict-file
         exec-restrict-file-locked</varname> to ask such interpreters to enforce the policy.</para>
 
+        <para>Since v263, no process may set <constant>READ_IMPLIES_EXEC</constant> via <citerefentry
+        project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        as the flag makes <function>brk()</function> extend the heap writable and executable without passing
+        through any of the enforcement hooks.</para>
+
         <para>Note that, without further measures to secure the system, kexec can be used to circumvent
         this.</para>
 
