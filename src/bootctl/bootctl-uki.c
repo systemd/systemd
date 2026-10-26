@@ -48,6 +48,12 @@ static int inspect_kernel_path(
         if (r < 0)
                 return log_error_errno(r, "Failed to inspect '%s': %m", path);
 
+        if (ret_uname && IN_SET(*ret_type, KERNEL_IMAGE_TYPE_PE, KERNEL_IMAGE_TYPE_UNKNOWN)) {
+                r = kernel_find_uname(fd, ret_uname);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to find the version of '%s', ignoring: %m", path);
+        }
+
         return 0;
 }
 
