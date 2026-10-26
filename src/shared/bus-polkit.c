@@ -926,8 +926,11 @@ int varlink_verify_polkit_async_full(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         r = bus_message_new_polkit_auth_call_for_varlink(bus, link, action, details, flags, &pk);
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NEG_PRIVILEGE(r) && !FLAGS_SET(flags, POLKIT_DONT_REPLY))
+                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
                 return r;
+        }
 
         if (!q) {
                 q = new(AsyncPolkitQuery, 1);
@@ -972,8 +975,11 @@ int varlink_verify_polkit_async_full(
 
         return 0;
 #else
-        if (!FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW))
+        if (!FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW)) {
+                if (!FLAGS_SET(flags, POLKIT_DONT_REPLY))
+                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
                 return -EACCES;
+        }
         if (ret_admin)
                 *ret_admin = admin;
         return 1;
