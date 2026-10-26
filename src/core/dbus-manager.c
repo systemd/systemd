@@ -1691,6 +1691,8 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(!m->pending_reload_message_dbus);
         assert(!m->pending_reload_message_vl);
+        assert(!m->pending_reexecute_message_dbus);
+        assert(!m->pending_reexecute_message_vl);
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
@@ -1730,6 +1732,12 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
 
+        assert(!m->pending_reload_message_dbus);
+        assert(!m->pending_reload_message_vl);
+        assert(!m->pending_reexecute_message_dbus);
+        assert(!m->pending_reexecute_message_vl);
+
+        m->pending_reexecute_message_dbus = sd_bus_message_ref(message);
         m->objective = MANAGER_REEXECUTE;
         return 1;
 }

@@ -71,6 +71,21 @@ void bus_send_pending_reload_message(Manager *m) {
         return;
 }
 
+void bus_send_pending_reexecute_error(Manager *m, int error) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reexecute_message_dbus)
+                return;
+
+        r = sd_bus_reply_method_errno(m->pending_reexecute_message_dbus, error, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reexecute error reply, ignoring: %m");
+
+        m->pending_reexecute_message_dbus = sd_bus_message_unref(m->pending_reexecute_message_dbus);
+}
+
 static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
@@ -1096,6 +1111,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+        if (m->pending_reexecute_message_dbus && sd_bus_message_get_bus(m->pending_reexecute_message_dbus) == *bus)
+                m->pending_reexecute_message_dbus = sd_bus_message_unref(m->pending_reexecute_message_dbus);
 
         /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
          * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
