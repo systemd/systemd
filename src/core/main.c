@@ -117,6 +117,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "version.h"
 #include "virt.h"
@@ -2461,8 +2462,14 @@ static int invoke_main_loop(
 
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
-                                *ret_error_message = "Failed to prepare for reexecution";
-                                return r;
+                                if (m->n_reloading > 0)
+                                        m->n_reloading--;
+                                log_warning_errno(r, "Failed to prepare for reexecution, continuing: %m");
+                                bus_send_pending_reexecute_error(m, r);
+                                manager_varlink_send_pending_reexecute_error(m, r);
+                                m->objective = MANAGER_OK;
+                                m->send_reloading_done = true;
+                                continue;
                         }
 
                         log_notice("Reexecuting.");
