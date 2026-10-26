@@ -231,6 +231,7 @@ shared_sources = files(
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.CryptEnroll.c',
         'varlink-io.systemd.FactoryReset.c',
+        'varlink-io.systemd.FirstBoot.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
         'varlink-io.systemd.InstanceMetadata.c',
