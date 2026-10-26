@@ -635,14 +635,17 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata) {
         MHDDaemonWrapper *d = ASSERT_PTR(userdata);
+        RemoteServer *s = ASSERT_PTR(journal_remote_server_global);
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
         r = sym_MHD_run(d->daemon);
-        if (r == MHD_NO)
-                // FIXME: unregister daemon
+        if (r == MHD_NO) {
+                s->active--;
+                hashmap_remove(s->daemons, &d->fd);
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
+        }
         if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
                 timeout = ULLONG_MAX;
 
