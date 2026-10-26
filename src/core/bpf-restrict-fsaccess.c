@@ -231,6 +231,27 @@ static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
         return 0;
 }
 
+/* Like the ptrace filter this one survives execve(). */
+static int restrict_fsaccess_install_personality_filter(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->restrict_fsaccess_personality_filter)
+                return 0;
+
+        r = seccomp_restrict_read_implies_exec();
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "bpf-restrict-fsaccess: seccomp support is not available, cannot refuse "
+                                       "READ_IMPLIES_EXEC.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the personality() seccomp "
+                                       "filter: %m");
+
+        m->restrict_fsaccess_personality_filter = true;
+        return 0;
+}
+
 static int get_root_s_dev(uint32_t *ret) {
         struct stat st;
 
@@ -599,10 +620,11 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                         }
                 }
 
-                /* A v261 PID 1 neither checked this nor installed the filter. Enforcement is active already,
-                 * so only complain. */
+                /* A v261 PID 1 neither checked this nor installed the filters, and an older PID 1 may lack
+                 * the personality filter. Enforcement is active already, so only complain. */
                 (void) restrict_fsaccess_check_proc_mem();
                 (void) restrict_fsaccess_install_ptrace_filter(m);
+                (void) restrict_fsaccess_install_personality_filter(m);
 
                 return 0;
         }
@@ -612,6 +634,10 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                 return r;
 
         r = restrict_fsaccess_install_ptrace_filter(m);
+        if (r < 0)
+                return r;
+
+        r = restrict_fsaccess_install_personality_filter(m);
         if (r < 0)
                 return r;
 
@@ -721,8 +747,13 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        /* Process state, not policy state: the filter outlives the setting being turned off. */
+        /* Process state, not policy state: the filters outlive the setting being turned off. */
         r = serialize_bool_elide(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "restrict-fsaccess-personality-filter",
+                                 m->restrict_fsaccess_personality_filter);
         if (r < 0)
                 return r;
 
