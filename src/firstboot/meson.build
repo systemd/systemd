@@ -6,4 +6,9 @@ executables += [
                 'conditions' : ['ENABLE_FIRSTBOOT'],
                 'sources' : files('firstboot.c'),
         },
+        generator_template + {
+                'name' : 'systemd-firstboot-generator',
+                'conditions' : ['ENABLE_FIRSTBOOT'],
+                'sources' : files('firstboot-generator.c'),
+        },
 ]
