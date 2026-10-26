@@ -640,6 +640,119 @@ EOF
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
+testcase_nspawn_settings_credentials() {
+    local root container
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nspawn-settings-credentials.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    echo "foo bar" >/tmp/cred.path
+    rm -f /tmp/cred.missing
+
+    # Settings files in /run/systemd/nspawn/ are trusted, hence may load credentials from the host
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+SetCredential=cred.reset:nope
+SetCredential=
+LoadCredential=cred.load-reset:/tmp/cred.path
+LoadCredential=
+SetCredential=cred.set:hello world
+SetCredential=cred.escaped:a\\nb
+SetCredential=cred.replaced:old
+SetCredential=cred.replaced:new
+LoadCredential=cred.path:/tmp/cred.missing
+LoadCredential=cred.path:/tmp/cred.path
+LoadCredential=cred.load-wins:/tmp/cred.path
+SetCredential=cred.load-wins:fallback
+SetCredential=cred.fallback:fallback
+LoadCredential=cred.fallback:/tmp/cred.missing
+LoadCredential=cred.inherited:svc.cred
+LoadCredential=cred.inherited-missing:svc.missing
+LoadCredential=cred.inherited-fallback:svc.missing
+SetCredential=cred.inherited-fallback:fallback
+SetCredential=cred.no-separator
+LoadCredential=cred.no-separator
+SetCredential=cred/invalid:value
+LoadCredential=cred/invalid:/tmp/cred.path
+LoadCredential=cred.relative:tmp/cred.path
+LoadCredential=cred.unnormalized:/tmp/../tmp/cred.path
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    cat >"$root/creds.sh" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+[[ "$CREDENTIALS_DIRECTORY" == /run/host/credentials ]]
+[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]
+[[ "$(</run/host/credentials/cred.escaped)" == $'a\nb' ]]
+[[ "$(</run/host/credentials/cred.replaced)" == new ]]
+[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.load-wins)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.fallback)" == fallback ]]
+[[ ! -e /run/host/credentials/cred.reset ]]
+[[ ! -e /run/host/credentials/cred.load-reset ]]
+# Invalid assignments are ignored
+[[ ! -e /run/host/credentials/cred.no-separator ]]
+[[ ! -e /run/host/credentials/cred.relative ]]
+[[ ! -e /run/host/credentials/cred.unnormalized ]]
+[[ ! -e /run/host/credentials/cred ]]
+if [[ -n "${EXPECTED_INHERITED:-}" ]]; then
+    [[ "$(</run/host/credentials/cred.inherited)" == "$EXPECTED_INHERITED" ]]
+else
+    [[ ! -e /run/host/credentials/cred.inherited ]]
+fi
+EOF
+    # A credential to be inherited from systemd-nspawn is skipped if it wasn't passed to it...
+    systemd-nspawn --register=no --directory="$root" bash /creds.sh
+
+    # ... and passed on if it was
+    systemd-run --wait \
+                -p SetCredential=svc.cred:from-service \
+                systemd-nspawn --register=no \
+                               --directory="$root" \
+                               --setenv=EXPECTED_INHERITED=from-service \
+                               bash /creds.sh
+
+    # Credentials on the command line take precedence over all credential settings
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec 'test -e /run/host/credentials/cred.cmdline; test ! -e /run/host/credentials/cred.set'
+
+    # ... unless --settings=override is used, in which case the settings replace the command line ones
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   --set-credential=cred.set:cmdline \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec '[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]; test ! -e /run/host/credentials/cred.cmdline'
+
+    # A settings file next to the image isn't trusted, so it may not load credentials from the host, and
+    # SetCredential= is used instead. Bind= is ignored in untrusted files too, hence pass the coverage
+    # directory on the command line.
+    mv "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   bash -xec '[[ "$(</run/host/credentials/cred.load-wins)" == fallback ]]; test ! -e /run/host/credentials/cred.path'
+
+    # A missing credential file is fatal if there is no fallback
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+LoadCredential=cred.missing:/tmp/cred.missing
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    (! systemd-nspawn --register=no --directory="$root" true)
+
+    rm -fr "$root" "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn" /tmp/cred.path
+}
+
 bind_user_cleanup() {
     userdel --force --remove nspawn-bind-user-1
     userdel --force --remove nspawn-bind-user-2
