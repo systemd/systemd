@@ -365,7 +365,7 @@ int kernel_decompress(int fd, int *ret_fd) {
         if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_debug_errno(errno, "Failed to seek kernel fd: %m");
 
-        int decompressed_fd = decompress_to_memfd(c, flags, fd, /* max_bytes= */ UINT64_MAX);
+        int decompressed_fd = decompress_to_memfd(c, flags, fd, /* max_bytes= */ U64_GB);
         if (decompressed_fd < 0)
                 return decompressed_fd;
 
