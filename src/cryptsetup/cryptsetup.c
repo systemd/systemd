@@ -9,6 +9,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
@@ -37,6 +38,7 @@
 #include "path-util.h"
 #include "pcrextend-util.h"
 #include "pkcs11-util.h"
+#include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -1326,6 +1328,35 @@ static char *make_bindname(const char *volume, TokenType token_type) {
         return bindname;
 }
 
+_printf_(1, 2)
+static bool ask_plug_in(const char *format, ...) {
+        _cleanup_free_ char *text = NULL;
+        va_list ap;
+        int r;
+
+        /* Asks the user to plug in a security token. As this usually happens at boot, where nobody looks at
+         * the log, show the request via plymouth or on the console too. Returns true if plymouth shows it,
+         * see hide_plug_in() below. */
+
+        va_start(ap, format);
+        r = vasprintf(&text, format, ap);
+        va_end(ap);
+        if (r < 0) {
+                log_oom_debug();
+                return false;
+        }
+
+        log_notice("%s", text);
+        return plymouth_show_message(text) > 0;
+}
+
+static void hide_plug_in(bool *shown) {
+        assert(shown);
+
+        if (*shown)
+                plymouth_hide_message();
+}
+
 static int make_security_device_monitor(
                 sd_event **ret_event,
                 sd_device_monitor **ret_monitor) {
@@ -1583,6 +1614,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         size_t decrypted_key_size;
         _cleanup_free_ char *friendly = NULL;
+        _cleanup_(hide_plug_in) bool plug_in_shown = false;
         int keyslot = arg_key_slot, r;
         bool use_libcryptsetup_plugin = use_token_plugins();
 
@@ -1650,7 +1682,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                         if (r < 0)
                                 return r;
 
-                        log_notice("Security token not present for unlocking volume %s, please plug it in.", friendly);
+                        plug_in_shown = ask_plug_in("Security token not present for unlocking volume %s, please plug it in.", friendly);
 
                         /* Let's immediately rescan in case the token appeared in the time we needed
                          * to create and configure the monitor */
@@ -1746,6 +1778,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_free_ char *friendly = NULL, *discovered_uri = NULL;
+        _cleanup_(hide_plug_in) bool plug_in_shown = false;
         size_t decrypted_key_size = 0, discovered_key_size = 0;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1821,8 +1854,8 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                         if (r < 0)
                                 return r;
 
-                        log_notice("Security token%s%s not present for unlocking volume %s, please plug it in.",
-                                   uri ? " " : "", strempty(uri), friendly);
+                        plug_in_shown = ask_plug_in("Security token%s%s not present for unlocking volume %s, please plug it in.",
+                                                    uri ? " " : "", strempty(uri), friendly);
 
                         /* Let's immediately rescan in case the token appeared in the time we needed
                          * to create and configure the monitor */
@@ -1981,6 +2014,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL, *fido2_event = NULL;
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_free_ char *friendly = NULL;
+        _cleanup_(hide_plug_in) bool plug_in_shown = false;
         int keyslot = arg_key_slot, r;
 
         assert(cd);
@@ -2211,7 +2245,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 if (r < 0)
                                         return r;
 
-                                log_notice("FIDO2 token not present for unlocking %s, please plug it in.", friendly);
+                                plug_in_shown = ask_plug_in("FIDO2 token not present for unlocking %s, please plug it in.", friendly);
 
                                 /* Let's immediately rescan in case the token appeared in the time we needed
                                  * to create and configure the monitor */
@@ -2861,6 +2895,10 @@ static int run(int argc, char *argv[]) {
         TPM2_NOTE(suggested);
 
         log_setup();
+
+        /* When run as a service, our log ends up in the journal only. Make sure requests to plug in or
+         * touch a security token are shown on the console if plymouth doesn't show them. */
+        plymouth_set_console_fallback(invoked_by_systemd());
 
         umask(0022);
 
