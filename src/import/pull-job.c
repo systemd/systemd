@@ -514,9 +514,12 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
 
                 if (http_status_etag_exists(status)) {
-                        log_info("Image already downloaded. Skipping download.");
-                        j->etag_exists = true;
-                        return pull_job_finish(j, 0);
+                        /* pull_job_header_callback() already finished the job if this is for an ETag we asked
+                         * about via If-None-Match, hence we didn't ask for this one. Don't let the server make
+                         * us use a cached download we never meant to reuse. */
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                                  "HTTP request to %s returned code %li for an ETag we did not ask for.",
+                                                                  j->url, status));
                 } else if (http_status_need_authentication(status)) {
                         log_info("Access to image requires authentication.");
                         return pull_job_finish(j, -ENOKEY);
