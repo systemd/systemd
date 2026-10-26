@@ -1062,7 +1062,7 @@ static int dissect_image_from_unpartitioned(
         m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
         m->has_verity_sig = false; /* signature not embedded, must be specified */
-        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash);
+        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash_sig);
 
         if (uuid)
                 m->image_uuid = *uuid;
@@ -3549,13 +3549,11 @@ static int do_crypt_activate_verity(
                                 return r < 0 ? r : -EDESTADDRREQ;
 
                         log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
-                } else
+                        measure_signature = false;
+                } else {
                         log_debug("Verity activation via userspace signature logic worked, activating by root hash.");
-
-                /* Otherwise let's see what signature-less activation results in. */
-
-                measure_signature = true;
-
+                        measure_signature = true;
+                }
         } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
                                        "No-signature activation of Verity volume not allowed by policy, refusing.");
@@ -5487,7 +5485,6 @@ int mountfsd_mount_image_fd(
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_close_ int verity_data_fd = -EBADF;
         _cleanup_free_ char *ps = NULL;
-        const char *error_id;
         int r;
 
         assert(image_fd >= 0);
@@ -5567,7 +5564,8 @@ int mountfsd_mount_image_fd(
         }
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo_and_log(
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.MountFileSystem.MountImage",
                         &reply,
@@ -5585,7 +5583,23 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash_sig), "verityRootHashSignature", JSON_BUILD_IOVEC_BASE64(&verity->root_hash_sig)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
+        if (error_id) {
+                /* Return the same errors as dissected_image_decrypt(), so that callers can report them the
+                 * same way, whether they mount the image themselves or through mountfsd. */
+                if (streq(error_id, "io.systemd.MountFileSystem.KeyNotFound"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                               "mountfsd refused the image, because no trusted key validates its signature.");
+                if (streq(error_id, "io.systemd.MountFileSystem.DeniedByImagePolicy"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                               "mountfsd refused the image, because the image policy doesn't permit it.");
+
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
+
+                return log_error_errno(r, "Failed to issue MountImage() varlink call: %s", error_id);
+        }
 
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -5741,12 +5755,10 @@ int mountfsd_mount_directory_fd(
         }
 
         sd_json_variant *reply = NULL;
-        const char *error_id = NULL;
         r = varlink_callbo_and_log(
                         vl,
                         "io.systemd.MountFileSystem.MountDirectory",
                         &reply,
-                        &error_id,
                         SD_JSON_BUILD_PAIR_UNSIGNED("directoryFileDescriptor", 0),
                         SD_JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(1)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),
