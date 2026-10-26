@@ -356,6 +356,11 @@ typedef struct Manager {
         sd_bus_message *pending_reload_message_dbus;
         sd_varlink *pending_reload_message_vl;
 
+        /* This is used during reexecution: we keep the request around so preparation failures before
+         * execve() can be reported. Successful reexecution is still reported by disconnecting. */
+        sd_bus_message *pending_reexecute_message_dbus;
+        sd_varlink *pending_reexecute_message_vl;
+
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
         uint32_t current_job_id;
