@@ -40,10 +40,18 @@
 #define CHASE_MUST_BE_ANY \
         (CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)
 
-static int chase_statx(int fd, struct statx *ret) {
+static int chase_statx(int fd, ChaseFlags chase_flags, struct statx *ret) {
+        int statx_flags = 0;
+
+        /* Querying fresh attributes of a mount point root on a network file system (e.g. NFS) makes
+         * the kernel revalidate them with the server, which blocks if the server is unreachable.
+         * Hence, don't force a sync with the server if the caller explicitly asked us not to. */
+        if (FLAGS_SET(chase_flags, CHASE_NO_SYNC))
+                statx_flags |= AT_STATX_DONT_SYNC;
+
         return xstatx_full(fd,
                         /* path= */ NULL,
-                        /* statx_flags= */ 0,
+                        statx_flags,
                         XSTATX_MNT_ID_BEST,
                         STATX_TYPE|STATX_MODE|STATX_UID|STATX_INO,
                         /* optional_mask= */ 0,
@@ -446,7 +454,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 return fd;
 
         struct statx stx;
-        r = chase_statx(fd, &stx);
+        r = chase_statx(fd, flags, &stx);
         if (r < 0)
                 return r;
 
@@ -463,7 +471,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 if (root_fd == dir_fd)
                         root_stx = stx;
                 else {
-                        r = chase_statx(root_fd, &root_stx);
+                        r = chase_statx(root_fd, flags, &root_stx);
                         if (r < 0)
                                 return r;
                 }
@@ -532,7 +540,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (fd_parent < 0)
                                 return -errno;
 
-                        r = chase_statx(fd_parent, &stx_parent);
+                        r = chase_statx(fd_parent, flags, &stx_parent);
                         if (r < 0)
                                 return r;
 
@@ -603,7 +611,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 if (fd_grandparent < 0)
                                         return -errno;
 
-                                r = chase_statx(fd_grandparent, &stx_grandparent);
+                                r = chase_statx(fd_grandparent, flags, &stx_grandparent);
                                 if (r < 0)
                                         return r;
 
@@ -663,7 +671,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 return r;
                 }
 
-                r = chase_statx(child, &stx_child);
+                r = chase_statx(child, flags, &stx_child);
                 if (r < 0)
                         return r;
 
@@ -701,7 +709,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 if (fd < 0)
                                         return fd;
 
-                                r = chase_statx(fd, &stx);
+                                r = chase_statx(fd, flags, &stx);
                                 if (r < 0)
                                         return r;
 
