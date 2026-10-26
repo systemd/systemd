@@ -496,7 +496,10 @@
         <option>--root-hash=</option> specifies a hex-encoded top-level Verity hash to use for setting up the
         Verity integrity protection. Option <option>--root-hash-sig=</option> specifies the path to a file
         containing a PKCS#7 signature for the hash. This signature is passed to the kernel during activation,
-        which will match it against signature keys available in the kernel keyring.  Option
+        which will match it against signature keys available in the kernel keyring. If the kernel cannot
+        validate it, the signature is checked against the certificates in <filename>/etc/verity.d/</filename>.
+        If neither validates the signature, the image is only used if the image policy allows
+        <option>verity</option> for the partition, see <option>--image-policy=</option>. Option
         <option>--verity-data=</option> specifies a path to a file with the Verity data to use for the OS
         image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
         in the image, using the Verity mechanisms in the <ulink
