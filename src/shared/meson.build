@@ -177,6 +177,7 @@ shared_sources = files(
         'plymouth-util.c',
         'polkit-agent.c',
         'portable-util.c',
+        'predict-measure.c',
         'pretty-print.c',
         'printk-util.c',
         'prompt-util.c',
