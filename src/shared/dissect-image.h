@@ -83,6 +83,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
         DISSECT_IMAGE_TPM2_UNLOCK               = 1 << 30, /* If no passphrase is supplied, try unlocking LUKS partitions via a TPM2 token enrolled in the LUKS2 header */
+        DISSECT_IMAGE_VERITY_SHARE_SAME_FILE     = 1U << 31, /* Reused Verity devices must have the same backing image file. */
 } DissectImageFlags;
 
 typedef enum PartitionTableType {

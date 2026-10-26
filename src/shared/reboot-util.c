@@ -27,7 +27,6 @@
 #include "kernel-image.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "memory-util.h"
 #include "pe-binary.h"
 #include "proc-cmdline.h"
 #include "reboot-util.h"

@@ -3288,11 +3288,12 @@ static int decrypt_partition(
 }
 
 static int verity_can_reuse(
+                const LoopDevice *loop,
                 const VeritySettings *verity,
                 const char *name,
+                DissectImageFlags flags,
                 struct crypt_device **ret_cd) {
 
-        /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
         int r;
@@ -3310,6 +3311,34 @@ static int verity_can_reuse(
         r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
+
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE_SAME_FILE)) {
+                _cleanup_(loop_device_unrefp) LoopDevice *existing_loop = NULL;
+
+                /* The root hash does not prove that the caller can read the existing device's backing file. */
+                if (!loop || !crypt_params.data_device)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot determine backing file of verity device.");
+
+                r = loop_device_open_from_path(crypt_params.data_device, O_RDONLY, LOCK_UN, &existing_loop);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open existing verity data device: %m");
+
+                if (loop->devno != existing_loop->devno) {
+                        if (LOOP_DEVICE_IS_FOREIGN(loop)) {
+                                dev_t whole_disk;
+
+                                r = block_get_whole_disk(existing_loop->devno, &whole_disk);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to get whole disk of existing verity data device: %m");
+
+                                if (whole_disk != loop->devno)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Verity device already exists but backing block devices are different.");
+                        } else if (LOOP_DEVICE_IS_FOREIGN(existing_loop) ||
+                                   loop->backing_devno != existing_loop->backing_devno ||
+                                   loop->backing_inode != existing_loop->backing_inode)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Verity device already exists but backing files are different.");
+                }
+        }
 
         _cleanup_(iovec_done) struct iovec root_hash_existing = {
                 .iov_base = malloc0(verity->root_hash.iov_len),
@@ -3700,7 +3729,7 @@ static int verity_partition(
                 if (!restore_deferred_remove)
                         return log_oom_debug();
 
-                r = verity_can_reuse(verity, name, &existing_cd);
+                r = verity_can_reuse(di->loop, verity, name, flags, &existing_cd);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
