@@ -17,6 +17,25 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
+# Unprivileged users can inspect images and extension images by name, but not extension images specified by
+# path, because inspecting loop-mounts the extension images as root.
+mkdir -p /run/portables
+cp /usr/share/minimal_0.raw /run/portables/minimal_8.raw
+cp /tmp/app0.raw /run/portables/app0.raw
+runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                           GetImageMetadata sas minimal_8 0 >/dev/null
+runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                           GetImageMetadataWithExtensions sasast minimal_8 1 app0 0 0 >/dev/null
+# portabled fails with "Permission denied" if polkit denies the call. It fails with a message that starts with
+# "Access denied" if polkit requires interactive authentication.
+(! runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 org.freedesktop.portable1.Manager \
+                              GetImageMetadataWithExtensions sasast minimal_8 1 /tmp/app0.raw 0 0 2>&1 >/dev/null) |
+    grep -E "Permission denied|Access denied" >/dev/null
+(! runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1/image/minimal_5f8 org.freedesktop.portable1.Image \
+                              GetMetadataWithExtensions asast 1 /tmp/app0.raw 0 0 2>&1 >/dev/null) |
+    grep -E "Permission denied|Access denied" >/dev/null
+rm /run/portables/minimal_8.raw /run/portables/app0.raw
+
 # Attaching with a profile that doesn't exist must fail and must not leave anything behind
 (! portablectl attach --runtime --profile=nonexistent /usr/share/minimal_0.raw minimal-app0)
 test ! -e /run/systemd/system.attached/minimal-app0.service
