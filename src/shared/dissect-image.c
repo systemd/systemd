@@ -3986,12 +3986,13 @@ fail:
 #endif
 }
 
-int dissected_image_decrypt_interactively(
+int dissected_image_decrypt_interactively_full(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
                 const ImagePolicy *image_policy,
-                DissectImageFlags flags) {
+                DissectImageFlags flags,
+                AskPasswordFlags askpw_flags) {
 
         _cleanup_strv_free_erase_ char **z = NULL;
         int n = 3, r;
@@ -4028,13 +4029,25 @@ int dissected_image_decrypt_interactively(
                         .hup_fd = -EBADF,
                 };
 
-                r = ask_password_auto(&req, /* flags= */ 0, &z);
+                r = ask_password_auto(&req, askpw_flags, &z);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "Image is encrypted, but no passphrase was supplied and running headless.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 
                 assert(!strv_isempty(z));
                 passphrase = z[0];
         }
+}
+
+int dissected_image_decrypt_interactively(
+                DissectedImage *m,
+                const char *passphrase,
+                const VeritySettings *verity,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags) {
+
+        return dissected_image_decrypt_interactively_full(m, passphrase, verity, image_policy, flags, /* askpw_flags= */ 0);
 }
 
 static int decrypted_image_relinquish(DecryptedImage *d) {
@@ -5098,10 +5111,11 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
         return options->options[designator];
 }
 
-int mount_image_privately_interactively(
+int mount_image_privately_interactively_full(
                 const char *image,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
+                AskPasswordFlags askpw_flags,
                 char **ret_directory,
                 int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
@@ -5156,7 +5170,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
+        r = dissected_image_decrypt_interactively_full(dissected_image, NULL, &verity, image_policy, flags, askpw_flags);
         if (r < 0)
                 return r;
 
@@ -5207,6 +5221,24 @@ int mount_image_privately_interactively(
 
         *ret_loop_device = TAKE_PTR(d);
         return 0;
+}
+
+int mount_image_privately_interactively(
+                const char *image,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags,
+                char **ret_directory,
+                int *ret_dir_fd,
+                LoopDevice **ret_loop_device) {
+
+        return mount_image_privately_interactively_full(
+                        image,
+                        image_policy,
+                        flags,
+                        /* askpw_flags= */ 0,
+                        ret_directory,
+                        ret_dir_fd,
+                        ret_loop_device);
 }
 
 static bool mount_options_relax_extension_release_checks(const MountOptions *options) {
