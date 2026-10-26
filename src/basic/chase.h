@@ -32,6 +32,11 @@ typedef enum ChaseFlags {
                                              * and the root included, has permission bits beyond 0775, or
                                              * the final regular file any bit beyond 0664, suid/sgid/sticky
                                              * included. Symlinks are never checked. */
+        CHASE_NO_SYNC            = 1 << 17, /* Don't synchronize attributes with the server on network file systems,
+                                             * so that we don't block if it is unreachable. Attributes may hence be
+                                             * stale, which also applies to the st_uid and st_mode that CHASE_SAFE
+                                             * and CHASE_MAX_MODE check. Doesn't apply to the final fstat*() of
+                                             * chase_and_stat*(). Keep this in mind */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);

@@ -918,7 +918,9 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
 
         // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
         // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        r = chase(path, prefix_sysroot ? "/sysroot" : NULL,
+                  CHASE_PREFIX_ROOT | CHASE_NONEXISTENT | CHASE_NO_SYNC,
+                  &p, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
