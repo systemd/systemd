@@ -1722,51 +1722,17 @@ static void end_marker(void) {
         fflush(stdout);
 }
 
-static int run(int argc, char *argv[]) {
+static int apply(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int rfd = -EBADF;
         int r;
 
-        LIBBLKID_NOTE(recommended);
-        LIBCRYPT_NOTE(recommended);
-        LIBCRYPTO_NOTE(suggested);
-        LIBCRYPTSETUP_NOTE(suggested);
-        LIBMOUNT_NOTE(recommended);
-        LIBSELINUX_NOTE(recommended);
-        PASSWORD_NOTE(suggested);
-        TPM2_NOTE(suggested);
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        log_setup();
-
-        umask(0022);
+        /* Applies the settings in the arg_* variables to the host, or the root directory or image to
+         * operate on, exactly as parse_argv() left them. */
 
         bool offline = arg_root || arg_image;
-
-        if (!offline) {
-                /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
-                 * command line option, because we are called to provision the host with basic settings (as
-                 * opposed to some other file system tree/image) */
-
-                FirstBootMode mode;
-                _cleanup_free_ char *bad = NULL;
-                r = firstboot_mode_from_cmdline(&mode, &bad);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument%s: %m",
-                                               bad ? strjoina(" (invalid value '", bad, "')") : "");
-                if (mode == FIRSTBOOT_NO) {
-                        log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
-                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_keymap_auto = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
-                } else if (mode == FIRSTBOOT_HEADLESS) {
-                        log_debug("Found systemd.firstboot=headless kernel command line argument, skipping interactive prompts but keeping non-interactive auto-configuration.");
-                        arg_headless = true;
-                }
-        }
 
         r = mac_init();
         if (r < 0)
@@ -1866,6 +1832,50 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         return 0;
+}
+
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
+        PASSWORD_NOTE(suggested);
+        TPM2_NOTE(suggested);
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        log_setup();
+
+        umask(0022);
+
+        if (!arg_root && !arg_image) {
+                /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
+                 * command line option, because we are called to provision the host with basic settings (as
+                 * opposed to some other file system tree/image) */
+
+                FirstBootMode mode;
+                _cleanup_free_ char *bad = NULL;
+                r = firstboot_mode_from_cmdline(&mode, &bad);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument%s: %m",
+                                               bad ? strjoina(" (invalid value '", bad, "')") : "");
+                if (mode == FIRSTBOOT_NO) {
+                        log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_keymap_auto = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
+                } else if (mode == FIRSTBOOT_HEADLESS) {
+                        log_debug("Found systemd.firstboot=headless kernel command line argument, skipping interactive prompts but keeping non-interactive auto-configuration.");
+                        arg_headless = true;
+                }
+        }
+
+        return apply();
 }
 
 DEFINE_MAIN_FUNCTION(run);
