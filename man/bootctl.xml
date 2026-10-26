@@ -130,8 +130,8 @@
         <para>The title, version, commit number and initial try counter of the generated entries
         may be overridden with <option>--entry-title=</option>, <option>--entry-version=</option>,
         <option>--entry-commit=</option> and <option>--tries-left=</option>. Additional sidecar resources
-        (system extension images, configuration extension images, credential files) to pass to the UKI at
-        boot may be specified with <option>--extra=</option>.</para>
+        (system extension images, configuration extension images, credential files, addons) to pass to the
+        UKI at boot may be specified with <option>--extra=</option>.</para>
 
         <para>If the ESP/XBOOTLDR do not have enough free space for the new boot loader entry and its
         referenced resources the oldest existing boot loader entry matching the selected entry token is
@@ -162,7 +162,8 @@
         <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>); the
         UKI from the highest-priority directory that has one is used. Sidecar resources are picked up from
         the <filename>extras.d/</filename> subdirectory of each, matching the suffixes
-        <literal>.sysext.raw</literal>, <literal>.confext.raw</literal> and <literal>.cred</literal>, each
+        <literal>.sysext.raw</literal>, <literal>.confext.raw</literal>, <literal>.cred</literal> and
+        <literal>.addon.efi</literal>, each
         either as a plain file or as a versioned <literal>.v/</literal> directory; resources are combined
         across all directories, with the same resource in a higher-priority directory taking precedence. Any
         files specified with <option>--extra=</option> are linked in addition to the discovered ones.</para>
@@ -685,9 +686,12 @@
         <listitem><para>When used with <command>link</command>, registers an additional sidecar resource
         file that shall be passed to the UKI at boot. This may be a system extension image
         (<filename>*.sysext.raw</filename>), configuration extension image
-        (<filename>*.confext.raw</filename>), or credential file
-        (<filename>*.cred</filename>). The file is copied into the ESP/XBOOTLDR alongside the UKI and the
-        boot loader will load and pass it to the kernel via initrd. This option may be used multiple times
+        (<filename>*.confext.raw</filename>), credential file
+        (<filename>*.cred</filename>), or PE addon (<filename>*.addon.efi</filename>). The file is copied into
+        the ESP/XBOOTLDR alongside the UKI and the boot loader will load and pass it to the kernel via initrd,
+        except for addons, which are loaded by
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        only apply to the generated entries. This option may be used multiple times
         to register more than one extra resource. If passed an empty argument, all previously specified
         extras are cleared.</para>
 
