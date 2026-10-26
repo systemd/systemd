@@ -217,6 +217,17 @@
           upper limit. The number of hotplug slots can optionally be specified after a second colon
           and defaults to 1.</para>
 
+          <para>Unless confidential computing is enabled, a virtio-balloon device is attached to the
+          virtual machine. Free page reporting is enabled on it, so memory the guest frees is returned
+          to the host. The guest's memory may be shrunk and grown again at runtime, up to
+          <replaceable>BYTES</replaceable>, via the <function>SetMemory()</function> method of the
+          <literal>io.systemd.MachineInstance</literal> Varlink interface on the machine's control
+          socket. <function>Describe()</function> reports the requested and the current size. Resizing
+          is asynchronous, the guest may follow only partially, and it is permitted to deflate the
+          balloon on its own when it runs out of memory. The requested size persists across guest
+          reboots: a freshly booted guest inflates its balloon to it again.
+          <xi:include href="version-info.xml" xpointer="v263"/></para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
@@ -651,7 +662,8 @@
           argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
           a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
           second path is the destination in the virtual machine. If the source path is not absolute, it is resolved
-          relative to the current working directory. The <option>--bind-ro=</option> option creates read-only bind mounts.
+          relative to the current working directory. The destination path must be absolute and must not contain
+          <literal>..</literal> components. The <option>--bind-ro=</option> option creates read-only bind mounts.
           Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed colons in either path.
           This option may be specified multiple times for creating multiple independent bind mount points.</para>
 
@@ -870,13 +882,27 @@
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
-          <literal>gui</literal>, <literal>headless</literal>. Defaults to <literal>interactive</literal>.
+          <literal>gui</literal>, <literal>headless</literal>, <literal>broker</literal> or
+          <literal>broker-log</literal>. Defaults to <literal>interactive</literal>.
           <literal>interactive</literal> provides an interactive terminal interface to the VM.
           <literal>read-only</literal> is similar, but is strictly read-only, i.e. does not accept any input
           from the user. <literal>native</literal> also provides a TTY-based interface, but uses qemu native
           implementation (which means the qemu monitor is available). <literal>gui</literal> shows the qemu
           graphical UI. <literal>headless</literal> runs the VM without any console, which is useful for
           automated or scripted usage.</para>
+
+          <para>With <literal>broker</literal> and <literal>broker-log</literal> the pseudo TTY for the VM
+          console is not allocated locally, but acquired from
+          <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          In both cases the broker retains the frontend (i.e. the "master") side of the pseudo TTY, while the
+          VM console is connected to the acquired backend (i.e. the "slave") side; the local terminal is
+          forwarded to the broker, providing an interactive interface equivalent to
+          <literal>interactive</literal>. With <literal>broker</literal> the frontend output is discarded
+          unless it is monitored, with <literal>broker-log</literal> it is additionally written to the logs by
+          <filename>systemd-ptybrokerd.service</filename>. The name the broker registers the pseudo TTY under
+          is shown at startup; it may be used to monitor or hang up the console via
+          <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 262.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -889,8 +915,9 @@
           <literal>virtio</literal> uses a virtio-serial device, which appears as
           <filename>/dev/hvc0</filename> in the VM. <literal>serial</literal> uses a regular serial port,
           which appears as <filename>/dev/ttyS0</filename> (or <filename>/dev/ttyAMA0</filename> on ARM) in the VM. This option only has an effect in
-          <option>--console=interactive</option>, <option>--console=read-only</option>, and
-          <option>--console=native</option> modes.</para>
+          <option>--console=interactive</option>, <option>--console=read-only</option>,
+          <option>--console=native</option>, <option>--console=broker</option>, and
+          <option>--console=broker-log</option> modes.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>

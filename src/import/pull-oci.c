@@ -321,7 +321,7 @@ static int json_dispatch_oci_index_entry(sd_json_variant *v, OciIndexEntry *entr
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(entry->media_type, "application/vnd.oci.image.manifest.v1+json")) {
+        if (!oci_media_type_is_manifest(entry->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest index entry with media type '%s', skipping.", entry->media_type);
                 return 0;
         }
@@ -348,13 +348,11 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
                 return r;
 
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
-        r = pull_job_new(&j, url, i->glue, i);
+        r = pull_job_new(&j, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
-        r = pull_job_set_accept(
-                        j,
-                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json"));
+        r = pull_job_set_accept(j, STRV_MAKE(OCI_MEDIA_TYPES_MANIFEST));
         if (r < 0)
                 return r;
 
@@ -377,8 +375,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
         if (r < 0)
                 return r;
 
-        free_and_replace_full(i->manifest_job, j, pull_job_unref);
-        return 0;
+        return free_and_replace_full(i->manifest_job, j, pull_job_unref);
 }
 
 static int oci_pull_process_index(OciPull *i, PullJob *j) {
@@ -417,7 +414,7 @@ static int oci_pull_process_index(OciPull *i, PullJob *j) {
 
         if (index_data.schema_version != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image index has unsupported schema version %u, refusing.", index_data.schema_version);
-        if (index_data.media_type && !streq(index_data.media_type, "application/vnd.oci.image.index.v1+json"))
+        if (index_data.media_type && !oci_media_type_is_index(index_data.media_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image index has unexpected media type '%s', refusing.", index_data.media_type);
 
         sd_json_variant *m;
@@ -586,7 +583,7 @@ static int oci_pull_queue_layer(OciPull *i, OciManifestLayer *layer) {
 
         /* Set up  */
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
-        r = pull_job_new(&j, url, i->glue, st);
+        r = pull_job_new(&j, url, i->event, i->glue, st);
         if (r < 0)
                 return r;
 
@@ -635,10 +632,7 @@ static int json_dispatch_oci_manifest_layer(sd_json_variant *v, OciManifestLayer
         if (r < 0)
                 return r;
 
-        if (!STR_IN_SET(layer->media_type,
-                        "application/vnd.oci.image.layer.v1.tar",
-                        "application/vnd.oci.image.layer.v1.tar+gzip",
-                        "application/vnd.oci.image.layer.v1.tar+zstd")) {
+        if (!oci_media_type_is_layer(layer->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest layer with media type '%s', skipping.", layer->media_type);
                 return 0;
         }
@@ -679,7 +673,7 @@ static int oci_pull_fetch_config(OciPull *i, OciManifestConfig *config) {
         if (!h)
                 return log_oom();
 
-        r = pull_job_new(&i->config_job, url, i->glue, i);
+        r = pull_job_new(&i->config_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -726,7 +720,7 @@ static int json_dispatch_oci_manifest_config(sd_json_variant *v, OciManifestConf
         if (r < 0)
                 return r;
 
-        if (!STR_IN_SET(config->media_type, "application/vnd.oci.image.config.v1+json")) {
+        if (!oci_media_type_is_config(config->media_type)) {
                 json_log(v, SD_JSON_LOG, /* error= */ 0, "Unexpected manifest config with media type '%s', skipping.", config->media_type);
                 return 0;
         }
@@ -806,7 +800,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
 
         if (manifest_data.schema_version != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image manifest has unsupported schema version %u, refusing.", manifest_data.schema_version);
-        if (manifest_data.media_type && !streq(manifest_data.media_type, "application/vnd.oci.image.manifest.v1+json"))
+        if (manifest_data.media_type && !oci_media_type_is_manifest(manifest_data.media_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image manifest has unexpected media type '%s', refusing.", manifest_data.media_type);
 
         if (manifest_data.config) {
@@ -817,14 +811,15 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
                 r = json_dispatch_oci_manifest_config(manifest_data.config, &config);
                 if (r < 0)
                         return r;
-
-                if (iovec_is_set(&config.data)) {
-                        iovec_done(&i->config);
-                        i->config = TAKE_STRUCT(config.data);
-                } else {
-                        r = oci_pull_fetch_config(i, &config);
-                        if (r < 0)
-                                return r;
+                if (r > 0) { /* r == 0 means: skip */
+                        if (iovec_is_set(&config.data)) {
+                                iovec_done(&i->config);
+                                i->config = TAKE_STRUCT(config.data);
+                        } else {
+                                r = oci_pull_fetch_config(i, &config);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -935,6 +930,34 @@ static int dispatch_unsupported(const char *name, sd_json_variant *v, sd_json_di
         return 0;
 }
 
+static int json_dispatch_oci_user(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        /* At least buildah does not omit an empty User field but add them as empty string.
+         * Filter that out so that dispatching that field does not fail with invalid user name. */
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **user = ASSERT_PTR(userdata);
+                *user = mfree(*user);
+                return 0;
+        }
+
+        return json_dispatch_user_group_name(name, variant, flags, userdata);
+}
+
+static int json_dispatch_oci_working_dir(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        /* At least buildah does not omit an empty working dir field but add them as empty string.
+         * Filter that out so that dispatching that field does not fail with invalid path. */
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **working_dir = ASSERT_PTR(userdata);
+                *working_dir = mfree(*working_dir);
+                return 0;
+        }
+
+        return json_dispatch_path(name, variant, flags, userdata);
+}
+
 static int oci_pull_save_nspawn_settings(OciPull *i) {
         int r;
 
@@ -964,11 +987,11 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 .stop_signal = SIGTERM,
         };
         static const struct sd_json_dispatch_field dispatch_table[] = {
-                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(OciConfiguration, user),        0 },
+                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_oci_user,         offsetof(OciConfiguration, user),        0 },
                 { "Env",          SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment, offsetof(OciConfiguration, env),         0 },
                 { "Entrypoint",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, entrypoint),  0 },
                 { "Cmd",          SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, cmd),         0 },
-                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_path,             offsetof(OciConfiguration, working_dir), 0 },
+                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_oci_working_dir,  offsetof(OciConfiguration, working_dir), 0 },
                 { "StopSignal",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_signal,        offsetof(OciConfiguration, stop_signal), 0 },
 
                 /* Currently unsupported fields that the OCI image spec defines but we cannot convert into
@@ -1466,7 +1489,7 @@ static int oci_pull_process_authentication_challenge(OciPull *i, const char *cha
         if (r < 0)
                 return log_error_errno(r, "Failed to make bearer token URL: %m");
 
-        r = pull_job_new(&i->bearer_token_job, url, i->glue, i);
+        r = pull_job_new(&i->bearer_token_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -1508,8 +1531,7 @@ static void oci_pull_job_on_finished_manifest(PullJob *j) {
         /* If we have no content type, let's assume it's a manifest, not an index. This can happen in case we
          * operate with file:// URLs, which in turn is really useful for testing purposes, to mock an OCI
          * registry without having to set up an HTTP service. */
-        if (streq_ptr(j->content_type, "application/vnd.oci.image.manifest.v1+json") ||
-            !j->content_type) {
+        if (oci_media_type_is_manifest(j->content_type) || !j->content_type) {
                 r = oci_pull_process_manifest(i, j);
                 if (r <= 0)
                         goto finish;
@@ -1517,7 +1539,7 @@ static void oci_pull_job_on_finished_manifest(PullJob *j) {
                 return;
         }
 
-        if (streq_ptr(j->content_type, "application/vnd.oci.image.index.v1+json")) {
+        if (oci_media_type_is_index(j->content_type)) {
 
                 if (i->refuse_index) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Already processed an OCI index, refusing to process another one.");
@@ -1577,7 +1599,7 @@ int oci_pull_start(
                 return r;
 
         /* Set up  */
-        r = pull_job_new(&i->manifest_job, url, i->glue, i);
+        r = pull_job_new(&i->manifest_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -1587,10 +1609,9 @@ int oci_pull_start(
                         return r;
         }
 
-        r = pull_job_set_accept(
-                        i->manifest_job,
-                        STRV_MAKE("application/vnd.oci.image.manifest.v1+json",
-                                  "application/vnd.oci.image.index.v1+json"));
+        /* Accept both OCI and Docker formats */
+        r = pull_job_set_accept(i->manifest_job,
+                                STRV_MAKE(OCI_MEDIA_TYPES_INDEX, OCI_MEDIA_TYPES_MANIFEST));
         if (r < 0)
                 return r;
 

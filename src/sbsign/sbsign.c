@@ -10,18 +10,17 @@
 #include "build.h"
 #include "copy.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "install-file.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pe-binary.h"
 #include "pe-writer.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -146,225 +145,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         return 1;
 }
 
-static int spc_indirect_data_content_new(const void *digest, size_t digestsz, uint8_t **ret_idc, size_t *ret_idcsz) {
-        assert(digest);
-        assert(ret_idc);
-        assert(ret_idcsz);
-
-        /* This function allocates and populates a new SpcIndirectDataContent object. See the authenticode
-         * spec https://aka.ms/AuthenticodeSpec for more information on the individual fields. */
-
-        /* <<<Obsolete>>> in unicode bytes. */
-        static const uint8_t obsolete[] = {
-                0x00, 0x3c, 0x00, 0x3c, 0x00, 0x3c, 0x00, 0x4f,
-                0x00, 0x62, 0x00, 0x73, 0x00, 0x6f, 0x00, 0x6c,
-                0x00, 0x65, 0x00, 0x74, 0x00, 0x65, 0x00, 0x3e,
-                0x00, 0x3e, 0x00, 0x3e
-        };
-
-        _cleanup_(SpcLink_freep) SpcLink *link = SpcLink_new();
-        if (!link)
-                return log_oom();
-
-        link->type = 2;
-        link->value.file = SpcString_new();
-        if (!link->value.file)
-                return log_oom();
-
-        link->value.file->type = 0;
-        link->value.file->value.unicode = sym_ASN1_BMPSTRING_new();
-        if (!link->value.file->value.unicode)
-                return log_oom();
-
-        if (sym_ASN1_STRING_set(link->value.file->value.unicode, obsolete, sizeof(obsolete)) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to set ASN1 string");
-
-        _cleanup_(SpcPeImageData_freep) SpcPeImageData *peid = SpcPeImageData_new();
-        if (!peid)
-                return log_oom();
-
-        peid->file = TAKE_PTR(link);
-
-        _cleanup_free_ uint8_t *peidraw = NULL;
-        int peidrawsz = i2d_SpcPeImageData(peid, &peidraw);
-        if (peidrawsz < 0)
-                return log_openssl_errors(LOG_ERR, "Failed to convert SpcPeImageData to BER");
-
-        _cleanup_(SpcIndirectDataContent_freep) SpcIndirectDataContent *idc = SpcIndirectDataContent_new();
-        idc->data->value = sym_ASN1_TYPE_new();
-        if (!idc->data->value)
-                return log_oom();
-
-        idc->data->value->type = V_ASN1_SEQUENCE;
-        idc->data->value->value.sequence = sym_ASN1_STRING_new();
-        if (!idc->data->value->value.sequence)
-                return log_oom();
-
-        idc->data->type = sym_OBJ_txt2obj(SPC_PE_IMAGE_DATA_OBJID, /* no_name= */ 1);
-        if (!idc->data->type)
-                return log_openssl_errors(LOG_ERR, "Failed to get SpcPeImageData object");
-
-        if (!sym_ASN1_STRING_set(idc->data->value->value.sequence, peidraw, peidrawsz))
-                return log_openssl_errors(LOG_ERR, "Failed to set ASN1_STRING data.");
-
-        idc->messageDigest->digestAlgorithm->algorithm = sym_OBJ_nid2obj(NID_sha256);
-        if (!idc->messageDigest->digestAlgorithm->algorithm)
-                return log_openssl_errors(LOG_ERR, "Failed to get SHA256 object");
-
-        idc->messageDigest->digestAlgorithm->parameters = sym_ASN1_TYPE_new();
-        if (!idc->messageDigest->digestAlgorithm->parameters)
-                return log_oom();
-
-        idc->messageDigest->digestAlgorithm->parameters->type = V_ASN1_NULL;
-
-        if (sym_ASN1_OCTET_STRING_set(idc->messageDigest->digest, digest, digestsz) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to set digest");
-
-        _cleanup_free_ uint8_t *idcraw = NULL;
-        int idcrawsz = i2d_SpcIndirectDataContent(idc, &idcraw);
-        if (idcrawsz < 0)
-                return log_openssl_errors(LOG_ERR, "Failed to convert SpcIndirectDataContent to BER");
-
-        *ret_idc = TAKE_PTR(idcraw);
-        *ret_idcsz = (size_t) idcrawsz;
-
-        return 0;
-}
-
-static int asn1_timestamp(ASN1_TIME **ret) {
-        ASN1_TIME *time;
-
-        assert(ret);
-
-        usec_t epoch = parse_source_date_epoch();
-
-        if (epoch == USEC_INFINITY) {
-                time = sym_X509_gmtime_adj(NULL, 0);
-                if (!time)
-                        return log_openssl_errors(LOG_ERR, "Failed to get current time");
-        } else {
-                time = sym_ASN1_TIME_set(NULL, (time_t) (epoch / USEC_PER_SEC));
-                if (!time)
-                        return log_oom();
-        }
-
-        *ret = TAKE_PTR(time);
-
-        return 0;
-}
-
-static int pkcs7_new_with_attributes(
-                X509 *certificate,
-                EVP_PKEY *private_key,
-                const char *hash_algorithm,
-                STACK_OF(X509_ATTRIBUTE) *signed_attributes,
-                PKCS7 **ret_p7,
-                PKCS7_SIGNER_INFO **ret_si) {
-
-        int r;
-
-        /* This function sets up a new PKCS#7 signing context with the signed attributes required for
-         * authenticode signing. */
-
-        assert(certificate);
-        assert(ret_p7);
-        assert(ret_si);
-
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = pkcs7_new(certificate, private_key, hash_algorithm, &p7, &si);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate PKCS# context: %m");
-
-        if (signed_attributes) {
-                si->auth_attr = signed_attributes;
-
-                *ret_p7 = TAKE_PTR(p7);
-                *ret_si = TAKE_PTR(si);
-                return 0;
-        }
-
-        /* Add an empty SMIMECAP attribute to indicate we don't have any SMIME capabilities. */
-        _cleanup_(x509_algor_free_manyp) STACK_OF(X509_ALGOR) *smcap = (STACK_OF(X509_ALGOR)*) sym_OPENSSL_sk_new_null();
-        if (!smcap)
-                return log_oom();
-
-        if (sym_PKCS7_add_attrib_smimecap(si, smcap) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to add smimecap signed attribute to signer info");
-
-        if (sym_PKCS7_add_attrib_content_type(si, NULL) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to add content type signed attribute to signer info");
-
-        _cleanup_(ASN1_TIME_freep) ASN1_TIME *time = NULL;
-        r = asn1_timestamp(&time);
-        if (r < 0)
-                return r;
-
-        if (sym_PKCS7_add0_attrib_signing_time(si, time) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to add signing time signed attribute to signer info");
-
-        TAKE_PTR(time);
-
-        ASN1_OBJECT *idc = sym_OBJ_txt2obj(SPC_INDIRECT_DATA_OBJID, /* no_name= */ true);
-        if (!idc)
-                return log_openssl_errors(LOG_ERR, "Failed to get SpcIndirectDataContent object");
-
-        if (sym_PKCS7_add_signed_attribute(si, NID_pkcs9_contentType, V_ASN1_OBJECT, idc) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to add signed attribute to pkcs7 signer info");
-
-        *ret_p7 = TAKE_PTR(p7);
-        *ret_si = TAKE_PTR(si);
-        return 0;
-}
-
-static int pkcs7_populate_data_bio(PKCS7* p7, const void *data, size_t size, BIO **ret) {
-        assert(ret);
-
-        _cleanup_(BIO_free_allp) BIO *bio = sym_PKCS7_dataInit(p7, NULL);
-        if (!bio)
-                return log_openssl_errors(LOG_ERR, "Failed to create PKCS7 data bio");
-
-        int tag, class;
-        long psz;
-        const uint8_t *p = data;
-
-        /* This function weirdly enough reports errors by setting the 0x80 bit in its return value. */
-        if (sym_ASN1_get_object(&p, &psz, &tag, &class, size) & 0x80)
-                return log_openssl_errors(LOG_ERR, "Failed to parse ASN.1 object");
-
-        if (sym_BIO_write(bio, p, psz) < 0)
-                return log_openssl_errors(LOG_ERR, "Failed to write to PKCS7 data bio");
-
-        *ret = TAKE_PTR(bio);
-
-        return 0;
-}
-
-static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *si) {
-        assert(p7);
-        assert(data);
-        assert(si);
-
-        BIO *mdbio = sym_BIO_find_type(data, BIO_TYPE_MD);
-        if (!mdbio)
-                return log_openssl_errors(LOG_ERR, "Failed to find digest bio");
-
-        EVP_MD_CTX *mdc;
-        if (sym_BIO_get_md_ctx(mdbio, &mdc) <= 0)
-                return log_openssl_errors(LOG_ERR, "Failed to get digest context from bio");
-
-        unsigned char digest[EVP_MAX_MD_SIZE];
-        unsigned digestsz;
-
-        if (sym_EVP_DigestFinal_ex(mdc, digest, &digestsz) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to get digest");
-
-        if (sym_PKCS7_add1_attrib_digest(si, digest, digestsz) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to add PKCS9 message digest signed attribute to signer info");
-
-        return 0;
-}
-
 VERB(verb_sign, "sign", "EXEFILE\0", 2, 2, 0,
      "Sign the given binary for EFI Secure Boot");
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -456,17 +236,9 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
         }
 
-        _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int srcfd = open_seekable_data_fd(AT_FDCWD, argv[1], PE_IMAGE_SIZE_MAX);
         if (srcfd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", argv[1]);
-
-        struct stat st;
-        if (fstat(srcfd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", argv[1]);
-
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
+                return log_error_errno(srcfd, "Failed to open %s: %m", argv[1]);
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
@@ -485,27 +257,27 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_free_ uint8_t *idcraw = NULL;
         size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */
-        r = spc_indirect_data_content_new(pehash, pehashsz, &idcraw, &idcrawsz);
+        r = authenticode_spc_indirect_data_content_new(pehash, pehashsz, &idcraw, &idcrawsz);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create SpcIndirectDataContent: %m");
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = pkcs7_new_with_attributes(certificate, private_key, /* hash_algorithm= */ NULL, signed_attributes, &p7, &si);
+        r = authenticode_pkcs7_new(certificate, private_key, signed_attributes, &p7, &si);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create PKCS#7 signing context: %m");
 
         TAKE_PTR(signed_attributes);
 
         if (arg_prepare_offline_signing) {
                 _cleanup_(BIO_free_allp) BIO *bio = NULL;
-                r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
+                r = authenticode_pkcs7_data_bio(p7, idcraw, idcrawsz, &bio);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to populate PKCS#7 data: %m");
 
-                r = pkcs7_add_digest_attribute(p7, bio, si);
+                r = authenticode_pkcs7_add_digest_attribute(bio, si);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to add digest attribute: %m");
 
                 _cleanup_free_ unsigned char *abuf = NULL;
                 int alen = sym_ASN1_item_i2d((ASN1_VALUE *)si->auth_attr, &abuf, sym_PKCS7_ATTR_SIGN_it());
@@ -528,43 +300,19 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 sym_ASN1_STRING_set0(si->enc_digest, TAKE_PTR(signed_attributes_signature.iov_base), signed_attributes_signature.iov_len);
         else {
                 _cleanup_(BIO_free_allp) BIO *bio = NULL;
-                r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
+                r = authenticode_pkcs7_data_bio(p7, idcraw, idcrawsz, &bio);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to populate PKCS#7 data: %m");
 
                 if (sym_PKCS7_dataFinal(p7, bio) == 0)
                         return log_openssl_errors(LOG_ERR, "Failed to sign data");
         }
 
-        _cleanup_(PKCS7_freep) PKCS7 *p7c = sym_PKCS7_new();
-        if (!p7c)
-                return log_oom();
-
-        p7c->type = sym_OBJ_txt2obj(SPC_INDIRECT_DATA_OBJID, /* no_name= */ true);
-        if (!p7c->type)
-                return log_openssl_errors(LOG_ERR, "Failed to get SpcIndirectDataContent object");
-
-        p7c->d.other = sym_ASN1_TYPE_new();
-        if (!p7c->d.other)
-                return log_oom();
-
-        p7c->d.other->type = V_ASN1_SEQUENCE;
-        p7c->d.other->value.sequence = sym_ASN1_STRING_new();
-        if (!p7c->d.other->value.sequence)
-                return log_oom();
-
-        if (sym_ASN1_STRING_set(p7c->d.other->value.sequence, idcraw, idcrawsz) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to set ASN1 string");
-
-        if (sym_PKCS7_set_content(p7, p7c) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to set PKCS7 data");
-
-        TAKE_PTR(p7c);
-
         _cleanup_free_ uint8_t *sig = NULL;
-        int sigsz = sym_i2d_PKCS7(p7, &sig);
-        if (sigsz < 0)
-                return log_openssl_errors(LOG_ERR, "Failed to convert PKCS7 signature to DER");
+        size_t sigsz;
+        r = authenticode_pkcs7_finalize(p7, idcraw, idcrawsz, &sig, &sigsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finalize PKCS#7 signature: %m");
 
         r = copy_bytes(srcfd, dstfd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)

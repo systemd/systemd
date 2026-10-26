@@ -29,9 +29,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The generated, signed report in Base64. A precise binary formatting of the JSON data is important to authenticate the signature. This data contains a JSON-SEQ compliant stream of objects, the first being the report, the following ones signature objects."),
                 SD_VARLINK_DEFINE_OUTPUT(reportData, SD_VARLINK_STRING, 0));
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_Report,
                 "io.systemd.Report",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("Frontend API for generating system reports. This interface is implemented by systemd-report, which aggregates the metrics exposed by the io.systemd.Metrics services linked into /run/systemd/report/."),
                 SD_VARLINK_SYMBOL_COMMENT("Policy for how multiple signers are aggregated."),
                 &vl_type_SignMode,

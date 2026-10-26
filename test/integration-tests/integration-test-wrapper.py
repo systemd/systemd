@@ -384,6 +384,18 @@ def in_userns() -> bool:
         return False
 
 
+def host_is_vm() -> bool:
+    # systemd-detect-virt may be missing where the wrapper runs (a tools tree); x86 raises the cpuinfo
+    # flag under any hypervisor, elsewhere assume bare metal.
+    detect = shutil.which('systemd-detect-virt')
+    if detect:
+        return subprocess.run([detect, '--vm', '--quiet'], check=False).returncode == 0
+    try:
+        return 'hypervisor' in Path('/proc/cpuinfo').read_text()
+    except OSError:
+        return False
+
+
 def coco_host_type() -> Optional[str]:
     try:
         if Path('/sys/module/kvm_intel/parameters/tdx').read_text().strip() == 'Y':
@@ -402,9 +414,9 @@ def coco_host_type() -> Optional[str]:
 
 
 def coco_nspawn_args(coco_type: str) -> list[str]:
-    # systemd-nspawn args (appended after '--' in boot mode) that expose the devices vmspawn needs to
-    # launch a confidential guest from inside the boot-mode container.
-    binds = ['--bind=/dev/kvm', '--bind=/dev/vhost-vsock']
+    # systemd-nspawn args (appended after '--' in boot mode) that expose what a confidential guest needs
+    # beyond the KVM and vsock devices that come with --vm-images.
+    binds: list[str] = []
     if coco_type == 'sev-snp':
         binds += ['--bind=/dev/sev']
     # TDX guests obtain quotes via the host's Quote Generation Service; forward its socket if present.
@@ -692,20 +704,43 @@ def main() -> None:
             sys.exit(f'TEST_BIND_DIRS entry is not a directory: {bind_dir}')
         bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
 
-    # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
-    # installed test artifacts. Bind the output directory read-only into the boot-mode container at
-    # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
-    vm_images_args: list[str] = []
-    if args.vm_images and not vm:
+    # Tests that boot a full guest need the mkosi-built images, which are build outputs rather than
+    # installed test artifacts, and KVM for the guest. Make the output directory available at
+    # /work/vm-images on request: bound read-only into the boot-mode container together with the host's
+    # KVM and vsock device nodes, or shared into the VM as a runtime tree, where the guest runs on nested
+    # KVM. One level of nesting works, two don't: on a host that is itself a VM (CI runners), a guest
+    # inside the test VM never gets going.
+    vm_images_mkosi_args: list[str] = []
+    vm_images_nspawn_args: list[str] = []
+    if args.vm_images:
         output_dir = args.meson_build_dir / 'mkosi.output'
-        if output_dir.exists():
-            vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
-        else:
+        if not output_dir.exists():
             print(
                 f'--vm-images requested but {output_dir} does not exist (images not built?); '
                 f'/work/vm-images will be unavailable and tests depending on it will skip',
                 file=sys.stderr,
             )
+        elif vm:
+            if host_is_vm():
+                exit_skip(
+                    args.tap,
+                    f'{args.name} boots a guest inside the test VM, which needs a bare-metal host, skipping',
+                )
+            vm_images_mkosi_args = [f'--runtime-tree={os.fspath(output_dir)}:/work/vm-images']
+        else:
+            if not Path('/dev/kvm').exists():
+                exit_skip(args.tap, f'{args.name} needs /dev/kvm on the host to boot a guest, skipping')
+            if not Path('/dev/vhost-vsock').exists():
+                exit_skip(
+                    args.tap,
+                    f'{args.name} needs /dev/vhost-vsock (load the vhost_vsock module) for the guest '
+                    f'notify channel, skipping',
+                )
+            vm_images_nspawn_args = [
+                f'--bind-ro={os.fspath(output_dir)}:/work/vm-images',
+                '--bind=/dev/kvm',
+                '--bind=/dev/vhost-vsock',
+            ]
 
     # Coco needs to launch a real (L1) confidential guest, which requires the boot-mode nspawn on
     # a coco-capable bare-metal host. Nested QEMU VM (vm mode) won't work.
@@ -721,12 +756,8 @@ def main() -> None:
             exit_skip(
                 args.tap, f'Host does not provide coco={args.coco} (detected: {host}), skipping {args.name}'
             )
-        if not Path('/dev/vhost-vsock').exists():
-            exit_skip(
-                args.tap,
-                f'{args.name} needs /dev/vhost-vsock (load the vhost_vsock module) for the guest '
-                f'notify channel, skipping',
-            )
+        if not args.vm_images:
+            sys.exit(f'{args.name}: --coco needs --vm-images for the guest image and devices')
         coco_boot_args = coco_nspawn_args(host)
         # /sys/module/*/parameters isn't reliably readable inside the nspawn container, so hand the
         # resolved coco type to the test via the environment instead of making it re-detect.
@@ -787,6 +818,7 @@ def main() -> None:
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         *test_mkosi_args,
+        *vm_images_mkosi_args,
         'vm' if vm else 'boot',
         *(
             [
@@ -807,7 +839,7 @@ def main() -> None:
                     else []
                 ),
                 *bind_dirs_args,
-                *vm_images_args,
+                *vm_images_nspawn_args,
                 *coco_boot_args,
             ]
             if not vm

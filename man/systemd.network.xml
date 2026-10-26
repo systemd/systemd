@@ -488,7 +488,10 @@
           <para>Defaults to <option>no</option> when <varname>KeepMaster=</varname> or
           <varname>Bridge=</varname> is set or when the specified
           <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>,
-          or <option>ipv6</option> otherwise.</para>
+          or <option>ipv6</option> otherwise. As WireGuard interfaces do not have a hardware address, the
+          kernel generates the IPv6 link-local address on them in the same way as the <literal>random</literal>
+          mode even when <literal>eui64</literal> is used, see
+          <varname>IPv6LinkLocalAddressGenerationMode=</varname> below.</para>
 
           <para>When IPv4 link-local addressing is enabled, <varname>ARP=</varname> is enabled unless if it
           is explicitly configured.</para>
@@ -3288,10 +3291,8 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       <varlistentry>
         <term><varname>SendHostnameUpdates=</varname></term>
         <listitem>
-          <para>As in the [DHCPv4] section, but for the DHCPv6 client. Note that the lease is not renewed
-          immediately, the new hostname is sent to the DHCPv6 server on the next renewal. This setting has
-          no effect when <varname>SendHostname=no</varname> or <varname>Hostname=</varname> is
-          specified.</para>
+          <para>As in the [DHCPv4] section, but for the DHCPv6 client. This setting has no effect when
+          <varname>SendHostname=no</varname> or <varname>Hostname=</varname> is specified.</para>
 
           <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
@@ -4370,23 +4371,64 @@ ServerAddress=192.168.0.1/24</programlisting>
   <refsect1>
     <title>[DHCPServerStaticLease] Section Options</title>
     <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to assign a
-    fixed IPv4 address to a specific device based on its MAC address. This section can be specified multiple
-    times.</para>
+    fixed IPv4 address to a specific device based on its MAC address or client identifier. This section can be
+    specified multiple times.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
 
-        <listitem><para>The hardware address of a device to match. This key is mandatory.</para>
+        <listitem><para>The hardware address of a device to match. This key is mandatory when
+        <varname>ClientIdentifier=</varname> is <option>mac</option>, and ignored when it is
+        <option>duid</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ClientIdentifier=</varname></term>
+
+        <listitem><para>Specifies how the client identifier (option 61) of a device to match is built, as in
+        the [DHCPv4] section. Takes one of <option>mac</option> or <option>duid</option>. When
+        <option>mac</option>, the client identifier is built from <varname>MACAddress=</varname>. As the
+        server falls back to the hardware address of a device when no static lease matches the client
+        identifier the device sends, such a lease matches the device whatever client identifier it sends.
+        When <option>duid</option>, the client identifier is built from <varname>IAID=</varname> and the
+        DUID specified by <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname> (RFC 4361), and
+        all of them must be specified. Such a lease matches only a device that sends exactly that client
+        identifier. This is useful e.g. to tell apart hosts that share a hardware address, like ipvlan
+        interfaces in L2 mode. Defaults to <option>mac</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IAID=</varname></term>
+
+        <listitem><para>The IAID of a device to match, a 32-bit unsigned integer, as in the [DHCPv4] section of
+        the client. Used only when <varname>ClientIdentifier=duid</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DUIDType=</varname></term>
+        <term><varname>DUIDRawData=</varname></term>
+
+        <listitem><para>The DUID of a device to match, as in the [DHCPv4] section of the client. See
+        <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the format. As the DUID cannot be generated on the server side, both must be specified when
+        <varname>ClientIdentifier=duid</varname>, and they are ignored otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Address=</varname></term>
 
         <listitem><para>The IPv4 address that should be assigned to the device that was matched with
-        <varname>MACAddress=</varname>. This key is mandatory.</para>
+        <varname>MACAddress=</varname> or <varname>ClientIdentifier=</varname>. This key is
+        mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
@@ -4399,7 +4441,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         <literal>mydevice.example.com</literal>), following RFC 1123 naming conventions. Each label can be
         up to 63 characters, with a total maximum length of 253 characters for FQDNs. When this option is
         set, the DHCP server will include the hostname in DHCP replies (both OFFER and ACK) to the client
-        with the matched MAC address.</para>
+        with the matched MAC address or client identifier.</para>
 
         <para>The server automatically selects the appropriate DHCP option based on the hostname format:
         simple hostnames (single DNS label) are sent via option 12 (Host Name) per RFC 2132, while FQDNs

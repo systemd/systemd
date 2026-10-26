@@ -39,7 +39,6 @@ nspawn_fuzz_template = fuzz_template + nspawn_common_template
 executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
-                'public' : true,
                 'sources' : nspawn_sources,
                 'export' : nspawn_export_sources,
                 'include_directories' : [

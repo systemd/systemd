@@ -14,6 +14,7 @@ if [[ "${COCO_TYPE:?}" != "tdx" ]]; then
     exit 77
 fi
 
+IMAGE_DIR="$(vmspawn_images_dir)"
 MACHINE="coco-tdx-direct-$$"
 WORKDIR="$(mktemp -d)"
 at_exit() {

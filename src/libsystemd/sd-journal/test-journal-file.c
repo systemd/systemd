@@ -336,4 +336,61 @@ TEST(seek_tail_live) {
         f = journal_file_offline_close(f);
 }
 
+TEST(seqnum_id) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        sd_id128_t a, b;
+        JournalFile *f, *g;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_id128_randomize(&a));
+        ASSERT_OK(sd_id128_randomize(&b));
+
+        /* Without a sequence number ID a new file uses its file ID */
+        f = journal_test_open(m, "a.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        ASSERT_EQ_ID128(f->header->seqnum_id, f->header->file_id);
+
+        /* journal_file_open_full() writes the ID that it gets to the header of the new file, and ignores the
+         * ID of the template */
+        ASSERT_OK(journal_file_open_full(
+                                  /* fd= */ -EBADF,
+                                  "b.journal",
+                                  O_RDWR|O_CREAT,
+                                  JOURNAL_COMPRESS,
+                                  0644,
+                                  /* compress_threshold_bytes= */ UINT64_MAX,
+                                  /* metrics= */ NULL,
+                                  m,
+                                  /* template= */ f,
+                                  &a,
+                                  &g));
+        ASSERT_EQ_ID128(g->header->seqnum_id, a);
+
+        /* The file that replaces a rotated file gets the ID passed to the rotation */
+        ASSERT_OK(journal_file_rotate(
+                                  &g,
+                                  m,
+                                  JOURNAL_COMPRESS,
+                                  /* compress_threshold_bytes= */ UINT64_MAX,
+                                  &b,
+                                  /* deferred_closes= */ NULL));
+        ASSERT_EQ_ID128(g->header->seqnum_id, b);
+
+        /* journald passes a null ID after it resets its sequence number data. The file that replaces a
+         * rotated file then takes the ID of the rotated file. */
+        ASSERT_OK(journal_file_rotate(
+                                  &g,
+                                  m,
+                                  JOURNAL_COMPRESS,
+                                  /* compress_threshold_bytes= */ UINT64_MAX,
+                                  &SD_ID128_NULL,
+                                  /* deferred_closes= */ NULL));
+        ASSERT_EQ_ID128(g->header->seqnum_id, b);
+
+        g = journal_file_offline_close(g);
+        f = journal_file_offline_close(f);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

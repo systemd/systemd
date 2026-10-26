@@ -11,10 +11,20 @@
 #include "log.h"
 #include "metrics.h"
 #include "parse-util.h"
-#include "report-hwmon.h"
+#include "report-server.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-report-hwmon\0",
+        "Report hardware monitoring sensor metrics.",
+        .man_pages = "systemd-report-hwmon@.service(8)\0",
+        .option_namespace = "common",
+);
+
+const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
 
 /* The kernel's hwmon sysfs interface (see https://docs.kernel.org/hwmon/sysfs-interface.html) exposes
  * temperature sensors as temp<N>_input attributes, in millidegrees Celsius. Only the current reading is
@@ -221,10 +231,14 @@ static const MetricFamily hwmon_metric_family_table[] = {
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(hwmon_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(hwmon_metric_family_table, link, parameters, flags, userdata);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

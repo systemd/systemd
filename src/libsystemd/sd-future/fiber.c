@@ -58,10 +58,11 @@ typedef struct Fiber {
         sigjmp_buf context;             /* Where to jump to when entering or resuming the fiber. */
         sigjmp_buf resume_context;      /* Where to jump back to when the fiber yields or completes. */
 
-        /* Caller's stack range, recorded by fiber_run() on each entry so the fiber's siglongjmp back
-         * out (in fiber_swap() or the trampoline's terminate path) can hand AddressSanitizer the
-         * destination stack info. With ucontext this comes for free via uc_link/uc_stack; sigjmp_buf
-         * is opaque and doesn't carry it. */
+        /* Stack range we were entered from, recorded by finish_switch_stack() on each entry (the
+         * entering side may be the thread's original stack or another fiber's), so the fiber's
+         * siglongjmp back out (in fiber_swap() or the trampoline's terminate path) can hand
+         * AddressSanitizer the destination stack info. With ucontext this comes for free via
+         * uc_link/uc_stack; sigjmp_buf is opaque and doesn't carry it. */
         struct iovec resume_stack;
 
         FiberState state;
@@ -101,10 +102,6 @@ static Fiber* fiber_get(sd_future *f) {
         return ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
 }
 
-static Fiber* fiber_get_maybe(sd_future *f) {
-        return f ? fiber_get(f) : NULL;
-}
-
 static void fiber_set_current(sd_future *f) {
         current_fiber = f;
 }
@@ -119,10 +116,11 @@ static int fiber_allocate_stack(size_t size, void **ret) {
         assert(size > 0 && size % page_size() == 0);
         assert(ret);
 
+        /* Do not pass -EBADF as fd here, otherwise valgrind fails. */
         stack = mmap(/* addr= */ NULL, size,
                      PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
-                     /* fd= */ -EBADF, /* offset= */ 0);
+                     /* fd= */ -1, /* offset= */ 0);
         if (stack == MAP_FAILED)
                 return -errno;
 
@@ -171,22 +169,29 @@ static inline void start_switch_stack(void **fake_stack_save, const struct iovec
 #endif
 }
 
-static inline void finish_switch_stack(void *fake_stack_save) {
+static inline void finish_switch_stack(void *fake_stack_save, struct iovec *ret_old) {
+
+        /* ret_old, if not NULL, is set to the stack range we just switched away from, as ASAN knows it.
+         * Fibers use this to remember where to switch back to. Asking ASAN, rather than deriving the range
+         * ourselves, also covers the thread's original stack, whose bounds we don't otherwise know. Passing
+         * NULL/0 as the destination of start_switch_stack() instead makes ASAN forget the bounds of the
+         * stack we return to, after which it complains in __asan_handle_no_return() on every siglongjmp(). */
+
 #if HAS_FEATURE_ADDRESS_SANITIZER
-        __sanitizer_finish_switch_fiber(fake_stack_save, NULL, NULL);
+        const void *bottom_old = NULL;
+        size_t size_old = 0;
+
+        __sanitizer_finish_switch_fiber(fake_stack_save, &bottom_old, &size_old);
+
+        if (ret_old)
+                *ret_old = (struct iovec) {
+                        .iov_base = (void*) bottom_old,
+                        .iov_len = size_old,
+                };
+#else
+        if (ret_old)
+                *ret_old = (struct iovec) {};
 #endif
-}
-
-/* Refresh f->resume_stack from whoever is currently the running fiber, so the next siglongjmp() out
- * of f (in the trampoline or fiber_swap()) can hand the right destination stack to ASAN. Must be
- * called before fiber_set_current(f) — relies on sd_fiber_get_current() returning the caller. */
-static void fiber_set_resume_stack(Fiber *f, Fiber *resume) {
-        assert(f);
-
-        if (resume)
-                f->resume_stack = fiber_stack_usable(&resume->stack);
-        else
-                f->resume_stack = (struct iovec) {};
 }
 
 _noreturn_ static void fiber_entry_point(void) {
@@ -196,7 +201,7 @@ _noreturn_ static void fiber_entry_point(void) {
         assert(fiber->func);
         assert(fiber->state == FIBER_STATE_INITIAL);
 
-        finish_switch_stack(NULL);
+        finish_switch_stack(/* fake_stack_save= */ NULL, &fiber->resume_stack);
 
         /* Capture our resumable point on the fiber's stack, then bounce back to whoever last set
          * fiber->resume_context. On bootstrap that's fiber_init(); on every subsequent yield it's
@@ -208,7 +213,7 @@ _noreturn_ static void fiber_entry_point(void) {
         }
 
         /* Re-entered for real via fiber_run()'s siglongjmp(fiber->context). */
-        finish_switch_stack(fake_stack_save);
+        finish_switch_stack(fake_stack_save, &fiber->resume_stack);
         assert(fiber->state == FIBER_STATE_RUNNING);
 
         /* Block scope so the cleanups attached to LOG_SET_PREFIX / LOG_CONTEXT_PUSH_KEY_VALUE fire
@@ -237,7 +242,7 @@ _noreturn_ static void fiber_entry_point(void) {
 
 static int fiber_init(sd_future *f) {
         Fiber *fiber = fiber_get(f);
-        ucontext_t old_uc, uc;
+        ucontext_t uc;
         void *fake_stack_save = NULL;
 
         if (getcontext(&uc) < 0)
@@ -255,18 +260,22 @@ static int fiber_init(sd_future *f) {
 
         makecontext(&uc, fiber_entry_point, /* argc= */ 0);
 
-        fiber_set_resume_stack(fiber, fiber_get_maybe(prev));
         if (sigsetjmp(fiber->resume_context, /* savemask= */ 0) == 0) {
                 start_switch_stack(&fake_stack_save, &fiber_stack);
-                if (swapcontext(&old_uc, &uc) < 0) {
-                        finish_switch_stack(fake_stack_save);
+                /* We never come back to this context (the trampoline siglongjmps to resume_context),
+                 * so there is nothing to save: use setcontext() rather than swapcontext(). Besides
+                 * being cheaper, this avoids the unconditional "ASan doesn't fully support
+                 * makecontext/swapcontext functions" warning the ASAN swapcontext() interceptor
+                 * prints to stderr on first use, which breaks tests that expect clean stderr. */
+                if (setcontext(&uc) < 0) {
+                        finish_switch_stack(fake_stack_save, /* ret_old= */ NULL);
                         fiber_set_current(prev);
                         return -errno;
                 }
-                assert_not_reached();   /* Trampoline siglongjmps back; swapcontext doesn't return. */
+                assert_not_reached();   /* Trampoline siglongjmps back; setcontext doesn't return. */
         }
 
-        finish_switch_stack(fake_stack_save);
+        finish_switch_stack(fake_stack_save, /* ret_old= */ NULL);
 
         fiber_set_current(prev);
         return 0;
@@ -336,7 +345,6 @@ static const FiberOps fiber_ops = {
 
 static void fiber_enter(sd_future *f, sd_future *prev, void **fake_stack_save) {
         Fiber *fiber = fiber_get(f);
-        Fiber *prev_fiber = fiber_get_maybe(prev);
 
         fiber_set_current(f);
         fiber_swap_log_state(fiber);
@@ -345,13 +353,12 @@ static void fiber_enter(sd_future *f, sd_future *prev, void **fake_stack_save) {
 
         struct iovec fiber_stack = fiber_stack_usable(&fiber->stack);
         start_switch_stack(fake_stack_save, &fiber_stack);
-        fiber_set_resume_stack(fiber, prev_fiber);
 }
 
 static void fiber_leave(sd_future *f, sd_future *prev, void *fake_stack_save) {
         Fiber *fiber = fiber_get(f);
 
-        finish_switch_stack(fake_stack_save);
+        finish_switch_stack(fake_stack_save, /* ret_old= */ NULL);
         if (!prev)
                 fiber_ops_set(NULL);
         fiber_swap_log_state(fiber);
@@ -574,7 +581,7 @@ static int fiber_swap(FiberState state) {
                         siglongjmp_unchecked(fiber->resume_context, 1);
                 }
 
-                finish_switch_stack(fake_stack_save);
+                finish_switch_stack(fake_stack_save, &fiber->resume_stack);
         }
 
         assert(fiber->state == FIBER_STATE_RUNNING);

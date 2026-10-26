@@ -276,6 +276,7 @@ static int manager_open_journal(
                 int open_flags,
                 bool seal,
                 JournalMetrics *metrics,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
@@ -299,9 +300,10 @@ static int manager_open_journal(
                                 m->config.compress.threshold_bytes,
                                 metrics,
                                 m->mmap,
+                                seqnum_id,
                                 &f);
         else
-                r = journal_file_open(
+                r = journal_file_open_full(
                                 /* fd= */ -EBADF,
                                 fname,
                                 open_flags,
@@ -311,6 +313,7 @@ static int manager_open_journal(
                                 metrics,
                                 m->mmap,
                                 /* template= */ NULL,
+                                seqnum_id,
                                 &f);
         if (r < 0)
                 return r;
@@ -373,6 +376,12 @@ static int manager_system_journal_open(
 
                 (void) mkdir(m->system_storage.path, 0755);
 
+                /* manager_flush_to_var() runs after the system journal is opened if the runtime journal
+                 * is open. It resets the sequence number data and copies the entries of the runtime journal
+                 * with new sequence numbers. The copies must not use the sequence number ID of the runtime
+                 * journal. A new system journal therefore uses its file ID as sequence number ID. */
+                bool flush = m->runtime_journal && !m->namespace;
+
                 fn = strjoina(m->system_storage.path, "/system.journal");
                 r = manager_open_journal(
                                 m,
@@ -381,6 +390,7 @@ static int manager_system_journal_open(
                                 O_RDWR|O_CREAT,
                                 m->config.seal,
                                 &m->system_storage.metrics,
+                                flush ? NULL : &m->seqnum->id,
                                 &m->system_journal);
                 if (r >= 0) {
                         manager_add_acls(m->system_journal, 0);
@@ -423,6 +433,7 @@ static int manager_system_journal_open(
                                         O_RDWR|O_CREAT,
                                         /* seal= */ false,
                                         &m->runtime_storage.metrics,
+                                        &m->seqnum->id,
                                         &m->runtime_journal);
                         if (r < 0)
                                 return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -439,6 +450,7 @@ static int manager_system_journal_open(
                                         O_RDWR,
                                         /* seal= */ false,
                                         &m->runtime_storage.metrics,
+                                        &m->seqnum->id,
                                         &m->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
@@ -491,6 +503,7 @@ static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
                         O_RDWR|O_CREAT,
                         m->config.seal,
                         &m->system_storage.metrics,
+                        &m->seqnum->id,
                         &f);
         if (r < 0)
                 return r;
@@ -564,7 +577,13 @@ static int manager_do_rotate(
 
         log_debug("Rotating journal file %s.", (*f)->path);
 
-        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->deferred_closes);
+        r = journal_file_rotate(
+                        f,
+                        m->mmap,
+                        manager_get_file_flags(m, seal),
+                        m->config.compress.threshold_bytes,
+                        &m->seqnum->id,
+                        m->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -1343,8 +1362,6 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
                 log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to read runtime journal: %m");
                 goto finish;
         }
-
-        sd_journal_set_data_threshold(j, 0);
 
         SD_JOURNAL_FOREACH(j) {
                 Object *o = NULL;

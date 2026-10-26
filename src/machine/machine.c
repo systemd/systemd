@@ -13,6 +13,7 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "cgroup-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -626,6 +627,30 @@ static int machine_watch_cgroup(Machine *m) {
         r = sd_event_add_inotify(m->manager->event, &m->cgroup_empty_event_source, p, IN_MODIFY, machine_dispatch_cgroup_empty, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch %s events: %m", p);
+
+        return 0;
+}
+
+int machine_determine_unit(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(m->manager);
+        assert(!m->unit);
+        assert(!m->subgroup);
+        assert(!m->cgroup);
+
+        r = manager_get_unit_by_pidref(m->manager, &m->leader, &m->unit, &m->subgroup);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine unit of process " PID_FMT ": %m", m->leader.pid);
+
+        if (!empty_or_root(m->subgroup)) {
+                /* If this is not a top-level cgroup, then we need the cgroup path to be able to watch when
+                 * it empties */
+                r = cg_pidref_get_path(&m->leader, &m->cgroup);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine cgroup of process " PID_FMT ": %m", m->leader.pid);
+        }
 
         return 0;
 }

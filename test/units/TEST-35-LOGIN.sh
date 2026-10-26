@@ -134,6 +134,11 @@ teardown_suspend() (
 testcase_suspend_on_lid() {
     local pid input_name lid_dev
 
+    if [[ ! -x /usr/lib/systemd/systemd-sleep ]]; then
+        echo "systemd-sleep is not installed, skipping suspend test"
+        return
+    fi
+
     if systemd-detect-virt --quiet --container; then
         echo "Skipping suspend test in container"
         return

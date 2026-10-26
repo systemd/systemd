@@ -50,3 +50,6 @@
 /src/boot/proto/cc-measurement.h            @katexochen
 /test/integration-tests/TEST-94-COCO/       @katexochen
 /test/units/TEST-94-COCO*                   @katexochen
+
+# systemd-sysupdate
+/src/sysupdate/                         @adrianvovk

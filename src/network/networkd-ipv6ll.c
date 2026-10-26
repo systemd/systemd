@@ -33,7 +33,7 @@ bool link_ipv6ll_enabled(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
-        if (STRPTR_IN_SET(link->kind, "vrf", "wireguard", "ipip", "gre", "sit", "vti", "nlmon"))
+        if (STRPTR_IN_SET(link->kind, "vrf", "ipip", "gre", "sit", "vti", "nlmon"))
                 return false;
 
         if (link->network->bond)
@@ -219,6 +219,8 @@ int link_set_ipv6ll_stable_secret(Link *link) {
 }
 
 int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {
+        int r;
+
         assert(link);
         assert(link->manager);
         assert(mode >= 0 && mode < _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX);
@@ -226,7 +228,14 @@ int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {
         if (mode == link->ipv6ll_address_gen_mode)
                 return 0;
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode, manager_get_sysctl_shadow(link->manager));
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode,
+                                            manager_get_sysctl_shadow(link->manager));
+        if (r < 0)
+                return r;
+
+        /* The kernel does not send RTM_NEWLINK message on changing the mode by sysctl. */
+        link->ipv6ll_address_gen_mode = mode;
+        return 0;
 }
 
 static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {

@@ -11,6 +11,7 @@
 #include "dhcp-server-request.h"
 #include "dns-domain.h"
 #include "errno-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -78,6 +79,17 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         r = dhcp_request_get_lifetime_timestamp(req, CLOCK_BOOTTIME, &expiration);
         if (r < 0)
                 return r;
+
+        /* If a bound lease for the static address with another client ID exists, it was acquired by the same
+         * host before it changed its client ID. Drop it, as the address is now assigned with the new client
+         * ID. */
+        if (req->static_lease) {
+                sd_dhcp_server_lease *old;
+
+                if (dhcp_server_get_bound_lease(server, req, req->address, &old) > 0 &&
+                    !client_id_equal(&old->client_id, &req->client_id))
+                        sd_dhcp_server_lease_unref(old);
+        }
 
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease =
                 hashmap_get(server->bound_leases_by_client_id, &req->client_id);
@@ -167,6 +179,81 @@ sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const
                 return NULL;
 
         return static_lease;
+}
+
+/* An address of a static lease is never assigned from the pool, hence a bound lease for the address can only
+ * be acquired by the host the static lease is configured for. When the host changes its client ID, e.g. when
+ * it is dual-booted or its DHCP client is reconfigured to send a DUID, the bound lease still has the old
+ * client ID. This checks if the bound lease was acquired by the host that sent the request. Hosts sharing a
+ * hardware address that send different node-specific client IDs, e.g. ipvlan L2 children, are considered
+ * as different hosts. */
+static bool dhcp_server_lease_is_same_host(const sd_dhcp_server_lease *lease, const DHCPRequest *req) {
+        assert(lease);
+        assert(req);
+        assert(req->message);
+
+        if (sd_dhcp_client_id_is_set(&req->client_id) &&
+            client_id_equal(&lease->client_id, &req->client_id))
+                return true;
+
+        /* The remaining cases need the client ID generated from the hardware address in the request. */
+        if (!sd_dhcp_client_id_is_set(&req->client_id_by_header))
+                return false;
+
+        /* The lease was acquired with the client ID generated from the hardware address of this host, e.g.
+         * by dhclient without -i, or by a client that did not send the Client Identifier option. Now the
+         * host sends another client ID, e.g. a DUID. */
+        if (client_id_equal(&lease->client_id, &req->client_id_by_header))
+                return true;
+
+        /* The other way around: the lease was acquired with another client ID, e.g. a DUID sent by
+         * systemd-networkd, and now the request does not identify the host more precisely than its hardware
+         * address, hence compare the hardware addresses. That is, the request either does not have the
+         * Client Identifier option, in which case req->client_id is set to the client ID generated from the
+         * hardware address, or has the option with the client ID generated from the hardware address, e.g.
+         * sent by Windows in a dual-boot setup. */
+        if (!client_id_equal(&req->client_id, &req->client_id_by_header))
+                return false;
+
+        if (hw_addr_is_null(&req->hw_addr))
+                return false;
+
+        return lease->htype == req->message->header.htype && hw_addr_equal(&lease->hw_addr, &req->hw_addr);
+}
+
+/* Returns 1 and the lease bound to the address when it is acquired by the host that sent the request,
+ * 0 when the address is not assigned to any host, and -EADDRINUSE when the address is already assigned to
+ * another host. */
+int dhcp_server_get_bound_lease(
+                sd_dhcp_server *server,
+                const DHCPRequest *req,
+                be32_t address,
+                sd_dhcp_server_lease **ret) {
+
+        sd_dhcp_server_lease *lease, *static_lease;
+
+        assert(server);
+        assert(req);
+
+        lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        if (!lease) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        if (!client_id_equal(&lease->client_id, &req->client_id)) {
+                /* The lease has another client ID. It is still acquired by the host, if the address is the
+                 * static address of the host, and the host changed its client ID. */
+                static_lease = dhcp_server_get_static_lease(server, req);
+                if (!static_lease || static_lease->address != address ||
+                    !dhcp_server_lease_is_same_host(lease, req))
+                        return -EADDRINUSE;
+        }
+
+        if (ret)
+                *ret = lease;
+        return 1;
 }
 
 int sd_dhcp_server_set_static_lease(

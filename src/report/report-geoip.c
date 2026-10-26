@@ -7,7 +7,9 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "curl-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "in-addr-util.h"
@@ -19,10 +21,12 @@
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
-#include "report-geoip.h"
+#include "report-server.h"
 #include "stat-util.h"
+#include "static-destruct.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "verbs.h"
 #include "version.h"
 #include "web-util.h"
 
@@ -44,6 +48,22 @@
 
 /* Follow HTTP redirects, but only a few of them. */
 #define REPORT_GEOIP_MAX_REDIRECTS 5L
+
+#define REPORT_GEOIP_DEFAULT_REFRESH_USEC (30 * USEC_PER_MINUTE)
+
+COMMAND(
+        "systemd-report-geoip\0",
+        "Report the approximate geographic location of the system as a metric.",
+        .man_pages = "systemd-report-geoip@.service(8)\0",
+        .option_namespace = "common",
+);
+
+const sd_varlink_server_flags_t report_server_flags = 0;
+
+static char *arg_endpoint = NULL;
+static usec_t arg_refresh_usec = REPORT_GEOIP_DEFAULT_REFRESH_USEC;
+
+STATIC_DESTRUCTOR_REGISTER(arg_endpoint, freep);
 
 typedef enum GeoIPField {
         GEOIP_FIELD_IP,
@@ -677,10 +697,84 @@ static const MetricFamily metric_family_table[_GEOIP_FIELD_MAX + 1] = {
         [_GEOIP_FIELD_MAX] = {}, /* terminator */
 };
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(metric_family_table, link, parameters, flags, /* userdata= */ NULL);
 }
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(metric_family_table, link, parameters, flags, /* userdata= */ NULL);
+}
+
+static int config_parse_endpoint(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!http_url_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(s, rvalue);
+}
+
+static int parse_config(void) {
+        static const ConfigTableItem items[] = {
+                { "GeoIP", "Endpoint",   config_parse_endpoint, 0, &arg_endpoint     },
+                { "GeoIP", "RefreshSec", config_parse_sec,      0, &arg_refresh_usec },
+                {}
+        };
+
+        return config_parse_standard_file_with_dropins(
+                        "systemd/report-geoip.conf",
+                        "GeoIP\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
+}
+
+static int parse_environment(void) {
+        const char *d = secure_getenv("SYSTEMD_REPORT_GEOIP_ENDPOINT");
+        if (!d)
+                return 0;
+
+        if (isempty(d)) {
+                arg_endpoint = mfree(arg_endpoint);
+                return 0;
+        }
+
+        if (!http_url_is_valid(d)) {
+                log_warning("$SYSTEMD_REPORT_GEOIP_ENDPOINT is not a valid URL, ignoring: %s", d);
+                return 0;
+        }
+
+        return free_and_strdup_warn(&arg_endpoint, d);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        LIBCURL_NOTE(required);
+
+        (void) parse_config();
+        (void) parse_environment();
+
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

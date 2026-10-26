@@ -495,8 +495,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <command>renew</command>
           <replaceable>DEVICE…</replaceable>
         </term>
-        <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
-        Takes interface name or index number.</para>
+        <listitem><para>Renew dynamic configurations e.g. addresses received from DHCPv4 and DHCPv6
+        servers. When the DHCPv6 client runs in the information request mode, the information, e.g. DNS
+        servers, is requested again. Takes interface name or index number.</para>
 
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>

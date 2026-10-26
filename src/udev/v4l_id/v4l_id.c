@@ -8,69 +8,39 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 
-#include "sd-json.h"
-
-#include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "string-util.h"
-#include "strv.h"
 #include "utf8.h"
 #include "verbs.h"
-
-static const char *arg_device = NULL;
 
 COMMAND(
         "v4l_id\0",
         "Identify Video4Linux devices.",
         .argspec = "DEVICE\0",
+        .option_namespace = "common",
 );
-
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        char **args = option_parser_get_args(&opts);
-        if (strv_length(args) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Need exactly one DEVICE argument.");
-
-        arg_device = args[0];
-        return 1;
-}
 
 static int run(int argc, char *argv[]) {
         _cleanup_close_ int fd = -EBADF;
         struct v4l2_capability v2cap;
         int r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 1, /* max_args= */ 1, &args);
         if (r <= 0)
                 return r;
 
-        fd = open(arg_device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        const char *device = args[0];
+
+        fd = open(device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to open device node '%s'%s: %m",
-                               arg_device, ignore ? ", ignoring" : "");
+                               device, ignore ? ", ignoring" : "");
                 return ignore ? 0 : -errno;
         }
 

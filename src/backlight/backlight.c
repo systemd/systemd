@@ -4,10 +4,8 @@
 #include <unistd.h>
 
 #include "sd-device.h"
-#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
@@ -27,6 +25,7 @@ COMMAND(
         "Save and restore backlight brightness at shutdown and boot.",
         .argspec = "COMMAND [backlight|leds]:DEVICE\0",
         .man_pages = "systemd-backlight(8)\0",
+        .option_namespace = "common",
 );
 
 static int has_multiple_graphics_cards(void) {
@@ -627,30 +626,6 @@ static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
 
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(ret_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *ret_args = option_parser_get_args(&opts);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -659,7 +634,7 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         char **args = NULL;
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

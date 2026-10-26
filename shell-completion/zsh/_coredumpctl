@@ -17,7 +17,8 @@ _coredumpctl_commands(){
         local -a _dumps
         cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
-            _dumps=( "${(f)$(coredumpctl list -q --no-legend 2>/dev/null | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $4,$0}')}" )
+            # $5 is PID: columns are ID($1), DATE($2), TIME($3), TIMEZONE($4), PID($5)
+            _dumps=( "${(f)$(coredumpctl list -q --no-legend 2>/dev/null | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $5,$0}')}" )
             if [[ -n "$_dumps" ]]; then
                 _describe -V -t pids 'coredumps' _dumps
             else
@@ -38,6 +39,7 @@ _arguments \
     '(-r --reverse)'{-r,--reverse}'[Show the newest entries first]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize output]' \
     '(- *)'{-h,--help}'[Show this help]' \
     '(- *)--version[Show package version]' \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \

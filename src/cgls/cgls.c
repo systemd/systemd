@@ -117,7 +117,7 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_output_flags, OUTPUT_CGROUP_ID, r);
                         break;
 
-                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 

@@ -13,7 +13,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(socket),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(data),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file));
+                SD_VARLINK_DEFINE_ENUM_VALUE(file),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker_log));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
@@ -1871,13 +1873,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
                 SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the configuration file of this unit has been loaded"),
-                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently active or not"),
-                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently frozen or not"),
-                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflect more fine-grained state that is unit-type-specific"),
-                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects the install state of the unit file"),
                 SD_VARLINK_DEFINE_FIELD(UnitFileState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the firmware first began execution"),
@@ -1891,27 +1893,27 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the unit exited inactive state"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(InactiveExitTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be started or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be stopped or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be reloaded or not"),
-                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit may be started in isolation mode"),
-                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Returns which unit resources can be cleaned up"),
                 SD_VARLINK_DEFINE_FIELD(CanClean, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports the freeze operation"),
-                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports live mounting"),
-                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The job ID of the job currently scheduled or being executed for this unit, if there is any."),
                 SD_VARLINK_DEFINE_FIELD(JobId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the configuration file this unit is loaded from (i.e. FragmentPath or SourcePath) has changed since the configuration was read and hence whether a configuration reload is recommended"),
-                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Condition result of the last time the configured conditions of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Assert result of the last time the configured asserts of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured conditions of the unit have been checked"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ConditionTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured asserts of the unit have been checked"),
@@ -1940,6 +1942,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The timer runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerRuntime, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                UnitProperties,
+                /* For future use once the setters are implemented:
+                 * SD_VARLINK_DEFINE_FIELD(Description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                 * SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupProperties, SD_VARLINK_NULLABLE),
+                 */
+                SD_VARLINK_FIELD_COMMENT("Replace markers, or use '+'/'-' prefixes to add/remove them. An empty array clears all markers."),
+                SD_VARLINK_DEFINE_FIELD(Markers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -2017,10 +2028,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
+                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently. Currently only true is supported."),
                 SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitRuntime, 0));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
@@ -2040,6 +2051,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's runtime information"),
                 &vl_type_UnitRuntime,
+                SD_VARLINK_SYMBOL_COMMENT("Configuration and mutable runtime state that can be changed on an existing unit"),
+                &vl_type_UnitProperties,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's activation details"),

@@ -14,9 +14,19 @@
 #include "log.h"
 #include "metrics.h"
 #include "netif-util.h"
-#include "report-netstat.h"
+#include "report-server.h"
 #include "sort-util.h"
 #include "utf8.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-netstat\0",
+        "Report network interface statistics.",
+        .man_pages = "systemd-report-netstat@.service(8)\0",
+        .option_namespace = "common",
+);
+
+const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
 
 /* Reports the traffic counters and a few related properties of all network interfaces in our network
  * namespace. Everything is acquired with a single RTM_GETLINK dump, except for the link speed, which the
@@ -375,10 +385,14 @@ static const MetricFamily netstat_metric_family_table[_NETSTAT_METRIC_MAX + 1] =
         {}
 };
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(netstat_metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(netstat_metric_family_table, link, parameters, flags, userdata);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

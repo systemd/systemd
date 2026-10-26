@@ -13,6 +13,15 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-file.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-system-update-generator\0",
+        "Redirect the boot to offline update mode.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-system-update-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /*
  * Implements the logic described in systemd.offline-updates(7).

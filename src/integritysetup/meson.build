@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('HAVE_LIBCRYPTSETUP') != 1
+if conf.get('ENABLE_INTEGRITYSETUP') != 1
         subdir_done()
 endif
 
 executables += [
         libexec_template + {
                 'name' : 'systemd-integritysetup',
-                'public' : true,
                 'sources' : files('integritysetup.c'),
                 'export' : files('integrity-util.c'),
                 'dependencies' : libcryptsetup_cflags,

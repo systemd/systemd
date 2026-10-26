@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-storage-fs_.service"
+<refentry id="systemd-storage-fs_.service" conditional="ENABLE_STORAGE"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -71,7 +71,7 @@
 
     <para>For directory volumes, the root of the file system passed to clients is placed in a subdirectory
     <filename>root/</filename> of the <filename><replaceable>NAME</replaceable>.volume</filename> directory. The former (and all inodes
-    below it) must be owned by the foreign UID range, the latter by the host's root.</para>
+    below it) must be owned by the foreign UID range, the latter by the host's root (or the user in user mode).</para>
 
     <para>When acquiring a volume, symlinks are followed.</para>
 

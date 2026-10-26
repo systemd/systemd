@@ -103,13 +103,16 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
 #define OPTION_COMMON_INTROSPECT_CLI                                    \
         /* This option is internal-only for now and not shown in --help */ \
-        OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
+        OPTION_LONG_FLAGS(OPTION_EXPERIMENTAL, "introspect-cli", NULL, /* help= */ NULL)
 
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 
 #define OPTION_COMMON_NO_LEGEND                                         \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
+
+#define OPTION_COMMON_FULL                                              \
+        OPTION('l', "full", NULL, "Do not ellipsize output")
 
 #define OPTION_COMMON_LOG_LEVEL                                         \
         OPTION_LONG("log-level", "LEVEL",                               \
@@ -187,9 +190,13 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
         OPTION('N', "resolve-names", "MODE",                            \
                "When to resolve users and groups (early, late, or never)")
 
-/* This is magically mapped to the beginning and end of the section */
-extern const Option __start_SYSTEMD_OPTIONS[];
-extern const Option __stop_SYSTEMD_OPTIONS[];
+/* This is magically mapped to the beginning and end of the section. The linker only defines the
+ * symbols if the binary has such a section, i.e. if it defines at least one option. They are weak so
+ * that a program without options of its own (see common_parse_argv() in verbs.h) still links, with
+ * both resolving to NULL, and hidden so that the references are never bound to the section of
+ * libsystemd-shared instead. */
+extern const Option _weak_ _hidden_ __start_SYSTEMD_OPTIONS[];
+extern const Option _weak_ _hidden_ __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */

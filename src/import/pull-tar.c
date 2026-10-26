@@ -111,7 +111,6 @@ int tar_pull_new(
                 TarPullFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *p = NULL;
         _cleanup_free_ char *root = NULL;
@@ -132,10 +131,6 @@ int tar_pull_new(
                         return r;
         }
 
-        r = curl_glue_new(&g, e);
-        if (r < 0)
-                return r;
-
         p = new(TarPull, 1);
         if (!p)
                 return -ENOMEM;
@@ -145,7 +140,6 @@ int tar_pull_new(
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
                 .event = TAKE_PTR(e),
-                .glue = TAKE_PTR(g),
                 .tar_pid = PIDREF_NULL,
                 .tree_fd = -EBADF,
                 .userns_fd = -EBADF,
@@ -699,13 +693,16 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
         assert(p);
+        assert(compression < _COMPRESSION_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -713,7 +710,7 @@ int tar_pull_start(
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
 
-        if (!http_url_is_valid(url) && !file_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !pull_validate_local(local, flags))
@@ -729,13 +726,23 @@ int tar_pull_start(
         p->flags = flags;
         p->verify = verify;
 
+        /* Everything but provider: URLs is transported via curl, hence set up the curl glue on first use. This
+         * also defers loading libcurl to this point, so that pulling from a resource provider works without it. */
+        if (!provider_url_is_valid(url) && !p->glue) {
+                r = curl_glue_new(&p->glue, p->event);
+                if (r < 0)
+                        return r;
+        }
+
         /* Set up download job for TAR file */
-        r = pull_job_new(&p->tar_job, url, p->glue, p);
+        r = pull_job_new(&p->tar_job, url, p->event, p->glue, p);
         if (r < 0)
                 return r;
 
         p->tar_job->on_finished = tar_pull_job_on_finished;
         p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
+        p->tar_job->compression = compression;
+        import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->tar_job->expected_checksum))
@@ -745,7 +752,9 @@ int tar_pull_start(
         } else
                 p->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
-        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
+        /* A previously downloaded image is neither keyed by the compression algorithm nor was it
+         * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
+        if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", NULL, &p->tar_job->old_etags);
                 if (r < 0)
                         return r;
@@ -757,6 +766,7 @@ int tar_pull_start(
                         &p->signature_job,
                         verify,
                         url,
+                        p->event,
                         p->glue,
                         tar_pull_job_on_finished,
                         p);
@@ -771,6 +781,7 @@ int tar_pull_start(
                                 tar_strip_suffixes,
                                 ".nspawn",
                                 verify,
+                                p->event,
                                 p->glue,
                                 tar_pull_job_on_open_disk_settings,
                                 tar_pull_job_on_finished,

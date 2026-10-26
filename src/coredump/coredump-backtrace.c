@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "sd-id128.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
 
@@ -10,19 +11,20 @@
 #include "format-util.h"
 #include "journal-importer.h"
 #include "log.h"
+#include "strv.h"
 
-int coredump_backtrace(int argc, char *argv[]) {
+int coredump_backtrace(char **metadata) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
         _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         int r;
 
-        assert(argc >= 2);
+        assert(metadata);
 
         log_setup();
         log_debug("Processing backtrace on stdin...");
 
-        /* Collect all process metadata from argv[] by making sure to skip the '--backtrace' option. */
-        r = coredump_context_parse_from_argv(&context, argc - 2, argv + 2);
+        /* Collect all process metadata passed on the command line. */
+        r = coredump_context_parse_from_argv(&context, (int) strv_length(metadata), metadata);
         if (r < 0)
                 return r;
 
@@ -31,6 +33,10 @@ int coredump_backtrace(int argc, char *argv[]) {
                 return r;
 
         (void) iovw_replace_string_field(&context.iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
+
+        sd_id128_t id;
+        if (sd_id128_randomize(&id) >= 0)
+                (void) iovw_replace_string_field(&context.iovw, "COREDUMP_ID=", SD_ID128_TO_STRING(id));
 
         for (;;) {
                 r = journal_importer_process_data(&importer);

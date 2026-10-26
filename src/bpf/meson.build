@@ -306,7 +306,7 @@ elif use_generated_vmlinux_h
                         capture : true)
         ]
 
-        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_path)]
+        bpf_o_unstripped_cmd += ['-Isrc/bpf']
         message('Using generated @0@'.format(vmlinux_h_path))
 else
         message('Using neither provided nor generated vmlinux.h, some features will not be available.')

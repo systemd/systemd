@@ -1120,6 +1120,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
 
 # Lenovo ThinkPad T14 Gen 1 AMD, Brazilian keyboard
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn20UES5TQ00:pvr*
+# Lenovo ThinkPad X1 Carbon 6th Gen, Brazilian keyboard
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn20KGS37329:pvr*
  KEYBOARD_KEY_9d=ro                                     # slash/question key
 
 # Lenovo IdeaPad
@@ -1258,6 +1260,8 @@ evdev:input:b0003v17EFp60C[368]*-e0,1,4,k*,F0,*ram4,lsfw
 
 # Lenovo Thinkbook 16 G6+ 2024
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
+# Lenovo ThinkBook 16 G7+ 2025
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21TL:pvr*
  KEYBOARD_KEY_0a=!9
  KEYBOARD_KEY_0b=!0
 

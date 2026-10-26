@@ -201,4 +201,4 @@ static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
         [DHCP_STATE_REBINDING]            = "rebinding",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_state, DHCPState);

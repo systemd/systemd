@@ -5305,6 +5305,8 @@ int verity_dissect_and_mount(
                                         extension_release_data->os_release_id_like,
                                         extension_release_data->os_release_version_id,
                                         class == IMAGE_SYSEXT ? extension_release_data->os_release_sysext_level : extension_release_data->os_release_confext_level,
+                                        extension_release_data->os_release_image_id,
+                                        extension_release_data->os_release_image_version,
                                         extension_release_data->os_release_extension_scope,
                                         extension_release,
                                         class);
@@ -5333,6 +5335,8 @@ void extension_release_data_done(ExtensionReleaseData *data) {
         data->os_release_version_id = mfree(data->os_release_version_id);
         data->os_release_sysext_level = mfree(data->os_release_sysext_level);
         data->os_release_confext_level = mfree(data->os_release_confext_level);
+        data->os_release_image_id = mfree(data->os_release_image_id);
+        data->os_release_image_version = mfree(data->os_release_image_version);
         data->os_release_extension_scope = mfree(data->os_release_extension_scope);
 }
 
@@ -5758,7 +5762,7 @@ int mountfsd_mount_directory(
         return mountfsd_mount_directory_fd(vl, directory_fd, userns_fd, flags, ret_mount_fd);
 }
 
-int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd) {
+int mkdir_foreign_at_full(int parent_fd, const char *name, mode_t mode, XOpenFlags xopen_flags, int *ret_directory_fd) {
         int r;
 
         assert(parent_fd >= 0);
@@ -5825,7 +5829,7 @@ int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_dire
                 if (r < 0)
                         report_errno_and_exit(errno_pipe_fds[1], r);
 
-                _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, mode);
+                _cleanup_close_ int fd = open_mkdir_at_full(parent_fd, t, O_CLOEXEC, xopen_flags, mode);
                 if (fd < 0) {
                         log_debug_errno(fd, "Failed to create directory '%s': %m", t);
                         report_errno_and_exit(errno_pipe_fds[1], fd);
@@ -5871,6 +5875,10 @@ int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_dire
         if (ret_directory_fd)
                 *ret_directory_fd = TAKE_FD(directory_fd);
         return 0;
+}
+
+int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd) {
+        return mkdir_foreign_at_full(parent_fd, name, mode, /* xopen_flags= */ 0, ret_directory_fd);
 }
 
 int mkdir_foreign(const char *path, mode_t mode, int *ret_directory_fd) {
@@ -5984,7 +5992,7 @@ int remove_tree_foreign(const char *path, int userns_fd) {
 
                 _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
                 if (dfd < 0) {
-                        log_debug_errno(r, "Failed to reopen tree fd: %m");
+                        log_debug_errno(dfd, "Failed to reopen tree fd: %m");
                         _exit(EXIT_FAILURE);
                 }
 

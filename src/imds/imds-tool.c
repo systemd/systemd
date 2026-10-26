@@ -590,7 +590,7 @@ static int add_public_address_to_json_array(sd_json_variant **array, int family,
 }
 
 static int import_imds_public_addresses(sd_varlink *link) {
-        int r, ret = 0;
+        int r;
 
         assert(link);
 
@@ -601,8 +601,8 @@ static int import_imds_public_addresses(sd_varlink *link) {
         union in_addr_union u = {};
         r = acquire_imds_key_as_ip_address(link, IMDS_IPV4_PUBLIC, /* key= */ NULL, AF_INET, &u);
         if (r < 0)
-                RET_GATHER(ret, r);
-        else if (r > 0) {
+                return r;
+        if (r > 0) {
                 r = add_public_address_to_json_array(&aj, AF_INET, &u);
                 if (r < 0)
                         return r;
@@ -611,8 +611,8 @@ static int import_imds_public_addresses(sd_varlink *link) {
         u = (union in_addr_union) {};
         r = acquire_imds_key_as_ip_address(link, IMDS_IPV6_PUBLIC, /* key= */ NULL, AF_INET6, &u);
         if (r < 0)
-                RET_GATHER(ret, r);
-        else if (r > 0) {
+                return r;
+        if (r > 0) {
                 r = add_public_address_to_json_array(&aj, AF_INET6, &u);
                 if (r < 0)
                         return r;

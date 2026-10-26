@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 bool oci_image_is_valid(const char *n) {
         bool slash = true;
@@ -324,6 +325,27 @@ char* oci_digest_string(const struct iovec *iovec) {
                 return NULL;
 
         return strjoin("sha256:", h);
+}
+
+/* Docker's "Image Manifest V2, Schema 2" format, which the OCI image format was standardized from, has the
+ * same structure as the OCI image index, image manifest, image configuration and gzip compressed layers,
+ * just with different media types. Many registries still serve images in that format, hence accept both.
+ * Docker's older schema 1 manifests are a different format, and are not supported. */
+
+bool oci_media_type_is_index(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_INDEX);
+}
+
+bool oci_media_type_is_manifest(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_MANIFEST);
+}
+
+bool oci_media_type_is_config(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_CONFIG);
+}
+
+bool oci_media_type_is_layer(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_LAYER);
 }
 
 int oci_make_manifest_url(

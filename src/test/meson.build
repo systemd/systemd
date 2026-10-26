@@ -28,26 +28,28 @@ endif
 generate_sym_test_py = files('generate-sym-test.py')
 
 test_libsystemd_sym_c = custom_target(
-        input : [libsystemd_sym_path,
+        input : [libsystemd_sym,
                  systemd_headers,
                  libsystemd_sources],
         output : 'test-libsystemd-sym.c',
-        command : [generate_sym_test_py,
-                   libsystemd_sym_path,
-                   libsystemd_dir_path,
+        command : [python,
+                   generate_sym_test_py,
+                   '@INPUT0@',
+                   relative_source_path / 'src/libsystemd',
                    systemd_headers],
         capture : true,
         build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
-        input : [libudev_sym_path,
-                 libudev_h_path,
+        input : [libudev_sym,
+                 libudev_h,
                  libudev_sources],
         output : 'test-libudev-sym.c',
-        command : [generate_sym_test_py,
-                   libudev_sym_path,
-                   libudev_dir_path,
-                   libudev_h_path],
+        command : [python,
+                   generate_sym_test_py,
+                   '@INPUT0@',
+                   relative_source_path / 'src/libudev',
+                   '@INPUT1@'],
         capture : true,
         build_by_default : want_tests != 'false')
 
@@ -138,6 +140,7 @@ simple_tests += files(
         'test-ip-protocol-list.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-keyring-util.c',
         'test-label.c',
         'test-limits-util.c',
         'test-list.c',
@@ -169,6 +172,7 @@ simple_tests += files(
         'test-ordered-set.c',
         'test-os-util.c',
         'test-osc-context.c',
+        'test-osc-winsize.c',
         'test-parse-argument.c',
         'test-parse-helpers.c',
         'test-parse-util.c',
@@ -234,6 +238,7 @@ simple_tests += files(
         'test-utf8.c',
         'test-validatefs-util.c',
         'test-verbs.c',
+        'test-voa-util.c',
         'test-vpick.c',
         'test-web-util.c',
         'test-xattr-util.c',
@@ -276,6 +281,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-cli-c.c'),
                 'type' : 'manual',
         },
         test_template + {
@@ -478,6 +487,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
@@ -504,7 +514,7 @@ executables += [
         test_template + {
                 'sources' : files('test-sbat.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
-                'c_args' : f'-I@efi_config_h_dir@',
+                'c_args' : '-Isrc/boot',
         },
         test_template + {
                 'sources' : files('test-seccomp.c'),
@@ -632,6 +642,9 @@ executables += [
         core_test_template + {
                 'sources' : files('test-engine.c'),
                 'dependencies' : common_test_dependencies,
+        },
+        core_test_template + {
+                'sources' : files('test-exec-directory.c'),
         },
         core_test_template + {
                 'sources' : files('test-execute.c'),
@@ -765,6 +778,20 @@ if static_libudev != 'false'
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests ? 'yes' : 'no',
                         'suite' : 'libudev',
+                },
+        ]
+endif
+
+############################################################
+
+if have_rust
+        executables += [
+                rust_test_template + {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+                rust_test_template + {
+                        'sources' : files('test-cli-rust.rs'),
+                        'type' : 'manual',
                 },
         ]
 endif

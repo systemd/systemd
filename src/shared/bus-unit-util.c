@@ -1298,14 +1298,18 @@ static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, co
         return 1;
 }
 
-static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
+int bus_append_log_extra_fields_strv(sd_bus_message *m, char * const *fields) {
         int r;
+
+        assert(m);
+
+        /* Appends a single "LogExtraFields" (sv) property entry carrying all the specified fields */
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, 's', field);
+        r = sd_bus_message_append_basic(m, 's', "LogExtraFields");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1317,9 +1321,11 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_array(m, 'y', eq, strlen(eq));
-        if (r < 0)
-                return bus_log_create_error(r);
+        STRV_FOREACH(f, fields) {
+                r = sd_bus_message_append_array(m, 'y', *f, strlen(*f));
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1334,6 +1340,12 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
                 return bus_log_create_error(r);
 
         return 1;
+}
+
+static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
+        assert(streq(field, "LogExtraFields"));
+
+        return bus_append_log_extra_fields_strv(m, STRV_MAKE(eq));
 }
 
 static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, const char *eq) {
@@ -2079,8 +2091,11 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
 
 static int bus_append_directory(sd_bus_message *m, const char *field, const char *eq) {
         _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
+        ExecDirectoryType type;
         const char *p = eq;
         int r;
+
+        assert_se((type = exec_directory_type_from_string(field)) >= 0);
 
         /* Adding new directories is supported from both *DirectorySymlink methods and the
          * older ones, so first parse the input, and if we are given a new-style src:dst
@@ -2102,6 +2117,10 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
 
                 path_simplify(source);
 
+                if (!isempty(dest) && type == EXEC_DIRECTORY_CONFIGURATION)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Symlink destination is not supported for %s=: '%s'", field, tuple);
+
                 if (isempty(dest) && isempty(flags)) {
                         r = strv_consume(&sources, TAKE_PTR(source));
                         if (r < 0)
@@ -2114,7 +2133,8 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse flags for %s=: '%s'", field, flags);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2126,7 +2146,11 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 }
         }
 
-        if (!strv_isempty(sources)) {
+        bool have_new = !strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro);
+
+        /* Send the old property if we have plain sources, and also if we parsed nothing at all: an empty
+         * assignment resets the list, and only the old property can express that. */
+        if (!strv_isempty(sources) || !have_new) {
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -2152,26 +2176,16 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                         return bus_log_create_error(r);
         }
 
-        /* For State and Runtime directories we support an optional destination parameter, which
-         * will be used to create a symlink to the source. But it is new so we cannot change the
-         * old DBUS signatures, so append a new message type. */
-        if (!strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro)) {
-                const char *symlink_field;
+        /* For State, Runtime, Cache and Logs directories we support an optional destination parameter,
+         * which will be used to create a symlink to the source. Additionally all directory types support
+         * a flags parameter. But these are new so we cannot change the old D-Bus signatures, hence append
+         * a new message type. */
+        if (have_new) {
+                const char *symlink_field = exec_directory_type_symlink_to_string(type);
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
-
-                if (streq(field, "StateDirectory"))
-                        symlink_field = "StateDirectorySymlink";
-                else if (streq(field, "RuntimeDirectory"))
-                        symlink_field = "RuntimeDirectorySymlink";
-                else if (streq(field, "CacheDirectory"))
-                        symlink_field = "CacheDirectorySymlink";
-                else if (streq(field, "LogsDirectory"))
-                        symlink_field = "LogsDirectorySymlink";
-                else
-                        assert_not_reached();
 
                 r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, symlink_field);
                 if (r < 0)
@@ -2636,7 +2650,6 @@ static const BusProperty execute_properties[] = {
         { "NoExecPaths",                           bus_append_strv                               },
         { "ExecSearchPath",                        bus_append_strv_colon                         },
         { "ExtensionDirectories",                  bus_append_strv                               },
-        { "ConfigurationDirectory",                bus_append_strv                               },
         { "SupplementaryGroups",                   bus_append_strv                               },
         { "SystemCallArchitectures",               bus_append_strv                               },
         { "SyslogLevel",                           bus_append_log_level_from_string              },
@@ -2706,6 +2719,7 @@ static const BusProperty execute_properties[] = {
         { "RuntimeDirectory",                      bus_append_directory                          },
         { "CacheDirectory",                        bus_append_directory                          },
         { "LogsDirectory",                         bus_append_directory                          },
+        { "ConfigurationDirectory",                bus_append_directory                          },
         { "ProtectHostname",                       bus_append_protect_hostname                   },
         { "ProtectHostnameEx",                     bus_append_protect_hostname                   }, /* compat */
         { "PrivateTmp",                            bus_append_boolean_or_ex_string               },
@@ -3339,4 +3353,14 @@ ExecDirectoryFlags exec_directory_flags_from_string(const char *s) {
                 return EXEC_DIRECTORY_READ_ONLY;
 
         return _EXEC_DIRECTORY_FLAGS_INVALID;
+}
+
+const char* exec_directory_flags_to_string(uint64_t flags) {
+        if (flags == 0)
+                return "";
+
+        if (flags == EXEC_DIRECTORY_READ_ONLY)
+                return "ro";
+
+        return NULL;
 }

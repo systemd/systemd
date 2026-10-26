@@ -191,6 +191,26 @@ static void make_gpt(int fd, uint32_t sector_size, const GptPartitionEntry *part
         }
 }
 
+TEST(gpt_label_is_valid) {
+        ASSERT_TRUE(gpt_label_is_valid(""));
+        ASSERT_TRUE(gpt_label_is_valid("root-x86-64"));
+        ASSERT_TRUE(gpt_label_is_valid("with \"quotes\" and \\ and *"));
+        ASSERT_TRUE(gpt_label_is_valid("123456789012345678901234567890123456"));
+        ASSERT_FALSE(gpt_label_is_valid("1234567890123456789012345678901234567"));
+        /* 36 two-byte UTF-8 characters fit, they are one UTF-16 code unit each */
+        ASSERT_TRUE(gpt_label_is_valid("ääääääääääääääääääääääääääääääääääää"));
+        ASSERT_FALSE(gpt_label_is_valid("äääääääääääääääääääääääääääääääääääää"));
+        /* Characters outside of the BMP take two UTF-16 code units */
+        ASSERT_TRUE(gpt_label_is_valid("😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"));
+        ASSERT_FALSE(gpt_label_is_valid("😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀x"));
+        ASSERT_FALSE(gpt_label_is_valid(NULL));
+        ASSERT_FALSE(gpt_label_is_valid("\xff"));
+        ASSERT_FALSE(gpt_label_is_valid("foo\tbar"));
+        ASSERT_FALSE(gpt_label_is_valid("foo\nbar"));
+        ASSERT_FALSE(gpt_label_is_valid("foo\x7f"));
+        ASSERT_FALSE(gpt_label_is_valid("foo\xc2\x85")); /* U+0085, NEL, a C1 control character */
+}
+
 TEST(gpt_probe_empty) {
         _cleanup_close_ int fd = -EBADF;
 

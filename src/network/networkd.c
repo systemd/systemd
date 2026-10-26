@@ -42,9 +42,9 @@ int run_networkd(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv_multicall(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
-                                         /* runtime_scope= */ NULL,
-                                         argc, argv);
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               /* runtime_scope= */ NULL,
+                               argc, argv);
         if (r <= 0)
                 return r;
 

@@ -290,8 +290,6 @@ static int workload_load_journal(Workload *w) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", arg_input);
 
-        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
-
         if (arg_entries > 0) {
                 ASSERT_OK(sd_journal_seek_tail(j));
                 r = sd_journal_previous_skip(j, arg_entries);
@@ -783,7 +781,7 @@ static int write_test(const Workload *w, const char *path, WriteResult *result) 
 
         heap_start = heap_in_use();
 
-        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, flags, 0640, UINT64_MAX, &metrics, mmap_cache, &f);
+        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, flags, 0640, UINT64_MAX, &metrics, mmap_cache, /* seqnum_id= */ NULL, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", fn);
 
@@ -826,7 +824,7 @@ static int write_test(const Workload *w, const char *path, WriteResult *result) 
                         if (rotate) {
                                 Tracker old = TAKE_GENERIC(tracker, Tracker, (Tracker) { .fd = -EBADF });
 
-                                r = journal_file_rotate(&f, mmap_cache, flags, UINT64_MAX, /* deferred_closes= */ NULL);
+                                r = journal_file_rotate(&f, mmap_cache, flags, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to rotate %s: %m", fn);
 
@@ -1173,8 +1171,6 @@ static int read_test_once(ReadContext *c, read_test_t func, usec_t *ret_usec, ui
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", c->path);
 
-        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
-
         r = func(c, j);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", c->path);
@@ -1261,7 +1257,7 @@ static int follow_writer(const Workload *w, const char *path, uint64_t n, int re
         ASSERT_NOT_NULL(mmap_cache = mmap_cache_new());
         ASSERT_NOT_NULL(fn = path_join(path, "system.journal"));
 
-        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, arg_compress ? JOURNAL_COMPRESS : 0, 0640, UINT64_MAX, &metrics, mmap_cache, &f);
+        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, arg_compress ? JOURNAL_COMPRESS : 0, 0640, UINT64_MAX, &metrics, mmap_cache, /* seqnum_id= */ NULL, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", fn);
 

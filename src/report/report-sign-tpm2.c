@@ -6,7 +6,6 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "dirent-util.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
@@ -15,8 +14,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "main-func.h"
-#include "options.h"
+#include "report-server.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -24,8 +22,6 @@
 #include "tpm2-pcr.h"
 #include "tpm2-report.h"
 #include "tpm2-util.h"
-#include "varlink-io.systemd.Report.Signer.h"
-#include "varlink-util.h"
 #include "verbs.h"
 
 COMMAND(
@@ -33,7 +29,10 @@ COMMAND(
         "Get an attestation report from a Trusted Platform Module (TPM) "
         "that includes the hash of the system report.",
         .man_pages = "systemd-report-sign-tpm2@.service(8)\0",
+        .option_namespace = "common",
 );
+
+const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY;
 
 #define REPORT_SIGN_TPM2_PERSISTENT_DIR "/var/lib/systemd/report.sign.tpm2"
 #define REPORT_SIGN_TPM2_RUNTIME_DIR "/run/systemd/report.sign.tpm2"
@@ -950,76 +949,9 @@ static int vl_method_sign(
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("data", dv));
 }
 
-static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
-        int r;
-
-        r = varlink_server_new(&vs, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY, /* userdata= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-        r = sd_varlink_server_add_interface(vs, &vl_interface_io_systemd_Report_Signer);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-        r = sd_varlink_server_bind_method(vs, "io.systemd.Report.Signer.Sign", vl_method_sign);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-        r = sd_varlink_server_loop_auto(vs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        int r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        if (option_parser_get_n_args(&opts) > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
-
-        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program can only run as a Varlink service.");
-
-        return 1;
-}
-
-static int run(int argc, char *argv[]) {
-        int r;
-
+int report_server_setup(sd_varlink_server *server) {
         TPM2_NOTE(suggested);
         LIBCRYPTO_NOTE(suggested);
 
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        return vl_server();
+        return report_server_add_signer_interface(server, vl_method_sign);
 }
-
-DEFINE_MAIN_FUNCTION(run);

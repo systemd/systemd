@@ -21,12 +21,14 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 # TODO: remove autovt@ removal when the upstream spec is updated
 # TODO: remove systemd-udevd-control.socket removal when the upstream spec is updated
 # TODO: remove systemd-sysupdate removal when the upstream spec is updated
+# TODO: remove systemd-ptybroker-shell addition when the upstream spec is updated
 while read -r filelist; do
     sed -E \
         -e '/autovt@/d' \
         -e '/sockets\.target\.wants\/systemd-udevd-control\.socket/d' \
         -e '/systemd-udevd-control\.socket\.8/d' \
         -e '/^%\{_bindir\}\/systemd-sysupdate$/d' \
+        -e '/^%\{_pam_vendordir\}\/systemd-run0$/a %{_pam_vendordir}/systemd-ptybroker-shell' \
         -e 's/\.gz$//' \
         "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
@@ -64,11 +66,16 @@ fi
 # The opensuse spec also installs its own systemd-update-helper script over the systemd-update-helper that
 # meson builds. Drop that install line, so that the image contains the systemd-update-helper under test.
 #
+# The opensuse spec builds with -Dpamconfdir=no and installs its own PAM configuration files, hence the
+# systemd-ptybroker-shell symlink that meson would install is missing. Add it next to systemd-run0.
+#
 # TODO: remove manual default-hierarchy patch when the upstream spec is updated
+# TODO: remove systemd-ptybroker-shell addition when the upstream spec is updated
 sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" \
     -e '/integration-tests\/README/d' \
     -e '/default-hierarchy/ d' \
     -e '/^install .*\/systemd-update-helper$/d' \
+    -e '/^install .*%{_pam_vendordir}\/systemd-run0$/a ln -s systemd-run0 %{buildroot}%{_pam_vendordir}/systemd-ptybroker-shell' \
     >/tmp/systemd.spec
 mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
@@ -83,6 +90,7 @@ build() {
     CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)" \
     CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
     CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    RUSTFLAGS="$MKOSI_RUSTFLAGS $RUSTFLAGS" \
     rpmbuild \
         -bb \
         --noprep \

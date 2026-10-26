@@ -11,12 +11,7 @@ SUBSYSTEM!="block", GOTO="iocost_end"
 ENV{DEVTYPE}!="disk", GOTO="iocost_end"
 ACTION=="remove", GOTO="iocost_end"
 
-ENV{.MODEL}=""
-ENV{ID_MODEL}!="", ENV{.MODEL}="$env{ID_MODEL}"
-ENV{ID_MODEL_FROM_DATABASE}!="", ENV{.MODEL}="$env{ID_MODEL_FROM_DATABASE}"
-
-ENV{.MODEL}!="", IMPORT{builtin}="hwdb 'block::name:$env{.MODEL}:fwrev:$env{ID_REVISION}:'"
-
+# 61-block-hwdb.rules imports IOCOST_SOLUTIONS from the hwdb.
 ENV{IOCOST_SOLUTIONS}!="", RUN+="iocost apply $env{DEVNAME}"
 
 LABEL="iocost_end"

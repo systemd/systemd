@@ -16,6 +16,11 @@ if [[ ! -x "$BINARY" ]]; then
     exit 1
 fi
 
+# shellcheck disable=SC2076
+if [[ " halt poweroff reboot shutdown " =~ " $(basename "$BINARY") " ]]; then
+    exit 0
+fi
+
 # --version prints something. Also catches case where args are ignored.
 if ! "$BINARY" --version | grep . >/dev/null; then
     echo "$(basename "$BINARY") --version output is empty"

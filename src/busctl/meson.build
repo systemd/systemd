@@ -10,7 +10,6 @@ busctl_export_sources = files(
 executables += [
         executable_template + {
                 'name' : 'busctl',
-                'public' : true,
                 'sources' : busctl_sources,
                 'export' : busctl_export_sources,
         },

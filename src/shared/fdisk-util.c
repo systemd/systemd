@@ -201,6 +201,58 @@ int fdisk_new_context_at(
         return 0;
 }
 
+int fdisk_get_disklabel_id_as_id128(struct fdisk_context *c, sd_id128_t *ret) {
+        _cleanup_free_ char *ids = NULL;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        r = sym_fdisk_get_disklabel_id(c, &ids);
+        if (r < 0)
+                return r;
+        if (!ids)
+                return -ENXIO;
+
+        return sd_id128_from_string(ids, ret);
+}
+
+static int disklabel_id_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
+        const sd_id128_t *id128p = ASSERT_PTR(data);
+        int r;
+
+        assert(ask);
+
+        /* The only question libfdisk asks from fdisk_set_disklabel_id() is the new UUID string */
+        if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
+                return -EINVAL;
+
+        _cleanup_free_ char *ids = new(char, SD_ID128_UUID_STRING_MAX);
+        if (!ids)
+                return -ENOMEM;
+
+        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*id128p, ids));
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(ids);
+        return 0;
+}
+
+int fdisk_set_disklabel_id_as_id128(struct fdisk_context *c, sd_id128_t id) {
+        int r;
+
+        assert(c);
+
+        r = sym_fdisk_set_ask(c, disklabel_id_ask_cb, &id);
+        if (r < 0)
+                return r;
+
+        r = sym_fdisk_set_disklabel_id(c);
+        (void) sym_fdisk_set_ask(c, /* ask_cb= */ NULL, /* data= */ NULL);
+        return r;
+}
+
 int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret) {
         const char *ids;
 

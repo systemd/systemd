@@ -155,6 +155,17 @@ static int dhcp_server_send_message(
                         message);
 }
 
+/* RFC 8925 section 3.3. DHCPv4 Server Behavior
+ * The server MUST NOT include the IPv6-Only Preferred option in the DHCPOFFER or DHCPACK message if
+ * the option was not present in the Parameter Request List sent by the client. */
+bool dhcp_server_want_ipv6_only_preferred(sd_dhcp_server *server, DHCPRequest *req) {
+        assert(server);
+        assert(req);
+
+        return set_contains(req->parameter_request_list, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)) &&
+                server->ipv6_only_preferred_usec > 0;
+}
+
 static int dhcp_server_new_reply(
                 sd_dhcp_server *server,
                 DHCPRequest *req,
@@ -304,11 +315,7 @@ static int dhcp_server_new_reply(
                         return r;
         }
 
-        /* RFC 8925 section 3.3. DHCPv4 Server Behavior
-         * The server MUST NOT include the IPv6-Only Preferred option in the DHCPOFFER or DHCPACK message if
-         * the option was not present in the Parameter Request List sent by the client. */
-        if (set_contains(req->parameter_request_list, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)) &&
-            server->ipv6_only_preferred_usec > 0) {
+        if (dhcp_server_want_ipv6_only_preferred(server, req)) {
                 r = dhcp_message_append_option_be32(
                                 message,
                                 SD_DHCP_OPTION_IPV6_ONLY_PREFERRED,
