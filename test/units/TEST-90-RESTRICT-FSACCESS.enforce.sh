@@ -132,7 +132,8 @@ trap at_exit EXIT
 # ------ Preconditions: helper "check" must agree with the cmdline ------
 # "check" runs the same gates as PID1: BPF LSM, require_signatures,
 # proc_mem.force_override=never on the cmdline plus a /proc/self/mem self-probe
-# verifying the kernel honours it, and the ptrace seccomp filter.
+# verifying the kernel honours it, and the ptrace and personality seccomp
+# filters.
 # SYSTEMD_PROC_CMDLINE overrides what the helper considers the kernel command
 # line; the gates run before any BPF program is loaded, so the rejections
 # below are cheap and attach nothing.
@@ -173,6 +174,14 @@ echo "/proc/self/mem rewrite of executable page refused: OK"
 
 expect_probe 1 "PTRACE_POKETEXT/PTRACE_POKEDATA" poketext
 echo "PTRACE_POKETEXT/PTRACE_POKEDATA refused by seccomp filter: OK"
+
+# ------ Test: the personality seccomp filter refuses READ_IMPLIES_EXEC ------
+# With the flag set brk() extends the heap writable and executable without
+# passing through any of the BPF hooks. The helper installs the same filter
+# PID1 uses; the probe only counts as a denial if the flag could be set before.
+
+expect_probe 1 "personality(READ_IMPLIES_EXEC)" read-implies-exec
+echo "personality(READ_IMPLIES_EXEC) refused by seccomp filter: OK"
 
 # ------ Baseline: W^X probes succeed WITHOUT our BPF ------
 # Another LSM (e.g. SELinux execmem/execmod) may deny these on its own, which
