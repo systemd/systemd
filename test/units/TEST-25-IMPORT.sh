@@ -301,4 +301,96 @@ test ! -e "$COMPDIR/root/bad"
 
 rm -rf "$COMPDIR"
 
+# → A pinned checksum must not be satisfied by a download cached under the same ETag ← #
+
+ETAGDIR=/var/tmp/etag
+rm -rf "$ETAGDIR"
+mkdir -p "$ETAGDIR/srv" "$ETAGDIR/a/etc" "$ETAGDIR/b/etc"
+
+# Serves the files in srv/ with a fixed ETag, or answers 304 to everything while srv/304 exists
+cat >"$ETAGDIR/server.py" <<'EOF'
+import http.server, os, sys
+SRV = sys.argv[1]
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if os.path.exists(os.path.join(SRV, "304")):
+            self.send_response(304)
+            self.send_header("ETag", '"fixed"')
+            self.end_headers()
+            return
+        try:
+            with open(os.path.join(SRV, os.path.basename(self.path)), "rb") as f:
+                body = f.read()
+        except FileNotFoundError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("ETag", '"fixed"')
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, *args):
+        pass
+server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+with open(sys.argv[2], "w") as f:
+    f.write(str(server.server_address[1]))
+server.serve_forever()
+EOF
+python3 "$ETAGDIR/server.py" "$ETAGDIR/srv" "$ETAGDIR/port" &
+SERVER_PID=$!
+timeout 10 bash -c "until test -s '$ETAGDIR/port'; do sleep .1; done"
+ETAG_URL="http://127.0.0.1:$(cat "$ETAGDIR/port")"
+
+{ echo "image a"; dd if=/dev/urandom bs=4096 count=16 status=none; } >"$ETAGDIR/a.raw"
+{ echo "image b"; dd if=/dev/urandom bs=4096 count=16 status=none; } >"$ETAGDIR/b.raw"
+echo a >"$ETAGDIR/a/etc/os-release"
+echo b >"$ETAGDIR/b/etc/os-release"
+tar cf "$ETAGDIR/a.tar" -C "$ETAGDIR/a" .
+tar cf "$ETAGDIR/b.tar" -C "$ETAGDIR/b" .
+
+for t in raw tar; do
+    root="$ETAGDIR/root-$t"
+    mkdir -p "$root"
+    pin="$(sha256sum "$ETAGDIR/b.$t" | cut -d' ' -f1)"
+    opts=(--image-root="$root" --keep-download=yes --settings=no)
+    if [[ "$t" == raw ]]; then
+        opts+=(--roothash=no --roothash-signature=no --verity=no)
+    fi
+
+    # An unverified pull of a.* leaves a copy of it in the cache, keyed by the ETag
+    cp "$ETAGDIR/a.$t" "$ETAGDIR/srv/img.$t"
+    "$PULL" "$t" "${opts[@]}" --verify=no "$ETAG_URL/img.$t" one
+
+    # A pull pinned to b.* must verify what is served instead of reusing the cached a.*
+    (! "$PULL" "$t" "${opts[@]}" --verify="$pin" "$ETAG_URL/img.$t" two)
+    test ! -e "$root/two.raw"
+    test ! -e "$root/two"
+
+    # Neither may an unsolicited 304 for that ETag make it use the cached a.*
+    touch "$ETAGDIR/srv/304"
+    (! "$PULL" "$t" "${opts[@]}" --verify="$pin" "$ETAG_URL/img.$t" two)
+    rm "$ETAGDIR/srv/304"
+    test ! -e "$root/two.raw"
+    test ! -e "$root/two"
+
+    # Once b.* is served, it is installed and replaces the cached a.*
+    cp "$ETAGDIR/b.$t" "$ETAGDIR/srv/img.$t"
+    "$PULL" "$t" "${opts[@]}" --verify="$pin" "$ETAG_URL/img.$t" two
+    if [[ "$t" == raw ]]; then
+        cmp "$ETAGDIR/b.raw" "$root/two.raw"
+        cmp "$ETAGDIR/b.raw" "$root"/.raw-*.raw
+    else
+        diff -r "$ETAGDIR/b" "$root/two"
+        diff -r "$ETAGDIR/b" "$root"/.tar-*
+    fi
+done
+
+kill "$SERVER_PID"
+wait "$SERVER_PID" || :
+# The kept downloads and images are read-only, make them removable again
+for f in "$ETAGDIR"/root-tar/* "$ETAGDIR"/root-tar/.tar-*; do
+    btrfs property set "$f" ro false 2>/dev/null || chattr -i "$f" 2>/dev/null || :
+done
+rm -rf "$ETAGDIR"
+
 touch /testok
