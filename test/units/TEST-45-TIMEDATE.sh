@@ -224,9 +224,6 @@ assert_timedated_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            # Make the found entry in the archived journal, to avoid the following failure:
-            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
-            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
             return 0
         fi
@@ -320,9 +317,6 @@ assert_timesyncd_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            # Make the found entry in the archived journal, to avoid the following failure:
-            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
-            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
             return 0
         fi

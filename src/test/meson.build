@@ -284,6 +284,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-cli-c.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-compress-benchmark.c'),
                 'link_with' : [libshared],
                 'timeout' : 90,
@@ -483,6 +487,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
@@ -773,6 +778,20 @@ if static_libudev != 'false'
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests ? 'yes' : 'no',
                         'suite' : 'libudev',
+                },
+        ]
+endif
+
+############################################################
+
+if have_rust
+        executables += [
+                rust_test_template + {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+                rust_test_template + {
+                        'sources' : files('test-cli-rust.rs'),
+                        'type' : 'manual',
                 },
         ]
 endif

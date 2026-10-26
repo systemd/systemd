@@ -118,6 +118,20 @@ testcase_basic() {
     echo "$unsupported_service" | grep -F "context.Service.Restart"
 }
 
+testcase_dispatch_validation() {
+    setup
+
+    defer_transient_cleanup varlink-transient-bad-dispatch.service
+
+    # These inputs pass IDL validation but fail in the property dispatchers.
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"WorkingDirectory":{"path":"/tmp","home":true}}}}' \
+        "context.Exec.WorkingDirectory"
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"WorkingDirectory":{"path":"","missingOK":true}}}}' \
+        "context.Exec.WorkingDirectory.path"
+}
+
 testcase_notifications() {
     setup
 
@@ -159,10 +173,10 @@ testcase_exec_properties() {
     # Exec.WorkingDirectory and Exec.Environment
     defer_transient_cleanup varlink-transient-exec.service
     result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-        '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false},"Environment":["FOO=bar","BAZ=qux"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+        '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false},"Environment":["FOO=old","BAZ=qux","FOO=bar"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
     echo "$result" | jq -e '.context.Exec.WorkingDirectory.path == "/tmp"'
-    echo "$result" | jq -e '.context.Exec.Environment | index("FOO=bar") != null'
-    echo "$result" | jq -e '.context.Exec.Environment | index("BAZ=qux") != null'
+    # Later assignments should override earlier ones, leaving one entry per environment variable.
+    echo "$result" | jq -e '.context.Exec.Environment | sort == ["BAZ=qux", "FOO=bar"]'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-exec.service; do sleep 0.5; done'
     systemctl show -P WorkingDirectory varlink-transient-exec.service | grep '^/tmp$' >/dev/null
     systemctl show -P Environment varlink-transient-exec.service | grep 'FOO=bar' >/dev/null
@@ -180,6 +194,14 @@ testcase_exec_properties() {
         '{"context":{"ID":"varlink-transient-wd-home.service","Exec":{"WorkingDirectory":{"home":true}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
     systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
+
+    # An empty path resets the working directory, matching D-Bus.
+    defer_transient_cleanup varlink-transient-wd-empty.service
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-wd-empty.service","Exec":{"WorkingDirectory":{"path":""}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-empty.service; do sleep 0.5; done'
+    [[ -z $(systemctl show -P WorkingDirectory varlink-transient-wd-empty.service) ]]
+    systemctl cat varlink-transient-wd-empty.service | grep -Fx 'WorkingDirectory=' >/dev/null
 
     # Exec.StandardInput/StandardOutput/StandardError enum properties and Exec.TTYPath
     defer_transient_cleanup varlink-transient-stdio.service
@@ -343,14 +365,10 @@ testcase_exec_sandbox() {
     defer_transient_cleanup varlink-transient-sandbox.service
     result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         '{"context":{"ID":"varlink-transient-sandbox.service","Exec":{"ProtectSystem":"strict","ProtectHome":"read_only","PrivateTmp":"disconnected","PrivateNetwork":"yes","PrivateUsers":"self"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
-    echo "$result" | jq -e '.context.Exec.ProtectSystem == "strict"'
-    echo "$result" | jq -e '.context.Exec.ProtectHome == "read_only"'
     echo "$result" | jq -e '.context.Exec.PrivateTmp == "disconnected"'
     echo "$result" | jq -e '.context.Exec.PrivateNetwork == "yes"'
     echo "$result" | jq -e '.context.Exec.PrivateUsers == "self"'
     timeout 30 bash -c 'until systemctl is-active varlink-transient-sandbox.service; do sleep 0.5; done'
-    systemctl show -P ProtectSystem varlink-transient-sandbox.service | grep '^strict$' >/dev/null
-    systemctl show -P ProtectHome varlink-transient-sandbox.service | grep '^read-only$' >/dev/null
     systemctl show -P PrivateTmpEx varlink-transient-sandbox.service | grep '^disconnected$' >/dev/null
     systemctl show -P PrivateNetwork varlink-transient-sandbox.service | grep '^yes$' >/dev/null
     systemctl show -P PrivateUsersEx varlink-transient-sandbox.service | grep '^self$' >/dev/null
@@ -361,6 +379,18 @@ testcase_exec_sandbox() {
     grep '^PrivateTmp=disconnected$' "$fragment" >/dev/null
     grep '^PrivateNetwork=yes$'      "$fragment" >/dev/null
     grep '^PrivateUsers=self$'       "$fragment" >/dev/null
+
+    # In coverage builds a service.d drop-in sets ProtectSystem=no and ProtectHome=no for all
+    # services so gcov can write its *.gcda files. It overrides the transient settings, so the
+    # effective values can't be checked there.
+    if [[ -n "${COVERAGE_BUILD_DIR:-}" ]]; then
+        return 0
+    fi
+
+    echo "$result" | jq -e '.context.Exec.ProtectSystem == "strict"'
+    echo "$result" | jq -e '.context.Exec.ProtectHome == "read_only"'
+    systemctl show -P ProtectSystem varlink-transient-sandbox.service | grep '^strict$' >/dev/null
+    systemctl show -P ProtectHome varlink-transient-sandbox.service | grep '^read-only$' >/dev/null
 
     # The sandbox is live, not just recorded: the unit only succeeds if /usr is read-only
     # and its network namespace differs from PID 1's. Both readlinks are captured first, so
@@ -918,11 +948,6 @@ testcase_exec_apply_error_paths() {
             '{"context":{"ID":"'"$unit"'","Exec":{"'"$field"'":[{"id":"first","value":"YWJj"},{"id":"bad/id","value":"YWJj"}]}}}' \
             "context.Exec.$field.id"
     done
-
-    defer_transient_cleanup varlink-transient-wd-conflict.service
-    expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-wd-conflict.service","Exec":{"WorkingDirectory":{"path":"/tmp","home":true}}}}' \
-        "context.Exec.WorkingDirectory"
 
     defer_transient_cleanup varlink-transient-wd-bad-nice.service
     expect_invalid_parameter \

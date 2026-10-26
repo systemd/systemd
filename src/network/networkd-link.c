@@ -481,96 +481,99 @@ stop:
         (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
 }
 
-void link_check_ready(Link *link) {
+/* Returns why the link is still configuring, or _LINK_CONFIGURING_REASON_INVALID when the link is ready. When
+ * a static address is not ready yet, the address is also returned in ret_address. If log_func is set, the
+ * finished dynamic addressing protocols are logged on its behalf. */
+static LinkConfiguringReason link_get_configuring_reason_full(
+                Link *link,
+                const char *log_func,
+                Address **ret_address) {
         Address *a;
 
         assert(link);
+        assert(link->network);
 
-        if (link->state == LINK_STATE_CONFIGURED)
-                return;
-
-        if (link->state != LINK_STATE_CONFIGURING)
-                return (void) log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
-
-        if (!link->network)
-                return (void) log_link_debug(link, "%s(): link is unmanaged.", __func__);
+        if (ret_address)
+                *ret_address = NULL;
 
         if (!link->tc_configured)
-                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_TRAFFIC_CONTROL;
 
         if (link->set_link_messages > 0)
-                return (void) log_link_debug(link, "%s(): link layer is configuring.", __func__);
+                return LINK_CONFIGURING_REASON_LINK_LAYER;
 
         if (!link->activated)
-                return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
+                return LINK_CONFIGURING_REASON_ACTIVATION;
 
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of checks below. */
-                goto ready;
+                return _LINK_CONFIGURING_REASON_INVALID;
 
         if (!link->stacked_netdevs_created)
-                return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
+                return LINK_CONFIGURING_REASON_STACKED_NETDEVS;
 
         if (!link->static_addresses_configured)
-                return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_ADDRESSES;
 
         if (!link->static_address_labels_configured)
-                return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS;
 
         if (!link->static_bridge_fdb_configured)
-                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB;
 
         if (!link->static_bridge_mdb_configured)
-                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB;
 
         if (!link->static_neighbors_configured)
-                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_NEIGHBORS;
 
         if (!link->static_neighbor_proxy_configured)
-                return (void) log_link_debug(link, "%s(): static neighbor proxy addresses are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY;
 
         if (!link->static_nexthops_configured)
-                return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_NEXTHOPS;
 
         if (!link->static_routes_configured)
-                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_ROUTES;
 
         if (!link->static_routing_policy_rules_configured)
-                return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
+                return LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES;
 
         if (!link->sr_iov_configured)
-                return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
+                return LINK_CONFIGURING_REASON_SR_IOV;
 
         if (!link->bearer_configured)
-                return (void) log_link_debug(link, "%s(): Bearer has not been applied.", __func__);
+                return LINK_CONFIGURING_REASON_BEARER;
 
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
             link_ipv6ll_enabled(link) &&
             !in6_addr_is_set(&link->ipv6ll_address))
-                return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
+                return LINK_CONFIGURING_REASON_IPV6LL;
 
         /* All static addresses must be ready. */
         bool has_static_address = false;
         SET_FOREACH(a, link->addresses) {
                 if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_MODEM_MANAGER))
                         continue;
-                if (!address_is_ready(a))
-                        return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
-                                                     IN_ADDR_PREFIX_TO_STRING(a->family, &a->in_addr, a->prefixlen));
+                if (!address_is_ready(a)) {
+                        if (ret_address)
+                                *ret_address = a;
+                        return LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY;
+                }
                 has_static_address = true;
         }
 
         /* If at least one static address is requested, do not request that dynamic addressing protocols are finished. */
         if (has_static_address)
-                goto ready;
+                return _LINK_CONFIGURING_REASON_INVALID;
 
         /* If no dynamic addressing protocol enabled, assume the interface is ready.
          * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
             !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
             (link->network->configure_without_carrier || !link_ndisc_enabled(link)))
-                goto ready;
+                return _LINK_CONFIGURING_REASON_INVALID;
 
         bool ipv4ll_ready =
                 link_ipv4ll_enabled(link) && link->ipv4ll_address_configured &&
@@ -596,33 +599,68 @@ void link_check_ready(Link *link) {
                 if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
                     sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                         if (!link->dhcp4_configured)
-                                return (void) log_link_debug(link, "%s(): DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet.", __func__);
+                                return LINK_CONFIGURING_REASON_DHCP4_6RD;
                         if (!dhcp_pd_ready)
-                                return (void) log_link_debug(link, "%s(): DHCPv4 is finished, but prefix acquired by DHCPv4-6rd is not assigned yet.", __func__);
+                                return LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX;
                 }
 
                 if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
                     sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
                         if (!link->dhcp6_configured)
-                                return (void) log_link_debug(link, "%s(): DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet.", __func__);
+                                return LINK_CONFIGURING_REASON_DHCP6_PD;
                         if (!dhcp_pd_ready)
-                                return (void) log_link_debug(link, "%s(): DHCPv6 is finished, but prefix acquired by DHCPv6 IA_PD is not assigned yet.", __func__);
+                                return LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX;
                 }
         }
 
         /* At least one dynamic addressing protocol is finished. */
         if (!ipv4ll_ready && !dhcp4_ready && !dhcp6_ready && !dhcp_pd_ready && !ndisc_ready)
-                return (void) log_link_debug(link, "%s(): dynamic addressing protocols are enabled but none of them finished yet.", __func__);
+                return LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING;
 
-        log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
-                       __func__,
-                       yes_no(ipv4ll_ready),
-                       yes_no(dhcp4_ready),
-                       yes_no(dhcp6_ready),
-                       yes_no(dhcp_pd_ready),
-                       yes_no(ndisc_ready));
+        if (log_func)
+                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
+                               log_func,
+                               yes_no(ipv4ll_ready),
+                               yes_no(dhcp4_ready),
+                               yes_no(dhcp6_ready),
+                               yes_no(dhcp_pd_ready),
+                               yes_no(ndisc_ready));
+        return _LINK_CONFIGURING_REASON_INVALID;
+}
 
-ready:
+LinkConfiguringReason link_get_configuring_reason(Link *link) {
+        assert(link);
+
+        if (link->state != LINK_STATE_CONFIGURING || !link->network)
+                return _LINK_CONFIGURING_REASON_INVALID;
+
+        return link_get_configuring_reason_full(link, /* log_func= */ NULL, /* ret_address= */ NULL);
+}
+
+void link_check_ready(Link *link) {
+        LinkConfiguringReason reason;
+        Address *address;
+
+        assert(link);
+
+        if (link->state == LINK_STATE_CONFIGURED)
+                return;
+
+        if (link->state != LINK_STATE_CONFIGURING)
+                return (void) log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
+
+        if (!link->network)
+                return (void) log_link_debug(link, "%s(): link is unmanaged.", __func__);
+
+        reason = link_get_configuring_reason_full(link, __func__, &address);
+        if (reason >= 0) {
+                if (address)
+                        return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
+                                                     IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+
+                return (void) log_link_debug(link, "%s(): %s.", __func__, link_configuring_reason_message_to_string(reason));
+        }
+
         link_set_state(link, LINK_STATE_CONFIGURED);
 }
 
@@ -2050,7 +2088,10 @@ static int link_admin_state_up(Link *link) {
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
         (void) link_set_ipv6_mtu(link, LOG_INFO);
 
-        return 0;
+        /* Some drivers, e.g. WireGuard, reset the IPv6LL address generation mode when the interface is
+         * brought up, so we need to reset it. As the interface is up, the mode is set by sysctl, which
+         * also generates the address. */
+        return link_request_to_set_addrgen_mode(link);
 }
 
 static int link_admin_state_down(Link *link) {
@@ -3160,6 +3201,60 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+
+static const char *const link_configuring_reason_table[_LINK_CONFIGURING_REASON_MAX] = {
+        [LINK_CONFIGURING_REASON_TRAFFIC_CONTROL]             = "traffic-control",
+        [LINK_CONFIGURING_REASON_LINK_LAYER]                  = "link-layer",
+        [LINK_CONFIGURING_REASON_ACTIVATION]                  = "activation",
+        [LINK_CONFIGURING_REASON_STACKED_NETDEVS]             = "stacked-netdevs",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESSES]            = "static-addresses",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS]       = "static-address-labels",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB]           = "static-bridge-fdb",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB]           = "static-bridge-mdb",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBORS]            = "static-neighbors",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY]       = "static-neighbor-proxy",
+        [LINK_CONFIGURING_REASON_STATIC_NEXTHOPS]             = "static-nexthops",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTES]               = "static-routes",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES] = "static-routing-policy-rules",
+        [LINK_CONFIGURING_REASON_SR_IOV]                      = "sr-iov",
+        [LINK_CONFIGURING_REASON_BEARER]                      = "bearer",
+        [LINK_CONFIGURING_REASON_IPV6LL]                      = "ipv6ll",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY]    = "static-address-not-ready",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD]                   = "dhcp4-6rd",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX]            = "dhcp4-6rd-prefix",
+        [LINK_CONFIGURING_REASON_DHCP6_PD]                    = "dhcp6-pd",
+        [LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX]             = "dhcp6-pd-prefix",
+        [LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING]          = "dynamic-addressing",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_configuring_reason, LinkConfiguringReason);
+
+static const char *const link_configuring_reason_message_table[_LINK_CONFIGURING_REASON_MAX] = {
+        [LINK_CONFIGURING_REASON_TRAFFIC_CONTROL]             = "traffic controls are not configured",
+        [LINK_CONFIGURING_REASON_LINK_LAYER]                  = "link layer is configuring",
+        [LINK_CONFIGURING_REASON_ACTIVATION]                  = "link is not activated",
+        [LINK_CONFIGURING_REASON_STACKED_NETDEVS]             = "stacked netdevs are not created",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESSES]            = "static addresses are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_LABELS]       = "static address labels are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_FDB]           = "static bridge FDB entries are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_BRIDGE_MDB]           = "static bridge MDB entries are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBORS]            = "static neighbors are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEIGHBOR_PROXY]       = "static neighbor proxy addresses are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_NEXTHOPS]             = "static nexthops are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTES]               = "static routes are not configured",
+        [LINK_CONFIGURING_REASON_STATIC_ROUTING_POLICY_RULES] = "static routing policy rules are not configured",
+        [LINK_CONFIGURING_REASON_SR_IOV]                      = "SR-IOV is not configured",
+        [LINK_CONFIGURING_REASON_BEARER]                      = "bearer has not been applied",
+        [LINK_CONFIGURING_REASON_IPV6LL]                      = "IPv6LL is not configured yet",
+        [LINK_CONFIGURING_REASON_STATIC_ADDRESS_NOT_READY]    = "static address is not ready",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD]                   = "DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet",
+        [LINK_CONFIGURING_REASON_DHCP4_6RD_PREFIX]            = "DHCPv4 is finished, but prefix acquired by DHCPv4-6rd is not assigned yet",
+        [LINK_CONFIGURING_REASON_DHCP6_PD]                    = "DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet",
+        [LINK_CONFIGURING_REASON_DHCP6_PD_PREFIX]             = "DHCPv6 is finished, but prefix acquired by DHCPv6 IA_PD is not assigned yet",
+        [LINK_CONFIGURING_REASON_DYNAMIC_ADDRESSING]          = "dynamic addressing protocols are enabled but none of them finished yet",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(link_configuring_reason_message, LinkConfiguringReason);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;

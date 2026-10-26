@@ -11,6 +11,13 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The io.systemd.Unit.SetProperties() Varlink method now accepts a
+          dedicated UnitProperties input type containing only Markers. Clients
+          using generated bindings may need updates. The Markers JSON
+          representation is unchanged. Calls with runtime=false, previously
+          accepted without persistence, are now rejected; callers should pass
+          runtime=true.
+
         * ConfigurationDirectory= passed as a transient-unit property over
           D-Bus now uses the same directory:symlink:flags parser as the other
           *Directory= settings, allowing the read-only flag with an empty
@@ -55,6 +62,13 @@ CHANGES WITH 263 in spe:
           SendHostnameUpdates=no setting in the [DHCPv4] and [DHCPv6]
           sections.
 
+        * systemd-networkd now generates an IPv6 link-local address on
+          WireGuard interfaces by default, like on other interfaces.
+          Previously, LinkLocalAddressing= was ignored for WireGuard
+          interfaces, and an IPv6 link-local address could only be assigned
+          with Address=. The previous behaviour may be restored with
+          LinkLocalAddressing=no.
+
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
@@ -98,6 +112,11 @@ CHANGES WITH 263 in spe:
           systemd-sysupdate. The Credential= match in .network, .netdev, and
           .link files is unchanged.
 
+        * systemd may now optionally be built with support for programs
+          written in Rust, controlled by the new -Drust= meson option. This
+          adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
+          optional build dependencies.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
@@ -115,13 +134,31 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        * As mentioned above, an IPv6 link-local address is now generated on
+          WireGuard interfaces by default. This is useful e.g. for running
+          routing protocols like Babel over the tunnel.
+
         * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
           clients now follows the system hostname. The new
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
 
         * "networkctl renew" now renews the DHCPv6 lease too, not only the
-          DHCPv4 lease.
+          DHCPv4 lease. When the DHCPv6 client runs in the information
+          request mode, the information, e.g. DNS servers, is requested
+          again.
+
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReasons field of
+          the interface description provided over Varlink.
+
+        * The [DHCPServerStaticLease] section gained new ClientIdentifier=,
+          IAID=, DUIDType=, and DUIDRawData= settings. With
+          ClientIdentifier=duid, a static address is assigned to a client
+          based on the IAID and DUID it sends, instead of its hardware
+          address. This is useful e.g. to tell apart hosts that share a
+          hardware address, like ipvlan interfaces in L2 mode.
 
         Changes in systemd-sysupdate:
 

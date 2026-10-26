@@ -1268,7 +1268,7 @@ int config_parse_duid_type(
         duid->type = type;
         duid->set = force;
 
-        return 0;
+        return 1;
 }
 
 int config_parse_manager_duid_type(
@@ -1388,7 +1388,7 @@ int config_parse_duid_rawdata(
         duid->raw_data_len = count;
         duid->set = force;
 
-        return 0;
+        return 1;
 }
 
 int config_parse_manager_duid_rawdata(

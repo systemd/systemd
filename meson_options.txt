@@ -163,8 +163,12 @@ option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 option('backlight', type : 'boolean',
        description : 'install systemd-backlight')
+option('battery-check', type : 'feature',
+       description : 'install systemd-battery-check and associated files')
 option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
+option('clonesetup', type : 'feature',
+       description : 'install systemd-clonesetup and associated files')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('create-log-dirs', type : 'boolean',
@@ -177,8 +181,10 @@ option('environment-d', type : 'boolean',
        description : 'support for environment.d')
 option('firstboot', type : 'boolean',
        description : 'install systemd-firstboot')
+option('growfs', type : 'feature',
+       description : 'install systemd-growfs, systemd-makefs, and associated files')
 option('hibernate', type : 'boolean',
-       description : 'support for hibernation')
+       description : 'support for hibernation (requires sleep support)')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-homed stack')
 option('hostnamed', type : 'boolean',
@@ -193,6 +199,8 @@ option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'install the systemd-importd daemon')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
        description : 'install configuration files and directories')
+option('integritysetup', type : 'feature',
+       description : 'install systemd-integritysetup and associated files')
 option('kernel-install', type: 'boolean', value: true,
        description : 'install kernel-install and associated files')
 option('ldconfig', type : 'boolean',
@@ -205,6 +213,8 @@ option('machined', type : 'boolean',
        description : 'install the systemd-machined stack')
 option('measure', type : 'feature',
        description : 'install the systemd-measure tool')
+option('mime', type : 'feature',
+       description : 'install MIME type definitions')
 option('mountfsd', type : 'boolean',
        description : 'install the systemd-mountfsd stack')
 option('networkd', type : 'boolean',
@@ -241,6 +251,10 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('sleep', type : 'feature',
+       description : 'install systemd-sleep and associated files')
+option('storage', type : 'feature',
+       description : 'install systemd-storage-block, systemd-storage-fs, storagectl, and associated files')
 option('storagetm', type : 'boolean',
        description : 'support for Storage Target Mode')
 option('sysext', type : 'boolean',
@@ -268,10 +282,14 @@ option('ukify', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : '
        description : 'install ukify')
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
+option('validatefs', type : 'feature',
+       description : 'install systemd-validatefs and associated files')
 option('varlink-monitord', type : 'boolean',
        description : 'install the systemd-varlink-monitord daemon')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
+option('veritysetup', type : 'feature',
+       description : 'install systemd-veritysetup and associated files')
 option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-vmspawn tool')
 option('xdg-autostart', type : 'boolean',
@@ -524,6 +542,8 @@ option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false'
        description : 'libpwquality support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
+option('rust', type : 'feature',
+       description : 'support for programs written in Rust (needs rustc and bindgen)')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
 option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,

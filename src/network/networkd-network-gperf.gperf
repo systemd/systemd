@@ -410,6 +410,10 @@ DHCPServer.PersistLeases,                        config_parse_dhcp_server_persis
 DHCPServer.LocalLeaseDomain,                     config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_local_lease_domain)
 DHCPServerStaticLease.Address,                   config_parse_dhcp_static_lease_address,         0,                                      0
 DHCPServerStaticLease.MACAddress,                config_parse_dhcp_static_lease_hwaddr,          0,                                      0
+DHCPServerStaticLease.ClientIdentifier,          config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_CLIENT_IDENTIFIER,    0
+DHCPServerStaticLease.IAID,                      config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_IAID,                 0
+DHCPServerStaticLease.DUIDType,                  config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_DUID_TYPE,            0
+DHCPServerStaticLease.DUIDRawData,               config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_DUID_RAW_DATA,        0
 DHCPServerStaticLease.Hostname,                  config_parse_dhcp_static_lease_hostname,        0,                                      0
 Bridge.Cost,                                     config_parse_uint32,                            0,                                      offsetof(Network, cost)
 Bridge.UseBPDU,                                  config_parse_tristate,                          0,                                      offsetof(Network, use_bpdu)
