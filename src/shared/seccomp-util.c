@@ -8,6 +8,7 @@
 #include <linux/seccomp.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/ptrace.h>
 #include <sys/shm.h>
@@ -2204,6 +2205,47 @@ int seccomp_restrict_ptrace(void) {
                         log_debug_errno(r, "Failed to apply ptrace restrictions for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
                 }
+        }
+
+        return 0;
+}
+
+/* Refuse to set READ_IMPLIES_EXEC, under which brk() maps the heap executable without any LSM hook seeing
+ * it. The kernel only looks at the lower 32 bits and treats all of them set as a query, so refuse every other
+ * value with the flag. A rule may compare an argument only once, hence one rule per other bit: the flag set
+ * and that bit clear. An architecture left unfiltered is a way around it, so every failure is fatal. */
+int seccomp_restrict_read_implies_exec(void) {
+        uint32_t arch;
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                for (unsigned bit = 0; bit < 32; bit++) {
+                        uint32_t mask = UINT32_C(1) << bit;
+
+                        if (mask == READ_IMPLIES_EXEC)
+                                continue;
+
+                        r = add_seccomp_syscall_filter(
+                                        seccomp, arch, SCMP_SYS(personality), 1,
+                                        SCMP_A0(SCMP_CMP_MASKED_EQ, READ_IMPLIES_EXEC | mask, READ_IMPLIES_EXEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sym_seccomp_load(seccomp);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to restrict personality() for architecture %s: %m",
+                                               seccomp_arch_to_string(arch));
         }
 
         return 0;

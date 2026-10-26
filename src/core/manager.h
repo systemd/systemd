@@ -514,8 +514,10 @@ typedef struct Manager {
         int restrict_fsaccess_link_fds[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
         int restrict_fsaccess_bss_map_fd;
 
-        /* Whether the ptrace seccomp filter is installed in this process; it survives execve() */
+        /* Whether the ptrace and personality seccomp filters are installed in this process; they survive
+         * execve() */
         bool restrict_fsaccess_ptrace_filter;
+        bool restrict_fsaccess_personality_filter;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
