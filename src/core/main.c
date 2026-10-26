@@ -117,6 +117,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "version.h"
 #include "virt.h"
@@ -1311,6 +1312,7 @@ static int prepare_reexecute(
 
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
         int r;
 
         assert(m);
@@ -1319,6 +1321,7 @@ static int prepare_reexecute(
 
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading++;
+        reloading = m;
         bus_manager_send_reloading(m, true);
 
         /* Only close the initramfs trust window when actually switching root.
@@ -1357,6 +1360,7 @@ static int prepare_reexecute(
 
         *ret_f = TAKE_PTR(f);
         *ret_fds = TAKE_PTR(fds);
+        reloading = NULL;
 
         return 0;
 }
@@ -2461,8 +2465,12 @@ static int invoke_main_loop(
 
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
-                                *ret_error_message = "Failed to prepare for reexecution";
-                                return r;
+                                log_warning_errno(r, "Failed to prepare for reexecution, continuing: %m");
+                                bus_send_pending_reexecute_error(m, r);
+                                manager_varlink_send_pending_reexecute_error(m, r);
+                                m->objective = MANAGER_OK;
+                                m->send_reloading_done = true;
+                                continue;
                         }
 
                         log_notice("Reexecuting.");
