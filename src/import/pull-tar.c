@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "curl-util.h"
 #include "dissect-image.h"
@@ -47,6 +48,8 @@ typedef struct TarPull {
         ImportFlags flags;
         ImportVerify verify;
         char *image_root;
+
+        bool replace_cached; /* Don't reuse old downloads, replace the one with the same ETag instead */
 
         PullJob *tar_job;
         PullJob *checksum_job;
@@ -516,12 +519,33 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         if (r < 0)
                                 goto finish;
 
-                        /* With a pinned checksum old downloads are not reused, so replace any copy cached
-                         * under the same ETag with the one we just verified. */
+                        if (p->replace_cached) {
+                                _cleanup_free_ char *settings_path = NULL;
+
+                                /* A kept download is marked read-only (read-only btrfs subvolume or
+                                 * FS_IMMUTABLE_FL), which renameat() can't replace, hence remove it first. */
+                                (void) chattr_path(p->final_path, /* value= */ 0, /* mask= */ FS_IMMUTABLE_FL);
+
+                                r = import_remove_tree(p->final_path, &p->userns_fd, p->flags);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Its settings file wasn't verified together with this download either, remove it
+                                 * so that it doesn't end up next to the new image. If we downloaded it again, it's
+                                 * moved into place below. */
+                                r = tar_pull_determine_path(p, ".nspawn", &settings_path);
+                                if (r < 0)
+                                        goto finish;
+
+                                if (unlink(settings_path) < 0 && errno != ENOENT) {
+                                        r = log_error_errno(errno, "Failed to remove '%s': %m", settings_path);
+                                        goto finish;
+                                }
+                        }
+
                         r = install_file(
                                         AT_FDCWD, p->temp_path,
                                         AT_FDCWD, p->final_path,
-                                        (iovec_is_set(&p->tar_job->expected_checksum) ? INSTALL_REPLACE : 0) |
                                         (p->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
                                         (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
                         if (r < 0) {
@@ -757,13 +781,15 @@ int tar_pull_start(
 
         /* A previously downloaded image is neither keyed by the compression algorithm nor was it
          * necessarily verified against the requested checksum or decoded digest, hence don't reuse it if
-         * any of these is requested. */
+         * any of these is requested. Instead let the fresh download replace a copy cached under the same
+         * ETag. */
         if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 &&
             !iovec_is_set(checksum) && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", NULL, &p->tar_job->old_etags);
                 if (r < 0)
                         return r;
-        }
+        } else
+                p->replace_cached = true;
 
         /* Set up download of checksum/signature files */
         r = pull_make_verification_jobs(
