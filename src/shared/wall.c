@@ -15,12 +15,111 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "utmp-wtmp.h"
 #include "wall.h"
 
 #if ENABLE_UTMP || ENABLE_LOGIND
 
 #define TIMEOUT_USEC (50 * USEC_PER_MSEC)
+
+/* Skips a CSI sequence, i.e. everything from after "ESC [" up to and including the final byte. */
+static const char *skip_csi_sequence(const char *p) {
+        assert(p);
+
+        for (; *p && (*p < 0x40 || *p > 0x7E); p++)
+                ;
+
+        return *p ? p + 1 : p;
+}
+
+/* Skips an OSC sequence, i.e. everything from after "ESC ]" up to and including BEL or ST. */
+static const char *skip_osc_sequence(const char *p) {
+        assert(p);
+
+        for (; *p; p++)
+                if (*p == '\a')
+                        return p + 1;
+                else if (*p == '\x1B' && p[1] == '\\')
+                        return p + 2;
+
+        return p;
+}
+
+/* Skips a DCS/SOS/PM/APC sequence, i.e. everything from after the introducer up to and including ST. */
+static const char *skip_st_sequence(const char *p) {
+        assert(p);
+
+        for (; *p; p++)
+                if (*p == '\x1B' && p[1] == '\\')
+                        return p + 2;
+
+        return p;
+}
+
+/* Returns the position right after the escape sequence starting at p (which must point at ESC). */
+static const char *skip_escape_sequence(const char *p) {
+        assert(p);
+        assert(*p == '\x1B');
+
+        p++;
+
+        if (*p == '[')
+                return skip_csi_sequence(p + 1);
+        if (*p == ']')
+                return skip_osc_sequence(p + 1);
+        if (IN_SET(*p, 'P', 'X', '^', '_'))
+                return skip_st_sequence(p + 1);
+
+        /* Anything else is a two-character sequence (e.g. ESC 7, ESC c). Any remainder of longer
+         * sequences (e.g. the "( B" of "ESC ( B") is inert text, hence safe to keep. */
+        return *p ? p + 1 : p;
+}
+
+char *wall_sanitize_message(const char *message) {
+        _cleanup_free_ char *ret = NULL;
+        size_t n = 0;
+        const char *p;
+
+        assert(message);
+
+        /* Drops anything a terminal emulator could interpret as control function, while keeping
+         * printable text (including UTF-8), tabs, and line breaks intact. Wall messages are
+         * broadcast to other users' terminals, hence must never carry escape sequences. */
+
+        for (p = message; *p; ) {
+                if (*p == '\x1B') {
+                        p = skip_escape_sequence(p);
+                        continue;
+                }
+                if (*p == '\x7F' || ((unsigned char) *p < (unsigned char) ' ' &&
+                                     !IN_SET(*p, '\t', '\n', '\r'))) {
+                        p++; /* Drop DEL and C0 controls (other than tab/LF/CR). */
+                        continue;
+                }
+                int len = utf8_encoded_valid_unichar(p, SIZE_MAX);
+                if (len < 0) {
+                        p++; /* Drop invalid bytes. */
+                        continue;
+                }
+                char32_t c;
+                assert_se(utf8_encoded_to_unichar(p, &c) >= 0);
+                if (c >= 0x80 && c <= 0x9F) {
+                        p += len; /* Drop C1 controls, e.g. single-byte CSI (U+009B). */
+                        continue;
+                }
+                if (!GREEDY_REALLOC(ret, n + len + 1))
+                        return NULL;
+                memcpy(ret + n, p, (size_t) len);
+                n += (size_t) len;
+                p += len;
+        }
+
+        if (!GREEDY_REALLOC(ret, n + 1))
+                return NULL;
+        ret[n] = 0;
+        return TAKE_PTR(ret);
+}
 
 static int write_to_terminal(const char *tty, const char *message) {
         _cleanup_close_ int fd = -EBADF;
@@ -147,10 +246,19 @@ int wall(
         bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
-        _cleanup_free_ char *text = NULL, *hostname = NULL, *username_alloc = NULL, *stdin_tty = NULL;
+        _cleanup_free_ char *text = NULL, *hostname = NULL, *username_alloc = NULL, *stdin_tty = NULL, *sanitized = NULL;
         int r;
 
         assert(message);
+
+        /* The message may originate from unprivileged users (e.g. journald forwards emerg-level log
+         * messages written via logger(1)), but is broadcast to other users' terminals. Strip anything
+         * a terminal emulator could interpret as control function. */
+        sanitized = wall_sanitize_message(message);
+        if (!sanitized)
+                return -ENOMEM;
+
+        message = sanitized;
 
         hostname = gethostname_malloc();
         if (!hostname)
