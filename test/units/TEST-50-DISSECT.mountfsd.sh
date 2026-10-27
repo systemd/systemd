@@ -28,6 +28,7 @@ at_exit() {
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
     rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
     rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+    rm -rf /var/tmp/test-50-badsig-srv.gpt /tmp/test-50-srv.repart.d
 }
 
 trap at_exit EXIT
@@ -263,6 +264,22 @@ systemd-run -M testuser@ --user --pipe --wait \
     --property RootImage=/var/tmp/test-50-badsig.gpt \
     --property RootImagePolicy=root=verity:=unused+absent \
     true
+# mountfsd grants root clients the polkit action without asking polkit, so for root it retries within the
+# same method call. The retry must dissect the image again with the policy for trusted images, because the
+# policy for untrusted images ignores the /srv partition.
+cp /var/tmp/test-50-badsig.gpt /var/tmp/test-50-badsig-srv.gpt
+mkdir -p /tmp/test-50-srv.repart.d
+cat >/tmp/test-50-srv.repart.d/srv.conf <<'EOF'
+[Partition]
+Type=srv
+Format=ext4
+SizeMinBytes=16M
+EOF
+systemd-repart --dry-run=no --size=auto --definitions=/tmp/test-50-srv.repart.d /var/tmp/test-50-badsig-srv.gpt
+varlinkctl --exec --push-fd=/var/tmp/test-50-badsig-srv.gpt call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0}' -- \
+    jq -e '.partitions | map(.designator) | index("srv")' >/dev/null
+rm -rf /var/tmp/test-50-badsig-srv.gpt /tmp/test-50-srv.repart.d
 rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
 systemctl try-reload-or-restart polkit.service
 
