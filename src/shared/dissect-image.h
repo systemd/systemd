@@ -4,6 +4,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "ask-password-api.h"
 #include "forward.h"
 #include "gpt.h"
 #include "iovec-util.h"
@@ -254,7 +255,10 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
-int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+int mount_image_privately_interactively_full(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, AskPasswordFlags askpw_flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+static inline int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device) {
+        return mount_image_privately_interactively_full(image, image_policy, flags, /* askpw_flags= */ 0, ret_directory, ret_dir_fd, ret_loop_device);
+}
 
 int verity_dissect_and_mount(
                 int src_fd,
