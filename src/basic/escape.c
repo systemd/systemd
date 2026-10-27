@@ -83,6 +83,9 @@ char* cescape_length(const char *s, size_t n) {
 
         assert(s || n == 0);
 
+        if (!s)
+                return n == 0 ? strdup("") : NULL;
+
         if (n == SIZE_MAX)
                 n = strlen(s);
 
@@ -304,6 +307,11 @@ ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *p
 
         assert(s);
         assert(ret);
+
+        if (!ret)
+                return -EINVAL;
+        if (!s)
+                return -EINVAL;
 
         /* Undoes C style string escaping, and optionally prefixes it. */
 

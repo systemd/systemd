@@ -591,6 +591,9 @@ int utf8_encoded_valid_unichar_full(const char *str, size_t length /* bytes */, 
         assert(str);
         assert(length > 0);
 
+        if (!str || length == 0)
+                return -EINVAL;
+
         /* We read until NUL, at most length bytes. SIZE_MAX may be used to disable the length check.
          * If ret_unichar is non-NULL the decoded character is returned in it, so that callers
          * interested in both validity and value needn't decode the character a second time. */
