@@ -826,7 +826,7 @@ fn test_table() {
     let s = unsafe { OwnedCStr::from_raw(s) }.unwrap();
     log_info!("Table:\n{s}");
     let mut lines = s.to_str().unwrap().lines();
-    let [header, one, b, two] = [(); 4].map(|_| lines.next().unwrap());
+    let [header, one, b, two] = [(); 4].map(|()| lines.next().unwrap());
     assert!(lines.next().is_none());
     assert!(header.starts_with("NAME"));
     assert!(one.starts_with("one"));
