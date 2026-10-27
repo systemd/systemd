@@ -240,6 +240,7 @@ simple_tests += files(
         'test-verbs.c',
         'test-voa-util.c',
         'test-vpick.c',
+        'test-wall.c',
         'test-web-util.c',
         'test-xattr-util.c',
         'test-xml.c',
