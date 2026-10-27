@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/major.h>
+#include <sys/sysmacros.h>
 #include <sys/vfs.h>
 
 #include "sd-json.h"
@@ -18,6 +20,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mountpoint-util.h"
 #include "resize-fs.h"
 #include "string-util.h"
@@ -37,8 +40,9 @@ COMMAND(
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int main_devfd = -EBADF;
-        uint64_t size;
+        _cleanup_close_ int devfd = -EBADF, main_devfd = -EBADF;
+        uint64_t size, backing_size;
+        uint32_t sector_size;
         int r;
 
         r = dlopen_cryptsetup(LOG_WARNING);
@@ -57,10 +61,18 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 
         log_debug("%s is %"PRIu64" bytes", main_devpath, size);
 
-        r = devname_from_devnum(S_IFBLK, devno, &devpath);
+        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
         if (r < 0)
-                return log_error_errno(r, "Failed to get devpath of " DEVNUM_FORMAT_STR ": %m",
+                return log_error_errno(r, "Failed to open underlying block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
+
+        r = blockdev_get_device_size(devfd, &backing_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query size of '%s': %m", devpath);
+
+        r = blockdev_get_sector_size(main_devfd, &sector_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query sector size of '%s': %m", main_devpath);
 
         r = sym_crypt_init(&cd, devpath);
         if (r < 0)
@@ -71,6 +83,19 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         r = sym_crypt_load(cd, CRYPT_LUKS, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata for %s: %m", devpath);
+
+        /* crypt_get_data_offset() always uses 512-byte sectors, regardless of the device sector size. */
+        uint64_t offset = sym_crypt_get_data_offset(cd);
+        if (offset > backing_size / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "LUKS data offset exceeds the size of '%s', refusing.", devpath);
+
+        /* crypt_resize() refreshes loop capacity, which may not yet reflect a grown backing file. */
+        if (major(devno) != LOOP_MAJOR &&
+            ALIGN_DOWN_U64(backing_size - offset * 512U, sector_size) <= size) {
+                log_debug("Encrypted volume '%s' already fills the underlying device, skipping resize.", main_devpath);
+                return 0;
+        }
 
         if (arg_dry_run)
                 return 0;
