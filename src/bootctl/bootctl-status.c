@@ -24,7 +24,7 @@
 #include "string-util.h"
 #include "tpm2-util.h"
 
-static int status_entries(
+static void status_entries(
                 const BootConfig *config,
                 const char *esp_path,
                 sd_id128_t esp_partition_uuid,
@@ -100,7 +100,6 @@ static int status_entries(
                         printf("\nWARNING: default boot entry is broken\n");
         }
 
-        return 0;
 }
 
 static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
@@ -648,10 +647,9 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 RET_GATHER(r, k);
 
                 if (k >= 0)
-                        RET_GATHER(r,
-                                   status_entries(&config,
-                                                  arg_esp_path, esp_uuid,
-                                                  arg_xbootldr_path, xbootldr_uuid));
+                        status_entries(&config,
+                                       arg_esp_path, esp_uuid,
+                                       arg_xbootldr_path, xbootldr_uuid);
         }
 
         return r;

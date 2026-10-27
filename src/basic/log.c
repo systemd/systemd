@@ -628,7 +628,7 @@ static int write_to_kmsg(
         return 1;
 }
 
-static int log_do_header(
+static void log_do_header(
                 char *header,
                 size_t size,
                 int level,
@@ -674,8 +674,6 @@ static int log_do_header(
                      isempty(extra) ? "" : "\n",
                      program_invocation_short_name);
         assert_raw((size_t) r < size);
-
-        return 0;
 }
 
 static void log_do_context(struct iovec *iovec, size_t iovec_len, size_t *n) {
