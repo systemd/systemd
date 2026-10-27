@@ -14,6 +14,15 @@
 #include "static-destruct.h"
 #include "string-util.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-hibernate-resume-generator\0",
+        "Generate units for the resume= kernel command line parameter.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-hibernate-resume-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;

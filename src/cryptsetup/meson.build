@@ -15,7 +15,6 @@ systemd_cryptsetup_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-cryptsetup',
-                'public' : true,
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [
                         libcryptsetup_cflags,

@@ -7,6 +7,8 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
+#include "dhcp-protocol.h"
+#include "dhcp6-protocol.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "forward.h"
@@ -60,9 +62,17 @@ typedef struct LinkInfo {
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
 
+        char **configuring_reasons;
+
         /* DHCPv4 */
         sd_dhcp_message *dhcp_message;
         sd_dhcp_client_id dhcp_client_id;
+        DHCPState dhcp4_client_state;
+        usec_t dhcp4_lease_timestamp;
+
+        /* DHCPv6 */
+        DHCP6State dhcp6_client_state;
+        usec_t dhcp6_lease_timestamp;
 
         /* bridge info */
         uint32_t forward_delay;

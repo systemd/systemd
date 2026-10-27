@@ -160,6 +160,7 @@ shared_sources = files(
         'open-file.c',
         'options.c',
         'osc-context.c',
+        'osc-winsize.c',
         'output-mode.c',
         'pager.c',
         'pam-util.c',
@@ -176,9 +177,11 @@ shared_sources = files(
         'plymouth-util.c',
         'polkit-agent.c',
         'portable-util.c',
+        'predict-measure.c',
         'pretty-print.c',
         'printk-util.c',
         'prompt-util.c',
+        'ptybroker-client.c',
         'ptyfwd.c',
         'qmp-client.c',
         'qrcode-util.c',
@@ -249,6 +252,7 @@ shared_sources = files(
         'varlink-io.systemd.Network.Link.c',
         'varlink-io.systemd.PCRExtend.c',
         'varlink-io.systemd.PCRLock.c',
+        'varlink-io.systemd.PTYBroker.c',
         'varlink-io.systemd.Repart.c',
         'varlink-io.systemd.Report.c',
         'varlink-io.systemd.Report.Signer.c',
@@ -277,6 +281,7 @@ shared_sources = files(
         'verb-log-control.c',
         'verbs.c',
         'vlan-util.c',
+        'voa-util.c',
         'volatile-util.c',
         'vpick.c',
         'vsock-util.c',
@@ -319,6 +324,10 @@ if conf.get('ENABLE_REPORT') == 1
         if conf.get('HAVE_TPM2') == 1
                 shared_sources += files('tpm2-report.c')
         endif
+endif
+
+if conf.get('HAVE_OPENSSL') == 1
+        shared_sources += files('authenticode.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')

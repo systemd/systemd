@@ -139,9 +139,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The transfers of the component, equivalent to the *.transfer files of a component defined in the file system."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(transfers, Transfer, SD_VARLINK_ARRAY));
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_SysUpdate_Provider,
                 "io.systemd.SysUpdate.Provider",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("Interface implemented by services that provide component definitions to systemd-sysupdate(8). "
                                              "systemd-sysupdate connects to all sockets bound in /run/systemd/sysupdate/provider/ and "
                                              "merges the components they provide with those defined in the file system. Components "

@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-sysext',
-                'public' : true,
                 'conditions' : ['ENABLE_SYSEXT'],
                 'sources' : files('sysext.c'),
                 'dependencies' : [

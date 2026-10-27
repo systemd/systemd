@@ -19,25 +19,13 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-if [[ -v ASAN_OPTIONS ]]; then
-    echo "vmspawn launches QEMU which doesn't work under ASan, skipping" | tee --append /skipped
+if ! reason="$(can_run_vmspawn)"; then
+    echo "$reason, skipping" | tee --append /skipped
     exit 77
 fi
 
-if ! command -v systemd-vmspawn >/dev/null 2>&1; then
-    echo "systemd-vmspawn not found, skipping" | tee --append /skipped
-    exit 77
-fi
-
-if ! find_qemu_binary; then
-    echo "QEMU not found, skipping" | tee --append /skipped
-    exit 77
-fi
-
-# The harness binds the guest image artifacts read-only at /work/vm-images.
-export IMAGE_DIR=/work/vm-images
-if [[ ! -f "$IMAGE_DIR/image.raw" || ! -f "$IMAGE_DIR/image.vmlinuz" || ! -f "$IMAGE_DIR/image.initrd" ]]; then
-    echo "image artifacts not found in $IMAGE_DIR, skipping" | tee --append /skipped
+if ! vmspawn_images_dir >/dev/null; then
+    echo "image artifacts not found in /work/vm-images, skipping" | tee --append /skipped
     exit 77
 fi
 

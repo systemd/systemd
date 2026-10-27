@@ -23,6 +23,15 @@
 #include "strv.h"
 #include "time-util.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-cryptsetup-generator\0",
+        "Generate units from /etc/crypttab.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-cryptsetup-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct crypto_device {
         char *uuid;

@@ -670,6 +670,8 @@ struct TransientCGroupContextParameters {
         uint64_t io_weight;
         bool startup_io_weight_set;
         uint64_t startup_io_weight;
+
+        char *bad_field; /* Field path for error propagation. */
 };
 
 static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
@@ -974,44 +976,6 @@ static DEFINE_APPLY_CGROUP(memory_zswap_writeback, "MemoryZSwapWriteback", CGROU
 static DEFINE_APPLY_CGROUP(tasks_accounting,       "TasksAccounting",      CGROUP_MASK_PIDS,   varlink_apply_tristate_bool);
 static DEFINE_APPLY_CGROUP(io_accounting,          "IOAccounting",         CGROUP_MASK_IO,     varlink_apply_tristate_bool);
 
-/* Parse wrapper flipping <field>_set, as DEFINE_TRANSIENT_EXEC_SETTABLE in varlink-unit.c. An
- * explicit null is treated as absent (the IDL fields are nullable, and the output side emits null
- * for unset fields), rather than falling through to the primitive dispatchers' null mapping. */
-#define DEFINE_TRANSIENT_CGROUP_SETTABLE(field, primitive_dispatch)         \
-        static int dispatch_transient_cgroup_##field(                       \
-                        const char *name,                                   \
-                        sd_json_variant *variant,                           \
-                        sd_json_dispatch_flags_t flags,                     \
-                        void *userdata) {                                   \
-                                                                            \
-                TransientCGroupContextParameters *p = ASSERT_PTR(userdata); \
-                                                                            \
-                if (sd_json_variant_is_null(variant))                       \
-                        return 0;                                           \
-                                                                            \
-                p->field##_set = true;                                      \
-                                                                            \
-                return primitive_dispatch(name, variant, flags, &p->field); \
-        }
-
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_cpu_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_quota_per_sec_usec, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(cpu_quota_period_usec, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_min, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_low, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_low, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_high, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_high, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_swap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_swap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_zswap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_memory_zswap_max, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(io_weight, sd_json_dispatch_uint64);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(startup_io_weight, sd_json_dispatch_uint64);
-
 /* TasksMax takes the CGroupTasksMax object exactly as the read side emits it, so the output of a
  * List() call can be fed back in. TasksMaxScale reaches the same pair with a plain fraction. */
 static int dispatch_transient_cgroup_tasks_max(
@@ -1032,15 +996,18 @@ static int dispatch_transient_cgroup_tasks_max(
         /* UINT64_MAX stands for "no scale supplied": sd_json_dispatch_uint64() maps null to it, so a
          * missing and a null member need no separate handling. No producer uses it as a denominator. */
         CGroupTasksMax tasks_max = { .scale = UINT64_MAX };
+        const char *bad_field = NULL;
         int r;
 
         if (sd_json_variant_is_null(variant))
                 return 0;
 
-        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &tasks_max,
-                                  /* reterr_bad_field= */ NULL);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &tasks_max, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
                 return r;
+        }
 
         if (tasks_max.scale == UINT64_MAX)
                 tasks_max.scale = 0;
@@ -1050,20 +1017,39 @@ static int dispatch_transient_cgroup_tasks_max(
         return 0;
 }
 
+#define DEFINE_DISPATCH_CGROUP_SETTABLE(field, dispatch) \
+        DEFINE_VARLINK_DISPATCH_SETTABLE(field, TransientCGroupContextParameters, dispatch)
+
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_weight,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_cpu_weight,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_quota_per_sec_usec,   sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(cpu_quota_period_usec,    sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_min,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_low,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_low,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_high,              sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_high,      sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_max,               sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_max,       sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_swap_max,          sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_swap_max,  sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_zswap_max,         sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_memory_zswap_max, sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(io_weight,                sd_json_dispatch_uint64);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(startup_io_weight,        sd_json_dispatch_uint64);
 /* Scale fields are float fractions normalized to 1.0 == 100%. */
-DEFINE_TRANSIENT_CGROUP_SETTABLE(tasks_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_min_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_low_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_high_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_swap_max_scale, sd_json_dispatch_double);
-DEFINE_TRANSIENT_CGROUP_SETTABLE(memory_zswap_max_scale, sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(tasks_max_scale,          sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_min_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_low_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_high_scale,        sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_max_scale,         sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_swap_max_scale,    sd_json_dispatch_double);
+static DEFINE_DISPATCH_CGROUP_SETTABLE(memory_zswap_max_scale,   sd_json_dispatch_double);
 
 /* Per-property descriptor, mirroring TransientExecProperty in varlink-unit.c; tristate ints are
  * seeded to -1 by transient_cgroup_context_parameters_init(). */
 typedef struct TransientCGroupProperty {
         const char *json_name;
-        const char *err_field;
         sd_json_variant_type_t json_type;
         sd_json_dispatch_callback_t dispatch;
         size_t parse_offset;
@@ -1072,22 +1058,25 @@ typedef struct TransientCGroupProperty {
         bool tristate;
 } TransientCGroupProperty;
 
-#define CGROUP_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
-        { json, "CGroup." json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+#define CGROUP_PROPERTY_FULL(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
+        { json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
 
-/* For fields whose DEFINE_TRANSIENT_CGROUP_SETTABLE* dispatcher already checks the JSON type
+#define CGROUP_PROPERTY(json, field, type) \
+        CGROUP_PROPERTY_FULL(json, type, dispatch_transient_cgroup_##field, 0, 0, apply_cgroup_##field)
+
+/* For fields whose DEFINE_DISPATCH_CGROUP_SETTABLE dispatcher already checks the JSON type
  * (uint64 and double alike). */
 #define CGROUP_PROPERTY_NUMERIC(json, field)                             \
-        { json, "CGroup." json, _SD_JSON_VARIANT_TYPE_INVALID,           \
-          dispatch_transient_cgroup_##field, 0, 0, apply_cgroup_##field }
+        { json, _SD_JSON_VARIANT_TYPE_INVALID,                           \
+          varlink_dispatch_settable_##field, 0, 0, apply_cgroup_##field }
 
-#define CGROUP_PROPERTY_TRISTATE_BOOL(json, field)                       \
-        { json, "CGroup." json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, \
+#define CGROUP_PROPERTY_TRISTATE_BOOL(json, field)                  \
+        { json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, \
           offsetof(TransientCGroupContextParameters, field), 0, apply_cgroup_##field, true }
 
 static const TransientCGroupProperty cgroup_properties[] = {
         /* SD_JSON_STRICT restricts the slice name to UNIT_NAME_PLAIN, as bus_set_transient_slice() does. */
-        CGROUP_PROPERTY              ("Slice", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(TransientCGroupContextParameters, slice), SD_JSON_STRICT, apply_cgroup_slice),
+        CGROUP_PROPERTY_FULL         ("Slice", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(TransientCGroupContextParameters, slice), SD_JSON_STRICT, apply_cgroup_slice),
 
         CGROUP_PROPERTY_NUMERIC      ("CPUWeight",          cpu_weight),
         CGROUP_PROPERTY_NUMERIC      ("StartupCPUWeight",   startup_cpu_weight),
@@ -1115,13 +1104,14 @@ static const TransientCGroupProperty cgroup_properties[] = {
         CGROUP_PROPERTY_TRISTATE_BOOL("MemoryZSwapWriteback",  memory_zswap_writeback),
 
         CGROUP_PROPERTY_TRISTATE_BOOL("TasksAccounting", tasks_accounting),
-        CGROUP_PROPERTY              ("TasksMax", SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup_tasks_max, 0, 0, apply_cgroup_tasks_max),
+        CGROUP_PROPERTY              ("TasksMax", tasks_max, SD_JSON_VARIANT_OBJECT),
         CGROUP_PROPERTY_NUMERIC      ("TasksMaxScale", tasks_max_scale),
 
         CGROUP_PROPERTY_TRISTATE_BOOL("IOAccounting",    io_accounting),
         CGROUP_PROPERTY_NUMERIC      ("IOWeight",        io_weight),
         CGROUP_PROPERTY_NUMERIC      ("StartupIOWeight", startup_io_weight),
 };
+#undef CGROUP_PROPERTY_FULL
 #undef CGROUP_PROPERTY
 #undef CGROUP_PROPERTY_NUMERIC
 #undef CGROUP_PROPERTY_TRISTATE_BOOL
@@ -1136,17 +1126,24 @@ static void transient_cgroup_context_parameters_init(TransientCGroupContextParam
 }
 
 TransientCGroupContextParameters* transient_cgroup_context_parameters_free(TransientCGroupContextParameters *p) {
+        if (!p)
+                return NULL;
+
+        free(p->bad_field);
         return mfree(p);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TransientCGroupContextParameters*, transient_cgroup_context_parameters_free);
 
 int transient_cgroup_context_dispatch(
                 sd_json_variant *variant,
                 TransientCGroupContextParameters **ret,
-                const char **reterr_field) {
+                char **reterr_bad_field) {
 
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field cgroup_dispatch[ELEMENTSOF(cgroup_properties) + 1] = {};
         static bool cgroup_dispatch_set = false;
+        const char *bad_field = NULL;
         int r;
 
         assert(ret);
@@ -1165,15 +1162,19 @@ int transient_cgroup_context_dispatch(
                 cgroup_dispatch_set = true;
         }
 
-        _cleanup_free_ TransientCGroupContextParameters *p = new(TransientCGroupContextParameters, 1);
+        _cleanup_(transient_cgroup_context_parameters_freep) TransientCGroupContextParameters *p = NULL;
+        p = new(TransientCGroupContextParameters, 1);
         if (!p)
                 return -ENOMEM;
 
         transient_cgroup_context_parameters_init(p);
 
-        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, reterr_field);
-        if (r < 0)
+        r = sd_json_dispatch_full(variant, cgroup_dispatch, /* bad= */ NULL, /* flags= */ 0, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, p->bad_field, reterr_bad_field);
                 return r;
+        }
 
         *ret = TAKE_PTR(p);
         return r;
@@ -1183,7 +1184,7 @@ int transient_cgroup_context_apply_properties(
                 Unit *u,
                 CGroupContext *c,
                 TransientCGroupContextParameters *p,
-                const char **reterr_field) {
+                char **reterr_bad_field) {
 
         int r;
 
@@ -1193,11 +1194,10 @@ int transient_cgroup_context_apply_properties(
 
         FOREACH_ELEMENT(prop, cgroup_properties) {
                 r = prop->apply(u, c, p);
-                if (r < 0) {
-                        if (reterr_field)
-                                *reterr_field = r == -EINVAL ? prop->err_field : NULL;
+                if (r == -EINVAL)
+                        return varlink_propagate_bad_field_errno(r, prop->json_name, p->bad_field, reterr_bad_field);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;

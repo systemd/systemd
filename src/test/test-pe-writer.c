@@ -12,6 +12,11 @@
 #include "string-util.h"
 #include "tests.h"
 
+#if HAVE_OPENSSL
+#  include "authenticode.h"
+#  include "crypto-util.h"
+#endif
+
 #define PE_OFFSET 0x40U
 #define OPTIONAL_HEADER_SIZE 0xf0U
 #define SECTION_TABLE_OFFSET (PE_OFFSET + offsetof(PeHeader, optional) + OPTIONAL_HEADER_SIZE)
@@ -600,5 +605,46 @@ TEST(signature_unaligned_input) {
         ASSERT_EQ(le32toh(certificate_table->Size), 16U);
         assert_zero(fd, STUB_SIZE + 3, 5);
 }
+
+#if HAVE_OPENSSL
+TEST(authenticode_sign_pe) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL;
+
+        if (dlopen_libcrypto(LOG_DEBUG) < 0)
+                return (void) log_tests_skipped("libcrypto not available");
+
+        ASSERT_OK(rsa_pkey_new(2048, &key));
+        ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
+
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new("stub"));
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, stub, STUB_SIZE, 0), (ssize_t) STUB_SIZE);
+        uint64_t unsigned_size = ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_END));
+
+        _cleanup_free_ void *hash = NULL, *signed_hash = NULL;
+        size_t hash_size, signed_hash_size;
+        ASSERT_OK(pe_hash(fd, sym_EVP_sha256(), &hash, &hash_size));
+
+        ASSERT_OK(authenticode_sign_pe(fd, cert, key));
+
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        ASSERT_OK(pe_load_headers_and_sections(fd, &pe_header, /* ret_sections= */ NULL));
+        ASSERT_TRUE(pe_header_is_signed(pe_header));
+
+        const IMAGE_DATA_DIRECTORY *certificate_table =
+                pe_header_get_data_directory(pe_header, IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE);
+        ASSERT_EQ(le32toh(certificate_table->VirtualAddress), unsigned_size);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_END), (off_t) (unsigned_size + le32toh(certificate_table->Size)));
+
+        uint32_t checksum;
+        ASSERT_OK(pe_checksum(fd, &checksum));
+        ASSERT_EQ(le32toh(pe_header->optional.CheckSum), checksum);
+
+        /* The Authenticode hash does not cover the certificate table, so signing does not change it. */
+        ASSERT_OK(pe_hash(fd, sym_EVP_sha256(), &signed_hash, &signed_hash_size));
+        ASSERT_EQ(memcmp_nn(signed_hash, signed_hash_size, hash, hash_size), 0);
+}
+#endif
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

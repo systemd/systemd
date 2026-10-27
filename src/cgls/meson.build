@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-cgls',
-                'public' : true,
                 'sources' : files('cgls.c'),
         },
 ]

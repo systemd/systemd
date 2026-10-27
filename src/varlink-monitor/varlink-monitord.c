@@ -20,6 +20,13 @@
 #include "user-util.h"
 #include "varlink-io.systemd.VarlinkMonitor.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-varlink-monitord\0",
+        "Monitor Varlink connections with BPF probes.",
+        .option_namespace = "common",
+);
 
 static struct monitor_varlink_bpf *monitor_varlink_bpf_free(struct monitor_varlink_bpf *obj) {
         if (obj)
@@ -364,8 +371,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         LIBBPF_NOTE(recommended);
         r = dlopen_bpf(LOG_WARNING);

@@ -12,7 +12,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'hostnamectl',
-                'public' : true,
                 'sources' : files('hostnamectl.c'),
         },
 ]

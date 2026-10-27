@@ -7,7 +7,16 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "special.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-bless-boot-generator\0",
+        "Pull in systemd-bless-boot.service when boot counting is in effect.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-bless-boot-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath"
  * EFI variable is set, i.e. the system boots up with boot counting in effect, which means we should mark the

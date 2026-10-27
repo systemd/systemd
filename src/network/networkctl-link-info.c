@@ -31,6 +31,7 @@ LinkInfo* link_info_array_free(LinkInfo *array) {
                 free(array[i].ssid);
                 free(array[i].qdisc);
                 strv_free(array[i].alternative_names);
+                strv_free(array[i].configuring_reasons);
         }
 
         return mfree(array);

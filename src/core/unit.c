@@ -1389,6 +1389,15 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        /* If any of the standard streams is connected to a pseudo TTY allocated by ptybrokerd, make sure the
+         * broker's socket is pulled in and around first, so that the broker is activated on demand even if
+         * the socket isn't enabled statically. */
+        if (exec_context_has_broker(c)) {
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_PTYBROKERD_SOCKET, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -4380,6 +4389,20 @@ static int unit_verify_contexts(const Unit *u) {
         if (ec->private_pids != PRIVATE_PIDS_NO && ec->pam_name)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PAM is not supported under PrivatePIDs=. Refusing.");
 
+        if (exec_context_has_broker(ec)) {
+                /* If any of the standard streams is connected to a ptybrokerd-allocated PTY, all
+                 * terminal-type streams must be: the broker PTY has no configurable device path, hence
+                 * TTYPath= and the classic TTY stream types cannot be combined with it. */
+
+                if (ec->tty_path)
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "TTYPath= is not supported in combination with broker standard input/output/error. Refusing.");
+
+                if ((exec_input_is_terminal(ec->std_input) && !exec_input_is_broker(ec->std_input)) ||
+                    ec->std_output == EXEC_OUTPUT_TTY ||
+                    ec->std_error == EXEC_OUTPUT_TTY)
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "TTY standard input/output/error may not be combined with broker standard input/output/error. Refusing.");
+        }
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
@@ -6121,7 +6144,7 @@ void unit_unlink_state_files(Unit *u) {
         }
 
         if (u->exported_log_extra_fields) {
-                p = strjoina("/run/systemd/units/extra-fields:", u->id);
+                p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
                 (void) unlink(p);
 
                 u->exported_log_extra_fields = false;

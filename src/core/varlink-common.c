@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "cpu-set-util.h"
 #include "execute.h"
@@ -46,6 +47,30 @@ int varlink_reply_bus_error(sd_varlink *link, int r, const sd_bus_error *e) {
         if (error_id)
                 return sd_varlink_error(link, error_id, NULL);
         return sd_varlink_error_errno(link, r);
+}
+
+void varlink_propagate_bad_field(const char *bad_field, const char *child_bad_field, char **reterr_bad_field) {
+        assert(bad_field);
+
+        if (!reterr_bad_field)
+                return;
+
+        char *bad_field_path = child_bad_field ?
+                strjoin(bad_field, ".", child_bad_field) :
+                strdup(bad_field);
+
+        free_and_replace(*reterr_bad_field, bad_field_path);
+}
+
+int varlink_propagate_bad_field_errno(int errnum, const char *bad_field, const char *child_bad_field, char **reterr_bad_field) {
+        assert(errnum < 0);
+
+        /* don't allocate more mem if ENOMEM */
+        if (errnum == -ENOMEM)
+                return errnum;
+
+        varlink_propagate_bad_field(bad_field, child_bad_field, reterr_bad_field);
+        return errnum;
 }
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -278,6 +303,8 @@ int varlink_apply_strv(Unit *u, const char *name, char ***p, char **value, UnitW
         assert(name);
         assert(p);
 
+        /* NULL means absent; an allocated empty vector explicitly clears all configured entries.
+         * varlink_dispatch_strv_preserve_empty() preserves this distinction when parsing JSON. */
         if (!value)
                 return 0;
 
@@ -318,11 +345,49 @@ int varlink_apply_uint64_limit(Unit *u, const char *name, uint64_t *p, uint64_t 
         return 1;
 }
 
-int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+static inline void assert_usec_name(const char *name) {
         assert(name);
+        assert(endswith(name, "Sec"));
+        assert(!endswith(name, "USec"));
+}
+
+int varlink_apply_usec_per_msec(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert_usec_name(name);
+        assert(p);
+
+        *p = value;
+        unit_write_settingf(u, flags, name, "%s=%s", name, FORMAT_TIMESPAN(value, USEC_PER_MSEC));
+        return 1;
+}
+
+int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, usec_t value, UnitWriteFlags flags) {
+        assert_usec_name(name);
         assert(p);
 
         *p = value;
         unit_write_settingf(u, flags, name, "%s=%s", name, value == USEC_INFINITY ? "" : FORMAT_TIMESPAN(value, 1));
         return 1;
+}
+
+int varlink_dispatch_strv_preserve_empty(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        char ***p = ASSERT_PTR(userdata);
+
+        assert(name);
+        assert(variant);
+
+        if (sd_json_variant_is_array(variant) && sd_json_variant_elements(variant) == 0) {
+                char **empty = new0(char*, 1);
+                if (!empty)
+                        return -ENOMEM;
+
+                strv_free_and_replace(*p, empty);
+                return 0;
+        }
+
+        return sd_json_dispatch_strv(name, variant, flags, p);
 }

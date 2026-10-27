@@ -14,6 +14,15 @@
 #include "special.h"
 #include "strv.h"
 #include "tpm2-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-tpm2-generator\0",
+        "Insert a TPM2 synchronization point in the boot process.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-tpm2-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /* A small generator that enqueues tpm2.target as synchronization point if the TPM2 device hasn't shown up
  * yet, but the firmware reports it to exist. This is supposed to deal with systems where the TPM2 driver

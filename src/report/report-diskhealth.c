@@ -25,6 +25,7 @@ COMMAND(
         "systemd-report-diskhealth\0",
         "Report disk health metrics.",
         .man_pages = "systemd-report-diskhealth@.service(8)\0",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;

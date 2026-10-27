@@ -140,6 +140,7 @@ simple_tests += files(
         'test-ip-protocol-list.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-keyring-util.c',
         'test-label.c',
         'test-limits-util.c',
         'test-list.c',
@@ -171,6 +172,7 @@ simple_tests += files(
         'test-ordered-set.c',
         'test-os-util.c',
         'test-osc-context.c',
+        'test-osc-winsize.c',
         'test-parse-argument.c',
         'test-parse-helpers.c',
         'test-parse-util.c',
@@ -236,6 +238,7 @@ simple_tests += files(
         'test-utf8.c',
         'test-validatefs-util.c',
         'test-verbs.c',
+        'test-voa-util.c',
         'test-vpick.c',
         'test-web-util.c',
         'test-xattr-util.c',
@@ -278,6 +281,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-cli-c.c'),
                 'type' : 'manual',
         },
         test_template + {
@@ -480,6 +487,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
@@ -770,6 +778,20 @@ if static_libudev != 'false'
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests ? 'yes' : 'no',
                         'suite' : 'libudev',
+                },
+        ]
+endif
+
+############################################################
+
+if have_rust
+        executables += [
+                rust_test_template + {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+                rust_test_template + {
+                        'sources' : files('test-cli-rust.rs'),
+                        'type' : 'manual',
                 },
         ]
 endif

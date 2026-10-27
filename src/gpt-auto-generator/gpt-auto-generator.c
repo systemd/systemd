@@ -34,7 +34,16 @@
 #include "strv.h"
 #include "time-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-gpt-auto-generator\0",
+        "Discover and mount partitions based on GPT partition type UUIDs.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-gpt-auto-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum MountPointFlags {
         MOUNT_RW         = 1 << 0,
@@ -196,7 +205,7 @@ static int add_veritysetup(
                 const char *mount_opts,
                 MountPointFlags flags) {
 
-#if HAVE_LIBCRYPTSETUP
+#if ENABLE_VERITYSETUP
         int r;
 
         assert(id);
@@ -296,7 +305,7 @@ static int add_veritysetup(
 
         return 0;
 #else
-        log_warning("Compiled without libcryptsetup support, skipping verity setup for '%s'.", id);
+        log_warning("Compiled without systemd-veritysetup support, skipping verity setup for '%s'.", id);
         return 0;
 #endif
 }

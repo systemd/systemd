@@ -358,9 +358,7 @@ static EventLog* event_log_free(EventLog *el) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(EventLog*, event_log_free);
 
 static EventLogRecord* event_log_record_new(EventLog *el) {
-        EventLogRecord *record;
-
-        record = new(EventLogRecord, 1);
+        EventLogRecord *record = new(EventLogRecord, 1);
         if (!record)
                 return NULL;
 
@@ -379,15 +377,12 @@ static EventLogRecord* event_log_record_new(EventLog *el) {
 static int event_log_add_record(
                 EventLog *el,
                 EventLogRecord **ret) {
-
-        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
-
         assert(el);
 
         if (!GREEDY_REALLOC(el->records, el->n_records+1))
                 return -ENOMEM;
 
-        record = event_log_record_new(el);
+        EventLogRecord *record = event_log_record_new(el);
         if (!record)
                 return -ENOMEM;
 
@@ -395,8 +390,6 @@ static int event_log_add_record(
 
         if (ret)
                 *ret = record;
-
-        TAKE_PTR(record);
 
         return 0;
 }
@@ -938,7 +931,40 @@ static int event_log_add_algorithms_from_record(EventLog *el, EventLogRecord *re
         return 0;
 }
 
-static int event_log_load_firmware(EventLog *el) {
+static int event_log_add_firmware_record(
+                EventLog *el,
+                const char *source,
+                uint32_t pcr,
+                uint32_t event_type,
+                const void *payload,
+                size_t payload_size,
+                EventLogRecord **ret) {
+
+        EventLogRecord *record;
+        int r;
+
+        assert(el);
+        assert(source);
+        assert(payload || payload_size == 0);
+        assert(ret);
+
+        r = event_log_add_record(el, &record);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add record to event log: %m");
+
+        record->pcr = pcr;
+        record->source = source;
+        record->firmware_event_type = event_type;
+        record->firmware_payload = memdup(payload, payload_size);
+        if (!record->firmware_payload)
+                return log_oom();
+        record->firmware_payload_size = payload_size;
+
+        *ret = record;
+        return 0;
+}
+
+static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
         const TCG_EfiSpecIdEventAlgorithmSize *algorithms;
         size_t bufsize = 0, n_algorithms = 0, left = 0;
         _cleanup_free_ void *buf = NULL;
@@ -967,6 +993,23 @@ static int event_log_load_firmware(EventLog *el) {
         r = validate_firmware_header(buf, bufsize, &algorithms, &n_algorithms, &event, &left);
         if (r < 0)
                 return r;
+
+        if (keep_no_action) {
+                /* The log header is an EV_NO_ACTION event (the Spec ID event), which carries the version
+                 * of the TCG PC Client Platform Firmware Profile Specification the log follows. Retain it if
+                 * requested. Note that unlike all other events it is in the legacy event format, and hence
+                 * comes with a single (all-zero) SHA1 digest. */
+                const TCG_PCClientPCREvent *h = buf;
+                EventLogRecord *record;
+
+                r = event_log_add_firmware_record(el, path, h->pcrIndex, h->eventType, h->event, h->eventDataSize, &record);
+                if (r < 0)
+                        return r;
+
+                r = event_log_record_add_bank(record, TPM2_ALG_SHA1, h->digest, sizeof(h->digest), /* ret= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add bank to event log record: %m");
+        }
 
         for (const TCG_PCR_EVENT2 *next_event = NULL;; event = next_event) {
                 EventLogRecord *record = NULL;
@@ -997,10 +1040,13 @@ static int event_log_load_firmware(EventLog *el) {
                         el->startup_locality = ((const uint8_t*) payload)[sizeof("StartupLocality")];
                         el->startup_locality_found = true;
                         log_debug("Found StartupLocality event: %u", el->startup_locality);
-                        continue;
                 }
 
-                if (event->eventType == EV_NO_ACTION) { /* Ignore pseudo events, that don't result in a measurement */
+                /* Ignore pseudo events that don't result in a measurement, unless we are asked to keep
+                 * them. They carry information that may be useful to consumers of the event log (e.g.
+                 * verifiers of TPM2 reports), such as the StartupLocality event, which determines the
+                 * initial value of PCR 0. */
+                if (event->eventType == EV_NO_ACTION && !keep_no_action) {
                         log_debug("Skipping NO_ACTION event.");
                         continue;
                 }
@@ -1010,17 +1056,9 @@ static int event_log_load_firmware(EventLog *el) {
                         continue;
                 }
 
-                r = event_log_add_record(el, &record);
+                r = event_log_add_firmware_record(el, path, event->pcrIndex, event->eventType, payload, payload_size, &record);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add record to event log: %m");
-
-                record->pcr = event->pcrIndex;
-                record->source = path;
-                record->firmware_event_type = event->eventType;
-                record->firmware_payload = memdup(payload, payload_size);
-                if (!record->firmware_payload)
-                        return log_oom();
-                record->firmware_payload_size = payload_size;
+                        return r;
 
                 const void *ha, *ha_next = NULL;
                 ha = (const uint8_t*) event + offsetof(TCG_PCR_EVENT2, digests.digests);
@@ -1307,12 +1345,12 @@ static EventLog *event_log_new(void) {
         return TAKE_PTR(el);
 }
 
-static int event_log_load(EventLog *el) {
+static int event_log_load(EventLog *el, bool keep_fw_no_action) {
         int r;
 
         assert(el);
 
-        r = event_log_load_firmware(el);
+        r = event_log_load_firmware(el, keep_fw_no_action);
         if (r < 0)
                 return r;
 
@@ -2571,7 +2609,7 @@ static int event_log_load_and_process(EventLog **ret) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -2732,7 +2770,7 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         if (!el)
                 return log_oom();
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ true);
         if (r < 0)
                 return r;
 
@@ -4331,7 +4369,7 @@ static int lock_firmware(bool is_code) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -4679,7 +4717,7 @@ static int lock_secureboot_authority(void) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -5521,7 +5559,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (!el)
                 return log_oom();
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ true);
         if (r < 0)
                 return r;
 

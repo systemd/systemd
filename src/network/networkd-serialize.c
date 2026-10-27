@@ -366,7 +366,7 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Dispatched gateway address size (%zu) is invalid.",
-                                       p.prefsrc.iov_len);
+                                       p.gw.iov_len);
         }
 
         if (p.metrics.iov_len % sizeof(uint32_t) != 0)

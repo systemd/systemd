@@ -238,7 +238,8 @@ static int link_status_one(
         _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
-                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
+                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online,
+                *dhcp_state = NULL;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
@@ -333,6 +334,10 @@ static int link_status_one(
                                    on_color_setup, setup_state ?: "unmanaged", off_color_setup);
         if (r < 0)
                 return table_log_add_error(r);
+
+        r = dump_list(table, "Configuring", info->configuring_reasons);
+        if (r < 0)
+                return r;
 
         r = table_add_many(table,
                            TABLE_FIELD, "Online state",
@@ -843,6 +848,15 @@ static int link_status_one(
                 }
         }
 
+        dhcp_state = dhcp_state_to_string(info->dhcp4_client_state);
+        if (dhcp_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv4 Client State",
+                                   TABLE_STRING, dhcp_state);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (sd_dhcp_client_id_is_set(&info->dhcp_client_id)) {
                 _cleanup_free_ char *id = NULL;
 
@@ -854,6 +868,23 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        }
+
+        if (info->dhcp4_lease_timestamp != USEC_INFINITY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv4 Lease Timestamp",
+                                   TABLE_TIMESTAMP, info->dhcp4_lease_timestamp);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        dhcp_state = dhcp6_state_to_string(info->dhcp6_client_state);
+        if (dhcp_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv6 Client State",
+                                   TABLE_STRING, dhcp_state);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
@@ -870,6 +901,14 @@ static int link_status_one(
                 r = table_add_many(table,
                                    TABLE_FIELD, "DHCPv6 Client DUID",
                                    TABLE_STRING, duid);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->dhcp6_lease_timestamp != USEC_INFINITY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv6 Lease Timestamp",
+                                   TABLE_TIMESTAMP, info->dhcp6_lease_timestamp);
                 if (r < 0)
                         return table_log_add_error(r);
         }

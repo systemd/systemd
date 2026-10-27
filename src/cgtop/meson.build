@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-cgtop',
-                'public' : true,
                 'sources' : files('cgtop.c'),
         },
 ]

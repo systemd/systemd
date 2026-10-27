@@ -43,11 +43,13 @@ static void manager_process_entry_meta(
                 int *priority,
                 char **identifier,
                 char **message,
+                size_t *message_size,
                 pid_t *object_pid) {
 
         assert(priority);
         assert(identifier);
         assert(message);
+        assert(message_size);
 
         /* We need to determine the priority of this entry for the rate limiting logic */
 
@@ -80,8 +82,10 @@ static void manager_process_entry_meta(
                 char *t;
 
                 t = memdup_suffix0(p + 8, l - 8);
-                if (t)
+                if (t) {
                         free_and_replace(*message, t);
+                        *message_size = l - 8;
+                }
 
         } else if (l > STRLEN("OBJECT_PID=") &&
                    l < STRLEN("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
@@ -111,6 +115,7 @@ static int manager_process_entry(
 
         size_t n = 0, j, tn = SIZE_MAX, entry_size = 0;
         char *identifier = NULL, *message = NULL;
+        size_t message_size = 0;
         struct iovec *iovec = NULL;
         int priority = LOG_INFO;
         pid_t object_pid = 0;
@@ -186,6 +191,7 @@ static int manager_process_entry(
                                                           &priority,
                                                           &identifier,
                                                           &message,
+                                                          &message_size,
                                                           &object_pid);
                         }
 
@@ -239,6 +245,7 @@ static int manager_process_entry(
                                                           &priority,
                                                           &identifier,
                                                           &message,
+                                                          &message_size,
                                                           &object_pid);
                         } else
                                 free(k);
@@ -269,10 +276,7 @@ static int manager_process_entry(
                 goto finish;
 
         if (message) {
-                /* Ensure message is not NULL, otherwise strlen(message) would crash. This check needs to
-                 * be here until manager_process_entry() is able to process messages containing \0 characters,
-                 * as we would have access to the actual size of message. */
-                r = client_context_check_keep_log(context, message, strlen(message));
+                r = client_context_check_keep_log(context, message, message_size);
                 if (r <= 0)
                         goto finish;
 

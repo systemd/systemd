@@ -134,6 +134,11 @@ teardown_suspend() (
 testcase_suspend_on_lid() {
     local pid input_name lid_dev
 
+    if [[ ! -x /usr/lib/systemd/systemd-sleep ]]; then
+        echo "systemd-sleep is not installed, skipping suspend test"
+        return
+    fi
+
     if systemd-detect-virt --quiet --container; then
         echo "Skipping suspend test in container"
         return
@@ -1134,6 +1139,30 @@ testcase_restart() {
         loginctl | grep logind-test-user | grep -w "$c" >/dev/null
         systemctl kill "$unit"
     done
+}
+
+testcase_inhibit_default() {
+    local mode what inhibitor_out
+    local -a args
+
+    for mode in delay block; do
+        args=()
+        what='["idle", "shutdown", "sleep"]'
+        if [[ "$mode" == delay ]]; then
+            args=(--mode=delay)
+            what='["shutdown", "sleep"]'
+        fi
+
+        # Query from the inhibited command so the lock is held throughout the query.
+        inhibitor_out=$(systemd-inhibit "${args[@]}" --who="inhibit-default-$mode" \
+            varlinkctl call --more /run/systemd/io.systemd.Login io.systemd.Login.ListInhibitors '{}')
+        echo "$inhibitor_out" | jq --seq --slurp -e --arg mode "$mode" --argjson what "$what" '
+            map(select(.context.Who == ("inhibit-default-" + $mode))) |
+            length == 1 and all(.[]; .context.Mode == $mode and (.context.What | sort) == $what)
+        ' >/dev/null
+    done
+
+    (! systemd-inhibit --mode=delay --what=idle true)
 }
 
 setup_test_user

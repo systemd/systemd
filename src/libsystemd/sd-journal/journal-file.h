@@ -73,6 +73,7 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
         bool strict_order:1;
+        bool verifying:1;    /* The file is opened for verifying. See journal_file_verify(). */
 
         direction_t last_direction;
         LocationType location_type;
@@ -137,7 +138,10 @@ typedef struct {
 
 extern const struct hash_ops journal_file_hash_ops_by_path;
 
-int journal_file_open(
+int journal_file_verify_header(JournalFile *f);
+
+/* The sequence number ID is used when the file is created, in preference to the one of the template. */
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -147,7 +151,32 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret);
+static inline int journal_file_open(
+                int fd,
+                const char *fname,
+                int open_flags,
+                JournalFileFlags file_flags,
+                mode_t mode,
+                uint64_t compress_threshold_bytes,
+                JournalMetrics *metrics,
+                MMapCache *mmap_cache,
+                JournalFile *template,
+                JournalFile **ret) {
+        return journal_file_open_full(
+                        fd,
+                        fname,
+                        open_flags,
+                        file_flags,
+                        mode,
+                        compress_threshold_bytes,
+                        metrics,
+                        mmap_cache,
+                        template,
+                        /* seqnum_id= */ NULL,
+                        ret);
+}
 
 int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *f);

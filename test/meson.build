@@ -131,6 +131,16 @@ if want_tests != 'false'
                 link_abi_targets += exe
         endforeach
 
+        if have_rust
+                test('test-cli-parity',
+                     files('test-cli-parity.sh'),
+                     args : [executables_by_name['test-cli-c'].full_path(),
+                             executables_by_name['test-cli-rust'].full_path()],
+                     depends : [executables_by_name['test-cli-c'], executables_by_name['test-cli-rust']],
+                     env : test_env,
+                     suite : 'rust')
+        endif
+
         if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('test-link-abi',
                      files('test-link-abi.py'),
@@ -139,6 +149,37 @@ if want_tests != 'false'
                      suite : 'dist',
                      timeout : 120)
         endif
+endif
+
+############################################################
+
+if want_tests != 'false'
+        # ukify is a Python script and the mount helpers implement the mount(8) interface, so they
+        # cannot be introspected. systemd does not list its init alias among its names, and the
+        # .standalone variants would not find their own name in the output either.
+        introspect_cli_exclude = [
+                'ukify',
+                'mount.ddi',
+                'mount.mstack',
+                'mount.storage',
+                'init',
+        ]
+
+        introspect_cli_programs = []
+        foreach exec : install_programs
+                name = fs.name(exec.full_path())
+                if name in introspect_cli_exclude or name.endswith('.standalone')
+                        continue
+                endif
+                introspect_cli_programs += exec
+        endforeach
+
+        test('test-introspect-cli',
+             files('test-introspect-cli.sh'),
+             args : introspect_cli_programs,
+             depends : introspect_cli_programs,
+             suite : 'dist',
+             timeout : 300)
 endif
 
 ############################################################
