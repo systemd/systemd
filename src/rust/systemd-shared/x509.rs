@@ -146,7 +146,6 @@ impl X509 {
         }
         // SAFETY: the string is ours.
         let base64 = unsafe { OwnedCStr::from_raw(p) }.ok_or(Errno::ENOMEM)?;
-        let base64 = base64.as_cstr().to_str()?;
 
         cstr::try_format(format_args!(
             "-----BEGIN CERTIFICATE-----\n{base64}\n-----END CERTIFICATE-----\n"
