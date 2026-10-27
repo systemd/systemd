@@ -88,6 +88,39 @@ follows the project guidelines.
    license as documented in
    [`LICENSES/README.md`](https://github.com/systemd/systemd/blob/main/LICENSES/README.md).
 
+<details>
+<summary>For the maintainers: template messages for rule violation</summary>
+
+#### First violation
+
+```
+It appears that you are using a Large Language Model (LLM) or other generative
+AI tool in violation of [systemd's Policy on the use of LLMs and AI tooling](https://github.com/systemd/systemd/blob/main/docs/CONTRIBUTING.md#policy-on-the-use-of-large-language-models-llms-and-ai-tooling).
+Please read the policy carefully.
+
+Specifically, we do not allow the use of such tools to communicate on your behalf.
+You must speak for yourself. It is not permissible to let such tools open pull
+requests or issues, leave or respond to comments, or post to the systemd-devel
+mailing list.
+
+This is your first violation. In accordance to the policy, you are receiving this
+warning. The next violation of this rule will result in a ban from participating
+in the systemd project.
+```
+
+#### Second violation
+
+```
+It appears that you are using a Large Language Model (LLM) or other generative
+AI tool in violation of [systemd's Policy on the use of LLMs and AI tooling](https://github.com/systemd/systemd/blob/main/docs/CONTRIBUTING.md#policy-on-the-use-of-large-language-models-llms-and-ai-tooling).
+Specifically, we do not allow the use of such tools to communicate on your behalf.
+
+This is your second violation. In accordance to the policy, you are banned from
+the systemd project
+```
+
+</details>
+
 ## Reviewing Pull Requests
 
 * See [filtered list of pull requests](https://github.com/systemd/systemd/pulls?q=is%3Aopen+is%3Apr+-label%3A%22reviewed%2Fneeds-rework+%F0%9F%94%A8%22+-label%3Aneeds-rebase+-label%3Agood-to-merge%2Fwith-minor-suggestions+-label%3A%22good-to-merge%2Fwaiting-for-ci+%F0%9F%91%8D%22+-label%3Apostponed+-label%3A%22needs-reporter-feedback+%E2%9D%93%22+-label%3A%22dont-merge+%F0%9F%92%A3%22+-label%3A%22ci-fails%2Fneeds-rework+%F0%9F%94%A5%22+sort%3Aupdated-desc) for requests that are ready for review.
