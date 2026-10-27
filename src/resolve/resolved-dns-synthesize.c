@@ -250,32 +250,36 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
 
 static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
-        bool added = false;
+        bool added = false, synthesize_hostname;
         int n, r;
 
         assert(m);
         assert(address);
         assert(answer);
 
+        synthesize_hostname = shall_synthesize_own_hostname_rrs();
+
         if (af == AF_INET && address->in.s_addr == htobe32(INADDR_LOCALADDRESS)) {
 
-                /* Always map the IPv4 address 127.0.0.2 to the local hostname, in addition to "localhost": */
+                /* Always map 127.0.0.2 to localhost. Add the local hostnames only when enabled. */
 
-                r = dns_answer_reserve(answer, 4);
+                r = dns_answer_reserve(answer, synthesize_hostname ? 4 : 1);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
+                if (synthesize_hostname) {
+                        r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+                        if (r < 0)
+                                return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
+                        r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+                        if (r < 0)
+                                return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
-                if (r < 0)
-                        return r;
+                        r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
@@ -283,6 +287,9 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
 
                 return 1;
         }
+
+        if (!synthesize_hostname)
+                return 0;
 
         n = local_addresses(m->rtnl, ifindex, af, &addresses);
         if (n <= 0)
@@ -555,10 +562,7 @@ int dns_synthesize_answer(
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
-                        int v, w, u;
-
-                        if (!shall_synthesize_own_hostname_rrs())
-                                continue;
+                        int v = 0, w, u;
 
                         v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
                         if (v < 0)
