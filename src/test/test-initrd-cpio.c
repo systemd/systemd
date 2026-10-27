@@ -15,6 +15,26 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+TEST(initrd_cpio_credentials_to_memory) {
+        _cleanup_(machine_credential_context_done) MachineCredentialContext creds = {};
+        _cleanup_free_ void *empty = NULL, *archive = NULL;
+        size_t empty_size, archive_size;
+
+        /* Without credentials the archive still carries the directories and the trailer */
+        ASSERT_OK(initrd_cpio_credentials_to_memory(&creds, &empty, &empty_size));
+        ASSERT_GT(empty_size, 0U);
+        ASSERT_EQ(empty_size % 4, 0U);
+        ASSERT_NOT_NULL(memmem(empty, empty_size, "TRAILER!!!", 10));
+        ASSERT_NOT_NULL(memmem(empty, empty_size, ".extra/system_credentials", 25));
+
+        ASSERT_OK(machine_credential_add(&creds, "foo", "hello", 5));
+        ASSERT_OK(initrd_cpio_credentials_to_memory(&creds, &archive, &archive_size));
+        ASSERT_GT(archive_size, empty_size);
+        ASSERT_NOT_NULL(memmem(archive, archive_size, ".extra/system_credentials/foo.cred", 34));
+        ASSERT_NOT_NULL(memmem(archive, archive_size, "hello", 5));
+        ASSERT_NULL(memmem(empty, empty_size, "foo.cred", 8));
+}
+
 TEST_RET(initrd_cpio_credentials_basic) {
         struct stat st;
         size_t foo_size, bar_size;
