@@ -41,6 +41,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = "restrict-fsaccess-mmap-addr-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -93,6 +94,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), prote
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = (obj)->links.restrict_fsaccess_mmap_addr,                  \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -525,6 +527,7 @@ static const struct {
         size_t n_links;
 } restrict_fsaccess_previous_versions[] = {
         { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC }, /* v261, v262 */
+        { 92, RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR },           /* up to bprm_creds_for_exec */
 };
 
 /* Validate that deserialized FDs actually reference our LSM BPF links. A

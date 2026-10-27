@@ -23,6 +23,9 @@
  *   - file_mprotect:          blocks writable+executable mprotect, and making
  *                              executable a mapping from an untrusted source or
  *                              one that was modified through copy-on-write
+ *   - mmap_addr:              blocks new mappings and heap growth of tasks
+ *                              with READ_IMPLIES_EXEC, which brk() would make
+ *                              executable
  *
  * On kernels providing the bpf_real_data_inode() kfunc (v7.2+), files on
  * union filesystems (overlayfs) are resolved to the layer hosting their
@@ -48,6 +51,7 @@
 #define PROT_EXEC          0x4
 #define VM_EXEC            0x00000004
 #define PTRACE_MODE_ATTACH 0x02
+#define READ_IMPLIES_EXEC  0x0400000
 
 /* ---- Maps ---- */
 
@@ -74,7 +78,7 @@ volatile __u32 protected_map_id_verity;
 volatile __u32 protected_map_id_bss;
 
 /* Must equal _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX in bpf-restrict-fsaccess.h — update when adding programs */
-#define NUM_PROTECTED_OBJS 10 /* 6 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
+#define NUM_PROTECTED_OBJS 11 /* 7 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
 volatile __u32 protected_prog_ids[NUM_PROTECTED_OBJS];
 volatile __u32 protected_link_ids[NUM_PROTECTED_OBJS];
 
@@ -306,6 +310,18 @@ int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
                 return -EPERM;
 
         return check_trusted_vm_file(file);
+}
+
+/* brk() passes through no other hook we can attach to. With READ_IMPLIES_EXEC
+ * set it grows the heap writable and executable, so such tasks get no new
+ * mappings at all. */
+SEC("lsm/mmap_addr")
+int BPF_PROG(restrict_fsaccess_mmap_addr, unsigned long addr)
+{
+        if (bpf_get_current_task_btf()->personality & READ_IMPLIES_EXEC)
+                return -EPERM;
+
+        return 0;
 }
 
 /* ---- PID1 ptrace protection ----
