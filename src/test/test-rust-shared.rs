@@ -12,7 +12,7 @@
 use core::alloc::Layout;
 use core::ffi::{c_char, c_int, CStr};
 use core::mem::{align_of, size_of};
-use core::ptr;
+use core::ptr::{self, NonNull};
 
 use systemd_shared::alloc::{Allocator, Erasing, Malloc};
 use systemd_shared::chase::{self, CHASE_MKDIR_0755};
@@ -395,6 +395,38 @@ fn test_alloc_erasing() {
 
     let key = Box::new_in([0x42; 32], Erasing).unwrap();
     assert_eq!(Box::into_inner(key), [0x42; 32]);
+}
+
+/// Malloc, but a zero-sized request is a bug: Box and Vec never make one, like std's.
+struct NoZeroSized;
+
+// SAFETY: blocks come from Malloc and go back to it, a zero-sized request panics instead.
+unsafe impl Allocator for NoZeroSized {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        assert_ne!(layout.size(), 0, "zero-sized allocation");
+        Malloc.allocate(layout)
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        assert_ne!(layout.size(), 0, "zero-sized deallocation");
+        // SAFETY: the block came from Malloc, as the caller guarantees.
+        unsafe { Malloc.deallocate(ptr, layout) };
+    }
+}
+
+fn test_alloc_zero_sized() {
+    drop(Box::new_in((), NoZeroSized).unwrap());
+    Box::into_inner(Box::new_in((), NoZeroSized).unwrap());
+
+    let mut units = Vec::new_in(NoZeroSized);
+    units.push(()).unwrap();
+    drop(units.into_boxed_slice().unwrap());
+
+    // The vector's own block goes back when it shrinks, the empty boxed slice has none.
+    let mut v = Vec::with_capacity_in(4, NoZeroSized).unwrap();
+    v.push(1u8).unwrap();
+    v.clear();
+    drop(v.into_boxed_slice().unwrap());
 }
 
 fn test_print() {
@@ -1033,6 +1065,7 @@ define_test_main!(
         test_fd,
         test_alloc,
         test_alloc_erasing,
+        test_alloc_zero_sized,
         test_print,
         test_constants,
         test_voa,
