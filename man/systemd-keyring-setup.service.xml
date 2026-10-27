@@ -94,8 +94,6 @@
     were already in the keyring before the service ran are sealed in as well, and a warning is logged about
     them.</para>
 
-    <para>Note that kexec will unseal and empty the keyrings.</para>
-
     <para>The service runs both in the initrd and on the host. Usually, the keyrings are provisioned in the
     initrd, since the root file system might itself be a dm-verity volume that is verified with one of the
     enrolled keys. When the service runs again on the host, the keyrings have been sealed already. In this case,
@@ -281,6 +279,10 @@
     <varname>dm_verity.keyring_unsealed=1</varname> is set, the new keyring may then be provisioned with
     arbitrary keys again. <command>systemd-keyring-setup</command> logs a warning if a keyring belongs to a
     loadable kernel module. For high-security setups, dm-verity should be built into the kernel.</para>
+
+    <para>Note that kexec will unseal and empty the keyrings. If enabled and allowed, the caller may use it
+    to load their own certificates into the chain of trust, so this is out of scope for this component
+    and needs to be handled by the system integrators with an appropriate security policy.</para>
   </refsect1>
 
   <refsect1>
