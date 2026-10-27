@@ -844,6 +844,14 @@ static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_b
                                "Failed to query API bus instance ID%s: %s",
                                subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring",
                                bus_error_message(e, r));
+
+                /* The connection may already be closed, e.g. because the bus daemon did not complete the
+                 * authentication within BUS_AUTH_TIMEOUT: sd-bus fails pending calls with "Connection
+                 * terminated" before it dispatches the Disconnected signal. Setting up the API bus would
+                 * then call into the closed connection, so leave it to the disconnect handler instead. */
+                if (!sd_bus_is_open(bus))
+                        return 0;
+
                 goto setup_api;
         }
 
