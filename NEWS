@@ -249,6 +249,13 @@ CHANGES WITH 263 in spe:
           target does not exist yet, the service now fails to start with an
           ELOOP error, in line with the other file-creating code in systemd.
 
+        * New StandardInput=tty-graceful mode, which works like
+          StandardInput=tty if there is a usable console or TTYPath= is set
+          explicitly; otherwise it falls back to connecting standard input to
+          /dev/null and standard output/error to the journal. This is useful
+          for programs that interact with the user if possible, but have a
+          non-interactive fallback.
+
         Changes in systemd-logind:
 
         * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
