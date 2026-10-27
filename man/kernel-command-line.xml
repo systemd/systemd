@@ -649,7 +649,9 @@
         <term><varname>systemd.firstboot=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special value <literal>headless</literal>, defaults to
-        on. If off,
+        on (but see
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for systems without a usable console). If off,
         <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd-homed-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
