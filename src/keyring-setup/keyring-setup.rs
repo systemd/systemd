@@ -854,10 +854,8 @@ fn process_keyring(
     let r = collect_certificates(&mut k, root, os);
     gather(&mut k.failed, r);
 
-    let mut r = locate_keyring(&mut k, root, kmod, args.dry_run);
-    if matches!(r, Ok(true)) {
-        r = Ok(check_unsealed(&mut k, root));
-    }
+    let r = locate_keyring(&mut k, root, kmod, args.dry_run)
+        .map(|located| located && check_unsealed(&mut k, root));
 
     if args.dry_run {
         if matches!(r, Ok(true)) {
@@ -877,7 +875,7 @@ fn process_keyring(
         }
     } else if matches!(r, Ok(true)) {
         enroll_certificates(&mut k);
-        r = seal_keyring(&mut k, root).map(|()| true);
+        seal_keyring(&mut k, root)?;
     }
 
     r?;
