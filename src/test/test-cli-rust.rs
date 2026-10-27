@@ -126,7 +126,8 @@ fn run(argv: Argv<'_>) -> Result<()> {
         return Ok(());
     }
 
-    dispatch_verb!(opts.args(), ptr::from_mut(&mut state).cast::<c_void>()).map(|_| ())
+    // SAFETY: the verbs take the State as their userdata, and it outlives the dispatch.
+    unsafe { dispatch_verb!(opts.args(), ptr::from_mut(&mut state).cast::<c_void>()) }.map(|_| ())
 }
 
 define_main!(run);
