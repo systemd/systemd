@@ -501,9 +501,25 @@ static int fixup_input(
         return std_input;
 }
 
+static bool tty_graceful_without_console(const ExecContext *context, const ExecParameters *params) {
+        int r;
+
+        assert(context);
+        assert(params);
+
+        if (params->stdin_fd >= 0 || !exec_context_tty_graceful_on_console(context))
+                return false;
+
+        r = dev_console_usable();
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the console is usable, assuming it is: %m");
+        return r == 0;
+}
+
 static int setup_input(
                 const ExecContext *context,
                 const ExecParameters *params,
+                bool no_console,
                 int socket_fd,
                 int broker_fd,
                 const int named_iofds[static 3]) {
@@ -535,10 +551,16 @@ static int setup_input(
 
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
-        case EXEC_INPUT_TTY_FAIL: {
+        case EXEC_INPUT_TTY_FAIL:
+        case EXEC_INPUT_TTY_GRACEFUL: {
                 _cleanup_close_ int tty_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
                 const char *tty_path;
+
+                if (no_console) {
+                        log_debug("No usable console, connecting standard input to /dev/null.");
+                        return open_null_as(O_RDONLY, STDIN_FILENO);
+                }
 
                 tty_path = ASSERT_PTR(exec_context_tty_path(context));
 
@@ -700,6 +722,7 @@ fallback:
 static int setup_output(
                 const ExecContext *context,
                 const ExecParameters *params,
+                bool no_console,
                 int fileno,
                 int socket_fd,
                 int broker_fd,
@@ -758,11 +781,18 @@ static int setup_output(
         } else {
                 assert(fileno == STDOUT_FILENO);
 
+                o = context->std_output;
+        }
+
+        /* This needs to come before inheriting stdout from stdin, as the /dev/null stdin is not writable */
+        if (no_console && IN_SET(o, EXEC_OUTPUT_INHERIT, EXEC_OUTPUT_TTY)) {
+                log_debug("No usable console, connecting %s to the journal.",
+                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                o = EXEC_OUTPUT_JOURNAL;
+        } else if (fileno == STDOUT_FILENO) {
                 r = maybe_inherit_stdout_from_stdin(context, i, broker_fd);
                 if (r != 0)
                         return r;
-
-                o = context->std_output;
         }
 
         switch (o) {
@@ -5259,7 +5289,8 @@ static int send_handoff_timestamp(
 
 static void prepare_terminal(
                 const ExecContext *context,
-                ExecParameters *p) {
+                ExecParameters *p,
+                bool no_console) {
 
         _cleanup_close_ int lock_fd = -EBADF;
 
@@ -5276,9 +5307,11 @@ static void prepare_terminal(
         if (exec_context_has_broker(context))
                 return;
 
-        /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(context->std_output == EXEC_OUTPUT_TTY ||
-              (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
+        /* We only try to reset things if there's the chance our stdout points to a TTY. Without a console,
+         * StandardInput=tty-graceful connected "tty" and "inherit" stdout to the journal instead. */
+        if (!((!no_console &&
+               (context->std_output == EXEC_OUTPUT_TTY ||
+                (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)))) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
                 return;
@@ -5825,7 +5858,10 @@ int exec_invoke(
                 }
         }
 
-        r = setup_input(context, params, socket_fd, broker_fd, named_iofds);
+        /* Decide this once, so that all of stdin, stdout and stderr agree */
+        bool no_console = tty_graceful_without_console(context, params);
+
+        r = setup_input(context, params, no_console, socket_fd, broker_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
                 return log_error_errno(r, "Failed to set up standard input: %m");
@@ -5838,13 +5874,13 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to extract filename from path %s: %m", command->path);
         }
 
-        r = setup_output(context, params, STDOUT_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, no_console, STDOUT_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return log_error_errno(r, "Failed to set up standard output: %m");
         }
 
-        r = setup_output(context, params, STDERR_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, no_console, STDERR_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_error_errno(r, "Failed to set up standard error output: %m");
@@ -5854,7 +5890,7 @@ int exec_invoke(
          * settings. Note: this is a "constructive" reset, it prepares things for us to use. This is
          * different from the "destructive" TTY reset further up. Also note: we apply this on stdin/stdout in
          * case this is a tty, regardless if we opened it ourselves or got it passed in pre-opened. */
-        prepare_terminal(context, params);
+        prepare_terminal(context, params, no_console);
 
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User

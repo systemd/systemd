@@ -32,6 +32,7 @@ typedef enum ExecInput {
         EXEC_INPUT_TTY,
         EXEC_INPUT_TTY_FORCE,
         EXEC_INPUT_TTY_FAIL,
+        EXEC_INPUT_TTY_GRACEFUL, /* Fall back to /dev/null (in) and journal (out/err) if there is no console */
         EXEC_INPUT_SOCKET,
         EXEC_INPUT_NAMED_FD,
         EXEC_INPUT_DATA,
@@ -505,7 +506,14 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                IN_SET(i,
                       EXEC_INPUT_TTY,
                       EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
+                      EXEC_INPUT_TTY_FAIL,
+                      EXEC_INPUT_TTY_GRACEFUL);
+}
+
+static inline bool exec_context_tty_graceful_on_console(const ExecContext *c) {
+        /* StandardInput=tty-graceful only falls back for the default terminal, i.e. /dev/console. An
+         * explicitly configured TTYPath= is expected to exist. */
+        return c->std_input == EXEC_INPUT_TTY_GRACEFUL && !c->tty_path;
 }
 
 static inline bool exec_output_is_broker(ExecOutput o) {

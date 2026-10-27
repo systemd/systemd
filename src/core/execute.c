@@ -3240,16 +3240,17 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL]       = "null",
-        [EXEC_INPUT_TTY]        = "tty",
-        [EXEC_INPUT_TTY_FORCE]  = "tty-force",
-        [EXEC_INPUT_TTY_FAIL]   = "tty-fail",
-        [EXEC_INPUT_SOCKET]     = "socket",
-        [EXEC_INPUT_NAMED_FD]   = "fd",
-        [EXEC_INPUT_DATA]       = "data",
-        [EXEC_INPUT_FILE]       = "file",
-        [EXEC_INPUT_BROKER]     = "broker",
-        [EXEC_INPUT_BROKER_LOG] = "broker-log",
+        [EXEC_INPUT_NULL]         = "null",
+        [EXEC_INPUT_TTY]          = "tty",
+        [EXEC_INPUT_TTY_FORCE]    = "tty-force",
+        [EXEC_INPUT_TTY_FAIL]     = "tty-fail",
+        [EXEC_INPUT_TTY_GRACEFUL] = "tty-graceful",
+        [EXEC_INPUT_SOCKET]       = "socket",
+        [EXEC_INPUT_NAMED_FD]     = "fd",
+        [EXEC_INPUT_DATA]         = "data",
+        [EXEC_INPUT_FILE]         = "file",
+        [EXEC_INPUT_BROKER]       = "broker",
+        [EXEC_INPUT_BROKER_LOG]   = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
