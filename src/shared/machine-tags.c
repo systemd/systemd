@@ -110,9 +110,6 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
                         return -EINVAL;
                 }
 
-                if (hashmap_size(h) >= MACHINE_TAGS_MAX)
-                        return -E2BIG;
-
                 _cleanup_free_ char *k = NULL;
                 r = machine_tag_key(*i, &k);
                 if (r < 0)
@@ -129,8 +126,13 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
                         assert_se(hashmap_update(h, k, *i) >= 0);
                 } else if (r < 0)
                         return r;
-                else if (r > 0)
-                        TAKE_PTR(k);   /* successfully added the new value */
+                else if (r > 0) {
+                        TAKE_PTR(k);  /* successfully added the new value */
+
+                        /* bail if we are over the limit */
+                        if (hashmap_size(h) > MACHINE_TAGS_MAX)
+                                return -E2BIG;
+                }
         }
 
         if (ret) {
