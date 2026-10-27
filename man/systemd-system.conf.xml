@@ -555,7 +555,14 @@
 
         <para>The policy also enforces W^X system-wide: no mapping may be writable and executable at the
         same time, and a private file mapping that has been modified through copy-on-write may not be made
-        executable afterwards.</para>
+        executable afterwards. Since the <constant>READ_IMPLIES_EXEC</constant> personality flag makes
+        <function>brk()</function> extend the heap writable and executable without passing through any of
+        these hooks, no process may set it via <citerefentry
+        project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        Processes that have the flag nonetheless, for example because the kernel set it for a legacy binary,
+        cannot map memory or grow their heap. Note that ELF binaries whose <constant>PT_GNU_STACK</constant>
+        program header requests an executable stack still get one, the policy does not refuse them. The
+        image should not contain such binaries.</para>
 
         <para>Since v262, files on overlayfs mounts are resolved to the layer that hosts their data, so
         execution from an overlay whose data resides on a signed dm-verity device is permitted, while files
