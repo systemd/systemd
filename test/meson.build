@@ -314,6 +314,10 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
                 args += [ukify.full_path(), ukify_install.full_path(), test_ukify_install_py, boot_stubs[0]]
                 deps += [ukify, ukify_install, boot_stubs[0]]
         endif
+        # test-kernel-install.sh runs $PROJECT_BUILD_ROOT/bootctl if it exists.
+        if 'bootctl' in executables_by_name
+                deps += [executables_by_name.get('bootctl')]
+        endif
 
         test('test-kernel-install',
              test_kernel_install_sh,
