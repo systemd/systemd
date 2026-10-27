@@ -18,6 +18,7 @@ use systemd_shared::alloc::{Allocator, Erasing, Malloc};
 use systemd_shared::chase::{self, CHASE_MKDIR_0755};
 use systemd_shared::cstr::{self, display};
 use systemd_shared::keyring;
+use systemd_shared::path;
 use systemd_shared::prelude::*;
 use systemd_shared::recurse_dir::{self, RECURSE_DIR_SORT};
 use systemd_shared::table::{Table, TABLE_ERSATZ_DASH};
@@ -195,6 +196,33 @@ fn test_strv() {
 
     v.push(c"four").unwrap();
     assert_eq!(v.len(), 4);
+}
+
+fn test_path() {
+    let j = |parts: &[&CStr]| path::join(parts).unwrap();
+
+    assert_eq!(j(&[c"/root", c"/a/b", c"/c"]).as_cstr(), c"/root/a/b/c");
+    assert_eq!(j(&[c"/root", c"a/b", c"c"]).as_cstr(), c"/root/a/b/c");
+    assert_eq!(j(&[c"/root", c"/", c"c"]).as_cstr(), c"/root/c");
+    assert_eq!(j(&[c"/root", c"/"]).as_cstr(), c"/root/");
+    assert_eq!(j(&[c"", c"/a/b", c"/c"]).as_cstr(), c"/a/b/c");
+    assert_eq!(j(&[c"", c"a/b", c"c"]).as_cstr(), c"a/b/c");
+    assert_eq!(j(&[c"", c"/", c"c"]).as_cstr(), c"/c");
+    assert_eq!(j(&[c"", c"/"]).as_cstr(), c"/");
+    assert_eq!(j(&[c"", c""]).as_cstr(), c"");
+    assert_eq!(j(&[c""]).as_cstr(), c"");
+    assert_eq!(j(&[]).as_cstr(), c"");
+    assert_eq!(j(&[c"foo"]).as_cstr(), c"foo");
+    assert_eq!(j(&[c"foo", c"bar"]).as_cstr(), c"foo/bar");
+    assert_eq!(j(&[c"", c"foo", c"", c"bar", c""]).as_cstr(), c"foo/bar");
+    assert_eq!(j(&[c"/", c"foo", c"/", c"bar", c"/"]).as_cstr(), c"/foo/bar/");
+    assert_eq!(j(&[c"foo", c"bar", c"baz"]).as_cstr(), c"foo/bar/baz");
+    assert_eq!(j(&[c"foo/", c"bar", c"/baz"]).as_cstr(), c"foo/bar/baz");
+    assert_eq!(j(&[c"foo/", c"/bar/", c"/baz"]).as_cstr(), c"foo//bar//baz");
+
+    // Owned strings are parts like any other.
+    let dir = OwnedCStr::try_from(c"/run/voa").unwrap();
+    assert_eq!(j(&[&dir, c"debian"]).as_cstr(), c"/run/voa/debian");
 }
 
 // The raw bindings, on purpose: this is what a program does for something the wrapper crate lacks.
@@ -1000,6 +1028,7 @@ define_test_main!(
         test_log_messages,
         test_cstr,
         test_strv,
+        test_path,
         test_id128,
         test_json,
         test_fd,
