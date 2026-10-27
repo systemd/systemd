@@ -1327,6 +1327,8 @@ static void test_exec_specifier(Manager *m) {
 static void test_exec_standardinput(Manager *m) {
         test(m, "exec-standardinput-data.service", 0, CLD_EXITED);
         test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
+        /* explicit nonexistent TTYPath=, so behaves like "tty" and fails */
+        test(m, "exec-standardinput-tty-graceful.service", EXIT_STDIN, CLD_EXITED);
 
         ExecOutput saved = m->defaults.std_output;
         m->defaults.std_output = EXEC_OUTPUT_NULL;

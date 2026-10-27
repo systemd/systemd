@@ -124,6 +124,20 @@ int exec_context_apply_tty_size(
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
 
+bool exec_context_tty_graceful_without_console(const ExecContext *context, const ExecParameters *parameters) {
+        int r;
+
+        assert(context);
+
+        if ((parameters && parameters->stdin_fd >= 0) || !exec_context_tty_graceful_on_console(context))
+                return false;
+
+        r = dev_console_usable();
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the console is usable, assuming it is: %m");
+        return r == 0;
+}
+
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
@@ -1776,8 +1790,10 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
 
         assert(c);
 
-        /* First, reset the TTY (possibly kicking everybody else from the TTY) */
-        exec_context_tty_reset(c, /* parameters= */ NULL, invocation_id);
+        /* First, reset the TTY (possibly kicking everybody else from the TTY). Not without a usable console:
+         * resetting a ttynull console would block us by not answering the terminal size query. */
+        if (!exec_context_tty_graceful_without_console(c, /* parameters= */ NULL))
+                exec_context_tty_reset(c, /* parameters= */ NULL, invocation_id);
 
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
@@ -3240,16 +3256,17 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL]       = "null",
-        [EXEC_INPUT_TTY]        = "tty",
-        [EXEC_INPUT_TTY_FORCE]  = "tty-force",
-        [EXEC_INPUT_TTY_FAIL]   = "tty-fail",
-        [EXEC_INPUT_SOCKET]     = "socket",
-        [EXEC_INPUT_NAMED_FD]   = "fd",
-        [EXEC_INPUT_DATA]       = "data",
-        [EXEC_INPUT_FILE]       = "file",
-        [EXEC_INPUT_BROKER]     = "broker",
-        [EXEC_INPUT_BROKER_LOG] = "broker-log",
+        [EXEC_INPUT_NULL]         = "null",
+        [EXEC_INPUT_TTY]          = "tty",
+        [EXEC_INPUT_TTY_FORCE]    = "tty-force",
+        [EXEC_INPUT_TTY_FAIL]     = "tty-fail",
+        [EXEC_INPUT_TTY_GRACEFUL] = "tty-graceful",
+        [EXEC_INPUT_SOCKET]       = "socket",
+        [EXEC_INPUT_NAMED_FD]     = "fd",
+        [EXEC_INPUT_DATA]         = "data",
+        [EXEC_INPUT_FILE]         = "file",
+        [EXEC_INPUT_BROKER]       = "broker",
+        [EXEC_INPUT_BROKER_LOG]   = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
