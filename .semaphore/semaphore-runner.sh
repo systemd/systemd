@@ -6,8 +6,8 @@ set -o pipefail
 
 DISTRO="${DISTRO:-ubuntu}"
 RELEASE="${RELEASE:-resolute}"
-SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
-BRANCH="${BRANCH:-debian/master}"
+PKG_URL="${PKG_URL:-https://github.com/systemd/systemd-deb.git}"
+BRANCH="${BRANCH:-deb/main}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR=/var/tmp
@@ -88,7 +88,7 @@ for phase in "${PHASES[@]}"; do
         ;;
         RUN)
             # add current debian/ packaging
-            git fetch --depth=1 "$SALSA_URL" "$BRANCH"
+            git fetch --depth=1 "$PKG_URL" "$BRANCH"
             git checkout FETCH_HEAD debian
 
             # craft changelog
@@ -98,7 +98,7 @@ systemd (${UPSTREAM_VER}.0) UNRELEASED; urgency=low
 
   * Automatic build for upstream test
 
- -- systemd test <pkg-systemd-maintainers@lists.alioth.debian.org>  $(date -R)
+ -- systemd test <systemd-devel@lists.freedesktop.org>  $(date -R)
 
 EOF
             cat debian/changelog >>debian/changelog.new

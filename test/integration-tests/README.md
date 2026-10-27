@@ -280,12 +280,12 @@ The 5 characters at the end of the last directory are not random, but the first
 the build plus the completion timestamp, such as:
 
 ```shell
-$ echo -n 'systemd-upstream {"build-git": "https://salsa.debian.org/systemd-team/systemd.git#debian/master", "env": ["UPSTREAM_REPO=https://github.com/systemd/systemd.git", "CFLAGS=-O0", "DEB_BUILD_PROFILES=pkg.systemd.upstream noudeb", "TEST_UPSTREAM=1", "CONFFLAGS_UPSTREAM=--werror -Dslow-tests=true", "UPSTREAM_PULL_REQUEST=31444", "GITHUB_STATUSES_URL=https://api.github.com/repos/systemd/systemd/statuses/c27f600a1c47f10b22964eaedfb5e9f0d4279cd9"], "ppas": ["upstream-systemd-ci/systemd-ci"], "submit-time": "2024-02-27 17:06:27", "uuid": "02cd262f-af22-4f82-ac91-53fa5a9e7811"}' | sha1sum | cut -c1-5
+$ echo -n 'systemd-upstream {"build-git": "https://github.com/systemd/systemd-deb.git#deb/main", "env": ["UPSTREAM_REPO=https://github.com/systemd/systemd.git", "CFLAGS=-O0", "DEB_BUILD_PROFILES=pkg.systemd.upstream noudeb", "TEST_UPSTREAM=1", "CONFFLAGS_UPSTREAM=--werror -Dslow-tests=true", "UPSTREAM_PULL_REQUEST=31444", "GITHUB_STATUSES_URL=https://api.github.com/repos/systemd/systemd/statuses/c27f600a1c47f10b22964eaedfb5e9f0d4279cd9"], "ppas": ["upstream-systemd-ci/systemd-ci"], "submit-time": "2024-02-27 17:06:27", "uuid": "02cd262f-af22-4f82-ac91-53fa5a9e7811"}' | sha1sum | cut -c1-5
 ```
 
 To add new dependencies or new binaries to the packages used during the tests,
-a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
-targeting the 'upstream-ci' branch.
+a pull request can be sent to: https://github.com/systemd/systemd-deb
+targeting the 'deb/main' branch.
 
 The cloud-side infrastructure, that is hooked into the Github interface, is
 located at:
@@ -341,12 +341,12 @@ In some situations one may want/need to run one of the tests run by Ubuntu CI
 locally for debugging purposes. For this, you need a machine (or a VM) with
 the same Ubuntu release as is used by Ubuntu CI (Jammy ATTOW).
 
-First of all, clone the Debian systemd repository and sync it with the code of
+First of all, clone the deb packaging repository and sync it with the code of
 the PR (set by the `$UPSTREAM_PULL_REQUEST` env variable) you'd like to debug:
 
 ```shell
-$ git clone https://salsa.debian.org/systemd-team/systemd.git
-$ cd systemd
+$ git clone https://github.com/systemd/systemd-deb.git
+$ cd systemd-deb
 $ git checkout ci/v<XYZ>-stable
 $ TEST_UPSTREAM=1 UPSTREAM_PULL_REQUEST=12345 ./debian/extra/checkout-upstream
 ```
