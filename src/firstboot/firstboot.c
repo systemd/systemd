@@ -32,6 +32,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "kbd-util.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
@@ -57,6 +58,8 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "varlink-io.systemd.FirstBoot.h"
+#include "varlink-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
 
@@ -129,6 +132,8 @@ typedef struct Context {
         char *kernel_cmdline;
         bool force;
         bool credentials;             /* Pick up settings we were not given from credentials passed to us */
+        sd_varlink *link;             /* The connection the settings came from, in Varlink mode */
+        const char *bad_field;        /* The field of the settings object the dispatch failed on, in Varlink mode */
 
         /* Determined while applying */
         bool offline;                 /* Operating on a root directory or image rather than the host */
@@ -2041,6 +2046,224 @@ static int apply(Context *c, char ***ret_applied, const char **reterr_bad_field)
         return 0;
 }
 
+/* The file descriptors are resolved while dispatching, which needs the connection, hence these take the
+ * whole context rather than the field */
+
+static int dispatch_root_fd(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        return varlink_dispatch_fd(c->link, name, variant, flags, &c->root_fd);
+}
+
+static int dispatch_image_fd(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        return varlink_dispatch_fd(c->link, name, variant, flags, &c->image_fd);
+}
+
+static int dispatch_root_password(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        /* Serves both rootPassword and rootPasswordHashed, which end up in the same field */
+
+        if (sd_json_variant_is_null(variant)) {
+                /* The two fields share the storage, hence only drop what the same field set */
+                if (c->root_password && c->root_password_is_hashed == streq(name, "rootPasswordHashed")) {
+                        c->root_password = erase_and_free(c->root_password);
+                        c->root_password_is_hashed = false;
+                }
+
+                return 0;
+        }
+
+        if (c->root_password)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Only one of rootPassword and rootPasswordHashed may be specified.");
+
+        r = sd_json_dispatch_string(name, variant, flags, &c->root_password);
+        if (r < 0)
+                return r;
+
+        c->root_password_is_hashed = streq(name, "rootPasswordHashed");
+        return 0;
+}
+
+static int dispatch_settings(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "locale",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale),          SD_JSON_NULLABLE },
+                { "localeMessages",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale_messages), SD_JSON_NULLABLE },
+                { "keymap",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, keymap),          SD_JSON_NULLABLE },
+                { "timezone",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, timezone),        SD_JSON_NULLABLE },
+                { "hostname",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, hostname),        SD_JSON_NULLABLE },
+                { "machineId",          SD_JSON_VARIANT_STRING, sd_json_dispatch_id128,  offsetof(Context, machine_id),      SD_JSON_NULLABLE },
+                { "machineTags",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(Context, machine_tags),    SD_JSON_NULLABLE },
+                { "rootPassword",       SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
+                { "rootPasswordHashed", SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
+                { "rootShell",          SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, root_shell),      SD_JSON_NULLABLE },
+                { "kernelCommandLine",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, kernel_cmdline),  SD_JSON_NULLABLE },
+                {}
+        };
+
+        /* The bad field points into the table above, hence fine to keep around */
+        return sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, /* flags= */ 0, c, &c->bad_field);
+}
+
+static int vl_method_configure(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, dispatch_root_fd,           0,                               SD_JSON_NULLABLE  },
+                { "imageFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_image_fd,          0,                               SD_JSON_NULLABLE  },
+                { "imagePolicy",         SD_JSON_VARIANT_STRING,        json_dispatch_image_policy, offsetof(Context, image_policy), SD_JSON_NULLABLE  },
+                { "settings",            SD_JSON_VARIANT_OBJECT,        dispatch_settings,          0,                               SD_JSON_MANDATORY },
+                { "force",               SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,   offsetof(Context, force),        SD_JSON_NULLABLE  },
+                {}
+        };
+
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        const char *bad_field;
+        int r;
+
+        assert(link);
+
+        /* The parameters go straight into the context, which the command line path fills from the arg_*
+         * variables instead. */
+        c.link = link;
+
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &c, &bad_field);
+        if (r < 0) {
+                if (bad_field) {
+                        /* If the dispatch failed inside the settings object, report the full path */
+                        const char *path = c.bad_field ? strjoina(bad_field, ".", c.bad_field) : bad_field;
+                        return sd_varlink_error_invalid_parameter_name(link, path);
+                }
+
+                return r;
+        }
+
+        /* The same checks the respective command line options apply */
+
+        if (c.root_fd >= 0 && c.image_fd >= 0) {
+                log_debug("rootFileDescriptor and imageFileDescriptor are mutually exclusive.");
+                return sd_varlink_error_invalid_parameter_name(link, "imageFileDescriptor");
+        }
+
+        if (c.root_fd >= 0) {
+                r = fd_verify_safe_flags_full(c.root_fd, O_DIRECTORY);
+                if (r >= 0)
+                        r = fd_verify_directory(c.root_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Root directory file descriptor is not usable: %m");
+                        return sd_varlink_error_invalid_parameter_name(link, "rootFileDescriptor");
+                }
+
+                /* The host's root directory means the host, like --root=/ does on the command line. Compare
+                 * inodes only, the mount ID of / changes once we detached our mount namespace for an image. */
+                r = inode_same_at(c.root_fd, /* filea= */ NULL, AT_FDCWD, "/", AT_EMPTY_PATH);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to check whether root directory file descriptor refers to the host's root directory: %m");
+                        return sd_varlink_error_invalid_parameter_name(link, "rootFileDescriptor");
+                }
+                if (r > 0)
+                        c.root_fd = safe_close(c.root_fd);
+        }
+
+        if (c.image_fd >= 0) {
+                /* We write into the image, hence insist that the client could, too. The fd is reopened via
+                 * /proc/ for the loop device, which would otherwise upgrade a read-only fd. */
+                r = fd_verify_safe_flags(c.image_fd);
+                if (r >= 0 && (r & O_ACCMODE_STRICT) != O_RDWR)
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EACCES), "Image file descriptor is not open for writing.");
+                if (r >= 0)
+                        r = fd_verify_regular_or_block(c.image_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Image file descriptor is not usable: %m");
+                        return sd_varlink_error_invalid_parameter_name(link, "imageFileDescriptor");
+                }
+        }
+
+        if (c.keymap && !keymap_is_valid(c.keymap))
+                return sd_varlink_error_invalid_parameter_name(link, "settings.keymap");
+        if (c.timezone && !timezone_is_valid(c.timezone, LOG_DEBUG))
+                return sd_varlink_error_invalid_parameter_name(link, "settings.timezone");
+
+        if (c.hostname) {
+                if (!hostname_is_valid(c.hostname, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
+                        return sd_varlink_error_invalid_parameter_name(link, "settings.hostname");
+
+                hostname_cleanup(c.hostname);
+        }
+
+        /* Validates, deduplicates and sorts the tags, like the command line parser does */
+        if (c.machine_tags) {
+                _cleanup_strv_free_ char **tags = NULL;
+
+                r = machine_tags_from_strv(c.machine_tags, /* graceful= */ false, &tags);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "settings.machineTags");
+
+                strv_free_and_replace(c.machine_tags, tags);
+        }
+
+        if (c.root_shell && !valid_shell(c.root_shell))
+                return sd_varlink_error_invalid_parameter_name(link, "settings.rootShell");
+
+        if (!sd_id128_is_null(c.machine_id) && c.root_fd < 0 && c.image_fd < 0 && !c.force) {
+                log_debug("Refusing to set the machine ID of the host, unless force is set.");
+                return sd_varlink_error_invalid_parameter_name(link, "settings.machineId");
+        }
+
+        if (!c.locale && !c.locale_messages && !c.keymap && !c.timezone && !c.hostname &&
+            sd_id128_is_null(c.machine_id) && strv_isempty(c.machine_tags) &&
+            !c.root_password && !c.root_shell && !c.kernel_cmdline) {
+                log_debug("No settings specified, nothing to apply.");
+                return sd_varlink_error_invalid_parameter_name(link, "settings");
+        }
+
+        _cleanup_strv_free_ char **applied = NULL;
+        r = apply(&c, &applied, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
+
+                return sd_varlink_error_errno(link, r);
+        }
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("applied", applied));
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service. Configuring the host or writing into disk images is a privileged
+         * operation, hence only accept root clients. The input may carry a root password, hence treat it as
+         * sensitive. The directory or image to operate on is passed as file descriptor. */
+
+        /* There's no console to ask anything on, in particular no passphrase for encrypted images. */
+        arg_headless = true;
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_INPUT_SENSITIVE|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_FirstBoot);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.FirstBoot.Configure", vl_method_configure);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -2056,6 +2279,12 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         umask(0022);
+
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return vl_server();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
