@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "conf-parser-forward.h"
 #include "dissect-image.h"
 #include "forward.h"
@@ -125,3 +127,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_image_policy);
 int parse_image_policy_argument(const char *s, ImagePolicy **policy);
 
 int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesignator table[], size_t n_table, ImagePolicy **ret);
+
+int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
