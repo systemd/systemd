@@ -15,6 +15,7 @@
 #include "bpf-link.h"
 #include "bpf-util.h"
 #include "build.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "chase.h"
 #include "devnum-util.h"
@@ -87,6 +88,7 @@ static uid_t arg_uid = UID_INVALID;
 static pid_t arg_pid = 0;
 static char *arg_socket_path = NULL;
 static bool arg_socket_path_anonymous = false;
+static char *arg_polkit_action = NULL;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -98,6 +100,7 @@ static void push_fds_done(PushFds *p) {
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 STATIC_DESTRUCTOR_REGISTER(arg_socket_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_polkit_action, freep);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -248,6 +251,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 if (r < 0)
                                         return log_oom();
                         }
+                        break;
+
+                OPTION_LONG("polkit-action", "ACTION", "Authorize clients via the specified polkit action before upgrading"):
+                        if (isempty(opts.arg)) {
+                                arg_polkit_action = mfree(arg_polkit_action);
+                                break;
+                        }
+
+                        r = free_and_strdup_warn(&arg_polkit_action, opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_COMMON_INTROSPECT_CLI:
@@ -1496,13 +1510,46 @@ static int varlink_server_add_interface_from_method(sd_varlink_server *s, const 
         return 0;
 }
 
+typedef struct ServeContext {
+        char **exec_cmdline;
+        Hashmap *polkit_registry;
+} ServeContext;
+
+static void serve_context_done(ServeContext *c) {
+        assert(c);
+
+        c->polkit_registry = hashmap_free(c->polkit_registry);
+}
+
 static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        char **exec_cmdline = ASSERT_PTR(userdata);
+        ServeContext *c = ASSERT_PTR(userdata);
         _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
         int r;
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+
+        if (arg_polkit_action) {
+                /* Pass POLKIT_DONT_REPLY so that the helper never answers the client itself: it only does
+                 * so on some denial paths, hence always reply on our own instead. Any error, privilege
+                 * related or not, looks like a denial to the client to avoid leaking information. */
+                r = varlink_verify_polkit_async_full(
+                                link,
+                                /* bus= */ NULL,
+                                arg_polkit_action,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                POLKIT_DONT_REPLY,
+                                &c->polkit_registry,
+                                /* ret_admin= */ NULL);
+                if (r < 0) {
+                        if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_warning_errno(r, "Failed to check polkit authorization, denying: %m");
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                }
+                if (r == 0) /* polkit query in flight, we are dispatched again once it is answered */
+                        return 0;
+        }
 
         r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
         if (r < 0)
@@ -1510,7 +1557,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
 
         /* Copy exec_cmdline before forking: pidref_safe_fork() calls rename_process() which
          * overwrites the argv area that exec_cmdline points into. */
-        _cleanup_strv_free_ char **cmdline_copy = strv_copy(exec_cmdline);
+        _cleanup_strv_free_ char **cmdline_copy = strv_copy(c->exec_cmdline);
         if (!cmdline_copy)
                 return log_oom();
 
@@ -1535,14 +1582,14 @@ VERB(verb_serve, "serve", "METHOD CMDLINE…\0", 3, VERB_ANY, 0, "Serve a comman
 static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(serve_context_done) ServeContext context = {};
         const char *method;
-        char **exec_cmdline;
         int r, n;
 
         assert(argc >= 3); /* Guaranteed by verb dispatch table */
 
         method = argv[1];
-        exec_cmdline = argv + 2;
+        context.exec_cmdline = argv + 2;
 
         r = varlink_idl_qualified_symbol_name_is_valid(method);
         if (r < 0)
@@ -1563,7 +1610,9 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE);
+        r = sd_varlink_server_new(&s,
+                                  (arg_polkit_action ? SD_VARLINK_SERVER_ACCOUNT_UID : 0)|
+                                  SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
@@ -1584,7 +1633,7 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add interface for method '%s': %m", method);
 
-        sd_varlink_server_set_userdata(s, exec_cmdline);
+        sd_varlink_server_set_userdata(s, &context);
 
         r = sd_varlink_server_listen_fd(s, SD_LISTEN_FDS_START);
         if (r < 0)
@@ -1973,6 +2022,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        if (arg_polkit_action && !streq_ptr(args[0], "serve"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--polkit-action= is only supported with the 'serve' verb.");
 
         return dispatch_verb(args, NULL);
 }

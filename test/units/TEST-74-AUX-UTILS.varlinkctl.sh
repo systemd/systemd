@@ -380,6 +380,56 @@ echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 
+# Test 3: --polkit-action=: root passes without a polkit round trip, an unprivileged user is denied
+# because no policy grants the (nonexistent) action.
+chmod 755 "$(dirname "$SERVE_SOCKET")"
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve --polkit-action=io.systemd.test.serve io.systemd.test.Reverse rev)
+chmod 666 "$SERVE_SOCKET"
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+echo "$result" | grep "dlrow olleh" >/dev/null
+result="$( (! echo "hello world" | run0 -u testuser varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}' 2>&1) )"
+echo "$result" | grep "PermissionDenied" >/dev/null
+(! echo "$result" | grep "dlrow olleh" >/dev/null)
+# --polkit-action= is rejected for verbs other than serve (introspect would otherwise succeed here)
+varlinkctl introspect "unix:$SERVE_SOCKET" io.systemd.test >/dev/null
+(! varlinkctl introspect --polkit-action=io.systemd.test.serve "unix:$SERVE_SOCKET" io.systemd.test)
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+
+# Test 4: --polkit-action= with an action that a polkit rule grants to testuser: the unprivileged client
+# is authorized asynchronously (polkit reply, re-dispatch) and the connection is upgraded. Polkit only
+# evaluates registered action IDs, so borrow one from hostnamed; the rule is scoped to testuser.
+# Varlink polkit checks only send a pidfd subject, which needs kernel >= 6.5 and polkit >= 124.
+if [[ -f /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service ]] &&
+   [[ -f /usr/share/polkit-1/actions/org.freedesktop.hostname1.policy ]] &&
+   systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+    POLKIT_TEST_ACTION=org.freedesktop.hostname1.get-hardware-serial
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/varlinkctl-serve-test.rules <<EOF
+polkit.addRule(function(action, subject) {
+    if (action.id == "$POLKIT_TEST_ACTION" && subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+
+    SERVE_PID=$(systemd-notify --fork -- \
+                               systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                       varlinkctl serve --polkit-action="$POLKIT_TEST_ACTION" io.systemd.test.Reverse rev)
+    chmod 666 "$SERVE_SOCKET"
+    result="$(echo "hello world" | run0 -u testuser varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+    echo "$result" | grep "dlrow olleh" >/dev/null
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+
+    rm -f /etc/polkit-1/rules.d/varlinkctl-serve-test.rules
+    systemctl try-reload-or-restart polkit.service
+fi
+
 # Verify consistent handling of omitted/null/empty parameters
 check_output_is_empty_object() {
     REPLY="$1"
