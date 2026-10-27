@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -391,4 +392,32 @@ ssize_t varlink_execute_directory_full(
                 *ret_offline_sockets = TAKE_PTR(offline);
 
         return (ssize_t) c;
+}
+
+int varlink_dispatch_fd(sd_varlink *link, const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, int *ret_fd) {
+        unsigned idx;
+        int r;
+
+        assert(link);
+        assert(variant);
+        assert(ret_fd);
+
+        /* For dispatch callbacks that take the index of a file descriptor passed along with a method call:
+         * parses the index and returns a duplicate of the file descriptor. Since callbacks have no access to
+         * the connection, they need to wrap this and pass the connection in themselves. */
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret_fd = safe_close(*ret_fd);
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint(name, variant, flags, &idx);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = sd_varlink_peek_dup_fd(link, idx);
+        if (fd < 0)
+                return json_log(variant, flags, fd, "JSON field '%s' does not refer to a file descriptor passed along with the call.", strna(name));
+
+        return close_and_replace(*ret_fd, fd);
 }
