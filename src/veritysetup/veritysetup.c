@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -36,8 +37,7 @@ static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
 static char *arg_fec_what = NULL;
 static uint64_t arg_fec_offset = 0;
 static uint64_t arg_fec_roots = 2;
-static void *arg_root_hash_signature = NULL;
-static size_t arg_root_hash_signature_size = 0;
+static struct iovec arg_root_hash_signature = {};
 static bool arg_root_hash_signature_auto = false;
 static char *arg_tpm2_measure_nvpcr = NULL;
 
@@ -45,12 +45,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_nvpcr, freep);
 
 static int parse_roothashsig_option(const char *option, bool strict) {
-        _cleanup_free_ void *rhs = NULL;
-        size_t rhss = 0;
+        _cleanup_(iovec_done) struct iovec rhs = {};
         bool set_auto = false;
         int r;
 
@@ -58,7 +57,7 @@ static int parse_roothashsig_option(const char *option, bool strict) {
 
         const char *value = startswith(option, "base64:");
         if (value) {
-                r = unbase64mem(value, &rhs, &rhss);
+                r = unbase64mem(value, &rhs.iov_base, &rhs.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", option);
 
@@ -70,8 +69,8 @@ static int parse_roothashsig_option(const char *option, bool strict) {
                                 /* size= */ SIZE_MAX,
                                 READ_FULL_FILE_CONNECT_SOCKET,
                                 /* bind_name= */ NULL,
-                                (char**) &rhs,
-                                &rhss);
+                                (char**) &rhs.iov_base,
+                                &rhs.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read root hash signature: %m");
 
@@ -85,8 +84,8 @@ static int parse_roothashsig_option(const char *option, bool strict) {
         else
                 return false;
 
-        free_and_replace(arg_root_hash_signature, rhs);
-        arg_root_hash_signature_size = rhss;
+        iovec_done(&arg_root_hash_signature);
+        arg_root_hash_signature = TAKE_STRUCT(rhs);
         arg_root_hash_signature_auto = set_auto;
 
         return true;
@@ -352,15 +351,14 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(r, "Failed to parse root hash: %m");
 
         if (arg_root_hash_signature_auto) {
-                assert(!arg_root_hash_signature);
-                assert(arg_root_hash_signature_size == 0);
+                assert(!iovec_is_set(&arg_root_hash_signature));
 
                 const char *t;
                 r = sd_device_get_property_value(ASSERT_PTR(datadev), "ID_DISSECT_PART_ROOTHASH_SIG", &t);
                 if (r < 0)
                         return log_error_errno(r, "Automatic root hash signature pick up requested, and device doesn't carry ID_DISSECT_PART_ROOTHASH_SIG property, cannot determine root hash signature.");
 
-                r = unbase64mem(t, &arg_root_hash_signature, &arg_root_hash_signature_size);
+                r = unbase64mem(t, &arg_root_hash_signature.iov_base, &arg_root_hash_signature.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
         }
@@ -415,8 +413,8 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(r, "Failed to configure data device: %m");
 
         bool signed_activation = false;
-        if (arg_root_hash_signature_size > 0) {
-                r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
+        if (iovec_is_set(&arg_root_hash_signature)) {
+                r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature.iov_base, arg_root_hash_signature.iov_len, arg_activate_flags);
                 if (r < 0) {
                         log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
 
@@ -435,7 +433,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         (void) pcrextend_verity_now(
                         volume,
                         &IOVEC_MAKE(rh, rh_size),
-                        signed_activation ? &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size) : NULL);
+                        signed_activation ? &arg_root_hash_signature : NULL);
 
         return 0;
 }
