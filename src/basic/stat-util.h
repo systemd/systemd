@@ -90,6 +90,7 @@ static inline int inode_same(const char *filea, const char *fileb, int flags) {
 static inline int fd_inode_same(int fda, int fdb) {
         return inode_same_at(fda, /* filea= */ NULL, fdb, /* fileb= */ NULL, AT_EMPTY_PATH);
 }
+int fd_is_dev_null(int fd);
 
 /* The .f_type field of struct statfs is really weird defined on
  * different archs. Let's give its type a name. */
