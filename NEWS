@@ -131,6 +131,10 @@ CHANGES WITH 263 in spe:
           locked variant make interpreters that support the executability
           check enforce the policy for their scripts.
 
+        * RestrictFileSystemAccess= now refuses the READ_IMPLIES_EXEC
+          personality flag, which makes brk() hand out writable and
+          executable memory.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
