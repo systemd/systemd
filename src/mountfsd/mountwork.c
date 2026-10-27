@@ -558,6 +558,7 @@ static int vl_method_mount_image(
         bool polkit_have_untrusted_action =
                 varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry, /* ret_admin= */ NULL);
 
+dissect:
         for (;;) {
                 use_policy = image_policy_free(use_policy);
                 ps = mfree(ps);
@@ -696,7 +697,12 @@ static int vl_method_mount_image(
                                          /* Try again, now that we know the client has enough privileges. */
                                          log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
                                          polkit_have_untrusted_action = true;
-                                         continue;
+
+                                         /* We dissected the image with the policy for untrusted images, which
+                                          * ignores all partitions except the root and /usr partitions. Let's
+                                          * dissect it again with the policy for trusted images. */
+                                         di = dissected_image_unref(di);
+                                         goto dissect;
                                  }
                          }
 
