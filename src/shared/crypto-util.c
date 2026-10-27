@@ -2641,7 +2641,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
 }
 #endif
 
-static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
+int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
         assert(request);
         assert(ret);
 

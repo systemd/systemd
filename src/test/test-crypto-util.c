@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "crypto-util.h"
 #include "iovec-util.h"
 #include "memory-util.h"
@@ -747,6 +748,22 @@ TEST(x509_new_self_signed_no_digest) {
                 ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
                 ASSERT_EQ(sym_X509_verify(cert, key), 1);
         }
+}
+
+TEST(openssl_ask_password_ui_nested) {
+        OpenSSLAskPasswordUI *ui1 = NULL, *ui2 = NULL;
+        AskPasswordRequest request = {
+                .tty_fd = -EBADF,
+                .hup_fd = -EBADF,
+        };
+
+        /* ukify loads the PCR signing key while the UI of the Secure Boot key still exists. Freeing the
+         * inner UI must not reset the default UI method of the outer UI. openssl_ask_password_ui_free()
+         * asserts that the UI it frees is still the default. */
+        ASSERT_OK(openssl_ask_password_ui_new(&request, &ui1));
+        ASSERT_OK(openssl_ask_password_ui_new(&request, &ui2));
+        ui2 = openssl_ask_password_ui_free(ui2);
+        ui1 = openssl_ask_password_ui_free(ui1);
 }
 
 static int intro(void) {

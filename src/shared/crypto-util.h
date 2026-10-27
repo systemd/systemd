@@ -489,6 +489,9 @@ int openssl_load_private_key(
 
 int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
 
+/* Installs a UI method that asks for passwords with the request. Returns a NULL UI if OpenSSL has no UI
+ * support. UIs must be freed in the reverse order of their creation. */
+int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret);
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 #endif
