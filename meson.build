@@ -471,9 +471,15 @@ if have_rust
                 '-Wclippy::ptr_cast_constness',
                 '-Wclippy::ref_as_ptr',
                 '-Wclippy::as_ptr_cast_mut',
+                '-Wclippy::as_underscore',
                 '-Wclippy::cast_lossless',
                 '-Wclippy::dbg_macro',
+                '-Wclippy::ignored_unit_patterns',
+                '-Wclippy::mut_mut',
+                '-Wclippy::needless_bitwise_bool',
+                '-Wclippy::no_mangle_with_rust_abi',
                 '-Wrustdoc::missing_crate_level_docs',
+                '-Wrustdoc::unescaped_backticks',
                 # rustc's default depends on the optimization level. C code in systemd checks its arithmetic
                 # where it matters, Rust code does not get to wrap silently either.
                 '-Coverflow-checks=yes',
