@@ -1728,16 +1728,10 @@ int openpt_allocate_in_namespace(
 }
 
 static bool on_dev_null(void) {
-        struct stat dst, ost, est;
-
         if (cached_on_dev_null >= 0)
                 return cached_on_dev_null;
 
-        if (stat("/dev/null", &dst) < 0 || fstat(STDOUT_FILENO, &ost) < 0 || fstat(STDERR_FILENO, &est) < 0)
-                cached_on_dev_null = false;
-        else
-                cached_on_dev_null = stat_inode_same(&dst, &ost) && stat_inode_same(&dst, &est);
-
+        cached_on_dev_null = fd_is_dev_null(STDOUT_FILENO) > 0 && fd_is_dev_null(STDERR_FILENO) > 0;
         return cached_on_dev_null;
 }
 
