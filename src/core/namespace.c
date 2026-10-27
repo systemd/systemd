@@ -2474,7 +2474,17 @@ static int apply_mounts(
                         /* Returns 1 if the mount should be post-processed, 0 otherwise */
                         r = apply_one_mount(root, m, p);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, reterr_path);
+                                /* For these modes ENOENT means that the source is missing, so report
+                                 * the source rather than the mount point. Extension sources are already
+                                 * resolved in append_extensions(), so ENOENT there means missing
+                                 * extension-release data, and the mount point is internal: report no
+                                 * path rather than claim it does not exist. */
+                                if (r == -ENOENT && reterr_path && mount_entry_source(m) &&
+                                    IN_SET(m->mode, MOUNT_BIND, MOUNT_BIND_RECURSIVE, MOUNT_IMAGE))
+                                        *reterr_path = strdup(mount_entry_source(m));
+                                else if (r != -ENOENT ||
+                                         !IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY))
+                                        mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
                         }
                         m->state = r == 0 ? MOUNT_SKIPPED : MOUNT_APPLIED;
