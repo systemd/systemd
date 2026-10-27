@@ -21,6 +21,9 @@ char* first_word(const char *s, const char *word) {
         assert(s);
         assert(word);
 
+        if (!s || !word)
+                return NULL;
+
         /* Checks if the string starts with the specified word, either followed by NUL or by whitespace.
          * Returns a pointer to the NUL or the first character after the whitespace. */
 
@@ -43,6 +46,9 @@ char* first_word(const char *s, const char *word) {
 char* strextendn(char **x, const char *s, size_t l) {
         assert(x);
         assert(s || l == 0);
+
+        if (!x || (!s && l > 0))
+                return NULL;
 
         if (l > 0)
                 l = strnlen(s, l); /* ignore trailing noise */
