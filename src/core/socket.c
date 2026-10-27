@@ -1899,6 +1899,15 @@ static void socket_set_state(Socket *s, SocketState state) {
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
+static usec_t socket_coldplug_timeout(Socket *s) {
+        assert(s);
+
+        if (s->deserialized_state == SOCKET_CLEANING)
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
+
+        return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_usec);
+}
+
 static int socket_coldplug(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
@@ -1913,15 +1922,15 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == SOCKET_DEFERRED)
                 s->deserialized_state = SOCKET_LISTENING;
 
-        if (pidref_is_set(&s->control_pid) &&
-            pidref_is_unwaited(&s->control_pid) > 0 &&
-            SOCKET_STATE_WITH_PROCESS(s->deserialized_state)) {
+        if (SOCKET_STATE_WITH_PROCESS(s->deserialized_state)) {
+                if (pidref_is_set(&s->control_pid) &&
+                    pidref_is_unwaited(&s->control_pid) > 0) {
+                        r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
-                if (r < 0)
-                        return r;
-
-                r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
+                r = socket_arm_timer(s, /* relative= */ false, socket_coldplug_timeout(s));
                 if (r < 0)
                         return r;
         }
