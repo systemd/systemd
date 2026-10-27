@@ -1913,13 +1913,13 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == SOCKET_DEFERRED)
                 s->deserialized_state = SOCKET_LISTENING;
 
-        if (pidref_is_set(&s->control_pid) &&
-            pidref_is_unwaited(&s->control_pid) > 0 &&
-            SOCKET_STATE_WITH_PROCESS(s->deserialized_state)) {
-
-                r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
-                if (r < 0)
-                        return r;
+        if (SOCKET_STATE_WITH_PROCESS(s->deserialized_state)) {
+                if (pidref_is_set(&s->control_pid) &&
+                    pidref_is_unwaited(&s->control_pid) > 0) {
+                        r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
