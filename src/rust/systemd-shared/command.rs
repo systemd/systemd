@@ -727,7 +727,7 @@ macro_rules! __verb_entry {
                         $($field: $crate::__command_field!($field, $value),)*
                         ..$crate::command::CommandDescriptionEntry::NONE
                     };
-                ::core::ptr::addr_of!(__DESCRIPTION).cast()
+                (&raw const __DESCRIPTION).cast()
             },
             argspec: ::core::ptr::null(),
             help: ::core::ptr::null(),
