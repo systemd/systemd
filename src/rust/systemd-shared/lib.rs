@@ -51,6 +51,7 @@ pub mod keyring;
 pub mod kmod;
 pub mod log;
 mod panic;
+pub mod path;
 pub mod prelude;
 pub mod program;
 pub mod recurse_dir;
