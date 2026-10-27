@@ -53,6 +53,29 @@ pub const fn __cstr(s: &'static str) -> &'static CStr {
     }
 }
 
+/// Where a message is logged from, `CODE_FILE=`, `CODE_LINE=` and `CODE_FUNC=`. Backend of the `log_*!`
+/// macros.
+#[doc(hidden)]
+pub struct Location<'a> {
+    pub file: &'a CStr,
+    pub line: u32,
+    pub func: &'a CStr,
+}
+
+/// The [`Location`] of the outermost macro invocation, with the module path as the function. Backend of the
+/// `log_*!` macros.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __log_location {
+    () => {
+        $crate::log::Location {
+            file: const { $crate::log::__cstr(::core::concat!(::core::file!(), "\0")) },
+            line: ::core::line!(),
+            func: const { $crate::log::__cstr(::core::concat!(::core::module_path!(), "\0")) },
+        }
+    };
+}
+
 const LINE_MAX: usize = sys::LINE_MAX as usize;
 
 struct Buffer {
@@ -78,7 +101,7 @@ pub fn __enabled(level: c_int) -> bool {
 
 /// Backend of the `log_*!` macros.
 #[doc(hidden)]
-pub fn __log(level: c_int, error: c_int, file: &CStr, line: u32, func: &CStr, args: fmt::Arguments<'_>) {
+pub fn __log(level: c_int, error: c_int, location: &Location<'_>, args: fmt::Arguments<'_>) {
     if !__enabled(level) {
         return;
     }
@@ -101,9 +124,9 @@ pub fn __log(level: c_int, error: c_int, file: &CStr, line: u32, func: &CStr, ar
         sys::log_dispatch_internal(
             level,
             error,
-            file.as_ptr(),
-            line as c_int,
-            func.as_ptr(),
+            location.file.as_ptr(),
+            location.line as c_int,
+            location.func.as_ptr(),
             ptr::null(),
             ptr::null(),
             ptr::null(),
@@ -121,14 +144,7 @@ macro_rules! log_full {
     ($level:expr, $($arg:tt)*) => {{
         let __level: ::core::ffi::c_int = $level;
         if $crate::log::__enabled(__level) {
-            $crate::log::__log(
-                __level,
-                0,
-                const { $crate::log::__cstr(::core::concat!(::core::file!(), "\0")) },
-                ::core::line!(),
-                const { $crate::log::__cstr(::core::concat!(::core::module_path!(), "\0")) },
-                ::core::format_args!($($arg)*),
-            );
+            $crate::log::__log(__level, 0, &$crate::__log_location!(), ::core::format_args!($($arg)*));
         }
     }};
 }
@@ -150,9 +166,7 @@ macro_rules! log_full_errno {
             $crate::log::__log(
                 __level,
                 __e.code() | $flags,
-                const { $crate::log::__cstr(::core::concat!(::core::file!(), "\0")) },
-                ::core::line!(),
-                const { $crate::log::__cstr(::core::concat!(::core::module_path!(), "\0")) },
+                &$crate::__log_location!(),
                 ::core::format_args!($($arg)*),
             );
         }
