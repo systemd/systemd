@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "crypto-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "iovec-util.h"
 #include "memory-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(openssl_pkey_from_pem) {
         DEFINE_HEX_PTR(key_ecc, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
@@ -748,6 +752,30 @@ TEST(x509_new_self_signed_no_digest) {
                 ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
                 ASSERT_EQ(sym_X509_verify(cert, key), 1);
         }
+}
+
+TEST(openssl_ask_password_ui_nested) {
+        _cleanup_(unlink_tempfilep) char path[] = "/tmp/test-crypto-util-key.XXXXXX";
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL, *key1 = NULL, *key2 = NULL;
+        _cleanup_(erase_and_freep) char *pem = NULL;
+        OpenSSLAskPasswordUI *ui1 = NULL, *ui2 = NULL;
+        AskPasswordRequest request = {
+                .tty_fd = -EBADF,
+                .hup_fd = -EBADF,
+        };
+
+        ASSERT_OK(rsa_pkey_new(2048, &key));
+        ASSERT_OK(openssl_private_key_to_pem_traditional(key, &pem));
+
+        _cleanup_close_ int fd = ASSERT_OK(mkostemp_safe(path));
+        ASSERT_OK(write_string_file(path, pem, WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        /* ukify loads the PCR signing key while it still holds the UI of the Secure Boot key. Freeing the
+         * inner UI must not reset the default UI method of the outer UI. */
+        ASSERT_OK(openssl_load_private_key(OPENSSL_KEY_SOURCE_PROVIDER, "default", path, &request, &key1, &ui1));
+        ASSERT_OK(openssl_load_private_key(OPENSSL_KEY_SOURCE_PROVIDER, "default", path, &request, &key2, &ui2));
+        ui2 = openssl_ask_password_ui_free(ui2);
+        ui1 = openssl_ask_password_ui_free(ui1);
 }
 
 static int intro(void) {
