@@ -657,6 +657,21 @@ fallback:
         return stat_inode_same(&sta, &stb);
 }
 
+int fd_is_dev_null(int fd) {
+        struct stat st, null_st;
+
+        /* Note: do not log in this function, as the color mode logic of the log functions calls it via
+         * on_dev_null(). This is why this doesn't use inode_same_at(). */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (stat("/dev/null", &null_st) < 0)
+                return -errno;
+
+        return stat_inode_same(&st, &null_st);
+}
+
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
         assert(s);
         assert_cc(sizeof(statfs_f_type_t) >= sizeof(s->f_type));
