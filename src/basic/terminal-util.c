@@ -1178,6 +1178,26 @@ int resolve_dev_console(char **ret) {
         return 0;
 }
 
+int dev_console_usable(void) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        /* Returns 0 if /dev/console does not exist, if the kernel has no console registered, or if the
+         * console is ttynull, which discards all output and never delivers input. Returns > 0 if it is
+         * usable, and < 0 if we can't tell, e.g. in a container with a read-only /sys. */
+
+        if (access("/dev/console", F_OK) < 0)
+                return errno == ENOENT ? 0 : -errno;
+
+        r = resolve_dev_console(&resolved);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return !path_equal(resolved, "/dev/ttynull");
+}
+
 int get_kernel_consoles(char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *line = NULL;
