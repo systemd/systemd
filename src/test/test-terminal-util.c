@@ -316,6 +316,19 @@ TEST(terminal_is_pty_fd) {
         }
 }
 
+TEST(terminal_is_vc_fd) {
+        _cleanup_close_ int fd1 = ASSERT_OK(openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL));
+        ASSERT_OK_ZERO(terminal_is_vc_fd(fd1));
+
+        _cleanup_close_ int fd2 = ASSERT_OK(pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK_ZERO(terminal_is_vc_fd(fd2));
+
+        fd1 = safe_close(fd1);
+
+        fd1 = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_ZERO(terminal_is_vc_fd(fd1));
+}
+
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
         ASSERT_OK_ERRNO(setenv(key, val, true));
         reset_terminal_feature_caches();
