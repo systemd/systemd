@@ -50,6 +50,7 @@ manpages = [
  ['logind.conf', '5', ['logind.conf.d'], 'ENABLE_LOGIND'],
  ['machine-id', '5', [], ''],
  ['machine-info', '5', [], ''],
+ ['machine-tags.d', '5', [], 'ENABLE_HOSTNAMED'],
  ['machinectl', '1', [], 'ENABLE_MACHINED'],
  ['modules-load.d', '5', [], 'HAVE_KMOD'],
  ['networkctl', '1', [], 'ENABLE_NETWORKD'],
