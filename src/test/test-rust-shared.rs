@@ -244,10 +244,9 @@ fn test_id128() {
 }
 
 fn test_json() {
-    let mut flags = sys::SD_JSON_FORMAT_OFF;
-    assert_eq!(json::parse_argument(Some(c"short"), &mut flags), Ok(1));
-    assert!(json::format_enabled(flags));
-    assert_eq!(json::parse_argument(None, &mut flags).unwrap_err(), Errno::EINVAL);
+    let flags = json::parse_argument(Some(c"short")).unwrap();
+    assert!(flags.is_some_and(json::format_enabled));
+    assert_eq!(json::parse_argument(None).unwrap_err(), Errno::EINVAL);
 }
 
 fn test_fd() {

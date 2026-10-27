@@ -1081,11 +1081,9 @@ fn parse_argv(opts: &mut OptionParser<'_>, args: &mut Args) -> Result<c_int> {
         OPTION_COMMON_NO_PAGER => {
             ARG_PAGER_FLAGS.fetch_or(sys::PAGER_DISABLE, Ordering::Relaxed);
         },
-        OPTION_COMMON_JSON => {
-            let r = json::parse_argument(opts.arg(), &mut args.json_format_flags)?;
-            if r <= 0 {
-                return Ok(r);
-            }
+        OPTION_COMMON_JSON => match json::parse_argument(opts.arg())? {
+            Some(flags) => args.json_format_flags = flags,
+            None => return Ok(0),
         },
         OPTION_COMMON_INTROSPECT_CLI => return introspect_cli!(sys::SD_JSON_FORMAT_OFF),
     }

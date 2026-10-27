@@ -91,11 +91,9 @@ fn parse_argv<'a>(opts: &mut OptionParser<'a>, state: &mut State<'a>) -> Result<
         OPTION_COMMON_VERSION => return version(),
         OPTION_COMMON_NO_PAGER => ARG_PAGER_FLAGS.fetch_or(sys::PAGER_DISABLE, Ordering::Relaxed),
         OPTION_COMMON_NO_LEGEND => state.legend = false,
-        OPTION_COMMON_JSON => {
-            let r = json::parse_argument(opts.arg(), &mut state.json_format_flags)?;
-            if r <= 0 {
-                return Ok(r);
-            }
+        OPTION_COMMON_JSON => match json::parse_argument(opts.arg())? {
+            Some(flags) => state.json_format_flags = flags,
+            None => return Ok(0),
         },
         OPTION_COMMON_LOWERCASE_J => {
             state.json_format_flags = sys::SD_JSON_FORMAT_PRETTY_AUTO | sys::SD_JSON_FORMAT_COLOR_AUTO;
