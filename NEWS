@@ -456,6 +456,13 @@ CHANGES WITH 263 in spe:
           AF_INET/AF_INET6 sockets, and ignored for AF_UNIX, AF_VSOCK, …
           sockets of the same unit.
 
+        * New StandardInput=tty-graceful mode, which works like
+          StandardInput=tty if there is a usable console or TTYPath= is set
+          explicitly; otherwise it falls back to connecting standard input to
+          /dev/null and standard output/error to the journal. This is useful
+          for programs that interact with the user if possible, but have a
+          non-interactive fallback.
+
         New pseudo TTY broker:
 
         * The new experimental systemd-ptybrokerd service allocates pseudo TTYs
