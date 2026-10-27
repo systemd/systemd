@@ -35,7 +35,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=systemd-firstboot --prompt-locale --prompt-keymap-auto --prompt-timezone --prompt-root-password --mute-console=yes
 StandardOutput=tty
-StandardInput=tty
+StandardInput=tty-graceful
 StandardError=tty
 TTYReset=yes
 
