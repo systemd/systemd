@@ -12,12 +12,13 @@
 use core::alloc::Layout;
 use core::ffi::{c_char, c_int, CStr};
 use core::mem::{align_of, size_of};
-use core::ptr;
+use core::ptr::{self, NonNull};
 
 use systemd_shared::alloc::{Allocator, Erasing, Malloc};
 use systemd_shared::chase::{self, CHASE_MKDIR_0755};
 use systemd_shared::cstr::{self, display};
 use systemd_shared::keyring;
+use systemd_shared::path;
 use systemd_shared::prelude::*;
 use systemd_shared::recurse_dir::{self, RECURSE_DIR_SORT};
 use systemd_shared::table::{Table, TABLE_ERSATZ_DASH};
@@ -197,6 +198,33 @@ fn test_strv() {
     assert_eq!(v.len(), 4);
 }
 
+fn test_path() {
+    let j = |parts: &[&CStr]| path::join(parts).unwrap();
+
+    assert_eq!(j(&[c"/root", c"/a/b", c"/c"]).as_cstr(), c"/root/a/b/c");
+    assert_eq!(j(&[c"/root", c"a/b", c"c"]).as_cstr(), c"/root/a/b/c");
+    assert_eq!(j(&[c"/root", c"/", c"c"]).as_cstr(), c"/root/c");
+    assert_eq!(j(&[c"/root", c"/"]).as_cstr(), c"/root/");
+    assert_eq!(j(&[c"", c"/a/b", c"/c"]).as_cstr(), c"/a/b/c");
+    assert_eq!(j(&[c"", c"a/b", c"c"]).as_cstr(), c"a/b/c");
+    assert_eq!(j(&[c"", c"/", c"c"]).as_cstr(), c"/c");
+    assert_eq!(j(&[c"", c"/"]).as_cstr(), c"/");
+    assert_eq!(j(&[c"", c""]).as_cstr(), c"");
+    assert_eq!(j(&[c""]).as_cstr(), c"");
+    assert_eq!(j(&[]).as_cstr(), c"");
+    assert_eq!(j(&[c"foo"]).as_cstr(), c"foo");
+    assert_eq!(j(&[c"foo", c"bar"]).as_cstr(), c"foo/bar");
+    assert_eq!(j(&[c"", c"foo", c"", c"bar", c""]).as_cstr(), c"foo/bar");
+    assert_eq!(j(&[c"/", c"foo", c"/", c"bar", c"/"]).as_cstr(), c"/foo/bar/");
+    assert_eq!(j(&[c"foo", c"bar", c"baz"]).as_cstr(), c"foo/bar/baz");
+    assert_eq!(j(&[c"foo/", c"bar", c"/baz"]).as_cstr(), c"foo/bar/baz");
+    assert_eq!(j(&[c"foo/", c"/bar/", c"/baz"]).as_cstr(), c"foo//bar//baz");
+
+    // Owned strings are parts like any other.
+    let dir = OwnedCStr::try_from(c"/run/voa").unwrap();
+    assert_eq!(j(&[&dir, c"debian"]).as_cstr(), c"/run/voa/debian");
+}
+
 // The raw bindings, on purpose: this is what a program does for something the wrapper crate lacks.
 fn test_id128() {
     let mut id = sys::sd_id128_t::default();
@@ -216,10 +244,9 @@ fn test_id128() {
 }
 
 fn test_json() {
-    let mut flags = sys::SD_JSON_FORMAT_OFF;
-    assert_eq!(json::parse_argument(Some(c"short"), &mut flags), Ok(1));
-    assert!(json::format_enabled(flags));
-    assert_eq!(json::parse_argument(None, &mut flags).unwrap_err(), Errno::EINVAL);
+    let flags = json::parse_argument(Some(c"short")).unwrap();
+    assert!(flags.is_some_and(json::format_enabled));
+    assert_eq!(json::parse_argument(None).unwrap_err(), Errno::EINVAL);
 }
 
 fn test_fd() {
@@ -368,6 +395,38 @@ fn test_alloc_erasing() {
 
     let key = Box::new_in([0x42; 32], Erasing).unwrap();
     assert_eq!(Box::into_inner(key), [0x42; 32]);
+}
+
+/// Malloc, but a zero-sized request is a bug: Box and Vec never make one, like std's.
+struct NoZeroSized;
+
+// SAFETY: blocks come from Malloc and go back to it, a zero-sized request panics instead.
+unsafe impl Allocator for NoZeroSized {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        assert_ne!(layout.size(), 0, "zero-sized allocation");
+        Malloc.allocate(layout)
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        assert_ne!(layout.size(), 0, "zero-sized deallocation");
+        // SAFETY: the block came from Malloc, as the caller guarantees.
+        unsafe { Malloc.deallocate(ptr, layout) };
+    }
+}
+
+fn test_alloc_zero_sized() {
+    drop(Box::new_in((), NoZeroSized).unwrap());
+    Box::into_inner(Box::new_in((), NoZeroSized).unwrap());
+
+    let mut units = Vec::new_in(NoZeroSized);
+    units.push(()).unwrap();
+    drop(units.into_boxed_slice().unwrap());
+
+    // The vector's own block goes back when it shrinks, the empty boxed slice has none.
+    let mut v = Vec::with_capacity_in(4, NoZeroSized).unwrap();
+    v.push(1u8).unwrap();
+    v.clear();
+    drop(v.into_boxed_slice().unwrap());
 }
 
 fn test_print() {
@@ -767,7 +826,7 @@ fn test_table() {
     let s = unsafe { OwnedCStr::from_raw(s) }.unwrap();
     log_info!("Table:\n{s}");
     let mut lines = s.to_str().unwrap().lines();
-    let [header, one, b, two] = [(); 4].map(|_| lines.next().unwrap());
+    let [header, one, b, two] = [(); 4].map(|()| lines.next().unwrap());
     assert!(lines.next().is_none());
     assert!(header.starts_with("NAME"));
     assert!(one.starts_with("one"));
@@ -1000,11 +1059,13 @@ define_test_main!(
         test_log_messages,
         test_cstr,
         test_strv,
+        test_path,
         test_id128,
         test_json,
         test_fd,
         test_alloc,
         test_alloc_erasing,
+        test_alloc_zero_sized,
         test_print,
         test_constants,
         test_voa,

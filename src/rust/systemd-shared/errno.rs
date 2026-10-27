@@ -28,10 +28,7 @@ use crate::sys;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Errno(NonZero<c_int>);
 
-const EINVAL_NZ: NonZero<c_int> = match NonZero::new(sys::EINVAL as c_int) {
-    Some(n) => n,
-    None => panic!("EINVAL is zero"),
-};
+const EINVAL_NZ: NonZero<c_int> = NonZero::new(sys::EINVAL as c_int).unwrap();
 
 macro_rules! declare_errno {
     ($($name:ident),* $(,)?) => {

@@ -49,7 +49,8 @@
 //!     if parse_argv(&mut opts)? <= 0 {
 //!         return Ok(());
 //!     }
-//!     dispatch_verb!(opts.args(), ptr::null_mut()).map(|_| ())
+//!     // SAFETY: the verbs take no userdata.
+//!     unsafe { dispatch_verb!(opts.args(), ptr::null_mut()) }.map(|_| ())
 //! }
 //!
 //! define_main!(run);
@@ -193,6 +194,25 @@ impl CommandDescriptionEntry {
     };
 }
 
+/// The bounds the linker defines for a table section of the program, `SYSTEMD_VERBS` of [`VerbEntry`] or
+/// `SYSTEMD_OPTIONS` of [`OptionEntry`]. Only the table macros create these.
+#[doc(hidden)]
+pub struct Section<T> {
+    start: *const T,
+    stop: *const T,
+}
+
+impl<T> Section<T> {
+    /// Wraps the bounds of a section.
+    ///
+    /// # Safety
+    ///
+    /// `start` and `stop` must be the bounds of the section of the program that holds the `T` entries.
+    pub const unsafe fn new(start: *const T, stop: *const T) -> Section<T> {
+        Section { start, stop }
+    }
+}
+
 /// An `argc`/`argv` pair: what the program was started with, or the positional arguments left after option
 /// parsing, or what a verb is dispatched with. `argv[0]` is the program or the verb, as in C. The strings live
 /// for `'a`, so a program keeps the ones it needs as `&'a CStr`, like C keeps pointers into `argv`, instead
@@ -268,25 +288,11 @@ impl<'a> OptionParser<'a> {
         }
     }
 
-    /// Backend of [`foreach_option!`], so that it evaluates its argument outside of its `unsafe` block.
-    #[doc(hidden)]
-    pub fn __parser(&mut self) -> &mut OptionParser<'a> {
-        self
-    }
-
     /// Backend of [`foreach_option!`]: the next option's id, 0 when parsing is done.
-    ///
-    /// # Safety
-    ///
-    /// `options` and `options_end` must be the bounds of the `SYSTEMD_OPTIONS` section of the program.
     #[doc(hidden)]
-    pub unsafe fn __next(
-        &mut self,
-        options: *const OptionEntry,
-        options_end: *const OptionEntry,
-    ) -> Result<c_int> {
-        // SAFETY: the caller passes the section bounds, the parser state is ours.
-        check(unsafe { sys::option_parse(options.cast(), options_end.cast(), &mut self.inner) })
+    pub fn __next(&mut self, options: Section<OptionEntry>) -> Result<c_int> {
+        // SAFETY: the section holds the program's options, the parser state is ours.
+        check(unsafe { sys::option_parse(options.start.cast(), options.stop.cast(), &mut self.inner) })
     }
 
     /// The argument of the option just returned, `opts.arg` in C; `None` for an option without one. It points
@@ -332,39 +338,32 @@ pub fn version() -> Result<c_int> {
 ///
 /// # Safety
 ///
-/// `verbs` and `verbs_end` must be the bounds of the `SYSTEMD_VERBS` section of the program.
+/// `userdata` must be what the verbs of the program take.
 #[doc(hidden)]
 pub unsafe fn __dispatch_verb(
     args: Argv<'_>,
-    verbs: *const VerbEntry,
-    verbs_end: *const VerbEntry,
+    verbs: Section<VerbEntry>,
     userdata: *mut c_void,
 ) -> Result<c_int> {
     let (_, argv) = args.as_raw();
-    // SAFETY: the caller passes the section bounds, argv is NULL-terminated.
-    check(unsafe { sys::_dispatch_verb(argv, verbs.cast(), verbs_end.cast(), userdata) })
+    // SAFETY: the section holds the program's verbs, argv is NULL-terminated, the caller vouches for userdata.
+    check(unsafe { sys::_dispatch_verb(argv, verbs.start.cast(), verbs.stop.cast(), userdata) })
 }
 
 /// Backend of [`command_print_help!`].
-///
-/// # Safety
-///
-/// The four pointers must be the bounds of the `SYSTEMD_VERBS` and `SYSTEMD_OPTIONS` sections of the program.
 #[doc(hidden)]
-pub unsafe fn __command_print_help(
-    verbs: *const VerbEntry,
-    verbs_end: *const VerbEntry,
-    options: *const OptionEntry,
-    options_end: *const OptionEntry,
+pub fn __command_print_help(
+    verbs: Section<VerbEntry>,
+    options: Section<OptionEntry>,
     name: Option<&CStr>,
 ) -> Result<c_int> {
-    // SAFETY: the caller passes the section bounds, name is NULL or a C string.
+    // SAFETY: the sections hold the program's tables, name is NULL or a C string.
     check(unsafe {
         sys::_command_print_help_full(
-            verbs.cast(),
-            verbs_end.cast(),
-            options.cast(),
-            options_end.cast(),
+            verbs.start.cast(),
+            verbs.stop.cast(),
+            options.start.cast(),
+            options.stop.cast(),
             name.map_or(ptr::null(), CStr::as_ptr),
             ptr::null(),
         )
@@ -372,53 +371,76 @@ pub unsafe fn __command_print_help(
 }
 
 /// Backend of [`command_print_verb_help!`].
-///
-/// # Safety
-///
-/// The four pointers must be the bounds of the `SYSTEMD_VERBS` and `SYSTEMD_OPTIONS` sections of the program.
 #[doc(hidden)]
-pub unsafe fn __command_print_verb_help(
-    verbs: *const VerbEntry,
-    verbs_end: *const VerbEntry,
-    options: *const OptionEntry,
-    options_end: *const OptionEntry,
+pub fn __command_print_verb_help(
+    verbs: Section<VerbEntry>,
+    options: Section<OptionEntry>,
     name: &CStr,
 ) -> Result<c_int> {
-    // SAFETY: the caller passes the section bounds, name is a C string.
+    // SAFETY: the sections hold the program's tables, name is a C string.
     check(unsafe {
         sys::_command_print_verb_help(
-            verbs.cast(),
-            verbs_end.cast(),
-            options.cast(),
-            options_end.cast(),
+            verbs.start.cast(),
+            verbs.stop.cast(),
+            options.start.cast(),
+            options.stop.cast(),
             name.as_ptr(),
         )
     })
 }
 
 /// Backend of [`introspect_cli!`].
-///
-/// # Safety
-///
-/// The four pointers must be the bounds of the `SYSTEMD_VERBS` and `SYSTEMD_OPTIONS` sections of the program.
 #[doc(hidden)]
-pub unsafe fn __introspect_cli(
-    verbs: *const VerbEntry,
-    verbs_end: *const VerbEntry,
-    options: *const OptionEntry,
-    options_end: *const OptionEntry,
+pub fn __introspect_cli(
+    verbs: Section<VerbEntry>,
+    options: Section<OptionEntry>,
     flags: sys::sd_json_format_flags_t,
 ) -> Result<c_int> {
-    // SAFETY: the caller passes the section bounds.
+    // SAFETY: the sections hold the program's tables.
     check(unsafe {
         sys::_introspect_cli(
-            verbs.cast(),
-            verbs_end.cast(),
-            options.cast(),
-            options_end.cast(),
+            verbs.start.cast(),
+            verbs.stop.cast(),
+            options.start.cast(),
+            options.stop.cast(),
             flags,
         )
     })
+}
+
+/// The program's `SYSTEMD_VERBS` section. Backend of the table macros.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __verbs_section {
+    () => {{
+        extern "C" {
+            static __start_SYSTEMD_VERBS: $crate::command::VerbEntry;
+            static __stop_SYSTEMD_VERBS: $crate::command::VerbEntry;
+        }
+        // SAFETY: the linker defines the bounds of the section the verbs! table lives in.
+        unsafe {
+            $crate::command::Section::new(&raw const __start_SYSTEMD_VERBS, &raw const __stop_SYSTEMD_VERBS)
+        }
+    }};
+}
+
+/// The program's `SYSTEMD_OPTIONS` section. Backend of the table macros.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __options_section {
+    () => {{
+        extern "C" {
+            static __start_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
+            static __stop_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
+        }
+        // SAFETY: the linker defines the bounds of the section the foreach_option! table lives in.
+        unsafe {
+            $crate::command::Section::new(
+                &raw const __start_SYSTEMD_OPTIONS,
+                &raw const __stop_SYSTEMD_OPTIONS,
+            )
+        }
+    }};
 }
 
 /// A string literal as a C string pointer, `None` as NULL. Backend of the table macros.
@@ -661,24 +683,9 @@ macro_rules! __foreach_option {
         #[link_section = "SYSTEMD_OPTIONS"]
         static __OPTIONS: [$crate::command::OptionEntry; $n] = [$($entry,)*];
 
-        extern "C" {
-            static __start_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-            static __stop_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-        }
-
         loop {
-            let __o = $opts.__parser();
-            // SAFETY: the linker defines the bounds of the section the table above lives in.
-            let __c = unsafe {
-                __o.__next(
-                    ::core::ptr::addr_of!(__start_SYSTEMD_OPTIONS),
-                    ::core::ptr::addr_of!(__stop_SYSTEMD_OPTIONS),
-                )
-            }?;
-            if __c == 0 {
-                break;
-            }
-            match __c {
+            match $opts.__next($crate::__options_section!())? {
+                0 => break,
                 $($arm)*
                 _ => ::core::unreachable!("option id not in the table"),
             }
@@ -720,7 +727,7 @@ macro_rules! __verb_entry {
                         $($field: $crate::__command_field!($field, $value),)*
                         ..$crate::command::CommandDescriptionEntry::NONE
                     };
-                ::core::ptr::addr_of!(__DESCRIPTION).cast()
+                (&raw const __DESCRIPTION).cast()
             },
             argspec: ::core::ptr::null(),
             help: ::core::ptr::null(),
@@ -865,50 +872,25 @@ macro_rules! __verbs {
     };
 }
 
-/// `dispatch_verb(args, userdata)`: runs the verb named by `args[0]` (or the default one).
+/// `dispatch_verb(args, userdata)`: runs the verb named by `args[0]` (or the default one). The verbs get
+/// `userdata` as it is, so the call is `unsafe` and the caller vouches that it is what they take.
 #[macro_export]
 macro_rules! dispatch_verb {
-    ($args:expr, $userdata:expr) => {{
-        let __args: $crate::command::Argv<'_> = $args;
-        let __userdata: *mut ::core::ffi::c_void = $userdata;
-        extern "C" {
-            static __start_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __stop_SYSTEMD_VERBS: $crate::command::VerbEntry;
-        }
-        // SAFETY: the linker defines the bounds of the section the verbs! table lives in.
-        unsafe {
-            $crate::command::__dispatch_verb(
-                __args,
-                ::core::ptr::addr_of!(__start_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_VERBS),
-                __userdata,
-            )
-        }
-    }};
+    ($args:expr, $userdata:expr) => {
+        $crate::command::__dispatch_verb($args, $crate::__verbs_section!(), $userdata)
+    };
 }
 
 /// `command_print_help_name(name)`: prints `--help` for the command called `name` (`None`: the program).
 #[macro_export]
 macro_rules! command_print_help_name {
-    ($name:expr) => {{
-        let __name: ::core::option::Option<&::core::ffi::CStr> = $name;
-        extern "C" {
-            static __start_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __stop_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __start_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-            static __stop_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-        }
-        // SAFETY: the linker defines the bounds of the sections the tables live in.
-        unsafe {
-            $crate::command::__command_print_help(
-                ::core::ptr::addr_of!(__start_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__start_SYSTEMD_OPTIONS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_OPTIONS),
-                __name,
-            )
-        }
-    }};
+    ($name:expr) => {
+        $crate::command::__command_print_help(
+            $crate::__verbs_section!(),
+            $crate::__options_section!(),
+            $name,
+        )
+    };
 }
 
 /// `command_print_help()`: prints `--help`. Evaluates to `Ok(0)`, so that `return command_print_help!()`
@@ -923,47 +905,19 @@ macro_rules! command_print_help {
 /// `command_print_verb_help(name)`: prints `--help` for the verb called `name`.
 #[macro_export]
 macro_rules! command_print_verb_help {
-    ($name:expr) => {{
-        let __name: &::core::ffi::CStr = $name;
-        extern "C" {
-            static __start_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __stop_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __start_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-            static __stop_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-        }
-        // SAFETY: the linker defines the bounds of the sections the tables live in.
-        unsafe {
-            $crate::command::__command_print_verb_help(
-                ::core::ptr::addr_of!(__start_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__start_SYSTEMD_OPTIONS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_OPTIONS),
-                __name,
-            )
-        }
-    }};
+    ($name:expr) => {
+        $crate::command::__command_print_verb_help(
+            $crate::__verbs_section!(),
+            $crate::__options_section!(),
+            $name,
+        )
+    };
 }
 
 /// `introspect_cli(flags)`: answers `--introspect-cli`.
 #[macro_export]
 macro_rules! introspect_cli {
-    ($flags:expr) => {{
-        let __flags: $crate::sys::sd_json_format_flags_t = $flags;
-        extern "C" {
-            static __start_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __stop_SYSTEMD_VERBS: $crate::command::VerbEntry;
-            static __start_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-            static __stop_SYSTEMD_OPTIONS: $crate::command::OptionEntry;
-        }
-        // SAFETY: the linker defines the bounds of the sections the tables live in.
-        unsafe {
-            $crate::command::__introspect_cli(
-                ::core::ptr::addr_of!(__start_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_VERBS),
-                ::core::ptr::addr_of!(__start_SYSTEMD_OPTIONS),
-                ::core::ptr::addr_of!(__stop_SYSTEMD_OPTIONS),
-                __flags,
-            )
-        }
-    }};
+    ($flags:expr) => {
+        $crate::command::__introspect_cli($crate::__verbs_section!(), $crate::__options_section!(), $flags)
+    };
 }

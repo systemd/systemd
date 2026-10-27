@@ -3,13 +3,13 @@
 //! X.509 certificates through the libcrypto that `crypto-util.h` loads with `dlopen()`. [`X509::from_pem()`]
 //! loads it, as `openssl_load_x509_certificate_from_pem()` does, and so does [`log_openssl_errors!`].
 
-use core::ffi::{c_char, c_int, c_void, CStr};
+use core::ffi::{c_char, c_int, c_void};
 use core::fmt;
 use core::ptr::{self, NonNull};
 
 use crate::cstr::{self, OwnedCStr};
 use crate::errno::{check, Errno, Result};
-use crate::log::LOG_DEBUG;
+use crate::log::{Location, LOG_DEBUG};
 use crate::sys;
 
 /// A function libcrypto exports, as `crypto-util.c` resolved it. Reading the pointer is unsafe: they are
@@ -146,7 +146,6 @@ impl X509 {
         }
         // SAFETY: the string is ours.
         let base64 = unsafe { OwnedCStr::from_raw(p) }.ok_or(Errno::ENOMEM)?;
-        let base64 = base64.as_cstr().to_str()?;
 
         cstr::try_format(format_args!(
             "-----BEGIN CERTIFICATE-----\n{base64}\n-----END CERTIFICATE-----\n"
@@ -201,16 +200,10 @@ impl Drop for X509 {
 
 /// Backend of [`log_openssl_errors!`].
 #[doc(hidden)]
-pub fn __log_openssl_errors(
-    level: c_int,
-    file: &CStr,
-    line: u32,
-    func: &CStr,
-    args: fmt::Arguments<'_>,
-) -> Errno {
+pub fn __log_openssl_errors(level: c_int, location: &Location<'_>, args: fmt::Arguments<'_>) -> Errno {
     // The error queue is read through libcrypto, which nothing might have loaded yet.
     if let Err(e) = dlopen_libcrypto(LOG_DEBUG) {
-        crate::log::__log(level, e.code(), file, line, func, args);
+        crate::log::__log(level, e.code(), location, args);
         return e;
     }
 
@@ -222,9 +215,9 @@ pub fn __log_openssl_errors(
     let r = unsafe {
         sys::log_openssl_errors_internal(
             level,
-            file.as_ptr(),
-            line as c_int,
-            func.as_ptr(),
+            location.file.as_ptr(),
+            location.line as c_int,
+            location.func.as_ptr(),
             c"%s".as_ptr(),
             message.as_ptr(),
         )
@@ -239,9 +232,7 @@ macro_rules! log_openssl_errors {
     ($level:expr, $($arg:tt)*) => {
         $crate::x509::__log_openssl_errors(
             $level,
-            const { $crate::log::__cstr(::core::concat!(::core::file!(), "\0")) },
-            ::core::line!(),
-            const { $crate::log::__cstr(::core::concat!(::core::module_path!(), "\0")) },
+            &$crate::__log_location!(),
             ::core::format_args!($($arg)*),
         )
     };

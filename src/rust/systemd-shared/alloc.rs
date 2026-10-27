@@ -291,7 +291,13 @@ impl<T> Box<T> {
 impl<T, A: Allocator> Box<T, A> {
     /// Moves `x` to the heap, allocating with `alloc`.
     pub fn new_in(x: T, alloc: A) -> Result<Box<T, A>, AllocError> {
-        let p = alloc.allocate(Layout::new::<T>())?.cast::<T>();
+        let layout = Layout::new::<T>();
+        // As with std, a zero-sized value takes no block from the allocator.
+        let p = if layout.size() == 0 {
+            NonNull::dangling()
+        } else {
+            alloc.allocate(layout)?.cast::<T>()
+        };
         // SAFETY: the block is valid for writes of a T and aligned for it, the dangling one of a zero-sized T
         // included.
         unsafe { p.as_ptr().write(x) };
@@ -303,8 +309,11 @@ impl<T, A: Allocator> Box<T, A> {
         let b = ManuallyDrop::new(b);
         // SAFETY: the value is initialized and moved out once, and so is the allocator; the box is not dropped.
         let (x, alloc) = unsafe { (b.0.as_ptr().read(), ptr::read(&b.1)) };
-        // SAFETY: the block came from the allocator for the layout of T, its value was moved out above.
-        unsafe { alloc.deallocate(b.0.cast(), Layout::new::<T>()) };
+        let layout = Layout::new::<T>();
+        if layout.size() != 0 {
+            // SAFETY: the block came from the allocator for the layout of T, its value was moved out above.
+            unsafe { alloc.deallocate(b.0.cast(), layout) };
+        }
         x
     }
 }
@@ -312,11 +321,13 @@ impl<T, A: Allocator> Box<T, A> {
 impl<T: ?Sized, A: Allocator> Drop for Box<T, A> {
     fn drop(&mut self) {
         // SAFETY: the value is initialized and dropped once, then its block goes back to the allocator for the
-        // layout it was allocated with, which is the value's own.
+        // layout it was allocated with, which is the value's own. A zero-sized value has no block.
         unsafe {
             let layout = Layout::for_value(self.0.as_ref());
             ptr::drop_in_place(self.0.as_ptr());
-            self.1.deallocate(self.0.cast(), layout);
+            if layout.size() != 0 {
+                self.1.deallocate(self.0.cast(), layout);
+            }
         }
     }
 }
