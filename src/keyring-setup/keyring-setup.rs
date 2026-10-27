@@ -16,6 +16,7 @@ use systemd_shared::cstr::{self, display};
 use systemd_shared::fileio::{self, READ_FULL_FILE_FAIL_WHEN_LARGER, READ_FULL_FILE_VERIFY_REGULAR};
 use systemd_shared::keyring::{self, KeySerial};
 use systemd_shared::kmod::Kmod;
+use systemd_shared::path;
 use systemd_shared::prelude::*;
 use systemd_shared::recurse_dir::{self, RECURSE_DIR_IGNORE_DOT, RECURSE_DIR_SORT};
 use systemd_shared::sys::COMMAND_EXPERIMENTAL;
@@ -902,16 +903,20 @@ fn materialize_credential(
 ) -> Result<bool> {
     // The exact OS identifier suffices
     let os = os.iter().next().ok_or(Errno::EINVAL)?;
-    let path = cstr::try_format(format_args!(
-        "{}/{}/{}/{}/{}/{}{}",
-        display(voa::VOA_EPHEMERAL_LOAD_PATH),
-        display(os),
-        display(spec.role),
-        display(spec.context),
-        display(voa::VOA_TECHNOLOGY_X509),
+    let file = cstr::try_format(format_args!(
+        "{}{}",
         display(name),
         display(voa::VOA_X509_CERTIFICATE_SUFFIX)
     ))
+    .map_err(|_| log_oom!())?;
+    let path = path::join(&[
+        voa::VOA_EPHEMERAL_LOAD_PATH,
+        os,
+        spec.role,
+        spec.context,
+        voa::VOA_TECHNOLOGY_X509,
+        &file,
+    ])
     .map_err(|_| log_oom!())?;
 
     if dry_run {
