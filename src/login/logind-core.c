@@ -780,3 +780,31 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
         return 0;
 #endif
 }
+
+int config_parse_kill_exclude_users(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***users = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                /* NULL is equivalent to "root" (default). An empty non-NULL strv means no user is excluded.
+                 * To allow to not root excluded, an empty string assignment creates an empty strv. */
+                char **v = strv_new(NULL);
+                if (!v)
+                        return log_oom();
+
+                return strv_free_and_replace(*users, v);
+        }
+
+        return config_parse_strv(unit, filename, line, section, section_line,
+                                 lvalue, ltype, rvalue, data, userdata);
+}
