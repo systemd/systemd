@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "conf-parser.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
@@ -38,8 +39,51 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define ADDRESSES_PER_LINK_MAX 16384U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
+#define ADDRESSES_PER_LINK_MAX_DEFAULT 16384U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT 8192U
+
+static uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached) {
+        uint64_t value;
+        int r;
+
+        assert(name);
+        assert(cached);
+
+        /* The service environment is fixed for the daemon's lifetime. Parse each limit only on first use. */
+        if (*cached > 0)
+                return *cached;
+
+        r = secure_getenv_uint64(name, &value);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_warning("Invalid value for $%s, ignoring and using the default limit.", name);
+
+                *cached = fallback;
+        } else if (value == 0)
+                *cached = fallback;
+        else
+                *cached = value;
+
+        return *cached;
+}
+
+static uint64_t get_static_addresses_per_network_max(void) {
+        static uint64_t cached = 0;
+
+        return address_limit_from_env(
+                        "SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX",
+                        STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT,
+                        &cached);
+}
+
+static uint64_t get_addresses_per_link_max(void) {
+        static uint64_t cached = 0;
+
+        return address_limit_from_env(
+                        "SYSTEMD_ADDRESSES_PER_LINK_MAX",
+                        ADDRESSES_PER_LINK_MAX_DEFAULT,
+                        &cached);
+}
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -214,7 +258,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return 0;
         }
 
-        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= get_static_addresses_per_network_max())
                 return -E2BIG;
 
         r = address_new(&address);
@@ -1703,7 +1747,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 return 0;
 
         /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+        if (set_size(link->addresses) >= get_addresses_per_link_max())
                 return 0;
 
         r = address_requeue_request(req, link, address);
