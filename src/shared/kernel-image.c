@@ -490,8 +490,10 @@ static int uname_from_elf_note(const uint8_t *data, size_t size, char **ret) {
         uint64_t note_bytes_left = size;
 
         for (uint16_t i = 0; i < phnum; i++) {
-                uint64_t ph = phoff + (uint64_t) i * phentsize;
-                if (ph > size || size - ph < phentsize)
+                uint64_t stride, ph;
+                if (!MUL_SAFE(&stride, (uint64_t) i, phentsize) ||
+                    !ADD_SAFE(&ph, phoff, stride) ||
+                    ph > size || size - ph < phentsize)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                                "Program header %" PRIu16 " of the kernel ELF file is outside of the file.", i);
 
