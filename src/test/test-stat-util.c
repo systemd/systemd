@@ -129,8 +129,12 @@ TEST(inode_same) {
         ASSERT_OK_POSITIVE(inode_same_at(fd1, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH));
         ASSERT_OK_POSITIVE(inode_same_at(fd2, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW));
 
+        ASSERT_OK_POSITIVE(fd_is_dev_null(fd1));
+        ASSERT_OK_ZERO(fd_is_dev_null(fd));
+
         safe_close(fd2);
         fd2 = ASSERT_OK(xopenat(AT_FDCWD, "/dev/urandom", O_RDONLY));
+        ASSERT_OK_ZERO(fd_is_dev_null(fd2));
 
         ASSERT_OK_EQ(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
         ASSERT_OK_EQ(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
