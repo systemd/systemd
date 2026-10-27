@@ -3417,8 +3417,8 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <listitem><para>Controls where file descriptor 0 (STDIN) of the executed processes is connected to. Takes one
         of <option>null</option>, <option>tty</option>, <option>tty-force</option>, <option>tty-fail</option>,
-        <option>data</option>, <option>file:<replaceable>path</replaceable></option>, <option>socket</option>,
-        <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
+        <option>tty-graceful</option>, <option>data</option>, <option>file:<replaceable>path</replaceable></option>,
+        <option>socket</option>, <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
         <option>broker-log</option>.</para>
 
         <para>If <option>null</option> is selected, standard input will be connected to <filename>/dev/null</filename>,
@@ -3435,6 +3435,16 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para><option>tty-fail</option> is similar to <option>tty</option>, but if the terminal already has a
         controlling process start-up of the executed process fails.</para>
+
+        <para><option>tty-graceful</option> is similar to <option>tty</option>, except if <varname>TTYPath=</varname> is
+        <emphasis>not set</emphasis> and the system has no usable console (i.e.
+        <filename>/dev/console</filename> does not exist, the kernel has no console registered, or the console
+        is <literal>ttynull</literal>): then standard input is connected to <filename>/dev/null</filename> instead,
+        and standard output and error are connected to the journal if they are set to <option>inherit</option>
+        (the default) or <option>tty</option>. This is useful for programs that interact with the user if possible,
+        but have a non-interactive fallback.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
 
         <para>The <option>data</option> option may be used to configure arbitrary textual or binary data to pass via
         standard input to the executed process. The data to pass is configured via
@@ -3607,9 +3617,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
         <para>If <varname>StandardInput=</varname> is set to one of <option>tty</option>, <option>tty-force</option>,
-        <option>tty-fail</option>, <option>socket</option>, <option>fd:<replaceable>name</replaceable></option>,
-        <option>broker</option>, or <option>broker-log</option>, this
-        setting defaults to <option>inherit</option>.</para>
+        <option>tty-fail</option>, <option>tty-graceful</option>, <option>socket</option>,
+        <option>fd:<replaceable>name</replaceable></option>, <option>broker</option>, or <option>broker-log</option>,
+        this setting defaults to <option>inherit</option>.</para>
 
         <para>In other cases, this setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which

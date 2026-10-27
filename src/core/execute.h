@@ -32,6 +32,7 @@ typedef enum ExecInput {
         EXEC_INPUT_TTY,
         EXEC_INPUT_TTY_FORCE,
         EXEC_INPUT_TTY_FAIL,
+        EXEC_INPUT_TTY_GRACEFUL, /* Fall back to /dev/null (in) and journal (out/err) if there is no console */
         EXEC_INPUT_SOCKET,
         EXEC_INPUT_NAMED_FD,
         EXEC_INPUT_DATA,
@@ -505,7 +506,8 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                IN_SET(i,
                       EXEC_INPUT_TTY,
                       EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
+                      EXEC_INPUT_TTY_FAIL,
+                      EXEC_INPUT_TTY_GRACEFUL);
 }
 
 static inline bool exec_output_is_broker(ExecOutput o) {
@@ -531,6 +533,14 @@ static inline bool exec_context_has_broker(const ExecContext *context) {
                 exec_input_is_broker(context->std_input) ||
                 exec_output_is_broker(context->std_output) ||
                 exec_output_is_broker(context->std_error);
+}
+
+static inline bool exec_context_tty_graceful_on_console(const ExecContext *context) {
+        assert(context);
+
+        /* StandardInput=tty-graceful only falls back for the default terminal, i.e. /dev/console. An
+         * explicitly configured TTYPath= is expected to exist. */
+        return context->std_input == EXEC_INPUT_TTY_GRACEFUL && !context->tty_path;
 }
 
 static inline bool exec_input_is_inheritable(ExecInput i) {
@@ -605,6 +615,7 @@ int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
 const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int input_fd, int output_fd, const char *tty_path);
+bool exec_context_tty_graceful_without_console(const ExecContext *context, const ExecParameters *parameters);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id);
 
 uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);
