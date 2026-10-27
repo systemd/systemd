@@ -1021,7 +1021,10 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
                 r = terminal_set_size_fd(fd, NULL, rows, cols);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
-        } else
+        } else if (tty_is_vc_resolve("/dev/console"))
+                /* Linux' VT implementation knows its own dimensions, so ioctl() data is accurate. */
+                log_debug("/dev/console is a virtual console, not querying its dimensions via ANSI sequences (CSI 18t, DSR).");
+        else
                 (void) terminal_fix_size(fd, fd);
 
         r = terminal_reset_ansi_seq(fd);
