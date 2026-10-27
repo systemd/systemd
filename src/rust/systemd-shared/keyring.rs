@@ -6,7 +6,6 @@ use core::ffi::{c_char, c_void, CStr};
 use core::ptr;
 
 use crate::alloc::Vec;
-
 use crate::cstr::OwnedCStr;
 use crate::errno::{check, Errno, Result};
 use crate::fd::BorrowedFd;

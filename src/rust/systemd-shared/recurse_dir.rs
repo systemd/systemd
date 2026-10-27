@@ -39,7 +39,7 @@ impl DirectoryEntries {
     pub fn names(&self) -> impl Iterator<Item = &CStr> + '_ {
         self.entries().map(|d| {
             // SAFETY: only d_name is projected, which the kernel NUL-terminates within the record.
-            unsafe { CStr::from_ptr(ptr::addr_of!((*d).d_name).cast()) }
+            unsafe { CStr::from_ptr((&raw const (*d).d_name).cast()) }
         })
     }
 }

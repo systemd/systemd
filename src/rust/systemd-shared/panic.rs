@@ -7,7 +7,7 @@ use core::ffi::CStr;
 use core::panic::PanicInfo;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::log::LOG_CRIT;
+use crate::log::{Location, LOG_CRIT};
 use crate::sys;
 
 static PANICKING: AtomicBool = AtomicBool::new(false);
@@ -29,9 +29,11 @@ fn panic(info: &PanicInfo<'_>) -> ! {
             Some(l) => crate::log::__log(
                 LOG_CRIT,
                 0,
-                to_cstr(l.file(), &mut buf),
-                l.line(),
-                c"panic",
+                &Location {
+                    file: to_cstr(l.file(), &mut buf),
+                    line: l.line(),
+                    func: c"panic",
+                },
                 format_args!(
                     "Panic at {}:{}: {}. Aborting.",
                     l.file(),
@@ -42,9 +44,11 @@ fn panic(info: &PanicInfo<'_>) -> ! {
             None => crate::log::__log(
                 LOG_CRIT,
                 0,
-                c"",
-                0,
-                c"panic",
+                &Location {
+                    file: c"",
+                    line: 0,
+                    func: c"panic",
+                },
                 format_args!("Panic: {}. Aborting.", info.message()),
             ),
         }

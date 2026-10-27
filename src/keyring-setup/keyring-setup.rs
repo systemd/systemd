@@ -16,6 +16,7 @@ use systemd_shared::cstr::{self, display};
 use systemd_shared::fileio::{self, READ_FULL_FILE_FAIL_WHEN_LARGER, READ_FULL_FILE_VERIFY_REGULAR};
 use systemd_shared::keyring::{self, KeySerial};
 use systemd_shared::kmod::Kmod;
+use systemd_shared::path;
 use systemd_shared::prelude::*;
 use systemd_shared::recurse_dir::{self, RECURSE_DIR_IGNORE_DOT, RECURSE_DIR_SORT};
 use systemd_shared::sys::COMMAND_EXPERIMENTAL;
@@ -853,10 +854,8 @@ fn process_keyring(
     let r = collect_certificates(&mut k, root, os);
     gather(&mut k.failed, r);
 
-    let mut r = locate_keyring(&mut k, root, kmod, args.dry_run);
-    if matches!(r, Ok(true)) {
-        r = Ok(check_unsealed(&mut k, root));
-    }
+    let r = locate_keyring(&mut k, root, kmod, args.dry_run)
+        .map(|located| located && check_unsealed(&mut k, root));
 
     if args.dry_run {
         if matches!(r, Ok(true)) {
@@ -876,7 +875,7 @@ fn process_keyring(
         }
     } else if matches!(r, Ok(true)) {
         enroll_certificates(&mut k);
-        r = seal_keyring(&mut k, root).map(|()| true);
+        seal_keyring(&mut k, root)?;
     }
 
     r?;
@@ -902,16 +901,20 @@ fn materialize_credential(
 ) -> Result<bool> {
     // The exact OS identifier suffices
     let os = os.iter().next().ok_or(Errno::EINVAL)?;
-    let path = cstr::try_format(format_args!(
-        "{}/{}/{}/{}/{}/{}{}",
-        display(voa::VOA_EPHEMERAL_LOAD_PATH),
-        display(os),
-        display(spec.role),
-        display(spec.context),
-        display(voa::VOA_TECHNOLOGY_X509),
+    let file = cstr::try_format(format_args!(
+        "{}{}",
         display(name),
         display(voa::VOA_X509_CERTIFICATE_SUFFIX)
     ))
+    .map_err(|_| log_oom!())?;
+    let path = path::join(&[
+        voa::VOA_EPHEMERAL_LOAD_PATH,
+        os,
+        spec.role,
+        spec.context,
+        voa::VOA_TECHNOLOGY_X509,
+        &file,
+    ])
     .map_err(|_| log_oom!())?;
 
     if dry_run {
@@ -1076,11 +1079,9 @@ fn parse_argv(opts: &mut OptionParser<'_>, args: &mut Args) -> Result<c_int> {
         OPTION_COMMON_NO_PAGER => {
             ARG_PAGER_FLAGS.fetch_or(sys::PAGER_DISABLE, Ordering::Relaxed);
         },
-        OPTION_COMMON_JSON => {
-            let r = json::parse_argument(opts.arg(), &mut args.json_format_flags)?;
-            if r <= 0 {
-                return Ok(r);
-            }
+        OPTION_COMMON_JSON => match json::parse_argument(opts.arg())? {
+            Some(flags) => args.json_format_flags = flags,
+            None => return Ok(0),
         },
         OPTION_COMMON_INTROSPECT_CLI => return introspect_cli!(sys::SD_JSON_FORMAT_OFF),
     }

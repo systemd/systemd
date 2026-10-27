@@ -27,13 +27,11 @@ impl Kmod {
     }
 }
 
+#[cfg(HAVE_KMOD)]
 impl Drop for Kmod {
     fn drop(&mut self) {
-        #[cfg(HAVE_KMOD)]
-        {
-            let mut ctx = self.0.as_ptr();
-            // SAFETY: we own the reference.
-            unsafe { sys::kmod_unrefp(&mut ctx) };
-        }
+        let mut ctx = self.0.as_ptr();
+        // SAFETY: we own the reference.
+        unsafe { sys::kmod_unrefp(&mut ctx) };
     }
 }

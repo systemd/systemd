@@ -175,7 +175,8 @@ fn run(argv: Argv<'_>) -> Result<()> {
     if parse_argv(&mut opts)? <= 0 {
         return Ok(());
     }
-    dispatch_verb!(opts.args(), ptr::null_mut()).map(|_| ())
+    // SAFETY: the verbs take no userdata.
+    unsafe { dispatch_verb!(opts.args(), ptr::null_mut()) }.map(|_| ())
 }
 
 define_main!(run);

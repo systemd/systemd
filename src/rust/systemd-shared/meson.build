@@ -157,6 +157,7 @@ systemd_shared_sources = files(
         'kmod.rs',
         'log.rs',
         'panic.rs',
+        'path.rs',
         'prelude.rs',
         'program.rs',
         'recurse_dir.rs',
