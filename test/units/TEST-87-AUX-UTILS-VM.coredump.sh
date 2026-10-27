@@ -9,12 +9,13 @@ set -o pipefail
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
+CORE_TEST_TID_BIN="/tmp/test-tid"
 MAKE_DUMP_SCRIPT="/tmp/make-dump"
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
 at_exit() {
-    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT"
+    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$CORE_TEST_TID_BIN" "$MAKE_DUMP_SCRIPT"
 }
 
 maybe_reload_coredumpd() {
@@ -184,6 +185,20 @@ coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; has("Storage")
 coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
 # Check the field is queryable in the journal
 coredumpctl -F COREDUMP_TID
+
+# Check that a multithreaded process crashing sets COREDUMP_TID and
+# COREDUMP_THREAD_NAME correctly
+cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-coredump-thread "${CORE_TEST_TID_BIN:?}"
+for mode in main thread; do
+    EC=0
+    (ulimit -c unlimited; "$CORE_TEST_TID_BIN" "$mode") || EC=$?
+    # 128 + SIGABRT
+    assert_eq "$EC" 134
+done
+timeout 30 bash -c "until [[ \$(coredumpctl list -q --no-legend $CORE_TEST_TID_BIN | wc -l) -ge 2 ]]; do sleep .2; done"
+coredumpctl info --json=short "$CORE_TEST_TID_BIN" |
+    jq -se 'any(.[]; .TID == .PID and .ThreadName == "test-tid") and
+            any(.[]; .TID != .PID and .ThreadName == "test-tid-crash")'
 
 # Test cases for Coredump ID
 LATEST_ID=$(coredumpctl list -1 --json=short "$CORE_TEST_BIN" | jq -r '.[0].id')
