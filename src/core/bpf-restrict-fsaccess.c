@@ -41,6 +41,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = "restrict-fsaccess-mmap-addr-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -93,6 +94,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), prote
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = (obj)->links.restrict_fsaccess_mmap_addr,                  \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -518,6 +520,16 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
         return 0;
 }
 
+/* The .bss sizes of the versions before us and how many links they serialized. Each link has a slot in
+ * both ID arrays, so the size tells them apart. */
+static const struct {
+        uint32_t bss_size;
+        size_t n_links;
+} restrict_fsaccess_previous_versions[] = {
+        { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC }, /* v261, v262 */
+        { 92, RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR },           /* up to bprm_creds_for_exec */
+};
+
 /* Validate that deserialized FDs actually reference our LSM BPF links. A
  * corrupted serialization file could leave FDs pointing at arbitrary kernel
  * objects; a stale FD could point at a BPF link of an entirely different type
@@ -565,10 +577,18 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m, size_t n_link
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "bpf-restrict-fsaccess: Deserialized FD for .bss map is not a valid BPF map, aborting.");
 
-        /* v261 and v262 serialized the links up to the bprm_creds_for_exec one, we serialize all of them. */
+        expected = _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX;
         m->restrict_fsaccess_foreign_bss = bss_info.value_size != RESTRICT_FSACCESS_BSS_SIZE;
-        expected = m->restrict_fsaccess_foreign_bss ? RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC
-                                                    : _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX;
+        if (m->restrict_fsaccess_foreign_bss) {
+                expected = 0;
+                FOREACH_ELEMENT(v, restrict_fsaccess_previous_versions)
+                        if (v->bss_size == bss_info.value_size)
+                                expected = v->n_links;
+                if (expected == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "bpf-restrict-fsaccess: Deserialized .bss map of %" PRIu32 " bytes matches no known version, refusing to continue.",
+                                               bss_info.value_size);
+        }
         if (n_links != expected)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
                                        "bpf-restrict-fsaccess: %zu link FDs deserialized, but the programs' version has %zu, refusing to continue with partial enforcement.",
