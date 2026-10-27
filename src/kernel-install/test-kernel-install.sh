@@ -203,6 +203,9 @@ fi
 # Test bootctl
 if [ -x "$bootctl" ]; then
     echo "Testing bootctl"
+    printf 'Linux version 6.1.0-test (builder@host) #1 SMP\n' >"$D/sources/plain-kernel"
+    "$bootctl" kernel-inspect "$D/sources/plain-kernel" | grep -E 'Version: +6\.1\.0-test$' >/dev/null
+
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
     export SYSTEMD_ESP_PATH=/boot
