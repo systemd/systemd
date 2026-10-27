@@ -837,6 +837,12 @@ CHANGES WITH 263 in spe:
           image. The new --key= switch can include X.509 certificates for
           systemd-keyring-setup in the addon.
 
+        * systemd-firstboot.service now works on systems without a usable
+          console. Previously it failed to start there, so settings passed in
+          via credentials were not applied. If systemd.firstboot= is not set,
+          it now behaves as with systemd.firstboot=headless on such systems. An
+          explicit systemd.firstboot=yes still requires a console.
+
         * "systemd-creds make-addon" wraps a plaintext system credential in
           a PE addon for systemd-stub. It is also available as the Varlink
           method io.systemd.Credentials.MakeAddon(). The addon is neither
