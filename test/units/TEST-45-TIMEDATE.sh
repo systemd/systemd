@@ -411,6 +411,27 @@ EOF
     [[ "$servers" == 'as 4 "10.0.0.1" "foo" "192.168.99.1" "bar"' ]]
     assert_timesyncd_signal "$ts" RuntimeNTPServers "10.0.0.1 foo 192.168.99.1 bar"
 
+    # Port numbers can be configured per server. IPv6 addresses with a port number must be
+    # enclosed in square brackets.
+    ts="$(date +"%F %T.%6N")"
+    busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 4 "10.0.0.1:1234" "foo" "[2001:db8::1]:1234" "bar:1123"
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager RuntimeNTPServers)"
+    [[ "$servers" == 'as 4 "10.0.0.1:1234" "foo" "[2001:db8::1]:1234" "bar:1123"' ]]
+    assert_timesyncd_signal "$ts" RuntimeNTPServers "10.0.0.1:1234 foo [2001:db8::1]:1234 bar:1123"
+
+    # Unsupported or malformed port numbers are refused, and the previous list is kept
+    (! busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 "10.0.0.1:0")
+    (! busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 "10.0.0.1:65536")
+    (! busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 "10.0.0.1:")
+    (! busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 1 "[2001:db8::1]")
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager RuntimeNTPServers)"
+    [[ "$servers" == 'as 4 "10.0.0.1:1234" "foo" "[2001:db8::1]:1234" "bar:1123"' ]]
+
     # Cleanup
     systemctl stop systemd-networkd systemd-timesyncd
     rm -f /run/systemd/network/ntp99.*
@@ -462,9 +483,10 @@ EOF
     # Should use resolved for resolving names
     journalctl -n0 -q --cursor-file="$cursor"
     busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
-        SetRuntimeNTPServers as 1 foo.localhost
+        SetRuntimeNTPServers as 1 foo.localhost:10123
     # Only the varlink path logs this, so it tells us which resolver ran
     assert_timesyncd_log "$cursor" "io.systemd.Resolve.ResolveHostname"
+    assert_timesyncd_log "$cursor" "Selected address .*:10123 of server foo.localhost:10123"
 
     # Without resolved, it should fall back to getaddrinfo
     systemctl stop systemd-resolved-varlink.socket systemd-resolved-monitor.socket
@@ -472,8 +494,53 @@ EOF
 
     journalctl -n0 -q --cursor-file="$cursor"
     busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
-        SetRuntimeNTPServers as 1 foo.localhost
+        SetRuntimeNTPServers as 1 foo.localhost:10123
     assert_timesyncd_log "$cursor" "Failed to connect to systemd-resolved, using getaddrinfo"
+    assert_timesyncd_log "$cursor" "Selected address .*:10123 of server foo.localhost:10123"
+}
+
+teardown_timesyncd_port() {
+    set +e
+
+    systemctl stop ntp-port-test.service systemd-timesyncd
+    rm -rf /run/timesyncd-port-test /run/systemd/timesyncd.conf.d/port.conf
+
+    set -e
+}
+
+testcase_timesyncd_port() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    mkdir -p /run/timesyncd-port-test
+    rm -f /run/timesyncd-port-test/packet
+
+    : 'Start a fake NTP server on a non-standard port'
+    systemd-run --unit=ntp-port-test.service --property=Type=notify \
+        systemd-socket-activate --datagram --listen=127.0.0.1:10123 -- \
+        sh -c 'cat <&3 > /run/timesyncd-port-test/packet'
+    trap teardown_timesyncd_port RETURN
+
+    : 'Configure timesyncd to use it'
+    mkdir -p /run/systemd/timesyncd.conf.d
+    cat >/run/systemd/timesyncd.conf.d/port.conf <<EOF
+[Time]
+NTP=127.0.0.1:10123
+EOF
+    systemctl unmask systemd-timesyncd
+    systemctl restart systemd-timesyncd
+
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager SystemNTPServers)"
+    [[ "$servers" == 'as 1 "127.0.0.1:10123"' ]]
+
+    : 'Verify that the NTP request is actually sent to the configured port'
+    for _ in {0..49}; do
+        [[ "$(stat -c %s /run/timesyncd-port-test/packet 2>/dev/null)" == 48 ]] && break
+        sleep .2
+    done
+    [[ "$(stat -c %s /run/timesyncd-port-test/packet)" == 48 ]]
 }
 
 teardown_timedated_alternate_paths() {
