@@ -12,7 +12,6 @@ ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR=/var/tmp
 TMPDIR=/var/tmp
-AUTOPKGTEST_DIR="${CACHE_DIR}/autopkgtest"
 # semaphore cannot expose these, but useful for interactive/local runs
 ARTIFACTS_DIR=/tmp/artifacts
 # shellcheck disable=SC2206
@@ -76,13 +75,11 @@ for phase in "${PHASES[@]}"; do
             # remove chrome repo, we don't need it
             sudo rm -rf /etc/apt/sources.list.d/google-chrome.sources
 
-            # enable backports for latest LXC
+            # enable backports for latest LXC and autopkgtest
             echo "deb http://archive.ubuntu.com/ubuntu $UBUNTU_RELEASE-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/backports.list
             sudo apt-get -q update
-            sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc
+            sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc autopkgtest
             sudo apt-get install -y python3-debian git dpkg-dev fakeroot python3-jinja2
-
-            [ -d "$AUTOPKGTEST_DIR" ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
 
             create_container
         ;;
@@ -119,7 +116,7 @@ EOF
             # now build the package and run the tests
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
-            sudo TMPDIR=/var/tmp "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS="noudeb nostrip nodoc optimize=-lto" \
+            sudo TMPDIR=/var/tmp autopkgtest --env DEB_BUILD_OPTIONS="noudeb nostrip nodoc optimize=-lto" \
                                                        --env DPKG_DEB_COMPRESSOR_TYPE="none" \
                                                        --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb nodoc" \
                                                        --env TEST_UPSTREAM=1 \
