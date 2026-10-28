@@ -299,6 +299,75 @@ test ! -e "$COMPDIR/root/bad"
 (! "$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --verify-decoded="$WRONG_HASH" "file://$COMPDIR/tree.tar.gz" bad)
 test ! -e "$COMPDIR/root/bad"
 
+# → systemd-pull verifies downloads against UAPI.16 manifests, which are tried before *.sha256/SHA256SUMS ← #
+
+SRV="$COMPDIR/srv"
+mkdir -p "$SRV" "$COMPDIR/other"
+cp "$COMPDIR/payload.raw" "$SRV/payload.raw"
+systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+# A wrong SHA256SUMS file next to it is not consulted, as the manifest takes precedence
+echo "$WRONG_HASH  payload.raw" >"$SRV/SHA256SUMS"
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# A manifest describing different contents is refused
+echo "something else" >"$COMPDIR/other/payload.raw"
+systemd-manifest make "$COMPDIR/other" >"$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# Without a manifest SHA256SUMS is used
+rm "$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+(cd "$SRV" && sha256sum payload.raw >SHA256SUMS)
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# The inline signature of the manifest is verified against the certificates in the VOA hierarchy (role
+# "manifest", context "import"), no detached gpg signature is needed
+if command -v openssl >/dev/null; then
+    VOA_OS="$(. /etc/os-release; echo "${ID:-linux}")"
+    VOA_DIR="/run/voa/$VOA_OS/manifest/import/x509"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/good.key" -out "$COMPDIR/good.crt" -subj /CN=good -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/other.key" -out "$COMPDIR/other.crt" -subj /CN=other -days 2 2>/dev/null
+    rm "$SRV/SHA256SUMS"
+    systemd-manifest make --private-key="$COMPDIR/good.key" --certificate="$COMPDIR/good.crt" "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+
+    # No certificates installed
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # The wrong certificate
+    mkdir -p "$VOA_DIR"
+    cp "$COMPDIR/other.crt" "$VOA_DIR/test-25-certificate.pem"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # The right certificate
+    cp "$COMPDIR/good.crt" "$VOA_DIR/test-25-certificate.pem"
+    "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    # A manifest that is the main download is verified via its own inline signature
+    "$PULL" raw --verify=signature --direct "file://$SRV/Uapi16Manifest" "$COMPDIR/out.manifest"
+    rm "$COMPDIR/out.manifest"
+
+    # An unsigned manifest is refused if signatures are verified, but fine for checksum verification
+    systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+    "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    rm -r "/run/voa/$VOA_OS/manifest/import"
+fi
+
 rm -rf "$COMPDIR"
 
 touch /testok
