@@ -128,6 +128,53 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--addon=<replaceable>NAME</replaceable></option></term>
+        <listitem><para>Takes an addon name. Instead of applying the settings to the file system in the disk
+        image specified with <option>--image=</option>, write them as a
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        addon <filename>loader/addons/<replaceable>NAME</replaceable>.addon.efi</filename> into the boot
+        partition of the image, replacing an addon of the same name. That is the partition the stub loads
+        addons from, i.e. the XBOOTLDR partition if the image has one, and the EFI System Partition
+        otherwise. This allows customizing an image
+        whose root file system is signed and hence cannot be modified. The settings are converted into the
+        system credentials of the same meaning (see the Credentials section below, plus
+        <varname>system.machine_id</varname> for the machine ID), packed into a cpio archive and carried in
+        the <literal>.initrd</literal> section of the addon, from where the stub passes them on to the
+        system. A kernel command line specified with <option>--kernel-command-line=</option> is carried in
+        the <literal>.cmdline</literal> section. The image is not mounted for this, its partition table is
+        read and the file is placed in the boot partition with
+        <citerefentry project='mankier'><refentrytitle>mtools</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        For this mode of operation the image must be a regular file, block devices are not supported. The
+        addon is built from the stub for the architecture of the host, for images of a different
+        architecture point <varname>$SYSTEMD_ADDON_STUB</varname> to the matching stub.
+        The addon is not signed; whether the stub loads it is subject to the Secure Boot policy of the
+        system, see <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Cannot be combined with the <option>--prompt*</option>, <option>--copy*</option>,
+        <option>--reset</option>, <option>--force</option> and <option>--delete-root-password</option>
+        switches, as those operate on the file system tree of the image. The addon is built from
+        <filename>/usr/lib/systemd/boot/efi/addon<replaceable>ARCH</replaceable>.efi.stub</filename>, the
+        <varname>$SYSTEMD_ADDON_STUB</varname> environment variable may be set to use a different stub.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key=<replaceable>KEYRING</replaceable>:<optional><replaceable>NAME</replaceable>=</optional><replaceable>PATH</replaceable></option></term>
+        <listitem><para>Provisions a PEM-encoded X.509 certificate for one of the kernel keyrings
+        <citerefentry><refentrytitle>systemd-keyring-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        manages, for example to verify extension images with, as part of the addon written with
+        <option>--addon=</option>. <replaceable>KEYRING</replaceable> is one of <literal>dm-verity</literal>,
+        <literal>fs-verity</literal> and <literal>bpf</literal>. The file is included as credential
+        <varname>keyring-setup.<replaceable>KEYRING</replaceable>.<replaceable>NAME</replaceable></varname>,
+        with <replaceable>NAME</replaceable> defaulting to the file name without its suffix. It must consist
+        of lowercase letters, digits, <literal>.</literal>, <literal>_</literal> and <literal>-</literal>. A
+        <literal>=</literal> is only taken as the separator if it precedes any <literal>/</literal> in the
+        argument. May be used multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--locale=<replaceable>LOCALE</replaceable></option></term>
         <term><option>--locale-messages=<replaceable>LOCALE</replaceable></option></term>
 
