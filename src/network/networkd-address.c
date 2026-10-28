@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "conf-parser.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
@@ -38,8 +39,46 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define ADDRESSES_PER_LINK_MAX 16384U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
+#define DEFAULT_MAX_ADDRESSES_PER_LINK           16384U
+#define DEFAULT_MAX_STATIC_ADDRESSES_PER_NETWORK  8192U
+
+static uint64_t max_addresses_per_link(void) {
+        static uint64_t cached = 0;
+        uint64_t value;
+        int r;
+
+        if (cached > 0)
+                return cached;
+
+        r = secure_getenv_uint64("SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK", &value);
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Failed to parse environment variable $SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK, ignoring: %m");
+        if (r < 0 || value == 0)
+                cached = DEFAULT_MAX_ADDRESSES_PER_LINK;
+        else
+                cached = value;
+
+        return cached;
+}
+
+static uint64_t max_static_addresses_per_network(void) {
+        static uint64_t cached = 0;
+        uint64_t value;
+        int r;
+
+        if (cached > 0)
+                return cached;
+
+        r = secure_getenv_uint64("SYSTEMD_NETWORK_MAX_STATIC_ADDRESSES_PER_NETWORK", &value);
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Failed to parse environment variable $SYSTEMD_NETWORK_MAX_STATIC_ADDRESSES_PER_NETWORK, ignoring: %m");
+        if (r < 0 || value == 0)
+                cached = MIN(DEFAULT_MAX_STATIC_ADDRESSES_PER_NETWORK, max_addresses_per_link());
+        else
+                cached = MIN(value, max_addresses_per_link());
+
+        return cached;
+}
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -214,7 +253,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return 0;
         }
 
-        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= max_static_addresses_per_network())
                 return -E2BIG;
 
         r = address_new(&address);
@@ -1703,7 +1742,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 return 0;
 
         /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+        if (set_size(link->addresses) >= max_addresses_per_link())
                 return 0;
 
         r = address_requeue_request(req, link, address);
