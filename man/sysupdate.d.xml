@@ -756,6 +756,136 @@
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchXAttr=</varname></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. If enabled, source instances may be
+        restricted to specific systems via extended attributes in the <literal>user</literal> namespace. Each
+        of the following extended attributes is checked against a property of the system that is being
+        updated (i.e. the system specified with <option>--root=</option>/<option>--image=</option>, if
+        used):</para>
+
+        <table>
+          <title>Extended attributes checked</title>
+          <tgroup cols='2'>
+            <colspec colname='xattr' />
+            <colspec colname='property' />
+            <thead>
+              <row>
+                <entry>Extended attribute</entry>
+                <entry>Matched against</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><literal>user.uapi.match_hostname</literal></entry>
+                <entry>The hostname, as configured in <filename>/etc/hostname</filename> if operating on a
+                root directory or image, the current hostname otherwise.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_machine_id</literal></entry>
+                <entry>The machine ID, see
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                formatted as 32 lowercase hexadecimal characters.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_machine_tags</literal></entry>
+                <entry>The machine tags, see <varname>TAGS=</varname> in
+                <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_image_id</literal></entry>
+                <entry><varname>IMAGE_ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_image_version</literal></entry>
+                <entry><varname>IMAGE_VERSION=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_os_id</literal></entry>
+                <entry><varname>ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+              <row>
+                <entry><literal>user.uapi.match_os_version_id</literal></entry>
+                <entry><varname>VERSION_ID=</varname> from
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Each extended attribute contains a list of entries, separated by NUL bytes. A value without
+        any NUL byte is a list with a single entry. For all extended attributes but the two version ones,
+        each entry is a shell-style glob pattern (see
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
+        and the instance matches if <emphasis>any</emphasis> of the entries matches the system property.
+        For <literal>user.uapi.match_machine_tags</literal> the instance matches if any entry matches any of
+        the machine's tags. For <literal>user.uapi.match_image_version</literal> and
+        <literal>user.uapi.match_os_version_id</literal> each entry is a version comparison expression, i.e.
+        a version prefixed with one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
+        <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>
+        (or a glob pattern, optionally prefixed with <literal>$=</literal> or <literal>!$=</literal>), the
+        same syntax <varname>ConditionVersion=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        accepts, and the instance matches if <emphasis>all</emphasis> of the expressions hold.</para>
+
+        <para>An instance that does not carry the extended attribute is not restricted by it. If the system
+        property is not set (for example, if <filename>/etc/os-release</filename> carries no
+        <varname>IMAGE_ID=</varname>), an instance that carries the extended attribute does not match. An
+        instance whose extended attribute cannot be parsed does not match either. If multiple of these
+        extended attributes are set, instances must match all of them. Instances that do not
+        match are ignored, as if they did not exist. The system properties are only read once an instance
+        actually carries one of these extended attributes.</para>
+
+        <para>The extended attributes are taken from the <literal>extendedAttributes</literal> field of the
+        file objects in UAPI.16 manifests (see <varname>ManifestFormat=</varname>), as well as from the files
+        and directories in the file system, for local sources. When an instance is installed from a source
+        with a UAPI.16 manifest, the <literal>user</literal> extended attributes listed in the manifest are
+        applied to the file or directory created (see <varname>ManifestFormat=</varname> above), hence the
+        restrictions are retained. Installed instances are checked only if <varname>MatchXAttr=</varname> is
+        enabled in the [Target] section too, see below.</para>
+
+        <para>This setting is intended to make specific versions unavailable to certain systems
+        altogether, for example to offer a build only to certain machines, or only to systems of a certain
+        image type. Instances that do not match are simply not candidates for the system: the newest version
+        with matching instances is picked instead. It is not intended as a mechanism to make systems pass
+        through specific intermediary versions while updating, nor to offer different builds of the same
+        version to different systems.</para>
+
+        <para>Note that a version is only offered as update if all transfers have a matching instance of
+        it. If no instance of a version matches for one transfer, the whole version is considered incomplete
+        and is not offered at all. Hence, the extended attributes should typically be applied to the
+        instances of all transfers of a version alike. This also means that this setting cannot be used to
+        make a transfer optional. To make parts of an update optional, use <varname>Features=</varname>
+        instead, see above.</para>
+
+        <para>Example: the extended attribute of an instance suitable for any system running Fedora 41 or
+        newer (but older than 50) may be set with:</para>
+
+        <programlisting># setfattr -n user.uapi.match_os_version_id -v '0x3e3d3431003c353000' foo_7.raw</programlisting>
+
+        <para>(This sets the NUL separated list <literal>&gt;=41</literal>, <literal>&lt;50</literal>.)
+        Combined with <literal>user.uapi.match_os_id</literal> set to <literal>fedora</literal>, only Fedora
+        systems of a suitable version will consider the instance (as long as
+        <varname>MatchXAttr=</varname> is not turned off in the [Source] section of the transfer
+        file).</para>
+
+        <para>Example: in order to offer version 8 to machines tagged <literal>canary</literal> before
+        everybody else, set the extended attribute on its instance with:</para>
+
+        <programlisting># setfattr -n user.uapi.match_machine_tags -v canary foo_8.raw</programlisting>
+
+        <para>Machines that carry the <literal>canary</literal> tag (see <varname>TAGS=</varname> in
+        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+        will update to version 8, while all others will skip it and stay at (or update to) version 7. Once
+        version 8 shall be offered to everybody, the extended attribute is simply removed again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -866,6 +996,20 @@
         <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchXAttr=</varname></term>
+
+        <listitem><para>Takes a boolean argument, defaults to off (unlike the setting of the same name in
+        the [Source] section, which defaults to on). Works like that (see above), but applies to installed
+        instances, whose extended attributes are read from the installed files and directories. Installed instances that do not match
+        are ignored, as if they did not exist: they are neither considered when determining the currently
+        installed version, nor removed to make room for new instances (see
+        <varname>InstancesMax=</varname>). Not supported for <constant>partition</constant> targets, as
+        partitions do not carry extended attributes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>

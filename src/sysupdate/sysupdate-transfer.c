@@ -125,6 +125,9 @@ Transfer* transfer_new(Context *ctx) {
                 .context = ctx,
         };
 
+        /* Available instances are matched against the system by default, installed ones are not */
+        t->source.match_xattr = true;
+
         return t;
 }
 
@@ -627,6 +630,11 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                   "Target type '%s' is incompatible with source type '%s', refusing.",
                                   resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
 
+        /* Partitions carry no extended attributes */
+        if (t->target.type == RESOURCE_PARTITION && resource_xattr_match_mask(&t->target) != 0)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchXAttr= in the [Target] section is not supported for partition targets, refusing.");
+
         if (!t->source.path && !t->source.path_auto)
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks Path=.");
@@ -737,11 +745,13 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
                 { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format  },
                 { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path    },
+                { "Source",      "MatchXAttr",              config_parse_bool,                         0,                    &t->source.match_xattr      },
                 { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
                 { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns         },
                 { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                  },
+                { "Target",      "MatchXAttr",              config_parse_bool,                         0,                    &t->target.match_xattr      },
                 { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                           },
                 { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
                 { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
@@ -946,16 +956,29 @@ static int dispatch_current_symlink(const char *name, sd_json_variant *variant, 
         return free_and_replace(*current_symlink, p);
 }
 
+static int dispatch_source_match(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        bool *b = ASSERT_PTR(userdata);
+
+        /* MatchXAttr= defaults to on in the [Source] section, hence map null to true */
+        if (sd_json_variant_is_null(variant)) {
+                *b = true;
+                return 0;
+        }
+
+        return sd_json_dispatch_stdbool(name, variant, flags, userdata);
+}
+
 static int dispatch_transfer_source(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         Transfer *t = ASSERT_PTR(userdata);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "type",           SD_JSON_VARIANT_STRING, dispatch_resource_type,    offsetof(Transfer, source.type),             SD_JSON_MANDATORY },
-                { "path",           SD_JSON_VARIANT_STRING, dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
-                { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), SD_JSON_NULLABLE },
-                { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
-                { "manifestFormat", SD_JSON_VARIANT_STRING, dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),  SD_JSON_NULLABLE },
-                { "manifestPath",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),    SD_JSON_NULLABLE },
+                { "type",           SD_JSON_VARIANT_STRING,  dispatch_resource_type,    offsetof(Transfer, source.type),             SD_JSON_MANDATORY },
+                { "path",           SD_JSON_VARIANT_STRING,  dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                { "pathRelativeTo", SD_JSON_VARIANT_STRING,  dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), SD_JSON_NULLABLE },
+                { "matchPattern",   SD_JSON_VARIANT_ARRAY,   dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                { "manifestFormat", SD_JSON_VARIANT_STRING,  dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),  SD_JSON_NULLABLE },
+                { "manifestPath",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),    SD_JSON_NULLABLE },
+                { "matchXAttr",     SD_JSON_VARIANT_BOOLEAN, dispatch_source_match,     offsetof(Transfer, source.match_xattr),      SD_JSON_NULLABLE },
                 {},
         };
 
@@ -985,6 +1008,7 @@ static int dispatch_transfer_target(const char *name, sd_json_variant *variant, 
                 { "instancesMax",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_instances_max,    offsetof(Transfer, instances_max),           0 },
                 { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),        SD_JSON_NULLABLE },
                 { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),         SD_JSON_NULLABLE },
+                { "matchXAttr",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr),      SD_JSON_NULLABLE },
                 {},
         };
 
@@ -1005,17 +1029,17 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
          * from, for logging purposes. */
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY|SD_JSON_STRICT },
-                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        SD_JSON_NULLABLE                 },
-                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        SD_JSON_NULLABLE                 },
-                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), SD_JSON_NULLABLE                 },
-                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             SD_JSON_NULLABLE                 },
-                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          SD_JSON_NULLABLE                 },
-                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          SD_JSON_NULLABLE                 },
-                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           SD_JSON_NULLABLE                 },
-                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), SD_JSON_NULLABLE                 },
-                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY                },
-                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY                },
+                { "id",                     SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                                     SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "minVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),                            SD_JSON_NULLABLE                 },
+                { "maxVersion",             SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),                            SD_JSON_NULLABLE                 },
+                { "protectVersion",         SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions),                     SD_JSON_NULLABLE                 },
+                { "verify",                 SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),                                 SD_JSON_NULLABLE                 },
+                { "changeLog",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),                              SD_JSON_NULLABLE                 },
+                { "appStream",              SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),                              SD_JSON_NULLABLE                 },
+                { "features",               SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),                               SD_JSON_NULLABLE                 },
+                { "requisiteFeatures",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features),                     SD_JSON_NULLABLE                 },
+                { "source",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                                          SD_JSON_MANDATORY                },
+                { "target",                 SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                                          SD_JSON_MANDATORY                },
                 {},
         };
 
@@ -1834,8 +1858,9 @@ static int instance_apply_user_xattrs(Instance *i, const char *path) {
         assert(path);
 
         /* Applies the user extended attributes listed in the manifest to the installed inode, so that they
-         * are retained on the target. Failing to do so is not fatal, the instance is fully usable without
-         * them. Returns > 0 if any attribute was applied. */
+         * are retained on the target. This in particular matters for the ones MatchXAttr= looks at. Failing
+         * to do so is not fatal, the instance is fully usable without them. Returns > 0 if any attribute
+         * was applied. */
 
         if (i->n_user_xattrs == 0)
                 return 0;
