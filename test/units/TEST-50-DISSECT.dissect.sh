@@ -230,6 +230,20 @@ SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
                                          --image-policy=root=verity+signed >/dev/null
 veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" >/dev/null
 veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+# If we can't reuse a shared verity device, we activate a device with a unique name on the same data device
+# instead.
+if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
+    loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+    udevadm wait --timeout=60 --settle "$loop"
+    veritysetup open "$loop" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             --verity-data="$MINIMAL_IMAGE.verity" \
+                                             --image-policy=root=verity+signed >/dev/null
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    losetup -d "$loop"
+fi
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
