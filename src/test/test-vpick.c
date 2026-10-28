@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -10,6 +11,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "vpick.h"
+#include "xattr-util.h"
 
 TEST(path_pick) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
@@ -402,6 +404,57 @@ TEST(pick_result_compare) {
         ASSERT_LT(pick_result_compare(&a, &b, PICK_TRIES), 0); /* b wins due to tries left */
         a.tries_left = b.tries_left = UINT_MAX;
         a.version = b.version = NULL;
+}
+
+TEST(path_pick_xattr_match) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
+        int r;
+
+        dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777));
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_1.raw", "1", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_2.raw", "2", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_3.raw", "3", WRITE_STRING_FILE_CREATE));
+
+        /* The newest one is restricted to a machine ID no system has, the second newest to any hostname */
+        r = xsetxattr_strv(sub_dfd, "foo_3.raw", /* at_flags= */ 0, "user.match_machine_id", STRV_MAKE("00000000000000000000000000000000"));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "User extended attributes not supported");
+        ASSERT_OK(r);
+        ASSERT_OK(xsetxattr_strv(sub_dfd, "foo_2.raw", /* at_flags= */ 0, "user.match_hostname", STRV_MAKE("*")));
+
+        _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "foo.v"));
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        PickFilter filter = {
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = ".raw",
+        };
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "2");
+        pick_result_done(&result);
+
+        /* Also when the version is fully specified */
+        filter.version = "3";
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* flags= */ 0, &result));
+        filter.version = NULL;
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES|PICK_IGNORE_XATTR_MATCH, &result));
+        ASSERT_STREQ(result.version, "3");
+        pick_result_done(&result);
+
+        /* An invalid extended attribute disqualifies an entry too */
+        ASSERT_OK(xsetxattr_strv(sub_dfd, "foo_2.raw", /* at_flags= */ 0, "user.match_hostname", STRV_MAKE("")));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "1");
+        pick_result_done(&result);
+
+        /* A path that doesn't make use of .v/ is taken literally */
+        _cleanup_free_ char *literal = ASSERT_NOT_NULL(path_join(p, "foo.v/foo_3.raw"));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, literal, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_TRUE(endswith(result.path, "/foo_3.raw"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
