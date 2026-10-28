@@ -62,5 +62,7 @@ Instance *instance_free(Instance *i) {
                 uapi16_contents_done(s);
         free(i->sources);
 
+        uapi16_xattr_array_free(i->user_xattrs, i->n_user_xattrs);
+
         return mfree(i);
 }
