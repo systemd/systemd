@@ -180,6 +180,12 @@ static int verb_cancel(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return log_error_errno(r, "Failed to remove FactoryResetRequest EFI variable: %m");
 
+        /* Also withdraw the request to the boot loader to erase its EFI variables, if there is one (see
+         * systemd-efivars-clear.service). */
+        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderFactoryResetVariables"), /* value= */ NULL, /* size= */ 0);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to remove LoaderFactoryResetVariables EFI variable: %m");
+
         if (!arg_quiet)
                 log_info("Factory reset cancelled.");
 
