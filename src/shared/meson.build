@@ -96,6 +96,7 @@ shared_sources = files(
         'gpt.c',
         'group-record.c',
         'hibernate-util.c',
+        'host-properties.c',
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
@@ -291,6 +292,7 @@ shared_sources = files(
         'wall.c',
         'watchdog.c',
         'wifi-util.c',
+        'xattr-match.c',
         'xml.c',
 )
 
