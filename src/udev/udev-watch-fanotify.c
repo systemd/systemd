@@ -4,6 +4,7 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <fcntl.h>
 #include <sys/fanotify.h>
 #include <unistd.h>
 
@@ -13,6 +14,7 @@
 #include "errno-util.h"
 #include "fanotify-util.h"
 #include "fd-util.h"
+#include "mountpoint-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "udev-manager.h"
@@ -215,6 +217,18 @@ int manager_init_fanotify(Manager *manager, int fd) {
                 if (memeqzero(&manager->dev_statfs.f_fsid, sizeof(manager->dev_statfs.f_fsid)))
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "The kernel does not support fanotify for device nodes, falling back to use inotify.");
+
+                /* FAN_REPORT_FID also requires the filesystem to provide exportable file handles. Check this
+                 * explicitly instead of waiting for every device watch to fail with EOPNOTSUPP or EXDEV. */
+                r = name_to_handle_at_loop(dev_fd, /* path= */ NULL, /* ret_handle= */ NULL,
+                                           /* ret_mnt_id= */ NULL, /* ret_unique_mnt_id= */ NULL, AT_EMPTY_PATH);
+                if (r < 0) {
+                        if (is_name_to_handle_at_fatal_error(r))
+                                return log_error_errno(r, "Failed to check file handle support for '/dev/': %m");
+
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "The filesystem mounted on '/dev/' does not support file handles, falling back to use inotify.");
+                }
 
                 manager->dev_fd = TAKE_FD(dev_fd);
         }
