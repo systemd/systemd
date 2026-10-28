@@ -309,6 +309,30 @@ if systemctl --version | grep -F -- "+TPM2" >/dev/null; then
     rm -rf /tmp/test-50-race
 fi
 
+# If the kernel validated the signature of a verity device that a process activated, the process only uses the
+# device if the device still has a validated signature. Before the process opens the device, another process can
+# replace it with a device on the same data device without a signature. The process then sets up a device with a
+# unique name on the data device that the replacement maps. That only works if VERITY_SHARED_DATA_DEVICE is 1.
+if [[ "$VERITY_SIG_SUPPORTED" -eq 1 && "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]] &&
+   systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /tmp/test-50-race/mnt
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend bash -euxc '
+        SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$1" /tmp/test-50-race/mnt
+        findmnt -n -o MAJ:MIN /tmp/test-50-race/mnt
+    ' bash "$MINIMAL_IMAGE.raw" >/tmp/test-50-race/majmin &
+    pid=$!
+    timeout 60 bash -c "until test -e /tmp/test-50-race/connected; do sleep .1; done"
+    data_device="$(veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" | awk '$1 == "data" && $2 == "device:" { print $3 }')"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    veritysetup open "$data_device" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    touch /tmp/test-50-race/go
+    wait "$pid"
+    test "$(</tmp/test-50-race/majmin)" != "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    rm -rf /tmp/test-50-race
+fi
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
