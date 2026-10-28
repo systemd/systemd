@@ -70,7 +70,21 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The format of the manifest file listing the available source files, see ManifestFormat= in the [Source] section of sysupdate.d(5). If unset, defaults to 'sha256sums'."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(manifestFormat, ManifestFormat, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The URL of the manifest file, see ManifestPath= in the [Source] section of sysupdate.d(5). If unset, the manifest is acquired from the source URL, under the file name appropriate for the manifest format. No specifier expansion is applied."),
-                SD_VARLINK_DEFINE_FIELD(manifestPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(manifestPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_hostname extended attribute of instances against the hostname, see MatchXAttrHostname= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrHostname, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_machine_id extended attribute of instances against the machine ID, see MatchXAttrMachineID= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrMachineID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_machine_tags extended attribute of instances against the machine tags, see MatchXAttrMachineTags= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrMachineTags, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_image_id extended attribute of instances against IMAGE_ID= of os-release, see MatchXAttrImageID= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrImageID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_image_version extended attribute of instances against IMAGE_VERSION= of os-release, see MatchXAttrImageVersion= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrImageVersion, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_os_id extended attribute of instances against ID= of os-release, see MatchXAttrOSID= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrOSID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_os_version_id extended attribute of instances against VERSION_ID= of os-release, see MatchXAttrOSVersionID= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrOSVersionID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TransferTarget,
@@ -107,7 +121,21 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Whether to remove temporary files from previous runs, see RemoveTemporary= in the [Target] section of sysupdate.d(5)."),
                 SD_VARLINK_DEFINE_FIELD(removeTemporary, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The path of a symlink to maintain pointing to the newest instance, see CurrentSymlink= in the [Target] section of sysupdate.d(5). No specifier expansion is applied."),
-                SD_VARLINK_DEFINE_FIELD(currentSymlink, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(currentSymlink, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_hostname extended attribute of instances against the hostname, see MatchXAttrHostname= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrHostname, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_machine_id extended attribute of instances against the machine ID, see MatchXAttrMachineID= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrMachineID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_machine_tags extended attribute of instances against the machine tags, see MatchXAttrMachineTags= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrMachineTags, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_image_id extended attribute of instances against IMAGE_ID= of os-release, see MatchXAttrImageID= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrImageID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_image_version extended attribute of instances against IMAGE_VERSION= of os-release, see MatchXAttrImageVersion= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrImageVersion, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_os_id extended attribute of instances against ID= of os-release, see MatchXAttrOSID= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrOSID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_os_version_id extended attribute of instances against VERSION_ID= of os-release, see MatchXAttrOSVersionID= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttrOSVersionID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Transfer,

@@ -4,6 +4,7 @@
 #include "gpt.h"
 #include "manifest-util.h"
 #include "sysupdate-forward.h"
+#include "xattr-match.h"
 
 typedef enum ResourceType {
         RESOURCE_URL_FILE,
@@ -81,6 +82,7 @@ typedef struct Resource {
         bool partition_type_set;
         ManifestFormat manifest_format;  /* MANIFEST_FORMAT_SHA256SUMS or MANIFEST_FORMAT_UAPI16 */
         char *manifest_path;
+        bool match_xattr[_XATTR_MATCH_MAX]; /* Which MatchXAttr*= settings are enabled */
 
         /* All instances of this resource we found */
         Instance **instances;
@@ -94,7 +96,9 @@ void resource_destroy(Resource *rr);
 
 bool resource_has_glob_directory_pattern(Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
+unsigned resource_xattr_match_mask(const Resource *rr);
+
+int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache, const XAttrMatchFilter *filter);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
