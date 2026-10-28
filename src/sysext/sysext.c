@@ -37,6 +37,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "host-properties.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -1970,6 +1971,7 @@ static int merge_subprocess(
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
+        _cleanup_(host_properties_done) HostProperties host = HOST_PROPERTIES_NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -2176,6 +2178,21 @@ static int merge_subprocess(
                                         is_initrd ? "initrd" : "system",
                                         image_extension_release(img, c->image_class),
                                         c->image_class);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
+
+                        /* Check MATCH_HOSTNAME= and friends, and the "user.uapi.match_…" xattrs of the
+                         * image */
+                        r = extension_match_host(
+                                        img->name,
+                                        img->path,
+                                        image_extension_release(img, c->image_class),
+                                        &host,
+                                        empty_to_null(c->root));
                         if (r < 0)
                                 return r;
                         if (r == 0) {

@@ -7,6 +7,7 @@
 #include "bitfield.h"
 #include "chase.h"
 #include "fd-util.h"
+#include "host-properties.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -14,6 +15,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "vpick.h"
+#include "xattr-match.h"
 
 void pick_result_done(PickResult *p) {
         assert(p);
@@ -184,6 +186,7 @@ static int pin_choice(
                 unsigned tries_left,
                 unsigned tries_done,
                 const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter, /* NULL to ignore "user.uapi.match_…" xattrs */
                 PickFlags flags,
                 PickResult *ret) {
 
@@ -222,6 +225,24 @@ static int pin_choice(
                           inode_type_to_string(st.st_mode));
                 *ret = PICK_RESULT_NULL;
                 return 0;
+        }
+
+        if (xattr_filter) {
+                _cleanup_(xattr_match_lists_done) XAttrMatchLists lists = {};
+                r = xattr_match_lists_read(inode_fd, "", xattr_filter->mask, &lists);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read 'user.uapi.match_*' extended attributes of '%s/%s': %m",
+                                               empty_to_root(root_path), skip_leading_slash(inode_path));
+
+                r = xattr_match_filter_test_lists(xattr_filter, lists, inode_path);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Inode '%s/%s' is not suitable for this system, ignoring.",
+                                  empty_to_root(root_path), skip_leading_slash(inode_path));
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
         }
 
         _cleanup_(pick_result_done) PickResult result = {
@@ -319,6 +340,7 @@ static int make_choice(
                 const char *inode_path,
                 int _inode_fd, /* we always take ownership of the fd, even on failure */
                 const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
                 PickFlags flags,
                 PickResult *ret) {
 
@@ -367,6 +389,7 @@ static int make_choice(
                                 /* tries_left= */ UINT_MAX,
                                 /* tries_done= */ UINT_MAX,
                                 filter,
+                                xattr_filter,
                                 flags & ~PICK_RESOLVE,
                                 ret);
 
@@ -476,6 +499,7 @@ static int make_choice(
                                        .architecture = a,
                                        .suffix = filter->suffix,
                                },
+                               xattr_filter,
                                flags,
                                &found);
                 if (r == 0)
@@ -512,6 +536,7 @@ static int path_pick_one(
                 int dir_fd,
                 const char *path,
                 const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
                 PickFlags flags,
                 PickResult *ret) {
 
@@ -551,6 +576,7 @@ static int path_pick_one(
                                 path,
                                 /* inode_fd= */ -EBADF,
                                 filter,
+                                xattr_filter,
                                 flags,
                                 ret);
 
@@ -644,11 +670,13 @@ static int path_pick_one(
                                 .architecture = filter->architecture,
                                 .suffix = filter_suffix,
                         },
+                        xattr_filter,
                         flags,
                         ret);
 
 bypass:
-        /* Don't make any choice, but just use the passed path literally */
+        /* Don't make any choice, but just use the passed path literally. Since the path was explicitly
+         * specified we also don't check the "user.uapi.match_…" xattrs here. */
         return pin_choice(
                         root_path,
                         root_fd,
@@ -658,6 +686,7 @@ bypass:
                         /* tries_left= */ UINT_MAX,
                         /* tries_done= */ UINT_MAX,
                         filter,
+                        /* xattr_filter= */ NULL,
                         flags,
                         ret);
 }
@@ -680,11 +709,29 @@ int path_pick(const char *root_path,
         assert(filters || n_filters == 0);
         assert(ret);
 
+        /* Entries in .v/ directories may be restricted to specific systems via "user.uapi.match_…" xattrs
+         * (as set by systemd-sysupdate, see MatchXAttr*= in sysupdate.d(5)). The properties of the system
+         * are only loaded once an entry actually carries one of them. */
+        _cleanup_(host_properties_done) HostProperties host = HOST_PROPERTIES_NULL;
+        const XAttrMatchFilter xattr_filter = {
+                .mask = XATTR_MATCH_MASK_ALL,
+                .host = &host,
+                .root = empty_to_null(root_path),
+        };
+
         /* Iterate through all filters and pick the best result */
         for (size_t i = 0; i < n_filters; i++) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
-                r = path_pick_one(root_path, root_fd, dir_fd, path, &filters[i], flags, &result);
+                r = path_pick_one(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                path,
+                                &filters[i],
+                                FLAGS_SET(flags, PICK_IGNORE_XATTR_MATCH) ? NULL : &xattr_filter,
+                                flags,
+                                &result);
                 if (r < 0)
                         return r;
                 if (r == 0)

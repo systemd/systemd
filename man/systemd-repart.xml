@@ -371,7 +371,8 @@
 
         <listitem><para>Takes a file system path or an engine or provider specific designation. Configures
         the signing key to use when creating verity signature partitions with the
-        <varname>Verity=signature</varname> setting in partition files.</para>
+        <varname>Verity=signature</varname> setting in partition files. It is not used for signing
+        manifests, see <option>--manifest-private-key=</option> below for that.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -393,7 +394,8 @@
 
         <listitem><para>Takes a file system path or a provider specific designation. Configures the PEM
         encoded X.509 certificate to use when creating verity signature partitions with the
-        <varname>Verity=signature</varname> setting in partition files.</para>
+        <varname>Verity=signature</varname> setting in partition files. It is not used for signing
+        manifests, see <option>--manifest-certificate=</option> below for that.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -801,6 +803,148 @@
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
+
+    <refsect2>
+      <title>Extended Attribute Options</title>
+
+      <para>The following options control the extended attributes applied to the generated image:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--match-xattr-hostname=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--match-xattr-machine-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--match-xattr-machine-tags=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--match-xattr-image-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--match-xattr-image-version=<replaceable>EXPRESSION</replaceable></option></term>
+          <term><option>--match-xattr-os-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--match-xattr-os-version-id=<replaceable>EXPRESSION</replaceable></option></term>
+
+          <listitem><para>Restrict the generated images to specific systems, by setting the
+          <literal>user.uapi.match_hostname</literal>, <literal>user.uapi.match_machine_id</literal>,
+          <literal>user.uapi.match_machine_tags</literal>, <literal>user.uapi.match_image_id</literal>,
+          <literal>user.uapi.match_image_version</literal>, <literal>user.uapi.match_os_id</literal> and
+          <literal>user.uapi.match_os_version_id</literal> extended attributes, respectively. Each option
+          takes a single entry (a shell-style glob pattern, or a version comparison expression for the two
+          version options) and may be specified multiple times to add further entries to the list. If the
+          empty string is specified the list is reset. See <varname>MatchXAttrHostname=</varname> and
+          related settings in
+          <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the semantics of these extended attributes.</para>
+
+          <para>The extended attributes are applied to the image file itself (if it is a regular file, rather
+          than a block device), and to the split artifacts generated with <option>--split=</option>. If a
+          partition table manifest is generated with <option>--manifest-gpt=</option>, they are moreover
+          included in the <literal>extendedAttributes</literal> field of its image object and of all its
+          partition objects, and hence covered by its signature, if it is signed. This allows restricting
+          images to specific systems at build time, so that
+          <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          (with <varname>MatchXAttrHostname=</varname> and related settings enabled),
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          resolution skip them on other systems. Requires an image file to be specified.</para>
+
+          <para>When generating system or configuration extension images, it is strongly recommended to
+          combine these options with the matching <varname>MATCH_HOSTNAME=</varname>,
+          <varname>MATCH_MACHINE_ID=</varname>, <varname>MATCH_MACHINE_TAGS=</varname>,
+          <varname>MATCH_IMAGE_ID=</varname>, <varname>MATCH_IMAGE_VERSION=</varname>,
+          <varname>MATCH_OS_ID=</varname> and <varname>MATCH_OS_VERSION_ID=</varname> fields in the
+          <filename>extension-release</filename> file included in the image (see
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The
+          latter are covered by the image's Verity protection, while the extended attributes are not: they are
+          not part of the image contents, and can be altered by anyone with write access to the image file
+          (unless they are verified against a signed manifest). The extended attribute based matching should
+          hence primarily be considered an optimization, which makes it unnecessary to unlock and inspect an
+          image only to realize that it does not apply to the local system anyway.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Manifest Generation Options</title>
+
+      <para>The following options control generation of <ulink
+      url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File Manifest</ulink> files
+      describing the generated image:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--manifest=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Enables generation of <ulink
+          url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File Manifest</ulink> files
+          for partitions configured with <varname>ManifestName=</varname>. If enabled, for each partition that
+          is populated with a file system tree (see <varname>CopyFiles=</varname> and related settings in
+          <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>) a
+          manifest of that tree is written, as
+          <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          would generate it, which may later be used to verify the contents of the partition. The output file
+          name consists of the image file name suffixed with the name configured with
+          <varname>ManifestName=</varname> and a <literal>.Uapi16Manifest</literal> extension, replacing a
+          <literal>.raw</literal> extension of the image file name if there is one. Partitions that are not
+          populated in this invocation (for example because they already exist) get no manifest.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--manifest-gpt=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Enables generation of a UAPI.16 manifest describing the partition table of the image.
+          If enabled, a manifest with one object per partition is written, carrying the partition's GPT type,
+          UUID, label and flags, its size and the SHA256 digest of its contents, and referencing the
+          partition's data by its offset in the image file in the object's <literal>contents</literal> array.
+          Partitions are named like their split artifacts. In addition, an object for the image as a whole is
+          included, named like the image file, carrying the size and SHA256 digest of the complete disk
+          (including the partition table). The output file name is the image file name with a
+          <literal>.Uapi16Manifest</literal> extension, replacing a <literal>.raw</literal> extension if there is
+          one. Such a manifest is suitable for consumption by
+          <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          see <varname>ManifestFormat=</varname> in
+          <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--manifest-fields=<replaceable>FIELDS</replaceable></option></term>
+
+          <listitem><para>Selects the per-file fields to include in the manifests of populated partitions
+          generated with <option>--manifest=</option>. Takes a comma separated list of field names, the special
+          values <option>all</option>, <option>default</option> and <option>none</option>, and items prefixed
+          with <literal>+</literal> or <literal>-</literal> to add or remove fields from the current set, in
+          the same way as the <option>--field=</option> switch of
+          <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+          see there for details. Defaults to the same set as <command>systemd-manifest</command>. Has no effect
+          on the partition table manifest generated with <option>--manifest-gpt=</option>, whose fields are
+          fixed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--manifest-private-key=</option></term>
+          <term><option>--manifest-private-key-source=</option></term>
+          <term><option>--manifest-certificate=</option></term>
+          <term><option>--manifest-certificate-source=</option></term>
+
+          <listitem><para>Configure the private key and X.509 certificate to sign the manifests generated with
+          <option>--manifest=</option> and <option>--manifest-gpt=</option> with. If
+          <option>--manifest-private-key=</option> is specified the manifests are signed with a PKCS#7 signature
+          object as described in the specification, in the same way as
+          <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          signs them, otherwise they are not signed. If one of <option>--manifest-private-key=</option> and
+          <option>--manifest-certificate=</option> is specified the other must be specified too. The options
+          take the same arguments as <option>--private-key=</option>,
+          <option>--private-key-source=</option>, <option>--certificate=</option> and
+          <option>--certificate-source=</option>, but are independent of them: the latter are used for verity
+          signature partitions only, the former for manifests only.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
