@@ -492,6 +492,11 @@ testcase_tags() {
             AddAndRemoveTags asas 1 three 1 one
     assert_eq "$(hostnamectl tags)" "three:two"
 
+    # Check removal by glob
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            AddAndRemoveTags asas 2 three one 1 'tw*'
+    assert_eq "$(hostnamectl tags)" "one:three"
+
     # The SetTags() Varlink method: 'set' resets the list, then 'add'/'remove' are applied on top.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
             '{"set":["x","y"],"add":["z"],"remove":["x"]}'
@@ -511,6 +516,17 @@ testcase_tags() {
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["bbb"]}'
     # Invalid tags are refused.
     (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
+    assert_eq "$(hostnamectl tags)" "bbb"
+
+    # Remove by glob
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["bbb=33"],"remove":["bb*"]}'
+    assert_eq "$(hostnamectl tags)" "bbb=33"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["aaa=33"],"remove":["bbb","bbb=34"]}'
+    assert_eq "$(hostnamectl tags)" "aaa=33:bbb=33"
+
+    # Removals precede additions
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["aaa=34","bbb=34"],"remove":["aaa=*","bbb=*"]}'
+    assert_eq "$(hostnamectl tags)" "aaa=34:bbb=34"
 
     # Describe() exposes the parsed tag list as MachineTags, on both transports.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["foo","bar"]}'
