@@ -217,6 +217,8 @@ TEST(machine_tags_apply_config) {
         ASSERT_OK(mkdtemp_malloc("/tmp/test-machine-tags-XXXXXX", &root));
 
         /* No configuration at all: the base list is returned, sorted. An empty result is NULL. */
+        ASSERT_OK_ZERO(machine_tags_config_files(root, NULL, NULL));
+
         check(root, STRV_MAKE("foo", "bar"), STRV_MAKE("bar", "foo"));
         ASSERT_OK(machine_tags_apply_config(root, NULL, &l));
         ASSERT_NULL(l);
@@ -236,6 +238,9 @@ TEST(machine_tags_apply_config) {
         write_tags_file(root, "etc/machine-tags.d/70-local.tags",
                         "-vendor.env=* -vendor.region=*\n"
                         "local.rack=7\n");
+
+        ASSERT_OK_POSITIVE(machine_tags_config_files(root, NULL, NULL));
+
         check(root, STRV_MAKE("manual", "vendor.env=old"),
               STRV_MAKE("local.rack=7", "manual", "plus", "runtime", "vendor.after-comment", "vendor.extra",
                         "vendor.role=webserver"));
