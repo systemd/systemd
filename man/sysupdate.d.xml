@@ -867,7 +867,8 @@
         enabled in the [Target] section too, see below. Note that the extended attributes applied to
         installed files and directories are also honoured when a <literal>.v/</literal> directory they are
         placed in is resolved, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>, and
+        by <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         regardless of this setting.</para>
 
         <para>This setting is intended to make specific versions unavailable to certain systems
