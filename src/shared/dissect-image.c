@@ -3767,6 +3767,14 @@ static int verity_partition(
                                 goto try_again; /* Another process removed the device already. */
                         if (fd < 0)
                                 return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
+
+                        /* We request deferred removal of a device that we activated as soon as we opened it.
+                         * The kernel then removes the device after its last user closed it, even if we fail or
+                         * get killed before the image is relinquished. If another process replaced our device
+                         * before we opened it, we request deferred removal of that device instead. */
+                        r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
                 }
 
                 mount_node_fd = TAKE_FD(fd);
@@ -3811,6 +3819,10 @@ success:
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
+                /* We already requested deferred removal of a device that we activated. The process that
+                 * activated a device that we reuse requests its removal itself. So we never deactivate the
+                 * device ourselves. */
+                .relinquished = true,
         };
 
         free_and_replace(m->decrypted_node, node);

@@ -179,6 +179,29 @@ umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
 
+# A process that reuses a verity device leaves the device alone when it's done. Only the process that activated
+# the device requests its removal. veritysetup didn't request deferred removal of the device, so the device must
+# not have deferred removal set after systemd-dissect exits.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" >/dev/null
+dmsetup info "$MINIMAL_IMAGE_ROOTHASH-verity" >/tmp/test-50-info
+(! grep -F "DEFERRED REMOVE" /tmp/test-50-info)
+rm /tmp/test-50-info
+veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+
+# A process that activates a verity device requests deferred removal of the device as soon as it opened it, so
+# the device is removed even if the process gets killed. systemd-nspawn keeps the image until it exits and never
+# relinquishes it. Without the request after the open, the device only gets deferred removal set when
+# systemd-nspawn exits normally.
+wait_for_shared_verity_device_removal
+systemd-run --unit=test-50-nspawn.service \
+            systemd-nspawn --pipe --register=no --keep-unit --image="$MINIMAL_IMAGE.raw" --read-only sleep infinity
+timeout 60 bash -c "until dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity 2>/dev/null | grep -F 'DEFERRED REMOVE' >/dev/null; do sleep .1; done"
+systemctl kill --signal=SIGKILL test-50-nspawn.service
+wait_for_shared_verity_device_removal
+systemctl reset-failed test-50-nspawn.service
+
 # A signature that can't be validated only prevents activation if the image policy allows "signed" but not
 # "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
 # reports a mismatch instead of failing on the garbage signature. The test image usually contains
