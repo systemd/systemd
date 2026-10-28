@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dm-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -73,7 +74,9 @@ int dm_table_status(dev_t devnum, char **ret_target_type, char **ret_params) {
         return 0;
 }
 
-int dm_verity_table_signed(const char *params, const char *root_hash) {
+int dm_verity_table_signed(const char *params, const char *root_hash, dev_t *ret_data_devnum) {
+        dev_t data_devnum = 0;
+        bool is_signed = false;
         unsigned n_opts;
         int r;
 
@@ -92,6 +95,12 @@ int dm_verity_table_signed(const char *params, const char *root_hash) {
                 if (r == 0)
                         return -EBADMSG;
 
+                if (i == 1 && ret_data_devnum) {
+                        r = parse_devnum(word, &data_devnum);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (i == 8 && !strcaseeq(word, root_hash))
                         return -ESTALE;
         }
@@ -100,28 +109,32 @@ int dm_verity_table_signed(const char *params, const char *root_hash) {
         r = extract_first_word(&params, &word, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return false;
-
-        r = safe_atou(word, &n_opts);
-        if (r < 0)
-                return r;
-
-        for (unsigned i = 0; i < n_opts; i++) {
-                word = mfree(word);
-
-                r = extract_first_word(&params, &word, /* separators= */ NULL, /* flags= */ 0);
+        if (r > 0) {
+                r = safe_atou(word, &n_opts);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
-                /* The kernel only loads a table with this argument if it validated the signature. */
-                if (streq(word, "root_hash_sig_key_desc"))
-                        return true;
+                for (unsigned i = 0; i < n_opts; i++) {
+                        word = mfree(word);
+
+                        r = extract_first_word(&params, &word, /* separators= */ NULL, /* flags= */ 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EBADMSG;
+
+                        /* The kernel only loads a table with this argument if it validated the signature. */
+                        if (streq(word, "root_hash_sig_key_desc")) {
+                                is_signed = true;
+                                break;
+                        }
+                }
         }
 
-        return false;
+        if (ret_data_devnum)
+                *ret_data_devnum = data_devnum;
+
+        return is_signed;
 }
 
 static int dm_get_status(const char *name, struct dm_ioctl *ret) {
