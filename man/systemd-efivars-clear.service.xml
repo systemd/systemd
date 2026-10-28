@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-efivars-clear.service" conditional='ENABLE_BOOTLOADER'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-efivars-clear.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-efivars-clear.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-efivars-clear.service</refname>
+    <refpurpose>Request that the boot loader's EFI variables are erased on next boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-efivars-clear.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-efivars-clear</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-efivars-clear.service</filename> is a service that requests that
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> erases
+    all EFI variables owned by the boot loader and by systemd on the next boot. It does so by setting the
+    <varname>LoaderFactoryResetVariables</varname> EFI variable. Note that this service does not
+    immediately erase any variables, but simply asks the boot loader to do so at next boot, where the user
+    will be asked for confirmation before the operation is done. After erasing the variables the boot
+    loader reboots the system.</para>
+
+    <para>The EFI variables erased are all those in the Boot Loader Interface vendor UUID namespace
+    (<constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>) and in systemd's own vendor UUID namespace
+    (<constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>), with the exception of the
+    <varname>FactoryResetRequest</varname> variable, which is retained so that the factory reset of the OS
+    itself can take place on the subsequent boot.</para>
+
+    <para><filename>systemd-efivars-clear.service</filename> is typically hooked into the
+    <filename>factory-reset.target</filename> unit in order to issue the request before an immediate
+    reboot. A pending request is withdrawn again by <command>systemd-factory-reset cancel</command>, see
+    <citerefentry><refentrytitle>systemd-factory-reset</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more information.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--graceful</option></term>
+
+        <listitem><para>Exit cleanly and execute no operation if the system was not booted via UEFI, or the
+        boot loader does not support erasing EFI variables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-efivars-clear</filename> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.efivars_allow_clear=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false the service will succeed, but instead of requesting
+        the erase operation from the boot loader it will not execute any operation. If not specified defaults
+        to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tpm2-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-factory-reset-request.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
