@@ -3790,8 +3790,8 @@ static int verity_partition(
                 /* We open the device before we check it. The device can't be removed while we keep it open,
                  * so the check applies to the device that we use. */
                 fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &devname);
-                /* While another process sets up the device, the device can lack a device node. While another
-                 * process removes the device, the kernel refuses to open it. */
+                /* While another process sets up the device, the device can lack a device node or an active
+                 * table. While another process removes the device, the kernel refuses to open it. */
                 if (ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                         goto try_again;
                 if (fd < 0)
