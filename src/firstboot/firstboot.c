@@ -22,16 +22,20 @@
 #include "creds-util.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "efi-loader.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firstboot-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
+#include "initrd-cpio.h"
+#include "iovec-util.h"
 #include "kbd-util.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
@@ -39,6 +43,7 @@
 #include "locale-util.h"
 #include "lock-util.h"
 #include "loop-util.h"
+#include "machine-credential.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
@@ -46,6 +51,7 @@
 #include "parse-argument.h"
 #include "password-quality-util.h"
 #include "path-util.h"
+#include "pe-addon.h"
 #include "plymouth-util.h"
 #include "prompt-util.h"
 #include "runtime-scope.h"
@@ -59,6 +65,8 @@
 #include "user-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
+#include "vfat-util.h"
+#include "voa-util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -94,6 +102,8 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_chrome = true;
 static bool arg_mute_console = false;
 static LabelContext *arg_label_context = NULL;
+static char *arg_addon = NULL;
+static MachineCredentialContext arg_keys = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -108,6 +118,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_addon, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keys, machine_credential_context_done);
 
 COMMAND(
         "systemd-firstboot\0",
@@ -1410,6 +1422,255 @@ static int process_reset(int rfd) {
         return 0;
 }
 
+static int parse_key_argument(const char *s) {
+        int r;
+
+        assert(s);
+
+        /* Takes "KEYRING:[NAME=]PATH". The certificate in the file becomes the credential
+         * "keyring-setup.KEYRING.NAME", which systemd-keyring-setup enrolls into the kernel keyring at boot,
+         * with NAME defaulting to the file name without its suffix. */
+
+        const char *e = strchr(s, ':');
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing keyring in '%s', expected KEYRING:[NAME=]PATH.", s);
+
+        _cleanup_free_ char *keyring = strndup(s, e - s);
+        if (!keyring)
+                return log_oom();
+        if (!STR_IN_SET(keyring, "dm-verity", "fs-verity", "bpf"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown keyring '%s', expected dm-verity, fs-verity or bpf.", keyring);
+
+        /* A '=' only separates the name if it comes before any '/', so that a path containing '=' can be
+         * passed without a name */
+        _cleanup_free_ char *name = NULL, *path = NULL;
+        const char *k = e + 1, *eq = strchr(k, '='), *slash = strchr(k, '/');
+        if (eq && (!slash || eq < slash)) {
+                name = strndup(k, eq - k);
+                path = strdup(eq + 1);
+        } else {
+                _cleanup_free_ char *fn = NULL;
+                r = path_extract_filename(k, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", k);
+
+                char *dot = strrchr(fn, '.');
+                if (dot && dot != fn)
+                        *dot = 0;
+
+                name = TAKE_PTR(fn);
+                path = strdup(k);
+        }
+        if (!name || !path)
+                return log_oom();
+
+        if (isempty(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing key file path in '%s'.", s);
+        if (isempty(name) || name[0] == '.')
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing key name in '%s'.", s);
+        if (!voa_identifier_is_valid(name, /* allow_colon= */ false))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key name '%s', expected lowercase letters, digits, '.', '_' and '-'.", name);
+
+        _cleanup_free_ char *id = strjoin("keyring-setup.", keyring, ".", name);
+        if (!id)
+                return log_oom();
+        if (!credential_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key name '%s'.", name);
+
+        /* The file is read securely as it might not be a public key after all, and with the limit the
+         * credential has at boot, rather than silently cut off there */
+        _cleanup_(erase_and_freep) char *data = NULL;
+        size_t size;
+        r = read_full_file_full(
+                        AT_FDCWD, path,
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        &data, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", path);
+        if (size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Key file '%s' is empty.", path);
+
+        r = machine_credential_add(&arg_keys, id, data, size);
+        if (r == -EEXIST)
+                return log_error_errno(r, "Key '%s' specified more than once.", name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add key '%s': %m", name);
+
+        return 0;
+}
+
+static int addon_add_credential(MachineCredentialContext *creds, const char *id, const char *value) {
+        int r;
+
+        assert(creds);
+        assert(id);
+
+        if (!value)
+                return 0;
+
+        r = machine_credential_add(creds, id, value, SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add credential '%s': %m", id);
+
+        log_debug("Added credential '%s' to addon.", id);
+        return 1;
+}
+
+static int write_addon(void) {
+        _cleanup_(machine_credential_context_done) MachineCredentialContext creds = {};
+        int r;
+
+        assert(arg_addon);
+        assert(arg_image);
+
+        /* Instead of applying the settings to the image, turn them into the credentials systemd-firstboot
+         * (and PID 1, for the machine ID) consume at boot, pack them into a cpio that an initrd addon
+         * carries, and drop that addon into the ESP of the image, so that it customizes an otherwise
+         * immutable image. The kernel command line goes into the addon as such. */
+
+        r = addon_add_credential(&creds, "firstboot.locale", arg_locale);
+        if (r < 0)
+                return r;
+        r = addon_add_credential(&creds, "firstboot.locale-messages", arg_locale_messages);
+        if (r < 0)
+                return r;
+        r = addon_add_credential(&creds, "firstboot.keymap", arg_keymap);
+        if (r < 0)
+                return r;
+        r = addon_add_credential(&creds, "firstboot.timezone", arg_timezone);
+        if (r < 0)
+                return r;
+        r = addon_add_credential(&creds, "firstboot.hostname", arg_hostname);
+        if (r < 0)
+                return r;
+
+        if (arg_machine_tags) {
+                _cleanup_free_ char *tags = strv_join(arg_machine_tags, ":");
+                if (!tags)
+                        return log_oom();
+
+                r = addon_add_credential(&creds, "firstboot.machine-tags", tags);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_root_password) {
+                /* Never ship the plaintext password, hash it here if needed */
+                _cleanup_(erase_and_freep) char *hashed = NULL;
+                const char *p = arg_root_password;
+
+                if (!arg_root_password_is_hashed) {
+                        r = hash_password(arg_root_password, &hashed);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to hash password: %m");
+                        p = hashed;
+                }
+
+                r = addon_add_credential(&creds, "passwd.hashed-password.root", p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = addon_add_credential(&creds, "passwd.shell.root", arg_root_shell);
+        if (r < 0)
+                return r;
+
+        if (!sd_id128_is_null(arg_machine_id)) {
+                r = addon_add_credential(&creds, "system.machine_id", SD_ID128_TO_STRING(arg_machine_id));
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(k, arg_keys.credentials, arg_keys.n_credentials) {
+                r = machine_credential_add(&creds, k->id, k->data, k->size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add key '%s': %m", k->id);
+        }
+
+        if (creds.n_credentials == 0 && isempty(arg_kernel_cmdline))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No settings specified, refusing to write an empty addon.");
+
+        /* The credentials are subject to the same limit at boot, hence refuse what would be dropped there */
+        uint64_t total = 0;
+        FOREACH_ARRAY(k, creds.credentials, creds.n_credentials)
+                total += k->size;
+        if (total > CREDENTIALS_TOTAL_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Credentials are %s in total, which exceeds the limit of %s.",
+                                       FORMAT_BYTES(total), FORMAT_BYTES(CREDENTIALS_TOTAL_SIZE_MAX));
+
+        /* Serialize against other instances writing into the same image. An OFD lock, so that it cannot
+         * get into the way of mtools, should it take a BSD lock on the image itself. */
+        _cleanup_close_ int image_fd = open(arg_image, O_RDWR|O_CLOEXEC);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open image '%s': %m", arg_image);
+
+        r = lock_generic(image_fd, LOCK_UNPOSIX, LOCK_EX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock image '%s': %m", arg_image);
+
+        _cleanup_(iovec_done_erase) struct iovec cpio = {};
+        if (creds.n_credentials > 0) {
+                r = initrd_cpio_credentials_to_memory(&creds, &cpio);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Find the partition the stub will look for addons on, without mounting anything: dissect the
+         * partition table only. The stub loads addons from the partition the UKI was loaded from, which is
+         * the XBOOTLDR partition if the image has one, and the ESP otherwise. */
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        r = dissect_image_file_and_warn(
+                        arg_image,
+                        /* verity= */ NULL,
+                        /* mount_options= */ NULL,
+                        arg_image_policy,
+                        /* filter= */ NULL,
+                        DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_GPT_ONLY,
+                        &m);
+        if (r < 0)
+                return r;
+        PartitionDesignator boot = m->partitions[PARTITION_XBOOTLDR].found ? PARTITION_XBOOTLDR : PARTITION_ESP;
+        if (!m->partitions[boot].found)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Image '%s' has neither an XBOOTLDR partition nor an EFI System Partition.", arg_image);
+
+        /* mtools wants paths, hence build the addon in a temporary file */
+        _cleanup_(unlink_and_freep) char *addon_path = NULL;
+        r = tempfn_random_child(/* p= */ NULL, "addon", &addon_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary file name: %m");
+
+        _cleanup_close_ int addon_fd = open(addon_path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        if (addon_fd < 0)
+                return log_error_errno(errno, "Failed to create temporary file '%s': %m", addon_path);
+
+        const char *stub = secure_getenv("SYSTEMD_ADDON_STUB") ?: PE_ADDON_STUB_PATH;
+        r = pe_addon_make(stub, arg_kernel_cmdline, &cpio, addon_fd);
+        if (r < 0)
+                return r;
+
+        uint64_t offset = m->partitions[boot].offset;
+
+        r = vfat_mkdir(arg_image, offset, "loader/addons");
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *dest = strjoin("loader/addons/", arg_addon, ".addon.efi");
+        if (!dest)
+                return log_oom();
+
+        r = vfat_copy_file(arg_image, offset, addon_path, dest);
+        if (r < 0)
+                return r;
+
+        log_info("Wrote addon '%s' with %zu credential%s to the %s of '%s'.",
+                 dest, creds.n_credentials, creds.n_credentials == 1 ? "" : "s",
+                 boot == PARTITION_XBOOTLDR ? "XBOOTLDR partition" : "ESP", arg_image);
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -1440,6 +1701,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
                         r = parse_image_policy_argument(opts.arg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("addon", "NAME", "Write settings as PE addon into the boot partition of the image"):
+                        /* The name becomes a file name on a FAT file system, which mtools has its own
+                         * ideas about, hence be as strict as for boot loader entries */
+                        if (!efi_loader_entry_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid addon name: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_addon, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("key", "KEYRING:[NAME=]PATH", "Provision a certificate for a kernel keyring via the addon"):
+                        r = parse_key_argument(opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -1657,6 +1935,36 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--machine-id=/--setup-machine-id only works with --root= or --image=.");
 
+        if (arg_keys.n_credentials > 0 && !arg_addon)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--key= requires --addon=.");
+
+        if (arg_addon) {
+                if (!arg_image)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--addon= requires --image=.");
+
+                /* In addon mode we never look inside the image, hence everything that needs its file
+                 * system tree is unavailable: prompting (it validates against the installed locales and
+                 * keymaps), copying from the host (it would need the image's /etc to compare against), and
+                 * modifying files. */
+                if (arg_prompt_locale || arg_prompt_keymap || arg_prompt_keymap_auto || arg_prompt_timezone ||
+                    arg_prompt_hostname || arg_prompt_root_password || arg_prompt_root_shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--addon= cannot be combined with --prompt*.");
+                if (arg_copy_locale || arg_copy_keymap || arg_copy_timezone || arg_copy_root_password || arg_copy_root_shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--addon= cannot be combined with --copy*.");
+                if (arg_reset || arg_force || arg_delete_root_password)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--addon= cannot be combined with --reset, --force or --delete-root-password.");
+
+                /* Normally the locales are checked against what is installed in the target, which we can't
+                 * do here. The system consuming the credential doesn't validate them either, hence at least
+                 * check the syntax. */
+                if (arg_locale && !locale_is_valid(arg_locale))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not valid.", arg_locale);
+                if (arg_locale_messages && !locale_is_valid(arg_locale_messages))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not valid.", arg_locale_messages);
+                if (arg_root_shell && !valid_shell(arg_root_shell))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell.", arg_root_shell);
+        }
+
         return 1;
 }
 
@@ -1767,6 +2075,9 @@ static int run(int argc, char *argv[]) {
                         arg_headless = true;
                 }
         }
+
+        if (arg_addon)
+                return write_addon();
 
         r = mac_init();
         if (r < 0)
