@@ -25,9 +25,13 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "uapi16-manifest.h"
 #include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
+
+/* The VOA context (see voa-util.h) the certificates to verify UAPI.16 manifests with are looked up in */
+#define IMPORT_VOA_CONTEXT "import"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)
 
 int pull_find_old_etags(
@@ -236,13 +240,51 @@ int pull_make_auxiliary_job(
         return 0;
 }
 
+static bool is_uapi16_manifest_file(const char *fn) {
+        /* Returns true if the specified filename refers to a UAPI.16 manifest */
+
+        if (!fn)
+                return false;
+
+        return streq(fn, UAPI16_MANIFEST_FILENAME) || uapi16_manifest_filename_is_suffixed(fn);
+}
+
+int pull_signature_job_begin(PullJob *checksum_job, PullJob **signature_job) {
+        assert(checksum_job);
+        assert(signature_job);
+
+        if (!*signature_job)
+                return 0;
+
+        /* UAPI.16 manifests carry their signature inline, hence drop the signature job without ever starting
+         * it in that case */
+        if (pull_job_is_uapi16_manifest(checksum_job)) {
+                *signature_job = pull_job_unref(*signature_job);
+                return 0;
+        }
+
+        return pull_job_begin(*signature_job);
+}
+
+bool pull_job_is_uapi16_manifest(PullJob *j) {
+        _cleanup_free_ char *fn = NULL;
+
+        if (!j || !j->url)
+                return false;
+
+        if (import_url_last_component(j->url, &fn) < 0)
+                return false;
+
+        return is_uapi16_manifest_file(fn);
+}
+
 static bool is_checksum_file(const char *fn) {
         /* Returns true if the specified filename refers to a checksum file we grok */
 
         if (!fn)
                 return false;
 
-        return streq(fn, "SHA256SUMS") || endswith(fn, ".sha256");
+        return streq(fn, "SHA256SUMS") || endswith(fn, ".sha256") || is_uapi16_manifest_file(fn);
 }
 
 static SignatureStyle signature_style_from_filename(const char *fn) {
@@ -264,6 +306,20 @@ static SignatureStyle signature_style_from_filename(const char *fn) {
                 return SIGNATURE_ASC_PER_FILE;
 
         return _SIGNATURE_STYLE_INVALID;
+}
+
+static int have_uapi16_certificates(void) {
+        X509 **certificates = NULL;
+        size_t n_certificates = 0;
+        int r;
+
+        CLEANUP_ARRAY(certificates, n_certificates, uapi16_certificates_free);
+
+        r = uapi16_load_voa_certificates(XAT_FDROOT, IMPORT_VOA_CONTEXT, &certificates, &n_certificates);
+        if (r < 0)
+                return r;
+
+        return n_certificates > 0;
 }
 
 int pull_make_verification_jobs(
@@ -304,16 +360,34 @@ int pull_make_verification_jobs(
          * to acquire isn't a checksum or signature file anyway */
         if (verify != IMPORT_VERIFY_NO && !is_checksum_file(fn) && signature_style_from_filename(fn) < 0) {
                 _cleanup_free_ char *checksum_url = NULL;
-                const char *suffixed = NULL;
 
-                /* Queue jobs for the checksum file for the image. */
+                /* Queue jobs for the checksum file for the image. Start with a UAPI.16 manifest, then try
+                 * the suse-style checksum (if there's a base filename), then the ubuntu-style one, see
+                 * pull_job_restart_with_sha256sum(). If signature verification is requested, UAPI.16
+                 * manifests are only useful if certificates to verify them with are installed. If there
+                 * are none, skip them, and go directly for the SHA256SUMS flavours, which are verified with
+                 * gpg. */
 
-                if (fn)
-                        suffixed = strjoina(fn, ".sha256"); /* Start with the suse-style checksum (if there's a base filename) */
+                bool try_uapi16 = true;
+                if (verify == IMPORT_VERIFY_SIGNATURE) {
+                        r = have_uapi16_certificates();
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("No certificates for verifying UAPI.16 manifests installed, not trying to acquire one.");
+                                try_uapi16 = false;
+                        }
+                }
+
+                const char *checksum_fn;
+                if (try_uapi16)
+                        checksum_fn = UAPI16_MANIFEST_FILENAME;
+                else if (fn)
+                        checksum_fn = strjoina(fn, ".sha256");
                 else
-                        suffixed = "SHA256SUMS";
+                        checksum_fn = "SHA256SUMS";
 
-                r = import_url_change_last_component(url, suffixed, &checksum_url);
+                r = import_url_change_last_component(url, checksum_fn, &checksum_url);
                 if (r < 0)
                         return r;
 
@@ -321,12 +395,22 @@ int pull_make_verification_jobs(
                 if (r < 0)
                         return r;
 
+                if (fn) {
+                        checksum_job->main_filename = strdup(fn);
+                        if (!checksum_job->main_filename)
+                                return -ENOMEM;
+                }
+
                 checksum_job->on_finished = on_finished;
                 checksum_job->uncompressed_max = checksum_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
-                checksum_job->on_not_found = pull_job_restart_with_sha256sum; /* if this fails, look for ubuntu-style checksum */
+                checksum_job->on_not_found = pull_job_restart_with_sha256sum;
         }
 
-        if (verify == IMPORT_VERIFY_SIGNATURE && signature_style_from_filename(fn) < 0) {
+        /* Acquire the detached signature file if signature verification is requested. If there's a checksum
+         * job, this job is only started once that one finished, and only if the checksum file is not a
+         * UAPI.16 manifest, which carries its signature inline, see pull_signature_job_begin(). UAPI.16
+         * manifests that are the main download need no detached signature file either. */
+        if (verify == IMPORT_VERIFY_SIGNATURE && signature_style_from_filename(fn) < 0 && !is_uapi16_manifest_file(fn)) {
                 _cleanup_free_ char *signature_url = NULL;
                 const char *suffixed = NULL;
 
@@ -418,6 +502,158 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 
         log_info("SHA256 checksum of %s is valid.", job->url);
         return 1;
+}
+
+typedef struct Uapi16VerifyItem {
+        PullJob *job;
+        char *filename;
+        bool verified;
+} Uapi16VerifyItem;
+
+typedef struct Uapi16VerifyContext {
+        Uapi16VerifyItem *items;
+        size_t n_items;
+} Uapi16VerifyContext;
+
+static void uapi16_verify_context_done(Uapi16VerifyContext *c) {
+        assert(c);
+
+        FOREACH_ARRAY(i, c->items, c->n_items)
+                free(i->filename);
+
+        c->items = mfree(c->items);
+        c->n_items = 0;
+}
+
+static int uapi16_verify_object(Uapi16Object *o, size_t index, void *userdata) {
+        Uapi16VerifyContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(o);
+
+        /* The leading object describes the manifest itself: honour its validity properties */
+        if (index == 0) {
+                r = uapi16_object_check_validity(o);
+                if (r < 0)
+                        return log_error_errno(r, "DOWNLOAD INVALID: Manifest is marked invalid: %m");
+
+                return 0;
+        }
+
+        FOREACH_ARRAY(i, c->items, c->n_items) {
+                if (!streq_ptr(o->name, i->filename))
+                        continue;
+
+                r = uapi16_object_check_validity(o);
+                if (r < 0)
+                        return log_error_errno(r, "DOWNLOAD INVALID: %s is marked invalid in manifest: %m", i->filename);
+
+                if (!iovec_is_set(&o->sha256))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "DOWNLOAD INVALID: Manifest entry for %s carries no SHA256 digest.", i->filename);
+
+                if (iovec_memcmp(&o->sha256, &i->job->checksum) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.", i->filename);
+
+                i->verified = true;
+        }
+
+        return 0;
+}
+
+static int verify_uapi16(
+                ImportVerify verify,
+                PullJob *manifest_job,
+                PullJob *const *jobs,
+                size_t n_jobs) {
+
+        _cleanup_(uapi16_verify_context_done) Uapi16VerifyContext c = {};
+        int r;
+
+        assert(IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE));
+        assert(manifest_job);
+        assert(jobs || n_jobs == 0);
+
+        /* Verifies the specified jobs against the UAPI.16 manifest downloaded by manifest_job, and the
+         * manifest itself against its inline PKCS#7 signature, if signature verification is requested. */
+
+        c.items = new0(Uapi16VerifyItem, n_jobs);
+        if (!c.items)
+                return log_oom();
+
+        FOREACH_ARRAY(j, jobs, n_jobs) {
+                _cleanup_free_ char *fn = NULL;
+
+                if (!*j)
+                        continue;
+
+                assert(IN_SET((*j)->state, PULL_JOB_DONE, PULL_JOB_FAILED));
+
+                /* Don't verify the checksum if we didn't actually successfully download something new */
+                if ((*j)->state != PULL_JOB_DONE || (*j)->error != 0 || (*j)->etag_exists)
+                        continue;
+
+                assert((*j)->calc_checksum);
+                assert(iovec_is_set(&(*j)->checksum));
+
+                r = import_url_last_component((*j)->url, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from URL '%s': %m", (*j)->url);
+
+                if (!filename_is_valid(fn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Cannot verify checksum, could not determine server-side file name.");
+
+                if (is_checksum_file(fn) || signature_style_from_filename(fn) >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
+                                               "Cannot verify checksum/signature files via themselves.");
+
+                c.items[c.n_items++] = (Uapi16VerifyItem) {
+                        .job = *j,
+                        .filename = TAKE_PTR(fn),
+                };
+        }
+
+        X509 **certificates = NULL;
+        size_t n_certificates = 0;
+        CLEANUP_ARRAY(certificates, n_certificates, uapi16_certificates_free);
+
+        if (verify == IMPORT_VERIFY_SIGNATURE) {
+                r = uapi16_load_voa_certificates(XAT_FDROOT, IMPORT_VOA_CONTEXT, &certificates, &n_certificates);
+                if (r < 0)
+                        return r; /* already logged */
+                if (n_certificates == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                               "Signature verification of UAPI.16 manifest requested, but no certificates found in the VOA hierarchy (role '%s', context '%s'), refusing. (Try --verify=checksum?)",
+                                               UAPI16_VOA_ROLE, IMPORT_VOA_CONTEXT);
+        }
+
+        if (!iovec_is_set(&manifest_job->payload))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest is empty, cannot verify.");
+
+        _cleanup_fclose_ FILE *f = fmemopen_unlocked(manifest_job->payload.iov_base, manifest_job->payload.iov_len, "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open manifest as stream: %m");
+
+        /* Note that the signature is only verified at the very end, hence only trust the results once this
+         * returned successfully. */
+        r = uapi16_manifest_read(f, certificates, n_certificates, uapi16_verify_object, &c);
+        if (r < 0)
+                return r; /* already logged */
+
+        if (verify == IMPORT_VERIFY_SIGNATURE)
+                log_info("UAPI.16 manifest signature verification succeeded.");
+
+        FOREACH_ARRAY(i, c.items, c.n_items) {
+                if (!i->verified)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "DOWNLOAD INVALID: %s is not listed in UAPI.16 manifest, cannot verify.", i->filename);
+
+                log_info("SHA256 checksum of %s is valid.", i->job->url);
+        }
+
+        return 0;
 }
 
 static int verify_gpg(
@@ -648,6 +884,14 @@ int pull_verify(ImportVerify verify,
                 assert(checksum_job);
                 assert(checksum_job->state == PULL_JOB_DONE);
 
+                /* UAPI.16 manifests carry their signature inline, hence verify them in one go */
+                if (pull_job_is_uapi16_manifest(checksum_job))
+                        return verify_uapi16(
+                                        verify,
+                                        checksum_job,
+                                        (PullJob*[]) { main_job, settings_job, roothash_job, roothash_signature_job, verity_job },
+                                        5);
+
                 if (!iovec_is_set(&checksum_job->payload))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Checksum is empty, cannot verify.");
@@ -666,6 +910,11 @@ int pull_verify(ImportVerify verify,
                 return 0;
 
         assert(verify_job);
+
+        /* If the main download is a UAPI.16 manifest, verify its inline signature */
+        if (pull_job_is_uapi16_manifest(verify_job))
+                return verify_uapi16(verify, verify_job, /* jobs= */ NULL, /* n_jobs= */ 0);
+
         assert(signature_job);
         assert(signature_job->state == PULL_JOB_DONE);
 
@@ -689,6 +938,11 @@ int verification_style_from_url(const char *url, VerificationStyle *ret) {
         if (r < 0)
                 return r;
 
+        if (streq(last, UAPI16_MANIFEST_FILENAME)) {
+                *ret = VERIFICATION_UAPI16_MANIFEST;
+                return 0;
+        }
+
         if (streq(last, "SHA256SUMS")) {
                 *ret = VERIFICATION_PER_DIRECTORY;
                 return 0;
@@ -709,7 +963,9 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         assert(j);
         assert(ret);
 
-        /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting SHA256SUMS */
+        /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting the next
+         * checksum file: after the UAPI.16 manifest the *.sha256 file (if we know the file name of the
+         * download), and then SHA256SUMS. */
 
         r = verification_style_from_url(j->url, &style);
         if (r < 0)
@@ -718,6 +974,20 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         if (style == VERIFICATION_PER_DIRECTORY) { /* Nothing to do anymore */
                 *ret = NULL;
                 return 0;
+        }
+
+        if (style == VERIFICATION_UAPI16_MANIFEST) {
+                _cleanup_free_ char *next = j->main_filename ? strjoin(j->main_filename, ".sha256") : strdup("SHA256SUMS");
+                if (!next)
+                        return log_oom();
+
+                log_debug("Got 404 for '%s', now trying to get %s instead.", j->url, next);
+
+                r = import_url_change_last_component(j->url, next, ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace %s suffix: %m", UAPI16_MANIFEST_FILENAME);
+
+                return 1;
         }
 
         assert(style == VERIFICATION_PER_FILE); /* This must have been .sha256 style URL before */
