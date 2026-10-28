@@ -1736,13 +1736,8 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
 
-        r = machine_tag_list_is_valid(remove);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                _cleanup_free_ char *j = strv_join(remove, ":");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
-        }
+        if (strv_length(remove) > MACHINE_TAGS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many tags patterns to remove.");
 
         context_read_machine_info(c);
 
@@ -2547,10 +2542,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
 
-        r = machine_tag_list_is_valid(p.remove);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (strv_length(p.remove) > MACHINE_TAGS_MAX)
                 return sd_varlink_error_invalid_parameter_name(link, "remove");
 
         context_read_machine_info(c);

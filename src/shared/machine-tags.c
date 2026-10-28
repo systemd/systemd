@@ -247,14 +247,14 @@ int machine_tags_edit(char* const *base, char* const *add, char* const *remove, 
                 return log_oom();
         }
 
+        STRV_FOREACH(i, remove)
+                tags_remove_matching(h, *i);
+
         STRV_FOREACH(i, add) {
                 r = tags_add(&h, *i);
                 if (r < 0)
                         return r;
         }
-
-        STRV_FOREACH(i, remove)
-                tags_remove_matching(h, *i);
 
         return tags_hashmap_to_strv(h, ret);
 }
