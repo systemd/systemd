@@ -187,6 +187,7 @@ int have_terminfo_file(const char *name);
 int query_term_for_tty(const char *tty, char **ret_term);
 
 int terminal_is_pty_fd(int fd);
+int terminal_is_vc_fd(int fd);
 
 int pty_open_peer(int fd, int mode);
 

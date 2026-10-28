@@ -1021,7 +1021,10 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
                 r = terminal_set_size_fd(fd, NULL, rows, cols);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
-        } else
+        } else if (terminal_is_vc_fd(fd) > 0)
+                /* Linux' VT implementation knows its own dimensions, so ioctl() data is accurate. */
+                log_debug("/dev/console is a virtual console, not querying its dimensions via ANSI sequences (CSI 18t, DSR).");
+        else
                 (void) terminal_fix_size(fd, fd);
 
         r = terminal_reset_ansi_seq(fd);
@@ -2913,6 +2916,25 @@ int terminal_is_pty_fd(int fd) {
         int v;
         if (ioctl(fd, TIOCGPKT, &v) < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return false;
+
+                return -errno;
+        }
+
+        return true;
+}
+
+int terminal_is_vc_fd(int fd) {
+        assert(fd >= 0);
+
+        /* Returns true if the fd refers to a Linux virtual console. On /dev/console the ioctl() reaches the
+         * tty it currently points to, hence unlike tty_is_vc_resolve() this needs no access to /sys/ and
+         * is not fooled by a pty bind-mounted over /dev/console in a container. KDGKBTYPE is only
+         * implemented by the VT driver and needs no privileges. */
+
+        char type;
+        if (ioctl(fd, KDGKBTYPE, &type) < 0) {
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                         return false;
 
                 return -errno;
