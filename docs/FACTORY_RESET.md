@@ -23,8 +23,9 @@ Specifically, the following concepts are available:
 
 * The `factory-reset.target` unit may be used to request a factory reset
   operation and trigger a reboot in order to execute it. It by default executes
-  three services: `systemd-factory-reset-request.service`,
-  `systemd-tpm2-clear.service` and `systemd-factory-reset-reboot.service`.
+  four services: `systemd-factory-reset-request.service`,
+  `systemd-tpm2-clear.service`, `systemd-efivars-clear.service` and
+  `systemd-factory-reset-reboot.service`.
 
 * The
   [`systemd-factory-reset-request.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-request.service.html)
@@ -41,9 +42,19 @@ Specifically, the following concepts are available:
   invalidating all prior keys associated with the security chip and generating
   a new seed key.
 
+* The
+  [`systemd-efivars-clear.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-efivars-clear.service.html)
+  unit requests that `systemd-boot` erases all EFI variables owned by the boot
+  loader and by systemd on the next boot, by setting the
+  `LoaderFactoryResetVariables` EFI variable. It is also invoked via
+  `factory-reset.target`. On the next boot `systemd-boot` will ask the user for
+  confirmation, erase the variables (except for `FactoryResetRequest`, which is
+  needed by the OS to execute its part of the factory reset), and reboot.
+
 * The `systemd-factory-reset-reboot.service`
   unit automatically reboots the system as part of `factory-reset.target`. It
-  is ordered after `systemd-tpm2-clear.service` and
+  is ordered after `systemd-tpm2-clear.service`,
+  `systemd-efivars-clear.service` and
   `systemd-factory-reset-request.service` in order to initiate the reboot that
   is supposed to execute the factory reset operations.
 
@@ -114,11 +125,12 @@ requesting the factory request can then be plugged into
 booted kernel via the `systemd.factory_reset=1` kernel command line option, in
 order to execute the reset operation.
 
-## Support for Resetting other Resources than Partitions + TPM
+## Support for Resetting other Resources than Partitions, TPM + EFI Variables
 
 By default a factory reset implemented with systemd's tools can reset/erase
-partitions (via `systemd-repart`, see above) and reset the TPM (via
-`systemd-tpm2-clear.service`, see above).
+partitions (via `systemd-repart`, see above), reset the TPM (via
+`systemd-tpm2-clear.service`, see above) and erase the boot loader's EFI
+variables (via `systemd-efivars-clear.service`, see above).
 
 In some cases other resources shall be reset/erased too. To support that,
 define your own service and plug it into `factory-reset-now.target`, ensuring
