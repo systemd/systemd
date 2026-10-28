@@ -917,6 +917,8 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
 static int uapi16_process(
                 Resource *rr,
                 const struct iovec *manifest,
+                X509 *const *certificates,
+                size_t n_certificates,
                 const XAttrMatchFilter *filter) {
 
         assert(rr);
@@ -931,8 +933,8 @@ static int uapi16_process(
 
         return uapi16_manifest_read(
                         f,
-                        /* certificates= */ NULL,
-                        /* n_certificates= */ 0,
+                        certificates,
+                        n_certificates,
                         uapi16_process_object,
                         &(Uapi16ProcessContext) {
                                 .resource = rr,
@@ -943,6 +945,8 @@ static int uapi16_process(
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
+                X509 *const *certificates,
+                size_t n_certificates,
                 Hashmap **web_cache,
                 const XAttrMatchFilter *filter) {
 
@@ -982,7 +986,14 @@ static int resource_load_from_web(
                 break;
 
         case MANIFEST_FORMAT_UAPI16:
-                r = uapi16_process(rr, &manifest, filter);
+                /* UAPI.16 manifests carry their signatures inline, hence systemd-pull didn't verify
+                 * anything, and we do it here. */
+                r = uapi16_process(
+                                rr,
+                                &manifest,
+                                verify ? certificates : NULL,
+                                verify ? n_certificates : 0,
+                                filter);
                 break;
 
         default:
@@ -1023,7 +1034,13 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache, const XAttrMatchFilter *filter) {
+int resource_load_instances(
+                Resource *rr,
+                bool verify,
+                X509 *const *certificates,
+                size_t n_certificates,
+                Hashmap **web_cache,
+                const XAttrMatchFilter *filter) {
         int r;
 
         assert(rr);
@@ -1046,7 +1063,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache, cons
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache, filter);
+                r = resource_load_from_web(rr, verify, certificates, n_certificates, web_cache, filter);
                 break;
 
         default:
