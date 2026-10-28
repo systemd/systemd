@@ -23,6 +23,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "log.h"
+#include "machine-tags.h"
 #include "main-func.h"
 #include "os-util.h"
 #include "parse-argument.h"
@@ -827,6 +828,14 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                 printf("%s\n", strempty(j));
                 return 0;
         }
+
+        /* Emit a warning if machine-tags.d config is present. */
+        r = machine_tags_config_files(/* root= */ NULL, /* ret_files= */ NULL, /* ret_n_files= */ NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                log_notice("Configuration files in machine-tags.d/ are present. "
+                           "Mixing those and manual management of tags is not recommended.");
 
         _cleanup_strv_free_ char **plain = NULL, **add = NULL, **remove = NULL;
         bool prefixed = false, unprefixed = false;
