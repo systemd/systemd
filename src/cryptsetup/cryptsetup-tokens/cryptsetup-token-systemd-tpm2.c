@@ -124,8 +124,13 @@ _public_ int cryptsetup_token_open_pin(
                         &pcrlock_nv,
                         &flags,
                         &argon2id_params);
-        if (r < 0)
-                return log_debug_open_error(cd, token, r);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                /* Remap to -EPERM so libcryptsetup keeps iterating past a malformed token. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: failed to parse TPM2 token data: %m", token);
+                return -EPERM;
+        }
 
         if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask) {
                 /* Remap to -EPERM so libcryptsetup keeps iterating to the next token. */
