@@ -10,6 +10,7 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(tty),
                 SD_VARLINK_DEFINE_ENUM_VALUE(tty_force),
                 SD_VARLINK_DEFINE_ENUM_VALUE(tty_fail),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tty_graceful),
                 SD_VARLINK_DEFINE_ENUM_VALUE(socket),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(data),

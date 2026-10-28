@@ -1765,6 +1765,12 @@ static int run(int argc, char *argv[]) {
                 } else if (mode == FIRSTBOOT_HEADLESS) {
                         log_debug("Found systemd.firstboot=headless kernel command line argument, skipping interactive prompts but keeping non-interactive auto-configuration.");
                         arg_headless = true;
+                } else if (r == 0 && fd_is_dev_null(STDIN_FILENO) > 0) {
+                        /* systemd-firstboot.service uses StandardInput=tty-graceful, which connects stdin to
+                         * /dev/null if there is no usable console. An explicit systemd.firstboot=yes still
+                         * prompts, and fails. */
+                        log_info("Standard input is /dev/null, skipping interactive prompts.");
+                        arg_headless = true;
                 }
         }
 

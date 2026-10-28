@@ -133,9 +133,13 @@ TEST(inode_same) {
         assert_se(inode_same_at(fd1, NULL, fd1, NULL, AT_EMPTY_PATH) > 0);
         assert_se(inode_same_at(fd2, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
 
+        ASSERT_OK_POSITIVE(fd_is_dev_null(fd1));
+        ASSERT_OK_ZERO(fd_is_dev_null(fd));
+
         safe_close(fd2);
         fd2 = open("/dev/urandom", O_CLOEXEC|O_RDONLY);
         assert_se(fd2 >= 0);
+        ASSERT_OK_ZERO(fd_is_dev_null(fd2));
 
         assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
         assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH) == 0);
