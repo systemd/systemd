@@ -186,3 +186,21 @@ systemd-repart --definitions="$WORKDIR/defs" \
 
 IMAGE="$IMAGE_REPART" dissect_mount
 grep -q "Completed TPM2 key unsealing" "$LOG"
+
+# 7. Malformed tokens (e.g., written by a newer version with unknown crypto) in front of the good one must
+#    be skipped. They fail parsing with EINVAL and EUCLEAN respectively.
+DEVICE="$(systemd-dissect --attach "$IMAGE_REPART")"
+udevadm wait --settle --timeout=10 "$DEVICE"p1
+cryptsetup token export --token-id 0 "$DEVICE"p1 >"$WORKDIR/good-token.json"
+cryptsetup token remove --token-id 0 "$DEVICE"p1
+jq 'del(.tpm2_pubkey) + {"tpm2_pubkey_pcrs": [11]}' "$WORKDIR/good-token.json" >"$WORKDIR/bad-token0.json"
+cryptsetup token import --json-file="$WORKDIR/bad-token0.json" --token-id 0 "$DEVICE"p1
+jq '. + {"tpm2_argon2id_memcost": 1048576}' "$WORKDIR/good-token.json" >"$WORKDIR/bad-token1.json"
+cryptsetup token import --json-file="$WORKDIR/bad-token1.json" --token-id 1 "$DEVICE"p1
+cryptsetup token import --json-file="$WORKDIR/good-token.json" --token-id 2 "$DEVICE"p1
+systemd-dissect --detach "$DEVICE"
+DEVICE=""
+
+IMAGE="$IMAGE_REPART" dissect_mount
+grep -q "Failed to parse TPM2 JSON data of token 0, skipping" "$LOG"
+grep -q "Completed TPM2 key unsealing" "$LOG"

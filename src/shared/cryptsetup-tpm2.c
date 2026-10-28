@@ -376,10 +376,14 @@ int find_tpm2_auto_data(
                                 &pcrlock_nv,
                                 &flags,
                                 &ap);
-                if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
-                        continue;
-                if (r < 0)
+                if (r == -ENOMEM)
                         return log_full_errno(log_level, r, "Failed to parse TPM2 JSON data: %m");
+                if (r < 0) {
+                        /* A token written by a newer version might use values we don't know, or it might be
+                         * broken otherwise. Another token might still work. */
+                        log_full_errno(MAX(log_level, LOG_WARNING), r, "Failed to parse TPM2 JSON data of token %i, skipping: %m", token);
+                        continue;
+                }
 
                 if (search_pcr_mask == UINT32_MAX ||
                     search_pcr_mask == hash_pcr_mask) {
