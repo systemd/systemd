@@ -10,6 +10,7 @@
 #include "efi-efivars.h"
 #include "efi-log.h"
 #include "efi-string-table.h"
+#include "efivar-erase.h"
 #include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
@@ -3287,6 +3288,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+                EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 0;
 
         assert(loaded_image);
@@ -3464,6 +3466,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        /* If a factory reset of our EFI variables has been requested, do so now, after asking the user. This
+         * reboots if the variables are erased. */
+        (void) factory_reset_variables_process();
 
         if (config.n_entries == 0)
                 return log_error_status(
