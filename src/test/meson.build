@@ -106,6 +106,7 @@ simple_tests += files(
         'test-exec-util.c',
         'test-execve.c',
         'test-exit-status.c',
+        'test-extension-util.c',
         'test-extract-word.c',
         'test-fanotify-util.c',
         'test-fdset.c',
