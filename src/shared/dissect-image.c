@@ -2024,7 +2024,11 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
         return r != 0;
 }
 
-static int verity_device_matches(const char *name, const char *data_node, const struct iovec *root_hash) {
+static int verity_device_matches(
+                const char *name,
+                const char *data_node,
+                const struct iovec *root_hash,
+                bool require_signature) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
         struct stat st_data;
@@ -2044,6 +2048,9 @@ static int verity_device_matches(const char *name, const char *data_node, const 
         r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
                 return r;
+
+        if (require_signature && !FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
+                return false;
 
         /* libcryptsetup can leave data_device unset when /dev/dm-N has no aliases. */
         r = dm_get_verity_data_devnum(name, &existing_data_devnum);
@@ -3623,7 +3630,7 @@ static int do_crypt_activate_verity(
          * can't reuse the shared device. Older versions ignore the flag for verity devices. */
         uint32_t activate_flags = CRYPT_ACTIVATE_READONLY|CRYPT_ACTIVATE_SHARED;
 
-        bool measure_signature;
+        bool measure_signature, kernel_signature = false;
         if (verity_use_signature(verity, policy_flags)) {
                 int k;
 
@@ -3638,7 +3645,7 @@ static int do_crypt_activate_verity(
                                 activate_flags);
                 if (r >= 0) {
                         log_debug("Verity activation via kernel signature logic worked.");
-                        measure_signature = true;
+                        measure_signature = kernel_signature = true;
                         goto done;
                 }
 
@@ -3692,7 +3699,7 @@ static int do_crypt_activate_verity(
 
 done:
         *ret_measure_signature = measure_signature;
-        return 0;
+        return kernel_signature;
 }
 
 static int verity_partition(
@@ -3790,7 +3797,7 @@ static int verity_partition(
                 _cleanup_(crypt_freep) struct crypt_device *existing_cd = NULL;
                 _cleanup_free_ char *devname = NULL;
                 _cleanup_close_ int fd = -EBADF;
-                bool measure_signature = false;
+                bool kernel_signature = false, measure_signature = false;
 
                 /* First, check if the device already exists. */
                 r = dm_get_devnum(name, /* ret= */ NULL);
@@ -3801,8 +3808,10 @@ static int verity_partition(
 
                 /* The device doesn't exist yet, let's activate it. */
                 r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags, &measure_signature);
-                if (r >= 0)
+                if (r >= 0) {
+                        kernel_signature = r > 0;
                         goto try_open; /* The device is activated. Let's open it. */
+                }
                 /* libcryptsetup before 2.7.4 opens the data device exclusively. The activation can then
                  * fail with -EINVAL if another process activates a device on the same data device at the
                  * same time. We can't tell that apart from invalid parameters, so we fall back to
@@ -3862,12 +3871,13 @@ static int verity_partition(
                         /* Another process can remove the device that we activated before we open it. A
                          * third process can then activate a device with the same name. verity_can_reuse()
                          * didn't check that device, so we only use it and request its removal if it maps our
-                         * data device and has our root hash. */
-                        r = verity_device_matches(name, m->node, &verity->root_hash);
+                         * data device and has our root hash. If the kernel validated our signature, the
+                         * replacement must also have a validated signature to satisfy the image policy. */
+                        r = verity_device_matches(name, m->node, &verity->root_hash, kernel_signature);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to check verity device %s: %m", name);
                         if (r == 0) {
-                                log_debug("Verity device %s doesn't match our data device and root hash, another process replaced it.", name);
+                                log_debug("Verity device %s isn't the device that we activated, another process replaced it.", name);
                                 goto try_again;
                         }
 

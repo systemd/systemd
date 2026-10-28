@@ -484,6 +484,25 @@ if systemctl --version | grep -F -- "+TPM2" >/dev/null; then
     rm -r /var/tmp/test-50-race
 fi
 
+# A signed device must stay open while PCR measurement waits for a reply.
+if [[ "$VERITY_SIG_SUPPORTED" -eq 1 ]] && systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /var/tmp/test-50-race/mnt
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend env SYSTEMD_VERITY_SHARING=1 \
+        systemd-dissect --mount --image-policy=root=signed "$MINIMAL_IMAGE.raw" /var/tmp/test-50-race/mnt &
+    pid=$!
+    timeout 60 bash -c "until test -e /var/tmp/test-50-race/connected; do sleep .1; done"
+    veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" | grep -F 'verified (with signature)' >/dev/null
+    (! veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity")
+    touch /var/tmp/test-50-race/go
+    wait "$pid"
+    test "$(findmnt -n -o MAJ:MIN /var/tmp/test-50-race/mnt)" = \
+         "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    systemd-dissect --umount /var/tmp/test-50-race/mnt
+    wait_for_shared_verity_device_removal
+    rm -r /var/tmp/test-50-race
+fi
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
