@@ -115,7 +115,10 @@ bool address_label_valid(const char *p) _pure_;
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
-int getpeerpidfd(int fd);
+int getpeerpidfd_full(int fd, unsigned flags);
+static inline int getpeerpidfd(int fd) {
+        return getpeerpidfd_full(fd, /* flags= */ 0);
+}
 int getpeerpidref(int fd, PidRef *ret);
 
 ssize_t send_one_fd_iov_sa(
