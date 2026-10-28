@@ -7,6 +7,7 @@
 #include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -622,15 +623,21 @@ static int import_credentials_smbios(ImportCredentialsContext *c) {
         if (detect_container() > 0) /* don't access /sys/ in a container */
                 return 0;
 
-        /* SMBIOS OEM strings are host-controlled, so by default we don't trust them in a confidential VM.
-         * Exception: under Intel TDX the SMBIOS table (including Type 11) is measured into RTMR0 by the
-         * firmware (TDVF's SmbiosMeasurementDxe) on direct boot, and additionally by systemd-stub on UKI
-         * boot, so a remote verifier can detect host tampering with these credentials. As with the kernel
-         * command line (also host-influenced but measured), we can't and needn't locally verify the
-         * measurement actually happened; the verifier anchors the firmware's behaviour via MRTD. */
+        /* SMBIOS OEM strings are host-controlled. In a confidential VM we only accept them when the boot
+         * loader (sd-boot or sd-stub) measured the SMBIOS table including type 11, so that they are covered
+         * by the attestation evidence: under TDX the loader measures via the CC protocol into RTMR 0. The
+         * firmware's own SMBIOS measurement does not cover type 11, edk2's SmbiosMeasurementDxe filters it
+         * out before hashing. Direct kernel boots without a loader hence get no SMBIOS credential, vmspawn
+         * uses the initrd cpio there. Other CVM types have no measurement register for this. */
         ConfidentialVirtualization cv = detect_confidential_virtualization();
-        if (cv > 0 && cv != CONFIDENTIAL_VIRTUALIZATION_TDX)
-                return 0;
+        if (cv > 0) {
+                if (cv != CONFIDENTIAL_VIRTUALIZATION_TDX)
+                        return 0;
+                if (efi_measured_smbios(LOG_DEBUG) <= 0) {
+                        log_debug("Boot loader did not measure the SMBIOS table, ignoring SMBIOS credentials in confidential VM.");
+                        return 0;
+                }
+        }
 
         for (unsigned i = 0;; i++) {
                 _cleanup_free_ char *data = NULL;
