@@ -3430,15 +3430,6 @@ static int verity_can_reuse(
         return 0;
 }
 
-static char* dm_deferred_remove_clean(char *name) {
-        if (!name)
-                return NULL;
-
-        (void) sym_crypt_deactivate_by_name(/* cd= */ NULL, name, CRYPT_DEACTIVATE_DEFERRED);
-        return mfree(name);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
-
 static int validate_signature_userspace(const VeritySettings *verity, const char *root, DissectImageFlags flags) {
         int r;
 
@@ -3741,7 +3732,6 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
-                _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
                 _cleanup_(crypt_freep) struct crypt_device *existing_cd = NULL;
                 _cleanup_free_ char *devname = NULL;
                 _cleanup_close_ int fd = -EBADF;
@@ -3773,22 +3763,10 @@ static int verity_partition(
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", name);
 
         check:
-                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                r = dm_deferred_remove_cancel(name);
-                /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
-                 * use the device, try to open again. See target_message() in drivers/md/dm-ioctl.c
-                 * and dm_cancel_deferred_remove() in drivers/md/dm.c */
-                if (IN_SET(r, -EBUSY, -ENXIO))
-                        goto try_again;
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", name);
-
-                restore_deferred_remove = strdup(name);
-                if (!restore_deferred_remove)
-                        return log_oom_debug();
-
                 /* We open the device before we check it. The device can't be removed while we keep it open,
-                 * so the check applies to the device that we use. */
+                 * so the check applies to the device that we use. If another process requested deferred
+                 * removal of the device, the kernel removes the device only after the last user closed
+                 * it. */
                 fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &devname);
                 /* While another process sets up the device, the device can lack a device node or an active
                  * table. While another process removes the device, the kernel refuses to open it. */
@@ -3825,9 +3803,6 @@ static int verity_partition(
                         if (fd < 0)
                                 return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
                 }
-
-                /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
-                restore_deferred_remove = mfree(restore_deferred_remove);
 
                 mount_node_fd = TAKE_FD(fd);
                 free_and_replace(node, devname);
