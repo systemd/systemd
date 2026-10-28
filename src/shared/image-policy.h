@@ -115,6 +115,7 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
 int image_policy_union(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret);
 
 ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const VeritySettings *verity);
+void image_policy_relax_protection(ImagePolicy *p);
 ImagePolicy* image_policy_free(ImagePolicy *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
