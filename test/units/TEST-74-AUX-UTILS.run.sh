@@ -256,6 +256,9 @@ systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=re
 SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
 systemd-run --wait --pty true
+# stdout as a regular file cannot be polled, the forwarder must cope without a stdout event source
+systemd-run --wait --pty true >/tmp/pty-regular.out
+rm -f /tmp/pty-regular.out
 systemd-run --wait --machine=.host --pty true
 systemd-run --json=short true | jq . >/dev/null
 systemd-run --json=pretty true | jq . >/dev/null
