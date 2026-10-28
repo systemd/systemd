@@ -27,6 +27,7 @@ static inline EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *
         return efivar_get_raw_full(vendor, name, NULL, ret_data, ret_size);
 }
 EFI_STATUS efivar_get_uint64_str16(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
+EFI_STATUS efivar_get_boolean_str16(const EFI_GUID *vendor, const char16_t *name, bool *ret);
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret);
