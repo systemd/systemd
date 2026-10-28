@@ -97,6 +97,7 @@ typedef struct Tpm2Handle Tpm2Handle;
 typedef struct Tpm2PCRValue Tpm2PCRValue;
 typedef struct Uapi16Contents Uapi16Contents;
 typedef struct Uapi16Object Uapi16Object;
+typedef struct Uapi16Xattr Uapi16Xattr;
 typedef struct UnitInfo UnitInfo;
 typedef struct UnitResult UnitResult;
 typedef struct UserRecord UserRecord;
