@@ -178,6 +178,22 @@ prepare_extension_image_with_image_id() {
     prepend_trap "rm -rf ${ext_dir@Q}"
 }
 
+prepare_extension_image_with_match() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name
+
+    name="test-extension-match"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    echo "ID=_any" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+
+    prepend_trap "rm -rf ${ext_dir@Q}"
+}
+
 prepare_extension_image_raw() {
     local root=${1:-}
     local hierarchy=${2:?}
@@ -1311,6 +1327,83 @@ prepare_read_only_hierarchy "$fake_root" "$hierarchy"
 
 run_systemd_sysext "$fake_root" merge
 extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+)
+
+
+( init_trap
+: "Check that extensions are restricted to systems via MATCH_*= in extension-release and user.uapi.match_* xattrs"
+fake_root=${roots_dir:+"$roots_dir/match-host"}
+hierarchy=/opt
+name=test-extension-match
+ext_dir="$fake_root/var/lib/extensions/$name"
+ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_with_match "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+if [[ -n "$fake_root" ]]; then
+    mkdir -p "$fake_root/etc"
+    echo sysexthost >"$fake_root/etc/hostname"
+    echo 4b1f7c950d4f4e1a9e8f3d22576180a3 >"$fake_root/etc/machine-id"
+    host=sysexthost
+    machine_id=4b1f7c950d4f4e1a9e8f3d22576180a3
+else
+    host="$(hostname)"
+    machine_id="$(</etc/machine-id)"
+fi
+
+# Matching rules in extension-release: merged
+printf 'ID=_any\nMATCH_HOSTNAME="nomatch %s"\nMATCH_MACHINE_ID="%s"\n' "$host" "${machine_id:0:8}*" >"$ext_release"
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+
+# Non-matching rules in extension-release: gracefully skipped
+printf 'ID=_any\nMATCH_HOSTNAME="%s"\nMATCH_MACHINE_ID=00000000000000000000000000000000\n' "$host" >"$ext_release"
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+printf 'ID=_any\nMATCH_MACHINE_TAGS=nomatch\n' >"$ext_release"
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+
+# Rules on os-release properties: ID=testtest matches, no VERSION_ID= never matches
+printf 'ID=_any\nMATCH_OS_ID="nomatch test*"\n' >"$ext_release"
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+printf 'ID=_any\nMATCH_OS_ID=testtest\nMATCH_OS_VERSION_ID=">=1"\n' >"$ext_release"
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+
+if setfattr -n user.uapi.match_hostname -v nomatch "$ext_dir"; then
+    # Non-matching xattr on the image: skipped
+    echo "ID=_any" >"$ext_release"
+    run_systemd_sysext "$fake_root" merge
+    extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+
+    # Matching xattr, contradicting extension-release: both honoured, i.e. skipped, with a warning
+    setfattr -n user.uapi.match_hostname -v "$host" "$ext_dir"
+    printf 'ID=_any\nMATCH_HOSTNAME=nomatch\n' >"$ext_release"
+    run_systemd_sysext "$fake_root" merge 2>&1 | grep "contradicts MATCH_HOSTNAME=nomatch" >/dev/null
+    extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+
+    # Matching xattr, identical extension-release: merged
+    printf 'ID=_any\nMATCH_HOSTNAME="%s"\n' "$host" >"$ext_release"
+    run_systemd_sysext "$fake_root" merge
+    extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+    run_systemd_sysext "$fake_root" unmerge
+    extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+
+    # --force skips the checks
+    setfattr -n user.uapi.match_hostname -v nomatch "$ext_dir"
+    run_systemd_sysext "$fake_root" merge --force
+    extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+    run_systemd_sysext "$fake_root" unmerge
+    extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+fi
 )
 
 

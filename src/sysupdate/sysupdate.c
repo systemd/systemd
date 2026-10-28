@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -50,9 +51,11 @@
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
+#include "uapi16-manifest.h"
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "xattr-match.h"
 
 static char *arg_definitions = NULL;
 static bool arg_sync = true;
@@ -127,6 +130,12 @@ void context_done(Context *c) {
         c->n_update_sets = 0;
 
         c->web_cache = hashmap_free(c->web_cache);
+
+        host_properties_done(&c->host_properties);
+
+        uapi16_certificates_free(c->manifest_certificates, c->n_manifest_certificates);
+        c->manifest_certificates = NULL;
+        c->n_manifest_certificates = 0;
 
         c->installdb_fd = safe_close(c->installdb_fd);
 
@@ -572,7 +581,14 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                /* certificates= */ NULL,
+                                /* n_certificates= */ 0,
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->target),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
@@ -583,11 +599,47 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                /* certificates= */ NULL,
+                                /* n_certificates= */ 0,
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->target),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
 
+        return 0;
+}
+
+static int context_load_manifest_certificates(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Loads the certificates UAPI.16 manifests may be signed with, from the VOA hierarchy */
+
+        if (c->manifest_certificates_loaded)
+                return 0;
+
+        _cleanup_close_ int root_fd = -EBADF;
+        if (c->root) {
+                root_fd = open(c->root, O_DIRECTORY|O_PATH|O_CLOEXEC);
+                if (root_fd < 0)
+                        return log_error_errno(errno, "Failed to open root directory '%s': %m", c->root);
+        }
+
+        r = uapi16_load_voa_certificates(
+                        root_fd >= 0 ? root_fd : XAT_FDROOT,
+                        SYSUPDATE_VOA_CONTEXT,
+                        &c->manifest_certificates,
+                        &c->n_manifest_certificates);
+        if (r < 0)
+                return r;
+
+        c->manifest_certificates_loaded = true;
         return 0;
 }
 
@@ -600,11 +652,32 @@ static int context_load_available_instances(Context *c) {
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
+                bool verify = c->verify >= 0 ? c->verify : t->verify != 0;
+
+                /* UAPI.16 manifests carry their signatures inline, which we verify ourselves, against the
+                 * certificates from the VOA hierarchy */
+                if (verify && RESOURCE_IS_URL(t->source.type) && t->source.manifest_format == MANIFEST_FORMAT_UAPI16) {
+                        r = context_load_manifest_certificates(c);
+                        if (r < 0)
+                                return r;
+
+                        if (c->n_manifest_certificates == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                                       "Transfer '%s' requires verification of the UAPI.16 manifest signature, but no certificates found in the VOA hierarchy (role '%s', context '%s'), refusing.",
+                                                       t->id, UAPI16_VOA_ROLE, SYSUPDATE_VOA_CONTEXT);
+                }
 
                 r = resource_load_instances(
                                 &t->source,
-                                c->verify >= 0 ? c->verify : t->verify != 0,
-                                &c->web_cache);
+                                verify,
+                                c->manifest_certificates,
+                                c->n_manifest_certificates,
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->source),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }

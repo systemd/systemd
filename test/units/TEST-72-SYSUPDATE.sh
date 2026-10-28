@@ -995,6 +995,244 @@ rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
 
+# Check that the sources listed in the "contents" arrays of a UAPI.16 manifest are honoured: "file"
+# entries are fetched relative to the manifest (not relative to Path=), "url" entries from the specified
+# URL, "literal" entries carry the data inline (possibly embedded in more data), and alternative sources are
+# tried in order. Files without "contents" are acquired by name, as they are, i.e. without decompression.
+rm -rf "$WORKDIR/uapi16"
+mkdir -p "$WORKDIR/uapi16/payload" "$WORKDIR/uapi16/manifest/blobs" "$WORKDIR/uapi16/remote" "$WORKDIR/uapi16/target"
+head -c 3000 /dev/urandom >"$WORKDIR/uapi16/alt-v1.bin"
+cp "$WORKDIR/uapi16/alt-v1.bin" "$WORKDIR/uapi16/manifest/blobs/alt-v1.bin"
+head -c 5000 /dev/urandom >"$WORKDIR/uapi16/remote-v1.bin"
+gzip -k -f "$WORKDIR/uapi16/remote-v1.bin"
+mv "$WORKDIR/uapi16/remote-v1.bin.gz" "$WORKDIR/uapi16/remote/"
+printf 'inline payload\n' >"$WORKDIR/uapi16/inline-v1.bin"
+{ printf 'garbage'; cat "$WORKDIR/uapi16/inline-v1.bin"; printf 'trailing garbage'; } >"$WORKDIR/uapi16/inline-v1.literal"
+head -c 4000 /dev/urandom | gzip >"$WORKDIR/uapi16/plain-v1.bin"
+cp "$WORKDIR/uapi16/plain-v1.bin" "$WORKDIR/uapi16/payload/plain-v1.bin"
+sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    # The first source does not exist, the second one is found next to the manifest
+    printf '\036{"name":"alt-v1.bin","size":%s,"sha256":"%s","contents":[{"file":"blobs/missing-v1.bin"},{"file":"blobs/alt-v1.bin"}]}\n' \
+        "$(stat -c %s "$WORKDIR/uapi16/alt-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")"
+    printf '\036{"name":"remote-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"file://%s/uapi16/remote/remote-v1.bin.gz","encoding":"gzip","encodedSize":%s,"encodedSha256":"%s","originalSize":%s,"originalSha256":"%s"}]}\n' \
+        "$(stat -c %s "$WORKDIR/uapi16/remote-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/remote-v1.bin")" "$WORKDIR" \
+        "$(stat -c %s "$WORKDIR/uapi16/remote/remote-v1.bin.gz")" "$(sha256_of "$WORKDIR/uapi16/remote/remote-v1.bin.gz")" \
+        "$(stat -c %s "$WORKDIR/uapi16/remote-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/remote-v1.bin")"
+    # The file sits at an offset inside the inline data
+    printf '\036{"name":"inline-v1.bin","size":%s,"sha256":"%s","contents":[{"literal":"%s","offset":7,"originalSize":%s,"originalSha256":"%s"}]}\n' \
+        "$(stat -c %s "$WORKDIR/uapi16/inline-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/inline-v1.bin")" "$(base64 -w0 "$WORKDIR/uapi16/inline-v1.literal")" \
+        "$(stat -c %s "$WORKDIR/uapi16/inline-v1.literal")" "$(sha256_of "$WORKDIR/uapi16/inline-v1.literal")"
+    # No sources listed: acquired by name relative to Path=, and must not be decompressed even though it is
+    # gzip data, as the digest covers the file as it is
+    printf '\036{"name":"plain-v1.bin","size":%s,"sha256":"%s"}\n' \
+        "$(stat -c %s "$WORKDIR/uapi16/plain-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/plain-v1.bin")"
+    # The encoded data matches its digest, but does not decode to the file
+    printf '\036{"name":"bad-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"file://%s/uapi16/remote/remote-v1.bin.gz","encoding":"gzip","encodedSha256":"%s"}]}\n' \
+        "$(stat -c %s "$WORKDIR/uapi16/remote-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")" "$WORKDIR" \
+        "$(sha256_of "$WORKDIR/uapi16/remote/remote-v1.bin.gz")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$WORKDIR/uapi16/manifest/Uapi16Manifest"
+for f in alt remote inline plain; do
+    cat >"$CONFIGDIR/01-uapi16-$f.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/uapi16/payload
+ManifestFormat=uapi16
+ManifestPath=file://$WORKDIR/uapi16/manifest/Uapi16Manifest
+MatchPattern=$f-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/uapi16/target
+MatchPattern=$f-@v.bin
+InstancesMax=2
+EOF
+done
+"$SYSUPDATE" --verify=no update
+for f in alt remote inline plain; do
+    cmp "$WORKDIR/uapi16/$f-v1.bin" "$WORKDIR/uapi16/target/$f-v1.bin"
+done
+
+# The decoded data is verified against the file's digest, not just the encoded data against its own
+mkdir -p "$WORKDIR/uapi16/bad-definitions"
+sed 's/^MatchPattern=alt-/MatchPattern=bad-/' "$CONFIGDIR/01-uapi16-alt.transfer" >"$WORKDIR/uapi16/bad-definitions/bad.transfer"
+(! "$SYSUPDATE" --definitions="$WORKDIR/uapi16/bad-definitions" --verify=no update)
+[[ ! -e "$WORKDIR/uapi16/target/bad-v1.bin" ]]
+
+# UAPI.16 manifests carry their signature inline, which is verified against the certificates in the VOA
+# hierarchy (role "manifest", context "sysupdate") if verification is enabled
+if command -v openssl >/dev/null; then
+    VOA_OS="$(. /etc/os-release; echo "${ID:-linux}")"
+    VOA_DIR="/run/voa/$VOA_OS/manifest/sysupdate/x509"
+    S="$WORKDIR/uapi16/signed"
+    mkdir -p "$S/payload" "$S/target" "$S/definitions"
+    head -c 2000 /dev/urandom >"$S/payload/signed-v1.bin"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$S/good.key" -out "$S/good.crt" -subj /CN=good -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$S/other.key" -out "$S/other.crt" -subj /CN=other -days 2 2>/dev/null
+    systemd-manifest make --private-key="$S/good.key" --certificate="$S/good.crt" "$S/payload" >"$S/Uapi16Manifest"
+    systemd-manifest make "$S/payload" >"$S/Unsigned.Uapi16Manifest"
+    cat >"$S/definitions/signed.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$S/payload
+ManifestFormat=uapi16
+ManifestPath=file://$S/Uapi16Manifest
+MatchPattern=signed-@v.bin
+
+[Target]
+Type=regular-file
+Path=$S/target
+MatchPattern=signed-@v.bin
+EOF
+    sed "s|^ManifestPath=.*|ManifestPath=file://$S/Unsigned.Uapi16Manifest|" "$S/definitions/signed.transfer" >"$S/unsigned.transfer"
+
+    # No certificates installed: refused
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    # Only a different certificate installed: refused
+    mkdir -p "$VOA_DIR"
+    cp "$S/other.crt" "$VOA_DIR/test-72-other-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    # The right certificate in a different VOA context: refused
+    mkdir -p "/run/voa/$VOA_OS/manifest/default/x509"
+    cp "$S/good.crt" "/run/voa/$VOA_OS/manifest/default/x509/test-72-good-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    rm -r "/run/voa/$VOA_OS/manifest/default"
+    # The right certificate installed too, but masked: refused
+    cp "$S/good.crt" "$VOA_DIR/test-72-good-certificate.pem"
+    mkdir -p "/etc/voa/$VOA_OS/manifest/sysupdate/x509"
+    ln -s /dev/null "/etc/voa/$VOA_OS/manifest/sysupdate/x509/test-72-good-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    rm -r "/etc/voa/$VOA_OS/manifest"
+    # Not masked anymore: works
+    "$SYSUPDATE" --definitions="$S/definitions" update
+    cmp "$S/payload/signed-v1.bin" "$S/target/signed-v1.bin"
+    # systemd-manifest can check against the same certificates
+    systemd-manifest verify --voa-context=sysupdate --field=size,hash "$S/payload" "$S/Uapi16Manifest"
+    (! systemd-manifest verify --field=size,hash "$S/payload" "$S/Uapi16Manifest")
+    # An unsigned manifest is refused, unless verification is turned off
+    rm "$S/target/signed-v1.bin"
+    mv "$S/unsigned.transfer" "$S/definitions/signed.transfer"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    "$SYSUPDATE" --definitions="$S/definitions" --verify=no update
+    cmp "$S/payload/signed-v1.bin" "$S/target/signed-v1.bin"
+    rm -r "/run/voa/$VOA_OS/manifest"
+fi
+
+# The download tools decode strictly with the declared algorithm if one is passed to them
+PULL=/usr/lib/systemd/systemd-pull
+IMPORT=/usr/lib/systemd/systemd-import
+"$PULL" raw --direct --verify=no --compression=gzip "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-gzip.bin"
+cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/pull-gzip.bin"
+"$PULL" raw --direct --verify=no --compression=auto "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-auto.bin"
+cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/pull-auto.bin"
+"$PULL" raw --direct --verify=no --compression=none "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-none.bin"
+cmp "$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-none.bin"
+(! "$PULL" raw --direct --verify=no --compression=xz "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-xz.bin")
+(! "$PULL" raw --direct --verify=no --compression=foobar "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-foobar.bin")
+"$IMPORT" raw --direct --compression=gzip - "$WORKDIR/uapi16/import-gzip.bin" <"$WORKDIR/uapi16/remote/remote-v1.bin.gz"
+cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/import-gzip.bin"
+(! "$IMPORT" raw --direct --compression=xz - "$WORKDIR/uapi16/import-xz.bin" <"$WORKDIR/uapi16/remote/remote-v1.bin.gz")
+
+# … and optionally verify the decoded data
+"$PULL" raw --direct --verify=no --compression=gzip --verify-decoded="$(sha256_of "$WORKDIR/uapi16/remote-v1.bin")" \
+        "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-decoded.bin"
+cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/pull-decoded.bin"
+(! "$PULL" raw --direct --verify=no --compression=gzip --verify-decoded="$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")" \
+        "file://$WORKDIR/uapi16/remote/remote-v1.bin.gz" "$WORKDIR/uapi16/pull-decoded-bad.bin")
+"$IMPORT" raw --direct --compression=gzip --verify-decoded="$(sha256_of "$WORKDIR/uapi16/remote-v1.bin")" \
+        - "$WORKDIR/uapi16/import-decoded.bin" <"$WORKDIR/uapi16/remote/remote-v1.bin.gz"
+cmp "$WORKDIR/uapi16/remote-v1.bin" "$WORKDIR/uapi16/import-decoded.bin"
+(! "$IMPORT" raw --direct --compression=gzip --verify-decoded="$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")" \
+        - "$WORKDIR/uapi16/import-decoded-bad.bin" <"$WORKDIR/uapi16/remote/remote-v1.bin.gz")
+(! "$IMPORT" raw --direct --verify-decoded=foobar - "$WORKDIR/uapi16/import-decoded-invalid.bin" <"$WORKDIR/uapi16/remote-v1.bin")
+
+rm -f "$CONFIGDIR"/01-uapi16-*.transfer
+rm -rf "$WORKDIR/uapi16"
+
+# Check MatchXAttr=: instances restricted to other systems via "user.uapi.match_…" extended attributes are
+# ignored, both when listed in UAPI.16 manifests and when found on disk, and the extended attributes listed
+# in the manifest are applied to the installed instance.
+XM="$WORKDIR/xattr-match"
+rm -rf "$XM"
+mkdir -p "$XM/definitions" "$XM/definitions-all" "$XM/definitions-target" "$XM/payload" "$XM/manifest/blobs" "$XM/target"
+for v in 1 2 3; do
+    echo "xattr match payload v$v" >"$XM/manifest/blobs/xm-v$v.bin"
+done
+XM_MID="$(cat /etc/machine-id)"
+XM_OSID="$(. /etc/os-release; echo "$ID")"
+XM_OTHER=0123456789abcdef0123456789abcdef
+xm_object() {
+    local v="${1:?}" xattrs=""
+
+    [[ -n "${2:-}" ]] && xattrs=",\"extendedAttributes\":{\"user\":{$2}}"
+    printf '\036{"name":"xm-v%s.bin","size":%s,"sha256":"%s","contents":[{"file":"blobs/xm-v%s.bin"}]%s}\n' \
+        "$v" "$(stat -c %s "$XM/manifest/blobs/xm-v$v.bin")" "$(sha256_of "$XM/manifest/blobs/xm-v$v.bin")" "$v" "$xattrs"
+}
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    # Not restricted in any way
+    xm_object 1
+    # Restricted to two machines, one of which is us, and to our OS. Also carries an unrelated attribute.
+    xm_object 2 "$(printf '"uapi.match_machine_id":{"base64":"%s"},"uapi.match_os_id":{"text":"%s"},"foo":{"text":"bar"}' \
+        "$(printf '%s\0%s\0' "$XM_OTHER" "$XM_MID" | base64 -w0)" "$XM_OSID")"
+    # Restricted to some other machine
+    xm_object 3 "$(printf '"uapi.match_machine_id":{"text":"%s"}' "$XM_OTHER")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$XM/manifest/Uapi16Manifest"
+for d in definitions definitions-all definitions-target; do
+    cat >"$XM/$d/xm.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$XM/payload
+ManifestFormat=uapi16
+ManifestPath=file://$XM/manifest/Uapi16Manifest
+MatchPattern=xm-@v.bin
+
+[Target]
+Type=regular-file
+Path=$XM/target
+MatchPattern=xm-@v.bin
+InstancesMax=1
+EOF
+done
+# MatchXAttr= is enabled by default in the [Source] section, turn it off for "definitions-all"
+cat >>"$XM/definitions-all/xm.transfer" <<EOF
+
+[Source]
+MatchXAttr=no
+EOF
+cat >>"$XM/definitions-target/xm.transfer" <<EOF
+
+[Target]
+MatchXAttr=yes
+EOF
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-all" --verify=no --json=short list | jq -cr '.all') == '["v3","v2","v1"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions" --verify=no --json=short list | jq -cr '.all') == '["v2","v1"]' ]]
+"$SYSUPDATE" --definitions="$XM/definitions" --verify=no update
+cmp "$XM/manifest/blobs/xm-v2.bin" "$XM/target/xm-v2.bin"
+[[ ! -e "$XM/target/xm-v3.bin" ]]
+# The extended attributes from the manifest have been applied
+[[ "$(getfattr --absolute-names --only-values -n user.foo "$XM/target/xm-v2.bin")" == bar ]]
+[[ "$(getfattr --absolute-names --only-values -n user.uapi.match_os_id "$XM/target/xm-v2.bin")" == "$XM_OSID" ]]
+cmp <(getfattr --absolute-names --only-values -n user.uapi.match_machine_id "$XM/target/xm-v2.bin") <(printf '%s\0%s\0' "$XM_OTHER" "$XM_MID")
+# Installed instances are only filtered if MatchXAttr= is enabled in the [Target] section too (it is off by
+# default there): an installed instance restricted to some other machine is then neither listed nor vacuumed
+echo foreign >"$XM/target/xm-v4.bin"
+setfattr -n user.uapi.match_machine_id -v "$XM_OTHER" "$XM/target/xm-v4.bin"
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-all" --verify=no --offline --json=short list | jq -cr '.all') == '["v4","v2"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions" --verify=no --offline --json=short list | jq -cr '.all') == '["v4","v2"]' ]]
+[[ $("$SYSUPDATE" --definitions="$XM/definitions-target" --verify=no --offline --json=short list | jq -cr '.all') == '["v2"]' ]]
+"$SYSUPDATE" --definitions="$XM/definitions-target" --verify=no vacuum
+[[ -e "$XM/target/xm-v2.bin" ]]
+[[ -e "$XM/target/xm-v4.bin" ]]
+rm -rf "$XM"
+
 # Check that malformed manifest hashes are rejected without aborting.
 rm -rf "$WORKDIR/malformed-manifest"
 mkdir -p "$WORKDIR/malformed-manifest/definitions" "$WORKDIR/malformed-manifest/source" "$WORKDIR/malformed-manifest/target"
