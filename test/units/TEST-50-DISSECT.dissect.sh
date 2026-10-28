@@ -333,6 +333,22 @@ veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL
                                             --image-policy=root=signed >/dev/null)
 veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" >/dev/null
 veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+# If we can't reuse a shared verity device, we activate a device with a unique name on the same data device
+# instead. Here, we can't reuse the device because it has our name but uses a hash tree with a different salt,
+# and hence a different root hash.
+if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
+    veritysetup format --salt=0123456789abcdef "$MINIMAL_IMAGE.raw" /tmp/test-50-salt.verity \
+                       --root-hash-file /tmp/test-50-salt.roothash
+    loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+    udevadm wait --timeout=60 --settle "$loop"
+    veritysetup open "$loop" "$MINIMAL_IMAGE_ROOTHASH-verity" /tmp/test-50-salt.verity "$(</tmp/test-50-salt.roothash)"
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --verity-data="$MINIMAL_IMAGE.verity" >/dev/null
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    losetup -d "$loop"
+    rm /tmp/test-50-salt.verity /tmp/test-50-salt.roothash
+fi
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=

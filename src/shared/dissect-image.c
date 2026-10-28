@@ -3560,10 +3560,10 @@ static int do_crypt_activate_verity(
         assert(verity);
 
         /* libcryptsetup 2.7.4 and newer don't open the data device exclusively with CRYPT_ACTIVATE_SHARED.
-         * Several processes can then activate verity devices on the same data device at the same time.
-         * Older versions ignore the flag for verity devices. */
-        uint32_t activate_flags = CRYPT_ACTIVATE_READONLY |
-                (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE) ? CRYPT_ACTIVATE_SHARED : 0);
+         * Several processes can then activate verity devices on the same data device at the same time. We
+         * can also activate a device with a unique name on a data device that a shared device maps, if we
+         * can't reuse the shared device. Older versions ignore the flag for verity devices. */
+        uint32_t activate_flags = CRYPT_ACTIVATE_READONLY|CRYPT_ACTIVATE_SHARED;
 
         bool measure_signature;
         if (verity_use_signature(verity, policy_flags)) {
