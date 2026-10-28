@@ -132,6 +132,23 @@ CHANGES WITH 263 in spe:
           adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
           optional build dependencies.
 
+        Changes in the system and service manager:
+
+        * New StandardInput=tty-graceful mode, which works like
+          StandardInput=tty if there is a usable console or TTYPath= is set
+          explicitly; otherwise it falls back to connecting standard input to
+          /dev/null and standard output/error to the journal. This is useful
+          for programs that interact with the user if possible, but have a
+          non-interactive fallback.
+
+        Changes in systemd-firstboot:
+
+        * systemd-firstboot.service now works on systems without a usable
+          console. Previously it failed to start there, so settings passed in
+          via credentials were not applied. If systemd.firstboot= is not set,
+          it now behaves as with systemd.firstboot=headless on such systems. An
+          explicit systemd.firstboot=yes still requires a console.
+
         Changes in systemd-logind:
 
         * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
