@@ -324,6 +324,7 @@ libefi_sources = files(
         'graphics.c',
         'hii.c',
         'initrd.c',
+        'keyring-setup-var.c',
         'measure.c',
         'measure-smbios.c',
         'part-discovery.c',

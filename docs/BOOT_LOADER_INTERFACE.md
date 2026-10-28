@@ -170,6 +170,35 @@ Variables will be listed below using the Linux efivarfs naming,
   in UTF-16 format.
   Only set in case of network boots.
 
+* The EFI variable `LoaderKeyringSetup-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains certificates for the kernel keyrings,
+  set by pre-boot provisioning tooling,
+  consumed by the boot stub.
+  It shall be accessible to boot services only
+  (i.e. without `EFI_VARIABLE_RUNTIME_ACCESS`),
+  so that the OS can neither create nor modify it:
+  the UEFI specification does not permit creating boot-services-only variables at runtime.
+  Provisioning tooling typically sets it as non-volatile, so that it persists across boots,
+  but pre-boot code may equally set it afresh on every boot.
+  The payload is a concatenated sequence of records,
+  each consisting of a NUL-terminated credential name
+  (which must begin with `keyring-setup.`,
+  see [systemd-keyring-setup.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-keyring-setup.service.html)
+  for the name scheme),
+  followed by a 32-bit little-endian length field,
+  followed by that many bytes of certificate data.
+  Credential names must consist only of lowercase letters, digits,
+  `.`, `_` and `-`, must not exceed 250 characters,
+  and must not repeat within the payload.
+  Each record must carry at least one byte of data,
+  and the whole payload must not exceed 64 KiB.
+  A payload that violates any of these constraints is discarded in its entirety.
+  The boot stub measures the raw payload into TPM PCR 12,
+  passes each record to the OS as a trusted system credential,
+  and mirrors the payload in the volatile `StubKeyringSetup` variable
+  (which is read-only once the OS runs),
+  so that the OS can inspect what was picked up.
+
 * The EFI variable `LoaderTpm2ActivePcrBanks-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a hexadecimal string representation of a bitmask with values defined by
   the TCG EFI ProtocolSpecification for TPM 2.0 as `EFI_TCG2_BOOT_HASH_ALG_*`.
