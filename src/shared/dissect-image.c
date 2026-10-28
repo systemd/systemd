@@ -2040,7 +2040,7 @@ int dissected_image_new_from_existing_verity(
 
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_free_ char *node = NULL, *root_hash_encoded = NULL, *root_fstype_string = NULL;
+        _cleanup_free_ char *node = NULL, *name = NULL, *root_hash_encoded = NULL, *root_fstype_string = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
         PartitionPolicyFlags found_flags;
         bool encrypted = false;
@@ -2079,15 +2079,17 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
-        if (!node)
+        name = strjoin(root_hash_encoded, "-verity");
+        if (!name)
                 return -ENOMEM;
 
         r = dissected_image_new(src, &dissected_image);
         if (r < 0)
                 return r;
 
-        mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
+        /* We open the device by its device number, so we don't depend on udev having created the symlink in
+         * /dev/mapper/. */
+        mount_node_fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &node);
         if (mount_node_fd < 0)
                 return mount_node_fd;
 
@@ -3757,8 +3759,8 @@ static int verity_partition(
                 /* We open the device before we check it. The device can't be removed while we keep it open,
                  * so the check applies to the device that we use. */
                 fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &devname);
-                /* While another process sets up the device, the device can lack a device node. While another
-                 * process removes the device, the kernel refuses to open it. */
+                /* While another process sets up the device, the device can lack a device node or an active
+                 * table. While another process removes the device, the kernel refuses to open it. */
                 if (ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                         goto try_again;
                 if (fd < 0)

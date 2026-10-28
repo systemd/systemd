@@ -733,6 +733,32 @@ umount -R /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
 
+# The RootImage= shortcut in dissected_image_new_from_existing_verity() also finds a verity device whose symlink in
+# /dev/mapper/ doesn't exist, for example because udev hasn't processed the device yet.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+udevadm wait --timeout=60 --settle "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+rm "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+systemd-run --wait --unit=test-50-verity-shortcut.service \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImagePolicy=root=squashfs \
+            true
+journalctl --sync
+journalctl -u test-50-verity-shortcut.service | grep -F 'Reusing pre-existing verity-protected root image' >/dev/null
+# The mount namespace of the service can keep the device open for a moment after systemd-run returns. A close
+# without --deferred fails in that case.
+veritysetup close --deferred "$MINIMAL_IMAGE_ROOTHASH-verity"
+
+# The shortcut doesn't use a verity device whose table isn't active yet, for example because another process
+# sets up the device. The kernel already created the device node of such a device, but all I/O on it fails.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" test-50-table "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+dmsetup create --readonly --notable "$MINIMAL_IMAGE_ROOTHASH-verity"
+dmsetup table test-50-table | dmsetup load --readonly "$MINIMAL_IMAGE_ROOTHASH-verity"
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p RootImagePolicy=root=squashfs true
+dmsetup remove "$MINIMAL_IMAGE_ROOTHASH-verity"
+veritysetup close test-50-table
+
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
 # ExtensionDirectories will set up an overlay
