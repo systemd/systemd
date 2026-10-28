@@ -777,6 +777,13 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                         return log_oom();
                                 break;
 
+                        case KEYRING_SETUP_EVENT_TAG_ID:
+                                /* The tagged event payload is just a constant identifying string, hence
+                                 * don't show it */
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd-stub: keyring setup variable"))
+                                        return log_oom();
+                                break;
+
                         default: {
                                 _cleanup_free_ char *s = NULL;
 

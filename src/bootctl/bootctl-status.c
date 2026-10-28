@@ -429,6 +429,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                         { EFI_STUB_FEATURE_SMBIOS_MEASURED,           "Stub measures SMBIOS information"                            },
+                        { EFI_STUB_FEATURE_KEYRING_SETUP,             "Picks up keyring certificates from EFI variable"             },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *preferred_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL,
