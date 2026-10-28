@@ -349,6 +349,23 @@ static int apply_conf_file(ConfFile *c, Hashmap **h) {
         }
 }
 
+int machine_tags_config_files(const char *root, ConfFile ***ret_files, size_t *ret_n_files) {
+        size_t n_files;
+        int r;
+
+        r = conf_files_list_strv_full(
+                        ".tags",
+                        root,
+                        CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                        (const char* const*) CONF_PATHS_STRV("machine-tags.d"),
+                        ret_files, &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate machine-tags.d/ files: %m");
+        if (ret_n_files)
+                *ret_n_files = n_files;
+        return n_files > 0;
+}
+
 int machine_tags_apply_config(const char *root, char * const *base, char ***ret) {
         int r;
 
@@ -369,14 +386,9 @@ int machine_tags_apply_config(const char *root, char * const *base, char ***ret)
                 return log_oom();
         }
 
-        r = conf_files_list_strv_full(
-                        ".tags",
-                        root,
-                        CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
-                        (const char* const*) CONF_PATHS_STRV("machine-tags.d"),
-                        &files, &n_files);
+        r = machine_tags_config_files(root, &files, &n_files);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate machine-tags.d/ files: %m");
+                return r;
 
         FOREACH_ARRAY(c, files, n_files) {
                 r = apply_conf_file(*c, &h);
