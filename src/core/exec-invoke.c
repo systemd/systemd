@@ -1309,12 +1309,16 @@ static int ask_password_conv(
                         if (!set_credential_env_var) {
                                 _cleanup_free_ char *creds_dir = NULL;
                                 r = exec_context_get_credential_directory(data->context, data->params, data->params->unit_id, &creds_dir);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine credentials directory: %m");
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to determine credentials directory: %m");
+                                        return PAM_CONV_ERR;
+                                }
 
                                 if (creds_dir) {
-                                        if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0)
-                                                return log_error_errno(errno, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                        if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0) {
+                                                log_error_errno(errno, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                                return PAM_CONV_ERR;
+                                        }
                                 } else
                                         (void) unsetenv("CREDENTIALS_DIRECTORY");
 
@@ -1322,8 +1326,10 @@ static int ask_password_conv(
                         }
 
                         _cleanup_free_ char *credential_name = strjoin("pam.authtok.", data->context->pam_name);
-                        if (!credential_name)
-                                return log_oom();
+                        if (!credential_name) {
+                                log_oom();
+                                return PAM_BUF_ERR;
+                        }
 
                         AskPasswordRequest req = {
                                 .message = mi->msg,
