@@ -30,17 +30,23 @@ _systemd-vpick() {
 
     local -A OPTS=(
         [STANDALONE]='--help -h --version'
-        [ARG]='-B --baseline -V -A -S --suffix --type -p --print --resolve'
+        [ARG]='-B --basename -V -A -S --suffix -t --type -p --print --resolve --match-xattr'
     )
 
     _init_completion || return
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
+            -A)
+                comps="native secondary uname auto $(systemd-analyze --no-legend --no-pager architectures 2>/dev/null | { while read -r a _; do echo " $a"; done; })"
+                ;;
+            -t|--type)
+                comps='reg dir lnk chr blk fifo sock'
+                ;;
             -p|--print)
                 comps='filename version type arch tries all'
                 ;;
-            --resolve)
+            --resolve|--match-xattr)
                 comps='yes no'
                 ;;
         esac
