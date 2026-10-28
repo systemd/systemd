@@ -1017,6 +1017,21 @@
         <literal>bar.efi</literal> in directory <literal>foo_1</literal>. Directories in the path will be
         created when file is installed. Empty directories will be removed when file is removed.</para>
 
+        <para>File and directory targets are a good fit for <literal>.v/</literal> directories, which allow
+        consumers to automatically pick the newest installed version, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>. These
+        expect a much stricter naming scheme than what <varname>MatchPattern=</varname> permits: the
+        entries of a directory <filename><replaceable>NAME</replaceable><replaceable>.SUFFIX</replaceable>.v/</filename>
+        should be named
+        <filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable><replaceable>.SUFFIX</replaceable></filename>,
+        optionally with the boot assessment counters appended to the version. Hence, the recommended pattern
+        for such a target is <literal><replaceable>NAME</replaceable>_@v<replaceable>.SUFFIX</replaceable></literal>
+        (or <literal><replaceable>NAME</replaceable>_@v+@l-@d<replaceable>.SUFFIX</replaceable></literal> if
+        boot assessment counters shall be used). For example, for <literal>Path=/var/lib/machines/foobar.raw.v</literal>,
+        use <literal>MatchPattern=foobar_@v.raw</literal>, and for a <constant>directory</constant> target
+        with <literal>Path=/var/lib/machines/foobar.v</literal>, use
+        <literal>MatchPattern=foobar_@v</literal>.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
