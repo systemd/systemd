@@ -570,6 +570,7 @@ static int append_extensions(
                               m->source,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && m->ignore_enoent)
@@ -643,6 +644,7 @@ static int append_extensions(
                               e,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && ignore_enoent)

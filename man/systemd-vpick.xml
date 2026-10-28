@@ -147,6 +147,18 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--match-xattr=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true (the default), entries of the
+        <literal>.v/</literal> directory whose <literal>user.uapi.match_…</literal> extended attributes do
+        not match the local system are skipped, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. If false, these extended attributes are ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
