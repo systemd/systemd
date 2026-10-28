@@ -241,6 +241,7 @@ simple_tests += files(
         'test-voa-util.c',
         'test-vpick.c',
         'test-web-util.c',
+        'test-xattr-match.c',
         'test-xattr-util.c',
         'test-xml.c',
 )
