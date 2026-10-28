@@ -70,7 +70,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The format of the manifest file listing the available source files, see ManifestFormat= in the [Source] section of sysupdate.d(5). If unset, defaults to 'sha256sums'."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(manifestFormat, ManifestFormat, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The URL of the manifest file, see ManifestPath= in the [Source] section of sysupdate.d(5). If unset, the manifest is acquired from the source URL, under the file name appropriate for the manifest format. No specifier expansion is applied."),
-                SD_VARLINK_DEFINE_FIELD(manifestPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(manifestPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_* extended attributes of instances against the local system, see MatchXAttr= in the [Source] section of sysupdate.d(5). If unset, defaults to true."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttr, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TransferTarget,
@@ -107,7 +109,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Whether to remove temporary files from previous runs, see RemoveTemporary= in the [Target] section of sysupdate.d(5)."),
                 SD_VARLINK_DEFINE_FIELD(removeTemporary, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The path of a symlink to maintain pointing to the newest instance, see CurrentSymlink= in the [Target] section of sysupdate.d(5). No specifier expansion is applied."),
-                SD_VARLINK_DEFINE_FIELD(currentSymlink, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(currentSymlink, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_* extended attributes of instances against the local system, see MatchXAttr= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
+                SD_VARLINK_DEFINE_FIELD(matchXAttr, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Transfer,
