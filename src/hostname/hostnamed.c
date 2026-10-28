@@ -1677,7 +1677,7 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (!j)
                 return log_oom();
 
-        r = machine_tag_list_is_valid(tags);
+        r = machine_tag_list_is_valid(tags, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1728,7 +1728,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = machine_tag_list_is_valid(add);
+        r = machine_tag_list_is_valid(add, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1736,13 +1736,11 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
 
-        r = machine_tag_list_is_valid(remove);
+        r = machine_tag_list_is_valid(remove, /* to_add= */ false);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                _cleanup_free_ char *j = strv_join(remove, ":");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
-        }
+        if (r == 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many tags patterns to remove.");
 
         context_read_machine_info(c);
 
@@ -2534,20 +2532,20 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         bool reset = sd_json_variant_by_key(parameters, "set");
 
         if (reset) {
-                r = machine_tag_list_is_valid(p.set);
+                r = machine_tag_list_is_valid(p.set, /* to_add= */ true);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return sd_varlink_error_invalid_parameter_name(link, "set");
         }
 
-        r = machine_tag_list_is_valid(p.add);
+        r = machine_tag_list_is_valid(p.add, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
 
-        r = machine_tag_list_is_valid(p.remove);
+        r = machine_tag_list_is_valid(p.remove, /* to_add= */ false);
         if (r < 0)
                 return r;
         if (r == 0)

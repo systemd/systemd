@@ -59,18 +59,40 @@ static int machine_tag_key(const char *tag, char **ret) {
         return 0;
 }
 
-int machine_tag_list_is_valid(char **l) {
+int machine_tag_list_is_valid(char **l, bool to_add) {
         int r;
 
-        r = machine_tags_from_strv(l, /* graceful= */ false, /* ret= */ NULL);
-        switch (r) {
-        case -EINVAL:
-        case -E2BIG:
-                return false;
-        case 0:
+        if (to_add) {
+                r = machine_tags_from_strv(l, /* graceful= */ false, /* ret= */ NULL);
+                switch (r) {
+                case -EINVAL:
+                case -E2BIG:
+                        return false;
+                case 0:
+                        return true;
+                default:
+                        return r;
+                }
+        } else {
+                size_t n = 0, n_globs = 0;
+
+                STRV_FOREACH(i, l) {
+                        if (++n > MACHINE_TAGS_MAX)
+                                return false;
+                        if (!in_charset(*i, ALPHANUMERICAL "-.=[]?*"))
+                                return false;
+
+                        size_t len = strlen(*i);
+                        if (len <= 0 || len >= 256)
+                                return false;
+
+                        /* Globs are potentially quite expensive to evaluate. Use a stricter limit for them. */
+                        n_globs += string_is_glob(*i);
+                        if (n_globs > MACHINE_TAG_GLOBS_MAX)
+                                return false;
+                }
+
                 return true;
-        default:
-                return r;
         }
 }
 
@@ -246,14 +268,14 @@ int machine_tags_edit(char* const *base, char* const *add, char* const *remove, 
                 return log_oom();
         }
 
+        STRV_FOREACH(i, remove)
+                tags_remove_matching(h, *i);
+
         STRV_FOREACH(i, add) {
                 r = tags_add(&h, *i);
                 if (r < 0)
                         return r;
         }
-
-        STRV_FOREACH(i, remove)
-                tags_remove_matching(h, *i);
 
         return tags_hashmap_to_strv(h, ret);
 }
