@@ -230,6 +230,11 @@ static int verify_documentation(Unit *u, bool check_man) {
                 log_unit_debug(u, "Found documentation item: %s", *p);
 
                 if (check_man && startswith(*p, "man:")) {
+                        k = find_executable("man", /* ret_filename= */ NULL);
+                        if (k == -ENOENT)
+                                return log_unit_error_errno(u, k, "man not found, cannot check %s. "
+                                                            "Pass --man=no to skip this check.", *p);
+
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
                                 if (k < 0)

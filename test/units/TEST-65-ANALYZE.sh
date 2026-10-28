@@ -491,6 +491,19 @@ systemd-analyze verify /tmp/multi-exec-start.service
 echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
 (! systemd-analyze verify /tmp/multi-exec-start.service)
 
+# test that a missing man binary is reported as such, and that --man=no skips the check.
+cat <<EOF >/tmp/man-documentation.service
+[Unit]
+Documentation=man:systemd(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+EOF
+(! env PATH=/nonexistent "$(command -v systemd-analyze)" verify /tmp/man-documentation.service 2>/tmp/man-documentation.log)
+grep "man not found" /tmp/man-documentation.log >/dev/null
+env PATH=/nonexistent "$(command -v systemd-analyze)" verify --man=no /tmp/man-documentation.service
+
 # Prevent regression from #20233 where systemd-analyze will return nonzero exit codes on warnings
 
 # Unit file with warning "Unknown key name 'foo' in section 'Unit', ignoring"
