@@ -141,13 +141,15 @@
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
 
-        <para>When images are attached, an image policy will be generated that pins the attached image by
-        the exact content that was found while attaching, so that it cannot be swapped downgrading security
-        (e.g.: removing dm-verity protection) without a full reinstallation. For more details on policies, see
-        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        If an image contains a dm-verity signature, attaching fails unless a key in the kernel keyring or a
-        certificate in <filename>/etc/verity.d/</filename> (and related directories) validates the
-        signature.</para>
+        <para>When images are attached, <command>portablectl</command> generates an image policy that pins the
+        filesystem type of each partition of the attached image, its partition flags and which partitions it
+        contains. With
+        <option>--pin-protection=yes</option>, the policy also pins the dm-verity protection and the signature
+        that were found while attaching, so that the image cannot be swapped for one with weaker protection
+        without a full reinstallation. In that case, attaching an image with a dm-verity signature fails unless
+        a key in the kernel keyring or a certificate in <filename>/etc/verity.d/</filename> (and related
+        directories) validates the signature. For more details on policies, see
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="vpick.xml" xpointer="image"/>
         <xi:include href="vpick.xml" xpointer="directory"/>
@@ -327,6 +329,23 @@
         below.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pin-protection=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When attaching or reattaching an image, controls whether the generated
+        <varname>RootImagePolicy=</varname> and <varname>ExtensionImagePolicy=</varname> settings require the
+        dm-verity protection and the signature that the attached images have. Takes a boolean argument.
+        Defaults to no.</para>
+
+        <para>When disabled, the generated policies pin the filesystem type, the partition flags and which
+        partitions exist, and permit images with any dm-verity protection or signature. Images that contain
+        dm-verity data still use dm-verity. If the host doesn't trust the signature of an image,
+        <command>portablectl</command> attaches the image, and dm-verity checks the image against its root
+        hash without validating the signature.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>

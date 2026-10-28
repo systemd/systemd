@@ -462,11 +462,42 @@ static int extract_now(
         return 0;
 }
 
+static ImagePolicy* pin_image_policy(const DissectedImage *m, const VeritySettings *verity, bool pin_protection) {
+        ImagePolicy *p = image_policy_new_from_dissected(m, verity);
+        if (!p)
+                return NULL;
+
+        if (pin_protection)
+                return p;
+
+        FOREACH_ARRAY(pp, p->policies, p->n_policies) {
+                if (partition_verity_hash_to_data(pp->designator) >= 0 ||
+                    partition_verity_sig_to_data(pp->designator) >= 0) {
+                        pp->flags = PARTITION_POLICY_OPEN;
+                        continue;
+                }
+
+                /* If we only cleared the Verity and signature flags, the policy would have no protection flags
+                 * for the partition. A policy without protection flags allows "absent" and "unused" too. We
+                 * allow every Verity protection instead, so that the partition has to exist. */
+                if (pp->flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED))
+                        pp->flags |= PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED;
+
+                /* Without any flags, the policy string contains "-" for the partition, which
+                 * image_policy_from_string() parses as "ignore" instead of "open". */
+                if (pp->flags == 0)
+                        pp->flags = PARTITION_POLICY_OPEN;
+        }
+
+        return p;
+}
+
 static int pin_image_policy_from_fd(
                 int fd,
                 const VeritySettings *verity,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
+                bool pin_protection,
                 ImagePolicy **ret) {
 
         _cleanup_(verity_settings_done) VeritySettings v = VERITY_SETTINGS_DEFAULT;
@@ -521,7 +552,7 @@ static int pin_image_policy_from_fd(
         if (r < 0)
                 return r;
 
-        ImagePolicy *p = image_policy_new_from_dissected(m, &v);
+        ImagePolicy *p = pin_image_policy(m, &v, pin_protection);
         if (!p)
                 return -ENOMEM;
 
@@ -534,6 +565,7 @@ static int portable_extract_by_path(
                 const char *path,
                 bool path_is_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 char **matches,
                 const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
@@ -695,9 +727,10 @@ static int portable_extract_by_path(
                 if (scope == RUNTIME_SCOPE_USER) {
                         /* mountfsd doesn't report whether the image is signed, so we dissect the image
                          * ourselves to determine the policy to pin. We pass the pinned policy to mountfsd, so
-                         * that it refuses an image whose signature the host doesn't trust. */
+                         * that it refuses the image if the pinned policy requires a signature that the host
+                         * doesn't trust. */
                         if (ret_pinned_image_policy) {
-                                r = pin_image_policy_from_fd(rfd, &verity, image_policy, flags, &pinned_image_policy);
+                                r = pin_image_policy_from_fd(rfd, &verity, image_policy, flags, pin_protection, &pinned_image_policy);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to dissect '%s': %m", path);
                         }
@@ -762,13 +795,13 @@ static int portable_extract_by_path(
                                 return log_debug_errno(r, "Failed to guess verity roothash for '%s': %m", path);
 
                         /* Callers only ask for a pinned policy when attaching an image. In that case we set
-                         * up Verity with the pinned policy, so that we refuse to attach an image whose
-                         * signature the host doesn't trust, instead of failing when the service starts. We
-                         * also read the metadata through Verity this way. We don't set up Verity when only
-                         * inspecting an image, so that the admin can still inspect an image whose signature
-                         * the host doesn't trust. */
+                         * up Verity with the pinned policy. If the pinned policy requires a signature that the
+                         * host doesn't trust, we refuse to attach the image, instead of failing when the
+                         * service starts. We also read the metadata through Verity this way. We don't set up
+                         * Verity when only inspecting an image, so that the admin can still inspect an image
+                         * whose signature the host doesn't trust. */
                         if (ret_pinned_image_policy) {
-                                pinned_image_policy = image_policy_new_from_dissected(m, &verity);
+                                pinned_image_policy = pin_image_policy(m, &verity, pin_protection);
                                 if (!pinned_image_policy)
                                         return -ENOMEM;
 
@@ -896,6 +929,7 @@ static int extract_image_and_extensions(
                 char **extension_image_paths,
                 bool validate_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 const ImagePolicy *image_policy,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
@@ -1001,6 +1035,7 @@ static int extract_image_and_extensions(
                         image->path,
                         /* path_is_extension= */ false,
                         /* relax_extension_release_check= */ false,
+                        pin_protection,
                         matches,
                         image_policy,
                         &os_release,
@@ -1076,6 +1111,7 @@ static int extract_image_and_extensions(
                                 ext->path,
                                 /* path_is_extension= */ true,
                                 relax_extension_release_check,
+                                pin_protection,
                                 matches,
                                 image_policy,
                                 &extension_release_meta,
@@ -1186,6 +1222,7 @@ int portable_extract(
                         extension_image_paths,
                         /* validate_extension= */ false,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ FLAGS_SET(flags, PORTABLE_PIN_PROTECTION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -2173,6 +2210,7 @@ int portable_attach(
                         extension_image_paths,
                         /* validate_extension= */ true,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ FLAGS_SET(flags, PORTABLE_PIN_PROTECTION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -2246,8 +2284,7 @@ int portable_attach(
                 }
 
         /* When reattaching, we only detach the image after the checks above. If attaching fails these
-         * checks, for example because the host doesn't trust the signature of an image, the image stays
-         * attached. */
+         * checks, for example because no unit files match, the image stays attached. */
         if (FLAGS_SET(flags, PORTABLE_REATTACH)) {
                 r = portable_detach(
                                 scope,
