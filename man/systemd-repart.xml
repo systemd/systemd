@@ -886,6 +886,54 @@
 
           <xi:include href="version-info.xml" xpointer="v263"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--manifest-match-hostname=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--manifest-match-machine-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--manifest-match-machine-tags=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--manifest-match-image-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--manifest-match-image-version=<replaceable>EXPRESSION</replaceable></option></term>
+          <term><option>--manifest-match-os-id=<replaceable>GLOB</replaceable></option></term>
+          <term><option>--manifest-match-os-version-id=<replaceable>EXPRESSION</replaceable></option></term>
+
+          <listitem><para>Restrict the generated images to specific systems, by setting the
+          <literal>user.match_hostname</literal>, <literal>user.match_machine_id</literal>,
+          <literal>user.match_machine_tags</literal>, <literal>user.match_image_id</literal>,
+          <literal>user.match_image_version</literal>, <literal>user.match_os_id</literal> and
+          <literal>user.match_os_version_id</literal> extended attributes, respectively. Each option takes a
+          single entry (a shell-style glob pattern, or a version comparison expression for the two version
+          options) and may be specified multiple times to add further entries to the list. If the empty string
+          is specified the list is reset. See <varname>MatchXAttrHostname=</varname> and related settings in
+          <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the semantics of these extended attributes.</para>
+
+          <para>The extended attributes are applied to the image file itself (if it is a regular file, rather
+          than a block device), and to the split artifacts generated with <option>--split=</option>. Moreover,
+          they are included in the <literal>extendedAttributes</literal> field of the image object and of all
+          partition objects of the partition table manifest generated with <option>--manifest-gpt=</option>,
+          and hence covered by its signature, if it is signed. This allows restricting images to specific
+          systems at build time, so that
+          <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          (with <varname>MatchXAttrHostname=</varname> and related settings enabled),
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          resolution skip them on other systems. Requires an image file to be specified.</para>
+
+          <para>When generating system or configuration extension images, it is strongly recommended to
+          combine these options with the matching <varname>MATCH_HOSTNAME=</varname>,
+          <varname>MATCH_MACHINE_ID=</varname>, <varname>MATCH_MACHINE_TAGS=</varname>,
+          <varname>MATCH_IMAGE_ID=</varname>, <varname>MATCH_IMAGE_VERSION=</varname>,
+          <varname>MATCH_OS_ID=</varname> and <varname>MATCH_OS_VERSION_ID=</varname> fields in the
+          <filename>extension-release</filename> file included in the image (see
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The
+          latter are covered by the image's Verity protection, while the extended attributes are not: they are
+          not part of the image contents, and can be altered by anyone with write access to the image file
+          (unless they are verified against a signed manifest). The extended attribute based matching should
+          hence primarily be considered an optimization, which makes it unnecessary to unlock and inspect an
+          image only to realize that it does not apply to the local system anyway.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>

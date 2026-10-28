@@ -1500,6 +1500,18 @@ EOF
     # Manifests are signed with a key of their own, separate from the verity one
     openssl req -x509 -newkey rsa:2048 -nodes -keyout "$defs/manifest.key" -out "$defs/manifest.crt" -subj /CN=manifest -days 2 2>/dev/null
 
+    # Restrict the images to specific systems, if the file system supports user xattrs
+    local -a match_args=()
+    touch "$imgs/xattr-probe"
+    if setfattr -n user.probe -v 1 "$imgs/xattr-probe"; then
+        match_args=(--manifest-match-hostname='web*'
+                    --manifest-match-hostname=db1
+                    --manifest-match-machine-tags=dropped
+                    --manifest-match-machine-tags=
+                    --manifest-match-os-version-id='>= 40')
+    fi
+    rm -f "$imgs/xattr-probe"
+
     output=$(systemd-repart --offline="$OFFLINE" \
                             --definitions="$defs" \
                             --seed="$seed" \
@@ -1512,6 +1524,7 @@ EOF
                             --manifest-fields=size,hash \
                             --manifest-private-key="$defs/manifest.key" \
                             --manifest-certificate="$defs/manifest.crt" \
+                            "${match_args[@]}" \
                             --json=pretty \
                             --private-key="$defs/verity.key" \
                             --certificate="$defs/verity.crt" \
@@ -1554,6 +1567,22 @@ EOF
     tr -d '\036' <"$gpt_manifest" | jq -e "select(.name == \"$(basename "$sig_split")\") | (.contents | length) == 1" >/dev/null
     { tr -d '\036' <"$gpt_manifest" | jq -c "select(.name != \"$(basename "$sig_split")\")" | sed 's/^/\x1e/'; } >"$imgs/verity.nosig.Uapi16Manifest"
     systemd-manifest verify --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest"
+
+    if [[ ${#match_args[@]} -gt 0 ]]; then
+        # The image and the split artifacts carry the requested xattrs, and the partition table manifest
+        # records them for the image and each partition, hence it verifies including the xattrs
+        for f in "$imgs/verity" "$root_split" "$sig_split"; do
+            assert_eq "$(getfattr --only-values -n user.match_hostname "$f" | tr '\0' ' ')" "web* db1"
+            assert_eq "$(getfattr --only-values -n user.match_os_version_id "$f")" ">= 40"
+            (! getfattr -n user.match_machine_tags "$f")
+        done
+        jq --seq -e 'select(.name == "verity") | .extendedAttributes.user.match_os_version_id.text == ">= 40" and .extendedAttributes.user.match_hostname.base64 != null and (.extendedAttributes.user | has("match_machine_tags") | not)' <"$gpt_manifest" >/dev/null
+        jq --seq -e "select(.name == \"$(basename "$root_split")\") | .extendedAttributes.user.match_os_version_id.text == \">= 40\"" <"$gpt_manifest" >/dev/null
+        systemd-manifest verify --field=+user-xattr --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest"
+        setfattr -n user.match_os_version_id -v '>= 41' "$root_split"
+        (! systemd-manifest verify --field=+user-xattr --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest")
+        (! systemd-repart --manifest-match-os-version-id='>=' "$imgs/invalid")
+    fi
 
     # Check that offline signing works and the resulting image is valid
 
