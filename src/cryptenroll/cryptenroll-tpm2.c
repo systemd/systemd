@@ -377,8 +377,11 @@ int enroll_tpm2(const EnrollContext *c,
                 }
         }
 
+        /* Only load the public key if there are PCRs to bind it to. The sealing policy includes the key
+         * whenever one is loaded, but unsealing only uses it if the PCR mask is set, hence a key without
+         * PCRs would result in a slot that can't be unlocked. */
         TPM2B_PUBLIC public = {};
-        if (c->tpm2_public_key || c->tpm2_load_public_key) {
+        if (pubkey_pcr_mask != 0 && (c->tpm2_public_key || c->tpm2_load_public_key)) {
                 r = tpm2_load_pcr_public_key(c->tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
                         if (c->tpm2_public_key || c->tpm2_signature || r != -ENOENT)
@@ -578,7 +581,7 @@ int enroll_tpm2(const EnrollContext *c,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                c->tpm2_public_key_policyref,
+                                iovec_is_set(&pubkey) ? c->tpm2_public_key_policyref : NULL,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
@@ -631,7 +634,7 @@ int enroll_tpm2(const EnrollContext *c,
                         hash_pcr_mask,
                         hash_pcr_bank,
                         &pubkey,
-                        c->tpm2_public_key_policyref,
+                        iovec_is_set(&pubkey) ? c->tpm2_public_key_policyref : NULL,
                         pubkey_pcr_mask,
                         primary_alg,
                         blobs,

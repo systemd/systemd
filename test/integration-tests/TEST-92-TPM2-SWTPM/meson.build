@@ -19,6 +19,8 @@ integration_tests += [
                 'cmdline' : integration_test_template['cmdline'] + [
                         # Opt into the software TPM fallback (off by default).
                         'systemd.tpm2_software_fallback=yes',
+                        # Opt into replaying the measurements of systemd-stub into it.
+                        'systemd.tpm2_measured_os=1',
                         'systemd.default_device_timeout_sec=300',
                 ],
                 'priority' : 10,
