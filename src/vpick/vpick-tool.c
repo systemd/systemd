@@ -10,6 +10,7 @@
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -138,6 +139,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 arg_filter_type_mask |= UINT32_C(1) << IFTODT(m);
                         }
 
+                        break;
+
+                OPTION_LONG("match-xattr", "BOOL", "Skip entries whose user.uapi.match_* xattrs don't match the system (default: yes)"):
+                        r = parse_boolean_argument("--match-xattr=", opts.arg, /* ret= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_flags, PICK_IGNORE_XATTR_MATCH, !r);
                         break;
 
                 OPTION_GROUP("Output"): {}
