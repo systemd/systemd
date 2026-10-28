@@ -290,4 +290,30 @@ if openssl_supports_kdf SSKDF; then
           /tmp/unknown-srk.pub /tmp/unknown-srk.ctx /tmp/empty-pcrsig.json
 fi
 
+# Ensure we skip malformed tokens, e.g., ones written by a newer version with unknown crypto.
+# They pass the token plugin's validation but fail parsing, one with EINVAL and one with EUCLEAN.
+# Both come before the good token.
+systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrlock= --tpm2-public-key= --tpm2-pcrs=7 "$IMAGE"
+cryptsetup token export --token-id 0 "$IMAGE" >/tmp/good-token.json
+cryptsetup token remove --token-id 0 "$IMAGE"
+# Token 0: PCR public key mask without public key (EINVAL)
+jq 'del(.tpm2_pubkey) + {"tpm2_pubkey_pcrs": [11]}' /tmp/good-token.json >/tmp/bad-token0.json
+cryptsetup token import --json-file=/tmp/bad-token0.json --token-id 0 "$IMAGE"
+# Token 1: incomplete Argon2id parameters (EUCLEAN)
+jq '. + {"tpm2_argon2id_memcost": 1048576}' /tmp/good-token.json >/tmp/bad-token1.json
+cryptsetup token import --json-file=/tmp/bad-token1.json --token-id 1 "$IMAGE"
+# Token 2: unseals successfully
+cryptsetup token import --json-file=/tmp/good-token.json --token-id 2 "$IMAGE"
+
+for mod in 1 0; do
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
+done
+# systemd-cryptenroll iterates over the tokens, too
+systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
+
+rm -f /tmp/good-token.json /tmp/bad-token0.json /tmp/bad-token1.json
+
 rm -f "$IMAGE" "$PRIMARY" /tmp/passphrase /tmp/wrong_passphrase
