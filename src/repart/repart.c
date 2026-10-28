@@ -91,6 +91,7 @@
 #include "varlink-io.systemd.Repart.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "xattr-match.h"
 #include "xattr-util.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
@@ -208,6 +209,7 @@ static char *arg_manifest_private_key_source = NULL;
 static char *arg_manifest_certificate = NULL;
 static CertificateSourceType arg_manifest_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static char *arg_manifest_certificate_source = NULL;
+static XAttrMatchLists arg_match_xattr = {};
 static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
@@ -248,6 +250,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_manifest_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_manifest_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_manifest_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_manifest_certificate_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_match_xattr, xattr_match_lists_done);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
@@ -651,6 +654,11 @@ struct Context {
         OpenSSLAskPasswordUI *manifest_ui;
         EVP_PKEY *manifest_private_key;
 #endif
+
+        /* The "user.uapi.match_…" extended attributes to apply to the generated image files, and to record
+         * in the partition table manifest, see --match-xattr-…= */
+        Uapi16Xattr *match_xattrs;
+        size_t n_match_xattrs;
 
         bool defer_partitions_empty;
         bool defer_partitions_factory_reset;
@@ -1111,6 +1119,8 @@ static Context* context_free(Context *context) {
         if (context->manifest_private_key)
                 sym_EVP_PKEY_free(context->manifest_private_key);
 #endif
+
+        uapi16_xattr_array_free(context->match_xattrs, context->n_match_xattrs);
 
         context->link = sd_varlink_unref(context->link);
 
@@ -8624,6 +8634,134 @@ static int split_name_resolve(Context *context) {
         return 0;
 }
 
+static bool match_xattr_is_set(void) {
+        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++)
+                if (arg_match_xattr[m])
+                        return true;
+
+        return false;
+}
+
+static int parse_match_xattr(XAttrMatch m, const char *option, const char *arg) {
+        assert(m >= 0);
+        assert(m < _XATTR_MATCH_MAX);
+        assert(option);
+
+        /* Each switch adds one entry, the empty string resets the list */
+        if (isempty(arg)) {
+                arg_match_xattr[m] = strv_free(arg_match_xattr[m]);
+                return 0;
+        }
+
+        if (!xattr_match_entry_is_valid(m, arg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid argument to %s: %s", option, arg);
+
+        if (strv_extend(&arg_match_xattr[m], arg) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int context_load_match_xattrs(Context *context) {
+        Uapi16Xattr *x = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(context);
+        assert(!context->match_xattrs);
+
+        /* Converts the --match-xattr-…= switches into "user.uapi.match_…" extended attributes, each carrying
+         * a NUL separated list of entries. The final NUL byte is dropped, so that a single entry is stored as
+         * plain string, and is hence shown as "text" (rather than Base64) in the manifest. */
+
+        if (!match_xattr_is_set())
+                return 0;
+
+        CLEANUP_ARRAY(x, n, uapi16_xattr_array_free);
+
+        x = new0(Uapi16Xattr, _XATTR_MATCH_MAX);
+        if (!x)
+                return log_oom();
+
+        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++) {
+                _cleanup_free_ char *name = NULL, *value = NULL;
+                size_t size;
+
+                if (!arg_match_xattr[m])
+                        continue;
+
+                name = strdup(xattr_match_to_xattr_name(m));
+                if (!name)
+                        return log_oom();
+
+                r = strv_make_nulstr(arg_match_xattr[m], &value, &size);
+                if (r < 0)
+                        return log_oom();
+                assert(size > 0);
+
+                x[n++] = (Uapi16Xattr) {
+                        .name = TAKE_PTR(name),
+                        .value = IOVEC_MAKE(TAKE_PTR(value), size - 1),
+                };
+        }
+
+        r = uapi16_xattr_array_sort(x, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sort extended attributes: %m");
+
+        context->match_xattrs = TAKE_PTR(x);
+        context->n_match_xattrs = n;
+        n = 0;
+        return 0;
+}
+
+static int context_apply_match_xattrs_one(Context *context, int fd, const char *path) {
+        int r;
+
+        assert(context);
+        assert(fd >= 0);
+        assert(path);
+
+        FOREACH_ARRAY(x, context->match_xattrs, context->n_match_xattrs) {
+                _cleanup_free_ char *name = strjoin("user.", x->name);
+                if (!name)
+                        return log_oom();
+
+                r = xsetxattr_full(fd, /* path= */ NULL, AT_EMPTY_PATH, name, x->value.iov_base, x->value.iov_len, /* xattr_flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set extended attribute '%s' on %s: %m", name, path);
+        }
+
+        return 0;
+}
+
+static int context_apply_match_xattrs(Context *context) {
+        int fd;
+
+        assert(context);
+
+        if (context->n_match_xattrs == 0)
+                return 0;
+
+        if (context->dry_run)
+                return 0;
+
+        /* Applies the "user.uapi.match_…" extended attributes to the image itself, via the fd we already
+         * have open for it. (The split-out partition files get them in context_split().) */
+
+        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", context->node);
+        if (!S_ISREG(st.st_mode)) {
+                log_notice("%s is not a regular file, not applying extended attributes to it.", context->node);
+                return 0;
+        }
+
+        return context_apply_match_xattrs_one(context, fd, context->node);
+}
+
 static int context_split(Context *context) {
         unsigned attrs = 0;
         int fd = -EBADF, r;
@@ -8696,6 +8834,10 @@ static int context_split(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
                 }
+
+                r = context_apply_match_xattrs_one(context, fdt, p->split_path);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -8933,6 +9075,14 @@ static int context_manifest_gpt(Context *context) {
         }
 #endif
 
+        /* The image and every partition carry the same "user.uapi.match_…" extended attributes, if any */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *xattrs = NULL;
+        if (context->n_match_xattrs > 0) {
+                r = uapi16_xattrs_build_json(context->match_xattrs, context->n_match_xattrs, &xattrs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build extended attributes JSON object: %m");
+        }
+
         /* The root object carries the fields of the GPT header */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_buildo(
@@ -8957,7 +9107,8 @@ static int context_manifest_gpt(Context *context) {
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("name", image_name),
                         SD_JSON_BUILD_PAIR_UNSIGNED("size", context->total),
-                        SD_JSON_BUILD_PAIR_HEX("sha256", image_hash, sizeof(image_hash)));
+                        SD_JSON_BUILD_PAIR_HEX("sha256", image_hash, sizeof(image_hash)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!xattrs, "extendedAttributes", SD_JSON_BUILD_VARIANT(xattrs)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -9015,6 +9166,7 @@ static int context_manifest_gpt(Context *context) {
                                 JSON_BUILD_PAIR_TRISTATE_NON_NULL("gptFlagNoAuto", p->no_auto),
                                 JSON_BUILD_PAIR_TRISTATE_NON_NULL("gptFlagGrowFileSystem", p->growfs),
                                 JSON_BUILD_PAIR_TRISTATE_NON_NULL("readOnly", p->read_only),
+                                SD_JSON_BUILD_PAIR_CONDITION(!!xattrs, "extendedAttributes", SD_JSON_BUILD_VARIANT(xattrs)),
                                 SD_JSON_BUILD_PAIR_VARIANT("contents", contents));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
@@ -11636,6 +11788,57 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                OPTION_GROUP("Extended Attributes"): {}
+
+                OPTION_LONG("match-xattr-hostname", "GLOB",
+                            "Restrict generated images to systems with a matching hostname"):
+                        r = parse_match_xattr(XATTR_MATCH_HOSTNAME, "--match-xattr-hostname=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-machine-id", "GLOB",
+                            "Restrict generated images to systems with a matching machine ID"):
+                        r = parse_match_xattr(XATTR_MATCH_MACHINE_ID, "--match-xattr-machine-id=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-machine-tags", "GLOB",
+                            "Restrict generated images to systems with a matching machine tag"):
+                        r = parse_match_xattr(XATTR_MATCH_MACHINE_TAGS, "--match-xattr-machine-tags=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-image-id", "GLOB",
+                            "Restrict generated images to systems with a matching os-release IMAGE_ID="):
+                        r = parse_match_xattr(XATTR_MATCH_IMAGE_ID, "--match-xattr-image-id=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-image-version", "EXPR",
+                            "Restrict generated images to systems with a matching os-release IMAGE_VERSION="):
+                        r = parse_match_xattr(XATTR_MATCH_IMAGE_VERSION, "--match-xattr-image-version=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-os-id", "GLOB",
+                            "Restrict generated images to systems with a matching os-release ID="):
+                        r = parse_match_xattr(XATTR_MATCH_OS_ID, "--match-xattr-os-id=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("match-xattr-os-version-id", "EXPR",
+                            "Restrict generated images to systems with a matching os-release VERSION_ID="):
+                        r = parse_match_xattr(XATTR_MATCH_OS_VERSION_ID, "--match-xattr-os-version-id=", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_GROUP("Manifest Generation"): {}
 
                 OPTION_LONG("manifest", "BOOL",
@@ -11819,6 +12022,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_manifest_private_key && !arg_manifest && !arg_manifest_gpt)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--manifest-private-key= requires --manifest= or --manifest-gpt=.");
+
+        if (match_xattr_is_set() && !arg_node)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "A path to an image file must be specified when --match-xattr-…= are used.");
 
         if (auto_pcrlock) {
                 assert(!arg_tpm2_pcrlock);
@@ -12709,6 +12916,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = context_load_match_xattrs(context);
+        if (r < 0)
+                return r;
+
         context->defer_partitions_empty = arg_defer_partitions_empty;
         context->defer_partitions_factory_reset = arg_defer_partitions_factory_reset;
 
@@ -12883,6 +13094,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_split(context);
+        if (r < 0)
+                return r;
+
+        r = context_apply_match_xattrs(context);
         if (r < 0)
                 return r;
 
