@@ -657,9 +657,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   (i.e. SMBIOS type #11, …), so that one can unlock LUKS via VM hypervisor
   supplied password.
 
-- automatically reset specific EFI vars on factory reset (make this generic
-  enough so that infra can be used to erase shim's mok vars?)
-
 - be able to specify a forced restart of service A where service B depends on, in case B
   needs to be auto-respawned?
 
@@ -969,6 +966,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - expose the handoff timestamp fully via the D-Bus properties that contain
   ExecStatus information
+
+- extend the factory reset EFI variable erasing in systemd-boot
+  (LoaderFactoryResetVariables) to other vendors' namespaces, e.g. to erase
+  shim's MOK variables
 
 - extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
