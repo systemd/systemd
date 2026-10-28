@@ -51,6 +51,7 @@
 #include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "web-util.h"
+#include "xattr-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
@@ -1826,6 +1827,54 @@ static int transfer_acquire_source(
                         t, i, cb, userdata);
 }
 
+static int instance_apply_user_xattrs(Instance *i, const char *path) {
+        int r;
+
+        assert(i);
+        assert(path);
+
+        /* Applies the user extended attributes listed in the manifest to the installed inode, so that they
+         * are retained on the target. Failing to do so is not fatal, the instance is fully usable without
+         * them. Returns > 0 if any attribute was applied. */
+
+        if (i->n_user_xattrs == 0)
+                return 0;
+
+        _cleanup_close_ int fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                log_warning_errno(errno, "Failed to open '%s' to apply extended attributes, ignoring: %m", path);
+                return 0;
+        }
+
+        bool applied = false;
+        FOREACH_ARRAY(x, i->user_xattrs, i->n_user_xattrs) {
+                _cleanup_free_ char *n = strjoin("user.", x->name);
+                if (!n)
+                        return log_oom();
+
+                r = xsetxattr_full(
+                                fd,
+                                /* path= */ NULL,
+                                AT_EMPTY_PATH,
+                                n,
+                                x->value.iov_base,
+                                x->value.iov_len,
+                                /* xattr_flags= */ 0);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        log_notice_errno(r, "File system backing '%s' does not support extended attributes, not applying them: %m", path);
+                        break;
+                }
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set extended attribute '%s' on '%s', ignoring: %m", n, path);
+                        continue;
+                }
+
+                applied = true;
+        }
+
+        return applied;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
@@ -2064,6 +2113,12 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         need_sync = true;
                 }
+
+                r = instance_apply_user_xattrs(i, t->temporary_partial_path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        need_sync = true;
 
                 /* Synchronize */
                 if (t->context->sync && need_sync) {

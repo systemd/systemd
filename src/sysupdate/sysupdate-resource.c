@@ -876,6 +876,11 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         instance->n_sources = object->n_contents;
         object->n_contents = 0;
 
+        /* Similar, for the extended attributes to apply when installing */
+        instance->user_xattrs = TAKE_PTR(object->user_xattrs);
+        instance->n_user_xattrs = object->n_user_xattrs;
+        object->n_user_xattrs = 0;
+
         return 0;
 }
 
