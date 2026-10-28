@@ -220,6 +220,16 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
+# A process that can't reuse an existing verity device leaves the device alone. Here, the process can't reuse
+# the device because the device was activated without the signature that the process has.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                         --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                         --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                         --image-policy=root=verity+signed >/dev/null
+veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" >/dev/null
+veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
