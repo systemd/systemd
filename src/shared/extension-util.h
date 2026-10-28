@@ -2,6 +2,7 @@
 #pragma once
 
 #include "forward.h"
+#include "xattr-match.h"
 
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair
  * vector of extension-release variables, check that the distro and (system extension level or distro
@@ -27,3 +28,23 @@ int extension_has_forbidden_content(const char *root);
 
 /* Find the backing device. Returns >0 on success, 0 if the volume is not an extension, and <0 on error. */
 int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret);
+
+/* Checks whether an extension image is suitable for the local system, based on the MATCH_HOSTNAME= and
+ * related fields of its extension-release file, and the "user.uapi.match_…" extended attributes of the image
+ * file or directory itself (see xattr-match.h, as set by systemd-sysupdate). The fields mirror the extended
+ * attributes 1:1. Both are honoured, i.e. if both carry a rule for the same property, and the rules differ,
+ * effectively the stricter one applies. The host properties are loaded lazily from the specified root
+ * directory (or the host if NULL). Returns > 0 if the image is suitable, 0 if not (also if a rule is
+ * invalid), < 0 on error. If ret_contradicting is non-NULL, on success (i.e. both when returning > 0 and
+ * 0) it is set to the XATTR_MATCH_MASK() of the properties for which both carry rules that differ, so that
+ * the caller can warn about them. Doesn't log above debug level. */
+int extension_match_host(
+                const char *name,
+                const char *image_path,
+                char **extension_release,
+                HostProperties *host,
+                const char *root,
+                unsigned *ret_contradicting);
+
+/* Returns the extension-release field (e.g. "MATCH_HOSTNAME") corresponding to an XAttrMatch */
+const char* extension_release_match_field_to_string(XAttrMatch i) _const_;

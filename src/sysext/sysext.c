@@ -37,6 +37,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "host-properties.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -70,6 +71,7 @@
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "xattr-match.h"
 
 typedef enum MutableMode {
         MUTABLE_NO,
@@ -1970,6 +1972,7 @@ static int merge_subprocess(
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
+        _cleanup_(host_properties_done) HostProperties host = {};
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -2178,6 +2181,36 @@ static int merge_subprocess(
                                         c->image_class);
                         if (r < 0)
                                 return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
+
+                        /* Check MATCH_HOSTNAME= and friends, and the "user.uapi.match_…" xattrs of the
+                         * image */
+                        unsigned contradicting = 0;
+                        r = extension_match_host(
+                                        img->name,
+                                        img->path,
+                                        image_extension_release(img, c->image_class),
+                                        &host,
+                                        empty_to_null(c->root),
+                                        &contradicting);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check whether extension '%s' is suitable for this system: %m", img->name);
+
+                        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++) {
+                                if (!FLAGS_SET(contradicting, XATTR_MATCH_MASK(m)))
+                                        continue;
+
+                                const char *field = extension_release_match_field_to_string(m);
+                                log_warning("Extended attribute 'user.%s' of extension '%s' contradicts %s=%s in its extension-release file, honouring both.",
+                                            xattr_match_to_xattr_name(m),
+                                            img->name,
+                                            field,
+                                            strna(strv_env_pairs_get(image_extension_release(img, c->image_class), field)));
+                        }
+
                         if (r == 0) {
                                 n_ignored++;
                                 continue;
