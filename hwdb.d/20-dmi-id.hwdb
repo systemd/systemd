@@ -83,3 +83,10 @@ dmi:bvnAmericanMegatrendsInternational*:rvnGPD:rnG1628-04*
 # Google Pixelbook (Eve) is a convertible, but reports chassis type 3 (Desktop)
 dmi:*:svnGoogle:pnEve:*
  ID_CHASSIS=convertible
+
+# Supermicro servers report "Super Server" as the system product name,
+# which is meaningless. The real model lives on the base board (DMI type 2).
+dmi:*:svnSupermicro:pnSuper Server:*
+dmi:*:svnSupermicro:pnSuperServer:*
+ ID_PRODUCT_NAME_IS_RUBBISH=1
+ ID_PRODUCT_VERSION_IS_RUBBISH=1
