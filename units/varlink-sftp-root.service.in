@@ -1,0 +1,29 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Varlink SFTP Server EQUIVALENT TO ROOT ACCESS
+Documentation=man:varlinkctl(1)
+Requires=varlink-sftp-root.socket
+ConditionPathExists={{SFTP_SERVER}}
+
+[Service]
+Type=notify
+# -e makes it log to stderr (which ends up in the journal)
+ExecStart=varlinkctl serve --polkit-action=io.systemd.sftp.root io.systemd.Sftp.Root.Connect -- {{SFTP_SERVER}} -e
+
+NoNewPrivileges=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+TasksMax=64

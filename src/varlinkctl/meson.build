@@ -15,3 +15,8 @@ executables += [
 ]
 
 install_emptydir(varlinkbridgesdir)
+
+if conf.get('ENABLE_VARLINK_SFTP') == 1
+        install_data('io.systemd.sftp.policy',
+                     install_dir : polkitpolicydir)
+endif
