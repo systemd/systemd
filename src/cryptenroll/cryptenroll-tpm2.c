@@ -54,9 +54,10 @@ static int search_policy_hash(
                 }
 
                 w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-                if (!w)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "TPM2 token data lacks 'tpm2-policy-hash' field.");
+                if (!w) {
+                        log_warning("TPM2 token %i lacks 'tpm2-policy-hash' field, skipping.", token);
+                        continue;
+                }
 
                 /* This is either an array of strings (for sharded enrollments), or a single string */
                 if (sd_json_variant_is_array(w)) {
@@ -70,8 +71,13 @@ static int search_policy_hash(
                                         _cleanup_(iovec_done) struct iovec thash = {};
 
                                         r = sd_json_variant_unhex(i, &thash.iov_base, &thash.iov_len);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field item : %m");
+                                        if (r == -ENOMEM)
+                                                return log_oom();
+                                        if (r < 0) {
+                                                log_warning_errno(r, "Invalid hex data in 'tpm2-policy-hash' field item of TPM2 token %i, skipping: %m", token);
+                                                match = false;
+                                                break;
+                                        }
 
                                         if (!iovec_equal(policy_hash + j, &thash)) {
                                                 match = false;
@@ -89,8 +95,12 @@ static int search_policy_hash(
                         _cleanup_(iovec_done) struct iovec thash = {};
 
                         r = sd_json_variant_unhex(w, &thash.iov_base, &thash.iov_len);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Invalid hex data in 'tpm2-policy-hash' field of TPM2 token %i, skipping: %m", token);
+                                continue;
+                        }
 
                         if (iovec_equal(policy_hash + 0, &thash))
                                 return keyslot; /* Found entry with same hash. */
