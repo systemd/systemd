@@ -2299,19 +2299,25 @@ void dissected_image_close(DissectedImage *m) {
 }
 
 DissectedImage* dissected_image_unref(DissectedImage *m) {
+        int mount_node_fds[_PARTITION_DESIGNATOR_MAX];
+
         if (!m)
                 return NULL;
 
-        /* First, clear dissected partitions. */
-        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+        /* Closing mount_node_fd can remove a verity device that has deferred removal set.
+         * decrypted_image_unref() forgets the btrfs device on the verity device, so we close mount_node_fd
+         * after decrypted_image_unref(). dissected_partition_done() closes fsmount_fd before
+         * decrypted_image_unref(), because btrfs doesn't forget a device of a mounted file system. */
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                mount_node_fds[i] = TAKE_FD(m->partitions[i].mount_node_fd);
                 dissected_partition_done(m->partitions + i);
+        }
 
-        /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
-         * DecryptedImage may try to deactivate partitions. */
         decrypted_image_unref(m->decrypted_image);
+        close_many(mount_node_fds, ELEMENTSOF(mount_node_fds));
 
-        /* Third, unref LoopDevice. This must be called after the above two, as freeing LoopDevice may try to
-         * remove existing partitions on the loopback block device. */
+        /* Freeing LoopDevice may remove partitions on the loopback block device, so it must follow the
+         * cleanup of the partitions and decrypted devices. */
         loop_device_unref(m->loop);
 
         free(m->image_name);
@@ -3160,10 +3166,15 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
                         if (r < 0 && r != -ENOENT)
                                 log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", p->node);
 
-                        /* Let's deactivate lazily, as the dm volume may be already/still used by other processes. */
-                        r = sym_crypt_deactivate_by_name(p->device, p->name, CRYPT_DEACTIVATE_DEFERRED);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to deactivate encrypted partition %s", p->name);
+                        /* verity_partition() requests deferred removal of a verity device right after it
+                         * activates and opens the device. We don't request removal of a verity device that
+                         * we reused, because the process that activated it requests its removal. */
+                        if (!streq_ptr(sym_crypt_get_type(p->device), CRYPT_VERITY)) {
+                                /* Other processes can still use the device. */
+                                r = sym_crypt_deactivate_by_name(p->device, p->name, CRYPT_DEACTIVATE_DEFERRED);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to deactivate encrypted partition %s", p->name);
+                        }
                 }
 
                 if (p->device)
@@ -3597,13 +3608,15 @@ static int do_crypt_activate_verity(
                 const char *name,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
-                PartitionPolicyFlags policy_flags) {
+                PartitionPolicyFlags policy_flags,
+                bool *ret_measure_signature) {
 
         int r;
 
         assert(cd);
         assert(name);
         assert(verity);
+        assert(ret_measure_signature);
 
         /* libcryptsetup 2.7.4 and newer don't open the data device exclusively with CRYPT_ACTIVATE_SHARED.
          * Several processes can then activate verity devices on the same data device at the same time. We
@@ -3679,10 +3692,7 @@ static int do_crypt_activate_verity(
         log_debug("Activation of Verity via root hash succeeded.");
 
 done:
-        (void) pcrextend_verity_now(
-                        name,
-                        &verity->root_hash,
-                        measure_signature ? &verity->root_hash_sig : NULL);
+        *ret_measure_signature = measure_signature;
         return 0;
 }
 
@@ -3781,6 +3791,7 @@ static int verity_partition(
                 _cleanup_(crypt_freep) struct crypt_device *existing_cd = NULL;
                 _cleanup_free_ char *devname = NULL;
                 _cleanup_close_ int fd = -EBADF;
+                bool measure_signature = false;
 
                 /* First, check if the device already exists. */
                 r = dm_get_devnum(name, /* ret= */ NULL);
@@ -3790,7 +3801,7 @@ static int verity_partition(
                         return log_debug_errno(r, "Failed to look up verity device %s: %m", name);
 
                 /* The device doesn't exist yet, let's activate it. */
-                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
+                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags, &measure_signature);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
                 /* libcryptsetup before 2.7.4 opens the data device exclusively. The activation can then
@@ -3846,8 +3857,23 @@ static int verity_partition(
                         fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_NOCTTY, &devname);
                         if (ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                                 goto try_again; /* Another process removed the device already. */
-                        if (fd < 0)
-                                return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
+                        if (fd < 0) {
+                                r = log_debug_errno(fd, "Failed to open verity device %s: %m", name);
+                                goto deactivate;
+                        }
+
+                        /* We request deferred removal of a device that we activated as soon as we opened it.
+                         * The kernel then removes the device after its last user closed it, even if we fail or
+                         * get killed before the image is relinquished. If another process replaced our device
+                         * before we opened it, we request deferred removal of that device instead. */
+                        r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
+
+                        (void) pcrextend_verity_now(
+                                        name,
+                                        &verity->root_hash,
+                                        measure_signature ? &verity->root_hash_sig : NULL);
                 }
 
                 mount_node_fd = TAKE_FD(fd);
@@ -3935,6 +3961,12 @@ static int verity_partition(
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
+
+deactivate:
+        /* Processes that reuse the device don't request its removal. If we fail before we request deferred
+         * removal of a device that we activated, the device stays active until reboot. */
+        (void) sym_crypt_deactivate_by_name(/* cd= */ NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+        return r;
 
 success:
         r = free_and_strdup(&m->decrypted_node, node);
@@ -4087,7 +4119,10 @@ int dissected_image_decrypt(
         return 1;
 
 fail:
-        /* Undo partial activation */
+        /* Closing mount_node_fd can remove a verity device that has deferred removal set.
+         * decrypted_image_free() forgets the btrfs devices through their device nodes, so we free the
+         * decrypted image before dissected_image_undo_decrypt() closes mount_node_fd. */
+        d = decrypted_image_unref(d);
         dissected_image_undo_decrypt(m);
         return r;
 #else
@@ -4152,8 +4187,9 @@ int dissected_image_decrypt_interactively(
 static int decrypted_image_relinquish(DecryptedImage *d) {
         assert(d);
 
-        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a
-         * boolean so that we don't clean it up ourselves either anymore */
+        /* We turn on automatic removal after the last use ended for the LUKS devices of this image. We also
+         * set a boolean so that we don't remove the LUKS devices ourselves anymore. verity_partition()
+         * already requested automatic removal of the verity devices that we activated. */
 
 #if HAVE_LIBCRYPTSETUP
         int r;
@@ -4164,9 +4200,11 @@ static int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = sym_crypt_deactivate_by_name(/* cd= */ NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
+                if (!streq_ptr(sym_crypt_get_type(p->device), CRYPT_VERITY)) {
+                        r = sym_crypt_deactivate_by_name(/* cd= */ NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
+                }
 
                 p->relinquished = true;
         }
