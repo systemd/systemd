@@ -193,6 +193,74 @@ umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
 
+# A process that reuses a verity device leaves the device alone when it's done. Only the process that activated
+# the device requests its removal. veritysetup didn't request deferred removal of the device, so the device must
+# not have deferred removal set after systemd-dissect exits.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")" = \
+     "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+systemd-dissect --umount "$IMAGE_DIR/mount"
+dmsetup info "$MINIMAL_IMAGE_ROOTHASH-verity" >/var/tmp/test-50-info
+(! grep -F "DEFERRED REMOVE" /var/tmp/test-50-info)
+rm /var/tmp/test-50-info
+veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+
+# A mount can use a unique device if a concurrent activator doesn't finish before its retries expire.
+# We activate the shared device first so every concurrent mount can reuse it.
+concurrent_dir="$(mktemp -d /var/tmp/test-50-concurrent.XXXXXXXXXX)"
+mkdir "$concurrent_dir"/{0..7}
+for _ in {1..3}; do
+    wait_for_shared_verity_device_removal
+    SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$concurrent_dir/0"
+    devnum="$(findmnt -n -o MAJ:MIN "$concurrent_dir/0")"
+    pids=()
+    for i in {1..7}; do
+        (
+            timeout 60 bash -c 'until test -e "$1/start"; do sleep .01; done' bash "$concurrent_dir"
+            SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+                systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$concurrent_dir/$i"
+        ) &
+        pids+=("$!")
+    done
+    touch "$concurrent_dir/start"
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
+    rm "$concurrent_dir/start"
+    for i in {1..7}; do
+        test "$(findmnt -n -o MAJ:MIN "$concurrent_dir/$i")" = "$devnum"
+    done
+    pids=()
+    for i in {1..7}; do
+        systemd-dissect --umount "$concurrent_dir/$i" &
+        pids+=("$!")
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
+    grep -F 'MARKER=1' "$concurrent_dir/0/usr/lib/os-release" >/dev/null
+    test "$(findmnt -n -o MAJ:MIN "$concurrent_dir/0")" = "$devnum"
+    systemd-dissect --umount "$concurrent_dir/0"
+    wait_for_shared_verity_device_removal
+done
+rmdir "$concurrent_dir"/{0..7} "$concurrent_dir"
+
+# A process that activates a verity device requests deferred removal of the device as soon as it opened it, so
+# the device is removed even if the process gets killed. systemd-nspawn keeps the image until it exits and never
+# relinquishes it. Without the request after the open, the device only gets deferred removal set when
+# systemd-nspawn exits normally.
+wait_for_shared_verity_device_removal
+systemd-run --unit=test-50-nspawn.service \
+            systemd-nspawn --pipe --register=no --keep-unit --image="$MINIMAL_IMAGE.raw" --read-only sleep infinity
+timeout 60 bash -c "until dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity 2>/dev/null | grep -F 'DEFERRED REMOVE' >/dev/null; do sleep .1; done"
+systemctl kill --signal=SIGKILL test-50-nspawn.service
+wait_for_shared_verity_device_removal
+systemctl reset-failed test-50-nspawn.service
+
 # A signature that can't be validated only prevents activation if the image policy allows "signed" but not
 # "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
 # reports a mismatch instead of failing on the garbage signature. The test image usually contains
