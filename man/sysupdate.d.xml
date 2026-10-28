@@ -734,6 +734,12 @@
         the file's <literal>sha256</literal> digest, which in the latter case is required. Inline data that
         is encoded must consist of the file and nothing else.</para>
 
+        <para>The extended attributes in the <literal>user</literal> namespace listed in the
+        <literal>extendedAttributes</literal> field of a file object of a UAPI.16 manifest are applied to the
+        file or directory created when installing it. This is done on a best-effort basis: if the file system
+        does not support extended attributes, or they cannot be set for other reasons, the instance is
+        installed without them.</para>
+
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 

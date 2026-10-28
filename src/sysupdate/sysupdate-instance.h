@@ -56,6 +56,11 @@ struct Instance {
         Uapi16Contents *sources;
         size_t n_sources;
 
+        /* The "user" extended attributes listed in the manifest (for web backed sources), which we apply
+         * to the inode we create when installing the instance */
+        Uapi16Xattr *user_xattrs;
+        size_t n_user_xattrs;
+
         /* The current state of this instance */
         bool is_partial;
         bool is_pending;
