@@ -1194,6 +1194,7 @@ static int link_context_add_extras(LinkContext *c, int uki_dir_fd, Set **seen) {
                                               de->d_name,
                                               &filter,
                                               /* n_filters= */ 1,
+                                              /* match_root= */ c->root,
                                               /* flags= */ 0,
                                               &pick);
                                 if (r == -ENOENT || r == 0) {
@@ -1249,6 +1250,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
                               "kernel.efi.v",
                               &pick_filter_uki,
                               /* n_filters= */ 1,
+                              /* match_root= */ c->root,
                               /* flags= */ 0,
                               &pick);
                 if (r == -ENOENT || r == 0)
