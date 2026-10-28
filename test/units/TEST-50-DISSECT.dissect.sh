@@ -131,6 +131,37 @@ SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
     grep -F "Root hash is too long for the name of a shared verity device" >/dev/null
 rm /tmp/test-50-sha512.verity /tmp/test-50-sha512.roothash
 
+# The tests below set up the shared verity device of $MINIMAL_IMAGE themselves. A device left over from an
+# earlier test can still exist, for example until its deferred removal finished. We look it up with dmsetup,
+# since some tests remove its symlink in /dev/mapper/.
+wait_for_shared_verity_device_removal() {
+    timeout 60 bash -c "while dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity &>/dev/null; do sleep .1; done"
+}
+
+# libcryptsetup before 2.7.4 opens the data device of a verity device exclusively, even with
+# CRYPT_ACTIVATE_SHARED. With such a version, setting up a verity device on a block device that another verity
+# device already maps fails.
+if systemd-analyze compare-versions "$(cryptsetup --version | cut -d' ' -f2)" ge 2.7.4; then
+    VERITY_SHARED_DATA_DEVICE=1
+else
+    VERITY_SHARED_DATA_DEVICE=0
+fi
+
+# A shared verity device can be set up on a block device that another verity device already maps. If the shared
+# device from an earlier test still exists, systemd-dissect reuses it instead of setting up a device on the
+# block device.
+if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
+    wait_for_shared_verity_device_removal
+    loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+    udevadm wait --timeout=60 --settle "$loop"
+    veritysetup open "$loop" test-50-other "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --verity-data="$MINIMAL_IMAGE.verity" >/dev/null
+    veritysetup close test-50-other
+    losetup -d "$loop"
+fi
+
 # Ensure the deferred close flag is set up correctly and we don't leak verity devices
 # when sharing is disabled
 # The devices are named 'loopXYZ-verity' when sharing is disabled
