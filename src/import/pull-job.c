@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "time-util.h"
+#include "uapi16-manifest.h"
 #include "web-util.h"
 #include "xattr-util.h"
 
@@ -78,6 +79,8 @@ PullJob* pull_job_unref(PullJob *j) {
                 sym_EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
+        free(j->main_filename);
+        uapi16_certificates_free(j->uapi16_certificates, j->n_uapi16_certificates);
         free(j->etag);
         strv_free(j->old_etags);
         iovec_done(&j->payload);

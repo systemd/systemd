@@ -365,6 +365,15 @@ test ! -e "$COMPDIR/root/bad.raw"
 (! "$PULL" raw --verify=no --direct --source-offset=18446744073709551615 --source-size=2 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
 test ! -e "$COMPDIR/out.raw"
 
+# A manifest cannot authenticate a partial image, hence ranges are refused with manifest based verification
+for v in checksum signature; do
+    (! "$PULL" raw --verify="$v" --direct --source-offset=1000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw") |& \
+        grep -F "Source range not supported with manifest based verification" >/dev/null
+    (! "$PULL" raw --verify="$v" --direct --source-size=5000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw") |& \
+        grep -F "Source range not supported with manifest based verification" >/dev/null
+    test ! -e "$COMPDIR/out.raw"
+done
+
 # → For unencoded data systemd-pull asks HTTP servers for just the range, and cuts it out itself if they
 #   do not honour the request ← #
 
@@ -442,6 +451,137 @@ rm "$COMPDIR/out.raw"
 (! grep -v -x "honour payload.raw -" "$RANGE_LOG")
 
 systemctl stop test-25-range-server
+
+# → systemd-pull verifies downloads against UAPI.16 manifests, which are tried before *.sha256/SHA256SUMS ← #
+
+SRV="$COMPDIR/srv"
+mkdir -p "$SRV" "$COMPDIR/other"
+cp "$COMPDIR/payload.raw" "$SRV/payload.raw"
+systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+# A wrong SHA256SUMS file next to it is not consulted, as the manifest takes precedence
+echo "$WRONG_HASH  payload.raw" >"$SRV/SHA256SUMS"
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# A manifest describing different contents is refused
+echo "something else" >"$COMPDIR/other/payload.raw"
+systemd-manifest make "$COMPDIR/other" >"$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# Without a manifest SHA256SUMS is used
+rm "$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+(cd "$SRV" && sha256sum payload.raw >SHA256SUMS)
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# The same for tarballs
+TSRV="$COMPDIR/tsrv"
+mkdir -p "$TSRV" "$COMPDIR/tother"
+cp "$COMPDIR/tree.tar" "$TSRV/tree.tar"
+systemd-manifest make "$TSRV" >"$COMPDIR/Uapi16Manifest"
+mv "$COMPDIR/Uapi16Manifest" "$TSRV/Uapi16Manifest"
+"$PULL" tar --verify=checksum --direct "file://$TSRV/tree.tar" "$COMPDIR/tardir"
+diff -r "$COMPDIR/tree" "$COMPDIR/tardir"
+rm -rf "$COMPDIR/tardir"
+echo "something else" >"$COMPDIR/tother/tree.tar"
+systemd-manifest make "$COMPDIR/tother" >"$TSRV/Uapi16Manifest"
+(! "$PULL" tar --verify=checksum --direct "file://$TSRV/tree.tar" "$COMPDIR/tardir")
+rm -rf "$COMPDIR/tardir"
+
+# gpg signatures of SHA256SUMS are used if there are no certificates for UAPI.16 manifests (in which case
+# manifests are not tried at all), or if there are, but there's no manifest. (The checksum in the latter case
+# also implies the signature job is only started once the checksum file is acquired.)
+HAVE_GPG=0
+if command -v gpg >/dev/null; then
+    # verify_gpg() relies on the import semantics of gpg 2.4
+    GPG_VERSION="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
+    GPG_REST="${GPG_VERSION#*.}"
+    if [[ "${GPG_VERSION%%.*}" -gt 2 ]] || { [[ "${GPG_VERSION%%.*}" -eq 2 ]] && [[ "${GPG_REST%%.*}" -ge 4 ]]; }; then
+        HAVE_GPG=1
+    fi
+fi
+if [[ "$HAVE_GPG" -eq 1 ]]; then
+    GPGHOME="$COMPDIR/gpghome"
+    mkdir -m 0700 "$GPGHOME"
+    GNUPGHOME="$GPGHOME" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Test Key <test@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$GPGHOME" gpg --export --output "$COMPDIR/keyring.gpg"
+    GNUPGHOME="$GPGHOME" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --yes --output "$SRV/SHA256SUMS.gpg" "$SRV/SHA256SUMS"
+
+    SYSTEMD_OPENPGP_KEYRING="$COMPDIR/keyring.gpg" "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    # A bad signature is refused
+    echo "garbage" >>"$SRV/SHA256SUMS.gpg"
+    (! SYSTEMD_OPENPGP_KEYRING="$COMPDIR/keyring.gpg" "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+    GNUPGHOME="$GPGHOME" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --yes --output "$SRV/SHA256SUMS.gpg" "$SRV/SHA256SUMS"
+fi
+
+# The inline signature of the manifest is verified against the certificates in the VOA hierarchy (role
+# "manifest", context "import"), no detached gpg signature is needed
+if command -v openssl >/dev/null; then
+    VOA_OS="$(. /etc/os-release; echo "${ID:-linux}")"
+    VOA_DIR="/run/voa/$VOA_OS/manifest/import/x509"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/good.key" -out "$COMPDIR/good.crt" -subj /CN=good -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/other.key" -out "$COMPDIR/other.crt" -subj /CN=other -days 2 2>/dev/null
+    # Certificates are installed, but there's no manifest: SHA256SUMS is used, and its signature is
+    # acquired directly, without trying the per-file signature names first
+    mkdir -p "$VOA_DIR"
+    cp "$COMPDIR/good.crt" "$VOA_DIR/test-25-certificate.pem"
+    if [[ "$HAVE_GPG" -eq 1 ]]; then
+        SYSTEMD_LOG_LEVEL=debug SYSTEMD_OPENPGP_KEYRING="$COMPDIR/keyring.gpg" \
+            "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw" 2>"$COMPDIR/pull.log"
+        cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+        rm "$COMPDIR/out.raw"
+        grep -F "Got 404 for 'file://$SRV/Uapi16Manifest'" "$COMPDIR/pull.log" >/dev/null
+        (! grep -F "payload.raw.sha256.asc" "$COMPDIR/pull.log")
+        rm "$SRV/SHA256SUMS.gpg"
+    fi
+    rm "$VOA_DIR/test-25-certificate.pem"
+
+    rm "$SRV/SHA256SUMS"
+    systemd-manifest make --private-key="$COMPDIR/good.key" --certificate="$COMPDIR/good.crt" "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+
+    # No certificates installed: the manifest is not tried at all, and there's no other checksum file
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw") |& \
+        grep -F "Failed to retrieve SHA256 checksum" >/dev/null
+    rm -f "$COMPDIR/out.raw"
+
+    # The wrong certificate
+    cp "$COMPDIR/other.crt" "$VOA_DIR/test-25-certificate.pem"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # The right certificate
+    cp "$COMPDIR/good.crt" "$VOA_DIR/test-25-certificate.pem"
+    "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    # A manifest that is the main download is verified via its own inline signature
+    "$PULL" raw --verify=signature --direct "file://$SRV/Uapi16Manifest" "$COMPDIR/out.manifest"
+    rm "$COMPDIR/out.manifest"
+
+    # An unsigned manifest is refused if signatures are verified, but fine for checksum verification
+    systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+    "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    rm -r "/run/voa/$VOA_OS/manifest/import"
+fi
 
 rm -rf "$COMPDIR"
 

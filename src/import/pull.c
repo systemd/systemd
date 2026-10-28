@@ -631,6 +631,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (arg_source_size != UINT64_MAX && arg_source_size > UINT64_MAX - arg_source_offset)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source offset and size out of range.");
 
+        /* A manifest (UAPI.16 or SHA256SUMS) authenticates the image as a whole, which we cannot vouch for
+         * if only a part of it is written. */
+        if ((arg_source_offset != 0 || arg_source_size != UINT64_MAX) &&
+            IN_SET(arg_verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Source range not supported with manifest based verification, use --verify=no or --verify=<SHA256> (together with --verify-decoded=).");
+
         if (FLAGS_SET(arg_import_flags, IMPORT_ZERO_FILL) && (arg_offset == UINT64_MAX || arg_size_max == UINT64_MAX))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Zero filling only supported if both --offset= and --size-max= are specified.");
 
