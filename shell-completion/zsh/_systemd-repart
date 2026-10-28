@@ -88,6 +88,13 @@ _arguments \
     '--el-torito-system=[Set the system identifier in the ISO9660 descriptor]:identifier' \
     '--el-torito-volume=[Set the volume identifier in the ISO9660 descriptor]:identifier' \
     '--el-torito-publisher=[Set the publisher identifier in the ISO9660 descriptor]:identifier' \
+    '--match-xattr-hostname=[Restrict generated images to systems with a matching hostname]:glob' \
+    '--match-xattr-machine-id=[Restrict generated images to systems with a matching machine ID]:glob' \
+    '--match-xattr-machine-tags=[Restrict generated images to systems with a matching machine tag]:glob' \
+    '--match-xattr-image-id=[Restrict generated images to systems with a matching os-release IMAGE_ID=]:glob' \
+    '--match-xattr-image-version=[Restrict generated images to systems with a matching os-release IMAGE_VERSION=]:version expression' \
+    '--match-xattr-os-id=[Restrict generated images to systems with a matching os-release ID=]:glob' \
+    '--match-xattr-os-version=[Restrict generated images to systems with a matching os-release VERSION_ID=]:version expression' \
     '--manifest=[Whether to generate UAPI.16 manifests of populated partitions]:boolean:(yes no)' \
     '--manifest-gpt=[Whether to generate a UAPI.16 manifest of the partition table]:boolean:(yes no)' \
     '--manifest-fields=[Fields to include in manifests of populated partitions]:fields:_systemd-repart_manifest_fields' \
