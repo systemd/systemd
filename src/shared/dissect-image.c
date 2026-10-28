@@ -2025,8 +2025,8 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 }
 #endif
 
-#if HAVE_BLKID
-static int verity_device_signed(int fd, const char *root_hash) {
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static int verity_device_signed(int fd, const char *root_hash, dev_t *ret_data_devnum) {
         _cleanup_free_ char *target_type = NULL, *params = NULL;
         struct stat st;
         int r;
@@ -2048,7 +2048,37 @@ static int verity_device_signed(int fd, const char *root_hash) {
         if (!streq(target_type, "verity"))
                 return -EMEDIUMTYPE;
 
-        return dm_verity_table_signed(params, root_hash);
+        return dm_verity_table_signed(params, root_hash, ret_data_devnum);
+}
+#endif
+
+#if HAVE_LIBCRYPTSETUP
+static int verity_device_matches(int fd, const char *data_node, const struct iovec *root_hash) {
+        _cleanup_free_ char *root_hash_encoded = NULL;
+        struct stat st_data;
+        dev_t data_devnum;
+        int r;
+
+        assert(fd >= 0);
+        assert(data_node);
+        assert(iovec_is_set(root_hash));
+
+        root_hash_encoded = hexmem(root_hash->iov_base, root_hash->iov_len);
+        if (!root_hash_encoded)
+                return -ENOMEM;
+
+        /* Another process can replace the device with a device that isn't a verity device or that has a
+         * different root hash. verity_device_signed() then fails with -EMEDIUMTYPE or -ESTALE. */
+        r = verity_device_signed(fd, root_hash_encoded, &data_devnum);
+        if (IN_SET(r, -EMEDIUMTYPE, -ESTALE))
+                return false;
+        if (r < 0)
+                return r;
+
+        if (stat(data_node, &st_data) < 0)
+                return -errno;
+
+        return S_ISBLK(st_data.st_mode) && st_data.st_rdev == data_devnum;
 }
 #endif
 
@@ -2128,7 +2158,7 @@ int dissected_image_new_from_existing_verity(
                 return mount_node_fd;
 
         if (need_signature) {
-                r = verity_device_signed(mount_node_fd, root_hash_encoded);
+                r = verity_device_signed(mount_node_fd, root_hash_encoded, /* ret_data_devnum= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to check the signature of verity device %s, skipping verity shortcut: %m", node);
                 else if (r == 0)
@@ -3862,11 +3892,23 @@ static int verity_partition(
                                 goto deactivate;
                         }
 
-                        /* We request deferred removal of a device that we activated as soon as we opened it.
-                         * The kernel then removes the device after its last user closed it, even if we fail or
-                         * get killed before the image is relinquished. If another process replaced our device
-                         * before we opened it, we request deferred removal of that device instead. */
-                        r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+                        /* Another process can remove the device that we activated before we open it. A
+                         * third process can then activate a device with the same name. verity_can_reuse()
+                         * didn't check that device, so we only use it and request its removal if it maps our
+                         * data device and has our root hash. */
+                        r = verity_device_matches(fd, m->node, &verity->root_hash);
+                        if (r < 0) {
+                                /* We can't tell whether the device is ours. We request its deferred removal
+                                 * anyway, because our own device would otherwise stay active until reboot. */
+                                r = log_debug_errno(r, "Failed to check verity device %s: %m", name);
+                                goto deactivate;
+                        }
+                        if (r == 0) {
+                                log_debug("Verity device %s doesn't match our data device and root hash, another process replaced it.", name);
+                                goto try_again;
+                        }
+
+                        r = sym_crypt_deactivate_by_name(/* cd= */ NULL, name, CRYPT_DEACTIVATE_DEFERRED);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
 
