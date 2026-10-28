@@ -376,6 +376,10 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
+        {
+          'file' : 'systemd-efivars-clear.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
         { 'file' : 'systemd-exit.service' },
         { 'file' : 'systemd-factory-reset@.service.in' },
         {
