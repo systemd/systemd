@@ -675,6 +675,22 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlist
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderFactoryResetVariables</varname></term>
+
+        <listitem><para>A boolean, encoded as a single byte. If set to true by the OS, the boot loader will
+        erase all EFI variables in the Boot Loader Interface vendor UUID namespace and in systemd's own vendor
+        UUID namespace (except for <varname>FactoryResetRequest</varname>) on the next boot, and then reboot.
+        Before doing so the user is asked for confirmation, see the
+        <varname>factory-reset-variables</varname> setting in
+        <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        This variable is typically set by
+        <citerefentry><refentrytitle>systemd-efivars-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of a factory reset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderSystemToken</varname></term>
 
         <listitem><para>A binary random data field, that is used for generating the random seed to pass to

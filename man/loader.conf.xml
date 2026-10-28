@@ -459,6 +459,40 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
       </varlistentry>
 
       <varlistentry>
+        <term>factory-reset-variables</term>
+
+        <listitem><para>Controls what to do if erasing of the boot loader's EFI variables has been requested
+        by the OS, via the <varname>LoaderFactoryResetVariables</varname> EFI variable (typically set by
+        <citerefentry><refentrytitle>systemd-efivars-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of a factory reset). If such a request is executed, all EFI variables in the Boot Loader
+        Interface vendor UUID namespace and in systemd's own vendor UUID namespace are erased (except for
+        <varname>FactoryResetRequest</varname>), and the system is rebooted.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><option>ask</option></term>
+            <listitem><para>Ask the user interactively for confirmation before erasing the variables. If the
+            user declines, the request is dropped and boot continues normally. This is the
+            default.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>yes</option></term>
+            <listitem><para>Erase the variables without asking. This is useful for systems without a local
+            console.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>Never erase the variables. Any request is dropped and boot continues
+            normally.</para></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-on-error</term>
 
         <listitem><para>Controls auto reboot in case the selected entry fails to start.
