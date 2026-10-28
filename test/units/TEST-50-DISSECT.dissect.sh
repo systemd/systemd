@@ -269,6 +269,46 @@ if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
 fi
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
+# systemd-dissect calls io.systemd.PCRExtend.Extend() right after it activated a verity device, before it
+# opens the device. run_with_blocked_pcrextend() runs a command in a mount namespace with a fake
+# io.systemd.PCRExtend service. The service creates /tmp/test-50-race/connected when it gets a call. It keeps the
+# connection open until /tmp/test-50-race/go exists and then closes it without a reply.
+run_with_blocked_pcrextend() {
+    unshare --mount bash -euxc '
+        mount -t tmpfs tmpfs /run/systemd
+        socat UNIX-LISTEN:/run/systemd/io.systemd.PCRExtend,fork \
+              SYSTEM:"touch /tmp/test-50-race/connected; while test ! -e /tmp/test-50-race/go; do sleep .1; done" &
+        socat_pid=$!
+        trap "kill $socat_pid" EXIT
+        timeout 60 bash -c "until test -S /run/systemd/io.systemd.PCRExtend; do sleep .1; done"
+        "$@"
+    ' bash "$@"
+}
+
+# A process that activated a shared verity device only uses the device if the device maps its own data device.
+# Before the process opens the device, another process can remove it and set up a different device with the
+# same name.
+if systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /tmp/test-50-race/root
+    echo other >/tmp/test-50-race/root/other
+    mksquashfs /tmp/test-50-race/root /tmp/test-50-race/other.raw -noappend
+    veritysetup format /tmp/test-50-race/other.raw /tmp/test-50-race/other.verity \
+                       --root-hash-file /tmp/test-50-race/other.roothash
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend env SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                               >/tmp/test-50-race/mtree &
+    pid=$!
+    timeout 60 bash -c "until test -e /tmp/test-50-race/connected; do sleep .1; done"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    veritysetup open /tmp/test-50-race/other.raw "$MINIMAL_IMAGE_ROOTHASH-verity" /tmp/test-50-race/other.verity \
+                     "$(</tmp/test-50-race/other.roothash)"
+    touch /tmp/test-50-race/go
+    wait "$pid"
+    grep -E '^\./usr/lib/os-release ' /tmp/test-50-race/mtree >/dev/null
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    rm -rf /tmp/test-50-race
+fi
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)

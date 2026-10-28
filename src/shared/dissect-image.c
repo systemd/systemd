@@ -2023,6 +2023,36 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 
         return r != 0;
 }
+
+static int verity_device_matches(const char *name, const char *data_node) {
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity crypt_params = {};
+        struct stat st_data, st_existing;
+        int r;
+
+        assert(name);
+        assert(data_node);
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_get_verity_info(cd, &crypt_params);
+        if (r < 0)
+                return r;
+
+        if (!crypt_params.data_device)
+                return false;
+
+        if (stat(data_node, &st_data) < 0)
+                return -errno;
+        if (stat(crypt_params.data_device, &st_existing) < 0)
+                return -errno;
+
+        return S_ISBLK(st_existing.st_mode) && st_existing.st_rdev == st_data.st_rdev;
+}
 #endif
 
 int dissected_image_new_from_existing_verity(
@@ -3775,6 +3805,18 @@ static int verity_partition(
                         r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
+
+                        /* Another process can remove the device that we activated before we open it. A
+                         * third process can then activate a device with the same name. verity_can_reuse()
+                         * didn't check that device, so we only use it if it maps our data device. If it does,
+                         * we can't tell it apart from our own device and treat it as ours. */
+                        r = verity_device_matches(name, m->node);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to check verity device %s: %m", name);
+                        if (r == 0) {
+                                log_debug("Verity device %s doesn't map our data device %s, another process replaced it.", name, m->node);
+                                goto try_again;
+                        }
                 }
 
                 mount_node_fd = TAKE_FD(fd);
