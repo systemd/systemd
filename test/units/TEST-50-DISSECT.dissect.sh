@@ -101,6 +101,40 @@ fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
 
+# A shared verity device is reused even if its symlink in /dev/mapper/ doesn't exist, for example because udev
+# hasn't processed the device yet. If the kernel can't validate the signature of the image, a device without a
+# validated signature isn't reused for an image with a signature, so we ignore the signature.
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+udevadm wait --timeout=60 --settle "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+rm "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount2")" = "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")"
+systemd-dissect --umount "$IMAGE_DIR/mount"
+systemd-dissect --umount "$IMAGE_DIR/mount2"
+
+# Verity devices also work if /dev isn't a devtmpfs and udev doesn't run, for example in a container.
+# libdevmapper then creates /dev/mapper/control and the nodes in /dev/mapper/ itself. DM_DISABLE_UDEV=1
+# makes libdevmapper behave as if udev doesn't run. The tmpfs on /dev only contains /dev/null, /dev/random,
+# /dev/urandom and the nodes of the two loop devices.
+data_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+hash_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.verity")"
+udevadm wait --timeout=60 --settle "$data_loop" "$hash_loop"
+unshare --mount bash -euxc '
+    data_devnum="$(stat -c "%t %T" "$1")"
+    hash_devnum="$(stat -c "%t %T" "$2")"
+    mount -t tmpfs tmpfs /dev
+    mknod /dev/null c 1 3
+    mknod /dev/random c 1 8
+    mknod /dev/urandom c 1 9
+    read -r major minor <<<"$data_devnum"
+    mknod "$1" b "$((16#$major))" "$((16#$minor))"
+    read -r major minor <<<"$hash_devnum"
+    mknod "$2" b "$((16#$major))" "$((16#$minor))"
+    DM_DISABLE_UDEV=1 SYSTEMD_VERITY_SHARING=1 \
+        systemd-dissect --mtree "$1" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$2" >/dev/null
+' bash "$data_loop" "$hash_loop"
+losetup -d "$data_loop" "$hash_loop"
+
 # Ensure the deferred close flag is set up correctly and we don't leak verity devices
 # when sharing is disabled
 # The devices are named 'loopXYZ-verity' when sharing is disabled
@@ -786,6 +820,21 @@ umount -R /tmp/img
 umount -R /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
+
+# RootImage= uses full image dissection when udev hasn't created the symlink in /dev/mapper/ yet.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+udevadm wait --timeout=60 --settle "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+rm "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+systemd-run --wait --unit=test-50-verity-shortcut.service \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImagePolicy=root=squashfs \
+            true
+journalctl --sync
+(! journalctl -u test-50-verity-shortcut.service | grep -F 'Reusing pre-existing verity-protected root image' >/dev/null)
+# The mount namespace of the service can keep the device open for a moment after systemd-run returns. A close
+# without --deferred fails in that case.
+veritysetup close --deferred "$MINIMAL_IMAGE_ROOTHASH-verity"
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
