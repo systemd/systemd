@@ -124,6 +124,20 @@ int exec_context_apply_tty_size(
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
 
+bool exec_context_tty_graceful_without_console(const ExecContext *context, const ExecParameters *parameters) {
+        int r;
+
+        assert(context);
+
+        if ((parameters && parameters->stdin_fd >= 0) || !exec_context_tty_graceful_on_console(context))
+                return false;
+
+        r = dev_console_usable();
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the console is usable, assuming it is: %m");
+        return r == 0;
+}
+
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
@@ -1775,6 +1789,11 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         int r;
 
         assert(c);
+
+        /* Without a usable console, the service did not use it, and resetting a ttynull console would block
+         * us by not answering the terminal size query. */
+        if (exec_context_tty_graceful_without_console(c, /* parameters= */ NULL))
+                return;
 
         /* First, reset the TTY (possibly kicking everybody else from the TTY) */
         exec_context_tty_reset(c, /* parameters= */ NULL, invocation_id);

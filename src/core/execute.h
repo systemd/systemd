@@ -615,6 +615,7 @@ int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
 const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int input_fd, int output_fd, const char *tty_path);
+bool exec_context_tty_graceful_without_console(const ExecContext *context, const ExecParameters *parameters);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id);
 
 uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);

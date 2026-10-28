@@ -501,21 +501,6 @@ static int fixup_input(
         return std_input;
 }
 
-static bool tty_graceful_without_console(const ExecContext *context, const ExecParameters *params) {
-        int r;
-
-        assert(context);
-        assert(params);
-
-        if (params->stdin_fd >= 0 || !exec_context_tty_graceful_on_console(context))
-                return false;
-
-        r = dev_console_usable();
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether the console is usable, assuming it is: %m");
-        return r == 0;
-}
-
 static int setup_input(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -5634,7 +5619,7 @@ int exec_invoke(
         }
 
         /* Decide this once, so that the TTY reset, stdin, stdout and stderr all agree */
-        bool no_console = tty_graceful_without_console(context, params);
+        bool no_console = exec_context_tty_graceful_without_console(context, params);
 
         /* Now, reset the TTY associated to this service "destructively" (i.e. possibly even hang up or
          * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
