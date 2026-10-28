@@ -467,6 +467,7 @@ static int portable_extract_by_path(
                 const char *path,
                 bool path_is_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 char **matches,
                 const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
@@ -633,8 +634,9 @@ static int portable_extract_by_path(
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                        /* Callers only ask for a pinned policy when attaching an image. In that case mountfsd
-                         * sets up Verity with the pinned policy, like we do below in system scope. */
+                        /* Callers only ask for a pinned policy when attaching an image. With
+                         * --pin-protection=yes, mountfsd then sets up Verity with the pinned policy, like we
+                         * do below in system scope. */
                         r = mountfsd_mount_image_fd_full(
                                         /* vl= */ NULL,
                                         rfd,
@@ -643,9 +645,11 @@ static int portable_extract_by_path(
                                         image_policy,
                                         &verity,
                                         flags,
-                                        /* pin_image_policy= */ !!ret_pinned_image_policy,
+                                        /* pin_image_policy= */ ret_pinned_image_policy && pin_protection,
                                         &m,
                                         ret_pinned_image_policy ? &pinned_image_policy : NULL);
+                        if (r >= 0 && pinned_image_policy && !pin_protection)
+                                image_policy_relax_protection(pinned_image_policy);
                 } else {
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
 
@@ -690,15 +694,18 @@ static int portable_extract_by_path(
                                 return log_debug_errno(r, "Failed to guess verity roothash for '%s': %m", path);
 
                         /* Callers only ask for a pinned policy when attaching an image. In that case we set
-                         * up Verity with the pinned policy, so that we refuse to attach an image whose
-                         * signature the host doesn't trust, instead of failing when the service starts. We
-                         * also read the metadata through Verity this way. We don't set up Verity when only
-                         * inspecting an image, so that the admin can still inspect an image whose signature
-                         * the host doesn't trust. */
+                         * up Verity with the pinned policy. If the pinned policy requires a signature that the
+                         * host doesn't trust, we refuse to attach the image, instead of failing when the
+                         * service starts. We also read the metadata through Verity this way. We don't set up
+                         * Verity when only inspecting an image, so that the admin can still inspect an image
+                         * whose signature the host doesn't trust. */
                         if (ret_pinned_image_policy) {
                                 pinned_image_policy = image_policy_new_from_dissected(m, &verity);
                                 if (!pinned_image_policy)
                                         return -ENOMEM;
+
+                                if (!pin_protection)
+                                        image_policy_relax_protection(pinned_image_policy);
 
                                 r = dissected_image_decrypt(
                                                 m,
@@ -824,6 +831,7 @@ static int extract_image_and_extensions(
                 char **extension_image_paths,
                 bool validate_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 const ImagePolicy *image_policy,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
@@ -929,6 +937,7 @@ static int extract_image_and_extensions(
                         image->path,
                         /* path_is_extension= */ false,
                         /* relax_extension_release_check= */ false,
+                        pin_protection,
                         matches,
                         image_policy,
                         &os_release,
@@ -1004,6 +1013,7 @@ static int extract_image_and_extensions(
                                 ext->path,
                                 /* path_is_extension= */ true,
                                 relax_extension_release_check,
+                                pin_protection,
                                 matches,
                                 image_policy,
                                 &extension_release_meta,
@@ -1114,6 +1124,7 @@ int portable_extract(
                         extension_image_paths,
                         /* validate_extension= */ false,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ false,
                         image_policy,
                         &image,
                         &extension_images,
@@ -2101,6 +2112,7 @@ int portable_attach(
                         extension_image_paths,
                         /* validate_extension= */ true,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ FLAGS_SET(flags, PORTABLE_PIN_PROTECTION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -2174,8 +2186,7 @@ int portable_attach(
                 }
 
         /* When reattaching, we only detach the image after the checks above. If attaching fails these
-         * checks, for example because the host doesn't trust the signature of an image, the image stays
-         * attached. */
+         * checks, for example because no unit files match, the image stays attached. */
         if (FLAGS_SET(flags, PORTABLE_REATTACH)) {
                 r = portable_detach(
                                 scope,

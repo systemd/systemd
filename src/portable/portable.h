@@ -21,11 +21,12 @@ typedef enum PortableFlags {
         PORTABLE_RUNTIME         = 1 << 0, /* Public API via DBUS, do not change */
         PORTABLE_FORCE_ATTACH    = 1 << 1, /* Public API via DBUS, do not change */
         PORTABLE_FORCE_EXTENSION = 1 << 2, /* Public API via DBUS, do not change */
-        PORTABLE_PREFER_COPY     = 1 << 3,
-        PORTABLE_PREFER_SYMLINK  = 1 << 4,
-        PORTABLE_MIXED_COPY_LINK = 1 << 5,
-        PORTABLE_REATTACH        = 1 << 6,
-        _PORTABLE_MASK_PUBLIC    = PORTABLE_RUNTIME | PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION,
+        PORTABLE_PIN_PROTECTION  = 1 << 3, /* Public API via DBUS, do not change */
+        PORTABLE_PREFER_COPY     = 1 << 4,
+        PORTABLE_PREFER_SYMLINK  = 1 << 5,
+        PORTABLE_MIXED_COPY_LINK = 1 << 6,
+        PORTABLE_REATTACH        = 1 << 7,
+        _PORTABLE_MASK_PUBLIC    = PORTABLE_RUNTIME | PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION | PORTABLE_PIN_PROTECTION,
         _PORTABLE_TYPE_MAX,
         _PORTABLE_TYPE_INVALID   = -EINVAL,
 } PortableFlags;

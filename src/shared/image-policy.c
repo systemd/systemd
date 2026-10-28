@@ -350,6 +350,20 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
         return image_policy;
 }
 
+void image_policy_relax_protection(ImagePolicy *p) {
+        assert(p);
+
+        /* Changes a policy from image_policy_new_from_dissected() to allow any Verity protection and
+         * signature for each partition that it pins as verity or signed. The file system types, the other
+         * flags and the absent partitions stay pinned. */
+
+        FOREACH_ARRAY(pp, p->policies, p->n_policies)
+                if (partition_designator_is_verity(pp->designator))
+                        pp->flags = PARTITION_POLICY_OPEN;
+                else if (pp->flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED))
+                        pp->flags |= PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
+}
+
 int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
         _cleanup_free_ ImagePolicy *p = NULL;
         uint64_t dmask = 0;

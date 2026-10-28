@@ -76,7 +76,7 @@ runas_user() {
 # Start the user portable daemon
 systemctl_user start dbus-org.freedesktop.portable1.service
 
-: "Test that an image whose signature the host doesn't trust is refused when attaching"
+: "Test that an image whose signature the host doesn't trust is refused when attaching with --pin-protection=yes"
 
 # mountfsd only uses its policy for trusted images on an image outside of the trusted directories if polkit
 # allows the client to mount untrusted images. Allow it for testuser, so that only the pinned policy
@@ -95,11 +95,14 @@ mkdir -p /tmp/untrusted/user
 cp /tmp/untrusted/minimal_9.raw /tmp/untrusted/minimal_9.verity /tmp/untrusted/minimal_9.roothash \
    /tmp/untrusted/minimal_9.roothash.p7s /tmp/untrusted/user/
 chmod -R a+rX /tmp/untrusted
-(! portablectl_user "${ARGS[@]}" attach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0 2>/tmp/untrusted/attach.err)
+(! portablectl_user "${ARGS[@]}" attach --runtime --pin-protection=yes /tmp/untrusted/user/minimal_9.raw minimal-app0 2>/tmp/untrusted/attach.err)
 grep -F "doesn't trust the signature" /tmp/untrusted/attach.err >/dev/null
 test ! -e /run/user/4711/systemd/user.attached/minimal-app0.service
-rm /tmp/untrusted/user/minimal_9.roothash.p7s
 portablectl_user "${ARGS[@]}" attach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+portablectl_user detach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0
+rm /tmp/untrusted/user/minimal_9.roothash.p7s
+portablectl_user "${ARGS[@]}" attach --runtime --pin-protection=yes /tmp/untrusted/user/minimal_9.raw minimal-app0
 grep -F 'root=verity+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
 portablectl_user detach --runtime /tmp/untrusted/user/minimal_9.raw minimal-app0
 rm -rf /tmp/untrusted/user /etc/polkit-1/rules.d/test-29-untrusted.rules
@@ -117,7 +120,7 @@ systemctl_user is-active minimal-app0-bar.service && exit 1
 
 # Ensure pinning by policy works
 cat /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf
-grep -q -F 'root=signed+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/user/4711/systemd/user.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
 
 portablectl_user "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
@@ -188,8 +191,8 @@ grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/user/4711/systemd/u
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf
 # Ensure pinning by policy works
-grep -q -F 'RootImagePolicy=root=signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
-grep -q -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'ExtensionImagePolicy=root=verity+signed+unprotected+squashfs:' /run/user/4711/systemd/user.attached/app0.service.d/20-portable.conf >/dev/null
 
 portablectl_user "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 

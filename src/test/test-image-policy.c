@@ -712,4 +712,41 @@ TEST(image_policy_new_from_dissected) {
         ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_VERITY | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
 }
 
+TEST(image_policy_relax_protection) {
+        _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
+
+        /* image_policy_relax_protection() must allow any Verity protection and signature for a partition
+         * that is pinned as signed, keep its other flags, and open up the verity and signature partitions.
+         * Partitions pinned as absent stay absent. */
+        DissectedImage image = {
+                .verity_sig_ready = true,
+                .partitions = {
+                        [PARTITION_ROOT] = {
+                                .found = true,
+                                .fstype = (char*) "erofs",
+                        },
+                        [PARTITION_ROOT_VERITY] = {
+                                .found = true,
+                        },
+                        [PARTITION_ROOT_VERITY_SIG] = {
+                                .found = true,
+                        },
+                },
+        };
+        VeritySettings verity = {
+                .designator = PARTITION_ROOT,
+        };
+
+        policy = image_policy_new_from_dissected(&image, &verity);
+        ASSERT_NOT_NULL(policy);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY].flags, (PartitionPolicyFlags) (PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+
+        image_policy_relax_protection(policy);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY].flags, (PartitionPolicyFlags) PARTITION_POLICY_OPEN);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY_SIG].flags, (PartitionPolicyFlags) PARTITION_POLICY_OPEN);
+        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) PARTITION_POLICY_ABSENT);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
