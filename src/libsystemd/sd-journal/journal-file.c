@@ -797,7 +797,7 @@ int journal_file_fstat(JournalFile *f) {
 
 static int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
         struct statvfs svfs;
-        uint64_t available;
+        uint64_t available, fs_size;
 
         assert(f);
 
@@ -810,7 +810,9 @@ static int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint6
                 return 0;
         }
 
-        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
+        fs_size = u64_multiply_safe(svfs.f_frsize, svfs.f_blocks);
+        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize),
+                            journal_effective_keep_free(&f->metrics, fs_size));
         if (new_size - old_size > available)
                 return -E2BIG;
 
@@ -4370,13 +4372,9 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
-        if (m->keep_free == UINT64_MAX) {
-                if (fs_size > 0)
-                        m->keep_free = MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
-                                           KEEP_FREE_UPPER);
-                else
-                        m->keep_free = DEFAULT_KEEP_FREE;
-        }
+        /* keep_free/keep_free_permyriad are left as configured; the
+         * effective value is computed on demand by
+         * journal_effective_keep_free(). */
 
         if (m->n_max_files == UINT64_MAX)
                 m->n_max_files = DEFAULT_N_MAX_FILES;
@@ -4386,8 +4384,30 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   FORMAT_BYTES(m->max_use),
                   FORMAT_BYTES(m->max_size),
                   FORMAT_BYTES(m->min_size),
-                  FORMAT_BYTES(m->keep_free),
+                  FORMAT_BYTES(journal_effective_keep_free(m, fs_size)),
                   m->n_max_files);
+}
+
+uint64_t journal_effective_keep_free(const JournalMetrics *m, uint64_t fs_size) {
+        assert(m);
+
+        if (m->keep_free_permyriad > 0) {
+                /* An explicit percentage overrides keep_free, and is not
+                 * subject to the KEEP_FREE_UPPER cap. */
+                if (fs_size > 0)
+                        return MAX(PAGE_ALIGN_U64(fs_size / 10000 * m->keep_free_permyriad), (uint64_t) 1);
+
+                return DEFAULT_KEEP_FREE;
+        }
+
+        if (m->keep_free == UINT64_MAX) {
+                if (fs_size > 0)
+                        return MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
+                                   KEEP_FREE_UPPER);
+                return DEFAULT_KEEP_FREE;
+        }
+
+        return m->keep_free;
 }
 
 int journal_file_open_full(
@@ -4849,6 +4869,7 @@ bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
                 x->max_use == y->max_use &&
                 x->min_use == y->min_use &&
                 x->keep_free == y->keep_free &&
+                x->keep_free_permyriad == y->keep_free_permyriad &&
                 x->n_max_files == y->n_max_files;
 }
 
