@@ -39,6 +39,7 @@
 #include "locale-util.h"
 #include "lock-util.h"
 #include "loop-util.h"
+#include "machine-tags.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"

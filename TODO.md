@@ -149,8 +149,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   for really old stuff only keep one report per week, for really recent stuff
   one per 5min, and in between logarithmically increasing.
 
-- teach hostnamed to unset tags by wildcard
-
 - define portabled auto-attach dir where DDIs can be dropped that are
   automatically attached after an explicit call to work on it
 
