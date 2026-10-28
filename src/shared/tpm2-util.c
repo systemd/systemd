@@ -8853,6 +8853,62 @@ static int tpm2_userspace_log(
 }
 #endif
 
+int tpm2_pcr_extend_digests(
+                Tpm2Context *c,
+                unsigned pcr_index,
+                const TPML_DIGEST_VALUES *values,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
+
+#if HAVE_OPENSSL
+        _cleanup_close_ int log_fd = -EBADF;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(values);
+
+        if (pcr_index >= TPM2_PCRS_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
+
+        if (values->count == 0)
+                return 0;
+
+        /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
+         * and our measurement and change either */
+        log_fd = tpm2_userspace_log_open();
+
+        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
+        rc = sym_Esys_PCR_Extend(
+                        c->esys_context,
+                        ESYS_TR_PCR0 + pcr_index,
+                        ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        values);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                "Failed to measure into PCR %u: %s",
+                                pcr_index,
+                                sym_Tss2_RC_Decode(rc));
+
+        /* Now, write what we just extended to the log, too. */
+        (void) tpm2_userspace_log(
+                        log_fd,
+                        pcr_index,
+                        /* nv_index= */ UINT32_MAX,
+                        /* nv_index_name= */ NULL,
+                        values,
+                        event_type,
+                        description,
+                        reset_marker);
+
+        return 0;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
 int tpm2_pcr_extend_bytes(
                 Tpm2Context *c,
                 char **banks,
@@ -8863,17 +8919,12 @@ int tpm2_pcr_extend_bytes(
                 const char *description) {
 
 #if HAVE_OPENSSL
-        _cleanup_close_ int log_fd = -EBADF;
         TPML_DIGEST_VALUES values = {};
-        TSS2_RC rc;
         int r;
 
         assert(c);
         assert(iovec_is_valid(data));
         assert(iovec_is_valid(secret));
-
-        if (pcr_index >= TPM2_PCRS_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
 
         if (!iovec_is_set(data))
                 data = &iovec_empty;
@@ -8918,37 +8969,7 @@ int tpm2_pcr_extend_bytes(
                 values.count++;
         }
 
-        /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
-         * and our measurement and change either */
-        log_fd = tpm2_userspace_log_open();
-
-        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
-        rc = sym_Esys_PCR_Extend(
-                        c->esys_context,
-                        ESYS_TR_PCR0 + pcr_index,
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &values);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(
-                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                "Failed to measure into PCR %u: %s",
-                                pcr_index,
-                                sym_Tss2_RC_Decode(rc));
-
-        /* Now, write what we just extended to the log, too. */
-        (void) tpm2_userspace_log(
-                        log_fd,
-                        pcr_index,
-                        /* nv_index= */ UINT32_MAX,
-                        /* nv_index_name= */ NULL,
-                        &values,
-                        event_type,
-                        description,
-                        reset_marker);
-
-        return 0;
+        return tpm2_pcr_extend_digests(c, pcr_index, &values, event_type, description);
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif

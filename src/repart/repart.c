@@ -32,6 +32,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "factory-reset.h"
@@ -6085,7 +6086,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                arg_tpm2_public_key_policyref,
+                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
                                 blobs,
@@ -11133,9 +11134,21 @@ static int parse_argv(int argc, char *argv[]) {
                         log_debug("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
         }
 
+        /* Only bind to an automatically found public key if the OS is measured, as otherwise PCR 11
+         * never reaches the signed values. With a software TPM this requires the measurements of
+         * systemd-stub to be replayed. With --tpm2-device-key= we enroll for another TPM that the
+         * local one tells nothing about, hence keep the binding then. */
         if (auto_public_key_pcr_mask) {
-                assert(arg_tpm2_public_key_pcr_mask == 0);
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                if (arg_tpm2_public_key || arg_tpm2_device_key || efi_measured_os(LOG_DEBUG) > 0) {
+                        assert(arg_tpm2_public_key_pcr_mask == 0);
+                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                } else {
+                        _cleanup_free_ void *pubkey = NULL;
+                        size_t pubkey_size;
+
+                        if (tpm2_load_pcr_public_key(/* path= */ NULL, &pubkey, &pubkey_size) >= 0)
+                                log_debug("Not binding to the automatically found PCR public key, as OS measurements are not enabled.");
+                }
         }
 
         if (arg_pretty < 0 && isatty_safe(STDOUT_FILENO))
