@@ -878,7 +878,11 @@
         with a UAPI.16 manifest, the <literal>user</literal> extended attributes listed in the manifest are
         applied to the file or directory created (see <varname>ManifestFormat=</varname> above), hence the
         restrictions are retained. Installed instances are checked only if the corresponding settings are
-        enabled in the [Target] section too, see below.</para>
+        enabled in the [Target] section too, see below. Note that the extended attributes applied to
+        installed files and directories are also honoured when a <literal>.v/</literal> directory they are
+        placed in is resolved, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        regardless of these settings.</para>
 
         <para>These settings are intended to restrict which instances a specific system considers as
         update candidates, for example to offer a build only to certain machines, or only to systems of a
