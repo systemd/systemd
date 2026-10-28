@@ -5,6 +5,9 @@
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
+/* The VOA context (see voa-util.h) UAPI.16 manifest certificates are looked up in */
+#define SYSUPDATE_VOA_CONTEXT "sysupdate"
+
 typedef enum SelectMode {
         SELECT_EXPLICIT,       /* Only explicitly specified features/components */
         SELECT_ALL,            /* All available features/components */
@@ -54,6 +57,10 @@ typedef struct Context {
         UpdateSet *newest_installed, *candidate;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
+
+        X509 **manifest_certificates; /* Loaded lazily from the VOA hierarchy, for verifying UAPI.16 manifest signatures */
+        size_t n_manifest_certificates;
+        bool manifest_certificates_loaded;
 
         int installdb_fd;
 
