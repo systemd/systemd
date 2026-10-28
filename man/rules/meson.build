@@ -1074,6 +1074,7 @@ manpages = [
  ['systemd-delta', '1', [], ''],
  ['systemd-detect-virt', '1', [], ''],
  ['systemd-dissect', '1', ['mount.ddi'], 'HAVE_BLKID'],
+ ['systemd-efivars-clear.service', '8', [], 'ENABLE_BOOTLOADER'],
  ['systemd-environment-d-generator',
   '8',
   ['30-systemd-environment-d-generator'],

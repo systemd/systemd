@@ -903,6 +903,13 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   keyring in which `systemd-ask-password` caches the queried password. Defaults
   to `user`.
 
+`systemd-efivars-clear`:
+
+* `SYSTEMD_EFIVARS_ALLOW_CLEAR` – takes a boolean. Overrides the effect of the
+  `systemd.efivars_allow_clear=` kernel command line option: if set to false,
+  requesting erasing of the boot loader's EFI variables is skipped, and the
+  command immediately exits successfully.
+
 `systemd-tpm2-clear`:
 
 * `SYSTEMD_TPM2_ALLOW_CLEAR` – takes a boolean. Overrides the effect of the
