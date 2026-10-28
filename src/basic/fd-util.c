@@ -827,44 +827,28 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
-int fd_reopen_propagate_append_and_position(int fd, int flags) {
-        /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
-         * keep current file position.
+int fd_dup_or_reopen_stdio_nonblock(int fd, int mode) {
+        /* Duplicates regular files and block devices, so that the file offset and O_APPEND stay shared with
+         * the original fd, they never block anyway. Reopens everything else non-blocking, so that O_NONBLOCK
+         * doesn't affect the original.
          *
-         * You should use this if the original fd potentially is O_APPEND, otherwise we get rather
-         * "unexpected" behavior. Unless you intentionally want to overwrite pre-existing data, and have
-         * your output overwritten by the next user.
-         *
-         * Use case: "systemd-run --pty >> some-log".
-         *
-         * The "keep position" part is obviously nonsense for the O_APPEND case, but should reduce surprises
-         * if someone carefully pre-positioned the passed in original input or non-append output FDs. */
+         * Use cases:
+         *    "systemd-run --pty >> some-log" and
+         *    "{ echo header; systemd-run --pty echo hello; echo trailer; } > out".
+         */
 
         assert(fd >= 0);
-        assert(!(flags & (O_APPEND|O_DIRECTORY)));
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY));
 
-        int existing_flags = fcntl(fd, F_GETFL);
-        if (existing_flags < 0)
+        struct stat st;
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
-        int new_fd = fd_reopen(fd, flags | (existing_flags & O_APPEND));
-        if (new_fd < 0)
-                return new_fd;
+        if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
+                return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
 
-        /* Try to adjust the offset, but ignore errors. */
-        off_t p = lseek(fd, 0, SEEK_CUR);
-        if (p > 0) {
-                off_t new_p = lseek(new_fd, p, SEEK_SET);
-                if (new_p < 0)
-                        log_debug_errno(errno,
-                                        "Failed to propagate file position for re-opened fd %d, ignoring: %m",
-                                        fd);
-                else if (new_p != p)
-                        log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring.",
-                                  fd, (long long) new_p, (long long) p);
-        }
-
-        return new_fd;
+        /* O_NOCTTY, so that reopening a tty doesn't make it our controlling terminal if we lack one */
+        return fd_reopen(fd, mode|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
 }
 
 int fd_reopen_condition(

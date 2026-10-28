@@ -476,6 +476,46 @@ TEST(fd_reopen) {
         assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
 }
 
+TEST(fd_dup_or_reopen_stdio_nonblock) {
+        _cleanup_(unlink_tempfilep) char path[] = "/tmp/test-fd-dup-or-reopen-stdio-nonblock.XXXXXX";
+        _cleanup_close_ int fd = -EBADF, nfd = -EBADF;
+        int p[2], fl;
+
+        fd = mkostemp_safe(path);
+        assert_se(fd >= 0);
+        nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_WRONLY);
+        assert_se(nfd >= 0);
+        assert_se(write(nfd, "hello", 5) == 5);
+        assert_se(lseek(fd, 0, SEEK_CUR) == 5);
+        fl = fcntl(fd, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(!FLAGS_SET(fl, O_NONBLOCK));
+        nfd = safe_close(nfd);
+        fd = safe_close(fd);
+
+        fd = open(path, O_WRONLY|O_APPEND|O_CLOEXEC);
+        assert_se(fd >= 0);
+        nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_WRONLY);
+        assert_se(nfd >= 0);
+        fl = fcntl(nfd, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(FLAGS_SET(fl, O_APPEND));
+        nfd = safe_close(nfd);
+        fd = safe_close(fd);
+
+        assert_se(pipe2(p, O_CLOEXEC) >= 0);
+        nfd = fd_dup_or_reopen_stdio_nonblock(p[0], O_RDONLY);
+        assert_se(nfd >= 0);
+        fl = fcntl(nfd, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(FLAGS_SET(fl, O_NONBLOCK));
+        fl = fcntl(p[0], F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(!FLAGS_SET(fl, O_NONBLOCK));
+        nfd = safe_close(nfd);
+        safe_close_pair(p);
+}
+
 TEST(fd_reopen_condition) {
         _cleanup_close_ int fd1 = -EBADF, fd3 = -EBADF;
         int fd2, fl;
