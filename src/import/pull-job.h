@@ -92,6 +92,14 @@ typedef struct PullJob {
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 
+        /* For checksum jobs: the file name of the download to verify, to derive the names of alternative
+         * checksum files to try from */
+        char *main_filename;
+
+        /* For UAPI.16 manifest jobs: the certificates to verify the inline signature with */
+        X509 **uapi16_certificates;
+        size_t n_uapi16_certificates;
+
         struct iovec checksum;
         struct iovec expected_checksum;
 
