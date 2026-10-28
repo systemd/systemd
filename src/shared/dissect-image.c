@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
@@ -3187,6 +3188,8 @@ static int make_dm_name_and_node(
                 return -ENOMEM;
         if (!filename_is_valid(name))
                 return -EINVAL;
+        if (strlen(name) >= DM_NAME_LEN)
+                return -ENAMETOOLONG;
 
         if (ret_node) {
                 char *node = path_join(sym_crypt_get_dir(), name);
@@ -3696,10 +3699,20 @@ static int verity_partition(
                         return -ENOMEM;
 
                 r = make_dm_name_and_node(root_hash_encoded, /* diskseq= */ 0, "-verity", &name, /* ret_node= */ NULL);
-        } else
+                if (r == -ENAMETOOLONG) {
+                        /* The hex encoding of a root hash longer than 60 bytes, for example a SHA-512 one,
+                         * doesn't fit in a device-mapper name. */
+                        log_debug("Root hash is too long for the name of a shared verity device, not sharing the verity device.");
+                        flags &= ~DISSECT_IMAGE_VERITY_SHARE;
+                } else if (r < 0)
+                        return r;
+        }
+
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
                 r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-verity", &name, /* ret_node= */ NULL);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+        }
 
         r = sym_crypt_init(&cd, verity->data_path ?: v->node);
         if (r < 0)

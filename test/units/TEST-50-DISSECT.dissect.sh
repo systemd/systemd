@@ -135,6 +135,16 @@ unshare --mount bash -euxc '
 ' bash "$data_loop" "$hash_loop"
 losetup -d "$data_loop" "$hash_loop"
 
+# The hex encoding of a SHA-512 root hash doesn't fit in the name of a shared verity device, so the device
+# isn't shared.
+veritysetup format --hash=sha512 "$MINIMAL_IMAGE.raw" /tmp/test-50-sha512.verity \
+                   --root-hash-file /tmp/test-50-sha512.roothash
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                         --root-hash="$(</tmp/test-50-sha512.roothash)" \
+                                         --verity-data=/tmp/test-50-sha512.verity 2>&1 >/dev/null | \
+    grep -F "Root hash is too long for the name of a shared verity device" >/dev/null
+rm /tmp/test-50-sha512.verity /tmp/test-50-sha512.roothash
+
 # Ensure the deferred close flag is set up correctly and we don't leak verity devices
 # when sharing is disabled
 # The devices are named 'loopXYZ-verity' when sharing is disabled
