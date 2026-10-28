@@ -1955,6 +1955,7 @@ static int remove_loader_variables(void) {
                        EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"),
                        EFI_LOADER_VARIABLE_STR("LoaderEntryLastBooted"),
                        EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"),
+                       EFI_LOADER_VARIABLE_STR("LoaderFactoryResetVariables"),
                        EFI_LOADER_VARIABLE_STR("LoaderSystemToken")) {
 
                 int q;
