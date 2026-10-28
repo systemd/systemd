@@ -1689,8 +1689,14 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message_dbus);
-        assert(!m->pending_reload_message_vl);
+        /* The reply to the previous Reload() is normally sent before the next request is dispatched.
+         * If it is still pending, refuse rather than drop it. */
+        if (m->pending_reload_message_dbus || m->pending_reload_message_vl) {
+                log_warning("Reloading request rejected, reply to previous reload still pending.");
+                return sd_bus_error_set_errnof(reterr_error, EBUSY,
+                                               "Reload() request rejected, previous reload still in progress.");
+        }
+
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
