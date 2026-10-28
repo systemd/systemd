@@ -3568,6 +3568,12 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
+        /* libcryptsetup 2.7.4 and newer don't open the data device exclusively with CRYPT_ACTIVATE_SHARED.
+         * Several processes can then activate verity devices on the same data device at the same time.
+         * Older versions ignore the flag for verity devices. */
+        uint32_t activate_flags = CRYPT_ACTIVATE_READONLY |
+                (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE) ? CRYPT_ACTIVATE_SHARED : 0);
+
         bool measure_signature;
         if (verity_use_signature(verity, policy_flags)) {
                 int k;
@@ -3580,7 +3586,7 @@ static int do_crypt_activate_verity(
                                 verity->root_hash.iov_len,
                                 verity->root_hash_sig.iov_base,
                                 verity->root_hash_sig.iov_len,
-                                CRYPT_ACTIVATE_READONLY);
+                                activate_flags);
                 if (r >= 0) {
                         log_debug("Verity activation via kernel signature logic worked.");
                         measure_signature = true;
@@ -3629,7 +3635,7 @@ static int do_crypt_activate_verity(
                         name,
                         verity->root_hash.iov_base,
                         verity->root_hash.iov_len,
-                        CRYPT_ACTIVATE_READONLY);
+                        activate_flags);
         if (r < 0)
                 return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
 
@@ -3751,11 +3757,10 @@ static int verity_partition(
                 r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
-                /* libdevmapper can return EINVAL when the device is already in the activation stage.
-                 * There's no way to distinguish this situation from a genuine error due to invalid
-                 * parameters, so immediately fall back to activating the device with a unique name.
-                 * Improvements in libcrypsetup can ensure this never happens:
-                 * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
+                /* libcryptsetup before 2.7.4 opens the data device exclusively. The activation can then
+                 * fail with -EINVAL if another process activates a device on the same data device at the
+                 * same time. We can't tell that apart from invalid parameters, so we fall back to
+                 * activating the device with a unique name. */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
                 /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again if
