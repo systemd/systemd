@@ -106,6 +106,26 @@
       version comparison.</para></listitem>
 
       <listitem><para>The rest of the variable part is the version string.</para></listitem>
+
+      <listitem><para>Entries may be restricted to specific systems via the extended attributes
+      <literal>user.match_hostname</literal>, <literal>user.match_machine_id</literal>,
+      <literal>user.match_machine_tags</literal>, <literal>user.match_image_id</literal>,
+      <literal>user.match_image_version</literal>, <literal>user.match_os_id</literal> and
+      <literal>user.match_os_version_id</literal>, which are matched against the hostname, the machine ID,
+      the machine tags (see <varname>TAGS=</varname> in
+      <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      and the <varname>IMAGE_ID=</varname>, <varname>IMAGE_VERSION=</varname>, <varname>ID=</varname> and
+      <varname>VERSION_ID=</varname> fields of
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> of
+      the local system. Entries carrying any of these extended attributes that do not match the local
+      system (or that cannot be parsed) are filtered and not considered for the version comparison. The
+      syntax of these extended attributes is described in the documentation of the
+      <varname>MatchXAttrHostname=</varname> setting (and related settings) in
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+      <command>systemd-sysupdate</command> sets them on the files it installs, if they are defined for
+      them in the UAPI.16 manifest the files are downloaded from. Note that entries that are explicitly
+      selected by their full path (i.e. without making use of the <literal>.v/</literal> logic) are not
+      filtered this way.</para></listitem>
     </itemizedlist>
 
     <para>Or in other words, the files in the <literal>.v/</literal> directories should follow one of these

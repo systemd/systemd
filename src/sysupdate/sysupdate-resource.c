@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "build-path.h"
 #include "chase.h"
+#include "compress.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
@@ -19,7 +20,6 @@
 #include "find-esp.h"
 #include "glyph-util.h"
 #include "gpt.h"
-#include "hexdecoct.h"
 #include "import-util.h"
 #include "iovec-util.h"
 #include "os-util.h"
@@ -37,12 +37,16 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
-#include "utf8.h"
+#include "manifest-util.h"
+#include "uapi16-manifest.h"
+#include "web-util.h"
+#include "xattr-match.h"
 
 void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest_path);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -60,6 +64,17 @@ bool resource_has_glob_directory_pattern(Resource *rr) {
                         return true;
         }
         return false;
+}
+
+unsigned resource_xattr_match_mask(const Resource *rr) {
+        unsigned mask = 0;
+
+        assert(rr);
+
+        for (XAttrMatch m = 0; m < _XATTR_MATCH_MAX; m++)
+                SET_FLAG(mask, XATTR_MATCH_MASK(m), rr->match_xattr[m]);
+
+        return mask;
 }
 
 static int resource_add_instance(
@@ -98,7 +113,8 @@ static int resource_load_from_directory_recursive(
                 const char* relpath_for_matching,
                 mode_t m,
                 bool ancestor_is_partial,
-                bool ancestor_is_pending) {
+                bool ancestor_is_pending,
+                const XAttrMatchFilter *filter) {
         int r;
 
         for (;;) {
@@ -203,13 +219,20 @@ static int resource_load_from_directory_recursive(
                                 return log_error_errno(errno, "Failed to open directory %s/%s: %m", rr->path, rel_joined);
                         }
 
-                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
+                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending, filter);
                         if (r < 0)
                                 return r;
                         continue;
                 }
 
                 if (S_ISDIR(st.st_mode) && m != S_IFDIR)
+                        continue;
+
+                /* Skip instances restricted to other systems via extended attributes */
+                r = xattr_match_filter_test_inode(filter, dirfd(d), de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 joined = path_join(rr->path, rel_joined);
@@ -239,7 +262,8 @@ static int resource_load_from_directory_recursive(
 
 static int resource_load_from_directory(
                 Resource *rr,
-                mode_t m) {
+                mode_t m,
+                const XAttrMatchFilter *filter) {
         _cleanup_closedir_ DIR *d = NULL;
 
         assert(rr);
@@ -256,7 +280,15 @@ static int resource_load_from_directory(
                 return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
         }
 
-        return resource_load_from_directory_recursive(rr, d, NULL, NULL, m, false, false);
+        return resource_load_from_directory_recursive(
+                        rr,
+                        d,
+                        /* relpath= */ NULL,
+                        /* relpath_for_matching= */ NULL,
+                        m,
+                        /* ancestor_is_partial= */ false,
+                        /* ancestor_is_pending= */ false,
+                        filter);
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
@@ -361,33 +393,63 @@ static int resource_load_from_blockdev(Resource *rr) {
         return 0;
 }
 
-static int download_manifest(
-                const char *url,
-                bool verify_signature,
-                char **ret_buffer,
-                size_t *ret_size) {
+static const char* const resource_manifest_filename_table[_MANIFEST_FORMAT_MAX] = {
+        [MANIFEST_FORMAT_SHA256SUMS] = "SHA256SUMS",
+        [MANIFEST_FORMAT_UAPI16]     = UAPI16_MANIFEST_FILENAME,
+};
 
-        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_fclose_ FILE *manifest = NULL;
-        size_t size = 0;
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(resource_manifest_filename, ManifestFormat);
+
+static bool resource_manifest_has_inline_signatures(ManifestFormat style) {
+        return style == MANIFEST_FORMAT_UAPI16;
+}
+
+static int resource_manifest_url(Resource *rr, char **ret) {
         int r;
 
-        assert(url);
-        assert(ret_buffer);
-        assert(ret_size);
+        assert(rr);
+        assert(IN_SET(rr->manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16));
+        assert(ret);
 
-        /* Download a SHA256SUMS file as manifest */
+        /* Returns the URL to acquire the manifest from: either the one explicitly configured, or the
+         * default file name for the manifest format, below the resource's URL. */
 
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
+        if (rr->manifest_path) {
+                r = strdup_to(ret, rr->manifest_path);
+                if (r < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
+        const char *fn = resource_manifest_filename_to_string(rr->manifest_format);
+        r = import_url_append_component(rr->path, fn, ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+                return log_error_errno(r, "Failed to append '%s' to URL '%s': %m", fn, rr->path);
 
+        return 0;
+}
+
+static int download_manifest(
+                ManifestFormat manifest_format,
+                const char *manifest_url,
+                bool verify_signature,
+                struct iovec *ret) {
+
+        int r;
+
+        assert(IN_SET(manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16));
+        assert(manifest_url);
+        assert(ret);
+
+        /* Download a SHA256SUMS/Uapi16Manifest file as manifest */
+
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
-                 suffixed_url, glyph(GLYPH_ELLIPSIS));
+                 manifest_url, glyph(GLYPH_ELLIPSIS));
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -405,8 +467,8 @@ static int download_manifest(
                         SYSTEMD_PULL_PATH,
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
+                        "--verify", verify_signature && !resource_manifest_has_inline_signatures(manifest_format) ? "signature" : "no", /* verify the manifest file */
+                        manifest_url,
                         "-",                               /* write to stdout */
                         NULL
                 };
@@ -423,13 +485,13 @@ static int download_manifest(
          * us as it runs. We thus need to check the return value of the process *before* parsing, to be
          * reasonably safe. */
 
-        manifest = fdopen(pfd[0], "r");
-        if (!manifest)
-                return log_error_errno(errno, "Failed to allocate FILE object for manifest file: %m");
+        _cleanup_fclose_ FILE *manifest = NULL;
+        r = take_fdopen_unlocked(pfd+0, "r", &manifest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate FILE object for manifest file: %m");
 
-        TAKE_FD(pfd[0]);
-
-        r = read_full_stream(manifest, &buffer, &size);
+        _cleanup_(iovec_done) struct iovec buffer = {};
+        r = read_full_stream(manifest, (char**) &buffer.iov_base, &buffer.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to read manifest file from child: %m");
 
@@ -441,13 +503,26 @@ static int download_manifest(
         if (r != 0)
                 return -EPROTO;
 
-        *ret_buffer = TAKE_PTR(buffer);
-        *ret_size = size;
-
+        *ret = TAKE_STRUCT(buffer);
         return 0;
 }
 
-static int process_magic_file(
+static bool verify_freshness(void) {
+        static int cache = -1;
+        int r;
+
+        if (cache >= 0)
+                return cache;
+
+        r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
+
+        return (cache = r != 0);
+}
+
+static int sha256sums_process_magic_file(
+                size_t line_nr,
                 const char *fn,
                 const struct iovec *hash) {
 
@@ -455,6 +530,14 @@ static int process_magic_file(
 
         assert(fn);
         assert(iovec_is_set(hash));
+
+        /* Magic files can't be in subdirectories */
+        if (is_path(fn)) {
+                if (startswith(last_path_component(fn), "BEST-BEFORE-"))
+                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
+
+                return 0;
+        }
 
         /* Validates "BEST-BEFORE-*" magic files we find in SHA256SUMS manifests. For now we ignore the
          * contents of such files (which might change one day), and only look at the file name.
@@ -483,11 +566,7 @@ static int process_magic_file(
         if (best_before < nw) {
                 /* We are past the best before date! Yikes! */
 
-                r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
-
-                if (r == 0) {
+                if (!verify_freshness()) {
                         log_warning("Best before marker indicates out-of-date file list, but told to ignore this, hence ignoring (%s < %s).",
                                     FORMAT_TIMESTAMP(best_before), FORMAT_TIMESTAMP(nw));
                         return 1; /* we processed this line, don't use for pattern matching */
@@ -503,151 +582,437 @@ static int process_magic_file(
         return 1; /* we processed this line, don't use for pattern matching */
 }
 
+static int sha256sums_line(
+                Resource *rr,
+                size_t line_nr,
+                const char *fn,
+                const struct iovec *h) {
+
+        int r;
+
+        assert(rr);
+        assert(fn);
+        assert(iovec_is_set(h));
+        assert(h->iov_len == sizeof_field(InstanceMetadata, sha256sum));
+
+        /* Reject "%" as it is added to the URL verbatim and curl would percent-decode it, which could lead to
+         * ".." after the normalization check. */
+        if (strchr(fn, '%'))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", line_nr);
+        if (string_has_cc(fn, NULL))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
+
+        r = sha256sums_process_magic_file(line_nr, fn, h);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* If this isn't a magic file, then do the pattern matching */
+        _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+        r = pattern_match_many(rr->patterns, fn, &extracted_fields);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match pattern: %m");
+        if (!IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY))
+                return 0;
+
+        _cleanup_free_ char *path = NULL;
+        r = import_url_append_component(rr->path, fn, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build instance URL: %m");
+
+        Instance *instance;
+        r = resource_add_instance(rr, path, &extracted_fields, &instance);
+        if (r < 0)
+                return r;
+
+        if (instance->metadata.sha256sum_set) {
+                if (memcmp(instance->metadata.sha256sum, h->iov_base, h->iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
+        } else {
+                memcpy(instance->metadata.sha256sum, h->iov_base, h->iov_len);
+                instance->metadata.sha256sum_set = true;
+        }
+
+        return 0;
+}
+
+static int sha256sums_process(
+                Resource *rr,
+                const struct iovec *manifest) {
+
+        int r;
+
+        assert(rr);
+        assert(manifest);
+
+        _cleanup_fclose_ FILE *f = fmemopen_unlocked(manifest->iov_base, manifest->iov_len, "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open manifest buffer: %m");
+
+        for (size_t line_nr = 0;;) {
+                _cleanup_free_ char *fn = NULL;
+                _cleanup_(iovec_done) struct iovec h = {};
+                r = manifest_parse_sums(f, &line_nr, &fn, &h);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+
+                r = sha256sums_line(rr, line_nr, fn, &h);
+                if (r < 0)
+                        return r;
+        }
+}
+
+static int instance_copy_uapi16(Instance *instance, const Uapi16Object *object) {
+        assert(instance);
+        assert(object);
+
+        /* We verified earlier that these fields are definitely set in the UAPI 16 objects */
+        assert(object->type == S_IFREG);
+        assert(iovec_is_set(&object->sha256));
+        assert(object->size != UINT64_MAX);
+
+        if (instance->metadata.sha256sum_set) {
+                if (memcmp_nn(instance->metadata.sha256sum, SHA256_DIGEST_SIZE, object->sha256.iov_base, object->sha256.iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match, refusing.");
+        } else {
+                assert(object->sha256.iov_len == SHA256_DIGEST_SIZE);
+                memcpy(instance->metadata.sha256sum, object->sha256.iov_base, SHA256_DIGEST_SIZE);
+                instance->metadata.sha256sum_set = true;
+        }
+
+        if (instance->metadata.size != UINT64_MAX) {
+                if (instance->metadata.size != object->size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Size parsed from filename and manifest don't match, refusing.");
+        } else
+                instance->metadata.size = object->size;
+
+        if (instance->metadata.mode == MODE_INVALID)
+                instance->metadata.mode = object->mode;
+        if (instance->metadata.mtime == USEC_INFINITY && object->mtime_nsec < (NSEC_INFINITY / NSEC_PER_USEC) * NSEC_PER_USEC)
+                instance->metadata.mtime = object->mtime_nsec / NSEC_PER_USEC;
+        if (!instance->metadata.partition_uuid_set && object->gpt_uuid_set) {
+                instance->metadata.partition_uuid = object->gpt_uuid;
+                instance->metadata.partition_uuid_set = true;
+        }
+
+        if (!instance->metadata.partition_flags_set && object->gpt_flags_set) {
+                instance->metadata.partition_flags = object->gpt_flags;
+                instance->metadata.partition_flags_set = true;
+        }
+
+        if (instance->metadata.no_auto < 0 && object->gpt_no_auto >= 0)
+                instance->metadata.no_auto = object->gpt_no_auto;
+        if (instance->metadata.growfs < 0 && object->gpt_growfs >= 0)
+                instance->metadata.growfs = object->gpt_growfs;
+        if (instance->metadata.read_only < 0 && object->read_only >= 0)
+                instance->metadata.read_only = object->read_only;
+
+        return 0;
+}
+
+static bool uapi16_encoding_is_supported(const char *encoding) {
+        /* The compression algorithms systemd-pull and systemd-import can decode, by their canonical names,
+         * which is what we pass on to them via --compression= */
+        Compression c = compression_from_string(encoding);
+        return c >= 0 && c != COMPRESSION_NONE && compression_supported(c);
+}
+
+static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
+        size_t n = 0;
+        int r;
+
+        assert(rr);
+        assert(o);
+
+        /* Validates the "contents" array of a file object, i.e. the list of alternative sources the file may
+         * be acquired from. Resolves relative "file" references into absolute URLs, and drops entries we
+         * cannot make use of. Returns > 0 if the object is usable (i.e. at least one source remains, or none
+         * was listed to begin with, in which case the file is acquired by its name), and 0 if it shall be
+         * skipped. */
+
+        for (size_t k = 0; k < o->n_contents; k++) {
+                Uapi16Contents *c = o->contents + k;
+                bool usable = true;
+
+                if (c->file) {
+                        /* Refuse "%" for the same reason as in sha256sums_line() */
+                        if (!uapi16_name_is_valid(c->file) || strchr(c->file, '%')) {
+                                log_warning("File '%s' refers to invalid file name '%s' in its contents, ignoring source.", o->name, c->file);
+                                usable = false;
+                        } else {
+                                /* "file" references are relative to the location of the manifest file itself */
+                                _cleanup_free_ char *url = NULL;
+                                if (rr->manifest_path)
+                                        r = import_url_change_last_component(rr->manifest_path, c->file, &url);
+                                else
+                                        r = import_url_append_component(rr->path, c->file, &url);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build URL for '%s': %m", c->file);
+
+                                free_and_replace(c->url, url);
+                                c->file = mfree(c->file);
+                        }
+
+                } else if (c->url) {
+                        if (!http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
+                                log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
+                                usable = false;
+                        }
+
+                } else if (!iovec_is_set(&c->literal)) {
+                        log_warning("File '%s' has a contents entry without any source, ignoring it.", o->name);
+                        usable = false;
+                }
+
+                if (usable && c->encoding && !uapi16_encoding_is_supported(c->encoding)) {
+                        log_warning("File '%s' has a source with unsupported encoding '%s', ignoring source.", o->name, c->encoding);
+                        usable = false;
+                }
+
+                if (usable && c->url) {
+                        /* We can only download sources as a whole, i.e. the source must consist of the file
+                         * and nothing else. (Literal data we can cut the file out of, hence no such
+                         * restriction there.) */
+                        if (c->offset != 0 || (c->original_size != UINT64_MAX && c->original_size != o->size)) {
+                                log_warning("File '%s' is only a part of source '%s', partial downloads are not supported, ignoring source.", o->name, c->url);
+                                usable = false;
+                        } else if (!iovec_is_set(&c->encoded_sha256)) {
+                                /* Without the digest of the downloaded bytes we cannot verify the download. If
+                                 * the source is not encoded it is identical to the file though, and we can
+                                 * use the file's digest. */
+                                if (c->encoding) {
+                                        log_warning("File '%s' has an encoded source without SHA256 digest, ignoring source.", o->name);
+                                        usable = false;
+                                } else if (!iovec_memdup(&o->sha256, &c->encoded_sha256))
+                                        return log_oom();
+                        }
+                }
+
+                if (!usable) {
+                        uapi16_contents_done(c);
+                        continue;
+                }
+
+                /* Keep the array compact */
+                if (n != k) {
+                        o->contents[n] = *c;
+                        *c = UAPI16_CONTENTS_NULL;
+                }
+                n++;
+        }
+
+        if (o->n_contents > 0 && n == 0) {
+                log_warning("File '%s' has no usable source, skipping.", o->name);
+                o->n_contents = 0;
+                return 0;
+        }
+
+        o->n_contents = n;
+        return 1;
+}
+
+typedef struct Uapi16ProcessContext {
+        Resource *resource;
+        const XAttrMatchFilter *filter;
+} Uapi16ProcessContext;
+
+static int uapi16_process_object(Uapi16Object *object, size_t index, void *userdata) {
+        Uapi16ProcessContext *pc = ASSERT_PTR(userdata);
+        Resource *rr = ASSERT_PTR(pc->resource);
+        int r;
+
+        assert(object);
+
+        /* Honour validity properties, but otherwise ignore intro object */
+        if (index == 0) {
+                r = uapi16_object_check_validity(object);
+                if (r < 0) {
+                        if (verify_freshness())
+                                return log_error_errno(r, "Manifest file marked invalid: %m");
+
+                        log_warning_errno(r, "Manifest file marked invalid, but freshness checks disabled, proceeding.");
+                }
+
+                return 0;
+        }
+
+        /* Ignore non-regular files */
+        if (!S_ISREG(object->type)) {
+                log_debug("Skipping file '%s' as it is not a regular file.", object->name);
+                return 0;
+        }
+
+        /* Ignore non-matching partition types */
+        if (object->gpt_type_uuid_set && rr->partition_type_set && !sd_id128_equal(object->gpt_type_uuid, rr->partition_type.uuid))
+                return 0;
+
+        r = uapi16_object_check_validity(object);
+        if (r < 0) {
+                if (verify_freshness()) {
+                        log_warning_errno(r, "File '%s' marked invalid, skipping: %m", object->name);
+                        return 0;
+                }
+
+                log_warning_errno(r, "File '%s' marked invalid, but freshness checks disabled, proceeding.", object->name);
+        }
+
+        if (object->size == UINT64_MAX) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a size, skipping.", object->name);
+                return 0;
+        }
+
+        if (!iovec_is_set(&object->sha256)) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a SHA256 digest, skipping.", object->name);
+                return 0;
+        }
+
+        /* Refuse "%" for the same reason as in sha256sums_line() */
+        if (strchr(object->name, '%')) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' contains a '%%' character, skipping.", object->name);
+                return 0;
+        }
+
+        r = uapi16_object_resolve_sources(rr, object);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+        r = pattern_match_many(rr->patterns, object->name, &extracted_fields);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match pattern: %m");
+        if (!IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY))
+                return 0;
+
+        /* Skip instances restricted to other systems via extended attributes */
+        r = xattr_match_filter_test_uapi16_object(pc->filter, object);
+        if (r <= 0)
+                return r;
+
+        _cleanup_free_ char *path = NULL;
+        r = import_url_append_component(rr->path, object->name, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build instance URL: %m");
+
+        Instance *instance;
+        r = resource_add_instance(rr, path, &extracted_fields, &instance);
+        if (r < 0)
+                return r;
+
+        /* Now copy the fields from the manifest into our instances logic */
+        r = instance_copy_uapi16(instance, object);
+        if (r < 0)
+                return r;
+
+        /* And take possession of the list of sources, we'll need it when acquiring the file */
+        instance->sources = TAKE_PTR(object->contents);
+        instance->n_sources = object->n_contents;
+        object->n_contents = 0;
+
+        /* Similar, for the extended attributes to apply when installing */
+        instance->user_xattrs = TAKE_PTR(object->user_xattrs);
+        instance->n_user_xattrs = object->n_user_xattrs;
+        object->n_user_xattrs = 0;
+
+        return 0;
+}
+
+static int uapi16_process(
+                Resource *rr,
+                const struct iovec *manifest,
+                X509 *const *certificates,
+                size_t n_certificates,
+                const XAttrMatchFilter *filter) {
+
+        assert(rr);
+        assert(manifest);
+
+        if (!iovec_is_set(manifest))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest is empty, refusing.");
+
+        _cleanup_fclose_ FILE *f = fmemopen_unlocked(manifest->iov_base, manifest->iov_len, "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open manifest buffer as stream: %m");
+
+        return uapi16_manifest_read(
+                        f,
+                        certificates,
+                        n_certificates,
+                        uapi16_process_object,
+                        &(Uapi16ProcessContext) {
+                                .resource = rr,
+                                .filter = filter,
+                        });
+}
+
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
-                Hashmap **web_cache) {
+                X509 *const *certificates,
+                size_t n_certificates,
+                Hashmap **web_cache,
+                const XAttrMatchFilter *filter) {
 
-        size_t manifest_size = 0, left = 0;
-        _cleanup_free_ char *buf = NULL;
-        const char *manifest, *p;
-        size_t line_nr = 1;
-        WebCacheItem *ci;
+        _cleanup_(iovec_done) struct iovec buf = {};
+        struct iovec manifest = {};
         int r;
 
         assert(rr);
         POINTER_MAY_BE_NULL(web_cache);
 
-        ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
+        /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
+         * depends on ManifestFormat= and ManifestPath= too. */
+        _cleanup_free_ char *manifest_url = NULL;
+        r = resource_manifest_url(rr, &manifest_url);
+        if (r < 0)
+                return r;
+
+        WebCacheItem *ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
         if (ci) {
-                log_debug("Manifest web cache hit for %s.", rr->path);
+                log_debug("Manifest web cache hit for %s.", manifest_url);
 
-                manifest = (char*) ci->data;
-                manifest_size = ci->size;
+                manifest = IOVEC_MAKE(ci->data, ci->size);
         } else {
-                log_debug("Manifest web cache miss for %s.", rr->path);
+                log_debug("Manifest web cache miss for %s.", manifest_url);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->manifest_format, manifest_url, verify, &buf);
                 if (r < 0)
                         return r;
 
                 manifest = buf;
         }
 
-        if (memchr(manifest, 0, manifest_size))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file has embedded NUL byte, refusing.");
-        if (!utf8_is_valid_n(manifest, manifest_size))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file is not valid UTF-8, refusing.");
+        switch (rr->manifest_format) {
 
-        p = manifest;
-        left = manifest_size;
+        case MANIFEST_FORMAT_SHA256SUMS:
+                r = sha256sums_process(rr, &manifest);
+                break;
 
-        while (left > 0) {
-                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
-                _cleanup_(iovec_done) struct iovec h = {};
-                _cleanup_free_ char *fn = NULL;
-                Instance *instance;
-                const char *e;
+        case MANIFEST_FORMAT_UAPI16:
+                /* UAPI.16 manifests carry their signatures inline, hence systemd-pull didn't verify
+                 * anything, and we do it here. */
+                r = uapi16_process(
+                                rr,
+                                &manifest,
+                                verify ? certificates : NULL,
+                                verify ? n_certificates : 0,
+                                filter);
+                break;
 
-                /* 64 character hash + separator + filename + newline */
-                if (left < 67)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Corrupt manifest at line %zu, refusing.", line_nr);
-
-                if (p[0] == '\\')
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "File names with escapes not supported in manifest at line %zu, refusing.", line_nr);
-
-                r = unhexmem_full(p, 64, /* secure= */ false, &h.iov_base, &h.iov_len);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
-                if (h.iov_len != sizeof_field(InstanceMetadata, sha256sum))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Manifest hash at line %zu decoded to %zu bytes, refusing.",
-                                               line_nr,
-                                               h.iov_len);
-
-                p += 64, left -= 64;
-
-                if (*p != ' ')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing space separator at manifest line %zu, refusing.", line_nr);
-                p++, left--;
-
-                if (!IN_SET(*p, '*', ' '))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing binary/text input marker at manifest line %zu, refusing.", line_nr);
-                p++, left--;
-
-                e = memchr(p, '\n', left);
-                if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Truncated manifest file at line %zu, refusing.", line_nr);
-                if (e == p)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty filename specified at manifest line %zu, refusing.", line_nr);
-
-                fn = strndup(p, e - p);
-                if (!fn)
-                        return log_oom();
-
-                /* Accept either a plain filename or a relative subpath like "subdir/file" but reject
-                 * absolute paths and any paths containing "." or ".." Reject "%" too as it is added to
-                 * the URL verbatim and curl would percent-decode it, which could lead to ".." after the
-                 * normalization check. */
-                if (path_is_absolute(fn) || !path_is_normalized(fn) || strchr(fn, '%'))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", line_nr);
-                if (string_has_cc(fn, NULL))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
-
-                /* Magic files can't be in subdirectories */
-                if (strchr(fn, '/') && startswith(last_path_component(fn), "BEST-BEFORE-"))
-                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
-
-                r = process_magic_file(fn, &h);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* Pattern matching against the full manifest entry. A pattern with the glob
-                         * directory prefix matches against the basename only which pattern_match_many
-                         * handles. */
-                        r = pattern_match_many(rr->patterns, fn, &extracted_fields);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to match pattern: %m");
-                        if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY)) {
-                                _cleanup_free_ char *path = NULL;
-
-                                r = import_url_append_component(rr->path, fn, &path);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build instance URL: %m");
-
-                                r = resource_add_instance(rr, path, &extracted_fields, &instance);
-                                if (r < 0)
-                                        return r;
-
-                                assert(h.iov_len == sizeof(instance->metadata.sha256sum));
-
-                                if (instance->metadata.sha256sum_set) {
-                                        if (memcmp(instance->metadata.sha256sum, h.iov_base, h.iov_len) != 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
-                                } else {
-                                        memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
-                                        instance->metadata.sha256sum_set = true;
-                                }
-
-                                /* Web resources can only be a source, not a target, so
-                                 * can never be partial or pending. */
-                                instance->is_partial = false;
-                                instance->is_pending = false;
-                        }
-                }
-
-                left -= (e - p) + 1;
-                p = e + 1;
-
-                line_nr++;
+        default:
+                assert_not_reached();
         }
+        if (r < 0)
+                return r;
 
         if (!ci && web_cache) {
-                r = web_cache_add_item(web_cache, rr->path, verify, manifest, manifest_size);
+                r = web_cache_add_item(web_cache, manifest_url, verify, manifest.iov_base, manifest.iov_len);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", rr->path);
+                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", manifest_url);
                 else
-                        log_debug("Added manifest '%s' to cache.", rr->path);
+                        log_debug("Added manifest '%s' to cache.", manifest_url);
         }
 
         return 0;
@@ -674,7 +1039,13 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(
+                Resource *rr,
+                bool verify,
+                X509 *const *certificates,
+                size_t n_certificates,
+                Hashmap **web_cache,
+                const XAttrMatchFilter *filter) {
         int r;
 
         assert(rr);
@@ -683,12 +1054,12 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_TAR:
         case RESOURCE_REGULAR_FILE:
-                r = resource_load_from_directory(rr, S_IFREG);
+                r = resource_load_from_directory(rr, S_IFREG, filter);
                 break;
 
         case RESOURCE_DIRECTORY:
         case RESOURCE_SUBVOLUME:
-                r = resource_load_from_directory(rr, S_IFDIR);
+                r = resource_load_from_directory(rr, S_IFDIR, filter);
                 break;
 
         case RESOURCE_PARTITION:
@@ -697,7 +1068,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache);
+                r = resource_load_from_web(rr, verify, certificates, n_certificates, web_cache, filter);
                 break;
 
         default:

@@ -671,6 +671,80 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>MATCH_HOSTNAME=</varname></term>
+          <term><varname>MATCH_MACHINE_ID=</varname></term>
+          <term><varname>MATCH_MACHINE_TAGS=</varname></term>
+          <term><varname>MATCH_IMAGE_ID=</varname></term>
+          <term><varname>MATCH_IMAGE_VERSION=</varname></term>
+          <term><varname>MATCH_OS_ID=</varname></term>
+          <term><varname>MATCH_OS_VERSION_ID=</varname></term>
+
+          <listitem><para>These fields are only supported in <filename>extension-release.d/</filename> files,
+          and restrict the system or configuration extension to specific systems. Each takes a
+          space-separated list of entries, which are matched against a property of the system:</para>
+
+          <itemizedlist>
+            <listitem><para><varname>MATCH_HOSTNAME=</varname> is matched against the hostname,</para></listitem>
+
+            <listitem><para><varname>MATCH_MACHINE_ID=</varname> against the machine ID (see
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+            formatted as 32 lowercase hexadecimal characters),</para></listitem>
+
+            <listitem><para><varname>MATCH_MACHINE_TAGS=</varname> against each of the machine tags (see
+            <varname>TAGS=</varname> in
+            <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>),</para></listitem>
+
+            <listitem><para><varname>MATCH_IMAGE_ID=</varname> against the <varname>IMAGE_ID=</varname>
+            field of the host's <filename>os-release</filename> file,</para></listitem>
+
+            <listitem><para><varname>MATCH_IMAGE_VERSION=</varname> against its
+            <varname>IMAGE_VERSION=</varname> field,</para></listitem>
+
+            <listitem><para><varname>MATCH_OS_ID=</varname> against its <varname>ID=</varname> field,
+            and</para></listitem>
+
+            <listitem><para><varname>MATCH_OS_VERSION_ID=</varname> against its
+            <varname>VERSION_ID=</varname> field.</para></listitem>
+          </itemizedlist>
+
+          <para>The entries of <varname>MATCH_IMAGE_VERSION=</varname> and
+          <varname>MATCH_OS_VERSION_ID=</varname> are version comparison expressions, i.e. a version
+          prefixed with one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+          <literal>!=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> (or a glob pattern,
+          optionally prefixed with <literal>$=</literal> or <literal>!$=</literal>), the same syntax
+          <varname>ConditionVersion=</varname> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          accepts, but without whitespace between operator and version, as entries are separated by
+          whitespace. All of these expressions must hold. The entries of the other fields are shell-style glob patterns
+          (see
+          <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
+          of which any must match. If more than one of these fields is specified, all of them must match. If
+          not specified, the extension is not restricted. Extensions not applicable to a system are skipped by
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <para>These fields correspond 1:1 to the <literal>user.match_hostname</literal>,
+          <literal>user.match_machine_id</literal>, <literal>user.match_machine_tags</literal>,
+          <literal>user.match_image_id</literal>, <literal>user.match_image_version</literal>,
+          <literal>user.match_os_id</literal> and <literal>user.match_os_version_id</literal> extended
+          attributes of extension images, see
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details. Note that unlike the <varname>ID=</varname>, <varname>VERSION_ID=</varname>,
+          <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname> fields of
+          <filename>extension-release</filename> files, which require an exact match with the host's
+          <filename>os-release</filename> file, <varname>MATCH_OS_ID=</varname>,
+          <varname>MATCH_OS_VERSION_ID=</varname>, <varname>MATCH_IMAGE_ID=</varname> and
+          <varname>MATCH_IMAGE_VERSION=</varname> accept patterns and version ranges. Both kinds of checks
+          are applied.</para>
+
+          <para>Examples: <literal>MATCH_HOSTNAME="web*.example.com db1.example.com"</literal>,
+          <literal>MATCH_MACHINE_TAGS="rack=7 gpu"</literal>,
+          <literal>MATCH_IMAGE_VERSION="&gt;=47 &lt;50"</literal>,
+          <literal>MATCH_OS_ID="fedora centos"</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>PORTABLE_PREFIXES=</varname></term>
           <listitem><para>Takes a space-separated list of one or more valid prefix match strings for the
           <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> logic.

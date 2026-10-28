@@ -3,6 +3,8 @@
 
 #include "forward.h"
 
+typedef struct HostProperties HostProperties;
+
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair
  * vector of extension-release variables, check that the distro and (system extension level or distro
  * version) match and return 1, and 0 otherwise. */
@@ -27,3 +29,17 @@ int extension_has_forbidden_content(const char *root);
 
 /* Find the backing device. Returns >0 on success, 0 if the volume is not an extension, and <0 on error. */
 int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret);
+
+/* Checks whether an extension image is suitable for the local system, based on the MATCH_HOSTNAME= and
+ * related fields of its extension-release file, and the "user.match_…" extended attributes of the image
+ * file or directory itself (see xattr-match.h, as set by systemd-sysupdate). The fields mirror the extended
+ * attributes 1:1. Both are honoured. If both carry a rule for the same property, and the rules differ,
+ * a warning is logged. The host properties are loaded lazily from the specified root directory (or the host
+ * if NULL). Returns > 0 if the image is suitable, 0 if not (logged at debug level, or as warning if a rule
+ * is invalid), < 0 on error. */
+int extension_match_host(
+                const char *name,
+                const char *image_path,
+                char **extension_release,
+                HostProperties *host,
+                const char *root);

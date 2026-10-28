@@ -30,7 +30,7 @@ _systemd-vpick() {
 
     local -A OPTS=(
         [STANDALONE]='--help -h --version'
-        [ARG]='-B --baseline -V -A -S --suffix --type -p --print --resolve'
+        [ARG]='-B --baseline -V -A -S --suffix --type -p --print --resolve --match-xattr'
     )
 
     _init_completion || return
@@ -40,7 +40,7 @@ _systemd-vpick() {
             -p|--print)
                 comps='filename version type arch tries all'
                 ;;
-            --resolve)
+            --resolve|--match-xattr)
                 comps='yes no'
                 ;;
         esac

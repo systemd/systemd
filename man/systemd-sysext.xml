@@ -200,6 +200,26 @@
     content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
     in the extension image.</para>
 
+    <para>Extension images may be restricted to specific systems via the <varname>MATCH_HOSTNAME=</varname>,
+    <varname>MATCH_MACHINE_ID=</varname>, <varname>MATCH_MACHINE_TAGS=</varname>,
+    <varname>MATCH_IMAGE_ID=</varname>, <varname>MATCH_IMAGE_VERSION=</varname>,
+    <varname>MATCH_OS_ID=</varname> and <varname>MATCH_OS_VERSION_ID=</varname> fields of their
+    <filename>extension-release</filename> file (see
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>), as well
+    as via the corresponding <literal>user.match_hostname</literal>, <literal>user.match_machine_id</literal>,
+    <literal>user.match_machine_tags</literal>, <literal>user.match_image_id</literal>,
+    <literal>user.match_image_version</literal>, <literal>user.match_os_id</literal> and
+    <literal>user.match_os_version_id</literal> extended attributes of the image file or directory itself,
+    as set by
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    when installing images (see <varname>MatchXAttrHostname=</varname> and related settings in
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    their syntax). Images that do not match the local system (or with rules that cannot be parsed) are
+    skipped. Both the fields and the extended attributes are honoured: an image must match all of them. If
+    both the <filename>extension-release</filename> file and the extended attributes carry rules for the
+    same property, they should be identical; a warning is logged if they are not. These checks are
+    skipped if <option>--force</option> is used.</para>
+
     <para>The <command>systemd-confext</command> concept follows the same principle as the
     <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     functionality but instead of working on <filename>/usr</filename> and <filename>/opt</filename>,

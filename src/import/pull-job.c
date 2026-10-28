@@ -78,6 +78,7 @@ PullJob* pull_job_unref(PullJob *j) {
                 sym_EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
+        free(j->main_filename);
         free(j->etag);
         strv_free(j->old_etags);
         iovec_done(&j->payload);
