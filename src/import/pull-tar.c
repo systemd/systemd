@@ -436,6 +436,15 @@ static void tar_pull_job_on_finished(PullJob *j) {
         /* This is invoked if either the download completed successfully, or the download was skipped because
          * we already have the etag. */
 
+        /* Only now we know whether we need the detached signature file */
+        if (j == p->checksum_job) {
+                r = pull_signature_job_begin(p->checksum_job, &p->signature_job);
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to start signature job: %m");
+                        goto finish;
+                }
+        }
+
         if (!tar_pull_is_done(p))
                 return;
 
@@ -802,6 +811,10 @@ int tar_pull_start(
 
                 j->on_progress = tar_pull_job_on_progress;
                 j->sync = FLAGS_SET(flags, IMPORT_SYNC);
+
+                /* The signature job is started once the checksum job finished, see tar_pull_job_on_finished() */
+                if (j == p->signature_job && p->checksum_job)
+                        continue;
 
                 r = pull_job_begin(j);
                 if (r < 0)
