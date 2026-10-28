@@ -232,9 +232,13 @@ static int verify_documentation(Unit *u, bool check_man) {
                 if (check_man && startswith(*p, "man:")) {
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
-                                if (k < 0)
-                                        log_unit_error_errno(u, k, "Can't show %s: %m", *p + 4);
-                                else {
+                                if (k < 0) {
+                                        if (find_executable("man", /* ret_filename= */ NULL) == -ENOENT)
+                                                log_unit_error(u, "man is not installed, cannot check %s. "
+                                                               "Pass --man=no to skip this check.", *p);
+                                        else
+                                                log_unit_error_errno(u, k, "Can't show %s: %m", *p + 4);
+                                } else {
                                         log_unit_error(u, "Command 'man %s' failed with code %d", *p + 4, k);
                                         k = -ENOEXEC;
                                 }
