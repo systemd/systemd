@@ -3,7 +3,6 @@
 
 #include "forward.h"
 
-int dm_deferred_remove_cancel(const char *name);
 int dm_table_status(dev_t devnum, char **ret_target_type, char **ret_params);
 int dm_verity_table_signed(const char *params, const char *root_hash);
 int dm_get_devnum(const char *name, dev_t *ret);
