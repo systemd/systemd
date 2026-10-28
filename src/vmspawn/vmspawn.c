@@ -3891,12 +3891,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * not covered by the launch measurement and are silently discarded by the guest PID1 in
          * confidential VMs. Instead, package credentials into a cpio archive appended to the initrd
          * (mirroring what systemd-stub does for ESP credentials) so they enter the launch measurement
-         * via QEMU's "kernel-hashes=on". The new initrd path requires a guest PID1 that knows about
-         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
-         * continue to use the SMBIOS path below, which works with older systemd versions too.
+         * via QEMU's "kernel-hashes=on".
+         * Under --coco=tdx the guest PID1 accepts SMBIOS credentials only if systemd-stub or systemd-boot
+         * measured the SMBIOS table (the firmware's own SMBIOS measurement zeroes the OEM strings), so
+         * direct linux boot uses the cpio as well. The Linux EFI stub measures the initrd into RTMR 2
+         * there.
+         * The initrd path requires a guest PID1 that knows about /.extra/system_credentials/, so it stays
+         * limited to these cases and everything else continues to use the SMBIOS path below, which works
+         * with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
-        bool use_initrd_cpio = arg_confidential_computing == COCO_SEV_SNP &&
-                               arg_credentials.n_credentials > 0;
+        bool use_initrd_cpio = arg_credentials.n_credentials > 0 &&
+                               (arg_confidential_computing == COCO_SEV_SNP ||
+                                (arg_confidential_computing == COCO_TDX && arg_linux && arg_linux_image_type != KERNEL_IMAGE_TYPE_UKI));
 
         _cleanup_(unlink_and_freep) char *credentials_cpio_path = NULL;
         if (use_initrd_cpio) {
@@ -3928,8 +3934,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        /* Under SNP, credentials flow via the initrd cpio above. For everyone else, use the
-         * SMBIOS/fw_cfg/cmdline path. */
+        /* Where the initrd cpio carries the credentials (see above), skip the host channels. For
+         * everyone else, use the SMBIOS/fw_cfg/cmdline path. */
         if (!use_initrd_cpio) {
                 r = cmdline_add_credentials(&cmdline, smbios_dir_fd, smbios_dir);
                 if (r < 0)
