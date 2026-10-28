@@ -152,6 +152,32 @@ wait_for_shared_verity_device_removal() {
     timeout 60 bash -c "while dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity &>/dev/null; do sleep .1; done"
 }
 
+# libcryptsetup can leave the data device path unset when its /dev/dm-N node has no aliases. The activator
+# must still request deferred removal of its verity device before exiting.
+wait_for_shared_verity_device_removal
+data_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+hash_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.verity")"
+udevadm wait --timeout=60 --settle "$data_loop" "$hash_loop"
+dmsetup create --readonly test-50-data --table "0 $(blockdev --getsz "$data_loop") linear $data_loop 0"
+data_node="$(readlink -f /dev/mapper/test-50-data)"
+unshare --mount bash -euxc '
+    data_devnum="$(stat -c "%t %T" "$1")"
+    hash_devnum="$(stat -c "%t %T" "$2")"
+    mount -t tmpfs tmpfs /dev
+    mknod /dev/null c 1 3
+    mknod /dev/random c 1 8
+    mknod /dev/urandom c 1 9
+    read -r major minor <<<"$data_devnum"
+    mknod "$1" b "$((16#$major))" "$((16#$minor))"
+    read -r major minor <<<"$hash_devnum"
+    mknod "$2" b "$((16#$major))" "$((16#$minor))"
+    DM_DISABLE_UDEV=1 SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mtree "$1" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$2" >/dev/null
+' bash "$data_node" "$hash_loop"
+wait_for_shared_verity_device_removal
+dmsetup remove test-50-data
+losetup -d "$data_loop" "$hash_loop"
+
 # libcryptsetup before 2.7.4 opens the data device of a verity device exclusively, even with
 # CRYPT_ACTIVATE_SHARED. With such a version, setting up a verity device on a block device that another verity
 # device already maps fails.
@@ -418,6 +444,45 @@ if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
     rm /tmp/test-50-salt.verity /tmp/test-50-salt.roothash
 fi
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
+
+# A blocked PCR measurement must not prevent deferred removal when the activating process dies.
+run_with_blocked_pcrextend() {
+    unshare --mount bash -euxc '
+        mount -t tmpfs tmpfs /run/systemd
+        socat UNIX-LISTEN:/run/systemd/io.systemd.PCRExtend,fork \
+              SYSTEM:"touch /var/tmp/test-50-race/connected; while test ! -e /var/tmp/test-50-race/go; do sleep .1; done" &
+        socat_pid=$!
+        trap "kill $socat_pid" EXIT
+        timeout 60 bash -c "until test -S /run/systemd/io.systemd.PCRExtend; do sleep .1; done"
+        "$@"
+    ' bash "$@"
+}
+
+if systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /var/tmp/test-50-race
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend bash -euxc '
+        echo "$$" >/var/tmp/test-50-race/pid
+        exec env SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mtree "$1" >/dev/null
+    ' bash "$MINIMAL_IMAGE.raw" &
+    pid=$!
+    timeout 60 bash -c "until test -e /var/tmp/test-50-race/connected; do sleep .1; done"
+    dmsetup info "$MINIMAL_IMAGE_ROOTHASH-verity" | grep -F 'DEFERRED REMOVE' >/dev/null
+    (! veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity")
+    SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+    test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")" = \
+         "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    kill -KILL "$(</var/tmp/test-50-race/pid)"
+    touch /var/tmp/test-50-race/go
+    exit_status=0
+    wait "$pid" || exit_status=$?
+    test "$exit_status" -eq 137
+    grep -F 'MARKER=1' "$IMAGE_DIR/mount/usr/lib/os-release" >/dev/null
+    systemd-dissect --umount "$IMAGE_DIR/mount"
+    wait_for_shared_verity_device_removal
+    rm -r /var/tmp/test-50-race
+fi
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket

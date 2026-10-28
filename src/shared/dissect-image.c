@@ -2023,6 +2023,58 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 
         return r != 0;
 }
+
+static int verity_device_matches(const char *name, const char *data_node, const struct iovec *root_hash) {
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity crypt_params = {};
+        struct stat st_data;
+        dev_t existing_data_devnum;
+        int r;
+
+        assert(name);
+        assert(data_node);
+        assert(iovec_is_set(root_hash));
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_get_verity_info(cd, &crypt_params);
+        if (r < 0)
+                return r;
+
+        /* libcryptsetup can leave data_device unset when /dev/dm-N has no aliases. */
+        r = dm_get_verity_data_devnum(name, &existing_data_devnum);
+        if (r < 0)
+                return r;
+
+        if (stat(data_node, &st_data) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st_data.st_mode) || st_data.st_rdev != existing_data_devnum)
+                return false;
+
+        r = sym_crypt_get_volume_key_size(cd);
+        if (r < 0)
+                return r;
+        if ((size_t) r != root_hash->iov_len)
+                return false;
+
+        _cleanup_(iovec_done) struct iovec root_hash_existing = {
+                .iov_base = malloc(root_hash->iov_len),
+                .iov_len = root_hash->iov_len,
+        };
+        if (!root_hash_existing.iov_base)
+                return -ENOMEM;
+
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing.iov_base, &root_hash_existing.iov_len, /* passphrase= */ NULL, /* passphrase_size= */ 0);
+        if (r < 0)
+                return r;
+
+        return iovec_equal(root_hash, &root_hash_existing);
+}
 #endif
 
 int dissected_image_new_from_existing_verity(
@@ -3807,11 +3859,19 @@ static int verity_partition(
                         if (fd < 0)
                                 return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
 
-                        /* We request deferred removal of a device that we activated as soon as we opened it.
-                         * The kernel then removes the device after its last user closed it, even if we fail or
-                         * get killed before the image is relinquished. If another process replaced our device
-                         * before we opened it, we request deferred removal of that device instead. */
-                        r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+                        /* Another process can remove the device that we activated before we open it. A
+                         * third process can then activate a device with the same name. verity_can_reuse()
+                         * didn't check that device, so we only use it and request its removal if it maps our
+                         * data device and has our root hash. */
+                        r = verity_device_matches(name, m->node, &verity->root_hash);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to check verity device %s: %m", name);
+                        if (r == 0) {
+                                log_debug("Verity device %s doesn't match our data device and root hash, another process replaced it.", name);
+                                goto try_again;
+                        }
+
+                        r = sym_crypt_deactivate_by_name(/* cd= */ NULL, name, CRYPT_DEACTIVATE_DEFERRED);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
 
