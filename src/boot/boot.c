@@ -10,6 +10,7 @@
 #include "efi-efivars.h"
 #include "efi-log.h"
 #include "efi-string-table.h"
+#include "efivar-erase.h"
 #include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
@@ -162,6 +163,7 @@ typedef struct {
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
         uint64_t secure_boot_enroll_timeout_sec;
+        FactoryResetVariablesMode factory_reset_variables;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -372,6 +374,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
         printf("     secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
         printf("secure-boot-enroll-timeout-sec: %"PRIu64"s\n", config->secure_boot_enroll_timeout_sec);
+        printf("       factory-reset-variables: %s\n",  factory_reset_variables_mode_to_string(config->factory_reset_variables));
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -1210,6 +1213,13 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->secure_boot_enroll_timeout_sec = u;
                         }
+                } else if (streq8(key, "factory-reset-variables")) {
+                        FactoryResetVariablesMode m = factory_reset_variables_mode_from_string(value);
+                        if (m < 0)
+                                log_warning("Error parsing 'factory-reset-variables' config option, ignoring: %s",
+                                            value);
+                        else
+                                config->factory_reset_variables = m;
                 } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1606,6 +1616,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .secure_boot_enroll = ENROLL_IF_SAFE,
                 .secure_boot_enroll_action = ENROLL_ACTION_REBOOT,
                 .secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_DEFAULT,
+                .factory_reset_variables = FACTORY_RESET_VARIABLES_ASK,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -3287,6 +3298,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+                EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 0;
 
         assert(loaded_image);
@@ -3464,6 +3476,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        /* If a factory reset of our EFI variables has been requested, do so now. This reboots if the
+         * variables are erased. */
+        (void) factory_reset_variables_process(config.factory_reset_variables);
 
         if (config.n_entries == 0)
                 return log_error_status(
