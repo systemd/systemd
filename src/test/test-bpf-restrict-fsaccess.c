@@ -18,6 +18,8 @@
  *   test-bpf-restrict-fsaccess procmem-cow PATH    — mmap PROT_EXEC, then rewrite it via /proc/self/mem
  *   test-bpf-restrict-fsaccess poketext            — install ptrace seccomp, verify PTRACE_POKE{TEXT,DATA}
  *                                                are denied
+ *   test-bpf-restrict-fsaccess execve-check PATH   — ask execveat(AT_EXECVE_CHECK) whether PATH may be
+ *                                                executed
  *
  * The probes exit with 0 if the operation was allowed (the bypass works), 1 if
  * it was refused with the errno the mechanism under test produces, 2 if it
@@ -220,6 +222,33 @@ static int do_procmem_cow(const char *path) {
         return PROBE_ALLOWED;
 }
 
+/* Asks whether PATH could be executed without executing it. Kernels before 6.14 refuse the flag with
+ * EINVAL. */
+static int do_execve_check(const char *path) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) {
+                log_error_errno(errno, "Failed to open %s: %m", path);
+                return PROBE_ERROR;
+        }
+
+        /* argv and envp as an interpreter would pass them, a NULL argv makes the kernel warn. */
+        r = RET_NERRNO(execveat(fd, "", STRV_MAKE(path), environ, AT_EMPTY_PATH | AT_EXECVE_CHECK));
+        if (r == -EINVAL) {
+                log_error_errno(r, "execveat(AT_EXECVE_CHECK) is not supported by this kernel (Linux 6.14 or newer is required): %m");
+                return PROBE_ERROR;
+        }
+        if (r < 0) {
+                log_info_errno(r, "AT_EXECVE_CHECK of %s denied: %m", path);
+                return probe_denied(r, -EPERM);
+        }
+
+        log_info("AT_EXECVE_CHECK of %s succeeded", path);
+        return PROBE_ALLOWED;
+}
+
 /* Writes one word into the stopped tracee with 'request' (PTRACE_POKETEXT or PTRACE_POKEDATA). */
 static int poke(pid_t pid, int request, const char *name) {
         errno = 0;
@@ -310,7 +339,8 @@ static int do_poketext_seccomp(void) {
 
 static int usage(void) {
         log_error("Usage: %s attach|check|mmap-exec PATH|anon-mmap-exec|mprotect-exec PATH|"
-                  "mmap-wx PATH|mprotect-cow-exec PATH|mprotect-wx PATH|procmem-cow PATH|poketext",
+                  "mmap-wx PATH|mprotect-cow-exec PATH|mprotect-wx PATH|procmem-cow PATH|poketext|"
+                  "execve-check PATH",
                   program_invocation_short_name);
         /* Not EXIT_FAILURE, which is PROBE_DENIED. */
         return PROBE_ERROR;
@@ -343,6 +373,8 @@ static int dispatch_probe(int argc, char *argv[]) {
                 return do_mprotect_wx(argv[2]);
         if (streq(verb, "procmem-cow"))
                 return do_procmem_cow(argv[2]);
+        if (streq(verb, "execve-check"))
+                return do_execve_check(argv[2]);
 
         return -ENOENT;
 }
