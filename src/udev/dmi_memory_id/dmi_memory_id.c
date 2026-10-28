@@ -86,8 +86,26 @@ COMMAND(
         "Identify memory devices from DMI/SMBIOS data.",
 );
 
-static bool verify_checksum(const uint8_t *buf, size_t len) {
+static bool verify_checksum(const uint8_t *buf, size_t size, size_t length_offset, size_t min_length) {
         uint8_t sum = 0;
+
+        if (length_offset >= size)
+                return false;
+
+        size_t len = buf[length_offset];
+        if (len < min_length || len > size)
+                return false;
+
+        for (size_t a = 0; a < len; a++)
+                sum += buf[a];
+        return sum == 0;
+}
+
+static bool verify_checksum_fixed(const uint8_t *buf, size_t size, size_t len) {
+        uint8_t sum = 0;
+
+        if (len > size)
+                return false;
 
         for (size_t a = 0; a < len; a++)
                 sum += buf[a];
@@ -603,17 +621,13 @@ static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devme
 }
 
 /* Same thing for SMBIOS3 entry points */
-static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
+static int smbios3_decode(const uint8_t *buf, size_t size, const char *devmem, bool no_file_offset) {
         uint64_t offset;
 
-        /* Don't let checksum run beyond the buffer */
-        if (buf[0x06] > 0x20)
+        if (!verify_checksum(buf, size, 0x06U, 0x18U))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Entry point length too large (%"PRIu8" bytes, expected %u).",
-                                       buf[0x06], 0x18U);
-
-        if (!verify_checksum(buf, buf[0x06]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
+                                       "Entry point length out of range or checksum is invalid (%"PRIu8" bytes, buffer size is %zu).",
+                                       buf[0x06], size);
 
         offset = QWORD(buf + 0x10);
 
@@ -625,24 +639,18 @@ static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_o
         return dmi_table(offset, DWORD(buf + 0x0C), 0, devmem, no_file_offset);
 }
 
-static int smbios_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
-        /* Don't let checksum run beyond the buffer */
-        if (buf[0x05] > 0x20)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Entry point length too large (%"PRIu8" bytes, expected %u).",
-                                       buf[0x05], 0x1FU);
-
-        if (!verify_checksum(buf, buf[0x05])
+static int smbios_decode(const uint8_t *buf, size_t size, const char *devmem, bool no_file_offset) {
+        if (!verify_checksum(buf, size, 0x05U, 0x1EU)
             || memcmp(buf + 0x10, "_DMI_", 5) != 0
-            || !verify_checksum(buf + 0x10, 0x0F))
+            || !verify_checksum_fixed(buf + 0x10, size - 0x10, 0x0FU))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
 
         return dmi_table(DWORD(buf + 0x18), WORD(buf + 0x16), WORD(buf + 0x1C),
                          devmem, no_file_offset);
 }
 
-static int legacy_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
-        if (!verify_checksum(buf, 0x0F))
+static int legacy_decode(const uint8_t *buf, size_t size, const char *devmem, bool no_file_offset) {
+        if (!verify_checksum_fixed(buf, size, 0x0FU))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
 
         return dmi_table(DWORD(buf + 0x08), WORD(buf + 0x06), WORD(buf + 0x0C),
@@ -709,11 +717,11 @@ static int run(int argc, char *argv[]) {
         }
 
         if (size >= 24 && memory_startswith(buf, size, "_SM3_"))
-                return smbios3_decode(buf, arg_source_file, no_file_offset);
+                return smbios3_decode(buf, size, arg_source_file, no_file_offset);
         if (size >= 31 && memory_startswith(buf, size, "_SM_"))
-                return smbios_decode(buf, arg_source_file, no_file_offset);
+                return smbios_decode(buf, size, arg_source_file, no_file_offset);
         if (size >= 15 && memory_startswith(buf, size, "_DMI_"))
-                return legacy_decode(buf, arg_source_file, no_file_offset);
+                return legacy_decode(buf, size, arg_source_file, no_file_offset);
 
         return -EINVAL;
 }
