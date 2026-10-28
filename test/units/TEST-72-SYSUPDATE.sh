@@ -1061,6 +1061,69 @@ sed 's/^MatchPattern=alt-/MatchPattern=bad-/' "$CONFIGDIR/01-uapi16-alt.transfer
 (! "$SYSUPDATE" --definitions="$WORKDIR/uapi16/bad-definitions" --verify=no update)
 [[ ! -e "$WORKDIR/uapi16/target/bad-v1.bin" ]]
 
+# UAPI.16 manifests carry their signature inline, which is verified against the certificates in the VOA
+# hierarchy (role "manifest", context "sysupdate") if verification is enabled
+if command -v openssl >/dev/null; then
+    VOA_OS="$(. /etc/os-release; echo "${ID:-linux}")"
+    VOA_DIR="/run/voa/$VOA_OS/manifest/sysupdate/x509"
+    S="$WORKDIR/uapi16/signed"
+    mkdir -p "$S/payload" "$S/target" "$S/definitions"
+    head -c 2000 /dev/urandom >"$S/payload/signed-v1.bin"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$S/good.key" -out "$S/good.crt" -subj /CN=good -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$S/other.key" -out "$S/other.crt" -subj /CN=other -days 2 2>/dev/null
+    systemd-manifest make --private-key="$S/good.key" --certificate="$S/good.crt" "$S/payload" >"$S/Uapi16Manifest"
+    systemd-manifest make "$S/payload" >"$S/Unsigned.Uapi16Manifest"
+    cat >"$S/definitions/signed.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$S/payload
+ManifestFormat=uapi16
+ManifestPath=file://$S/Uapi16Manifest
+MatchPattern=signed-@v.bin
+
+[Target]
+Type=regular-file
+Path=$S/target
+MatchPattern=signed-@v.bin
+EOF
+    sed "s|^ManifestPath=.*|ManifestPath=file://$S/Unsigned.Uapi16Manifest|" "$S/definitions/signed.transfer" >"$S/unsigned.transfer"
+
+    # No certificates installed: refused
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    # Only a different certificate installed: refused
+    mkdir -p "$VOA_DIR"
+    cp "$S/other.crt" "$VOA_DIR/test-72-other-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    # The right certificate in a different VOA context: refused
+    mkdir -p "/run/voa/$VOA_OS/manifest/default/x509"
+    cp "$S/good.crt" "/run/voa/$VOA_OS/manifest/default/x509/test-72-good-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    rm -r "/run/voa/$VOA_OS/manifest/default"
+    # The right certificate installed too, but masked: refused
+    cp "$S/good.crt" "$VOA_DIR/test-72-good-certificate.pem"
+    mkdir -p "/etc/voa/$VOA_OS/manifest/sysupdate/x509"
+    ln -s /dev/null "/etc/voa/$VOA_OS/manifest/sysupdate/x509/test-72-good-certificate.pem"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    rm -r "/etc/voa/$VOA_OS/manifest"
+    # Not masked anymore: works
+    "$SYSUPDATE" --definitions="$S/definitions" update
+    cmp "$S/payload/signed-v1.bin" "$S/target/signed-v1.bin"
+    # systemd-manifest can check against the same certificates
+    systemd-manifest verify --voa-context=sysupdate --field=size,hash "$S/payload" "$S/Uapi16Manifest"
+    (! systemd-manifest verify --field=size,hash "$S/payload" "$S/Uapi16Manifest")
+    # An unsigned manifest is refused, unless verification is turned off
+    rm "$S/target/signed-v1.bin"
+    mv "$S/unsigned.transfer" "$S/definitions/signed.transfer"
+    (! "$SYSUPDATE" --definitions="$S/definitions" update)
+    [[ ! -e "$S/target/signed-v1.bin" ]]
+    "$SYSUPDATE" --definitions="$S/definitions" --verify=no update
+    cmp "$S/payload/signed-v1.bin" "$S/target/signed-v1.bin"
+    rm -r "/run/voa/$VOA_OS/manifest"
+fi
+
 # The download tools decode strictly with the declared algorithm if one is passed to them
 PULL=/usr/lib/systemd/systemd-pull
 IMPORT=/usr/lib/systemd/systemd-import

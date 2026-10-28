@@ -98,7 +98,13 @@ bool resource_has_glob_directory_pattern(Resource *rr);
 
 unsigned resource_xattr_match_mask(const Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache, const XAttrMatchFilter *filter);
+int resource_load_instances(
+                Resource *rr,
+                bool verify,
+                X509 *const *certificates,
+                size_t n_certificates,
+                Hashmap **web_cache,
+                const XAttrMatchFilter *filter);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
