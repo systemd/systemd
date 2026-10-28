@@ -962,6 +962,7 @@ int image_find(RuntimeScope scope,
                                               fname_path, /* This has to be the unresolved entry with the .v suffix */
                                               &filter,
                                               /* n_filters= */ 1,
+                                              /* match_root= */ root,
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &result);
                                 if (r < 0) {
@@ -1184,6 +1185,7 @@ int image_discover(
                                                       fname_path, /* This has to be the unresolved entry with the .v suffix */
                                                       &filter,
                                                       /* n_filters= */ 1,
+                                                      /* match_root= */ root,
                                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                                       &result);
                                         if (r < 0) {
