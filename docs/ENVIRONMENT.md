@@ -154,7 +154,9 @@ All tools:
   on the subsystem in question. Usually,
   RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
   while other uses default to disabled for this. For unprivileged clients of
-  `systemd-mountfsd`, reuse requires the same backing image file.
+  `systemd-mountfsd`, reuse requires the same backing image file. Verity devices
+  with a root hash longer than 60 bytes, for example a SHA-512 root hash, are
+  never shared.
 
 * `$SYSTEMD_DISSECT_TPM2_UNLOCK=` — takes a boolean. If false, turns off
   unlocking of LUKS encrypted partitions in disk images via a TPM2 token
