@@ -12,6 +12,7 @@ fundamental_sources = files(
         'sha1.c',
         'sha256.c',
         'string-util.c',
+        'strv.c',
         'uki.c',
 )
 
