@@ -1264,6 +1264,11 @@ static int enforce_user(
 
 #if HAVE_PAM
 
+static int log_oom_return_pam_buf_err(void) {
+        log_oom();
+        return PAM_BUF_ERR;
+}
+
 static void pam_response_done(struct pam_response *response) {
         erase_and_free(ASSERT_PTR(response)->resp);
 }
@@ -1294,7 +1299,7 @@ static int ask_password_conv(
         size_t n = num_msg;
         struct pam_response *responses = new0(struct pam_response, n);
         if (!responses)
-                return PAM_BUF_ERR;
+                return log_oom_return_pam_buf_err();
         CLEANUP_ARRAY(responses, n, pam_response_free_array);
 
         for (size_t i = 0; i < n; i++) {
@@ -1309,12 +1314,20 @@ static int ask_password_conv(
                         if (!set_credential_env_var) {
                                 _cleanup_free_ char *creds_dir = NULL;
                                 r = exec_context_get_credential_directory(data->context, data->params, data->params->unit_id, &creds_dir);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine credentials directory: %m");
+                                if (r == -ENOMEM)
+                                        return log_oom_return_pam_buf_err();
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to determine credentials directory: %m");
+                                        return PAM_CONV_ERR;
+                                }
 
                                 if (creds_dir) {
-                                        if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0)
-                                                return log_error_errno(errno, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                        if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0) {
+                                                if (errno == ENOMEM)
+                                                        return log_oom_return_pam_buf_err();
+                                                log_error_errno(errno, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                                return PAM_CONV_ERR;
+                                        }
                                 } else
                                         (void) unsetenv("CREDENTIALS_DIRECTORY");
 
@@ -1323,7 +1336,7 @@ static int ask_password_conv(
 
                         _cleanup_free_ char *credential_name = strjoin("pam.authtok.", data->context->pam_name);
                         if (!credential_name)
-                                return log_oom();
+                                return log_oom_return_pam_buf_err();
 
                         AskPasswordRequest req = {
                                 .message = mi->msg,
@@ -1346,10 +1359,8 @@ static int ask_password_conv(
                         }
 
                         responses[i].resp = strdup(ASSERT_PTR(acquired[0]));
-                        if (!responses[i].resp) {
-                                log_oom();
-                                return PAM_BUF_ERR;
-                        }
+                        if (!responses[i].resp)
+                                return log_oom_return_pam_buf_err();
                         break;
                 }
 
