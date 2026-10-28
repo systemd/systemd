@@ -80,6 +80,10 @@ typedef struct PullJob {
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 
+        /* For checksum jobs: the file name of the download to verify, to derive the names of alternative
+         * checksum files to try from */
+        char *main_filename;
+
         struct iovec checksum;
         struct iovec expected_checksum;
 
