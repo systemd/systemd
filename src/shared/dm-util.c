@@ -55,7 +55,7 @@ int dm_deferred_remove_cancel(const char *name) {
         return 0;
 }
 
-int dm_get_devnum(const char *name, dev_t *ret) {
+static int dm_get_status(const char *name, struct dm_ioctl *ret) {
         _cleanup_close_ int fd = -EBADF;
         struct dm_ioctl dmi = {
                 .version = {
@@ -67,6 +67,7 @@ int dm_get_devnum(const char *name, dev_t *ret) {
         };
 
         assert(name);
+        assert(ret);
 
         if (strlen(name) >= sizeof(dmi.name))
                 return -ENXIO; /* A device with a name longer than this cannot possibly exist */
@@ -84,6 +85,20 @@ int dm_get_devnum(const char *name, dev_t *ret) {
         if (ioctl(fd, DM_DEV_STATUS, &dmi) < 0)
                 return -errno;
 
+        *ret = dmi;
+        return 0;
+}
+
+int dm_get_devnum(const char *name, dev_t *ret) {
+        struct dm_ioctl dmi;
+        int r;
+
+        assert(name);
+
+        r = dm_get_status(name, &dmi);
+        if (r < 0)
+                return r;
+
         if (ret)
                 *ret = (dev_t) dmi.dev;
         return 0;
@@ -92,7 +107,8 @@ int dm_get_devnum(const char *name, dev_t *ret) {
 int dm_open(const char *name, int flags, char **ret_devname) {
         _cleanup_free_ char *devname = NULL;
         _cleanup_close_ int fd = -EBADF;
-        dev_t devnum, devnum_after;
+        struct dm_ioctl dmi;
+        dev_t devnum;
         int r;
 
         assert(name);
@@ -125,10 +141,16 @@ int dm_open(const char *name, int flags, char **ret_devname) {
         /* Another process can remove the device after we look up its number. The kernel can then give the
          * number to a new device. A device that we keep open can't be removed, so if the name still refers
          * to the same number now, we opened the device with this name. */
-        r = dm_get_devnum(name, &devnum_after);
+        r = dm_get_status(name, &dmi);
         if (r < 0)
                 return r;
-        if (devnum_after != devnum)
+        if ((dev_t) dmi.dev != devnum)
+                return -ENXIO;
+
+        /* The kernel creates the device node when the first table of the device is loaded, or on kernels
+         * older than 5.15 when the device is created. The device only maps anything after its table was
+         * activated. Until then, all I/O on the device fails. */
+        if (!FLAGS_SET(dmi.flags, DM_ACTIVE_PRESENT_FLAG))
                 return -ENXIO;
 
         if (ret_devname)
