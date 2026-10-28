@@ -56,6 +56,7 @@
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "xattr-match.h"
 
 static char *arg_definitions = NULL;
 static bool arg_sync = true;
@@ -130,6 +131,8 @@ void context_done(Context *c) {
         c->n_update_sets = 0;
 
         c->web_cache = hashmap_free(c->web_cache);
+
+        host_properties_done(&c->host_properties);
 
         uapi16_certificates_free(c->manifest_certificates, c->n_manifest_certificates);
         c->manifest_certificates = NULL;
@@ -581,7 +584,12 @@ static int context_load_installed_instances(Context *c) {
                                 c->verify >= 0 ? c->verify : t->verify != 0,
                                 /* certificates= */ NULL,
                                 /* n_certificates= */ 0,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->target),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
@@ -594,7 +602,12 @@ static int context_load_installed_instances(Context *c) {
                                 c->verify >= 0 ? c->verify : t->verify != 0,
                                 /* certificates= */ NULL,
                                 /* n_certificates= */ 0,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->target),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }
@@ -660,7 +673,12 @@ static int context_load_available_instances(Context *c) {
                                 verify,
                                 c->manifest_certificates,
                                 c->n_manifest_certificates,
-                                &c->web_cache);
+                                &c->web_cache,
+                                &(const XAttrMatchFilter) {
+                                        .mask = resource_xattr_match_mask(&t->source),
+                                        .host = &c->host_properties,
+                                        .root = c->root,
+                                });
                 if (r < 0)
                         return r;
         }

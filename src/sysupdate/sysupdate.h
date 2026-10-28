@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "host-properties.h"
 #include "sysupdate-component.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
@@ -57,6 +58,8 @@ typedef struct Context {
         UpdateSet *newest_installed, *candidate;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
+
+        HostProperties host_properties; /* Loaded lazily, for MatchXAttr= */
 
         X509 **manifest_certificates; /* Loaded lazily from the VOA hierarchy, for verifying UAPI.16 manifest signatures */
         size_t n_manifest_certificates;
