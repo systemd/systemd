@@ -269,6 +269,18 @@ Ucode addons are measured individually as a tagged event.
 
 → **Measured hash** covers the contents of the ucode initrd.
 
+### PCR 12, `EV_EVENT_TAG`, keyring setup variable
+
+The payload of the `LoaderKeyringSetup` EFI variable (certificates for the
+kernel keyrings, passed on to the OS as system credentials) is measured as a
+tagged event.
+
+→ **Event Tag** `0x201ec819`
+
+→ **Description** is the constant string "Keyring setup variable" in UTF-16.
+
+→ **Measured hash** covers the raw payload of the EFI variable.
+
 ### PCR 12, `EV_IPL`, per-uki credentials initrd
 
 → **Description** in the event log record is the constant string "Credentials

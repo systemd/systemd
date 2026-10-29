@@ -8,6 +8,7 @@ libefitest = static_library(
                 'bcd.c',
                 'chid.c',
                 'efi-string.c',
+                'keyring-setup-var.c',
         ),
         build_by_default : false,
         include_directories : [
@@ -50,6 +51,10 @@ executables += [
                 'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_ZSTD'],
         },
         efi_test_template + {
+                'sources' : files('test-keyring-setup-var.c'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_test_template + {
                 'sources' : files('test-efi-string.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
         },
@@ -57,6 +62,9 @@ executables += [
                 'sources' : files('test-chid-match.c') +
                             test_hwids_section_c,
                 'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_fuzz_template + {
+                'sources' : files('fuzz-keyring-setup-var.c'),
         },
         efi_fuzz_template + {
                 'sources' : files('fuzz-bcd.c'),
@@ -324,6 +332,7 @@ libefi_sources = files(
         'graphics.c',
         'hii.c',
         'initrd.c',
+        'keyring-setup-var.c',
         'measure.c',
         'measure-smbios.c',
         'part-discovery.c',
