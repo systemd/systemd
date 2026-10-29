@@ -489,6 +489,58 @@ TEST(dhcp_server_static_lease_client_id_change) {
         check_bound_lease(server, static_address, &client_id_mac);
 }
 
+TEST(dhcp_server_static_lease_special_addresses) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
+                                                8, 0, 0));
+
+        sd_dhcp_client_id client_id_subnet = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'G' },
+        };
+        sd_dhcp_client_id client_id_broadcast = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'H' },
+        };
+        sd_dhcp_client_id client_id_normal = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'I' },
+        };
+
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = server->subnet },
+                        client_id_subnet.raw,
+                        client_id_subnet.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = server->subnet | ~server->netmask },
+                        client_id_broadcast.raw,
+                        client_id_broadcast.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = htobe32(INADDR_LOOPBACK + 42) },
+                        client_id_normal.raw,
+                        client_id_normal.size,
+                        /* hostname= */ NULL));
+
+        /* Static lease lookup is used while processing DHCPDISCOVER. */
+        DHCPRequest req = { .client_id = client_id_subnet };
+        ASSERT_NULL(dhcp_server_get_static_lease(server, &req));
+
+        req.client_id = client_id_broadcast;
+        ASSERT_NULL(dhcp_server_get_static_lease(server, &req));
+
+        req.client_id = client_id_normal;
+        ASSERT_NOT_NULL(dhcp_server_get_static_lease(server, &req));
+}
+
 TEST(sd_dhcp_server_set_static_lease) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
