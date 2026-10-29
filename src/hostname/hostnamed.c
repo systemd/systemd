@@ -464,8 +464,23 @@ static int get_hardware_serial(Context *c, char **ret) {
         assert(c);
         assert(ret);
 
-        FOREACH_STRING(attr, "product_serial", "board_serial") {
-                r = get_dmi_sysattr(c, attr, ret);
+        /* The product serial number (DMI type 1) and the baseboard serial number (DMI type 2) can
+         * both be meaningless placeholders. If hwdb flags one of them as rubbish, skip it here and
+         * fall through to the next candidate, or to the device tree serial number at the end.
+         * The flags are root-only, hwdb-derived device properties, so read them from the udev database. */
+        static const struct {
+                const char *sysfs_field;
+                const char *hwdb_field;
+        } serial_fields[] = {
+                { "product_serial", "ID_PRODUCT_SERIAL_IS_RUBBISH" },
+                { "board_serial",   "ID_BOARD_SERIAL_IS_RUBBISH"   },
+        };
+
+        for (size_t i = 0; i < ELEMENTSOF(serial_fields); i++) {
+                if (c->device_dmi && device_get_property_bool(c->device_dmi, serial_fields[i].hwdb_field) > 0)
+                        continue;
+
+                r = get_dmi_sysattr(c, serial_fields[i].sysfs_field, ret);
                 if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
                         return r;
         }
