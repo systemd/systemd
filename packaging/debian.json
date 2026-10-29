@@ -1,0 +1,5 @@
+{
+  "url": "https://github.com/systemd/systemd-deb.git",
+  "branch": "deb/main",
+  "commit": "23cf74c5cde1e6c8b17b2157c7660a6a97c7a092"
+}
