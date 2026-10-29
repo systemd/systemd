@@ -156,11 +156,12 @@ described above.
 
 This measurement is also performed by `systemd-stub` (see below), so that systems
 that boot a UKI directly, bypassing `systemd-boot`, still get it. Whichever
-component runs first performs the measurement and sets the volatile
-`LoaderPcrSMBIOS` EFI variable to the PCR index used; its presence suppresses a
-second measurement of the same data into the same PCR during the same boot. Note
-that the firmware itself typically also extends PCR 1, so its final value is not
-solely determined by this measurement.
+component runs first performs the measurement and, if all structures were
+measured successfully, sets the volatile `LoaderPcrSMBIOS` EFI variable to the
+PCR index used; its presence suppresses a second measurement of the same data
+into the same PCR during the same boot. Note that the firmware itself typically
+also extends PCR 1, so its final value is not solely determined by this
+measurement.
 
 ### PCR 5, `EV_EVENT_TAG`, `loader.conf`
 

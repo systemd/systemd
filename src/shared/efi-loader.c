@@ -347,8 +347,9 @@ int efi_measured_smbios(int log_level) {
         if (cached >= 0)
                 return cached;
 
-        /* Whether sd-boot or sd-stub measured the SMBIOS table (types 1, 2, and 11) into PCR 1. Firmware
-         * does not do this for OEM strings: edk2's SmbiosMeasurementDxe zeros type 11 before hashing. */
+        /* Whether sd-boot or sd-stub measured the SMBIOS table (types 1, 2, and 11) into PCR 1. The loader
+         * sets the variable only if all of these structures were measured. Firmware does not do this for
+         * OEM strings: edk2's SmbiosMeasurementDxe zeros type 11 before hashing. */
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderPcrSMBIOS"), &pcr_string);
         if (r == -ENOENT)
