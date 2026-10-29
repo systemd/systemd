@@ -321,6 +321,10 @@ executables += [
                 'c_args' : ['-fno-sanitize=all', '-fno-optimize-sibling-calls', '-O1'],
         },
         test_template + {
+                'sources' : files('test-coredump-thread.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-creds.c'),
                 'dependencies' : [
                         libopenssl_cflags,
