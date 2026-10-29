@@ -252,6 +252,8 @@ def property_grammar():
         ('ID_PRODUCT_NAME_IS_RUBBISH', zero_one),
         ('ID_PRODUCT_VERSION_IS_RUBBISH', zero_one),
         ('ID_BOARD_VERSION_IS_RUBBISH', zero_one),
+        ('ID_PRODUCT_SERIAL_IS_RUBBISH', zero_one),
+        ('ID_BOARD_SERIAL_IS_RUBBISH', zero_one),
         ('ID_PRODUCT_SKU_IS_RUBBISH', zero_one),
         ('ID_CHASSIS_ASSET_TAG_IS_RUBBISH', zero_one),
         ('ID_CHASSIS', name_literal),
