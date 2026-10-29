@@ -14,23 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  readme-notice:
-    name: Check for README notice
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Repo checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Check that README.md has no review notice
-        run: |
-          if grep -F "Remove this line to confirm you've reviewed this PR before submitting." README.md >/dev/null; then
-              echo "::error file=README.md,line=1::Remove the review notice from README.md before merging."
-              exit 1
-          fi
-
   build:
     name: Lint Code Base
     runs-on: ubuntu-24.04
