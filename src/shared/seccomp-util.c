@@ -2316,17 +2316,9 @@ int seccomp_lock_personality(unsigned long personality) {
                 if (r < 0)
                         return r;
 
-                r = sym_seccomp_rule_add_exact(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(personality),
-                                1,
-                                SCMP_A0(SCMP_CMP_NE, personality));
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add scheduler rule for architecture %s, skipping: %m",
-                                        seccomp_arch_to_string(arch));
+                r = add_personality_rules(seccomp, arch, UINT32_MAX, (uint32_t) personality);
+                if (r < 0)
                         continue;
-                }
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
