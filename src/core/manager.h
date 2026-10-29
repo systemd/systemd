@@ -346,6 +346,11 @@ typedef struct Manager {
          * connection is torn down. */
         bool api_bus_ready;
 
+        /* Signals for the API bus that have to wait until bus_setup_api() requested our name on it, since
+         * clients match our signals on that. */
+        sd_bus_message **held_api_signals;
+        size_t n_held_api_signals;
+
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
         sd_id128_t bus_id, deserialized_bus_id;

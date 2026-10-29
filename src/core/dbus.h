@@ -4,6 +4,7 @@
 #include "core-forward.h"
 
 void bus_send_pending_reload_message(Manager *m);
+int bus_hold_api_signal(Manager *m, sd_bus_message *message);
 
 int bus_init_private(Manager *m);
 int bus_init_api(Manager *m);
