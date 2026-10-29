@@ -161,6 +161,25 @@ testcase_hardware_serial() {
     echo '4321' >/sys/class/dmi/id/product_serial
     stop_hostnamed
     assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
+
+    # hwdb can flag DMI type 1 product_serial as rubbish; 60-dmi-id.rules then sets ID_SERIAL to the
+    # DMI type 2 baseboard serial instead. sd_device picks up unknown keys from the uevent file as
+    # device properties, so write ID_SERIAL the same way the rules file would, and verify it wins
+    # over the (still valid) product_serial.
+    printf 'ID_SERIAL=1234\n' >>/sys/class/dmi/id/uevent
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
+
+    # An empty ID_SERIAL is treated as unset: hostnamed falls back to the sysfs attributes directly.
+    printf 'ID_SERIAL=\n' > /sys/class/dmi/id/uevent
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
+
+    # When no serial source exists at all, the report is empty.
+    echo >/sys/class/dmi/id/product_serial
+    echo >/sys/class/dmi/id/board_serial
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "null"
 }
 
 testcase_nss-myhostname() {
