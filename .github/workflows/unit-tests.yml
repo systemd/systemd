@@ -74,7 +74,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: yuwata/apk-mirror@ad3b1b7f6bf19d5e4add1b89686081111f37f48a
+      - uses: yuwata/apk@f8e8774beeb5af5f9a28e6a8a0c7cf3751763a4a
 
       - uses: systemd/mkosi@131adaca5eb5f1551bc564ae4497ff940890a374
 
