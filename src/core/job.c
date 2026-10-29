@@ -1259,6 +1259,8 @@ int job_serialize(Job *j, FILE *f) {
                 (void) serialize_usec(f, "job-begin-running", j->begin_running_usec);
 
         bus_track_serialize(j->bus_track, f, "subscribed");
+        STRV_FOREACH(i, j->deserialized_clients)
+                (void) serialize_item(f, "subscribed", *i);
 
         activation_details_serialize(j->activation_details, f);
 
@@ -1491,7 +1493,7 @@ bool job_may_gc(Job *j) {
         if (j->in_dbus_queue)
                 return false;
 
-        if (sd_bus_track_count(j->bus_track) > 0)
+        if (sd_bus_track_count(j->bus_track) > 0 || !strv_isempty(j->deserialized_clients))
                 return false;
 
         /* FIXME: So this is a bit ugly: for now we don't properly track references made via private bus connections

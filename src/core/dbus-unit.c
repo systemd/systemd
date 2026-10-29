@@ -2766,6 +2766,26 @@ int bus_unit_track_add_name(Unit *u, const char *name) {
         return sd_bus_track_add_name(u->bus_track, name);
 }
 
+int bus_unit_coldplug_bus_track(Unit *u) {
+        int r = 0;
+
+        assert(u);
+
+        /* sd_bus_track_add_name() blocks until the bus daemon answers, so if the API bus isn't set up yet,
+         * keep the names around until it is, see bus_coldplug_deferred_tracks(). */
+        if (u->manager->api_bus && !u->manager->api_bus_ready)
+                return 0;
+
+        _cleanup_strv_free_ char **refs = TAKE_PTR(u->deserialized_refs);
+        if (!u->manager->api_bus)
+                return 0;
+
+        STRV_FOREACH(i, refs)
+                RET_GATHER(r, bus_unit_track_add_name(u, *i));
+
+        return r;
+}
+
 int bus_unit_track_add_sender(Unit *u, sd_bus_message *m) {
         int r;
 

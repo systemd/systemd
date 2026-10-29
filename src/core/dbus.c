@@ -39,6 +39,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "scope.h"
 #include "selinux-access.h"     /* IWYU pragma: keep */
 #include "serialize.h"
 #include "set.h"
@@ -821,6 +822,27 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         return 0;
 }
 
+static void bus_coldplug_deferred_tracks(Manager *m) {
+        Unit *u;
+        Job *j;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units) {
+                r = bus_unit_coldplug_bus_track(u);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to track deserialized bus clients, ignoring: %m");
+
+                Scope *s = SCOPE(u);
+                if (s && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                        (void) bus_scope_track_controller(s);
+        }
+
+        HASHMAP_FOREACH(j, m->jobs)
+                (void) bus_job_coldplug_bus_track(j);
+}
+
 static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         const sd_bus_error *e;
@@ -878,8 +900,11 @@ setup_api:
                         bus_done_system(m);
                 if (m->api_bus == bus)
                         bus_done_api(m);
+
+                return 0;
         }
 
+        bus_coldplug_deferred_tracks(m);
         return 0;
 }
 
@@ -1112,9 +1137,28 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 }
 
 void bus_done_api(Manager *m) {
+        Unit *u;
+        Job *j;
+
+        /* This is called on every unit state change while D-Bus isn't running, see manager_recheck_dbus(). */
+        if (!m->api_bus)
+                return;
+
         destroy_bus(m, &m->api_bus);
 
         m->api_bus_ready = false;
+
+        /* Clients that we didn't get to track yet were on this bus too. */
+        HASHMAP_FOREACH(u, m->units)
+                if (u->deserialized_refs) {
+                        u->deserialized_refs = strv_free(u->deserialized_refs);
+                        unit_add_to_gc_queue(u);
+                }
+        HASHMAP_FOREACH(j, m->jobs)
+                if (j->deserialized_clients) {
+                        j->deserialized_clients = strv_free(j->deserialized_clients);
+                        job_add_to_gc_queue(j);
+                }
 }
 
 void bus_done_system(Manager *m) {
