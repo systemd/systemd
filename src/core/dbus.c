@@ -913,6 +913,9 @@ static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_b
          * If no instance ID was recorded, retain the historical behavior and coldplug without comparison. */
         if (sd_id128_is_null(deserialized_bus_id) || sd_id128_equal(m->bus_id, deserialized_bus_id))
                 (void) bus_track_coldplug(bus, &m->subscribed, subscribed_as_strv);
+        else
+                /* Whoever waited for these was on the old bus instance as well. */
+                bus_job_free_held_removed_signals(m);
 
 setup_api:
         r = bus_setup_api(m, bus);
@@ -928,6 +931,10 @@ setup_api:
         }
 
         bus_coldplug_deferred_tracks(m);
+
+        /* Our name is requested now, so these can go out. Do so after tracking the clients again, since the
+         * change signals of the units are only sent if somebody is tracked. */
+        bus_job_send_held_removed_signals(m, bus);
         return 0;
 }
 
@@ -996,6 +1003,11 @@ int bus_init_api(Manager *m) {
         }
 
         m->api_bus = TAKE_PTR(bus);
+
+        /* If we couldn't ask for the instance ID, the API bus is set up already. */
+        if (m->api_bus_ready)
+                bus_job_send_held_removed_signals(m, m->api_bus);
+
         return 0;
 }
 

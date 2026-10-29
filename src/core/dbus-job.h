@@ -15,5 +15,10 @@ void bus_job_send_change_signal(Job *j);
 void bus_job_send_pending_change_signal(Job *j, bool including_new);
 void bus_job_send_removed_signal(Job *j);
 
+void bus_job_send_held_removed_signals(Manager *m, sd_bus *bus);
+void bus_job_free_held_removed_signals(Manager *m);
+void bus_job_serialize_held_removed_signals(Manager *m, FILE *f);
+int bus_job_deserialize_held_removed_signal(Manager *m, const char *value);
+
 int bus_job_coldplug_bus_track(Job *j);
 int bus_job_track_sender(Job *j, sd_bus_message *m);

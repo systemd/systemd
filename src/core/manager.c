@@ -1811,6 +1811,7 @@ Manager* manager_free(Manager *m) {
 
         sd_bus_track_unref(m->subscribed);
         strv_free(m->subscribed_as_strv);
+        bus_job_free_held_removed_signals(m);
 
         unit_defaults_done(&m->defaults);
 

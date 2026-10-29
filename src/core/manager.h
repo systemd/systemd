@@ -183,6 +183,13 @@ typedef struct UnitDefaults {
         struct rlimit *rlimit[_RLIMIT_MAX];
 } UnitDefaults;
 
+/* A JobRemoved signal that can't go out on the API bus yet, see bus_job_send_removed_signal(). */
+typedef struct HeldJobRemoved {
+        uint32_t id;
+        char *unit;
+        JobResult result;
+} HeldJobRemoved;
+
 typedef struct Manager {
         /* Note that the set of units we know of is allowed to be
          * inconsistent. However the subset of it that is loaded may
@@ -348,6 +355,12 @@ typedef struct Manager {
          * subscriptions deserialized from a previous reload/reexec were coldplugged. Unset when the
          * connection is torn down. */
         bool api_bus_ready;
+
+        /* JobRemoved signals that have to wait until the API bus is set up, since before that we neither
+         * own our name on it nor track anybody on it, see api_bus_instance_id_reply(). Their jobs are gone
+         * already, so we keep what we need to build the signal, which also lets us serialize them. */
+        HeldJobRemoved *held_job_removed;
+        size_t n_held_job_removed;
 
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
