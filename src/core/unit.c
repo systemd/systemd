@@ -450,7 +450,7 @@ bool unit_may_gc(Unit *u) {
         if (u->in_dbus_queue)
                 return false;
 
-        if (sd_bus_track_count(u->bus_track) > 0)
+        if (sd_bus_track_count(u->bus_track) > 0 || !strv_isempty(u->deserialized_refs))
                 return false;
 
         state = unit_active_state(u);
@@ -3848,10 +3848,7 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        STRV_FOREACH(i, u->deserialized_refs)
-                RET_GATHER(r, bus_unit_track_add_name(u, *i));
-
-        u->deserialized_refs = strv_free(u->deserialized_refs);
+        RET_GATHER(r, bus_unit_coldplug_bus_track(u));
 
         if (UNIT_VTABLE(u)->coldplug)
                 RET_GATHER(r, UNIT_VTABLE(u)->coldplug(u));
