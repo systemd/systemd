@@ -463,7 +463,17 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
                 free_and_replace(m->switch_root, root);
         m->objective = objective;
 
-        return sd_varlink_reply(link, NULL);
+        r = sd_varlink_reply(link, NULL);
+        if (r < 0)
+                return r;
+
+        /* Our main loop will stop iterating the event loop as soon as the objective we just set above is
+         * processed, hence the reply we just queued would otherwise never actually be written to the
+         * socket. Flush it out synchronously here, so the client reliably sees our reply instead of the
+         * connection simply going away. */
+        (void) sd_varlink_flush(link);
+
+        return 0;
 }
 
 int vl_method_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
