@@ -90,3 +90,4 @@ dmi:*:svnSupermicro:pnSuper Server:*
 dmi:*:svnSupermicro:pnSuperServer:*
  ID_PRODUCT_NAME_IS_RUBBISH=1
  ID_PRODUCT_VERSION_IS_RUBBISH=1
+ ID_PRODUCT_SERIAL_IS_RUBBISH=1
