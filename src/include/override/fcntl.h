@@ -25,6 +25,11 @@
 #define AT_HANDLE_MNT_ID_UNIQUE 0x001  /* Return the u64 unique mount ID. */
 #endif
 
+/* Defined by the kernel since v6.14, not yet by every glibc we support. */
+#ifndef AT_EXECVE_CHECK
+#define AT_EXECVE_CHECK 0x10000 /* Only perform a check if execution would be allowed */
+#endif
+
 #ifndef FD_NSFS_ROOT
 #define FD_NSFS_ROOT -10003 /* Root of the nsfs filesystem */
 #endif
