@@ -2211,11 +2211,61 @@ int seccomp_restrict_ptrace(void) {
         return 0;
 }
 
+static int add_personality_rule(scmp_filter_ctx seccomp, uint32_t arch, uint32_t mask, uint32_t value) {
+        return add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(personality), 1,
+                                          SCMP_A0(SCMP_CMP_MASKED_EQ, mask, value));
+}
+
+/* Refuse every personality() argument but those matching value under mask, and the 0xffffffff query. The
+ * kernel only looks at the lower 32 bits and a rule may compare an argument only once, so this takes masked
+ * compares: each bit set in value must be set, and the other bits of mask must either all be clear, or all
+ * be set along with every bit outside of mask. If they are mixed, one of them is set while the next one,
+ * wrapping around, is clear. */
+static int add_personality_rules(scmp_filter_ctx seccomp, uint32_t arch, uint32_t mask, uint32_t value) {
+        uint32_t clear = mask & ~value;
+        int first, r;
+
+        assert((value & ~mask) == 0);
+
+        BIT_FOREACH(bit, value) {
+                r = add_personality_rule(seccomp, arch, INDEX_TO_MASK(uint32_t, bit), 0);
+                if (r < 0)
+                        return r;
+        }
+
+        first = BIT_FIRST_SET(clear);
+        if (first < 0)
+                return 0;
+
+        BIT_FOREACH(bit, clear) {
+                int next = BIT_NEXT_SET(clear, bit);
+
+                if (next < 0)
+                        next = first;
+                if (next == bit)
+                        break;
+
+                r = add_personality_rule(seccomp, arch,
+                                         INDEX_TO_MASK(uint32_t, bit) | INDEX_TO_MASK(uint32_t, next),
+                                         INDEX_TO_MASK(uint32_t, bit));
+                if (r < 0)
+                        return r;
+        }
+
+        BIT_FOREACH(bit, ~mask) {
+                r = add_personality_rule(seccomp, arch,
+                                         INDEX_TO_MASK(uint32_t, first) | INDEX_TO_MASK(uint32_t, bit),
+                                         INDEX_TO_MASK(uint32_t, first));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 /* Refuse to set READ_IMPLIES_EXEC, under which brk() maps the heap executable without passing through the
- * mmap_file or file_mprotect hooks. The kernel only looks at the lower 32 bits and treats all of them set as
- * a query, so refuse every other value with the flag. A rule may compare an argument only once, hence one
- * rule per other bit: the flag set and that bit clear. Like seccomp_restrict_ptrace(), only fail for the
- * native architecture or if no filter can be installed at all. */
+ * mmap_file or file_mprotect hooks. Like seccomp_restrict_ptrace(), only fail for the native architecture or
+ * if no filter can be installed at all. */
 int seccomp_restrict_read_implies_exec(void) {
         uint32_t arch;
         int r;
@@ -2231,14 +2281,9 @@ int seccomp_restrict_read_implies_exec(void) {
                 if (r < 0)
                         return r;
 
-                BIT_FOREACH(bit, UINT32_MAX & ~READ_IMPLIES_EXEC) {
-                        r = add_seccomp_syscall_filter(
-                                        seccomp, arch, SCMP_SYS(personality), 1,
-                                        SCMP_A0(SCMP_CMP_MASKED_EQ, READ_IMPLIES_EXEC | INDEX_TO_MASK(uint32_t, bit),
-                                                READ_IMPLIES_EXEC));
-                        if (r < 0)
-                                return r;
-                }
+                r = add_personality_rules(seccomp, arch, READ_IMPLIES_EXEC, 0);
+                if (r < 0)
+                        return r;
 
                 r = sym_seccomp_load(seccomp);
                 if (r < 0) {
