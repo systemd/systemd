@@ -19,6 +19,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "log.h"
@@ -2209,6 +2210,42 @@ int seccomp_restrict_ptrace(void) {
         return 0;
 }
 
+/* Refuse everything but the locked personality and the 0xffffffff query, looking only at the lower 32 bits
+ * like the kernel. A rule may compare an argument only once, so refuse each bit set in the personality when
+ * clear, and each bit clear in it when set while the next such bit, wrapping around, is clear: those bits
+ * are then either all clear (the personality) or all set (the query). */
+static int add_lock_personality_rules(scmp_filter_ctx seccomp, uint32_t arch, uint32_t personality) {
+        uint32_t clear = ~personality;
+        int r;
+
+        BIT_FOREACH(bit, personality) {
+                r = add_seccomp_syscall_filter(
+                                seccomp, arch, SCMP_SYS(personality), 1,
+                                SCMP_A0(SCMP_CMP_MASKED_EQ, INDEX_TO_MASK(uint32_t, bit), 0));
+                if (r < 0)
+                        return r;
+        }
+
+        BIT_FOREACH(bit, clear) {
+                int next = BIT_NEXT_SET(clear, bit);
+
+                if (next < 0)
+                        next = BIT_FIRST_SET(clear);
+                if (next == bit) /* A single clear bit is always all clear or all set. */
+                        break;
+
+                r = add_seccomp_syscall_filter(
+                                seccomp, arch, SCMP_SYS(personality), 1,
+                                SCMP_A0(SCMP_CMP_MASKED_EQ,
+                                        INDEX_TO_MASK(uint32_t, bit) | INDEX_TO_MASK(uint32_t, next),
+                                        INDEX_TO_MASK(uint32_t, bit)));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int seccomp_lock_personality(unsigned long personality) {
         uint32_t arch;
         int r;
@@ -2227,17 +2264,9 @@ int seccomp_lock_personality(unsigned long personality) {
                 if (r < 0)
                         return r;
 
-                r = sym_seccomp_rule_add_exact(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(personality),
-                                1,
-                                SCMP_A0(SCMP_CMP_NE, personality));
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add scheduler rule for architecture %s, skipping: %m",
-                                        seccomp_arch_to_string(arch));
+                r = add_lock_personality_rules(seccomp, arch, (uint32_t) personality);
+                if (r < 0)
                         continue;
-                }
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
