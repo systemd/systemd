@@ -1497,6 +1497,21 @@ EOF
     mkdir -p /run/verity.d
     ln -sf "$defs/verity.crt" /run/verity.d/ok.crt
 
+    # Manifests are signed with a key of their own, separate from the verity one
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$defs/manifest.key" -out "$defs/manifest.crt" -subj /CN=manifest -days 2 2>/dev/null
+
+    # Restrict the images to specific systems, if the file system supports user xattrs
+    local -a match_args=()
+    touch "$imgs/xattr-probe"
+    if setfattr -n user.probe -v 1 "$imgs/xattr-probe"; then
+        match_args=(--match-xattr-hostname='web*'
+                    --match-xattr-hostname=db1
+                    --match-xattr-machine-tags=dropped
+                    --match-xattr-machine-tags=
+                    --match-xattr-os-version-id='>= 40')
+    fi
+    rm -f "$imgs/xattr-probe"
+
     output=$(systemd-repart --offline="$OFFLINE" \
                             --definitions="$defs" \
                             --seed="$seed" \
@@ -1504,6 +1519,12 @@ EOF
                             --empty=create \
                             --size=auto \
                             --split=yes \
+                            --manifest=yes \
+                            --manifest-gpt=yes \
+                            --manifest-fields=size,hash \
+                            --manifest-private-key="$defs/manifest.key" \
+                            --manifest-certificate="$defs/manifest.crt" \
+                            "${match_args[@]}" \
                             --json=pretty \
                             --private-key="$defs/verity.key" \
                             --certificate="$defs/verity.crt" \
@@ -1522,6 +1543,47 @@ EOF
     assert_neq "$sig_split" ""
     assert_neq "$sig_split" "null"
     jq . "$sig_split" >/dev/null
+
+    # The manifest of the root partition's file system tree lists the files copied into it, and the manifest
+    # of the partition table describes the partitions, with the split artifacts as sources, hence it must
+    # verify against the directory the split artifacts are in (the verity signature partition is excluded
+    # from that, as its split artifact is trimmed).
+    root_manifest=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .manifest_path" <<<"$output")
+    assert_eq "$root_manifest" "$imgs/verity.root-${architecture}.Uapi16Manifest"
+    # CopyFiles= places the definitions directory at the same path inside the partition
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\")" <"$root_manifest" >/dev/null
+    # Only the requested fields are included
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
+    # The manifest is signed with the manifest key, not the verity key
+    systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
+    (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
+    [[ "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .manifest_path" <<<"$output")" == "-" ]]
+
+    gpt_manifest="$imgs/verity.Uapi16Manifest"
+    tr -d '\036' <"$gpt_manifest" | jq -s -e '.[] | select(.mediaType == "application/vnd.uapi.16.signature") | .mechanism == "pkcs7"' >/dev/null
+    # The image as a whole is covered too
+    tr -d '\036' <"$gpt_manifest" | jq -s -e ".[] | select(.name == \"verity\") | .size == $(stat -c %s "$imgs/verity") and .sha256 == \"$(sha256sum "$imgs/verity" | cut -d' ' -f1)\"" >/dev/null
+    root_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
+    tr -d '\036' <"$gpt_manifest" | jq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | (.contents | length) == 1 and .contents[0].file == \"$(basename "$imgs/verity")\" and .contents[0].offset > 0 and .gptLabel != null" >/dev/null
+    tr -d '\036' <"$gpt_manifest" | jq -s -e ".[] | select(.name == \"$(basename "$sig_split")\") | (.contents | length) == 1" >/dev/null
+    { tr -d '\036' <"$gpt_manifest" | jq -c "select(.name != \"$(basename "$sig_split")\")" | sed 's/^/\x1e/'; } >"$imgs/verity.nosig.Uapi16Manifest"
+    systemd-manifest verify --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest"
+
+    if [[ ${#match_args[@]} -gt 0 ]]; then
+        # The image and the split artifacts carry the requested xattrs, and the partition table manifest
+        # records them for the image and each partition, hence it verifies including the xattrs
+        for f in "$imgs/verity" "$root_split" "$sig_split"; do
+            assert_eq "$(getfattr --only-values -n user.uapi.match_hostname "$f" | tr '\0' ' ')" "web* db1"
+            assert_eq "$(getfattr --only-values -n user.uapi.match_os_version_id "$f")" ">= 40"
+            (! getfattr -n user.uapi.match_machine_tags "$f")
+        done
+        jq --seq -s -e '.[] | select(.name == "verity") | .extendedAttributes.user["uapi.match_os_version_id"].text == ">= 40" and .extendedAttributes.user["uapi.match_hostname"].base64 != null and (.extendedAttributes.user | has("uapi.match_machine_tags") | not)' <"$gpt_manifest" >/dev/null
+        jq --seq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | .extendedAttributes.user[\"uapi.match_os_version_id\"].text == \">= 40\"" <"$gpt_manifest" >/dev/null
+        systemd-manifest verify --field=+user-xattr --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest"
+        setfattr -n user.uapi.match_os_version_id -v '>= 41' "$root_split"
+        (! systemd-manifest verify --field=+user-xattr --verify=no "$imgs" "$imgs/verity.nosig.Uapi16Manifest")
+        (! systemd-repart --match-xattr-os-version-id='>=' "$imgs/invalid" 2>&1) | grep -F "Invalid argument to --match-xattr-os-version-id=: >=" >/dev/null
+    fi
 
     # Check that offline signing works and the resulting image is valid
 
