@@ -469,6 +469,26 @@ testcase_tags() {
     hostnamectl tags -- -nonexistent
     assert_eq "$(hostnamectl tags)" "alpha:beta:quux"
 
+    # Adding an assignment replaces an existing value of the same key, but leaves bare tags alone.
+    hostnamectl tags foo foo=a
+    hostnamectl tags +foo=b
+    assert_eq "$(hostnamectl tags)" "foo:foo=b"
+    grep -x "TAGS=foo:foo=b" /etc/machine-info >/dev/null
+
+    # A '*' suffix on a tag to remove removes all tags with that prefix, before tags are added.
+    hostnamectl tags company.x:company.bar=old:companyfoo:other
+    hostnamectl tags -- '-company.*' +company.foo:company.bar=waldo
+    assert_eq "$(hostnamectl tags)" "company.bar=waldo:company.foo:companyfoo:other"
+    hostnamectl tags -- '-company.*:other' -companyfoo +new
+    assert_eq "$(hostnamectl tags)" "new"
+    hostnamectl tags new:k=1:kx=2:kk:k
+    hostnamectl tags -- '-k=*'
+    assert_eq "$(hostnamectl tags)" "k:kk:kx=2:new"
+    # The '*' suffix is only allowed for removal
+    (! hostnamectl tags -- '+foo*')
+    (! hostnamectl tags -- 'foo*')
+    assert_eq "$(hostnamectl tags)" "k:kk:kx=2:new"
+
     # Plain and prefixed arguments may not be mixed.
     (! hostnamectl tags foo +bar)
     (! hostnamectl tags +bar foo)
@@ -485,6 +505,11 @@ testcase_tags() {
             AddAndRemoveTags asas 1 three 1 one
     assert_eq "$(hostnamectl tags)" "three:two"
 
+    # Check removal by glob
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            AddAndRemoveTags asas 2 three one 1 'tw*'
+    assert_eq "$(hostnamectl tags)" "one:three"
+
     # The SetTags() Varlink method: 'set' resets the list, then 'add'/'remove' are applied on top.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
             '{"set":["x","y"],"add":["z"],"remove":["x"]}'
@@ -497,8 +522,24 @@ testcase_tags() {
     assert_eq "$(hostnamectl tags)" "aaa:bbb"
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"remove":["aaa"]}'
     assert_eq "$(hostnamectl tags)" "bbb"
+    # An added assignment replaces the value from 'set' for the same key.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"set":["k=1","bbb"],"add":["k=2"]}'
+    assert_eq "$(hostnamectl tags)" "bbb:k=2"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["bbb"]}'
     # Invalid tags are refused.
     (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
+    assert_eq "$(hostnamectl tags)" "bbb"
+
+    # Remove by glob
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["bbb=33"],"remove":["bb*"]}'
+    assert_eq "$(hostnamectl tags)" "bbb=33"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["aaa=33"],"remove":["bbb","bbb=34"]}'
+    assert_eq "$(hostnamectl tags)" "aaa=33:bbb=33"
+
+    # Removals precede additions
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["aaa=34","bbb=34"],"remove":["aaa=*","bbb=*"]}'
+    assert_eq "$(hostnamectl tags)" "aaa=34:bbb=34"
 
     # Describe() exposes the parsed tag list as MachineTags, on both transports.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["foo","bar"]}'
@@ -544,6 +585,81 @@ testcase_tags() {
     assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
                  jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" \
             'TAGS=role=a:role=b:zeta:alpha'
+
+    hostnamectl tags ""
+}
+
+testcase_tags_apply() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap 'restore_machine_info; rm -f /run/machine-tags.d/*-test71.tags /etc/machine-tags.d/*-test71.tags' RETURN
+
+    # Start from a known list.
+    hostnamectl tags manual vendor.env=old
+    assert_eq "$(hostnamectl tags)" "manual:vendor.env=old"
+
+    mkdir -p /run/machine-tags.d /etc/machine-tags.d
+    cat >/run/machine-tags.d/10-vendor-test71.tags <<EOF
+# vendor tags
+vendor.role=webserver vendor.env=production
+; another comment
+vendor.region=eu
+EOF
+    echo "runtime" >/run/machine-tags.d/30-runtime-test71.tags
+    cat >/etc/machine-tags.d/70-local-test71.tags <<EOF
+-vendor.env=* -vendor.region=*
+local.rack=7
+EOF
+
+    # No arguments may be combined with --apply.
+    (! hostnamectl tags --apply foo)
+    assert_eq "$(hostnamectl tags)" "manual:vendor.env=old"
+
+    # The files are applied on top of the current tags, in order: the vendor file replaces the value of
+    # vendor.env, which the local file then removes together with vendor.region.
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    grep -E '^TAGS="?local.rack=7:manual:runtime:vendor.role=webserver"?$' /etc/machine-info >/dev/null
+
+    # Applying again is a no-op, also via the Varlink method directly, and tags set by other means are
+    # retained. Set a non-functional D-Bus address to verify that we're communicating over Varlink.
+    DBUS_SYSTEM_BUS_ADDRESS=unix:path=/nonexistent hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    hostnamectl tags +extra
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual:runtime:vendor.role=webserver"
+
+    # A /dev/null symlink or an empty file in /etc/ masks a file of the same name in /run/. Masking does
+    # not remove tags that were applied earlier, so drop them first.
+    hostnamectl tags -- -runtime -vendor.role=webserver
+    ln -s /dev/null /etc/machine-tags.d/10-vendor-test71.tags
+    : >/etc/machine-tags.d/30-runtime-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual"
+
+    # Assigning a key replaces a previous assignment, glob removal applies to existing tags too, and
+    # invalid entries are ignored without aborting.
+    echo "role=a" >/etc/machine-tags.d/80-key-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual:role=a"
+    printf 'in/valid role=b\n-e*\n' >/etc/machine-tags.d/81-key-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:role=b"
+
+    # The boot-time service applies the configuration as well.
+    echo "from-service" >/etc/machine-tags.d/86-service-test71.tags
+    systemctl restart systemd-machine-tags.service
+    assert_eq "$(hostnamectl tags)" "from-service:local.rack=7:manual:role=b"
+
+    # "-*" resets the list.
+    echo "-* fresh" >/etc/machine-tags.d/90-reset-test71.tags
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
+    assert_eq "$(hostnamectl tags)" "fresh"
+    grep -E '^TAGS="?fresh"?$' /etc/machine-info >/dev/null
 
     hostnamectl tags ""
 }

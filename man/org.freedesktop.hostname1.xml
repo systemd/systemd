@@ -390,11 +390,15 @@ node /org/freedesktop/hostname1 {
       the <varname>TAGS=</varname> field from <filename>/etc/machine-info</filename>.</para>
 
       <para><function>AddAndRemoveTags()</function> incrementally updates the <varname>Tags</varname>
-      property instead of replacing it. It takes two lists of machine tags: the tags in <varname>add</varname>
-      are added to the current list, and the tags in <varname>remove</varname> are dropped from it (the
-      resulting list is <varname>(current ∪ add) \ remove</varname>, sorted and deduplicated). This is useful
-      when several independent agents each manage a subset of the tags without racing on a read-modify-write
-      of the full list. Each tag must be a valid machine tag, as for <function>SetTags()</function>.</para>
+      property instead of replacing it. It takes two lists of machine tags: the tags in
+      <varname>add</varname> are added to the current list, and any tags matching the patterns in
+      <varname>remove</varname> are dropped from it (the resulting list is <varname>(current ∪ add) \
+      remove</varname>, sorted and deduplicated). A
+      <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal> tag in
+      <varname>add</varname> replaces any assignment of the same key in the current list. This is useful when
+      several independent agents each manage a subset of the tags without racing on a read-modify-write of
+      the full list. Each tag to add must be a valid machine tag, as for
+      <function>SetTags()</function>.</para>
 
       <para><varname>PrettyHostname</varname>, <varname>IconName</varname>, <varname>Chassis</varname>,
       <varname>Deployment</varname>, <varname>Location</varname>, and <varname>Tags</varname> are stored in
