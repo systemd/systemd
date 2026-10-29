@@ -643,6 +643,37 @@ RestartMaxDelaySec=160s</programlisting>
           </mathphrase>
         </inlineequation> steps.</para>
 
+        <para>The first <varname>RestartSteps</varname> + 1 restarts wait a total of
+        <inlineequation>
+          <mathphrase>
+            (<varname>RestartMaxDelaySec</varname> * <emphasis>ratio</emphasis> - <varname>RestartSec</varname>) / (<emphasis>ratio</emphasis> - 1)
+          </mathphrase>
+        </inlineequation>,
+        310s in the example above. Every further restart waits <varname>RestartMaxDelaySec=</varname>.
+        The total does not include the time the service takes to start, run, and stop, or
+        <varname>RestartRandomizedDelaySec=</varname>.</para>
+
+        <para>The service manager keeps restarting the service until it hits the start rate limit, see
+        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The default limit allows 5 starts in 10s, so restarts that are further apart never hit it. To make
+        the unit fail once the delay reaches <varname>RestartMaxDelaySec=</varname>, set
+        <varname>StartLimitBurst=</varname> to <varname>RestartSteps</varname> + 1, and set
+        <varname>StartLimitIntervalSec=</varname> to more than the total plus the time the service takes to
+        start, run, and stop each time. For the example above:</para>
+
+        <programlisting>[Unit]
+StartLimitIntervalSec=10min
+StartLimitBurst=5</programlisting>
+
+        <para>A successful restart does not reset the restart counter. After a later failure, the restarts
+        continue at the delay that the earlier restarts reached, and may never hit the limit. To reset the
+        counter, the service can send <literal>RESTART_RESET=1</literal> after it has started, see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        Earlier starts within <varname>StartLimitIntervalSec=</varname> count against the limit too, so the
+        limit can reject a restart before the delay reaches <varname>RestartMaxDelaySec=</varname>. Only
+        <command>systemctl reset-failed</command> resets the start rate limit.</para>
+
         <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
 
