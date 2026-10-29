@@ -31,17 +31,17 @@ static const char* const restrict_filesystem_access_table[_RESTRICT_FILESYSTEM_A
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(restrict_filesystem_access, RestrictFileSystemAccess, RESTRICT_FILESYSTEM_ACCESS_EXEC);
 
 const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX] = {
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY] = "restrict-fsaccess-bdev-setintegrity-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE]         = "restrict-fsaccess-bdev-free-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]        = "restrict-fsaccess-bprm-check-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]         = "restrict-fsaccess-mmap-file-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]     = "restrict-fsaccess-file-mprotect-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]      = "restrict-fsaccess-ptrace-guard-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = "restrict-fsaccess-bpf-map-guard-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY]   = "restrict-fsaccess-bdev-setintegrity-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE]           = "restrict-fsaccess-bdev-free-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]          = "restrict-fsaccess-bprm-check-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]           = "restrict-fsaccess-mmap-file-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]       = "restrict-fsaccess-file-mprotect-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]        = "restrict-fsaccess-ptrace-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]       = "restrict-fsaccess-bpf-map-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]      = "restrict-fsaccess-bpf-prog-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]           = "restrict-fsaccess-bpf-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = "restrict-fsaccess-mmap-addr-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]           = "restrict-fsaccess-mmap-addr-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -82,19 +82,19 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), prote
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
  * This compat logic can be removed once the kernel baseline includes
  * 1271a40eeafa ("bpf: Allow access to const void pointer arguments"). */
-#define RESTRICT_FSACCESS_LINKS(obj) {                                                                      \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY] = (obj)->links.restrict_fsaccess_bdev_setintegrity ?:        \
-                                                 (obj)->links.restrict_fsaccess_bdev_setintegrity_compat,   \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE]         = (obj)->links.restrict_fsaccess_bdev_free,                  \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]        = (obj)->links.restrict_fsaccess_bprm_check,                 \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]         = (obj)->links.restrict_fsaccess_mmap_file,                  \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]     = (obj)->links.restrict_fsaccess_file_mprotect,              \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]      = (obj)->links.restrict_fsaccess_ptrace_guard,               \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = (obj)->links.restrict_fsaccess_bpf_map_guard,              \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
+#define RESTRICT_FSACCESS_LINKS(obj) {                                                                                   \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY]   = (obj)->links.restrict_fsaccess_bdev_setintegrity ?:      \
+                                                                (obj)->links.restrict_fsaccess_bdev_setintegrity_compat, \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE]           = (obj)->links.restrict_fsaccess_bdev_free,                \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]          = (obj)->links.restrict_fsaccess_bprm_check,               \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]           = (obj)->links.restrict_fsaccess_mmap_file,                \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]       = (obj)->links.restrict_fsaccess_file_mprotect,            \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]        = (obj)->links.restrict_fsaccess_ptrace_guard,             \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]       = (obj)->links.restrict_fsaccess_bpf_map_guard,            \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]      = (obj)->links.restrict_fsaccess_bpf_prog_guard,           \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]           = (obj)->links.restrict_fsaccess_bpf_guard,                \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = (obj)->links.restrict_fsaccess_mmap_addr,                  \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]           = (obj)->links.restrict_fsaccess_mmap_addr,                \
 }
 
 static bool dm_verity_require_signatures(void) {
