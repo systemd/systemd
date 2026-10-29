@@ -71,6 +71,41 @@ void bus_send_pending_reload_message(Manager *m) {
         return;
 }
 
+int bus_hold_api_signal(Manager *m, sd_bus_message *message) {
+        assert(m);
+        assert(message);
+
+        if (!GREEDY_REALLOC(m->held_api_signals, m->n_held_api_signals + 1))
+                return -ENOMEM;
+
+        m->held_api_signals[m->n_held_api_signals++] = sd_bus_message_ref(message);
+        return 0;
+}
+
+static void bus_free_held_api_signals(Manager *m) {
+        assert(m);
+
+        FOREACH_ARRAY(i, m->held_api_signals, m->n_held_api_signals)
+                sd_bus_message_unref(*i);
+
+        m->held_api_signals = mfree(m->held_api_signals);
+        m->n_held_api_signals = 0;
+}
+
+static void bus_send_held_api_signals(Manager *m) {
+        int r;
+
+        assert(m);
+
+        FOREACH_ARRAY(i, m->held_api_signals, m->n_held_api_signals) {
+                r = sd_bus_message_send(*i);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send held back signal, ignoring: %m");
+        }
+
+        bus_free_held_api_signals(m);
+}
+
 static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
@@ -814,6 +849,9 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
 
+        /* Our name request is queued now, so clients matching on it get these. */
+        bus_send_held_api_signals(m);
+
         m->api_bus_ready = true;
 
         log_debug("Successfully connected to API bus.");
@@ -1096,6 +1134,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+        if (*bus == m->api_bus)
+                bus_free_held_api_signals(m);
 
         /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
          * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
@@ -1208,8 +1248,9 @@ int bus_foreach_bus(
                 RET_GATHER(r, send_message(b, userdata));
         }
 
-        /* Send to API bus, but only if somebody is subscribed */
-        if (m->api_bus &&
+        /* Send to API bus, but only if somebody is subscribed, and only once it's set up. Before that we don't
+         * own our name on it, and clients match our signals on that, so nobody would get them. */
+        if (m->api_bus && m->api_bus_ready &&
             (sd_bus_track_count(m->subscribed) > 0 ||
              sd_bus_track_count(subscribed2) > 0))
                 RET_GATHER(r, send_message(m->api_bus, userdata));
