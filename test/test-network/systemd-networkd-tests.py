@@ -4238,25 +4238,34 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         ip4_null_16 = None
         ip4_null_24 = None
+        ip4_null_32 = None
         output = check_output('ip -4 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['label'] == 'subnet16':
                 ip4_null_16 = i['local']
             elif i['label'] == 'subnet24':
                 ip4_null_24 = i['local']
+            elif i['label'] == 'host32':
+                ip4_null_32 = i
         self.assertTrue(ip4_null_16.endswith('.0.1'))
         self.assertTrue(ip4_null_24.endswith('.1'))
+        self.assertIsNotNone(ip4_null_32)
+        self.assertEqual(ip4_null_32['prefixlen'], 32)
 
         ip6_null_73 = None
         ip6_null_74 = None
+        ip6_null_128 = None
         output = check_output('ip -6 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['prefixlen'] == 73:
                 ip6_null_73 = i['local']
             elif i['prefixlen'] == 74:
                 ip6_null_74 = i['local']
+            elif i['prefixlen'] == 128 and i['local'].startswith('fd'):
+                ip6_null_128 = i
         self.assertTrue(ip6_null_73.endswith(':1'))
         self.assertTrue(ip6_null_74.endswith(':1'))
+        self.assertIsNotNone(ip6_null_128)
 
         self.verify_address_static(
             label1='label1',
