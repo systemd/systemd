@@ -749,7 +749,7 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
 
 static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
-        return transient_scope_dispatch(variant, &p->scope, &p->bad_field);
+        return transient_scope_dispatch(variant, &p->scope, &p->bad_field, &p->bus_error);
 }
 
 static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
