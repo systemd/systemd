@@ -96,6 +96,14 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return r;
         }
 
+        if (b->lacp_active >= 0 &&
+            b->mode == NETDEV_BOND_MODE_802_3AD &&
+            !up) {
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_ACTIVE, b->lacp_active);
+                if (r < 0)
+                        return r;
+        }
+
         if (b->miimon != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_BOND_MIIMON, b->miimon / USEC_PER_MSEC);
                 if (r < 0)
@@ -424,6 +432,7 @@ static void bond_init(NetDev *netdev) {
 
         b->all_slaves_active = false;
         b->tlb_dynamic_lb = -1;
+        b->lacp_active = -1;
 
         b->resend_igmp = RESEND_IGMP_DEFAULT;
         b->packets_per_slave = PACKETS_PER_SLAVE_DEFAULT;
