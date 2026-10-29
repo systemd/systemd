@@ -10,12 +10,17 @@
 #include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
+#include "extract-word.h"
 #include "hashmap.h"
 #include "job.h"
 #include "log.h"
 #include "manager.h"
+#include "parse-util.h"
 #include "selinux-access.h"
+#include "serialize.h"
 #include "strv.h"
+#include "unit-name.h"
+#include "varlink-unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
@@ -275,16 +280,15 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
         bus_job_send_change_signal(j);
 }
 
-static int send_removed_signal(sd_bus *bus, void *userdata) {
+static int send_removed_signal_full(sd_bus *bus, uint32_t id, const char *unit, JobResult result) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Job *j = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
+        assert(unit);
 
-        p = job_dbus_path(j);
-        if (!p)
+        if (asprintf(&p, "/org/freedesktop/systemd1/job/%" PRIu32, id) < 0)
                 return -ENOMEM;
 
         r = sd_bus_message_new_signal(
@@ -296,11 +300,129 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "uoss", j->id, p, j->unit->id, job_result_to_string(j->result));
+        r = sd_bus_message_append(m, "uoss", id, p, unit, job_result_to_string(result));
         if (r < 0)
                 return r;
 
         return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
+}
+
+static int send_removed_signal(sd_bus *bus, void *userdata) {
+        Job *j = ASSERT_PTR(userdata);
+
+        return send_removed_signal_full(bus, j->id, j->unit->id, j->result);
+}
+
+static int held_job_removed_add(Manager *m, uint32_t id, const char *unit, JobResult result) {
+        _cleanup_free_ char *u = NULL;
+
+        assert(m);
+        assert(unit);
+
+        u = strdup(unit);
+        if (!u)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(m->held_job_removed, m->n_held_job_removed + 1))
+                return -ENOMEM;
+
+        m->held_job_removed[m->n_held_job_removed++] = (HeldJobRemoved) {
+                .id = id,
+                .unit = TAKE_PTR(u),
+                .result = result,
+        };
+
+        return 0;
+}
+
+static int hold_removed_signal(Job *j) {
+        assert(j);
+
+        /* bus_foreach_bus() doesn't send anything on the API bus until it's set up, so keep the signal until
+         * then if anybody might want it by then: the clients of the job, whether tracked already or not yet,
+         * or the subscribers that we're yet to track again. */
+        if (!j->manager->api_bus || j->manager->api_bus_ready)
+                return 0;
+        if (sd_bus_track_count(j->bus_track) <= 0 &&
+            strv_isempty(j->deserialized_clients) &&
+            strv_isempty(j->manager->subscribed_as_strv))
+                return 0;
+
+        return held_job_removed_add(j->manager, j->id, j->unit->id, j->result);
+}
+
+void bus_job_send_held_removed_signals(Manager *m, sd_bus *bus) {
+        int r;
+
+        assert(m);
+        assert(bus);
+        assert(m->api_bus_ready);
+
+        FOREACH_ARRAY(h, m->held_job_removed, m->n_held_job_removed) {
+                Unit *u;
+
+                /* The change signals of the unit didn't go out on the API bus either. If the unit is still
+                 * queued for one, take it from the queue first, as manager_dispatch_dbus_queue() does, so
+                 * that clients on the API bus see the change of the unit before JobRemoved, as everybody
+                 * else did. */
+                u = manager_get_unit(m, h->unit);
+                if (u && u->in_dbus_queue && !MANAGER_IS_RELOADING(m)) {
+                        bus_unit_send_change_signal(u);
+                        varlink_unit_send_change_signal(u);
+                }
+
+                r = send_removed_signal_full(bus, h->id, h->unit, h->result);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send held back job remove signal for %u, ignoring: %m",
+                                        h->id);
+        }
+
+        bus_job_free_held_removed_signals(m);
+}
+
+void bus_job_free_held_removed_signals(Manager *m) {
+        assert(m);
+
+        FOREACH_ARRAY(h, m->held_job_removed, m->n_held_job_removed)
+                free(h->unit);
+
+        m->held_job_removed = mfree(m->held_job_removed);
+        m->n_held_job_removed = 0;
+}
+
+void bus_job_serialize_held_removed_signals(Manager *m, FILE *f) {
+        assert(m);
+        assert(f);
+
+        FOREACH_ARRAY(h, m->held_job_removed, m->n_held_job_removed)
+                (void) serialize_item_format(f, "held-job-removed", "%" PRIu32 " %s %s",
+                                             h->id, job_result_to_string(h->result), h->unit);
+}
+
+int bus_job_deserialize_held_removed_signal(Manager *m, const char *value) {
+        _cleanup_free_ char *id_str = NULL, *result_str = NULL;
+        const char *p = ASSERT_PTR(value);
+        JobResult result;
+        uint32_t id;
+        int r;
+
+        assert(m);
+
+        r = extract_many_words(&p, /* separators= */ NULL, /* flags= */ 0, &id_str, &result_str);
+        if (r < 0)
+                return r;
+        if (r != 2 || !unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -EINVAL;
+
+        r = safe_atou32(id_str, &id);
+        if (r < 0)
+                return r;
+
+        result = job_result_from_string(result_str);
+        if (result < 0)
+                return result;
+
+        return held_job_removed_add(m, id, p, result);
 }
 
 void bus_job_send_removed_signal(Job *j) {
@@ -317,6 +439,10 @@ void bus_job_send_removed_signal(Job *j) {
         r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
+
+        r = hold_removed_signal(j);
+        if (r < 0)
+                log_debug_errno(r, "Failed to hold back job remove signal for %u, ignoring: %m", j->id);
 }
 
 static int bus_job_track_handler(sd_bus_track *t, void *userdata) {

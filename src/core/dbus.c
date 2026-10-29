@@ -816,6 +816,9 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 
         m->api_bus_ready = true;
 
+        /* Our name request is queued now, so clients matching on it get these. */
+        bus_job_send_held_removed_signals(m, bus);
+
         log_debug("Successfully connected to API bus.");
 
         return 0;
@@ -1104,6 +1107,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+        if (*bus == m->api_bus)
+                bus_job_free_held_removed_signals(m);
 
         /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
          * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
@@ -1216,8 +1221,9 @@ int bus_foreach_bus(
                 RET_GATHER(r, send_message(b, userdata));
         }
 
-        /* Send to API bus, but only if somebody is subscribed */
-        if (m->api_bus &&
+        /* Send to API bus, but only if somebody is subscribed, and only once it's set up. Before that we
+         * don't own our name on it, and clients match our signals on that, so nobody would get them. */
+        if (m->api_bus && m->api_bus_ready &&
             (sd_bus_track_count(m->subscribed) > 0 ||
              sd_bus_track_count(subscribed2) > 0))
                 RET_GATHER(r, send_message(m->api_bus, userdata));
