@@ -2350,6 +2350,19 @@ Ports=eth2</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LACPActive=</varname></term>
+        <listitem>
+          <para>Specifies whether the device should actively send out LACPDUs to
+          establish a channel with an LACP partner. Takes a boolean. When false,
+          the device is passive during LACP discovery, only sending out LACPDUs
+          in response to a partner's LACPDU. When unset, the kernel's default
+          will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MIIMonitorSec=</varname></term>
         <listitem>
           <para>Specifies the frequency that Media Independent

@@ -17,6 +17,7 @@ typedef struct Bond {
         BondPrimaryReselect primary_reselect;
 
         int tlb_dynamic_lb;
+        int lacp_active;
 
         bool all_slaves_active;
 
