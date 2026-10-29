@@ -643,6 +643,39 @@ RestartMaxDelaySec=160s</programlisting>
           </mathphrase>
         </inlineequation> steps.</para>
 
+        <para>The delays of the first <varname>RestartSteps</varname> + 1 restarts add up to
+        <inlineequation>
+          <mathphrase>
+            (<varname>RestartMaxDelaySec</varname> × <emphasis>ratio</emphasis> − <varname>RestartSec</varname>) / (<emphasis>ratio</emphasis> − 1)
+          </mathphrase>
+        </inlineequation>.
+        In the example above, that is 10s + 20s + 40s + 80s + 160s = 310s. Every further restart adds
+        <varname>RestartMaxDelaySec=</varname>. The sum does not include the time the service runs before
+        it fails, or the delay added by <varname>RestartRandomizedDelaySec=</varname>.</para>
+
+        <para>The service manager restarts the service until the start rate limit configured with
+        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The default limit allows 5 starts in 10s. The restarts in the example above are more than 10s
+        apart, so they never hit the default limit. The service manager then restarts the service
+        indefinitely. To make the service manager give up once the delay reaches
+        <varname>RestartMaxDelaySec=</varname>, set <varname>StartLimitBurst=</varname> to
+        <varname>RestartSteps</varname> + 1, and set <varname>StartLimitIntervalSec=</varname> to more than
+        the sum of the delays plus the time the service runs before each failure:</para>
+
+        <programlisting>[Unit]
+StartLimitIntervalSec=10min
+StartLimitBurst=5
+
+[Service]
+Restart=on-failure
+RestartSec=10s
+RestartSteps=4
+RestartMaxDelaySec=160s</programlisting>
+
+        <para>With the settings above, the unit starts 5 times, and the service manager rejects the restart that
+        follows the 160s delay. The unit then enters the failed state, about 310s after the first start.</para>
+
         <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
 
