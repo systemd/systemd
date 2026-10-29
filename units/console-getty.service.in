@@ -16,6 +16,9 @@ Before=getty.target
 # OCI containers may be run without a console
 ConditionPathExists=/dev/console
 
+# See https://github.com/microsoft/WSL/issues/13595
+ConditionVirtualization=!wsl
+
 [Service]
 ExecStart=-{{AGETTY}} --noreset --noclear --keep-baud 115200,57600,38400,9600 - ${TERM}
 Type=idle

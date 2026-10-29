@@ -11,6 +11,9 @@
 Description=Wait for Network to be Online
 Documentation=man:systemd-networkd-wait-online.service(8)
 ConditionCapability=CAP_NET_ADMIN
+# WSL configures the network interfaces itself, so they are not managed by
+# networkd, and waiting for a managed link would only run into the timeout.
+ConditionVirtualization=!wsl
 DefaultDependencies=no
 Conflicts=shutdown.target
 BindsTo=systemd-networkd.service
