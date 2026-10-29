@@ -174,6 +174,11 @@ sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const
         if ((static_lease->address & server->netmask) != server->subnet)
                 return NULL;
 
+        /* Check if the address is neither the subnet nor the broadcast address. */
+        if (static_lease->address == server->subnet ||
+            static_lease->address == (server->subnet | ~server->netmask))
+                return NULL;
+
         /* Check if the address is different from the server address. */
         if (static_lease->address == server->address)
                 return NULL;
