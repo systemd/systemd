@@ -1,0 +1,5 @@
+{
+  "url": "https://src.fedoraproject.org/rpms/systemd.git",
+  "branch": "rawhide",
+  "commit": "57cbcf979ce2dd872a871c59e87d2c65dfa996e6"
+}

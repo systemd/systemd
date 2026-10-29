@@ -1,0 +1,5 @@
+{
+  "url": "https://gitlab.com/CentOS/Hyperscale/rpms/systemd.git",
+  "branch": "c10s-sig-hyperscale",
+  "commit": "417b671b173ea6271c00a3c605215b5f68795a3a"
+}
