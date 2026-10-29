@@ -703,6 +703,7 @@ TEST(unit_name_path_unescape) {
         test_unit_name_path_unescape_one("foo-bar", "/foo/bar", /* ret= */ 0);
         test_unit_name_path_unescape_one("foo-.bar", "/foo/.bar", /* ret= */ 0);
         test_unit_name_path_unescape_one("foo-bar-baz", "/foo/bar/baz", /* ret= */ 0);
+        test_unit_name_path_unescape_one("foo-bar\\x2dbaz", "/foo/bar-baz", /* ret= */ 0);
         test_unit_name_path_unescape_one("-", "/", /* ret= */ 0);
         test_unit_name_path_unescape_one("--", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("-foo-bar", /* path= */ NULL, -EINVAL);
@@ -711,6 +712,8 @@ TEST(unit_name_path_unescape) {
         test_unit_name_path_unescape_one(".-bar", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("foo-..", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("", /* path= */ NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-bar-", /* path= */ NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-bar\\x00baz", /* path= */ NULL, -EINVAL);
 }
 
 static void test_unit_name_to_prefix_one(const char *input, int ret, const char *output) {
