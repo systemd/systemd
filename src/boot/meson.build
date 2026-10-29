@@ -349,6 +349,7 @@ stub_sources = files(
         'linux.c',
         'splash.c',
         'stub.c',
+        'tofu.c',
 )
 
 addon_sources = files(

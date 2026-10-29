@@ -5,6 +5,7 @@
 #include "efi-firmware.h"
 #include "efi-log.h"
 #include "pe.h"
+#include "sha256.h"
 #include "util.h"
 
 #define DOS_FILE_MAGIC "MZ"
@@ -77,6 +78,7 @@ typedef struct PeImageDataDirectory {
 } _packed_ PeImageDataDirectory;
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+#define CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY 4
 
 typedef struct PeOptionalHeader {
         uint16_t Magic;
@@ -749,6 +751,156 @@ EFI_STATUS pe_memory_locate_sections(
                         size_in_memory,
                         sections);
 
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_buffer_locate_sections(
+                const void *buffer,
+                size_t size,
+                const char *const section_names[],
+                PeSectionVector sections[]) {
+
+        EFI_STATUS err;
+
+        assert(buffer);
+        assert(section_names);
+        assert(sections);
+
+        /* Like pe_memory_locate_sections(), but for a PE file as read from disk, i.e. not laid out in memory
+         * by the firmware. Callers hence must use the returned file_offset/file_size fields, which are
+         * validated against the size of the buffer. Sections that are selected by matching the running
+         * system (.dtbauto, .efifw) require the in-memory layout and are skipped, as the matcher does
+         * without a base address. */
+
+        const PeSectionHeader *section_table;
+        size_t n_section_table, size_in_memory;
+        err = pe_section_table_from_base(buffer, size, &section_table, &n_section_table, &size_in_memory);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        pe_locate_sections_internal(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* validate_base= */ 0,
+                        size_in_memory,
+                        /* device_table= */ NULL,
+                        /* device= */ NULL,
+                        sections);
+
+        /* The matcher validates the in-memory layout only, the file data has to be within the buffer too */
+        for (size_t i = 0; section_names[i]; i++)
+                if (PE_SECTION_VECTOR_IS_SET(sections + i) &&
+                    (sections[i].file_offset > size || sections[i].file_size > size - sections[i].file_offset))
+                        sections[i] = (PeSectionVector) {};
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_buffer_has_signature(const void *buffer, size_t size, bool *ret) {
+        EFI_STATUS err;
+
+        assert(buffer);
+        assert(ret);
+
+        /* Checks whether a PE file carries an Authenticode signature, i.e. whether its certificate table data
+         * directory entry is non-empty. verify_pe() already made sure the optional header covers the data
+         * directory entries up to and including the base relocation table, which comes after the
+         * certificate table. */
+
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        err = pe_headers_from_base(buffer, size, /* allow_compatibility= */ false, &dos, &pe);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        assert_cc(CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY < BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY);
+
+        const PeImageDataDirectory *d =
+                pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                pe->OptionalHeader.DataDirectory32 + CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY :
+                pe->OptionalHeader.DataDirectory64 + CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY;
+
+        *ret = d->Size > 0;
+        return EFI_SUCCESS;
+}
+
+static int section_file_offset_cmp(const PeSectionHeader *a, const PeSectionHeader *b) {
+        return CMP(a->PointerToRawData, b->PointerToRawData);
+}
+
+EFI_STATUS pe_buffer_authenticode_sha256(const void *buffer, size_t size, uint8_t ret[static SHA256_DIGEST_SIZE]) {
+        EFI_STATUS err;
+
+        assert(buffer);
+        assert(ret);
+
+        /* Calculates the Authenticode hash of a PE file, i.e. the hash dbx entries of type EFI_CERT_SHA256
+         * refer to, the same way the firmware does it for image verification: everything except the checksum,
+         * the certificate table data directory entry and the certificate table itself, with the sections in
+         * file order. */
+
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        err = pe_headers_from_base(buffer, size, /* allow_compatibility= */ false, &dos, &pe);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        const PeSectionHeader *section_table;
+        size_t n_section_table;
+        err = pe_section_table_from_base(buffer, size, &section_table, &n_section_table, /* ret_size_in_memory= */ NULL);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        bool pe32 = pe->OptionalHeader.Magic == OPTHDR32_MAGIC;
+        size_t optional = dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader),
+                checksum = optional + offsetof(PeOptionalHeader, CheckSum),
+                certificate_entry = optional +
+                        (pe32 ? offsetof(PeOptionalHeader, DataDirectory32) : offsetof(PeOptionalHeader, DataDirectory64)) +
+                        CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY * sizeof(PeImageDataDirectory),
+                headers = pe->OptionalHeader.SizeOfHeaders;
+        const PeImageDataDirectory *certificate_table =
+                (pe32 ? pe->OptionalHeader.DataDirectory32 : pe->OptionalHeader.DataDirectory64) +
+                CERTIFICATE_TABLE_DATA_DIRECTORY_ENTRY;
+
+        /* verify_pe() made sure the data directory reaches beyond the certificate table entry */
+        if (headers > size || headers < certificate_entry + sizeof(PeImageDataDirectory))
+                return EFI_LOAD_ERROR;
+
+        struct sha256_ctx hash;
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(buffer, checksum, &hash);
+        sha256_process_bytes((const uint8_t*) buffer + checksum + sizeof(uint32_t),
+                             certificate_entry - checksum - sizeof(uint32_t), &hash);
+        sha256_process_bytes((const uint8_t*) buffer + certificate_entry + sizeof(PeImageDataDirectory),
+                             headers - certificate_entry - sizeof(PeImageDataDirectory), &hash);
+
+        size_t hashed = headers;
+
+        _cleanup_free_ const PeSectionHeader **sorted = xnew(const PeSectionHeader*, n_section_table);
+        for (size_t i = 0; i < n_section_table; i++)
+                sorted[i] = section_table + i;
+        sort_pointer_array((void**) sorted, n_section_table, (compare_pointer_func_t) section_file_offset_cmp);
+
+        for (size_t i = 0; i < n_section_table; i++) {
+                if (sorted[i]->SizeOfRawData == 0)
+                        continue;
+                if (sorted[i]->PointerToRawData > size || sorted[i]->SizeOfRawData > size - sorted[i]->PointerToRawData)
+                        return EFI_LOAD_ERROR;
+
+                sha256_process_bytes((const uint8_t*) buffer + sorted[i]->PointerToRawData, sorted[i]->SizeOfRawData, &hash);
+                hashed += sorted[i]->SizeOfRawData;
+        }
+
+        /* Anything after the sections, except for the certificate table */
+        if (size > hashed) {
+                if (certificate_table->Size > size - hashed)
+                        return EFI_LOAD_ERROR;
+
+                sha256_process_bytes((const uint8_t*) buffer + hashed, size - hashed - certificate_table->Size, &hash);
+        }
+
+        sha256_finish_ctx(&hash, ret);
         return EFI_SUCCESS;
 }
 
