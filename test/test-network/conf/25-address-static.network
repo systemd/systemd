@@ -171,10 +171,17 @@ Address=0.0.0.0/24
 Label=subnet24
 
 [Address]
+Address=0.0.0.0/32
+Label=host32
+
+[Address]
 Address=::/73
 
 [Address]
 Address=::/74
+
+[Address]
+Address=::/128
 
 [Address]
 Address=10.10.1.1/24
