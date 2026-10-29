@@ -937,26 +937,56 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
 static void cgroup_survive_xattr_apply(Unit *u) {
         assert(u);
 
+        /* SurviveFinalKillSignal= is a system-only unit property */
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
         if (u->survive_final_kill_signal)
                 unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
         else
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
 }
 
+static void cgroup_tags_xattr_apply(Unit *u) {
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return;
+
+        _cleanup_free_ char *xattrs = NULL;
+        r = cg_list_xattr(crt->cgroup_path, &xattrs);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to list user.tag.* xattrs on control group %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+
+        NULSTR_FOREACH(xa, xattrs) {
+                const char *tag_name = startswith(xa, "user.tag.");
+                if (tag_name && !hashmap_contains(u->tags, tag_name))
+                        unit_remove_xattr_graceful(u, xa);
+        }
+
+        const char *tag_name, *tag_value;
+        HASHMAP_FOREACH_KEY(tag_value, tag_name, u->tags) {
+                _cleanup_free_ char *xattr_name = strjoin("user.tag.", tag_name);
+                if (!xattr_name)
+                        return (void) log_oom_debug();
+
+                unit_set_xattr_graceful(u, xattr_name, tag_value, strlen_ptr(tag_value));
+        }
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         assert(u);
 
-        /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
         cgroup_invocation_id_xattr_apply(u);
         cgroup_delegate_xattr_apply(u);
         cgroup_survive_xattr_apply(u);
+        cgroup_tags_xattr_apply(u);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
