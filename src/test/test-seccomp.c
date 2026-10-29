@@ -962,6 +962,12 @@ TEST(lock_personality) {
                 assert_se(safe_personality(PER_UW7) == -EPERM);
                 assert_se(safe_personality(0x42) == -EPERM);
 
+                for (unsigned bit = 0; bit < 32; bit++) {
+                        ASSERT_ERROR(safe_personality(current_opinionated ^ (UINT32_C(1) << bit)), EPERM);
+                        ASSERT_ERROR(safe_personality(PERSONALITY_INVALID ^ (UINT32_C(1) << bit)), EPERM);
+                }
+                ASSERT_EQ(safe_personality(PERSONALITY_INVALID), (int) current_opinionated);
+
                 current = safe_personality(current_opinionated);
                 assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
                 _exit(EXIT_SUCCESS);
