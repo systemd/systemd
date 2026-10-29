@@ -1760,7 +1760,7 @@ TEST(condition_test_machine_tag) {
 
         /* Conflicting values for the same key: graceful parsing keeps the last value and drops the rest,
          * so only "env=prod" remains visible. */
-        ASSERT_OK(write_string_file(f, "TAGS=\"env=staging:env=prod\"\n",
+        ASSERT_OK(write_string_file(f, "TAGS=\"env=staging:env=dev:env=prod\"\n",
                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "env=prod", /* trigger= */ false, /* negate= */ false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
