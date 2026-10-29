@@ -1824,14 +1824,12 @@ HashmapBase* _hashmap_copy(HashmapBase *h) {
 }
 
 char** _hashmap_get_strv(HashmapBase *h) {
-        char **sv;
+        /* Build a strv with borrowed Hashmap values. */
+
         Iterator i;
         unsigned idx, n;
 
-        if (!h)
-                return new0(char*, 1);
-
-        sv = new(char*, n_entries(h)+1);
+        char **sv = new(char*, (h ? n_entries(h) : 0) + 1);
         if (!sv)
                 return NULL;
 
@@ -1839,6 +1837,22 @@ char** _hashmap_get_strv(HashmapBase *h) {
         HASHMAP_FOREACH_IDX(idx, h, i)
                 sv[n++] = entry_value(h, bucket_at(h, idx));
         sv[n] = NULL;
+
+        return sv;
+}
+
+char** _hashmap_values_to_strv(HashmapBase *h) {
+        /* Convert the Hashmap values to a strv. */
+
+        char **sv = new(char*, (h ? n_entries(h) : 0) + 1);
+        if (!sv)
+                return NULL;
+
+        unsigned n = 0;
+        void *key;
+        while ((sv[n++] = _hashmap_first_key_and_value(h, /* remove= */ true, &key)))
+                if (h->hash_ops->free_key)
+                        h->hash_ops->free_key(key);
 
         return sv;
 }

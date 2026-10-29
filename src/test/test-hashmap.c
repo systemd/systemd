@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hashmap.h"
+#include "strv.h"
 #include "tests.h"
 
 // NOLINTNEXTLINE(misc-use-internal-linkage)
@@ -150,6 +151,20 @@ TEST(hashmap_put_strdup_null) {
 
         s = hashmap_get(m, "xxx");
         ASSERT_NULL(s);
+}
+
+TEST(hashmap_values_to_strv) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+
+        ASSERT_OK_POSITIVE(hashmap_put_strdup(&m, "a", "A"));
+        ASSERT_OK_POSITIVE(hashmap_put_strdup(&m, "b", "B"));
+        ASSERT_OK_POSITIVE(hashmap_put_strdup(&m, "c", "B"));
+
+        _cleanup_strv_free_ char **s = hashmap_values_to_strv(m);
+        strv_sort(s);
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE("A", "B", "B")));
+
+        ASSERT_EQ(hashmap_size(m), 0u);
 }
 
 /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated
