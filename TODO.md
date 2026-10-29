@@ -577,17 +577,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   root=nvme:\<trtype>:\<traddr>:\<trsvcid>:\<nqn>:\<partition> to boot directly from
   nvme-oF
 
-- add support for asymmetric LUKS2 TPM based encryption. i.e. allow preparing
-  an encrypted image on some host given a public key belonging to a specific
-  other host, so that only hosts possessing the private key in the TPM2 chip
-  can decrypt the volume key and activate the volume. Use case: systemd-confext
-  for a central orchestrator to generate confext images securely that can only
-  be activated on one specific host (which can be used for installing a bunch
-  of creds in /etc/credstore/ for example). Extending on this: allow binding
-  LUKS2 TPM based encryption also to the TPM2 internal clock. Net result:
-  prepare a confext image that can only be activated on a specific host that
-  runs a specific software in a specific time window. confext would be
-  automatically invalidated outside of it.
+- allow preparing an encrypted image on some host for a specific other host,
+  so that only the TPM2 chip of that host can decrypt the volume key and
+  activate the volume. The sealing side exists (--tpm2-device-key= of
+  systemd-cryptenroll and systemd-repart seal to an SRK public area without
+  access to the TPM), and systemd-report-sign-tpm2 certifies the SRK, so that
+  a verifier of a report can trust the public area it carries. Missing: teach
+  systemd-repart to build such DDIs end-to-end, and pin the PCRs listed in the
+  report via a deny list of volatile PCRs. Use case: systemd-confext for a
+  central orchestrator to generate confext images securely that can only be
+  activated on one specific host (which can be used for installing a bunch of
+  creds in /etc/credstore/ for example). Extending on this: allow binding LUKS2
+  TPM based encryption also to the TPM2 internal clock. Net result: prepare a
+  confext image that can only be activated on a specific host that runs a
+  specific software in a specific time window. confext would be automatically
+  invalidated outside of it.
 
 - Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
