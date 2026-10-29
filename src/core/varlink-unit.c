@@ -758,9 +758,41 @@ static int dispatch_transient_exec_context(const char *name, sd_json_variant *va
         return transient_exec_context_dispatch(variant, &p->exec, &p->bad_field);
 }
 
-static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+static int dispatch_transient_context_preauth(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ID", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(StartTransientContextParameters, id), SD_JSON_MANDATORY },
+                {}
+        };
+
+        StartTransientParameters *p = ASSERT_PTR(userdata);
+        const char *bad_field;
+        int r;
+
+        /* Keep pre-auth dispatch to the bare minimum needed for Polkit. Leave other work until after
+         * authorization: opening file descriptors or allocating large buffers here would let unauthorized
+         * callers exhaust our resources. SD_JSON_ALLOW_EXTENSIONS skips the remaining fields here;
+         * the post-auth dispatch will validate them and reject unknown fields. */
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, &p->context, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+                return r;
+        }
+
+        UnitType t = unit_name_to_type(p->context.id);
+        if (t < 0)
+                return varlink_propagate_bad_field_errno(-EINVAL, "ID", /* child_bad_field= */ NULL, &p->bad_field);
+
+        if (!unit_vtable[t]->can_transient)
+                return -EOPNOTSUPP;
+
+        return 0;
+}
+
+static int dispatch_transient_context_postauth(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field base_context_dispatch[] = {
-                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
+                /* ID is already validated and stored before authorization via dispatch_transient_context_preauth(). */
+                { "ID",          SD_JSON_VARIANT_STRING, NULL,                            0,                                                       0                 },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
@@ -1075,8 +1107,13 @@ static int varlink_error_unit_property_not_supported(sd_varlink *link, const cha
 }
 
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table_preauth[] = {
+                { "context", SD_JSON_VARIANT_OBJECT, dispatch_transient_context_preauth, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        static const sd_json_dispatch_field dispatch_table_postauth[] = {
+                { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context_postauth, 0,                                              SD_JSON_MANDATORY },
                 { "mode",               SD_JSON_VARIANT_STRING,  dispatch_job_mode,          offsetof(StartTransientParameters, mode),                0                 },
                 { "notifyJobChanges",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_job_changes),  0                 },
                 { "notifyUnitChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_unit_changes), 0                 },
@@ -1087,7 +1124,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
         _cleanup_free_ char *child_bad_field = NULL;
         Manager *manager = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
+        const char *bad_field;
         Unit *u;
         int r;
 
@@ -1100,24 +1137,17 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return r;
 
-        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
+        /* SD_JSON_ALLOW_EXTENSIONS leaves the other method parameters for the post-auth dispatch,
+         * which will validate them and reject unknown fields. */
+        r = sd_json_dispatch_full(parameters, dispatch_table_preauth, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, &p, &bad_field);
+        if (r == -EOPNOTSUPP)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
         if (r < 0) {
-                if (bad_field) {
-                        if (r == -EADDRNOTAVAIL)
-                                return varlink_error_unit_property_not_supported(link, bad_field, p.bad_field);
-
+                if (bad_field)
                         return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
-                }
+
                 return r;
         }
-
-        /* Pre-check unit type early and return targeted varlink error as manager_setup_transient_unit() the
-         * too generic SD_BUS_ERROR_INVALID_ARGS. */
-        UnitType t = unit_name_to_type(p.context.id);
-        if (t < 0)
-                return sd_varlink_error_invalid_parameter_name(link, "context");
-        if (!unit_vtable[t]->can_transient)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -1131,6 +1161,17 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
+
+        r = sd_json_dispatch_full(parameters, dispatch_table_postauth, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
+        if (r < 0) {
+                if (bad_field) {
+                        if (r == -EADDRNOTAVAIL)
+                                return varlink_error_unit_property_not_supported(link, bad_field, p.bad_field);
+
+                        return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
+                }
+                return r;
+        }
 
         /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
          * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */
