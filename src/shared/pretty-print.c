@@ -427,7 +427,10 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
                 ext = ".rules";
         else if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
-        else if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_equal(n, "machine-tags.d")) {
+                coll = true;
+                ext = ".tags";
+        } else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
         } else if (path_equal(n, "systemd/relabel-extra.d")) {
