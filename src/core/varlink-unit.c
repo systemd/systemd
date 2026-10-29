@@ -692,6 +692,13 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         };
 }
 
+/* Shallow struct used in pre-auth dispatch */
+typedef struct StartTransientUnitId {
+        const char *id;
+        const char *bad_field;
+} StartTransientUnitId;
+
+/* Full struct used in post-auth dispatch */
 typedef struct StartTransientParameters {
         StartTransientContextParameters context;
         JobMode mode;
@@ -756,6 +763,33 @@ static int dispatch_transient_kill(const char *name, sd_json_variant *variant, s
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         return transient_exec_context_dispatch(variant, &p->exec, &p->bad_field);
+}
+
+static int dispatch_transient_context_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ID", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(StartTransientUnitId, id), SD_JSON_MANDATORY },
+                {}
+        };
+
+        StartTransientUnitId *p = ASSERT_PTR(userdata);
+        int r;
+
+        /* This dispatcher runs before authorization, so only validate the unit ID needed by Polkit.
+         * SD_JSON_ALLOW_EXTENSIONS skips all other context fields without invoking their dispatchers. */
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, p, &p->bad_field);
+        if (r < 0)
+                return r;
+
+        UnitType t = unit_name_to_type(p->id);
+        if (t < 0) {
+                p->bad_field = "ID";
+                return -EINVAL;
+        }
+
+        if (!unit_vtable[t]->can_transient)
+                return -EOPNOTSUPP;
+
+        return 0;
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1075,6 +1109,60 @@ static int varlink_error_unit_property_not_supported(sd_varlink *link, const cha
 }
 
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        const char *bad_field;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        /* Stage 1: SELinux authorization. */
+        r = mac_selinux_access_check_varlink(link, "start");
+        if (r < 0)
+                return r;
+
+        /* Stage 2: Minimal dispatch.
+         * We need the unit name for Polkit. Leave the other properties until after authorization:
+         * their dispatchers can open pidfds or allocate large buffers, letting unauthorized callers
+         * exhaust our resources if we run them here. */
+        static const sd_json_dispatch_field id_dispatch_table[] = {
+                { "context", SD_JSON_VARIANT_OBJECT, dispatch_transient_context_id, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        StartTransientUnitId unit_id = {};
+        r = sd_json_dispatch_full(parameters, id_dispatch_table, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, &unit_id, &bad_field);
+        if (r == -EOPNOTSUPP)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_error_unit_invalid_parameter(link, bad_field, unit_id.bad_field);
+
+                return r;
+        }
+
+        /* Stage 3: Polkit authorization. */
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) STRV_MAKE(
+                                        "unit", unit_id.id,
+                                        "verb", "start",
+                                        "polkit.message", N_("Authentication is required to start transient unit '$(unit)'."),
+                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* Stage 4: Full dispatch.
+         * Minimal dispatch (stage 2) and this one use the same parsed JSON, so we don't need to parse
+         * the request twice. */
+        _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
+        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *child_bad_field = NULL;
+        Unit *u;
+
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
                 { "mode",               SD_JSON_VARIANT_STRING,  dispatch_job_mode,          offsetof(StartTransientParameters, mode),                0                 },
@@ -1083,22 +1171,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
-        _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
-        _cleanup_free_ char *child_bad_field = NULL;
-        Manager *manager = ASSERT_PTR(userdata);
-        const char *bad_field = NULL;
-        Unit *u;
-        int r;
-
-        assert(link);
-        assert(parameters);
-
         start_transient_parameters_init(&p);
-
-        r = mac_selinux_access_check_varlink(link, "start");
-        if (r < 0)
-                return r;
 
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
@@ -1110,27 +1183,6 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 }
                 return r;
         }
-
-        /* Pre-check unit type early and return targeted varlink error as manager_setup_transient_unit() the
-         * too generic SD_BUS_ERROR_INVALID_ARGS. */
-        UnitType t = unit_name_to_type(p.context.id);
-        if (t < 0)
-                return sd_varlink_error_invalid_parameter_name(link, "context");
-        if (!unit_vtable[t]->can_transient)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
-
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        (const char**) STRV_MAKE(
-                                        "unit", p.context.id,
-                                        "verb", "start",
-                                        "polkit.message", N_("Authentication is required to start transient unit '$(unit)'."),
-                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
 
         /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
          * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */

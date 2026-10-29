@@ -91,6 +91,7 @@ bool pidref_is_self(PidRef *pidref);
 
 void pidref_done(PidRef *pidref);
 PidRef* pidref_free(PidRef *pidref);
+void pidref_array_free(PidRef *array, size_t n);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
 
 int pidref_copy(const PidRef *pidref, PidRef *ret);
