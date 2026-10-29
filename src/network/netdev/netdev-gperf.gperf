@@ -212,6 +212,7 @@ Tap.KeepCarrier,                          config_parse_bool,                    
 Bond.Mode,                                config_parse_bond_mode,                         0,                             offsetof(Bond, mode)
 Bond.TransmitHashPolicy,                  config_parse_bond_xmit_hash_policy,             0,                             offsetof(Bond, xmit_hash_policy)
 Bond.LACPTransmitRate,                    config_parse_bond_lacp_rate,                    0,                             offsetof(Bond, lacp_rate)
+Bond.LACPActive,                          config_parse_tristate,                          0,                             offsetof(Bond, lacp_active)
 Bond.AdSelect,                            config_parse_bond_ad_select,                    0,                             offsetof(Bond, ad_select)
 Bond.FailOverMACPolicy,                   config_parse_bond_fail_over_mac,                0,                             offsetof(Bond, fail_over_mac)
 Bond.ARPIPTargets,                        config_parse_arp_ip_target_address,             0,                             0

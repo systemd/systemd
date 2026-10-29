@@ -2095,13 +2095,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertIn('fdb_max_learned 4 ', output)
 
     def test_bond(self):
-        copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev', '25-bond-property.netdev')
+        copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev', '25-bond-property.netdev',
+                          '25-bond-lacp-passive.netdev')
         start_networkd()
 
-        self.wait_online('bond99:off', 'bond98:off', 'bond97:off', setup_state='unmanaged')
+        self.wait_online('bond99:off', 'bond98:off', 'bond97:off', 'bond96:off', setup_state='unmanaged')
         self.networkctl_check_unit('bond99', '25-bond')
         self.networkctl_check_unit('bond98', '25-bond-balanced-tlb')
         self.networkctl_check_unit('bond97', '25-bond-property')
+        self.networkctl_check_unit('bond96', '25-bond-lacp-passive')
 
         self.check_link_attr('bond99', 'bonding', 'mode', '802.3ad 4')
         self.check_link_attr('bond99', 'bonding', 'xmit_hash_policy', 'layer3+4 1')
@@ -2134,6 +2136,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.check_link_attr('bond97', 'bonding', 'arp_missed_max', '10')
         self.check_link_attr('bond97', 'bonding', 'peer_notif_delay', '300000')
+
+        output = networkctl_status('bond96')
+        print(output)
+
+        self.check_link_attr('bond96', 'bonding', 'lacp_active', 'off 0')
 
     def check_vlan(self, id, flags):
         self.wait_online('test1:degraded', 'vlan99:routable')

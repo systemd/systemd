@@ -505,6 +505,7 @@ Kind=
 L2MissNotification=
 L3MasterDevice=
 L3MissNotification=
+LACPActive=
 LACPTransmitRate=
 LLDP=
 LLMNR=
