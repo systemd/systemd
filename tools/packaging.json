@@ -1,0 +1,32 @@
+{
+  "arch": {
+    "url": "https://gitlab.archlinux.org/archlinux/packaging/packages/systemd.git",
+    "branch": "main",
+    "commit": "1a366822100fc46edec7308b8cb2424fde7f037f"
+  },
+  "debian": {
+    "url": "https://github.com/systemd/systemd-deb.git",
+    "branch": "deb/main",
+    "commit": "23cf74c5cde1e6c8b17b2157c7660a6a97c7a092"
+  },
+  "fedora": {
+    "url": "https://src.fedoraproject.org/rpms/systemd.git",
+    "branch": "rawhide",
+    "commit": "57cbcf979ce2dd872a871c59e87d2c65dfa996e6"
+  },
+  "hyperscale": {
+    "url": "https://gitlab.com/CentOS/Hyperscale/rpms/systemd.git",
+    "branch": "c10s-sig-hyperscale",
+    "commit": "417b671b173ea6271c00a3c605215b5f68795a3a"
+  },
+  "nura": {
+    "url": "https://gitlab.postmarketos.org/postmarketOS/pmaports",
+    "branch": "main",
+    "commit": "7a6b81a4f1a7a510d088a5874bebcf2b200b69b3"
+  },
+  "opensuse": {
+    "url": "https://github.com/bmwiedemann/openSUSE",
+    "branch": "master",
+    "commit": "60fbc2d95581a933f9dcdfdb8d7e27d2a7d13e35"
+  }
+}
