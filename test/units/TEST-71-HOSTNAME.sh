@@ -161,6 +161,27 @@ testcase_hardware_serial() {
     echo '4321' >/sys/class/dmi/id/product_serial
     stop_hostnamed
     assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
+
+    # hwdb can mark DMI type 1 product_serial as rubbish; hostnamed then reports the DMI type 2 baseboard
+    # serial instead. The flag is a hwdb-derived device property, so write it into the udev database file
+    # (the location udev writes to after applying the hwdb match) and verify board_serial wins.
+    local db
+    db="$(device_get_udev_db /sys/class/dmi/id)"
+    mkdir -p "$(dirname "$db")"
+    printf 'ID_PRODUCT_SERIAL_IS_RUBBISH=1\n' > "$db"
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
+
+    # hwdb can also mark DMI type 2 board_serial as rubbish; hostnamed then falls through to the device
+    # tree serial number. product_serial is already flagged rubbish above, so board_serial (1234) is the
+    # only DMI source left. If the board flag were not honored, 1234 would still be returned; verifying
+    # that the value falls all the way through to null proves the board flag is honored.
+    printf 'ID_PRODUCT_SERIAL_IS_RUBBISH=1\nID_BOARD_SERIAL_IS_RUBBISH=1\n' > "$db"
+    stop_hostnamed
+    # both DMI serials are rubbish, so report the device tree serial number, which is absent here
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "null"
+
+    rm -f "$db"
 }
 
 testcase_nss-myhostname() {
