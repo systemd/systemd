@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -43,7 +42,8 @@ struct TransientScopeParameters {
         bool runtime_rand_extra_usec_set;
         usec_t timeout_stop_usec;
         bool timeout_stop_usec_set;
-        sd_json_variant *pids;
+        PidRef *pids;
+        size_t n_pids;
 
         char *bad_field; /* Field path for error propagation. */
 };
@@ -55,9 +55,43 @@ TransientScopeParameters* transient_scope_parameters_free(TransientScopeParamete
         if (!p)
                 return NULL;
 
-        p->pids = sd_json_variant_unref(p->pids);
+        FOREACH_ARRAY(pid, p->pids, p->n_pids)
+                pidref_done(pid);
+        free(p->pids);
         free(p->bad_field);
         return mfree(p);
+}
+
+static int dispatch_scope_pids(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientScopeParameters *p = ASSERT_PTR(userdata);
+        size_t n;
+        int r;
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for %s.", name);
+
+        n = sd_json_variant_elements(variant);
+        if (n == 0)
+                return 0;
+
+        p->pids = new(PidRef, n);
+        if (!p->pids)
+                return -ENOMEM;
+
+        sd_json_variant *json_pid;
+        JSON_VARIANT_ARRAY_FOREACH(json_pid, variant) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                r = json_dispatch_pidref(name, json_pid, SD_JSON_STRICT|SD_JSON_RELAX, &pidref);
+                if (r < 0)
+                        return r;
+
+                p->pids[p->n_pids++] = TAKE_PIDREF(pidref);
+        }
+
+        return 0;
 }
 
 static DEFINE_VARLINK_DISPATCH_SETTABLE(runtime_max_usec,        TransientScopeParameters, sd_json_dispatch_uint64);
@@ -76,7 +110,7 @@ int transient_scope_dispatch(
                 { "RuntimeMaxUSec",             _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_runtime_max_usec,        0,                                              SD_JSON_NULLABLE },
                 { "RuntimeRandomizedExtraUSec", _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_runtime_rand_extra_usec, 0,                                              SD_JSON_NULLABLE },
                 { "TimeoutStopUSec",            _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_timeout_stop_usec,       0,                                              SD_JSON_NULLABLE },
-                { "PIDs",                       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,                          offsetof(TransientScopeParameters, pids),       0                },
+                { "PIDs",                       SD_JSON_VARIANT_ARRAY,         dispatch_scope_pids,                               0,                                              SD_JSON_MANDATORY|SD_JSON_NULLABLE },
                 {}
         };
 
@@ -105,33 +139,33 @@ int transient_scope_dispatch(
         return r;
 }
 
-static int transient_scope_apply_pid(Scope *s, sd_json_variant *json, sd_varlink *link, sd_bus_error *reterr_bus_error) {
+static int apply_scope_pids(Scope *s, TransientScopeParameters *p, sd_varlink *link, sd_bus_error *reterr_bus_error) {
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
 
-        _cleanup_(pidref_done) PidRef json_pidref = PIDREF_NULL;
-        r = json_dispatch_pidref("Scope.PIDs", json, SD_JSON_STRICT|SD_JSON_RELAX, &json_pidref);
-        if (r < 0)
-                return sd_bus_error_set_errno(reterr_bus_error, r);
+        if (!p || p->n_pids == 0)
+                return -EINVAL; /* Scope.PIDs is required! */
 
-        _cleanup_(pidref_done) PidRef peer_pidref = PIDREF_NULL;
-        PidRef *pidref;
-        if (pidref_is_automatic(&json_pidref)) {
-                r = varlink_get_peer_pidref(link, &peer_pidref);
+        FOREACH_ARRAY(pid, p->pids, p->n_pids) {
+                _cleanup_(pidref_done) PidRef peer_pidref = PIDREF_NULL;
+                PidRef *pidref = pid;
+
+                if (pidref_is_automatic(pidref)) {
+                        r = varlink_get_peer_pidref(link, &peer_pidref);
+                        if (r < 0)
+                                return r;
+
+                        pidref = &peer_pidref;
+                }
+
+                r = unit_pid_attachable(u, pidref, reterr_bus_error);
                 if (r < 0)
                         return r;
 
-                pidref = &peer_pidref;
-        } else
-                pidref = &json_pidref;
-
-        r = unit_pid_attachable(u, pidref, reterr_bus_error);
-        if (r < 0)
-                return r;
-
-        r = unit_watch_pidref(u, pidref, /* exclusive= */ false);
-        if (r < 0)
-                return r;
+                r = unit_watch_pidref(u, pidref, /* exclusive= */ false);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -144,7 +178,11 @@ int transient_scope_apply_properties(
                 sd_bus_error *reterr_bus_error) {
 
         Unit *u = UNIT(ASSERT_PTR(s));
-        int r = -EINVAL; /* Scope.PIDs is required! */
+        int r;
+
+        r = apply_scope_pids(s, sp, link, reterr_bus_error);
+        if (r < 0)
+                return varlink_propagate_bad_field_errno(r, "PIDs", /* child_bad_field= */ NULL, reterr_bad_field);
 
         if (sp) {
                 varlink_apply_enum_oom_policy(u, "OOMPolicy", &s->oom_policy, sp->oom_policy,
@@ -155,17 +193,7 @@ int transient_scope_apply_properties(
                         varlink_apply_usec_per_msec(u, "RuntimeRandomizedExtraSec", &s->runtime_rand_extra_usec, sp->runtime_rand_extra_usec, UNIT_RUNTIME|UNIT_PRIVATE);
                 if (sp->timeout_stop_usec_set)
                         varlink_apply_usec_per_msec(u, "TimeoutStopSec", &s->timeout_stop_usec, sp->timeout_stop_usec, UNIT_RUNTIME|UNIT_PRIVATE);
-
-                sd_json_variant *json_pid = NULL;
-                JSON_VARIANT_ARRAY_FOREACH(json_pid, sp->pids) {
-                        r = transient_scope_apply_pid(s, json_pid, link, reterr_bus_error);
-                        if (r < 0)
-                                break;
-                }
         }
-
-        if (r < 0)
-                return varlink_propagate_bad_field_errno(r, "PIDs", /* child_bad_field= */ NULL, reterr_bad_field);
 
         return 0;
 }
