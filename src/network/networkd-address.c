@@ -1680,12 +1680,14 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         if (r == 0)
                 return -EBUSY;
 
-        /* Pick first address in range for ourselves. */
-        if (address->family == AF_INET)
-                a.in.s_addr |= htobe32(1);
-        else if (address->family == AF_INET6)
-                a.in6.s6_addr[15] |= 1;
-        else
+        /* Pick first address in range for ourselves. A host prefix already identifies the exact address. */
+        if (address->family == AF_INET) {
+                if (address->prefixlen < 32)
+                        a.in.s_addr |= htobe32(1);
+        } else if (address->family == AF_INET6) {
+                if (address->prefixlen < 128)
+                        a.in6.s6_addr[15] |= 1;
+        } else
                 assert_not_reached();
 
         *ret = a;
