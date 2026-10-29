@@ -870,6 +870,22 @@ systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p RootImagePolicy=root=squ
 dmsetup remove "$MINIMAL_IMAGE_ROOTHASH-verity"
 veritysetup close test-50-table
 
+# The shortcut only treats a device that another process set up as signed if the kernel validated its signature.
+# A unit whose image policy requires a signature sets up a device of its own instead of using a device that
+# veritysetup set up without a signature.
+if [[ "$VERITY_SIG_SUPPORTED" -eq 1 ]]; then
+    wait_for_shared_verity_device_removal
+    veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    systemd-run --wait -P \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                cat /proc/self/mountinfo >/tmp/test-50-mountinfo
+    test "$(awk '$5 == "/" { print $3 }' /tmp/test-50-mountinfo)" != \
+         "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    rm /tmp/test-50-mountinfo
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+fi
+
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
 # ExtensionDirectories will set up an overlay

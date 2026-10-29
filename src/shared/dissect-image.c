@@ -2031,7 +2031,6 @@ static int verity_device_matches(const char *name, const char *data_node, bool r
         int r;
 
         assert(name);
-        assert(data_node);
 
         r = sym_crypt_init_by_name(&cd, name);
         if (r < 0)
@@ -2045,6 +2044,9 @@ static int verity_device_matches(const char *name, const char *data_node, bool r
 
         if (require_signature && !FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return false;
+
+        if (!data_node)
+                return true;
 
         if (!crypt_params.data_device)
                 return false;
@@ -2125,6 +2127,31 @@ int dissected_image_new_from_existing_verity(
         mount_node_fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &node);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        if (found_flags == PARTITION_POLICY_SIGNED) {
+                /* Another process set up the device. If the kernel didn't validate a signature for the
+                 * device, the device is only protected by verity, whether or not we have a signature. If
+                 * the image policy requires a signature, verity_partition() sets up a device of our own
+                 * and the kernel validates our signature for it. */
+#if HAVE_LIBCRYPTSETUP
+                r = dlopen_cryptsetup(LOG_DEBUG);
+                if (r >= 0)
+                        r = verity_device_matches(name, /* data_node= */ NULL, /* require_signature= */ true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check the signature of verity device %s, assuming it has none: %m", name);
+#else
+                r = 0;
+#endif
+                if (r <= 0) {
+                        PartitionPolicyFlags policy_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+                        if (policy_flags < 0)
+                                return policy_flags;
+                        if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
+                                return -ENOPKG;
+
+                        found_flags = PARTITION_POLICY_VERITY;
+                }
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
