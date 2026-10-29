@@ -355,20 +355,22 @@ int unit_name_unescape(const char *f, char **ret) {
                 if (*f == '-')
                         *(t++) = '/';
                 else if (*f == '\\') {
-                        int a, b;
-
                         if (f[1] != 'x')
                                 return -EINVAL;
 
-                        a = unhexchar(f[2]);
+                        int a = unhexchar(f[2]);
                         if (a < 0)
                                 return -EINVAL;
 
-                        b = unhexchar(f[3]);
+                        int b = unhexchar(f[3]);
                         if (b < 0)
                                 return -EINVAL;
 
-                        *(t++) = (char) (((uint8_t) a << 4U) | (uint8_t) b);
+                        char c = (char) (((uint8_t) a << 4U) | (uint8_t) b);
+                        if (c == '\0')
+                                return -EINVAL;
+
+                        *(t++) = c;
                         f += 3;
                 } else
                         *(t++) = *f;
