@@ -1324,6 +1324,17 @@
           running in <option>--system</option> mode but with a PID other than 1.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--test-dlopen</option></term>
+
+          <listitem><para>Try to load the shared libraries without which the system is likely unusable or
+          runs without its security policy, i.e. libapparmor, libblkid, libmount, libpam, libseccomp and
+          libselinux, and exit. Libraries for features disabled at build time are skipped. The exit status is
+          zero if all libraries could be loaded, and 5 otherwise.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>

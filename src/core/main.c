@@ -41,12 +41,14 @@
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dev-setup.h"
+#include "dlopen-check.h"
 #include "dlopen-note.h"
 #include "efi-random.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
 #include "executor.h"
+#include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -135,6 +137,7 @@ static enum {
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DUMP_BUS_PROPERTIES,
         ACTION_BUS_INTROSPECT,
+        ACTION_TEST_DLOPEN,
 } arg_action = ACTION_RUN;
 
 static const char *arg_bus_introspect = NULL;
@@ -1104,6 +1107,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("bus-introspect", "PATH", "Write XML introspection data"):
                         arg_bus_introspect = opts.arg;
                         arg_action = ACTION_BUS_INTROSPECT;
+                        break;
+
+                OPTION_LONG("test-dlopen", NULL, "Try to load fundamental shared libraries and exit"):
+                        arg_action = ACTION_TEST_DLOPEN;
                         break;
 
                 OPTION_LONG("unit", "UNIT", "Set default unit"):
@@ -3763,6 +3770,12 @@ static int run_systemd(int argc, char *argv[]) {
         } else if (arg_action == ACTION_BUS_INTROSPECT) {
                 r = bus_manager_introspect_implementations(stdout, arg_bus_introspect);
                 retval = r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                goto finish;
+        } else if (arg_action == ACTION_TEST_DLOPEN) {
+                /* Use a distinct exit status for missing libraries, so that callers can tell it apart from
+                 * the generic failure of older versions which don't know --test-dlopen. */
+                r = dlopen_check();
+                retval = r >= 0 ? EXIT_SUCCESS : r == -ELIBACC ? EXIT_NOTINSTALLED : EXIT_FAILURE;
                 goto finish;
         }
 
