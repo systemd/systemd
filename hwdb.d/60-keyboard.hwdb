@@ -294,6 +294,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAquarius*:pnCmp*NS483*:*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
+ KEYBOARD_KEY_76=reserved				# F24 -> ignore
  KEYBOARD_KEY_ed=volumeup
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
