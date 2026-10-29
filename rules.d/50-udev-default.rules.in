@@ -18,6 +18,8 @@ SUBSYSTEM=="rtc", KERNEL=="rtc0", SYMLINK+="rtc", OPTIONS+="link_priority=-100"
 SUBSYSTEM=="hidraw", IMPORT{builtin}="hwdb"
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="?*", \
+  IMPORT{builtin}="hwdb 'usb-interface:v$env{ID_VENDOR_ID}p$env{ID_MODEL_ID}$env{ID_USB_INTERFACES}'"
 ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
 
 # Before c43ff248f94266cfc93e300a2d3d163ed805e55b, the following line in
