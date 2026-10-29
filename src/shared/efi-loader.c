@@ -337,6 +337,39 @@ int efi_measured_os(int log_level) {
 #endif
 }
 
+int efi_measured_smbios(int log_level) {
+#if ENABLE_EFI
+        _cleanup_free_ char *pcr_string = NULL;
+        static int cached = -1;
+        unsigned pcr_nr;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        /* Whether sd-boot or sd-stub measured the SMBIOS table (types 1, 2, and 11) into PCR 1. The loader
+         * sets the variable only if all of these structures were measured. Firmware does not do this for
+         * OEM strings: edk2's SmbiosMeasurementDxe zeros type 11 before hashing. */
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderPcrSMBIOS"), &pcr_string);
+        if (r == -ENOENT)
+                return (cached = 0);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to get LoaderPcrSMBIOS EFI variable: %m");
+
+        r = safe_atou(pcr_string, &pcr_nr);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to parse LoaderPcrSMBIOS EFI variable: %s", pcr_string);
+        if (pcr_nr != TPM2_PCR_PLATFORM_CONFIG)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EREMOTE),
+                                      "Loader measured SMBIOS into PCR %u, but PCR %i is expected.", pcr_nr, TPM2_PCR_PLATFORM_CONFIG);
+
+        return (cached = 1);
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
+#endif
+}
+
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 #if ENABLE_EFI
         _cleanup_free_ char *v = NULL;

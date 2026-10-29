@@ -191,11 +191,11 @@ Variables will be listed below using the Linux efivarfs naming,
   NUL-terminated UTF-16 string, e.g. `1`) into which the boot loader measured
   select SMBIOS structures: type 1 (system information, with the volatile
   "Wake-up Type" field zeroed out), type 2 (baseboard information) and type 11
-  (OEM strings). This is a volatile (non-persistent) variable, set only if a
-  measurement was successfully completed, and remains unset otherwise. Both
-  `systemd-boot` and `systemd-stub` perform this measurement; whichever runs
-  first sets the variable, and its presence suppresses a second measurement of
-  the same data into the same PCR during the same boot.
+  (OEM strings). This is a volatile (non-persistent) variable, set only if all
+  of these structures were measured successfully, and remains unset otherwise.
+  Both `systemd-boot` and `systemd-stub` perform this measurement; whichever
+  runs first sets the variable, and its presence suppresses a second
+  measurement of the same data into the same PCR during the same boot.
 
 * The EFI variable `LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the version string of the boot loader that was booted,
