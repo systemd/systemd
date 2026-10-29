@@ -3802,7 +3802,9 @@ static int verity_partition(
                         unvalidated_device = true;
                         break;
                 }
-                /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                /* verity_can_reuse() returns -EINVAL if we can't use the existing device, for example because
+                 * its root hash differs or the image policy requires a signature that the device lacks. We
+                 * then activate a device with a unique name instead. */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
                 if (IN_SET(r,
@@ -3841,6 +3843,8 @@ static int verity_partition(
 
         /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */
         if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                log_debug("Can't use shared verity device %s, activating a verity device with a unique name instead.", name);
+
                 /* Before trying to activate with unique name, we need to free crypt_device object.
                  * Otherwise, we get error from libcryptsetup like the following:
                  * ------
