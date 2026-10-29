@@ -532,6 +532,15 @@ static void raw_pull_job_on_finished(PullJob *j) {
          *
          * We only do something when we got all files */
 
+        /* Only now we know whether we need the detached signature file */
+        if (j == p->checksum_job) {
+                r = pull_signature_job_begin(p->checksum_job, &p->signature_job);
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to start signature job: %m");
+                        goto finish;
+                }
+        }
+
         if (!raw_pull_is_done(p))
                 return;
 
@@ -968,6 +977,10 @@ int raw_pull_start(
 
                 j->on_progress = raw_pull_job_on_progress;
                 j->sync = FLAGS_SET(flags, IMPORT_SYNC);
+
+                /* The signature job is started once the checksum job finished, see raw_pull_job_on_finished() */
+                if (j == p->signature_job && p->checksum_job)
+                        continue;
 
                 r = pull_job_begin(j);
                 if (r < 0)

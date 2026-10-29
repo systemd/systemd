@@ -8,6 +8,7 @@ at_exit() {
     rm -rf /var/lib/machines/mymachine.raw.v
     rm -rf /var/lib/machines/mytree.v
     rm -rf /var/lib/machines/testroot.v
+    rm -rf /var/lib/machines/xattr.raw.v
     umount -l /tmp/dotvroot
     rmdir /tmp/dotvroot
 }
@@ -114,3 +115,16 @@ test "$(systemd-vpick --resolve=yes /var/lib/machines/testroot.v)" = /var/lib/ma
 rm -rf /var/lib/machines/testroot.v/testroot_32
 (! systemd-vpick /var/lib/machines/testroot.v)
 (! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true)
+
+# Entries may be restricted to specific systems via "user.uapi.match_…" extended attributes
+mkdir /var/lib/machines/xattr.raw.v
+touch /var/lib/machines/xattr.raw.v/xattr_1.raw /var/lib/machines/xattr.raw.v/xattr_2.raw
+setfattr -n user.uapi.match_machine_id -v 00000000000000000000000000000000 /var/lib/machines/xattr.raw.v/xattr_2.raw
+test "$(systemd-vpick --suffix=.raw /var/lib/machines/xattr.raw.v)" = /var/lib/machines/xattr.raw.v/xattr_1.raw
+test "$(systemd-vpick --suffix=.raw --match-xattr=no /var/lib/machines/xattr.raw.v)" = /var/lib/machines/xattr.raw.v/xattr_2.raw
+setfattr -n user.uapi.match_machine_id -v "$(</etc/machine-id)" /var/lib/machines/xattr.raw.v/xattr_2.raw
+test "$(systemd-vpick --suffix=.raw /var/lib/machines/xattr.raw.v)" = /var/lib/machines/xattr.raw.v/xattr_2.raw
+setfattr -n user.uapi.match_hostname -v "not-$(hostname)" /var/lib/machines/xattr.raw.v/xattr_2.raw
+test "$(systemd-vpick --suffix=.raw /var/lib/machines/xattr.raw.v)" = /var/lib/machines/xattr.raw.v/xattr_1.raw
+# A literally specified path is not filtered
+test "$(systemd-vpick /var/lib/machines/xattr.raw.v/xattr_2.raw)" = /var/lib/machines/xattr.raw.v/xattr_2.raw

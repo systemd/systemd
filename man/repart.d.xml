@@ -995,6 +995,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManifestName=</varname></term>
+
+        <listitem><para>Configures the suffix to append to the manifest file written for the partition when
+        the <option>--manifest</option> option of
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        used. The manifest describes the file system tree the partition was populated with (via
+        <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>),
+        in the <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File
+        Manifest</ulink> format, i.e. what
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        would generate for the tree. Simple specifier expansion is supported, see below, the same
+        specifiers as for <varname>SplitName=</varname> are understood. Defaults to <literal>%t</literal>.
+        To disable manifest generation for a partition, set <varname>ManifestName=</varname> to
+        <literal>-</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Minimize=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>best</literal>, and
@@ -1288,7 +1307,8 @@
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
     <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>,
-    <varname>SplitName=</varname> settings. The following expansions are understood:</para>
+    <varname>SplitName=</varname>, <varname>ManifestName=</varname> settings. The following expansions are
+    understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -1323,8 +1343,8 @@
         </tgroup>
       </table>
 
-    <para>Additionally, for the <varname>SplitName=</varname> setting, the following specifiers are also
-    understood:</para>
+    <para>Additionally, for the <varname>SplitName=</varname> and <varname>ManifestName=</varname> settings,
+    the following specifiers are also understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
