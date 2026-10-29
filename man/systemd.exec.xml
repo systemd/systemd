@@ -2778,7 +2778,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
         call so that the kernel execution domain may not be changed from the default or the personality selected with
         <varname>Personality=</varname> directive. This may be useful to improve security, because odd personality
-        emulations may be poorly tested and source of vulnerabilities.</para>
+        emulations may be poorly tested and source of vulnerabilities. The current personality may still be
+        queried.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>

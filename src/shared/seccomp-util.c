@@ -8,6 +8,7 @@
 #include <linux/seccomp.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/ptrace.h>
 #include <sys/shm.h>
@@ -19,6 +20,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "log.h"
@@ -2209,6 +2211,93 @@ int seccomp_restrict_ptrace(void) {
         return 0;
 }
 
+static int add_personality_rule(scmp_filter_ctx seccomp, uint32_t arch, uint32_t mask, uint32_t value) {
+        return add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(personality), 1,
+                                          SCMP_A0(SCMP_CMP_MASKED_EQ, mask, value));
+}
+
+/* Refuse every personality() argument but those matching value under mask, and the 0xffffffff query. The
+ * kernel only looks at the lower 32 bits and a rule may compare an argument only once, so this takes masked
+ * compares: each bit set in value must be set, and the other bits of mask must either all be clear, or all
+ * be set along with every bit outside of mask. If they are mixed, one of them is set while the next one,
+ * wrapping around, is clear. */
+static int add_personality_rules(scmp_filter_ctx seccomp, uint32_t arch, uint32_t mask, uint32_t value) {
+        uint32_t clear = mask & ~value;
+        int first, r;
+
+        assert((value & ~mask) == 0);
+
+        BIT_FOREACH(bit, value) {
+                r = add_personality_rule(seccomp, arch, INDEX_TO_MASK(uint32_t, bit), 0);
+                if (r < 0)
+                        return r;
+        }
+
+        first = BIT_FIRST_SET(clear);
+        if (first < 0)
+                return 0;
+
+        BIT_FOREACH(bit, clear) {
+                int next = BIT_NEXT_SET(clear, bit);
+
+                if (next < 0)
+                        next = first;
+                if (next == bit)
+                        break;
+
+                r = add_personality_rule(seccomp, arch,
+                                         INDEX_TO_MASK(uint32_t, bit) | INDEX_TO_MASK(uint32_t, next),
+                                         INDEX_TO_MASK(uint32_t, bit));
+                if (r < 0)
+                        return r;
+        }
+
+        BIT_FOREACH(bit, ~mask) {
+                r = add_personality_rule(seccomp, arch,
+                                         INDEX_TO_MASK(uint32_t, first) | INDEX_TO_MASK(uint32_t, bit),
+                                         INDEX_TO_MASK(uint32_t, first));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Refuse to set READ_IMPLIES_EXEC, under which brk() maps the heap executable without passing through the
+ * mmap_file or file_mprotect hooks. Like seccomp_restrict_ptrace(), only fail for the native architecture or
+ * if no filter can be installed at all. */
+int seccomp_restrict_read_implies_exec(void) {
+        uint32_t arch;
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = add_personality_rules(seccomp, arch, READ_IMPLIES_EXEC, 0);
+                if (r < 0)
+                        return r;
+
+                r = sym_seccomp_load(seccomp);
+                if (r < 0) {
+                        if (ERRNO_IS_NEG_SECCOMP_FATAL(r) || arch == sym_seccomp_arch_native())
+                                return log_debug_errno(r, "Failed to restrict personality() for architecture %s: %m",
+                                                       seccomp_arch_to_string(arch));
+                        log_debug_errno(r, "Failed to restrict personality() for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
+                }
+        }
+
+        return 0;
+}
+
 int seccomp_lock_personality(unsigned long personality) {
         uint32_t arch;
         int r;
@@ -2227,17 +2316,9 @@ int seccomp_lock_personality(unsigned long personality) {
                 if (r < 0)
                         return r;
 
-                r = sym_seccomp_rule_add_exact(
-                                seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
-                                SCMP_SYS(personality),
-                                1,
-                                SCMP_A0(SCMP_CMP_NE, personality));
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add scheduler rule for architecture %s, skipping: %m",
-                                        seccomp_arch_to_string(arch));
+                r = add_personality_rules(seccomp, arch, UINT32_MAX, (uint32_t) personality);
+                if (r < 0)
                         continue;
-                }
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))

@@ -748,6 +748,50 @@ TEST(restrict_ptrace) {
         }
 }
 
+TEST(restrict_read_implies_exec) {
+        int r;
+
+        CHECK_SECCOMP(/* refuse_container= */ false);
+
+        r = ASSERT_OK(pidref_safe_fork("(restrict-read-implies-exec)", FORK_LOG|FORK_WAIT, NULL));
+        if (r == 0) {
+                int current;
+
+                current = ASSERT_OK(safe_personality(PERSONALITY_INVALID));
+
+                /* Positive control: without the filter the flag can be set. */
+                r = safe_personality(current | READ_IMPLIES_EXEC);
+                if (r == -EPERM) {
+                        log_tests_skipped("personality() is restricted already");
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
+                ASSERT_OK(safe_personality(current));
+
+                ASSERT_OK(seccomp_restrict_read_implies_exec());
+
+                ASSERT_ERROR(safe_personality(current | READ_IMPLIES_EXEC), EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX | READ_IMPLIES_EXEC | ADDR_NO_RANDOMIZE), EPERM);
+
+                /* Every value with the flag but the query is refused... */
+                ASSERT_ERROR(safe_personality(PERSONALITY_INVALID & ~UINT32_C(1)), EPERM);
+                ASSERT_ERROR(safe_personality(PERSONALITY_INVALID >> 1), EPERM);
+
+                /* ...also with bits above the 32 the kernel looks at. */
+                ASSERT_ERROR_ERRNO(syscall(__NR_personality,
+                                           (unsigned long) ((UINT64_C(1) << 32) | READ_IMPLIES_EXEC)),
+                                   EPERM);
+
+                /* Querying and setting other flags keeps working. */
+                ASSERT_EQ(safe_personality(PERSONALITY_INVALID), current);
+                ASSERT_OK(safe_personality(current | ADDR_NO_RANDOMIZE));
+                ASSERT_OK(safe_personality(current));
+                ASSERT_EQ(safe_personality(PERSONALITY_INVALID), current);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 TEST(restrict_archs) {
         int r;
 
@@ -962,7 +1006,11 @@ TEST(lock_personality) {
                 assert_se(safe_personality(PER_UW7) == -EPERM);
                 assert_se(safe_personality(0x42) == -EPERM);
 
-                assert_se(safe_personality(PERSONALITY_INVALID) == -EPERM); /* maybe remove this later */
+                for (unsigned bit = 0; bit < 32; bit++) {
+                        ASSERT_ERROR(safe_personality(current_opinionated ^ (UINT32_C(1) << bit)), EPERM);
+                        ASSERT_ERROR(safe_personality(PERSONALITY_INVALID ^ (UINT32_C(1) << bit)), EPERM);
+                }
+                ASSERT_EQ(safe_personality(PERSONALITY_INVALID), (int) current_opinionated);
 
                 current = safe_personality(current_opinionated);
                 assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);

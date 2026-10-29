@@ -548,6 +548,17 @@ static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds)
                 return;
         }
 
+        val = startswith(l, "restrict-fsaccess-personality-filter=");
+        if (val) {
+                r = parse_boolean(val);
+                if (r < 0)
+                        log_warning_errno(r, "bpf-restrict-fsaccess: Failed to parse personality filter "
+                                          "state '%s', ignoring: %m", val);
+                else
+                        m->restrict_fsaccess_personality_filter = r;
+                return;
+        }
+
         val = startswith(l, "restrict-fsaccess-bss-map=");
         if (!val)
                 return;
