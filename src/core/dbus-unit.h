@@ -54,5 +54,6 @@ int bus_unit_queue_job(
 int bus_unit_validate_load_state(Unit *u, sd_bus_error *reterr_error);
 
 int bus_unit_track_add_name(Unit *u, const char *name);
+int bus_unit_coldplug_bus_track(Unit *u);
 int bus_unit_track_add_sender(Unit *u, sd_bus_message *m);
 int bus_unit_track_remove_sender(Unit *u, sd_bus_message *m);
