@@ -643,6 +643,39 @@ RestartMaxDelaySec=160s</programlisting>
           </mathphrase>
         </inlineequation> steps.</para>
 
+        <para>The total wait until the first restart at <varname>RestartMaxDelaySec=</varname> is
+        <inlineequation>
+          <mathphrase>
+            (<varname>RestartMaxDelaySec</varname> * <emphasis>ratio</emphasis> - <varname>RestartSec</varname>) / (<emphasis>ratio</emphasis> - 1)
+          </mathphrase>
+        </inlineequation>, or 310s in the example above. This excludes the time each start, run, and stop
+        takes, and any delay added by <varname>RestartRandomizedDelaySec=</varname>.</para>
+
+        <para>Restarts stop when the start rate limit is hit, see
+        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The defaults come from <varname>DefaultStartLimitIntervalSec=</varname> and
+        <varname>DefaultStartLimitBurst=</varname> in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        With the built-in defaults of 5 starts in 10s, the example restarts indefinitely.</para>
+
+        <para>The start limit example below assumes that the restart counter and start rate limit are reset
+        before the first start, for example by <command>systemctl reset-failed</command>. Earlier starts in
+        the current rate limit interval may cause an earlier failure. If the interval expires during the
+        restart sequence, the service may restart indefinitely. A successful restart does not reset the
+        restart counter. After starting, the service can reset the restart counter with
+        <literal>RESTART_RESET=1</literal>, see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>To make the unit fail once the delay reaches <varname>RestartMaxDelaySec=</varname>, set
+        <varname>StartLimitBurst=</varname> to <varname>RestartSteps</varname> + 1, and set
+        <varname>StartLimitIntervalSec=</varname> to more than the total plus the time the service takes to
+        start, run, and stop each time. For the example above:</para>
+
+        <programlisting>[Unit]
+StartLimitIntervalSec=10min
+StartLimitBurst=5</programlisting>
+
         <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
 
