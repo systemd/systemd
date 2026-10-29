@@ -464,7 +464,39 @@ static int get_hardware_serial(Context *c, char **ret) {
         assert(c);
         assert(ret);
 
+        /* The product serial number (DMI type 1) and the baseboard serial number (DMI type 2) can
+         * both be meaningless placeholders. If hwdb flags one of them as rubbish, skip it here and
+         * fall through to the next candidate, or to the device tree serial number at the end.
+         * The flags are root-only, hwdb-derived device properties, so read them from the udev database. */
+        bool product_serial_is_rubbish = false;
+        bool board_serial_is_rubbish = false;
+        if (c->device_dmi) {
+                const char *s = NULL;
+
+                r = sd_device_get_property_value(c->device_dmi, "ID_PRODUCT_SERIAL_IS_RUBBISH", &s);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        return r;
+                product_serial_is_rubbish = !isempty(s) && streq(s, "1");
+
+                /* sd_device_get_property_value() does not nullify the out pointer when the property is
+                 * absent, so reset it before reading the second property here. */
+                s = NULL;
+                r = sd_device_get_property_value(c->device_dmi, "ID_BOARD_SERIAL_IS_RUBBISH", &s);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        return r;
+                board_serial_is_rubbish = !isempty(s) && streq(s, "1");
+        }
+
         FOREACH_STRING(attr, "product_serial", "board_serial") {
+                if (streq(attr, "product_serial") && product_serial_is_rubbish)
+                        continue;
+                if (streq(attr, "board_serial") && board_serial_is_rubbish)
+                        continue;
+
                 r = get_dmi_sysattr(c, attr, ret);
                 if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
                         return r;
