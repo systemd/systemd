@@ -320,6 +320,7 @@ libefi_sources = files(
         'efi-firmware.c',
         'efi-log.c',
         'efi-string.c',
+        'efivar-erase.c',
         'export-vars.c',
         'graphics.c',
         'hii.c',
