@@ -41,6 +41,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = "restrict-fsaccess-mmap-addr-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -93,6 +94,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), prote
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = (obj)->links.restrict_fsaccess_mmap_addr,                  \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -228,6 +230,27 @@ static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
 
         m->restrict_fsaccess_ptrace_filter = true;
+        return 0;
+}
+
+/* Like the ptrace filter this one survives execve(). */
+static int restrict_fsaccess_install_personality_filter(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->restrict_fsaccess_personality_filter)
+                return 0;
+
+        r = seccomp_restrict_read_implies_exec();
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "bpf-restrict-fsaccess: seccomp support is not available, cannot refuse "
+                                       "READ_IMPLIES_EXEC.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the personality() seccomp "
+                                       "filter: %m");
+
+        m->restrict_fsaccess_personality_filter = true;
         return 0;
 }
 
@@ -504,6 +527,7 @@ static const struct {
         size_t n_links;
 } restrict_fsaccess_previous_versions[] = {
         { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC }, /* v261, v262 */
+        { 92, RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR },           /* up to bprm_creds_for_exec */
 };
 
 /* Validate that deserialized FDs actually reference our LSM BPF links. A
@@ -616,10 +640,11 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                         }
                 }
 
-                /* A v261 PID 1 neither checked this nor installed the filter. Enforcement is active already,
-                 * so only complain. */
+                /* A v261 PID 1 neither checked this nor installed the filters, and an older PID 1 may lack
+                 * the personality filter. Enforcement is active already, so only complain. */
                 (void) restrict_fsaccess_check_proc_mem();
                 (void) restrict_fsaccess_install_ptrace_filter(m);
+                (void) restrict_fsaccess_install_personality_filter(m);
 
                 return 0;
         }
@@ -629,6 +654,10 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                 return r;
 
         r = restrict_fsaccess_install_ptrace_filter(m);
+        if (r < 0)
+                return r;
+
+        r = restrict_fsaccess_install_personality_filter(m);
         if (r < 0)
                 return r;
 
@@ -738,8 +767,13 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        /* Process state, not policy state: the filter outlives the setting being turned off. */
+        /* Process state, not policy state: the filters outlive the setting being turned off. */
         r = serialize_bool_elide(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "restrict-fsaccess-personality-filter",
+                                 m->restrict_fsaccess_personality_filter);
         if (r < 0)
                 return r;
 

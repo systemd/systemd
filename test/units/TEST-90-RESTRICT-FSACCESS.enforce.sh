@@ -132,7 +132,8 @@ trap at_exit EXIT
 # ------ Preconditions: helper "check" must agree with the cmdline ------
 # "check" runs the same gates as PID1: BPF LSM, require_signatures,
 # proc_mem.force_override=never on the cmdline plus a /proc/self/mem self-probe
-# verifying the kernel honours it, and the ptrace seccomp filter.
+# verifying the kernel honours it, and the ptrace and personality seccomp
+# filters.
 # SYSTEMD_PROC_CMDLINE overrides what the helper considers the kernel command
 # line; the gates run before any BPF program is loaded, so the rejections
 # below are cheap and attach nothing.
@@ -173,6 +174,20 @@ echo "/proc/self/mem rewrite of executable page refused: OK"
 
 expect_probe 1 "PTRACE_POKETEXT/PTRACE_POKEDATA" poketext
 echo "PTRACE_POKETEXT/PTRACE_POKEDATA refused by seccomp filter: OK"
+
+# ------ Test: the personality seccomp filter refuses READ_IMPLIES_EXEC ------
+# With the flag set brk() extends the heap writable and executable without
+# passing through any of the BPF hooks. The helper installs the same filter
+# PID1 uses; the probe only counts as a denial if the flag could be set before.
+
+expect_probe 1 "personality(READ_IMPLIES_EXEC)" read-implies-exec
+echo "personality(READ_IMPLIES_EXEC) refused by seccomp filter: OK"
+
+# ------ Baseline: brk() with READ_IMPLIES_EXEC works WITHOUT our BPF ------
+# Processes outside PID 1's seccomp filter can still have the flag. Only the
+# mmap_addr hook sees brk() then, see the test after attaching.
+
+expect_probe 0 "brk() with READ_IMPLIES_EXEC before attach" brk-read-implies-exec
 
 # ------ Baseline: W^X probes succeed WITHOUT our BPF ------
 # Another LSM (e.g. SELinux execmem/execmod) may deny these on its own, which
@@ -310,6 +325,12 @@ echo "Anonymous PROT_EXEC mmap blocked: OK"
 # mmap PROT_READ then mprotect to PROT_EXEC — the file_mprotect hook should deny this.
 expect_probe 1 "mprotect PROT_EXEC on tmpfs file" mprotect-exec /tmp/restrict-fsaccess-test/testfile
 echo "mprotect PROT_EXEC from tmpfs blocked: OK"
+
+# ------ Test: brk() with READ_IMPLIES_EXEC is blocked (mmap_addr hook) ------
+# brk() reports the refusal as ENOMEM, which is what the probe expects.
+
+expect_probe 1 "brk() with READ_IMPLIES_EXEC" brk-read-implies-exec
+echo "brk() with READ_IMPLIES_EXEC blocked: OK"
 
 # ------ Test: AT_EXECVE_CHECK gets the execve() verdict (bprm_creds_for_exec hook) ------
 # The check returns before the binfmt handlers run, only the
@@ -553,6 +574,9 @@ if [[ -x /tmp/restrict-fsaccess-test/true ]]; then
     fi
     echo "Execution from tmpfs after detach: OK"
 fi
+
+expect_probe 0 "brk() with READ_IMPLIES_EXEC after detach" brk-read-implies-exec
+echo "brk() with READ_IMPLIES_EXEC after detach: OK"
 
 umount /tmp/restrict-fsaccess-test 2>/dev/null || true
 rm -rf /tmp/restrict-fsaccess-test
