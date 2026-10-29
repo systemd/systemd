@@ -942,3 +942,33 @@ bool unit_name_prefix_equal(const char *a, const char *b) {
 
         return memcmp_nn(a, p - a, b, q - b) == 0;
 }
+
+bool xdg_app_id_is_valid(const char *app_id) {
+        /* App IDs are ultimately derived from the basename of the app's .desktop file, so we implement the
+         * rules specified at https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html */
+
+        if (!filename_is_valid(app_id))
+                return false;
+
+        if (!in_charset(app_id, ALPHANUMERICAL ".-_"))
+                return false;
+
+        /* Apps only "should" use a D-Bus well-known-name as their ID. In practice, apps often skip that
+         * requirement and call themselves after their executable name. App IDs of this form are allowed
+         * to start with numbers */
+        if (!strchr(app_id, '.'))
+                return true;
+
+        /* Otherwise, we enforce the D-Bus well-known-name rules: sections separated by dots, and each must
+         * not be empty or start with a number */
+        const char *s = app_id;
+        for (;;) {
+                if (strchr(DIGITS ".\0", *s))
+                        return false;
+
+                s = strchr(s, '.');
+                if (!s)
+                        return true;
+                s++;
+        }
+}

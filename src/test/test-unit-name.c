@@ -1035,6 +1035,37 @@ TEST(unit_name_prefix_equal) {
         assert_se(!unit_name_prefix_equal("a", "a"));
 }
 
+TEST(xdg_app_id_is_valid) {
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example._1App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App-Name"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App_Name"));
+        ASSERT_TRUE(xdg_app_id_is_valid("org.example.domain.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("org.example.sub.domain.corp.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("some-app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("some.app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("0ad"));
+        ASSERT_TRUE(xdg_app_id_is_valid("7-zip"));
+        ASSERT_TRUE(xdg_app_id_is_valid("7zip"));
+        ASSERT_FALSE(xdg_app_id_is_valid(""));
+        ASSERT_FALSE(xdg_app_id_is_valid("."));
+        ASSERT_FALSE(xdg_app_id_is_valid(".."));
+        ASSERT_FALSE(xdg_app_id_is_valid("com..example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid(".com.example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App."));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.1App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("org.1example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("1com.example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("a.1"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.ex ample.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App@Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App/Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App~"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App+Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App\nName"));
+}
+
 static int intro(void) {
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
