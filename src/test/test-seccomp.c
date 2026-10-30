@@ -968,6 +968,20 @@ TEST(native_syscalls_filtered) {
         }
 }
 
+static void assert_personality_locked(unsigned long personality) {
+        for (unsigned bit = 0; bit < 32U; bit++) {
+                ASSERT_ERROR(safe_personality(personality ^ (UINT32_C(1) << bit)), EPERM);
+                ASSERT_ERROR(safe_personality(PERSONALITY_INVALID ^ (UINT32_C(1) << bit)), EPERM);
+        }
+
+        /* Also refused with bits above the 32 the kernel looks at. */
+        ASSERT_ERROR_ERRNO(syscall(__NR_personality,
+                                   (unsigned long) ((UINT64_C(1) << 32) | (personality ^ 1))),
+                           EPERM);
+
+        ASSERT_EQ(safe_personality(PERSONALITY_INVALID), (int) personality);
+}
+
 TEST(lock_personality) {
         unsigned long current_opinionated;
         int r;
@@ -1006,10 +1020,21 @@ TEST(lock_personality) {
                 assert_se(safe_personality(PER_UW7) == -EPERM);
                 assert_se(safe_personality(0x42) == -EPERM);
 
-                assert_se(safe_personality(PERSONALITY_INVALID) == -EPERM); /* maybe remove this later */
+                assert_personality_locked(current_opinionated);
 
                 current = safe_personality(current_opinionated);
                 assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* Each bit set in the locked personality takes a rule of its own. */
+        r = ASSERT_OK(pidref_safe_fork("(lock-personality-flags)", FORK_LOG|FORK_WAIT, NULL));
+        if (r == 0) {
+                unsigned long personality = current_opinionated | ADDR_NO_RANDOMIZE | ADDR_COMPAT_LAYOUT;
+
+                ASSERT_OK(seccomp_lock_personality(personality));
+                ASSERT_OK(safe_personality(personality));
+                assert_personality_locked(personality);
                 _exit(EXIT_SUCCESS);
         }
 }
