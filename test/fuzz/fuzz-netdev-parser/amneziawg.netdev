@@ -1,0 +1,54 @@
+[NetDev]
+Name=awg99
+Kind=amneziawg
+
+[WireGuard]
+PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+ListenPort=51822
+RouteTable=1234
+
+[AmneziaWG]
+Jc=65536
+Jc=-1
+Jc=
+Jc=4
+Jmin=40
+Jmax=80
+S1=12
+S2=13
+S3=14
+S4=15
+H1=4294967296
+H1=200-100
+H1=1-2-3
+H1=
+H1=100-200
+H2=300
+H3=400-500
+H4=4294967295
+I1=<b 0x01020304><r 16>
+I2=<b 0x0506>
+I3=<r 8>
+I4=<rc 4>
+I5=<rd 4>
+HeaderProtectionKey=invalid
+HeaderProtectionKey=@network.wireguard.amneziawg.header-protection
+HeaderProtectionKeyFile=relative-path
+HeaderProtectionKeyFile=/run/credentials/systemd-networkd.service/header-protection-key
+HeaderProtectionKeyFile=
+ContentPaddingAddition=16-32
+RekeyAfterTime=120-140
+RekeyTimeout=65536
+RekeyTimeout=5
+RejectAfterTime=180-200
+KeepaliveTimeout=10-15
+MaxHandshakeAttempts=1-2-3
+MaxHandshakeAttempts=18
+RandomTrailers=invalid
+RandomTrailers=yes
+DisableCookies=no
+
+[WireGuardPeer]
+PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
+AllowedIPs=192.168.26.0/24
+PersistentKeepalive=20-30
