@@ -16,9 +16,9 @@ static void test_udev_resolve_subsys_kernel_one(const char *str, bool read_value
 
         r = udev_resolve_subsys_kernel(str, result, sizeof(result), read_value);
         log_info("\"%s\" → expect: \"%s\", %d, actual: \"%s\", %d", str, strnull(expected), retval, result, r);
-        assert_se(r == retval);
+        ASSERT_EQ(r, retval);
         if (r >= 0)
-                assert_se(streq(result, expected));
+                ASSERT_STREQ(result, expected);
 }
 
 TEST(udev_resolve_subsys_kernel) {
