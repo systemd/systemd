@@ -25,6 +25,7 @@ systemd_analyze_sources = files(
         'analyze-nvpcrs.c',
         'analyze-pcrs.c',
         'analyze-plot.c',
+        'analyze-restart-delays.c',
         'analyze-security.c',
         'analyze-service-watchdogs.c',
         'analyze-smbios11.c',

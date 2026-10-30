@@ -307,6 +307,12 @@ int service_propagate_fd_store_mapping_upstream(Manager *m);
 
 ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd);
 
+bool service_restart_backoff_enabled(usec_t restart_usec, usec_t restart_max_delay_usec, unsigned restart_steps) _const_;
+usec_t service_restart_usec_nth(
+                usec_t restart_usec,
+                usec_t restart_max_delay_usec,
+                unsigned restart_steps,
+                unsigned n_restarts) _const_;
 usec_t service_restart_usec_next(const Service *s) _pure_;
 
 int service_determine_exec_selinux_label(Service *s, char **ret);
