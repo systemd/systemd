@@ -238,13 +238,13 @@
               <row>
                 <entry><option>user-name</option></entry>
                 <entry><emphasis>no</emphasis></entry>
-                <entry>uapi16</entry>
+                <entry>mtree, uapi16</entry>
                 <entry>Owning user name</entry>
               </row>
               <row>
                 <entry><option>group-name</option></entry>
                 <entry><emphasis>no</emphasis></entry>
-                <entry>uapi16</entry>
+                <entry>mtree, uapi16</entry>
                 <entry>Owning group name</entry>
               </row>
             </tbody>
