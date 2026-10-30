@@ -457,11 +457,19 @@ impl TempDir {
         let mut p: *mut c_char = ptr::null_mut();
         let flags = sys::O_CLOEXEC as c_int;
         // SAFETY: p receives a malloc()ed path on success, the descriptor or -errno is ours.
-        let fd = unsafe { OwnedFd::from_return(sys::mkdtemp_open(ptr::null(), flags, &mut p)) }.unwrap();
+        let fd = unsafe {
+            OwnedFd::from_return(sys::mkdtemp_open(/* template= */ ptr::null(), flags, &mut p))
+        }
+        .unwrap();
         // SAFETY: the path is ours.
         let path = unsafe { OwnedCStr::from_raw(p) }.unwrap();
-        let (parent, name) =
-            chase::open_parent_at(BorrowedFd::XAT_FDROOT, BorrowedFd::XAT_FDROOT, &path, 0).unwrap();
+        let (parent, name) = chase::open_parent_at(
+            BorrowedFd::XAT_FDROOT,
+            BorrowedFd::XAT_FDROOT,
+            &path,
+            /* flags= */ 0,
+        )
+        .unwrap();
         TempDir {
             path,
             parent,
@@ -500,10 +508,10 @@ impl Drop for TempDir {
 }
 
 fn test_voa() {
-    assert!(voa::identifier_is_valid(c"fedora", false));
-    assert!(!voa::identifier_is_valid(c"Fedora", false));
-    assert!(!voa::identifier_is_valid(c"a:b", false));
-    assert!(voa::identifier_is_valid(c"a:b", true));
+    assert!(voa::identifier_is_valid(c"fedora", /* allow_colon= */ false));
+    assert!(!voa::identifier_is_valid(c"Fedora", /* allow_colon= */ false));
+    assert!(!voa::identifier_is_valid(c"a:b", /* allow_colon= */ false));
+    assert!(voa::identifier_is_valid(c"a:b", /* allow_colon= */ true));
     assert!(voa::os_is_valid(c"fedora:43:workstation"));
     assert!(!voa::os_is_valid(c"arch:"));
 
@@ -535,7 +543,7 @@ fn test_voa() {
         technology: voa::VOA_TECHNOLOGY_X509,
         suffix: voa::VOA_X509_CERTIFICATE_SUFFIX,
     };
-    let files = voa::list_verifiers(root_fd, &lookup, 0).unwrap();
+    let files = voa::list_verifiers(root_fd, &lookup, /* flags= */ 0).unwrap();
     let names = [b"/a-certificate.pem".as_slice(), b"/b-certificate.pem".as_slice()];
     assert!(files
         .iter()
@@ -546,7 +554,7 @@ fn test_voa() {
     for f in files.iter() {
         let contents = fileio::read_full_file_full(
             f.fd().unwrap(),
-            None,
+            /* filename= */ None,
             u64::MAX,
             4096,
             fileio::READ_FULL_FILE_FAIL_WHEN_LARGER,
@@ -556,7 +564,7 @@ fn test_voa() {
     }
 
     lookup.mode = voa::VOA_MODE_TRUST_ANCHOR;
-    let files = voa::list_verifiers(root_fd, &lookup, 0).unwrap();
+    let files = voa::list_verifiers(root_fd, &lookup, /* flags= */ 0).unwrap();
     assert_eq!(files.iter().count(), 1);
     assert!(files
         .iter()
@@ -564,7 +572,10 @@ fn test_voa() {
 
     lookup.context = c"other";
     assert_eq!(
-        voa::list_verifiers(root_fd, &lookup, 0).unwrap().iter().count(),
+        voa::list_verifiers(root_fd, &lookup, /* flags= */ 0)
+            .unwrap()
+            .iter()
+            .count(),
         0
     );
 }
@@ -687,8 +698,8 @@ fn test_keyring() {
         sys::add_key_shim(
             c"keyring".as_ptr(),
             name.as_ptr(),
-            ptr::null(),
-            0,
+            /* payload= */ ptr::null(),
+            /* plen= */ 0,
             sys::KEY_SPEC_THREAD_KEYRING,
         )
     };
@@ -757,7 +768,7 @@ fn test_keyring() {
     ));
 
     assert_eq!(
-        keyring::add_asymmetric(ring, None, &[]).unwrap_err(),
+        keyring::add_asymmetric(ring, /* description= */ None, &[]).unwrap_err(),
         Errno::EINVAL
     );
 
@@ -770,7 +781,10 @@ fn test_keyring() {
         }
         r => r.unwrap(),
     }
-    assert_eq!(keyring::restrict(ring, None, None).unwrap_err(), Errno::EEXIST);
+    assert_eq!(
+        keyring::restrict(ring, /* type_= */ None, /* restriction= */ None).unwrap_err(),
+        Errno::EEXIST
+    );
 
     // Without SetAttr the mask is frozen.
     let frozen = perm & !(sys::KEY_POS_SETATTR | sys::KEY_USR_SETATTR);
@@ -786,7 +800,10 @@ fn test_table() {
     // are cached once looked at, so the caches have to go too.
     for (name, value) in [(c"SYSTEMD_COLORS", c"0"), (c"COLUMNS", c"200")] {
         // SAFETY: the test is single-threaded, nothing reads the environment concurrently.
-        check(unsafe { sys::set_unset_env(name.as_ptr(), value.as_ptr(), true) }).unwrap();
+        check(unsafe {
+            sys::set_unset_env(name.as_ptr(), value.as_ptr(), /* overwrite= */ true)
+        })
+        .unwrap();
     }
     // SAFETY: plain call into libsystemd-shared.
     unsafe { sys::reset_terminal_feature_caches() };
@@ -843,13 +860,13 @@ fn test_files() {
     let (parent, base) = chase::open_parent_at(dir.fd(), dir.fd(), c"a/b/c", CHASE_MKDIR_0755).unwrap();
     assert_eq!(base.as_cstr(), c"c");
     let f_ok = sys::F_OK as c_int;
-    chase::accessat(dir.fd(), dir.fd(), c"a/b", 0, f_ok).unwrap();
+    chase::accessat(dir.fd(), dir.fd(), c"a/b", /* flags= */ 0, f_ok).unwrap();
     assert_eq!(
-        chase::accessat(dir.fd(), dir.fd(), c"a/b/c", 0, f_ok).unwrap_err(),
+        chase::accessat(dir.fd(), dir.fd(), c"a/b/c", /* flags= */ 0, f_ok).unwrap_err(),
         Errno::ENOENT
     );
     // Absolute paths stay below the root.
-    chase::accessat(dir.fd(), parent.as_fd(), c"/a/b", 0, f_ok).unwrap();
+    chase::accessat(dir.fd(), parent.as_fd(), c"/a/b", /* flags= */ 0, f_ok).unwrap();
     // What the C helpers assert against is an error.
     assert_eq!(
         chase::accessat(dir.fd(), dir.fd(), c"a", sys::CHASE_NONEXISTENT, f_ok).unwrap_err(),
@@ -923,11 +940,11 @@ fn test_files() {
     );
     // The parent is an O_PATH descriptor, listing needs a readable one.
     let flags = (sys::O_RDONLY | sys::O_DIRECTORY | sys::O_CLOEXEC) as c_int;
-    let listable = chase::openat(dir.fd(), dir.fd(), c"a/b", 0, flags).unwrap();
+    let listable = chase::openat(dir.fd(), dir.fd(), c"a/b", /* flags= */ 0, flags).unwrap();
     let de = recurse_dir::readdir_all(listable.as_fd(), RECURSE_DIR_SORT).unwrap();
     assert!(de.names().eq([c"c"]));
     assert_eq!(
-        recurse_dir::readdir_all(BorrowedFd::XAT_FDROOT, 0).unwrap_err(),
+        recurse_dir::readdir_all(BorrowedFd::XAT_FDROOT, /* flags= */ 0).unwrap_err(),
         Errno::EBADF
     );
 
@@ -955,7 +972,8 @@ fn test_files() {
         Errno::EINVAL
     );
     assert_eq!(
-        fileio::read_full_file_full(parent.as_fd(), Some(&base), u64::MAX, 4096, 0).unwrap_err(),
+        fileio::read_full_file_full(parent.as_fd(), Some(&base), u64::MAX, 4096, /* flags= */ 0)
+            .unwrap_err(),
         Errno::EINVAL
     );
     assert_eq!(
@@ -993,14 +1011,14 @@ fn set_credentials_directory(path: Option<&CStr>) {
         sys::set_unset_env(
             c"CREDENTIALS_DIRECTORY".as_ptr(),
             path.map_or(ptr::null(), CStr::as_ptr),
-            true,
+            /* overwrite= */ true,
         )
     })
     .unwrap();
 }
 
 fn test_creds() {
-    set_credentials_directory(None);
+    set_credentials_directory(/* path= */ None);
     assert_eq!(
         creds::open_credentials_dir_at(BorrowedFd::XAT_FDROOT).unwrap_err(),
         Errno::ENXIO
@@ -1028,7 +1046,7 @@ fn test_creds() {
     // $CREDENTIALS_DIRECTORY names it, resolved below the root.
     set_credentials_directory(Some(&dir.path));
     let opened = creds::open_credentials_dir_at(BorrowedFd::XAT_FDROOT);
-    set_credentials_directory(None);
+    set_credentials_directory(/* path= */ None);
     assert_eq!(
         &*creds::read_credential_at(opened.unwrap().as_fd(), c"keyring-setup.os").unwrap(),
         b"fedora:43 fedora\n"
