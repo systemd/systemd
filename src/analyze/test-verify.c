@@ -16,12 +16,12 @@ const char *arg_instance = "test_instance";
 
 TEST(verify_nonexistent) {
         /* Negative cases */
-        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, /* root= */ NULL) == 0);
-        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/non/existent"}, /* root= */ NULL) < 0);
+        ASSERT_OK_ZERO(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, /* root= */ NULL));
+        ASSERT_FAIL(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/non/existent"}, /* root= */ NULL));
 
         /* Ordinary cases */
-        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/bin/echo"}, /* root= */ NULL) == 0);
-        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/bin/echo"}, /* root= */ NULL) == 0);
+        ASSERT_OK_ZERO(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/bin/echo"}, /* root= */ NULL));
+        ASSERT_OK_ZERO(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/bin/echo"}, /* root= */ NULL));
 }
 
 static void test_verify_set_unit_path_one(const char *old, const char *expected) {
