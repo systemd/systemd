@@ -346,7 +346,7 @@ static int get_dmi_property(Context *c, const char *key, char **ret) {
         if (!string_is_safe(s, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS))
                 return -ENXIO;
 
-        return strdup_to(ret, s);
+        return strdup_to(ret, empty_to_null(s));
 }
 
 static int get_dmi_properties(Context *c, const char * const * keys, char **ret) {
@@ -464,6 +464,16 @@ static int get_hardware_serial(Context *c, char **ret) {
         assert(c);
         assert(ret);
 
+        /* 60-dmi-id.rules picks the DMI serial number to report: the product serial number
+         * (DMI type 1) is preferred, unless hwdb flags it as rubbish, in which case the baseboard
+         * serial number (DMI type 2) is used instead. */
+        r = get_dmi_property(c, "ID_SERIAL", ret);
+        if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                return r;
+
+        /* If udev has not picked a serial number for the device (e.g. hostnamed was started before
+         * udev processed it, or the system lacks udev), fall back to reading the sysfs attributes
+         * directly. */
         FOREACH_STRING(attr, "product_serial", "board_serial") {
                 r = get_dmi_sysattr(c, attr, ret);
                 if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
