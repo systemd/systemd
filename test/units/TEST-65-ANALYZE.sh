@@ -1181,6 +1181,128 @@ systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
 (! systemd-analyze transient-settings service | grep AssertKernelVersion )
 (! systemd-analyze transient-settings service socket timer path slice scope mount automount | grep -E 'Ex$' )
 
+# restart-delays
+cat >/run/systemd/system/restart-delays-limit.service <<EOF
+[Unit]
+StartLimitIntervalSec=10min
+StartLimitBurst=5
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=10s
+RestartSteps=4
+RestartMaxDelaySec=160s
+EOF
+cat >/run/systemd/system/restart-delays-forever.service <<EOF
+[Unit]
+StartLimitIntervalSec=10s
+StartLimitBurst=5
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=5s
+RestartSteps=3
+RestartMaxDelaySec=60s
+EOF
+cat >/run/systemd/system/restart-delays-late.service <<EOF
+[Unit]
+StartLimitIntervalSec=20min
+StartLimitBurst=8
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=10s
+RestartSteps=4
+RestartMaxDelaySec=160s
+EOF
+cat >/run/systemd/system/restart-delays-flat.service <<EOF
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=1min
+RestartSteps=5
+RestartMaxDelaySec=1min
+EOF
+cat >/run/systemd/system/restart-delays-no.service <<EOF
+[Service]
+ExecStart=false
+EOF
+cat >/run/systemd/system/restart-delays-forced.service <<EOF
+[Service]
+ExecStart=false
+RestartForceExitStatus=1
+RestartSec=5s
+EOF
+cat >/run/systemd/system/restart-delays-infinity.service <<EOF
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=infinity
+EOF
+cat >/run/systemd/system/restart-delays-huge.service <<EOF
+[Service]
+ExecStart=false
+Restart=on-failure
+RestartSec=1s
+RestartSteps=4294967295
+RestartMaxDelaySec=1h
+EOF
+systemctl daemon-reload
+for offline in no yes; do
+    if [[ "$offline" == yes ]]; then
+        prefix=/run/systemd/system/
+    else
+        prefix=
+    fi
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-limit.service")
+    assert_in "5 2min 40s 5min 10s" "$OUTPUT"
+    assert_in "The start limit rejects restart 5, 5min 10s after the first start, and restart-delays-limit.service enters the failed state." "$OUTPUT"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-forever.service")
+    assert_in "2 11.447s +16.447s" "$OUTPUT"
+    assert_in "4 +1min 1min 42.654s" "$OUTPUT"
+    assert_in "Every further restart waits 1min. The start limit never rejects a restart, so the service manager restarts restart-delays-forever.service indefinitely." "$OUTPUT"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-late.service")
+    assert_in "Every further restart waits 2min 40s. The start limit rejects restart 8, 13min 10s after the first start, and restart-delays-late.service enters the failed state." "$OUTPUT"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" --no-legend "${prefix}restart-delays-flat.service")
+    assert_eq "${OUTPUT%%$'\n'*}" "1 1min 1min"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-no.service")
+    assert_in "restart-delays-no.service has Restart=no, so the service manager never restarts it." "$OUTPUT"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-forced.service")
+    assert_in "1 +5s +5s" "$OUTPUT"
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-infinity.service")
+    assert_in "restart-delays-infinity.service has RestartSec=infinity, so the service manager never restarts it." "$OUTPUT"
+
+    (! systemd-analyze restart-delays --offline="$offline" "${prefix}restart-delays-huge.service")
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" --json=short "${prefix}restart-delays-late.service")
+    assert_eq "$(echo "$OUTPUT" | jq '.restarts | length')" 5
+    assert_eq "$(echo "$OUTPUT" | jq '.restarts[4].totalUSec')" 310000000
+    assert_eq "$(echo "$OUTPUT" | jq '.furtherDelayUSec')" 160000000
+    assert_eq "$(echo "$OUTPUT" | jq '.startLimitHitRestart')" 8
+    assert_eq "$(echo "$OUTPUT" | jq '.startLimitHitUSec')" 790000000
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" --json=short "${prefix}restart-delays-forever.service")
+    assert_eq "$(echo "$OUTPUT" | jq 'has("startLimitHitRestart")')" false
+
+    OUTPUT=$(systemd-analyze restart-delays --offline="$offline" --json=short "${prefix}restart-delays-no.service")
+    assert_eq "$(echo "$OUTPUT" | jq -c '.restarts')" "[]"
+done
+(! systemd-analyze restart-delays)
+(! systemd-analyze restart-delays restart-delays-nonexistent.service)
+(! systemd-analyze restart-delays systemd-journald.socket)
+(! systemd-analyze restart-delays --offline=yes /run/systemd/system/restart-delays-nonexistent.service)
+OUTPUT=$(systemd-analyze restart-delays restart-delays-nonexistent.service restart-delays-limit.service || :)
+assert_in "restart-delays-limit.service enters the failed state." "$OUTPUT"
+rm /run/systemd/system/restart-delays-{limit,forever,late,flat,no,forced,infinity,huge}.service
+systemctl daemon-reload
+
 # check systemd-analyze unit-shell with a namespaced unit
 UNIT_NAME="test-unit-shell.service"
 UNIT_FILE="/run/systemd/system/$UNIT_NAME"

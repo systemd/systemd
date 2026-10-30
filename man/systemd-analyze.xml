@@ -187,6 +187,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">restart-delays</arg>
+      <arg choice="plain" rep="repeat"><replaceable>SERVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">image-policy</arg>
       <arg choice="plain" rep="repeat"><replaceable>POLICY</replaceable></arg>
     </cmdsynopsis>
@@ -982,6 +988,52 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze restart-delays <replaceable>SERVICE</replaceable>…</command></title>
+
+      <para>Shows how long the service manager waits before each automatic restart of the specified service
+      units, as configured with <varname>RestartSec=</varname>, <varname>RestartSteps=</varname>, and
+      <varname>RestartMaxDelaySec=</varname>, see
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      The table lists each restart until the delay stops growing, with its delay and the total of the delays
+      up to that restart. Below the table, <command>systemd-analyze</command> shows whether the start rate
+      limit configured with <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname>
+      rejects a restart, and when, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+      the start rate limit rejects a restart that is listed in the table, the table ends with that
+      restart.</para>
+
+      <para>The times do not include the time the service takes to start, run, and stop, or the delay added
+      by <varname>RestartRandomizedDelaySec=</varname>. They assume that the restart counter is 0 at the
+      first start, and that no earlier start counts against the start rate limit. Any start other than an
+      automatic restart resets the restart counter, unless the unit is waiting for an automatic restart at
+      that point. Only <command>systemctl reset-failed</command> resets the start rate limit.</para>
+
+      <para>With <option>--offline=yes</option>, the arguments are unit files, which
+      <command>systemd-analyze</command> loads together with their drop-ins. Settings that neither the unit
+      files nor their drop-ins set use their built-in defaults, and <command>systemd-analyze</command>
+      ignores
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <command>systemd-analyze</command> refuses to show a unit with exponential backoff and a
+      <varname>RestartSteps=</varname> value above 10000.</para>
+
+      <example>
+        <title>Restart delays of a service</title>
+
+        <programlisting>$ systemd-analyze restart-delays example.service
+RESTART    DELAY    TOTAL
+      1      10s      10s
+      2      20s      30s
+      3      40s 1min 10s
+      4 1min 20s 2min 30s
+      5 2min 40s 5min 10s
+
+The start limit rejects restart 5, 5min 10s after the first start, and example.service enters the failed state.</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v263"/>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze image-policy <replaceable>POLICY</replaceable>…</command></title>
 
       <para>This command analyzes the specified image policy string, as per
@@ -1424,7 +1476,8 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
           <para>Specifies fallback instance name for template units. This will be used when one or more
           template units without an instance name (e.g. <filename>foo@.service</filename>) specified for
           <command>systemd-analyze condition</command> with <option>--unit=</option>,
-          <command>systemd-analyze security</command>, and <command>systemd-analyze verify</command>.
+          <command>systemd-analyze restart-delays</command>, <command>systemd-analyze security</command>,
+          and <command>systemd-analyze verify</command>.
           If unspecified, <literal>test_instance</literal> will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
@@ -1451,9 +1504,9 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-config</command>, <command>verify</command>,
-        <command>condition</command>, <command>unit-gdb</command>, and <command>security</command> when
-        used with <option>--offline=</option>, operate on files underneath the specified root path
-        <replaceable>PATH</replaceable>.</para>
+        <command>condition</command>, <command>unit-gdb</command>, and with <command>security</command> and
+        <command>restart-delays</command> when used with <option>--offline=</option>, operate on files
+        underneath the specified root path <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -1462,9 +1515,9 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <term><option>--image=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-config</command>, <command>verify</command>,
-        <command>condition</command> and <command>security</command> when used with
-        <option>--offline=</option>, operate on files inside the specified image path
-        <replaceable>PATH</replaceable>.</para>
+        <command>condition</command>, and with <command>security</command> and
+        <command>restart-delays</command> when used with <option>--offline=</option>, operate on files
+        inside the specified image path <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1481,6 +1534,10 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <option>--image=</option> as well. If a unit's overall exposure level is above that set by
         <option>--threshold=</option> (default value is 100), <option>--offline=</option> will return
         an error.</para>
+
+        <para>With <command>restart-delays</command>, load the specified unit files instead of asking the
+        service manager for the settings of loaded units. <option>--offline=</option> can be used with
+        <option>--root=</option> and <option>--image=</option> here too.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1800,6 +1857,17 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         that the service was initially told to deactivate.
         </para>
 
+        <para>With the <command>restart-delays</command> command, generate a JSON object for each unit with
+        the following fields: <varname>unit</varname> which is the unit name, <varname>restarts</varname>
+        which is an array with the <varname>restart</varname> number, the <varname>delayUSec</varname> and
+        the <varname>totalUSec</varname> of each row of the table, <varname>furtherDelayUSec</varname> which
+        is the delay of every further restart, and <varname>startLimitHitRestart</varname> and
+        <varname>startLimitHitUSec</varname> which are the number and time of the restart that the start rate
+        limit rejects. The start rate limit fields are omitted if the start rate limit never rejects a
+        restart. If the service
+        manager never restarts the unit, <varname>restarts</varname> is empty and the other fields are
+        omitted.</para>
+
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
@@ -1854,6 +1922,9 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <listitem><para>When used with the <command>plot</command> command in combination with either
         <option>--table</option> or <option>--json=</option>, no legends or hints are included in the output.
         </para>
+
+        <para>When used with the <command>restart-delays</command> command, the table is shown without
+        column headers.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
