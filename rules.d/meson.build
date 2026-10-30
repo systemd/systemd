@@ -21,6 +21,7 @@ rules = [
                '60-persistent-media-controller.rules',
                '60-persistent-storage-mtd.rules',
                '60-persistent-storage-tape.rules',
+               '60-persistent-usb.rules',
                '60-persistent-v4l.rules',
                '60-sensor.rules',
                '60-serial.rules',
