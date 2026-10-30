@@ -2,12 +2,12 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
-#include "dns-domain.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "strv.h"
@@ -56,11 +56,11 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
                 return r;
 
         STRV_FOREACH(name, msg_names) {
-                r = dns_name_is_valid_or_address(*name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *name);
-                if (r == 0)
+                r = server_name_parse(*name, /* ret_host= */ NULL, /* ret_port= */ NULL);
+                if (r == -EINVAL)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NTP server name or address, refusing: %s", *name);
+                if (r < 0)
+                        return r;
         }
 
         r = bus_verify_polkit_async(
@@ -78,7 +78,17 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
         manager_flush_runtime_servers(m);
 
         STRV_FOREACH(name, msg_names) {
-                r = server_name_new(m, NULL, SERVER_RUNTIME, *name);
+                _cleanup_free_ char *host = NULL;
+                uint16_t port;
+
+                r = server_name_parse(*name, &host, &port);
+                if (r < 0) {
+                        manager_flush_runtime_servers(m);
+
+                        return log_error_errno(r, "Failed to parse runtime server '%s': %m", *name);
+                }
+
+                r = server_name_new(m, NULL, SERVER_RUNTIME, host, port);
                 if (r < 0) {
                         manager_flush_runtime_servers(m);
 

@@ -60,6 +60,12 @@
         turn, until one responds. When the empty string is assigned, the list of NTP servers is reset, and
         all prior assignments will have no effect. This setting defaults to an empty list.</para>
 
+        <para>Each server may specify a UDP port number, separated with
+        <literal>:</literal>. If no port number is specified, the default NTP port 123 is used. If a port
+        number is used with an IPv6 address, then the address must be enclosed in square brackets, for
+        example <literal>time1.example.com:1123</literal>, <literal>192.0.2.10:1234</literal>, or
+        <literal>[2001:db8::10]:1123</literal>.</para>
+
         <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
@@ -72,6 +78,9 @@
         setting is hence only relevant if no other NTP server information is known. When the empty string is
         assigned, the list of NTP servers is reset, and all prior assignments will have no effect. If this
         option is not given, a compiled-in list of NTP servers is used.</para>
+
+        <para>See the description of <varname>NTP=</varname> above for the accepted server syntax,
+        including port numbers.</para>
 
         <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>

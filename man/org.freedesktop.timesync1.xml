@@ -70,16 +70,6 @@ node /org/freedesktop/timesync1 {
 };
 </programlisting>
 
-    <!--method SetRuntimeNTPServers is not documented!-->
-
-    <!--property LinkNTPServers is not documented!-->
-
-    <!--property SystemNTPServers is not documented!-->
-
-    <!--property RuntimeNTPServers is not documented!-->
-
-    <!--property FallbackNTPServers is not documented!-->
-
     <!--property ServerName is not documented!-->
 
     <!--property ServerAddress is not documented!-->
@@ -133,6 +123,13 @@ node /org/freedesktop/timesync1 {
     <para>
       Provides information about the manager.
     </para>
+
+    <para>The <function>SetRuntimeNTPServers()</function> method and the
+    <varname>LinkNTPServers</varname>, <varname>SystemNTPServers</varname>,
+    <varname>RuntimeNTPServers</varname>, and <varname>FallbackNTPServers</varname> properties use the
+    server syntax described for <varname>NTP=</varname> in
+    <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    including optional UDP port numbers.</para>
 
   </refsect1>
 
