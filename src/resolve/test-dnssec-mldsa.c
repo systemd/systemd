@@ -66,12 +66,12 @@ static void mldsa44_fixture_new(
                         "test-resolve/mldsa44-rrsig.b64", &rrsig->rrsig.signature_size);
         assert_se(rrsig->rrsig.signature_size == 2420);
 
-        assert_se(dnssec_keytag(dnskey, false) == rrsig->rrsig.key_tag);
+        assert_se(dnssec_keytag(dnskey, /* mask_revoke= */ false) == rrsig->rrsig.key_tag);
         assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         assert_se(answer = dns_answer_new(1));
-        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         *ret_mx = TAKE_PTR(mx);
         *ret_rrsig = TAKE_PTR(rrsig);

@@ -70,7 +70,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "escaped space + utf8",
                         "729 38 0:59 / /tmp/„zupa\\040zębowa” rw,relatime shared:395 - tmpfs die\\040Brühe rw,seclabel",
-                        false,
+                        /* may_fail= */ false,
                         "die Brühe",
                         "/tmp/„zupa zębowa”"
         );
@@ -78,7 +78,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "escaped newline",
                         "729 38 0:59 / /tmp/x\\012y rw,relatime shared:395 - tmpfs newline rw,seclabel",
-                        false,
+                        /* may_fail= */ false,
                         "newline",
                         "/tmp/x\ny"
         );
@@ -90,7 +90,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "empty source",
                         "760 38 0:60 / /tmp/emptysource rw,relatime shared:410 - tmpfs  rw,seclabel",
-                        true,
+                        /* may_fail= */ true,
                         "",
                         "/tmp/emptysource"
         );
@@ -101,7 +101,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "foo\\rbar",
                         "790 38 0:61 / /tmp/foo\rbar rw,relatime shared:425 - tmpfs tmpfs rw,seclabel",
-                        true,
+                        /* may_fail= */ true,
                         "tmpfs",
                         "/tmp/foo\rbar"
         );

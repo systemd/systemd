@@ -56,7 +56,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, false);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, /* value= */ false);
         if (r < 0)
                 return r;
 
@@ -68,7 +68,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -76,7 +76,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return r;
 

@@ -52,13 +52,13 @@ TEST(pwritev_full) {
         uint64_t written;
         size_t n = 0;
 
-        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
 
         /* Nothing, or only empty iovecs, writes nothing */
-        ASSERT_OK(pwritev_full(fd, NULL, 0, 0, &written));
+        ASSERT_OK(pwritev_full(fd, /* iovec= */ NULL, 0, /* offset= */ 0, &written));
         ASSERT_EQ(written, 0U);
         iovec[0] = (struct iovec) {};
-        ASSERT_OK(pwritev_full(fd, iovec, 1, 0, &written));
+        ASSERT_OK(pwritev_full(fd, iovec, 1, /* offset= */ 0, &written));
         ASSERT_EQ(written, 0U);
 
         /* More iovecs than one pwritev() takes, some of them empty */
@@ -84,9 +84,9 @@ TEST(pwrite_full) {
         _cleanup_close_ int fd = -EBADF;
         char buf[3];
 
-        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
 
-        ASSERT_OK(pwrite_full(fd, NULL, 0, 0));
+        ASSERT_OK(pwrite_full(fd, /* buf= */ NULL, /* nbytes= */ 0, /* offset= */ 0));
         ASSERT_OK(pwrite_full(fd, "abc", 3, 5));
         ASSERT_EQ(pread(fd, buf, sizeof(buf), 5), (ssize_t) sizeof(buf));
         ASSERT_EQ(memcmp(buf, "abc", 3), 0);

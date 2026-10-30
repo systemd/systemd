@@ -96,22 +96,22 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         assert(ret_target_size);
 
         if (streq(arg1, "@current")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), /* ret_attribute= */ NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySelected': %m");
 
         } else if (streq(arg1, "@oneshot")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), /* ret_attribute= */ NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryOneShot': %m");
 
         } else if (streq(arg1, "@default")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), /* ret_attribute= */ NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
 
         } else if (streq(arg1, "@sysfail")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), /* ret_attribute= */ NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySysFail': %m");
 
@@ -161,7 +161,7 @@ int verb_set_efivar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 assert_not_reached();
 
         if (isempty(argv[1])) {
-                r = efi_set_variable(variable, NULL, 0);
+                r = efi_set_variable(variable, /* value= */ NULL, /* size= */ 0);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to remove EFI variable '%s': %m", variable);
         } else {

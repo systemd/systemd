@@ -41,13 +41,13 @@ static void test_vtable(void) {
 
         assert(sd_bus_new(&bus) >= 0);
 
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", test_vtable_2, &c) >= 0);
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", test_vtable_2, &c) >= 0);
+        assert(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/foo", "org.freedesktop.systemd.testVtable", test_vtable_2, &c) >= 0);
+        assert(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/foo", "org.freedesktop.systemd.testVtable2", test_vtable_2, &c) >= 0);
         /* the cast on the line below is needed to test with the old version of the table */
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable221",
+        assert(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/foo", "org.freedesktop.systemd.testVtable221",
                                         (const sd_bus_vtable *)vtable_format_221, &c) >= 0);
 
-        assert(sd_bus_add_fallback_vtable(bus, NULL, "/fallback", "org.freedesktop.systemd.testVtable2", test_vtable_2, happy_finder, &c) >= 0);
+        assert(sd_bus_add_fallback_vtable(bus, /* ret_slot= */ NULL, "/fallback", "org.freedesktop.systemd.testVtable2", test_vtable_2, happy_finder, &c) >= 0);
 
         assert(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
         r = sd_bus_start(bus);
@@ -57,10 +57,10 @@ static void test_vtable(void) {
 #ifndef __cplusplus
         _cleanup_free_ char *s, *s2;
 
-        assert_se(introspect_path(bus, "/foo", NULL, false, true, NULL, &s, NULL) == 1);
+        assert_se(introspect_path(bus, "/foo", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s, /* reterr_error= */ NULL) == 1);
         fputs(s, stdout);
 
-        assert_se(introspect_path(bus, "/fallback", NULL, false, true, NULL, &s2, NULL) == 1);
+        assert_se(introspect_path(bus, "/fallback", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s2, /* reterr_error= */ NULL) == 1);
         fputs(s2, stdout);
 
         assert_se(happy_finder_object == 1);

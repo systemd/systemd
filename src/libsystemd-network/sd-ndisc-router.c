@@ -289,7 +289,7 @@ int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const uint8_t **ret, siz
         if (!rt->current_option)
                 return -ENODATA;
 
-        return ndisc_option_parse(rt->packet, rt->current_option->offset, NULL, ret_size, ret);
+        return ndisc_option_parse(rt->packet, rt->current_option->offset, /* ret_type= */ NULL, ret_size, ret);
 }
 
 #define DEFINE_GETTER(name, type, element, element_type)                \

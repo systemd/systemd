@@ -73,7 +73,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
 
                 rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
 
-                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -87,7 +87,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
 
                 rr->aaaa.in6_addr = in6addr_loopback;
 
-                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -108,7 +108,7 @@ static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, 
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        return dns_answer_add(*answer, rr, ifindex, flags, NULL);
+        return dns_answer_add(*answer, rr, ifindex, flags, /* rrsig= */ NULL);
 }
 
 static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, DnsAnswer **answer) {
@@ -154,7 +154,7 @@ static int answer_add_addresses_rr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -196,7 +196,7 @@ static int answer_add_addresses_ptr(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, addresses[j].ifindex, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -379,7 +379,7 @@ static int synthesize_dns_stub_rr(
 
         rr->a.in_addr.s_addr = htobe32(addr);
 
-        r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
+        r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
         if (r < 0)
                 return r;
 

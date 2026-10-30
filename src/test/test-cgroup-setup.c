@@ -12,7 +12,7 @@ TEST(cg_create) {
         int r;
 
         _cleanup_free_ char *here = NULL;
-        ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
+        ASSERT_OK(cg_pid_get_path_shifted(/* pid= */ 0, /* cached_root= */ NULL, &here));
 
         /* cg_* will use path_simplify(), so use it here too otherwise when running in a container at the
          * root it asserts with "/test-b != //test-b" */
@@ -36,19 +36,19 @@ TEST(cg_create) {
         ASSERT_OK_ZERO(cg_create(test_a));
         ASSERT_OK_EQ(cg_create(test_b), 1);
         ASSERT_OK_EQ(cg_create(test_c), 1);
-        ASSERT_OK_ZERO(cg_create_and_attach(test_b, 0));
+        ASSERT_OK_ZERO(cg_create_and_attach(test_b, /* pid= */ 0));
 
         ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_STREQ(path, test_b);
         free(path);
 
-        ASSERT_OK_ZERO(cg_attach(test_a, 0));
+        ASSERT_OK_ZERO(cg_attach(test_a, /* pid= */ 0));
 
         ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_a));
         free(path);
 
-        ASSERT_OK_EQ(cg_create_and_attach(test_d, 0), 1);
+        ASSERT_OK_EQ(cg_create_and_attach(test_d, /* pid= */ 0), 1);
 
         ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_d));
@@ -62,14 +62,14 @@ TEST(cg_create) {
         ASSERT_OK_POSITIVE(cg_is_empty(test_a));
         ASSERT_OK_ZERO(cg_is_empty(test_b));
 
-        ASSERT_OK_ZERO(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
-        ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(cg_kill_recursive(test_a, /* sig= */ 0, /* flags= */ 0, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL));
+        ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, /* sig= */ 0, /* flags= */ 0, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL));
 
-        ASSERT_OK(cg_trim(test_a, true));
-        ASSERT_ERROR(cg_trim(test_b, true), EBUSY);
+        ASSERT_OK(cg_trim(test_a, /* delete_root= */ true));
+        ASSERT_ERROR(cg_trim(test_b, /* delete_root= */ true), EBUSY);
 
-        ASSERT_OK_ZERO(cg_attach(here, 0));
-        ASSERT_OK(cg_trim(test_b, true));
+        ASSERT_OK_ZERO(cg_attach(here, /* pid= */ 0));
+        ASSERT_OK(cg_trim(test_b, /* delete_root= */ true));
 }
 
 static int intro(void) {

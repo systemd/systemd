@@ -495,10 +495,10 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         /* TC_H_CLSACT == TC_H_INGRESS */
         if (!IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT)) {
                 if (TC_H_MIN(qdisc->parent) == 0) {
-                        if (link_find_qdisc(link, qdisc->parent, NULL, NULL) < 0)
+                        if (link_find_qdisc(link, qdisc->parent, /* kind= */ NULL, /* ret= */ NULL) < 0)
                                 return false;
                 } else {
-                        if (link_find_tclass(link, qdisc->parent, NULL) < 0)
+                        if (link_find_tclass(link, qdisc->parent, /* ret= */ NULL) < 0)
                                 return false;
                 }
         }
@@ -542,7 +542,7 @@ int link_request_qdisc(Link *link, const QDisc *qdisc) {
         assert(qdisc);
         assert(qdisc->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (qdisc_get_request(link, qdisc, NULL) >= 0)
+        if (qdisc_get_request(link, qdisc, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = qdisc_dup(qdisc, &tmp);

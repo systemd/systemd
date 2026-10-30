@@ -106,7 +106,7 @@ int config_parse_macvlan_broadcast_queue_size(
 
         return config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, UINT32_MAX - 1, true,
+                        /* min= */ 0, UINT32_MAX - 1, /* ignoring= */ true,
                         &m->bc_queue_length);
 }
 

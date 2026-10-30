@@ -192,7 +192,7 @@ static void channel_wake_receiver(sd_channel *c) {
                 return;
 
         w->woken = true;
-        assert_se(sd_future_resolve(sd_future_from_private(w), 0) >= 0);
+        assert_se(sd_future_resolve(sd_future_from_private(w), /* result= */ 0) >= 0);
 }
 
 static void channel_waiter_free(sd_future *f) {
@@ -297,7 +297,7 @@ int sd_channel_try_pop(sd_channel *c, void **ret) {
                 c->buffer[c->tail] = TAKE_PTR(s->item);
                 c->tail = (c->tail + 1) % c->capacity;
                 c->n_items++;
-                assert_se(sd_future_resolve(sd_future_from_private(s), 0) >= 0);
+                assert_se(sd_future_resolve(sd_future_from_private(s), /* result= */ 0) >= 0);
                 channel_wake_receiver(c);
         }
 
@@ -333,7 +333,7 @@ int sd_channel_send(sd_channel *c, void *item, sd_future **ret) {
         if (r > 0) {
                 /* The channel owns the item now, so channel_waiter_free() must not destroy it. */
                 w->item = NULL;
-                assert_se(sd_future_resolve(f, 0) >= 0);
+                assert_se(sd_future_resolve(f, /* result= */ 0) >= 0);
         } else {
                 assert(r == -ENOBUFS);
                 channel_waiter_enqueue(w, &c->send_pending);
@@ -365,7 +365,7 @@ static int channel_recv_full(sd_channel *c, bool retry, sd_future **ret) {
 
         if (c->n_items > 0) {
                 w->woken = true;
-                assert_se(sd_future_resolve(f, 0) >= 0);
+                assert_se(sd_future_resolve(f, /* result= */ 0) >= 0);
         } else
                 channel_enqueue_receive(c, w);
 

@@ -68,7 +68,7 @@ static void test_catalog_import_one(void) {
 "\n" \
 "payload\n";
 
-        h = test_import(input, -1, 0);
+        h = test_import(input, -1, /* code= */ 0);
         ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h) {
@@ -103,7 +103,7 @@ static void test_catalog_import_merge(void) {
 "\n" \
 "override payload\n";
 
-        h = test_import(input, -1, 0);
+        h = test_import(input, -1, /* code= */ 0);
         ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h)
@@ -134,7 +134,7 @@ static void test_catalog_import_merge_no_body(void) {
 "\n" \
 "payload\n";
 
-        h = test_import(input, -1, 0);
+        h = test_import(input, -1, /* code= */ 0);
         ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h)
@@ -143,14 +143,14 @@ static void test_catalog_import_merge_no_body(void) {
 
 static void test_catalog_update(const char *database) {
         /* Test what happens if there are no files. */
-        ASSERT_OK_ZERO(catalog_update(database, NULL, NULL));
+        ASSERT_OK_ZERO(catalog_update(database, /* root= */ NULL, /* dirs= */ NULL));
 
         /* Test what happens if there are no files in the directory. */
-        ASSERT_OK_ZERO(catalog_update(database, NULL, no_catalog_dirs));
+        ASSERT_OK_ZERO(catalog_update(database, /* root= */ NULL, no_catalog_dirs));
 
         /* Make sure that we at least have some files loaded or the
          * catalog_list below will fail. */
-        ASSERT_OK_ZERO(catalog_update(database, NULL, (const char * const *) catalog_dirs));
+        ASSERT_OK_ZERO(catalog_update(database, /* root= */ NULL, (const char * const *) catalog_dirs));
 }
 
 static void test_catalog_file_lang(void) {
@@ -228,7 +228,7 @@ static void test_catalog_oob_offset_one(uint64_t item_offset, size_t strings_siz
 
                 ASSERT_NOT_NULL(f = memstream_init(&m));
                 ASSERT_OK(catalog_list(f, db, oneline));
-                ASSERT_OK(memstream_finalize(&m, &out, NULL));
+                ASSERT_OK(memstream_finalize(&m, &out, /* ret_size= */ NULL));
                 ASSERT_NULL(strstr(out, SD_ID128_TO_STRING(id)));
         }
 }
@@ -271,9 +271,9 @@ int main(int argc, char *argv[]) {
 
         test_catalog_update(database);
 
-        ASSERT_OK(catalog_list(NULL, database, true));
+        ASSERT_OK(catalog_list(NULL, database, /* oneline= */ true));
 
-        ASSERT_OK(catalog_list(NULL, database, false));
+        ASSERT_OK(catalog_list(NULL, database, /* oneline= */ false));
 
         ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
         printf(">>>%s<<<\n", text);

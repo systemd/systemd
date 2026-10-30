@@ -86,11 +86,11 @@ static int get_gateway_description(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 

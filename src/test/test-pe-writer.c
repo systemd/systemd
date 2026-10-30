@@ -111,7 +111,7 @@ TEST(add_sections) {
         _cleanup_close_ int cmdline_fd = ASSERT_OK(memfd_new_and_seal_string("cmdline", cmdline));
         PeWriterSection *s;
         ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &s));
-        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, 0, strlen(cmdline)));
+        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, /* offset= */ 0, strlen(cmdline)));
 
         /* The kernel is larger than a page, so the section after it starts two pages later. */
         size_t linux_size = 0x1234;
@@ -127,11 +127,11 @@ TEST(add_sections) {
         _cleanup_close_ int initrd1_fd = ASSERT_OK(memfd_new_and_seal_string("initrd1", "abcde")),
                             initrd2_fd = ASSERT_OK(memfd_new_and_seal_string("initrd2", "fgh"));
         ASSERT_OK(pe_writer_add_section(w, ".initrd", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &s));
-        ASSERT_OK(pe_writer_section_append_fd(s, initrd1_fd, 0, 5));
-        ASSERT_OK(pe_writer_section_append_fd(s, initrd2_fd, 0, 3));
+        ASSERT_OK(pe_writer_section_append_fd(s, initrd1_fd, /* offset= */ 0, 5));
+        ASSERT_OK(pe_writer_section_append_fd(s, initrd2_fd, /* offset= */ 0, 3));
 
         /* Empty ranges add nothing. */
-        ASSERT_OK(pe_writer_section_append_fd(s, linux_fd, 0, 0));
+        ASSERT_OK(pe_writer_section_append_fd(s, linux_fd, /* offset= */ 0, /* size= */ 0));
 
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
@@ -198,15 +198,15 @@ TEST(find_and_replace_section) {
         ASSERT_OK(pe_writer_new(fd, &w));
         size_t index;
 
-        ASSERT_OK(pe_writer_find_section(w, ".text", 0, &index));
+        ASSERT_OK(pe_writer_find_section(w, ".text", /* start= */ 0, &index));
         ASSERT_EQ(index, 0U);
         ASSERT_ERROR(pe_writer_find_section(w, ".text", 1, &index), ENXIO);
         ASSERT_OK(pe_writer_find_section(w, ".sbat", 1, &index));
         ASSERT_EQ(index, 1U);
-        ASSERT_OK(pe_writer_find_section(w, ".sbat", 0, &index));
+        ASSERT_OK(pe_writer_find_section(w, ".sbat", /* start= */ 0, &index));
         ASSERT_EQ(index, 1U);
         ASSERT_ERROR(pe_writer_find_section(w, ".sbat", 2, &index), ENXIO);
-        ASSERT_ERROR(pe_writer_find_section(w, ".linux", 0, &index), ENXIO);
+        ASSERT_ERROR(pe_writer_find_section(w, ".linux", /* start= */ 0, &index), ENXIO);
 
         _cleanup_free_ char *too_large = ASSERT_NOT_NULL(strrep("x", FILE_ALIGNMENT + 1));
         ASSERT_ERROR(pe_writer_replace_section(w, index, &IOVEC_MAKE_STRING(too_large)), ENOSPC);
@@ -240,8 +240,8 @@ TEST(replace_section_memory_overlap) {
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
 
-        ASSERT_OK(pe_writer_replace_section(w, 0, &IOVEC_MAKE((uint8_t[0x100]) {}, 0x100)));
-        ASSERT_ERROR(pe_writer_replace_section(w, 0, &IOVEC_MAKE((uint8_t[0x101]) {}, 0x101)), ENOSPC);
+        ASSERT_OK(pe_writer_replace_section(w, /* index= */ 0, &IOVEC_MAKE((uint8_t[0x100]) {}, 0x100)));
+        ASSERT_ERROR(pe_writer_replace_section(w, /* index= */ 0, &IOVEC_MAKE((uint8_t[0x101]) {}, 0x101)), ENOSPC);
 }
 
 TEST(header_space) {
@@ -255,11 +255,11 @@ TEST(header_space) {
         size_t free_slots = (FILE_ALIGNMENT - SECTION_TABLE_OFFSET) / sizeof(IMAGE_SECTION_HEADER) - 2;
         ASSERT_GT(free_slots, 0U);
         for (size_t i = 0; i < free_slots; i++)
-                ASSERT_OK(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, NULL));
+                ASSERT_OK(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL));
 
         /* pe_writer_add_section() refuses a section that does not fit in the headers. The sections that
          * were added before are still written. */
-        ASSERT_ERROR(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, NULL), E2BIG);
+        ASSERT_ERROR(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL), E2BIG);
 
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
@@ -278,7 +278,7 @@ TEST(header_space_not_empty) {
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
-        ASSERT_ERROR(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, NULL), EOPNOTSUPP);
+        ASSERT_ERROR(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL), EOPNOTSUPP);
 }
 
 TEST(section_names) {
@@ -287,11 +287,11 @@ TEST(section_names) {
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
 
-        ASSERT_ERROR(pe_writer_add_section(w, ".12345678", 0, NULL), EINVAL);
-        ASSERT_ERROR(pe_writer_add_section(w, "", 0, NULL), EINVAL);
-        ASSERT_ERROR(pe_writer_add_section(w, ".a\tb", 0, NULL), EINVAL);
-        ASSERT_ERROR(pe_writer_add_section(w, ".\xc3\xa4", 0, NULL), EINVAL);
-        ASSERT_OK(pe_writer_add_section(w, ".1234567", 0, NULL));
+        ASSERT_ERROR(pe_writer_add_section(w, ".12345678", /* characteristics= */ 0, /* ret= */ NULL), EINVAL);
+        ASSERT_ERROR(pe_writer_add_section(w, "", /* characteristics= */ 0, /* ret= */ NULL), EINVAL);
+        ASSERT_ERROR(pe_writer_add_section(w, ".a\tb", /* characteristics= */ 0, /* ret= */ NULL), EINVAL);
+        ASSERT_ERROR(pe_writer_add_section(w, ".\xc3\xa4", /* characteristics= */ 0, /* ret= */ NULL), EINVAL);
+        ASSERT_OK(pe_writer_add_section(w, ".1234567", /* characteristics= */ 0, /* ret= */ NULL));
 
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
@@ -309,7 +309,7 @@ TEST(append_fd_out_of_range) {
         ASSERT_OK(pe_writer_new(fd, &w));
         PeWriterSection *s;
 
-        ASSERT_OK(pe_writer_add_section(w, ".linux", 0, &s));
+        ASSERT_OK(pe_writer_add_section(w, ".linux", /* characteristics= */ 0, &s));
         ASSERT_ERROR(pe_writer_section_append_fd(s, fd, STUB_SIZE - 1, 2), ERANGE);
         ASSERT_ERROR(pe_writer_section_append_fd(s, fd, UINT64_MAX, 2), ERANGE);
         ASSERT_OK(pe_writer_section_append_fd(s, fd, STUB_SIZE - 1, 1));
@@ -357,7 +357,7 @@ TEST(trailing_data) {
         _cleanup_close_ int cmdline_fd = ASSERT_OK(memfd_new_and_seal_string("cmdline", "quiet"));
         PeWriterSection *s;
         ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &s));
-        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, 0, 5));
+        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, /* offset= */ 0, 5));
         _cleanup_close_ int out2 = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out2));
         ASSERT_OK_EQ_ERRNO(lseek(out2, 0, SEEK_END), (off_t) (STUB_SIZE + 2 * FILE_ALIGNMENT));
@@ -389,7 +389,7 @@ TEST(short_file) {
         _cleanup_close_ int cmdline_fd = ASSERT_OK(memfd_new_and_seal_string("cmdline", "quiet"));
         PeWriterSection *ws;
         ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &ws));
-        ASSERT_OK(pe_writer_section_append_fd(ws, cmdline_fd, 0, 5));
+        ASSERT_OK(pe_writer_section_append_fd(ws, cmdline_fd, /* offset= */ 0, 5));
 
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
@@ -413,7 +413,7 @@ TEST(output_is_input) {
         ASSERT_OK_EQ_ERRNO(pwrite(cmdline_fd, "quiet", 5, 0), (ssize_t) 5);
         PeWriterSection *s;
         ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &s));
-        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, 0, 5));
+        ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, /* offset= */ 0, 5));
 
         /* Truncating the output would delete the input data before pe_writer_write() copies it. */
         ASSERT_ERROR(pe_writer_write(w, fd), EINVAL);
@@ -487,7 +487,7 @@ TEST(symbol_table_certificate_table) {
 
 TEST(symbol_table) {
         size_t size;
-        _cleanup_free_ uint8_t *stub = build_stub_with_symbols(0, &size);
+        _cleanup_free_ uint8_t *stub = build_stub_with_symbols(/* extra= */ 0, &size);
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, size));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
@@ -509,7 +509,7 @@ TEST(signature) {
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
 
-        ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, NULL));
+        ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL));
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
         uint64_t unsigned_size = ASSERT_OK_ERRNO(lseek(out, 0, SEEK_END));
@@ -546,7 +546,7 @@ TEST(signature) {
         _cleanup_(pe_writer_freep) PeWriter *w2 = NULL;
         ASSERT_OK(pe_writer_new(out, &w2));
         size_t index;
-        ASSERT_OK(pe_writer_find_section(w2, ".sbat", 0, &index));
+        ASSERT_OK(pe_writer_find_section(w2, ".sbat", /* start= */ 0, &index));
         ASSERT_OK(pe_writer_replace_section(w2, index, &IOVEC_MAKE_STRING("sbat,1,new\n")));
 
         _cleanup_close_ int out2 = ASSERT_OK(memfd_new("output"));
@@ -563,7 +563,7 @@ TEST(signature) {
         assert_zero(out2, 0x600 + strlen("sbat,1,new\n"), FILE_ALIGNMENT - strlen("sbat,1,new\n"));
 
         /* New sections cannot go after the certificate table. */
-        ASSERT_ERROR(pe_writer_add_section(w2, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, NULL), EOPNOTSUPP);
+        ASSERT_ERROR(pe_writer_add_section(w2, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL), EOPNOTSUPP);
 }
 
 TEST(signature_malformed_certificate_table) {

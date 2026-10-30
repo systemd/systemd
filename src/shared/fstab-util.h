@@ -16,10 +16,10 @@ int fstab_has_fstype(const char *fstype);
 
 int fstab_is_mount_point_full(const char *where, const char *path);
 static inline int fstab_is_mount_point(const char *where) {
-        return fstab_is_mount_point_full(where, NULL);
+        return fstab_is_mount_point_full(where, /* path= */ NULL);
 }
 static inline int fstab_has_node(const char *path) {
-        return fstab_is_mount_point_full(NULL, path);
+        return fstab_is_mount_point_full(/* where= */ NULL, path);
 }
 
 int fstab_has_mount_point_prefix_strv(char * const *prefixes);
@@ -32,7 +32,7 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered);
 static inline bool fstab_test_option(const char *opts, const char *names) {
-        return fstab_filter_options(opts, names, NULL, NULL, NULL, NULL);
+        return fstab_filter_options(opts, names, /* ret_namefound= */ NULL, /* ret_value= */ NULL, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
 }
 static inline bool fstab_test_yes_no_option(const char *opts, const char *yes_no) {
         const char *opt_found;
@@ -40,7 +40,7 @@ static inline bool fstab_test_yes_no_option(const char *opts, const char *yes_no
         /* If first name given is last, return 1.
          * If second name given is last or neither is found, return 0. */
 
-        assert_se(fstab_filter_options(opts, yes_no, &opt_found, NULL, NULL, NULL) >= 0);
+        assert_se(fstab_filter_options(opts, yes_no, &opt_found, /* ret_value= */ NULL, /* ret_values= */ NULL, /* ret_filtered= */ NULL) >= 0);
 
         return opt_found == yes_no;
 }

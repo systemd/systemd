@@ -62,12 +62,12 @@ static void make_bypass_packet(DnsResourceKey *key, bool edns0_do, DnsPacket **r
         assert(key);
         assert(ret);
 
-        ASSERT_OK(dns_packet_new_query(&p, DNS_PROTOCOL_DNS, 0, /* dnssec_checking_disabled= */ false));
-        ASSERT_OK(dns_packet_append_key(p, key, 0, NULL));
+        ASSERT_OK(dns_packet_new_query(&p, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ false));
+        ASSERT_OK(dns_packet_append_key(p, key, /* flags= */ 0, /* start= */ NULL));
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         ASSERT_OK(dns_packet_append_opt(p, DNS_PACKET_UNICAST_SIZE_MAX, edns0_do,
                                         /* include_rfc6975= */ false, /* nsid= */ NULL,
-                                        DNS_RCODE_SUCCESS, NULL));
+                                        DNS_RCODE_SUCCESS, /* ret_start= */ NULL));
         ASSERT_OK(dns_packet_extract(p));
         ASSERT_EQ(dns_packet_do(p), edns0_do);
 
@@ -128,9 +128,9 @@ static void transaction_setup_sent(
                 /* What dns_transaction_make_packet() does for a bypass transaction */
                 ASSERT_OK(dns_packet_dup(&t->sent, t->bypass));
         else {
-                ASSERT_OK(dns_packet_new_query(&t->sent, DNS_PROTOCOL_DNS, 0,
+                ASSERT_OK(dns_packet_new_query(&t->sent, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
                                                /* dnssec_checking_disabled= */ true));
-                ASSERT_OK(dns_packet_append_key(t->sent, key, 0, NULL));
+                ASSERT_OK(dns_packet_append_key(t->sent, key, /* flags= */ 0, /* start= */ NULL));
                 DNS_PACKET_HEADER(t->sent)->qdcount = htobe16(1);
 
                 /* What dns_transaction_emit_udp() then does for a regular transaction */
@@ -145,18 +145,18 @@ static void transaction_setup_sent(
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
-        ASSERT_OK(dns_question_add(question, key, 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
 
         answer = dns_answer_new(1);
         ASSERT_NOT_NULL(answer);
-        ASSERT_OK(dns_answer_add(answer, rr, /* ifindex= */ 0, 0, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(answer, rr, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL));
 
         ASSERT_OK(dns_scope_make_reply_packet(env->scope, t->id, DNS_RCODE_SUCCESS, question, answer,
                                               /* soa= */ NULL, /* tentative= */ false, &reply));
         if (bypass_do >= 0 || DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
                 ASSERT_OK(dns_packet_append_opt(reply, DNS_PACKET_UNICAST_SIZE_MAX, sent_do,
                                                 /* include_rfc6975= */ false, /* nsid= */ NULL,
-                                                DNS_RCODE_SUCCESS, NULL));
+                                                DNS_RCODE_SUCCESS, /* ret_start= */ NULL));
         reply->ipproto = IPPROTO_UDP;
         reply->family = env->server->family;
         reply->sender = env->server->address;

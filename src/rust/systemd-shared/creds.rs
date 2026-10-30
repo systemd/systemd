@@ -20,7 +20,13 @@ pub fn open_credentials_dir_at(root: BorrowedFd<'_>) -> Result<OwnedFd> {
     // SAFETY: on success d points to a NUL-terminated string in the environment, which nothing modifies while
     // we use it.
     let d = unsafe { CStr::from_ptr(d) };
-    chase::openat(root, root, d, 0, (sys::O_DIRECTORY | sys::O_CLOEXEC) as c_int)
+    chase::openat(
+        root,
+        root,
+        d,
+        /* flags= */ 0,
+        (sys::O_DIRECTORY | sys::O_CLOEXEC) as c_int,
+    )
 }
 
 fn check_name(name: &CStr) -> Result<()> {

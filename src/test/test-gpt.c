@@ -92,7 +92,7 @@ static void test_shorthand_one(const char *shorthand, const char *canonical) {
 
         /* Some partition types, e.g. root-secondary, only exist on some architectures. */
         if (gpt_partition_type_from_string(canonical, &x) < 0) {
-                ASSERT_ERROR(gpt_partition_type_from_string(shorthand, NULL), EINVAL);
+                ASSERT_ERROR(gpt_partition_type_from_string(shorthand, /* ret= */ NULL), EINVAL);
                 return;
         }
 
@@ -124,7 +124,7 @@ TEST(shorthands) {
         FOREACH_STRING(s, "", "2", "-vty", "-vsig", "esp-vty", "esp-vsig", "esp2", "root-sig", "root22",
                        "root-secondary2", "root-x86-64-vty2", "root-verity-vty", "root-vty-vty",
                        "root-verity-sig-vsig", "root-vsig-vsig")
-                ASSERT_ERROR(gpt_partition_type_from_string(s, NULL), EINVAL);
+                ASSERT_ERROR(gpt_partition_type_from_string(s, /* ret= */ NULL), EINVAL);
 
         /* "root-riscv32" ends in "2", but it is not "root-riscv3" for the secondary architecture. */
         GptPartitionType t;

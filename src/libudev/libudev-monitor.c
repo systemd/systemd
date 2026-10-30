@@ -202,7 +202,7 @@ static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_
 
                 for (;;) {
                         /* Wait for next message */
-                        r = fd_wait_for_event(sd_device_monitor_get_fd(udev_monitor->monitor), POLLIN, 0);
+                        r = fd_wait_for_event(sd_device_monitor_get_fd(udev_monitor->monitor), POLLIN, /* timeout= */ 0);
                         if (r == -EINTR)
                                 continue;
                         if (r < 0)

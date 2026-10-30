@@ -80,7 +80,7 @@ int device_delete_db(sd_device *device);
 int device_read_db_internal_filename(sd_device *device, const char *filename); /* For fuzzer */
 int device_read_db_internal(sd_device *device, bool force);
 static inline int device_read_db(sd_device *device) {
-        return device_read_db_internal(device, false);
+        return device_read_db_internal(device, /* force= */ false);
 }
 
 int device_read_uevent_file(sd_device *device);

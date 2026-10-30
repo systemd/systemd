@@ -172,7 +172,7 @@ static void on_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
         c->monitor = bpf_monitor_free(c->monitor);
 
         if (c->event)
-                sd_event_exit(c->event, 0);
+                sd_event_exit(c->event, /* code= */ 0);
 }
 
 static bool filters_are_self_only(struct monitor_varlink_filter *filters, size_t n_filters, uid_t peer_uid) {
@@ -295,7 +295,7 @@ static int vl_method_acquire(
         assert(parameters);
 
         if (!(flags & SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         assert(!c->monitor);
 

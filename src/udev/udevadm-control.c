@@ -118,7 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("trace", "BOOL", "Enable/disable trace logging"):
-                        r = parse_boolean_argument("--trace=", opts.arg, NULL);
+                        r = parse_boolean_argument("--trace=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -163,10 +163,10 @@ static int send_control_commands(void) {
                 return log_error_errno(r, "Failed to connect to udev via varlink: %m");
 
         if (arg_exit)
-                return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters= */ NULL, /* reply= */ NULL);
+                return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 
         if (arg_revert) {
-                r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters= */ NULL, /* reply= */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters= */ NULL, /* ret_parameters= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -180,13 +180,13 @@ static int send_control_commands(void) {
 
         if (arg_start_exec_queue >= 0) {
                 r = varlink_call_and_log(link, arg_start_exec_queue ? "io.systemd.Udev.StartExecQueue" : "io.systemd.Udev.StopExecQueue",
-                                         /* parameters= */ NULL, /* reply= */ NULL);
+                                         /* parameters= */ NULL, /* ret_parameters= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (arg_reload) {
-                r = varlink_call_and_log(link, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.service.Reload", /* parameters= */ NULL, /* ret_parameters= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -206,7 +206,7 @@ static int send_control_commands(void) {
         }
 
         if (arg_ping) {
-                r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* reply= */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* ret_parameters= */ NULL);
                 if (r < 0)
                         return r;
         }

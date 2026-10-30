@@ -18,7 +18,7 @@ int namespace_flags_from_string(const char *name, unsigned long *ret) {
                 unsigned long f = 0;
                 unsigned i;
 
-                r = extract_first_word(&name, &word, NULL, 0);
+                r = extract_first_word(&name, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -51,7 +51,7 @@ int namespace_flags_to_string(unsigned long flags, char **ret) {
         if (r < 0)
                 return r;
 
-        s = strv_join(l, NULL);
+        s = strv_join(l, /* separator= */ NULL);
         if (!s)
                 return -ENOMEM;
 

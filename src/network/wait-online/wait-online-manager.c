@@ -244,7 +244,7 @@ static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdat
                 return r;
 
         if (manager_configured(m))
-                sd_event_exit(m->event, 0);
+                sd_event_exit(m->event, /* code= */ 0);
 
         return 1;
 }
@@ -260,28 +260,28 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, on_rtnl_event, NULL, m, "wait-online-on-NEWLINK");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_NEWLINK, on_rtnl_event, /* destroy_callback= */ NULL, m, "wait-online-on-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, on_rtnl_event, NULL, m, "wait-online-on-DELLINK");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_DELLINK, on_rtnl_event, /* destroy_callback= */ NULL, m, "wait-online-on-DELLINK");
         if (r < 0)
                 return r;
 
         /* Then, enumerate all links */
-        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -309,7 +309,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
         }
 
         if (manager_configured(m))
-                sd_event_exit(m->event, 0);
+                sd_event_exit(m->event, /* code= */ 0);
 
         return 0;
 }
@@ -319,7 +319,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, /* category= */ NULL);
         if (r < 0)
                 return r;
 
@@ -405,7 +405,7 @@ static int on_dns_configuration_event(
         }
 
         if (manager_configured(m))
-                sd_event_exit(m->event, 0);
+                sd_event_exit(m->event, /* code= */ 0);
 
         return 0;
 }
@@ -486,7 +486,7 @@ int manager_new(Manager **ret,
         (void) sd_event_set_signal_exit(m->event, true);
 
         if (timeout > 0) {
-                r = sd_event_add_time_relative(m->event, NULL, CLOCK_BOOTTIME, timeout, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                r = sd_event_add_time_relative(m->event, /* ret= */ NULL, CLOCK_BOOTTIME, timeout, /* accuracy= */ 0, /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0 && r != -EOVERFLOW)
                         return r;
         }

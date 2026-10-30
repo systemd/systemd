@@ -49,7 +49,7 @@ pub fn openat(
             path.as_ptr(),
             flags,
             open_flags,
-            ptr::null_mut(),
+            /* ret_path= */ ptr::null_mut(),
         ))
     }
 }
@@ -62,7 +62,7 @@ pub fn accessat(
     flags: ChaseFlags,
     mode: c_int,
 ) -> Result<()> {
-    check_flags(flags, 0)?;
+    check_flags(flags, /* refused= */ 0)?;
     // SAFETY: path is a C string, the resolved path is not asked for.
     check(unsafe {
         sys::chase_and_accessat(
@@ -71,7 +71,7 @@ pub fn accessat(
             path.as_ptr(),
             flags,
             mode,
-            ptr::null_mut(),
+            /* ret_path= */ ptr::null_mut(),
         )
     })
     .map(|_| ())
@@ -84,7 +84,7 @@ pub fn open_parent_at(
     path: &CStr,
     flags: ChaseFlags,
 ) -> Result<(OwnedFd, OwnedCStr)> {
-    check_flags(flags, 0)?;
+    check_flags(flags, /* refused= */ 0)?;
     let mut filename: *mut c_char = ptr::null_mut();
     // SAFETY: path is a C string, filename receives a malloc()ed string on success.
     let r = unsafe {

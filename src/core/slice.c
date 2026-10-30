@@ -37,7 +37,7 @@ static void slice_set_state(Slice *s, SliceState state) {
         assert(s);
 
         if (s->state != state)
-                bus_unit_send_pending_change_signal(UNIT(s), false);
+                bus_unit_send_pending_change_signal(UNIT(s), /* including_new= */ false);
 
         old_state = s->state;
         s->state = state;
@@ -61,7 +61,7 @@ static int slice_add_parent_slice(Slice *s) {
         if (r <= 0) /* 0 means root slice */
                 return r;
 
-        return unit_add_dependency_by_name(u, UNIT_IN_SLICE, a, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_dependency_by_name(u, UNIT_IN_SLICE, a, /* add_reference= */ true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int slice_add_default_dependencies(Slice *s) {
@@ -76,7 +76,7 @@ static int slice_add_default_dependencies(Slice *s) {
         r = unit_add_two_dependencies_by_name(
                         UNIT(s),
                         UNIT_BEFORE, UNIT_CONFLICTS,
-                        SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                        SPECIAL_SHUTDOWN_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -164,7 +164,7 @@ static int slice_load(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_load_fragment_and_dropin(u, false);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ false);
         if (r < 0)
                 return r;
 
@@ -339,7 +339,7 @@ static void slice_enumerate_perpetual(Manager *m) {
         }
 
         if (MANAGER_IS_SYSTEM(m))
-                (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
+                (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, /* ret= */ NULL);
 }
 
 static bool slice_can_freeze(const Unit *u) {

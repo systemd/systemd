@@ -18,7 +18,7 @@
 TEST(asynchronous_sync) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         ASSERT_OK(asynchronous_sync(&pidref));
-        ASSERT_OK(pidref_wait_for_terminate(&pidref, NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, /* ret_si= */ NULL));
 }
 
 static void wait_fd_closed(int fd) {
@@ -45,7 +45,7 @@ TEST(asynchronous_close) {
         r = ASSERT_OK(pidref_safe_fork(
                         "(subreaper)",
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
-                        NULL));
+                        /* ret= */ NULL));
 
         if (r == 0) {
                 /* child */
@@ -77,7 +77,7 @@ TEST(asynchronous_rm_rf) {
         _cleanup_free_ char *t = NULL, *k = NULL;
         int r;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         assert_se(k = path_join(t, "somefile"));
         ASSERT_OK(touch(k));
         ASSERT_OK(asynchronous_rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
@@ -89,7 +89,7 @@ TEST(asynchronous_rm_rf) {
         r = ASSERT_OK(pidref_safe_fork(
                         "(subreaper)",
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT,
-                        NULL));
+                        /* ret= */ NULL));
 
         if (r == 0) {
                 _cleanup_free_ char *tt = NULL, *kk = NULL;
@@ -99,7 +99,7 @@ TEST(asynchronous_rm_rf) {
                 ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
                 ASSERT_OK(make_reaper_process(true));
 
-                ASSERT_OK(mkdtemp_malloc(NULL, &tt));
+                ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tt));
                 assert_se(kk = path_join(tt, "somefile"));
                 ASSERT_OK(touch(kk));
                 ASSERT_OK(asynchronous_rm_rf(tt, REMOVE_ROOT|REMOVE_PHYSICAL));

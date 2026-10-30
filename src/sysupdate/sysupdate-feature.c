@@ -107,7 +107,7 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
                         CONFIG_PARSE_WARN,
                         (void *) root,
                         /* ret_stats_by_path= */ NULL,
-                        /* ret_drop_in_files= */ NULL);
+                        /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 
@@ -152,7 +152,7 @@ static int dispatch_feature_appstream(const char *name, sd_json_variant *variant
         if (sd_json_variant_elements(variant) > 1)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' lists more than one URL, which is not supported.", strna(name));
 
-        return json_dispatch_http_url(name, sd_json_variant_by_index(variant, 0), flags, appstream);
+        return json_dispatch_http_url(name, sd_json_variant_by_index(variant, /* index= */ 0), flags, appstream);
 }
 
 int feature_from_json(Feature *f, sd_json_variant *v, const char *origin) {

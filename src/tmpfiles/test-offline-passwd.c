@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
                 return r;
 
         if (strv_isempty(args))
-                test_resolve_one(NULL);
+                test_resolve_one(/* name= */ NULL);
         else
                 STRV_FOREACH(a, args)
                         test_resolve_one(*a);

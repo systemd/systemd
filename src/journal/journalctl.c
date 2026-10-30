@@ -590,7 +590,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 _cleanup_free_ char *fac = NULL;
                                 int num;
 
-                                r = extract_first_word(&p, &fac, ",", 0);
+                                r = extract_first_word(&p, &fac, ",", /* flags= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse facilities: %s", opts.arg);
                                 if (r == 0)
@@ -605,7 +605,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 if (num < 0)
                                         return log_error_errno(num, "Bad --facility= argument \"%s\".", fac);
 
-                                if (set_ensure_put(&arg_facilities, NULL, INT_TO_PTR(num)) < 0)
+                                if (set_ensure_put(&arg_facilities, /* hash_ops= */ NULL, INT_TO_PTR(num)) < 0)
                                         return log_oom();
                         }
 
@@ -967,7 +967,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
                  * journal, but the latter excludes the system journal, thus resulting in empty output). Let's be nice
                  * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
-                r = strv_extend_strv(&arg_user_units, arg_system_units, true);
+                r = strv_extend_strv(&arg_user_units, arg_system_units, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
 

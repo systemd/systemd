@@ -1365,7 +1365,7 @@ int config_parse_hostname(
                 return 1;
         }
 
-        if (!hostname_is_valid(rvalue, 0)) {
+        if (!hostname_is_valid(rvalue, /* flags= */ 0)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified invalid hostname, ignoring assignment: %s", rvalue);
                 return 0;
@@ -1441,7 +1441,7 @@ int config_parse_strv(
         for (const char *p = rvalue;;) {
                 char *word;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
@@ -1676,7 +1676,7 @@ int config_parse_ifnames(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
@@ -1694,7 +1694,7 @@ int config_parse_ifnames(
                         return log_oom();
         }
 
-        r = strv_extend_strv(s, names, true);
+        r = strv_extend_strv(s, names, /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 
@@ -1921,7 +1921,7 @@ int config_parse_hw_addrs(
                 _cleanup_free_ char *word = NULL;
                 _cleanup_free_ struct hw_addr_data *n = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
@@ -2010,7 +2010,7 @@ int config_parse_ether_addrs(
                 _cleanup_free_ char *word = NULL;
                 _cleanup_free_ struct ether_addr *n = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)

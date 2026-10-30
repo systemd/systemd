@@ -29,7 +29,7 @@ static int install_force_release(sd_device *dev, const unsigned *release, unsign
         assert(dev);
         assert(release);
 
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &atkbd);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", /* devtype= */ NULL, &atkbd);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
@@ -142,7 +142,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         assert(value);
 
         /* The sensitivity sysfs attr belongs to the serio parent device */
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &pdev);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", /* devtype= */ NULL, &pdev);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 

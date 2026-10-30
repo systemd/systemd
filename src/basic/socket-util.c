@@ -154,10 +154,10 @@ int socket_address_print(const SocketAddress *a, char **ret) {
         assert(a);
         assert(ret);
 
-        r = socket_address_verify(a, false); /* We do non-strict validation, because we want to be
-                                              * able to pretty-print any socket the kernel considers
-                                              * valid. We still need to do validation to know if we
-                                              * can meaningfully print the address. */
+        r = socket_address_verify(a, /* strict= */ false); /* We do non-strict validation, because we want to be
+                                                            * able to pretty-print any socket the kernel considers
+                                                            * valid. We still need to do validation to know if we
+                                                            * can meaningfully print the address. */
         if (r < 0)
                 return r;
 
@@ -175,7 +175,7 @@ int socket_address_print(const SocketAddress *a, char **ret) {
                 return 0;
         }
 
-        return sockaddr_pretty(&a->sockaddr.sa, a->size, false, true, ret);
+        return sockaddr_pretty(&a->sockaddr.sa, a->size, /* translate_ipv6= */ false, /* include_port= */ true, ret);
 }
 
 bool socket_address_can_accept(const SocketAddress *a) {
@@ -190,8 +190,8 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
         assert(b);
 
         /* Invalid addresses are unequal to all */
-        if (socket_address_verify(a, false) < 0 ||
-            socket_address_verify(b, false) < 0)
+        if (socket_address_verify(a, /* strict= */ false) < 0 ||
+            socket_address_verify(b, /* strict= */ false) < 0)
                 return false;
 
         if (a->type != b->type)
@@ -229,7 +229,7 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                         return false;
 
                 if (a->sockaddr.un.sun_path[0]) {
-                        if (!path_equal_or_inode_same(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, 0))
+                        if (!path_equal_or_inode_same(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, /* flags= */ 0))
                                 return false;
                 } else {
                         if (a->size != b->size)
@@ -610,7 +610,7 @@ int getpeername_pretty(int fd, bool include_port, char **ret) {
         /* For remote sockets we translate IPv6 addresses back to IPv4
          * if applicable, since that's nicer. */
 
-        return sockaddr_pretty(&sa.sa, salen, true, include_port, ret);
+        return sockaddr_pretty(&sa.sa, salen, /* translate_ipv6= */ true, include_port, ret);
 }
 
 int getsockname_pretty(int fd, char **ret) {
@@ -628,7 +628,7 @@ int getsockname_pretty(int fd, char **ret) {
          * listening sockets where the difference between IPv4 and
          * IPv6 matters. */
 
-        return sockaddr_pretty(&sa.sa, salen, false, true, ret);
+        return sockaddr_pretty(&sa.sa, salen, /* translate_ipv6= */ false, /* include_port= */ true, ret);
 }
 
 int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) {
@@ -1034,7 +1034,7 @@ int send_one_fd_sa(
 
         assert(fd >= 0);
 
-        return (int) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, sa, len, flags);
+        return (int) send_one_fd_iov_sa(transport_fd, fd, /* iov= */ NULL, /* iovlen= */ 0, sa, len, flags);
 }
 
 ssize_t receive_one_fd_iov(
@@ -1089,7 +1089,7 @@ int receive_one_fd(int transport_fd, int flags) {
         int fd;
         ssize_t k;
 
-        k = receive_one_fd_iov(transport_fd, NULL, 0, flags, &fd);
+        k = receive_one_fd_iov(transport_fd, /* iov= */ NULL, /* iovlen= */ 0, flags, &fd);
         if (k == 0)
                 return fd;
 
@@ -1159,7 +1159,7 @@ int flush_accept(int fd) {
         for (unsigned iteration = 0;; iteration++) {
                 int cfd;
 
-                r = fd_wait_for_event(fd, POLLIN, 0);
+                r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
                 if (r == -EINTR)
                         continue;
                 if (r <= 0)

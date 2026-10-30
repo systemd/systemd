@@ -102,7 +102,7 @@ static int bus_print_property(
                 if (expected_value && parse_boolean(expected_value) != b)
                         return 1;
 
-                bus_print_property_value(name, NULL, flags, yes_no(b));
+                bus_print_property_value(name, /* expected_value= */ NULL, flags, yes_no(b));
                 return 1;
         }
 
@@ -267,7 +267,7 @@ static int bus_print_property(
                         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
                                 _cleanup_free_ char *e = NULL;
 
-                                e = shell_maybe_quote(str, 0);
+                                e = shell_maybe_quote(str, /* flags= */ 0);
                                 if (!e)
                                         return -ENOMEM;
 
@@ -402,7 +402,7 @@ int bus_message_print_all_properties(
                 }
 
                 if (match_filter(filter, name, &expected_value)) {
-                        r = sd_bus_message_peek_type(m, NULL, &contents);
+                        r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, &contents);
                         if (r < 0)
                                 return r;
 
@@ -480,5 +480,5 @@ int bus_print_all_properties(
         if (r < 0)
                 return r;
 
-        return bus_message_print_all_properties(reply, func, filter, flags, NULL);
+        return bus_message_print_all_properties(reply, func, filter, flags, /* found_properties= */ NULL);
 }

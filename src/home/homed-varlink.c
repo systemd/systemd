@@ -101,7 +101,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
@@ -140,7 +140,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                 return 0;
 
         if (!home_user_match_lookup_parameters(&p, h))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         trusted = client_is_trusted(link, h);
 
@@ -209,7 +209,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
@@ -243,7 +243,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 return 0;
 
         if (!home_group_match_lookup_parameters(&p, h))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(h, &v);
@@ -274,7 +274,7 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)

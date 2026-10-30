@@ -125,7 +125,7 @@ int introspect_write_child_nodes(BusIntrospect *i, OrderedSet *s, const char *pr
         assert(i->m.f);
         assert(prefix);
 
-        assert_se(set_interface_name(i, NULL) >= 0);
+        assert_se(set_interface_name(i, /* interface_name= */ NULL) >= 0);
 
         while ((node = ordered_set_steal_first(s))) {
                 const char *e;
@@ -261,7 +261,7 @@ int introspect_write_interface(
                         fprintf(i->m.f, "  <signal name=\"%s\">\n", v->x.signal.member);
                         if (bus_vtable_has_names(vtable))
                                 names = strempty(v->x.signal.names);
-                        introspect_write_arguments(i, strempty(v->x.signal.signature), &names, NULL);
+                        introspect_write_arguments(i, strempty(v->x.signal.signature), &names, /* direction= */ NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->m.f);
                         break;
@@ -276,11 +276,11 @@ int introspect_finish(BusIntrospect *i, char **ret) {
         assert(i);
         assert(i->m.f);
 
-        assert_se(set_interface_name(i, NULL) >= 0);
+        assert_se(set_interface_name(i, /* interface_name= */ NULL) >= 0);
 
         fputs("</node>\n", i->m.f);
 
-        return memstream_finalize(&i->m, ret, NULL);
+        return memstream_finalize(&i->m, ret, /* ret_size= */ NULL);
 }
 
 void introspect_done(BusIntrospect *i) {

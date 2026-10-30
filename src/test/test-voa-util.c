@@ -63,7 +63,7 @@ TEST(voa_os_identifiers) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_close_ int root_fd = -EBADF;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &root));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
         ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
 
         /* No os-release at all yields the documented default */
@@ -172,7 +172,7 @@ TEST(voa_list_verifiers) {
                 .suffix = "-certificate.pem",
         };
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &root));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
         ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
 
         /* Every copy counts */
@@ -283,24 +283,24 @@ TEST(voa_list_verifiers) {
 
         /* Invalid lookups */
         lookup.os = STRV_MAKE("Testos");
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.os = NULL;
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.os = STRV_MAKE("testos");
         lookup.role = "trust-anchor-image";
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.role = "image";
         lookup.technology = "X509";
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.technology = "x509";
         lookup.context = "CTX";
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.context = "default";
         lookup.suffix = NULL;
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
         lookup.suffix = "-certificate.pem";
         lookup.mode = _VOA_MODE_MAX;
-        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, 0, &files, &n), EINVAL);
+        ASSERT_ERROR(voa_list_verifiers(root_fd, &lookup, /* flags= */ 0, &files, &n), EINVAL);
 }
 
 TEST(voa_list_verifiers_symlinked_load_path_parent) {
@@ -318,7 +318,7 @@ TEST(voa_list_verifiers_symlinked_load_path_parent) {
                 .suffix = "-certificate.pem",
         };
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &root));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
         ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
 
         /* rpm-ostree layout: /usr/local is a symlink to ../var/usrlocal */
@@ -358,7 +358,7 @@ TEST(voa_list_verifiers_mode) {
                 .suffix = "-certificate.pem",
         };
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &root));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
         ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
 
         add_file(root, "/etc/voa/testos" X509_DIR "a-certificate.pem");

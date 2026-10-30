@@ -16,28 +16,28 @@
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
 
-        ASSERT_OK(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL));
+        ASSERT_OK(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &path, /* userdata= */ NULL));
         ASSERT_STREQ(expected, path);
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
         int log_level = 0;
 
-        ASSERT_OK(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL));
+        ASSERT_OK(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &log_level, /* userdata= */ NULL));
         ASSERT_EQ(expected, log_level);
 }
 
 static void test_config_parse_log_facility_one(const char *rvalue, int expected) {
         int log_facility = 0;
 
-        ASSERT_OK(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL));
+        ASSERT_OK(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &log_facility, /* userdata= */ NULL));
         ASSERT_EQ(expected, log_facility);
 }
 
 static void test_config_parse_iec_size_one(const char *rvalue, size_t expected) {
         size_t iec_size = 0;
 
-        ASSERT_OK(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL));
+        ASSERT_OK(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &iec_size, /* userdata= */ NULL));
         ASSERT_EQ(expected, iec_size);
 }
 
@@ -45,63 +45,63 @@ static void test_config_parse_iec_size_long_one(const char *rvalue, long expecte
         long iec_size = 0;
 
         ASSERT_OK(config_parse_iec_size_long(
-                          "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL));
+                          "unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &iec_size, /* userdata= */ NULL));
         ASSERT_EQ(expected, iec_size);
 }
 
 static void test_config_parse_si_uint64_one(const char *rvalue, uint64_t expected) {
         uint64_t si_uint64 = 0;
 
-        ASSERT_OK(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL));
+        ASSERT_OK(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &si_uint64, /* userdata= */ NULL));
         ASSERT_EQ(expected, si_uint64);
 }
 
 static void test_config_parse_int_one(const char *rvalue, int expected) {
         int v = -1;
 
-        ASSERT_OK(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected) {
         unsigned v = 0;
 
-        ASSERT_OK(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_strv_one(const char *rvalue, bool filter_duplicates, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, NULL));
+        ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, /* userdata= */ NULL));
         ASSERT_TRUE(strv_equal(expected, strv));
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {
         mode_t v = 0;
 
-        ASSERT_OK(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_sec_one(const char *rvalue, usec_t expected) {
         usec_t v = 0;
 
-        ASSERT_OK(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_nsec_one(const char *rvalue, nsec_t expected) {
         nsec_t v = 0;
 
-        ASSERT_OK(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_iec_uint64_one(const char *rvalue, uint64_t expected) {
         uint64_t v = 0;
 
-        ASSERT_OK(config_parse_iec_uint64("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_OK(config_parse_iec_uint64("unit", "filename", 1, "nsection", 1, "lvalue", /* ltype= */ 0, rvalue, &v, /* userdata= */ NULL));
         ASSERT_EQ(expected, v);
 }
 
@@ -112,22 +112,22 @@ TEST(config_parse_path) {
         test_config_parse_path_one("/path//./////hogehoge///.", "/path/hogehoge");
         test_config_parse_path_one("/path/\xc3\x80", "/path/\xc3\x80");
 
-        test_config_parse_path_one("not_absolute/path", NULL);
-        test_config_parse_path_one("/path/\xc3\x7f", NULL);
+        test_config_parse_path_one("not_absolute/path", /* expected= */ NULL);
+        test_config_parse_path_one("/path/\xc3\x7f", /* expected= */ NULL);
 }
 
 TEST(config_parse_log_level) {
         test_config_parse_log_level_one("debug", LOG_DEBUG);
         test_config_parse_log_level_one("info", LOG_INFO);
 
-        test_config_parse_log_level_one("garbage", 0);
+        test_config_parse_log_level_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_log_facility) {
         test_config_parse_log_facility_one("mail", LOG_MAIL);
         test_config_parse_log_facility_one("user", LOG_USER);
 
-        test_config_parse_log_facility_one("garbage", 0);
+        test_config_parse_log_facility_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_iec_size) {
@@ -135,12 +135,12 @@ TEST(config_parse_iec_size) {
         test_config_parse_iec_size_one("2K", 2048);
         test_config_parse_iec_size_one("10M", 10 * 1024 * 1024);
         test_config_parse_iec_size_one("1G", 1 * 1024 * 1024 * 1024);
-        test_config_parse_iec_size_one("0G", 0);
-        test_config_parse_iec_size_one("0", 0);
+        test_config_parse_iec_size_one("0G", /* expected= */ 0);
+        test_config_parse_iec_size_one("0", /* expected= */ 0);
 
-        test_config_parse_iec_size_one("-982", 0);
-        test_config_parse_iec_size_one("49874444198739873000000G", 0);
-        test_config_parse_iec_size_one("garbage", 0);
+        test_config_parse_iec_size_one("-982", /* expected= */ 0);
+        test_config_parse_iec_size_one("49874444198739873000000G", /* expected= */ 0);
+        test_config_parse_iec_size_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_iec_size_long) {
@@ -148,12 +148,12 @@ TEST(config_parse_iec_size_long) {
         test_config_parse_iec_size_long_one("2K", 2048);
         test_config_parse_iec_size_long_one("10M", 10 * 1024 * 1024);
         test_config_parse_iec_size_long_one("1G", 1L * 1024 * 1024 * 1024);
-        test_config_parse_iec_size_long_one("0G", 0);
-        test_config_parse_iec_size_long_one("0", 0);
+        test_config_parse_iec_size_long_one("0G", /* expected= */ 0);
+        test_config_parse_iec_size_long_one("0", /* expected= */ 0);
 
-        test_config_parse_iec_size_long_one("-982", 0);
-        test_config_parse_iec_size_long_one("49874444198739873000000G", 0);
-        test_config_parse_iec_size_long_one("garbage", 0);
+        test_config_parse_iec_size_long_one("-982", /* expected= */ 0);
+        test_config_parse_iec_size_long_one("49874444198739873000000G", /* expected= */ 0);
+        test_config_parse_iec_size_long_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_si_uint64) {
@@ -161,18 +161,18 @@ TEST(config_parse_si_uint64) {
         test_config_parse_si_uint64_one("2K", 2000);
         test_config_parse_si_uint64_one("10M", 10 * 1000 * 1000);
         test_config_parse_si_uint64_one("1G", 1 * 1000 * 1000 * 1000);
-        test_config_parse_si_uint64_one("0G", 0);
-        test_config_parse_si_uint64_one("0", 0);
+        test_config_parse_si_uint64_one("0G", /* expected= */ 0);
+        test_config_parse_si_uint64_one("0", /* expected= */ 0);
 
-        test_config_parse_si_uint64_one("-982", 0);
-        test_config_parse_si_uint64_one("49874444198739873000000G", 0);
-        test_config_parse_si_uint64_one("garbage", 0);
+        test_config_parse_si_uint64_one("-982", /* expected= */ 0);
+        test_config_parse_si_uint64_one("49874444198739873000000G", /* expected= */ 0);
+        test_config_parse_si_uint64_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_int) {
         test_config_parse_int_one("1024", 1024);
         test_config_parse_int_one("-1024", -1024);
-        test_config_parse_int_one("0", 0);
+        test_config_parse_int_one("0", /* expected= */ 0);
 
         test_config_parse_int_one("99999999999999999999999999999999999999999999999999999999", -1);
         test_config_parse_int_one("-99999999999999999999999999999999999999999999999999999999", -1);
@@ -183,39 +183,39 @@ TEST(config_parse_int) {
 TEST(config_parse_unsigned) {
         test_config_parse_unsigned_one("10241024", 10241024);
         test_config_parse_unsigned_one("1024", 1024);
-        test_config_parse_unsigned_one("0", 0);
+        test_config_parse_unsigned_one("0", /* expected= */ 0);
 
-        test_config_parse_unsigned_one("99999999999999999999999999999999999999999999999999999999", 0);
-        test_config_parse_unsigned_one("1G", 0);
-        test_config_parse_unsigned_one("garbage", 0);
-        test_config_parse_unsigned_one("1000garbage", 0);
+        test_config_parse_unsigned_one("99999999999999999999999999999999999999999999999999999999", /* expected= */ 0);
+        test_config_parse_unsigned_one("1G", /* expected= */ 0);
+        test_config_parse_unsigned_one("garbage", /* expected= */ 0);
+        test_config_parse_unsigned_one("1000garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_strv) {
-        test_config_parse_strv_one("", false, STRV_EMPTY);
-        test_config_parse_strv_one("foo", false, STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", false, STRV_MAKE("foo", "bar", "foo"));
-        test_config_parse_strv_one("\"foo bar\" foo", false, STRV_MAKE("foo bar", "foo"));
-        test_config_parse_strv_one("\xc3\x80", false, STRV_MAKE("\xc3\x80"));
-        test_config_parse_strv_one("\xc3\x7f", false, STRV_MAKE("\xc3\x7f"));
+        test_config_parse_strv_one("", /* filter_duplicates= */ false, STRV_EMPTY);
+        test_config_parse_strv_one("foo", /* filter_duplicates= */ false, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", /* filter_duplicates= */ false, STRV_MAKE("foo", "bar", "foo"));
+        test_config_parse_strv_one("\"foo bar\" foo", /* filter_duplicates= */ false, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", /* filter_duplicates= */ false, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", /* filter_duplicates= */ false, STRV_MAKE("\xc3\x7f"));
 
-        test_config_parse_strv_one("", true, STRV_EMPTY);
-        test_config_parse_strv_one("foo", true, STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", true, STRV_MAKE("foo", "bar"));
-        test_config_parse_strv_one("\"foo bar\" foo", true, STRV_MAKE("foo bar", "foo"));
-        test_config_parse_strv_one("\xc3\x80", true, STRV_MAKE("\xc3\x80"));
-        test_config_parse_strv_one("\xc3\x7f", true, STRV_MAKE("\xc3\x7f"));
+        test_config_parse_strv_one("", /* filter_duplicates= */ true, STRV_EMPTY);
+        test_config_parse_strv_one("foo", /* filter_duplicates= */ true, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", /* filter_duplicates= */ true, STRV_MAKE("foo", "bar"));
+        test_config_parse_strv_one("\"foo bar\" foo", /* filter_duplicates= */ true, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", /* filter_duplicates= */ true, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", /* filter_duplicates= */ true, STRV_MAKE("\xc3\x7f"));
 }
 
 TEST(config_parse_mode) {
         test_config_parse_mode_one("777", 0777);
         test_config_parse_mode_one("644", 0644);
 
-        test_config_parse_mode_one("-777", 0);
-        test_config_parse_mode_one("999", 0);
-        test_config_parse_mode_one("garbage", 0);
-        test_config_parse_mode_one("777garbage", 0);
-        test_config_parse_mode_one("777 garbage", 0);
+        test_config_parse_mode_one("-777", /* expected= */ 0);
+        test_config_parse_mode_one("999", /* expected= */ 0);
+        test_config_parse_mode_one("garbage", /* expected= */ 0);
+        test_config_parse_mode_one("777garbage", /* expected= */ 0);
+        test_config_parse_mode_one("777 garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_sec) {
@@ -224,9 +224,9 @@ TEST(config_parse_sec) {
         test_config_parse_sec_one("100ms", 100 * USEC_PER_MSEC);
         test_config_parse_sec_one("5min 20s", 5 * 60 * USEC_PER_SEC + 20 * USEC_PER_SEC);
 
-        test_config_parse_sec_one("-1", 0);
-        test_config_parse_sec_one("10foo", 0);
-        test_config_parse_sec_one("garbage", 0);
+        test_config_parse_sec_one("-1", /* expected= */ 0);
+        test_config_parse_sec_one("10foo", /* expected= */ 0);
+        test_config_parse_sec_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_nsec) {
@@ -235,9 +235,9 @@ TEST(config_parse_nsec) {
         test_config_parse_nsec_one("100ms", 100 * NSEC_PER_MSEC);
         test_config_parse_nsec_one("5min 20s", 5 * 60 * NSEC_PER_SEC + 20 * NSEC_PER_SEC);
 
-        test_config_parse_nsec_one("-1", 0);
-        test_config_parse_nsec_one("10foo", 0);
-        test_config_parse_nsec_one("garbage", 0);
+        test_config_parse_nsec_one("-1", /* expected= */ 0);
+        test_config_parse_nsec_one("10foo", /* expected= */ 0);
+        test_config_parse_nsec_one("garbage", /* expected= */ 0);
 }
 
 TEST(config_parse_iec_uint64) {
@@ -374,13 +374,13 @@ static void test_config_parse_one(unsigned i, const char *s) {
                          struct stat *ret_stat);
         */
 
-        r = config_parse(NULL, name, f,
+        r = config_parse(/* unit= */ NULL, name, f,
                          "Section\0"
                          "-NoWarnSection\0",
                          config_item_table_lookup, items,
                          CONFIG_PARSE_WARN,
-                         NULL,
-                         NULL);
+                         /* userdata= */ NULL,
+                         /* ret_stat= */ NULL);
 
         switch (i) {
         case 0 ... 4:
@@ -430,7 +430,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         _cleanup_close_ int rfd = -EBADF;
         int r;
 
-        ASSERT_OK(rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", 0, &root));
+        ASSERT_OK(rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", /* flags= */ 0, &root));
         assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));

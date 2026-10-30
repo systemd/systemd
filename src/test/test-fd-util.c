@@ -143,7 +143,7 @@ TEST(fd_move_above_stdio) {
 
         original_stdin = fcntl(0, F_DUPFD, 3);
         assert_se(original_stdin >= 3);
-        assert_se(close_nointr(0) != EBADF);
+        assert_se(close_nointr(/* fd= */ 0) != EBADF);
 
         new_fd = open("/dev/null", O_RDONLY);
         assert_se(new_fd == 0);
@@ -159,7 +159,7 @@ TEST(fd_move_above_stdio) {
 TEST(rearrange_stdio) {
         int r;
 
-        r = pidref_safe_fork("rearrange", FORK_WAIT|FORK_LOG, NULL);
+        r = pidref_safe_fork("rearrange", FORK_WAIT|FORK_LOG, /* ret= */ NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -196,13 +196,13 @@ TEST(rearrange_stdio) {
                 assert_se(pipe(pair) >= 0);
                 assert_se(pair[0] == 0);
                 assert_se(pair[1] == 1);
-                pipe_read_fd = fd_move_above_stdio(0);
+                pipe_read_fd = fd_move_above_stdio(/* fd= */ 0);
                 assert_se(pipe_read_fd >= 3);
 
                 assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
                 assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
-                assert_se(rearrange_stdio(2, 0, 1) >= 0);
+                assert_se(rearrange_stdio(2, /* original_output_fd= */ 0, 1) >= 0);
 
                 assert_se(write(1, "x", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "z", 1) == 1);
@@ -217,7 +217,7 @@ TEST(rearrange_stdio) {
                 assert_se(read(pipe_read_fd, buffer, sizeof(buffer)) == 1);
                 assert_se(buffer[0] == 'y');
 
-                assert_se(fd_get_path(0, &path) >= 0);
+                assert_se(fd_get_path(/* fd= */ 0, &path) >= 0);
                 assert_se(path_equal(path, "/dev/null"));
                 path = mfree(path);
 
@@ -289,7 +289,7 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
                 assert_se(pipe2(fds + i, O_CLOEXEC) >= 0);
 
         /* Validate this worked */
-        assert_se(validate_fds(true, fds, n_fds) == n_fds);
+        assert_se(validate_fds(/* opened= */ true, fds, n_fds) == n_fds);
 
         /* Randomized number of fds to keep, but at most every second */
         n_keep = (random_u64() % (n_fds / 2));
@@ -309,8 +309,8 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
         }
 
         /* Check that all fds from both arrays are still open, and test how many in each are >= 0 */
-        assert_se(validate_fds(true, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(true, keep, n_keep) == n_keep);
+        assert_se(validate_fds(/* opened= */ true, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(/* opened= */ true, keep, n_keep) == n_keep);
 
         /* Close logging fd first, so that we don't confuse it by closing its fd */
         log_close();
@@ -320,14 +320,14 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
         /* Close all but the ones to keep */
         ASSERT_OK(func(keep, n_keep));
 
-        assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(true, keep, n_keep) == n_keep);
+        assert_se(validate_fds(/* opened= */ false, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(/* opened= */ true, keep, n_keep) == n_keep);
 
         /* Close everything else too! */
         ASSERT_OK(func(NULL, 0));
 
-        assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(false, keep, n_keep) == n_keep);
+        assert_se(validate_fds(/* opened= */ false, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(/* opened= */ false, keep, n_keep) == n_keep);
 
         log_set_open_when_needed(false);
         log_open();
@@ -337,19 +337,19 @@ TEST(close_all_fds) {
         ForkFlags flags = FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT;
         int r;
 
-        r = ASSERT_OK(pidref_safe_fork("(caf-plain)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-plain)", flags, /* ret= */ NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds);
                 _exit(EXIT_SUCCESS);
         }
 
-        r = ASSERT_OK(pidref_safe_fork("(caf-nomalloc)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-nomalloc)", flags, /* ret= */ NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_without_malloc);
                 _exit(EXIT_SUCCESS);
         }
 
-        r = ASSERT_OK(pidref_safe_fork("(caf-frugal)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-frugal)", flags, /* ret= */ NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_frugal);
                 _exit(EXIT_SUCCESS);
@@ -589,7 +589,7 @@ TEST(dir_fd_is_root) {
         assert_se(x = path_join(tmp, "x"));
         assert_se(y = path_join(tmp, "x/y"));
         assert_se(mkdir_p(y, 0755) >= 0);
-        assert_se(mount_nofollow_verbose(LOG_DEBUG, x, y, NULL, MS_BIND, NULL) >= 0);
+        assert_se(mount_nofollow_verbose(LOG_DEBUG, x, y, /* fstype= */ NULL, MS_BIND, /* options= */ NULL) >= 0);
 
         fd = safe_close(fd);
 
@@ -628,7 +628,7 @@ static void test_path_is_root_at_one(bool expected) {
         _cleanup_close_ int fd = -EBADF;
         ASSERT_OK_ERRNO(fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
 
-        ASSERT_OK_POSITIVE(path_is_root_at(fd, NULL));
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, /* path= */ NULL));
         ASSERT_OK_POSITIVE(path_is_root_at(fd, ""));
         ASSERT_OK_POSITIVE(path_is_root_at(fd, "."));
         ASSERT_OK_EQ(path_is_root_at(fd, "./../"), expected);
@@ -653,7 +653,7 @@ static void test_path_is_root_at_one(bool expected) {
         safe_close(fd);
         ASSERT_OK_ERRNO(fd = open("/../", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
 
-        ASSERT_OK_EQ(path_is_root_at(fd, NULL), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, /* path= */ NULL), expected);
         ASSERT_OK_EQ(path_is_root_at(fd, ""), expected);
         ASSERT_OK_EQ(path_is_root_at(fd, "."), expected);
         ASSERT_OK_EQ(path_is_root_at(fd, "./.."), expected);
@@ -679,7 +679,7 @@ static void test_path_is_root_at_one(bool expected) {
 TEST(path_is_root_at) {
         int r;
 
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -689,53 +689,53 @@ TEST(path_is_root_at) {
          * directory, but "/../" points to the new root directory. Hence, path_is_root("/") is true but
          * path_is_root("/../") is false. Such spurious situation is resolved after chroot()ing to the new
          * root directory. */
-        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", "/", NULL, MS_BIND|MS_REC, NULL));
+        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", "/", /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL));
         log_debug("/* %s: bind mount(\"/\", \"/\") */", __func__);
-        test_path_is_root_at_one(false);
+        test_path_is_root_at_one(/* expected= */ false);
 
         /* chroot("/") does not change anything. */
         ASSERT_OK_ERRNO(chroot("/"));
         log_debug("/* %s: chroot(\"/\") */", __func__);
-        test_path_is_root_at_one(false);
+        test_path_is_root_at_one(/* expected= */ false);
 
         /* chdir("/") neither change anything. */
         ASSERT_OK_ERRNO(chdir("/"));
         log_debug("/* %s: chdir(\"/\") */", __func__);
-        test_path_is_root_at_one(false);
+        test_path_is_root_at_one(/* expected= */ false);
 
         /* chdir("/../") neither change anything. */
         ASSERT_OK_ERRNO(chdir("/../"));
         log_debug("/* %s: chdir(\"/../\") */", __func__);
-        test_path_is_root_at_one(false);
+        test_path_is_root_at_one(/* expected= */ false);
 
         /* After chroot("/../"), both "/" and "/../" point to the new root directory. */
         ASSERT_OK_ERRNO(chroot("/../"));
         log_debug("/* %s: chroot(\"/../\") */", __func__);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         /* chdir("/../") does not change anything. */
         ASSERT_OK_ERRNO(chdir("/../"));
         log_debug("/* %s: chdir(\"/../\") again */", __func__);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         /* bind mounting to non-root directory has no problem, of course. */
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         ASSERT_OK(mkdtemp_malloc("/tmp/test-path_is_root-XXXXXX", &tmp));
-        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", tmp, NULL, MS_BIND|MS_REC, NULL));
+        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", tmp, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL));
         log_debug("/* %s: bind mount(\"/\", \"%s\") */", __func__, tmp);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         ASSERT_OK_ERRNO(chdir(tmp));
         log_debug("/* %s: chdir(\"%s\") */", __func__, tmp);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         ASSERT_OK_ERRNO(chroot(tmp));
         log_debug("/* %s: chroot(\"%s\") */", __func__, tmp);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 
         ASSERT_OK_ERRNO(chdir(tmp));
         log_debug("/* %s: chdir(\"%s\") again */", __func__, tmp);
-        test_path_is_root_at_one(true);
+        test_path_is_root_at_one(/* expected= */ true);
 }
 
 TEST(fds_inode_and_mount_same) {
@@ -758,7 +758,7 @@ TEST(fd_get_path) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL, *saved_cwd = NULL;
 
-        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t);
         assert_se(tfd >= 0);
         assert_se(fd_get_path(tfd, &p) >= 0);
         ASSERT_STREQ(p, t);

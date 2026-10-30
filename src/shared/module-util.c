@@ -101,7 +101,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
 
                                 if (err == -EPERM) {
                                         if (!denylist_parsed) {
-                                                r = proc_cmdline_parse(parse_proc_cmdline_item, &denylist, 0);
+                                                r = proc_cmdline_parse(parse_proc_cmdline_item, &denylist, /* flags= */ 0);
                                                 if (r < 0)
                                                         log_full_errno(!verbose ? LOG_DEBUG : LOG_WARNING,
                                                                        r,
@@ -141,7 +141,7 @@ _printf_(6,0) static void systemd_kmod_log(
                 const char *format,
                 va_list args) {
 
-        log_internalv(priority, 0, file, line, fn, format, args);
+        log_internalv(priority, /* error= */ 0, file, line, fn, format, args);
 }
 
 int module_setup_context(struct kmod_ctx **ret) {
@@ -154,12 +154,12 @@ int module_setup_context(struct kmod_ctx **ret) {
         if (r < 0)
                 return r;
 
-        ctx = sym_kmod_new(NULL, NULL);
+        ctx = sym_kmod_new(/* dirname= */ NULL, /* config_paths= */ NULL);
         if (!ctx)
                 return -ENOMEM;
 
         (void) sym_kmod_load_resources(ctx);
-        sym_kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
+        sym_kmod_set_log_fn(ctx, systemd_kmod_log, /* data= */ NULL);
 
         *ret = TAKE_PTR(ctx);
         return 0;

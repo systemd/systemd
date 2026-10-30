@@ -94,7 +94,7 @@ static int det_randomize(const struct iovec *seed, uint32_t idx, struct iovec *i
         if (!ctx)
                 return -ENOMEM;
 
-        if (sym_EVP_DigestInit_ex(ctx, sym_EVP_sha256(), NULL) <= 0)
+        if (sym_EVP_DigestInit_ex(ctx, sym_EVP_sha256(), /* impl= */ NULL) <= 0)
                 return -EIO;
 
         if (sym_EVP_DigestUpdate(ctx, seed->iov_base, seed->iov_len) <= 0)

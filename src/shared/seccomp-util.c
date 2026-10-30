@@ -287,7 +287,7 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
         if (r < 0)
                 return r;
 
-        r = sym_seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        r = sym_seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, /* value= */ 0);
         if (r < 0)
                 return r;
 
@@ -1076,7 +1076,7 @@ int seccomp_add_syscall_filter_item(
                         return 0;
                 }
 
-                r = sym_seccomp_rule_add_exact(seccomp, action, id, 0);
+                r = sym_seccomp_rule_add_exact(seccomp, action, id, /* arg_cnt= */ 0);
                 if (r < 0) {
                         /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                         bool ignore = r == -EDOM;
@@ -1161,7 +1161,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, &added);
+                r = add_syscall_filter_set(seccomp, set, action, /* exclude= */ NULL, log_missing, &added);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add filter set: %m");
 
@@ -1177,7 +1177,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                                 if (strv_contains(added, name))
                                         continue;
 
-                                r = sym_seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                r = sym_seccomp_rule_add_exact(seccomp, default_action, id, /* arg_cnt= */ 0);
                                 if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
                                         return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
                                                                name, id);
@@ -1239,7 +1239,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                         else if (error >= 0)
                                 a = SCMP_ACT_ERRNO(error);
 
-                        r = sym_seccomp_rule_add_exact(seccomp, a, id, 0);
+                        r = sym_seccomp_rule_add_exact(seccomp, a, id, /* arg_cnt= */ 0);
                         if (r < 0) {
                                 /* If the system call is not known on this architecture, then that's
                                  * fine, let's ignore it */
@@ -1268,7 +1268,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                                 if (hashmap_contains(filter, INT_TO_PTR(id + 1)))
                                         continue;
 
-                                r = sym_seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                r = sym_seccomp_rule_add_exact(seccomp, default_action, id, /* arg_cnt= */ 0);
                                 if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
                                         return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
                                                                name, id);
@@ -1416,7 +1416,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(ENOSYS),
                                 SCMP_SYS(clone3),
-                                0);
+                                /* arg_cnt= */ 0);
                 if (r < 0)
                         log_debug_errno(r, "Failed to add clone3() rule for architecture %s, ignoring: %m",
                                         seccomp_arch_to_string(arch));
@@ -1428,7 +1428,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                         seccomp,
                                         SCMP_ACT_ERRNO(EPERM),
                                         SCMP_SYS(setns),
-                                        0);
+                                        /* arg_cnt= */ 0);
                 else
                         /* Otherwise, block only the invocations with the appropriate flags in the loop
                          * below, but also the special invocation with a zero flags argument, right here. The
@@ -1551,7 +1551,7 @@ int seccomp_protect_sysctl(void) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(_sysctl),
-                                0);
+                                /* arg_cnt= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add _sysctl() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
@@ -1588,7 +1588,7 @@ int seccomp_protect_syslog(void) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(syslog),
-                                0);
+                                /* arg_cnt= */ 0);
 
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add syslog() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -1693,7 +1693,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                                                 seccomp,
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                                 SCMP_SYS(socket),
-                                                0);
+                                                /* arg_cnt= */ 0);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to add socket() rule for architecture %s, skipping: %m",
                                                         seccomp_arch_to_string(arch));
@@ -1867,7 +1867,7 @@ int seccomp_restrict_realtime_full(int error_code) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(error_code),
                                 SCMP_SYS(sched_setattr),
-                                0);
+                                /* arg_cnt= */ 0);
                 if (r < 0)
                         log_debug_errno(r, "Failed to add sched_setattr() rule for %s, ignoring: %m",
                                         seccomp_arch_to_string(arch));
@@ -1990,7 +1990,7 @@ int seccomp_memory_deny_write_execute(void) {
                         continue;
 
                 if (block_syscall != 0) {
-                        r = add_seccomp_syscall_filter(seccomp, arch, block_syscall, 0, (const struct scmp_arg_cmp){} );
+                        r = add_seccomp_syscall_filter(seccomp, arch, block_syscall, /* arg_cnt= */ 0, (const struct scmp_arg_cmp){} );
                         if (r < 0)
                                 continue;
                 }
@@ -2088,7 +2088,7 @@ int seccomp_restrict_archs(Set *archs) {
         if (!blocked_new)
                 return 0;
 
-        r = sym_seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        r = sym_seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, /* value= */ 0);
         if (r < 0)
                 return r;
 
@@ -2114,7 +2114,7 @@ int parse_syscall_archs(char **l, Set **archs) {
                 if (r < 0)
                         return -EINVAL;
 
-                r = set_ensure_put(archs, NULL, UINT32_TO_PTR(a + 1));
+                r = set_ensure_put(archs, /* hash_ops= */ NULL, UINT32_TO_PTR(a + 1));
                 if (r < 0)
                         return -ENOMEM;
         }
@@ -2313,7 +2313,7 @@ int seccomp_protect_hostname(void) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(sethostname),
-                                0);
+                                /* arg_cnt= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add sethostname() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
@@ -2324,7 +2324,7 @@ int seccomp_protect_hostname(void) {
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(setdomainname),
-                                0);
+                                /* arg_cnt= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add setdomainname() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
@@ -2489,7 +2489,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
                         seccomp,
                         SCMP_ACT_ERRNO(ENOSYS),
                         SCMP_SYS(openat2),
-                        0);
+                        /* arg_cnt= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to add filter for openat2: %m");
         else
@@ -2673,7 +2673,7 @@ int seccomp_suppress_sync(void) {
                                                 seccomp,
                                                 SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
                                                 id,
-                                                0);
+                                                /* arg_cnt= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to add filter for system call %s, ignoring: %m", c);
                 }

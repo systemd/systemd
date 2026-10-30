@@ -74,7 +74,7 @@ int stub_pid1(sd_id128_t uuid) {
         reset_all_signal_handlers();
 
         log_close();
-        (void) close_all_fds(NULL, 0);
+        (void) close_all_fds(/* except= */ NULL, /* n_except= */ 0);
         log_open();
 
         if (ioctl(STDIN_FILENO, TIOCNOTTY) < 0) {

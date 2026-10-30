@@ -56,10 +56,10 @@ static void test_packet_from_file(const char* filename, bool canonical) {
                 assert_se(packet_size > 0);
                 assert_se(offset + 8 + packet_size <= data_size);
 
-                assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX) >= 0);
+                assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX) >= 0);
 
-                assert_se(dns_packet_append_blob(p, data + offset + 8, packet_size, NULL) >= 0);
-                assert_se(dns_packet_read_rr(p, &rr, NULL, NULL) >= 0);
+                assert_se(dns_packet_append_blob(p, data + offset + 8, packet_size, /* start= */ NULL) >= 0);
+                assert_se(dns_packet_read_rr(p, &rr, /* ret_cache_flush= */ NULL, /* start= */ NULL) >= 0);
 
                 verify_rr_copy(rr);
 
@@ -71,9 +71,9 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 
                 assert_se(dns_resource_record_to_wire_format(rr, canonical) >= 0);
 
-                assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX) >= 0);
-                assert_se(dns_packet_append_blob(p2, rr->wire_format, rr->wire_format_size, NULL) >= 0);
-                assert_se(dns_packet_read_rr(p2, &rr2, NULL, NULL) >= 0);
+                assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX) >= 0);
+                assert_se(dns_packet_append_blob(p2, rr->wire_format, rr->wire_format_size, /* start= */ NULL) >= 0);
+                assert_se(dns_packet_read_rr(p2, &rr2, /* ret_cache_flush= */ NULL, /* start= */ NULL) >= 0);
 
                 verify_rr_copy(rr);
 
@@ -137,9 +137,9 @@ int main(int argc, char **argv) {
         STRV_FOREACH(p, fnames) {
                 if (p != fnames)
                         puts("");
-                test_packet_from_file(*p, false);
+                test_packet_from_file(*p, /* canonical= */ false);
                 puts("");
-                test_packet_from_file(*p, true);
+                test_packet_from_file(*p, /* canonical= */ true);
         }
 
         test_dns_resource_record_get_cname_target();

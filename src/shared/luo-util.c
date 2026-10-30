@@ -97,7 +97,7 @@ int luo_session_retrieve_fd(int session_fd, uint64_t token) {
         if (ioctl(session_fd, LIVEUPDATE_SESSION_RETRIEVE_FD, &args) < 0)
                 return -errno;
 
-        r = fd_cloexec(args.fd, true);
+        r = fd_cloexec(args.fd, /* cloexec= */ true);
         if (r < 0) {
                 safe_close(args.fd);
                 return r;

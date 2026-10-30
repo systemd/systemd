@@ -303,7 +303,7 @@ static int print_all_attributes_in_json(sd_device *device, bool is_parent) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 }
 
 static int print_device_chain_in_json(sd_device *device) {
@@ -612,9 +612,9 @@ static int export_devices(void) {
                         if (r < 0)
                                 return r;
 
-                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 } else
-                        (void) print_record(d, NULL);
+                        (void) print_record(d, /* prefix= */ NULL);
 
         return 0;
 }
@@ -714,7 +714,7 @@ static int cleanup_db(void) {
 
         dir4 = opendir("/run/udev/static_node-tags");
         if (dir4)
-                cleanup_dir(dir4, 0, 2);
+                cleanup_dir(dir4, /* mask= */ 0, 2);
 
         /* Do not remove /run/udev/watch. It will be handled by udevd well on restart.
          * And should not be removed by external program when udevd is running. */
@@ -794,9 +794,9 @@ static int query_device(QueryType query, sd_device* device) {
                         if (r < 0)
                                 return r;
 
-                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 } else
-                        return print_record(device, NULL);
+                        return print_record(device, /* prefix= */ NULL);
 
                 return 0;
 
@@ -954,7 +954,7 @@ static int print_tree(sd_device* below) {
                 return 0;
         }
 
-        r = draw_tree(NULL, array, n, NULL, 0);
+        r = draw_tree(/* parent= */ NULL, array, n, /* prefix= */ NULL, /* level= */ 0);
         if (r < 0)
                 return r;
 
@@ -1004,7 +1004,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
-                                r = strv_split_and_extend(&arg_properties, opts.arg, ",", true);
+                                r = strv_split_and_extend(&arg_properties, opts.arg, ",", /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return log_oom();
                         }
@@ -1212,7 +1212,7 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (strv_isempty(arg_devices)) {
                 assert(arg_action_type == ACTION_TREE);
-                return print_tree(NULL);
+                return print_tree(/* below= */ NULL);
         }
 
         int ret = 0;
@@ -1235,7 +1235,7 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                         r = device_wait_for_initialization(
                                         device,
-                                        NULL,
+                                        /* subsystem= */ NULL,
                                         arg_wait_for_initialization_timeout,
                                         &d);
                         if (r < 0)

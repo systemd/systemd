@@ -59,13 +59,13 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(opts.arg, true, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(opts.arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -148,7 +148,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_print)
                         puts(SD_ID128_TO_STRING(id));
 
-        } else if (id128_get_machine(arg_root, NULL) == -ENOPKG) {
+        } else if (id128_get_machine(arg_root, /* ret= */ NULL) == -ENOPKG) {
                 if (arg_print)
                         puts("uninitialized");
         } else {

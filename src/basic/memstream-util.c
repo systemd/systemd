@@ -67,7 +67,7 @@ int memstream_dump_internal(
 
         assert(m);
 
-        r = memstream_finalize(m, &buf, NULL);
+        r = memstream_finalize(m, &buf, /* ret_size= */ NULL);
         if (r < 0)
                 return log_full_errno(level, r, "Failed to flush memstream: %m");
 

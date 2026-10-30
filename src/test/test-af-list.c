@@ -30,7 +30,7 @@ TEST(af_list) {
                 }
 
         ASSERT_NULL(af_to_name(af_max()));
-        ASSERT_NULL(af_to_name(0));
+        ASSERT_NULL(af_to_name(/* id= */ 0));
         ASSERT_NULL(af_to_name(-1));
         ASSERT_ERROR(af_from_name("huddlduddl"), EINVAL);
         ASSERT_ERROR(af_from_name("af_huddlduddl"), EINVAL);

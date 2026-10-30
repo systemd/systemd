@@ -34,7 +34,7 @@ int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret) {
                 return 0;
         }
 
-        if (!hostname_is_valid(machine, 0))
+        if (!hostname_is_valid(machine, /* flags= */ 0))
                 return -EINVAL;
 
         r = runtime_directory_generic(scope, "systemd/machines", &p);

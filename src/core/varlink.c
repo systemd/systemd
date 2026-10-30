@@ -337,12 +337,12 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         u = manager_get_unit_by_pidref(m, &pidref);
         if (!u)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         /* This is meant to be a deterrent and not actual security. The alternative is to check for the systemd-oom
          * user that this unit runs as, but NSS lookups are blocking and not allowed from PID 1. */
         if (!streq(u->id, "systemd-oomd.service"))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
@@ -351,7 +351,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
         if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) && m->managed_oom_varlink)
-                return sd_varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
+                return sd_varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 

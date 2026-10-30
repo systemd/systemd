@@ -185,7 +185,7 @@ int config_parse_ets_quanta(
                 _cleanup_free_ char *word = NULL;
                 uint64_t v;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -268,7 +268,7 @@ int config_parse_ets_prio(
                 _cleanup_free_ char *word = NULL;
                 uint8_t v;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

@@ -32,7 +32,7 @@ static void test_mount_points_list_one(const char *fname) {
 }
 
 TEST(mount_points_list) {
-        test_mount_points_list_one(NULL);
+        test_mount_points_list_one(/* fname= */ NULL);
         test_mount_points_list_one("/test-umount/empty.mountinfo");
         test_mount_points_list_one("/test-umount/garbled.mountinfo");
         test_mount_points_list_one("/test-umount/rhbug-1554943.mountinfo");
@@ -61,7 +61,7 @@ static void test_swap_list_one(const char *fname) {
 }
 
 TEST(swap_list) {
-        test_swap_list_one(NULL);
+        test_swap_list_one(/* fname= */ NULL);
         test_swap_list_one("/test-umount/example.swaps");
 }
 

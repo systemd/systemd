@@ -107,7 +107,7 @@ fn read(
             offset,
             size,
             flags,
-            ptr::null(),
+            /* bind_name= */ ptr::null(),
             &mut data,
             if string { ptr::null_mut() } else { &mut n },
         )
@@ -138,7 +138,7 @@ pub fn read_full_file_full(
     size: usize,
     flags: ReadFullFileFlags,
 ) -> Result<Contents> {
-    read(dir, filename, offset, size, flags, false)
+    read(dir, filename, offset, size, flags, /* string= */ false)
 }
 
 /// Like [`read_full_file_full()`], for a file that is a string: one that contains a NUL byte is refused with
@@ -150,7 +150,7 @@ pub fn read_full_file_full_string(
     size: usize,
     flags: ReadFullFileFlags,
 ) -> Result<Contents> {
-    read(dir, filename, offset, size, flags, true)
+    read(dir, filename, offset, size, flags, /* string= */ true)
 }
 
 /// `read_boolean_file_at()`: `filename`, a single path component, in `dir`.

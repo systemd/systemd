@@ -62,7 +62,7 @@ int fsync_directory_of_file(int fd) {
                 if (!path_is_absolute(path))
                         return -EINVAL;
 
-                dfd = open_parent(path, O_CLOEXEC|O_NOFOLLOW, 0);
+                dfd = open_parent(path, O_CLOEXEC|O_NOFOLLOW, /* mode= */ 0);
                 if (dfd < 0)
                         return dfd;
         }

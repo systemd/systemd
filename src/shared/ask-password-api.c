@@ -819,11 +819,11 @@ static int create_socket(const char *askpwdir, char **ret) {
                 if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return r;
 
-        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
 
         *ret = TAKE_PTR(path);
         return TAKE_FD(fd);
@@ -1038,7 +1038,7 @@ int ask_password_agent(
                         .msg_controllen = sizeof(control),
                 };
 
-                ssize_t n = recvmsg_safe(socket_fd, &msghdr, 0);
+                ssize_t n = recvmsg_safe(socket_fd, &msghdr, /* flags= */ 0);
                 if (ERRNO_IS_NEG_TRANSIENT(n))
                         continue;
                 if (n == -ECHRNG) {

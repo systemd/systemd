@@ -24,7 +24,7 @@ TEST_RET(initrd_cpio_credentials_basic) {
         _cleanup_(rm_rf_physical_and_freep) char *extract_dir = NULL;
         int r;
 
-        r = find_executable("cpio", NULL);
+        r = find_executable("cpio", /* ret_filename= */ NULL);
         if (r < 0)
                 return log_tests_skipped_errno(r, "Could not find cpio binary: %m");
 
@@ -34,7 +34,7 @@ TEST_RET(initrd_cpio_credentials_basic) {
         ASSERT_OK(initrd_cpio_credentials_to_tempfile(&creds, &cpio_path));
         ASSERT_NOT_NULL(cpio_path);
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &extract_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &extract_dir));
         ASSERT_OK(asprintf(&cmd, "cd %s && cpio -idm < %s", extract_dir, cpio_path));
         ASSERT_OK_ZERO_ERRNO(system(cmd));
 

@@ -340,7 +340,7 @@ int bind_remount_recursive_with_mountinfo(
                     !(top_autofs || hashmap_contains(todo, prefix))) {
 
                         /* The prefix directory itself is not yet a mount, make it one. */
-                        r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
+                        r = mount_nofollow(prefix, prefix, /* filesystemtype= */ NULL, MS_BIND|MS_REC, /* data= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -370,7 +370,7 @@ int bind_remount_recursive_with_mountinfo(
                         /* Now, remount this with the new flags set, but exclude MS_RELATIME from it. (It's
                          * the default anyway, thus redundant, and in userns we'll get an error if we try to
                          * explicitly enable it) */
-                        r = mount_nofollow(NULL, x, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
+                        r = mount_nofollow(/* source= */ NULL, x, /* filesystemtype= */ NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, /* data= */ NULL);
                         if (r < 0) {
                                 int q;
 
@@ -479,7 +479,7 @@ int bind_remount_one_with_mountinfo(
                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
         }
 
-        r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
+        r = mount_nofollow(/* source= */ NULL, path, /* filesystemtype= */ NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, /* data= */ NULL);
         if (r < 0) {
                 if (((flags ^ new_flags) & flags_mask & ~MS_RELATIME) != 0) /* Ignore MS_RELATIME again,
                                                                              * since kernel adds it in
@@ -528,7 +528,7 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
         assert(path);
 
         /* Move the new root fs */
-        if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
+        if (mount(".", "/", /* filesystemtype= */ NULL, MS_MOVE, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
 
         /* Also change root dir */
@@ -549,7 +549,7 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         if (fd_newroot < 0)
                 return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
 
-        is_current_root = path_is_root_at(fd_newroot, NULL);
+        is_current_root = path_is_root_at(fd_newroot, /* path= */ NULL);
         if (is_current_root < 0)
                 return log_debug_errno(is_current_root, "Failed to determine if target dir is our root already: %m");
 
@@ -582,7 +582,7 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         if (mount_propagation_flag == 0)
                 return 0;
 
-        if (mount(NULL, ".", NULL, mount_propagation_flag | MS_REC, NULL) < 0)
+        if (mount(/* source= */ NULL, ".", /* filesystemtype= */ NULL, mount_propagation_flag | MS_REC, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to turn new rootfs '%s' into %s mount: %m",
                                        mount_propagation_flag_to_string(mount_propagation_flag), path);
 
@@ -1000,13 +1000,13 @@ static int mount_in_namespace_legacy(
 
         mount_slave_created = true;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, mount_slave, mount_slave, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_slave, mount_slave, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 goto finish;
 
         mount_slave_mounted = true;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_slave, NULL, MS_SLAVE, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, mount_slave, /* fstype= */ NULL, MS_SLAVE, /* options= */ NULL);
         if (r < 0)
                 goto finish;
 
@@ -1034,7 +1034,7 @@ static int mount_in_namespace_legacy(
                                 RUNTIME_SCOPE_SYSTEM,
                                 /* ret_image= */ NULL);
         else
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 goto finish;
 
@@ -1042,7 +1042,7 @@ static int mount_in_namespace_legacy(
 
         /* Third, we remount the new bind mount read-only if requested. */
         if (flags & MOUNT_IN_NAMESPACE_READ_ONLY) {
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, mount_tmp, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, /* options= */ NULL);
                 if (r < 0)
                         goto finish;
         }
@@ -1064,7 +1064,7 @@ static int mount_in_namespace_legacy(
 
         mount_outside_created = true;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, mount_tmp, mount_outside, NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_tmp, mount_outside, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
         if (r < 0)
                 goto finish;
 
@@ -1136,7 +1136,7 @@ static int mount_in_namespace_legacy(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, /* flags= */ 0);
         if (r < 0) {
                 log_debug_errno(r, "Failed to wait for child: %m");
                 goto finish;
@@ -1211,7 +1211,7 @@ static int mount_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace.");
 
-        r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
+        r = chase(src, /* root= */ NULL, /* flags= */ 0, &chased_src_path, &chased_src_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to resolve source path '%s': %m", src);
         log_debug("Chased source path '%s': %s", src, chased_src_path);
@@ -1330,7 +1330,7 @@ static int mount_in_namespace(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child: %m");
         if (r != EXIT_SUCCESS) {
@@ -1394,7 +1394,7 @@ int make_mount_point(const char *path) {
         if (r > 0)
                 return 0;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, path, path, NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, path, path, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1406,13 +1406,13 @@ int fd_make_mount_point(int fd) {
 
         assert(fd >= 0);
 
-        r = is_mount_point_at(fd, NULL, 0);
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine whether file descriptor is a mount point: %m");
         if (r > 0)
                 return 0;
 
-        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(fd), FORMAT_PROC_FD_PATH(fd), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(fd), FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1501,12 +1501,12 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
         transfer_fds[1] = safe_close(transfer_fds[1]);
 
         /* Accept the new cloned mount */
-        _cleanup_close_ int fd1 = receive_one_fd(transfer_fds[0], 0);
+        _cleanup_close_ int fd1 = receive_one_fd(transfer_fds[0], /* flags= */ 0);
         if (fd1 < 0)
                 return fd1;
 
         if (replacement_fd) {
-                int fd2 = receive_one_fd(transfer_fds[0], 0);
+                int fd2 = receive_one_fd(transfer_fds[0], /* flags= */ 0);
                 if (fd2 < 0)
                         return fd2;
 
@@ -2143,7 +2143,7 @@ char* umount_and_rmdir_and_free(char *p) {
                 return NULL;
 
         PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
+        (void) umount_recursive(p, /* flags= */ 0);
         (void) rmdir(p);
         return mfree(p);
 }
@@ -2153,7 +2153,7 @@ char* umount_and_free(char *p) {
                 return NULL;
 
         PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
+        (void) umount_recursive(p, /* flags= */ 0);
         return mfree(p);
 }
 
@@ -2162,7 +2162,7 @@ char* umount_and_unlink_and_free(char *p) {
                 return NULL;
 
         PROTECT_ERRNO;
-        (void) umount2(p, 0);
+        (void) umount2(p, /* flags= */ 0);
         (void) unlink(p);
         return mfree(p);
 }

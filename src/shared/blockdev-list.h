@@ -79,5 +79,5 @@ int blockdev_list_full(
                 size_t *ret_n_devices);
 
 static inline int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
-        return blockdev_list_full(flags, 0, 0, ret_devices, ret_n_devices);
+        return blockdev_list_full(flags, /* root_devno= */ 0, /* whole_root_devno= */ 0, ret_devices, ret_n_devices);
 }

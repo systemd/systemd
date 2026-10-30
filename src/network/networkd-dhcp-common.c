@@ -214,7 +214,7 @@ int manager_request_product_uuid(Manager *m) {
 
         r = bus_call_method_async(
                         m->bus,
-                        NULL,
+                        /* ret_slot= */ NULL,
                         bus_hostname,
                         "GetProductUUID",
                         get_product_uuid_handler,
@@ -678,7 +678,7 @@ int config_parse_dhcp4_user_class(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
 
-                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
@@ -723,7 +723,7 @@ int config_parse_dhcp6_user_or_vendor_class(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
 
-                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
@@ -779,7 +779,7 @@ int config_parse_dhcp6_send_option(
 
         p = rvalue;
         if (streq(lvalue, "SendVendorOption")) {
-                r = extract_first_word(&p, &word, ":", 0);
+                r = extract_first_word(&p, &word, ":", /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0 || isempty(p)) {
@@ -797,7 +797,7 @@ int config_parse_dhcp6_send_option(
                 word = mfree(word);
         }
 
-        r = extract_first_word(&p, &word, ":", 0);
+        r = extract_first_word(&p, &word, ":", /* flags= */ 0);
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p)) {
@@ -819,7 +819,7 @@ int config_parse_dhcp6_send_option(
         }
 
         word = mfree(word);
-        r = extract_first_word(&p, &word, ":", 0);
+        r = extract_first_word(&p, &word, ":", /* flags= */ 0);
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p)) {
@@ -964,7 +964,7 @@ int config_parse_dhcp_option(
 
         _cleanup_free_ char *word = NULL;
         const char *p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
+        r = extract_first_word(&p, &word, ":", /* flags= */ 0);
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p))
@@ -1081,7 +1081,7 @@ int config_parse_dhcp_option_tlv(
 
         _cleanup_free_ char *word = NULL;
         const char *p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
+        r = extract_first_word(&p, &word, ":", /* flags= */ 0);
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p))
@@ -1140,7 +1140,7 @@ int config_parse_dhcp_request_options(
                 _cleanup_free_ char *n = NULL;
                 uint32_t i;
 
-                r = extract_first_word(&p, &n, NULL, 0);
+                r = extract_first_word(&p, &n, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1166,7 +1166,7 @@ int config_parse_dhcp_request_options(
                 }
 
                 r = set_ensure_put(ltype == AF_INET ? &network->dhcp_request_options : &network->dhcp6_request_options,
-                                   NULL, UINT32_TO_PTR(i));
+                                   /* hash_ops= */ NULL, UINT32_TO_PTR(i));
                 if (r < 0)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
@@ -1217,7 +1217,7 @@ int config_parse_duid_type(
         if (!force && duid->set)
                 return 0;
 
-        r = extract_first_word(&p, &type_string, ":", 0);
+        r = extract_first_word(&p, &type_string, ":", /* flags= */ 0);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1288,11 +1288,11 @@ int config_parse_manager_duid_type(
 
         /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
-        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
+        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
                 return r;
 
-        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp6_duid, manager);
+        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &manager->dhcp6_duid, manager);
 }
 
 int config_parse_network_duid_type(
@@ -1310,12 +1310,12 @@ int config_parse_network_duid_type(
         Network *network = ASSERT_PTR(userdata);
         int r;
 
-        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, true, rvalue, &network->dhcp_duid, network);
+        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, /* ltype= */ true, rvalue, &network->dhcp_duid, network);
         if (r < 0)
                 return r;
 
         /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
-        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
+        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &network->dhcp6_duid, network);
 }
 
 int config_parse_duid_rawdata(
@@ -1348,7 +1348,7 @@ int config_parse_duid_rawdata(
                 uint32_t byte;
                 _cleanup_free_ char *cbyte = NULL;
 
-                r = extract_first_word(&p, &cbyte, ":", 0);
+                r = extract_first_word(&p, &cbyte, ":", /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1408,11 +1408,11 @@ int config_parse_manager_duid_rawdata(
 
         /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
-        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
+        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
                 return r;
 
-        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp6_duid, manager);
+        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &manager->dhcp6_duid, manager);
 }
 
 int config_parse_network_duid_rawdata(
@@ -1430,12 +1430,12 @@ int config_parse_network_duid_rawdata(
         Network *network = ASSERT_PTR(userdata);
         int r;
 
-        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, true, rvalue, &network->dhcp_duid, network);
+        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, /* ltype= */ true, rvalue, &network->dhcp_duid, network);
         if (r < 0)
                 return r;
 
         /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
-        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
+        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, /* ltype= */ false, rvalue, &network->dhcp6_duid, network);
 }
 
 int config_parse_uplink(

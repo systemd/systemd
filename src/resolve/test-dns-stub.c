@@ -21,7 +21,7 @@ static void make_request(DnsResourceKey *key, uint16_t max_udp_size, DnsPacket *
                                        /* dnssec_checking_disabled= */ false));
         DNS_PACKET_HEADER(p)->id = htobe16(42);
 
-        ASSERT_OK(dns_packet_append_key(p, key, 0, NULL));
+        ASSERT_OK(dns_packet_append_key(p, key, /* flags= */ 0, /* start= */ NULL));
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
 
         /* Without max_udp_size the client doesn't use EDNS0 */
@@ -51,7 +51,7 @@ static void append_dnskey(DnsPacket *p, DnsResourceKey *key, char fill) {
         ASSERT_NOT_NULL(rr->dnskey.key = malloc(DNSKEY_KEY_SIZE));
         memset(rr->dnskey.key, fill, DNSKEY_KEY_SIZE);
 
-        ASSERT_OK(dns_packet_append_rr(p, rr, 0, NULL, NULL));
+        ASSERT_OK(dns_packet_append_rr(p, rr, /* flags= */ 0, /* start= */ NULL, /* rdata_start= */ NULL));
 }
 
 static void make_upstream_reply(DnsResourceKey *key, const char *layout, DnsPacket **ret) {
@@ -69,7 +69,7 @@ static void make_upstream_reply(DnsResourceKey *key, const char *layout, DnsPack
         DNS_PACKET_HEADER(p)->flags = htobe16(
                         DNS_PACKET_MAKE_FLAGS(1, 0, 0, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_key(p, key, 0, NULL));
+        ASSERT_OK(dns_packet_append_key(p, key, /* flags= */ 0, /* start= */ NULL));
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
 
         for (const char *c = layout; *c; c++) {
@@ -114,7 +114,7 @@ static void parse_reply(DnsPacket *reply, DnsPacket **ret_parsed, char **ret_lay
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
         for (unsigned i = 0; i < DNS_PACKET_QDCOUNT(p); i++)
-                ASSERT_OK(dns_packet_read_key(p, NULL, NULL, NULL));
+                ASSERT_OK(dns_packet_read_key(p, /* ret= */ NULL, /* ret_cache_flush_or_qu= */ NULL, /* start= */ NULL));
 
         unsigned n[] = { DNS_PACKET_ANCOUNT(p), DNS_PACKET_NSCOUNT(p), DNS_PACKET_ARCOUNT(p) };
         FOREACH_ELEMENT(count, n) {
@@ -126,7 +126,7 @@ static void parse_reply(DnsPacket *reply, DnsPacket **ret_parsed, char **ret_lay
                         uint8_t fill;
 
                         log_debug("Reading RR at offset %zu of %zu", p->rindex, p->size);
-                        ASSERT_OK(dns_packet_read_rr(p, &rr, NULL, NULL));
+                        ASSERT_OK(dns_packet_read_rr(p, &rr, /* ret_cache_flush= */ NULL, /* start= */ NULL));
 
                         if (rr->key->type == DNS_TYPE_OPT) {
                                 ASSERT_NOT_NULL(strextend(&layout, "O"));
@@ -315,7 +315,7 @@ TEST(patch_bypass_reply_packet_trailing_garbage) {
 
         make_request(key, 512, &request);
         make_upstream_reply(key, "ab||O", &original);
-        ASSERT_OK(dns_packet_append_blob(original, garbage, sizeof(garbage), NULL));
+        ASSERT_OK(dns_packet_append_blob(original, garbage, sizeof(garbage), /* start= */ NULL));
         ASSERT_EQ(original->size, 528U);
 
         ASSERT_OK(dns_stub_patch_bypass_reply_packet(&reply, original, request,
