@@ -168,6 +168,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #define DECIMAL_STR_FMT(x) _Generic((x),        \
         char: "%c",                             \
         bool: "%d",                             \
+        signed char: "%hhd",                    \
         unsigned char: "%d",                    \
         short: "%hd",                           \
         unsigned short: "%hu",                  \
