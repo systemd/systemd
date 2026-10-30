@@ -5218,7 +5218,7 @@ int config_parse_bind_paths(
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
-                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_UNESCAPE_RELAX);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -5229,7 +5229,7 @@ int config_parse_bind_paths(
                         break;
 
                 const char *q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS,
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_WHITESPACE|EXTRACT_DONT_COALESCE_SEPARATORS,
                                        &source, &destination, &options, &extra);
                 if (r == -ENOMEM)
                         return log_oom();

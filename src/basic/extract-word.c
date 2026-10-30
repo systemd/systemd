@@ -78,7 +78,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 return -EINVAL;
                         }
 
-                        if (flags & (EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX)) {
+                        if (flags & (EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX|EXTRACT_UNESCAPE_WHITESPACE)) {
                                 bool eight_bit = false;
                                 char32_t u;
 
@@ -95,6 +95,10 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                                 sz += utf8_encode_unichar(s + sz, u);
                                 } else if ((flags & EXTRACT_UNESCAPE_SEPARATORS) &&
                                            (strchr(separators, **p) || **p == '\\'))
+                                        /* An escaped separator char or the escape char itself */
+                                        s[sz++] = c;
+                                else if ((flags & EXTRACT_UNESCAPE_WHITESPACE) &&
+                                           (strchr(WHITESPACE, **p) || **p == '\\'))
                                         /* An escaped separator char or the escape char itself */
                                         s[sz++] = c;
                                 else if (flags & EXTRACT_UNESCAPE_RELAX) {

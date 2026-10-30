@@ -13,6 +13,7 @@ typedef enum ExtractFlags {
         EXTRACT_DONT_COALESCE_SEPARATORS = 1 << 6, /* Don't treat multiple adjacent separators as one */
         EXTRACT_RETAIN_ESCAPE            = 1 << 7, /* Treat escape character '\' as any other character without special meaning */
         EXTRACT_RETAIN_SEPARATORS        = 1 << 8, /* Do not advance the original string pointer past the separator(s) */
+        EXTRACT_UNESCAPE_WHITESPACE      = 1 << 9, /* Unescape whitespace characters */
 
         /* Note that if no flags are specified, escaped escape characters will be silently stripped. */
 } ExtractFlags;
