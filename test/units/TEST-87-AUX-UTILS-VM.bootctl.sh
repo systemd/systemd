@@ -369,10 +369,38 @@ testcase_bootctl_varlink() {
     SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
 }
 
+check_auto_enroll_certificate() {
+    python3 - "$1" "$2" <<'PY'
+import pathlib
+import struct
+import subprocess
+import sys
+import uuid
+
+certificate = subprocess.check_output(["openssl", "x509", "-in", sys.argv[2], "-outform", "DER"])
+for name in ("PK.auth", "KEK.auth", "db.auth"):
+    data = (pathlib.Path(sys.argv[1]) / name).read_bytes()
+    # Skip EFI_TIME and the variable-length authentication header, including the PKCS#7 signature.
+    assert len(data) >= 40, name
+    auth_size = struct.unpack_from("<I", data, 16)[0]
+    assert 24 <= auth_size <= len(data) - 16 - 28, name
+    signature_list = data[16 + auth_size:]
+    assert signature_list[:16] == uuid.UUID("a5c059a1-94e4-4aa7-87b5-ab155c2bf072").bytes_le, name
+    list_size, header_size, signature_size = struct.unpack_from("<III", signature_list, 16)
+    assert header_size == 0 and signature_size == 16 + len(certificate), name
+    assert list_size == len(signature_list) == 28 + signature_size, name
+    assert signature_list[44:] == certificate, name
+PY
+}
+
 testcase_bootctl_secure_boot_auto_enroll() {
+    local keys_dir preserved_files cert file
+    keys_dir="$(bootctl --print-esp-path)/loader/keys/auto"
+    preserved_files="$(mktemp -d)"
+
     # mkosi can also add keys here, so back them up and restored them
     backup_esp
-    trap restore_esp RETURN ERR
+    trap 'rm -rf -- "$keys_dir" "$preserved_files"; restore_esp' RETURN ERR
 
     cat >/tmp/openssl.conf <<EOF
 [ req ]
@@ -394,22 +422,30 @@ EOF
             -keyout /tmp/sb.key -out /tmp/sb.crt
 
     # Start without keys, so that the first installation creates them
-    rm -rf "$(bootctl --print-esp-path)/loader/keys/auto"
+    rm -rf "$keys_dir"
 
     bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb.crt --private-key /tmp/sb.key
-    for var in PK KEK db; do
-        test -f "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth"
-    done
+    check_auto_enroll_certificate "$keys_dir" /tmp/sb.crt
 
-    # Installing again with a different certificate replaces the existing files instead of failing
+    # These sentinel files test preservation only; no keys are enrolled by this test.
+    printf 'preserve the existing revocation database\n' >"$preserved_files/dbx.auth"
+    printf 'preserve unrelated files\n' >"$preserved_files/extra-file"
+    mkdir "$preserved_files/extra-dir"
+    printf 'preserve nested files\n' >"$preserved_files/extra-dir/nested-file"
+    cp -r "$preserved_files/." "$keys_dir/"
+
     openssl req -config /tmp/openssl.conf -subj="/CN=waldo2" \
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/sb2.key -out /tmp/sb2.crt
-    bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb2.crt --private-key /tmp/sb2.key
-    local cert_hex
-    cert_hex="$(openssl x509 -in /tmp/sb2.crt -outform DER | od -An -v -tx1 | tr -d ' \n')"
-    for var in PK KEK db; do
-        od -An -v -tx1 "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth" | tr -d ' \n' | grep -F "$cert_hex" >/dev/null
+
+    # Both same-certificate reinstallation and certificate rotation must preserve unrelated contents.
+    for cert in sb sb2; do
+        bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes \
+                --certificate "/tmp/$cert.crt" --private-key "/tmp/$cert.key"
+        check_auto_enroll_certificate "$keys_dir" "/tmp/$cert.crt"
+        for file in dbx.auth extra-file extra-dir/nested-file; do
+            cmp "$preserved_files/$file" "$keys_dir/$file"
+        done
     done
     bootctl remove
 }

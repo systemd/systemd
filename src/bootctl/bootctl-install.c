@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -1072,19 +1073,14 @@ static int efi_timestamp(EFI_TIME *ret) {
 
         return 0;
 }
-#endif
 
-static int install_secure_boot_auto_enroll(InstallContext *c) {
-#if HAVE_OPENSSL
+static int write_secure_boot_auto_enroll(InstallContext *c, int keys_fd) {
         int r;
-#endif
 
-        if (!arg_secure_boot_auto_enroll)
-                return 0;
-
-#if HAVE_OPENSSL
-        if (!c->secure_boot_certificate || !c->secure_boot_private_key)
-                return 0;
+        assert(c);
+        assert(c->secure_boot_certificate);
+        assert(c->secure_boot_private_key);
+        assert(keys_fd >= 0);
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -1095,23 +1091,6 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         dercertsz = sym_i2d_X509(c->secure_boot_certificate, &dercert);
         if (dercertsz < 0)
                 return log_openssl_errors(LOG_ERR, "Failed to convert X.509 certificate to DER");
-
-        if (c->esp_fd < 0)
-                return c->esp_fd;
-
-        _cleanup_free_ char *j = path_join(c->root, c->esp_path);
-        if (!j)
-                return log_oom();
-
-        _cleanup_close_ int keys_fd = -EBADF;
-        r = chaseat(c->esp_fd,
-                    c->esp_fd,
-                    "loader/keys/auto",
-                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
-                    /* ret_path= */ NULL,
-                    &keys_fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to chase /loader/keys/auto/ below '%s': %m", j);
 
         uint32_t siglistsz = offsetof(EFI_SIGNATURE_LIST, Signatures) + offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz;
         /* We use malloc0() to zero-initialize the SignatureOwner field of Signatures[0]. */
@@ -1215,18 +1194,116 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to write signature list to secure boot auto-enrollment file: %m");
 
-                /* Unlike loader.conf, these files are derived entirely from the certificate passed in, hence
-                 * replace existing ones instead of failing (or keeping stale keys) when installing again. */
+                /* Only replace files in the private staging directory. */
                 r = link_tmpfile_at(fd, keys_fd, t, filename, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to link secure boot auto-enrollment file: %m");
 
                 t = mfree(t); /* Disarm CLEANUP_TMPFILE_AT() */
 
-                log_info("Secure boot auto-enrollment file '%s/loader/keys/auto/%s' successfully written.", j, filename);
+                log_debug("Prepared secure boot auto-enrollment file '%s'.", filename);
         }
 
         return 0;
+}
+#endif
+
+static int install_secure_boot_auto_enroll(InstallContext *c) {
+        if (!arg_secure_boot_auto_enroll)
+                return 0;
+
+#if HAVE_OPENSSL
+        _cleanup_close_ int parent_fd = -EBADF, old_fd = -EBADF, stage_fd = -EBADF;
+        _cleanup_free_ char *path = NULL, *stage = NULL;
+        int r, q;
+
+        if (!c->secure_boot_certificate || !c->secure_boot_private_key)
+                return 0;
+        if (c->esp_fd < 0)
+                return c->esp_fd;
+
+        path = path_join(c->root, c->esp_path, "loader/keys");
+        if (!path)
+                return log_oom();
+
+        parent_fd = chase_and_openat(
+                        c->esp_fd, c->esp_fd, "loader/keys",
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                        O_RDONLY|O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+        if (parent_fd < 0)
+                return log_error_errno(parent_fd, "Failed to open secure boot keys directory '%s': %m", path);
+
+        /* Lock the stable parent, not the directory inode that is about to be exchanged. */
+        if (flock(parent_fd, LOCK_EX) < 0)
+                return log_error_errno(errno, "Failed to lock secure boot keys directory '%s': %m", path);
+
+        old_fd = openat(parent_fd, "auto", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (old_fd < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to open existing secure boot keys directory: %m");
+
+        r = tempfn_random("auto", NULL, &stage);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary secure boot directory name: %m");
+        if (mkdirat(parent_fd, stage, 0755) < 0)
+                return log_error_errno(errno, "Failed to create temporary secure boot keys directory: %m");
+
+        if (old_fd >= 0) {
+                /* Preserve dbx.auth and any other existing contents and directory attributes. */
+                r = copy_directory_at(old_fd, NULL, parent_fd, stage, UID_INVALID, GID_INVALID,
+                                      COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_FSYNC|COPY_FSYNC_FULL|COPY_ALL_XATTRS);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to copy existing secure boot keys: %m");
+                        goto fail;
+                }
+        }
+
+        stage_fd = openat(parent_fd, stage, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (stage_fd < 0) {
+                r = log_error_errno(errno, "Failed to open temporary secure boot keys directory: %m");
+                goto fail;
+        }
+
+        r = write_secure_boot_auto_enroll(c, stage_fd);
+        if (r < 0)
+                goto fail;
+        if (fsync(stage_fd) < 0 || fsync(parent_fd) < 0) {
+                r = log_error_errno(errno, "Failed to synchronize prepared secure boot keys: %m");
+                goto fail;
+        }
+
+        /* sd-boot ignores hidden directories. Publish the complete set in one operation, retaining
+         * the old directory until the exchange is durable. Never fall back to removing 'auto' first. */
+        if (renameat2(parent_fd, stage, parent_fd, "auto", old_fd >= 0 ? RENAME_EXCHANGE : RENAME_NOREPLACE) < 0) {
+                r = log_error_errno(errno, "Failed to install secure boot keys directory: %m");
+                goto fail;
+        }
+
+        if (fsync(parent_fd) < 0) {
+                r = log_error_errno(errno, "Secure boot keys were installed, but synchronizing their directory failed: %m");
+                if (old_fd >= 0)
+                        log_warning("Previous secure boot keys retained in '%s/%s'.", path, stage);
+                return r;
+        }
+
+        if (old_fd >= 0) {
+                r = rm_rf_at(parent_fd, stage, REMOVE_ROOT|REMOVE_PHYSICAL);
+                if (r < 0)
+                        log_warning_errno(r, "Secure boot keys were installed, but removing old directory '%s/%s' failed: %m",
+                                          path, stage);
+                else if (fsync(parent_fd) < 0)
+                        log_warning_errno(errno, "Failed to synchronize old secure boot keys directory removal: %m");
+        }
+
+        log_info("Secure boot auto-enrollment files installed in '%s/auto'.", path);
+        return 0;
+
+fail:
+        q = rm_rf_at(parent_fd, stage, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        if (q < 0)
+                log_warning_errno(q, "Failed to remove temporary secure boot keys directory '%s/%s': %m", path, stage);
+        else if (fsync(parent_fd) < 0)
+                log_warning_errno(errno, "Failed to synchronize temporary secure boot keys directory removal: %m");
+        return r;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Built without OpenSSL support, cannot set up auto-enrollment.");
 #endif
