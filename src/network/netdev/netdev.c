@@ -54,6 +54,7 @@
 #include "xfrm.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
+        [NETDEV_KIND_AMNEZIAWG] = &amneziawg_vtable,
         [NETDEV_KIND_BAREUDP]   = &bare_udp_vtable,
         [NETDEV_KIND_BATADV]    = &batadv_vtable,
         [NETDEV_KIND_BOND]      = &bond_vtable,
@@ -95,6 +96,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
+        [NETDEV_KIND_AMNEZIAWG] = "amneziawg",
         [NETDEV_KIND_BAREUDP]   = "bareudp",
         [NETDEV_KIND_BATADV]    = "batadv",
         [NETDEV_KIND_BOND]      = "bond",

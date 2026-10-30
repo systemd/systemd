@@ -1066,7 +1066,7 @@ static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
 
         assert(link);
 
-        if (!link->netdev || link->netdev->kind != NETDEV_KIND_WIREGUARD)
+        if (!link->netdev || !IN_SET(link->netdev->kind, NETDEV_KIND_WIREGUARD, NETDEV_KIND_AMNEZIAWG))
                 return 0;
 
         Wireguard *w = WIREGUARD(link->netdev);
@@ -1618,7 +1618,7 @@ int link_drop_routes(Link *link, bool only_static) {
                 }
 
                 /* Also unmark routes requested in .netdev file. */
-                if (other->netdev && other->netdev->kind == NETDEV_KIND_WIREGUARD) {
+                if (other->netdev && IN_SET(other->netdev->kind, NETDEV_KIND_WIREGUARD, NETDEV_KIND_AMNEZIAWG)) {
                         Wireguard *w = WIREGUARD(other->netdev);
 
                         SET_FOREACH(route, w->routes) {
