@@ -549,7 +549,7 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
                 return bus_log_create_error(r);
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, NULL);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r == -ETIME)
                 return r;
         if (r < 0)
@@ -607,7 +607,7 @@ static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, /* types= */ NULL);
         if (r == -ETIME)
                 return r;
         if (r < 0) {
