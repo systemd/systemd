@@ -185,7 +185,7 @@ const char* default_root_shell_at(int rfd) {
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        int r = chaseat(rfd, rfd, DEFAULT_USER_SHELL, /* flags= */ 0, NULL, NULL);
+        int r = chaseat(rfd, rfd, DEFAULT_USER_SHELL, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to look up shell '%s': %m", DEFAULT_USER_SHELL);
         if (r > 0)
@@ -261,9 +261,9 @@ static int synthesize_user_creds(
         /* We enforce some special rules for uid=0 and uid=65534: in order to avoid nss lookups for root we
          * hardcode their user record data. */
         if (STR_IN_SET(username, "root", "0"))
-                return return_user_creds("root", 0, 0,
+                return return_user_creds("root", /* uid= */ 0, /* gid= */ 0,
                                          "/root",
-                                         ret_shell ? default_root_shell(NULL) : NULL,
+                                         ret_shell ? default_root_shell(/* root= */ NULL) : NULL,
                                          ret_username,
                                          ret_uid, ret_gid,
                                          ret_home,
@@ -645,7 +645,7 @@ int get_shell(char **ret) {
         /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                e = default_root_shell(NULL);
+                e = default_root_shell(/* root= */ NULL);
                 goto found;
         }
         if (u == UID_NOBODY && synthesize_nobody()) {
@@ -728,8 +728,8 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         if (isempty(u)) /* An empty user name is never valid */
                 return false;
 
-        if (parse_uid(u, NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
-                                      * flag for it is set */
+        if (parse_uid(u, /* ret_uid= */ NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
+                                                     * flag for it is set */
                 return FLAGS_SET(flags, VALID_USER_ALLOW_NUMERIC);
 
         if (FLAGS_SET(flags, VALID_USER_RELAX)) {
@@ -755,8 +755,8 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                 if (!utf8_is_valid(u)) /* We want to synthesize JSON from this, hence insist on UTF-8 */
                         return false;
 
-                if (string_has_cc(u, NULL)) /* CC characters are just dangerous (and \n in particular is the
-                                             * record separator in /etc/passwd), so we can't allow that. */
+                if (string_has_cc(u, /* ok= */ NULL)) /* CC characters are just dangerous (and \n in particular is the
+                                                       * record separator in /etc/passwd), so we can't allow that. */
                         return false;
 
                 if (strpbrk(u, ":/")) /* Colons are the field separator in /etc/passwd, we can't allow
@@ -783,7 +783,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                         return false;
 
                 /* Compare with strict result and warn if result doesn't match */
-                if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, 0))
+                if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, /* flags= */ 0))
                         log_struct(LOG_NOTICE,
                                    LOG_MESSAGE("Accepting user/group name '%s', which does not match strict user/group name rules.", u),
                                    LOG_ITEM("USER_GROUP_NAME=%s", u),
@@ -839,7 +839,7 @@ bool valid_gecos(const char *d) {
         if (!utf8_is_valid(d))
                 return false;
 
-        if (string_has_cc(d, NULL))
+        if (string_has_cc(d, /* ok= */ NULL))
                 return false;
 
         /* Colons are used as field separators, and hence not OK */
@@ -890,7 +890,7 @@ bool valid_home(const char *p) {
         if (!utf8_is_valid(p))
                 return false;
 
-        if (string_has_cc(p, NULL))
+        if (string_has_cc(p, /* ok= */ NULL))
                 return false;
 
         if (!path_is_absolute(p))
@@ -1074,7 +1074,7 @@ int is_this_me(const char *username) {
 
         /* Checks if the specified username is our current one. Passed string might be a UID or a user name. */
 
-        r = get_user_creds(username, /* flags= */ USER_CREDS_ALLOW_MISSING, NULL, &uid, NULL, NULL, NULL);
+        r = get_user_creds(username, /* flags= */ USER_CREDS_ALLOW_MISSING, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
         if (r < 0)
                 return r;
 

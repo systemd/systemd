@@ -15,8 +15,8 @@ TEST(uid_range) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
         uid_t search;
 
-        ASSERT_TRUE(uid_range_covers(p, 0, 0));
-        ASSERT_FALSE(uid_range_covers(p, 0, 1));
+        ASSERT_TRUE(uid_range_covers(p, /* start= */ 0, /* nr= */ 0));
+        ASSERT_FALSE(uid_range_covers(p, /* start= */ 0, 1));
         ASSERT_FALSE(uid_range_covers(p, 100, UINT32_MAX));
         ASSERT_FALSE(uid_range_covers(p, UINT32_MAX, 1));
         ASSERT_FALSE(uid_range_covers(p, UINT32_MAX - 10, 11));
@@ -121,7 +121,7 @@ TEST(load_userns) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        r = uid_range_load_userns(NULL, UID_RANGE_USERNS_INSIDE, &p);
+        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &p);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
@@ -134,10 +134,10 @@ TEST(load_userns) {
                 ASSERT_EQ(p->entries[0].start, 0U);
                 ASSERT_EQ(p->entries[0].nr, UINT32_MAX);
 
-                ASSERT_TRUE(uid_range_covers(p, 0, UINT32_MAX));
+                ASSERT_TRUE(uid_range_covers(p, /* start= */ 0, UINT32_MAX));
         }
 
-        ASSERT_OK(fopen_temporary_child(NULL, &f, &fn));
+        ASSERT_OK(fopen_temporary_child(/* path= */ NULL, &f, &fn));
         fputs("0 0 20\n"
               "100 0 20\n", f);
         ASSERT_OK(fflush_and_check(f));
@@ -146,7 +146,7 @@ TEST(load_userns) {
 
         ASSERT_OK(uid_range_load_userns(fn, UID_RANGE_USERNS_INSIDE, &p));
 
-        ASSERT_TRUE(uid_range_contains(p, 0));
+        ASSERT_TRUE(uid_range_contains(p, /* uid= */ 0));
         ASSERT_TRUE(uid_range_contains(p, 19));
         ASSERT_FALSE(uid_range_contains(p, 20));
 
@@ -205,7 +205,7 @@ TEST(uid_range_clip) {
         ASSERT_EQ(uid_range_entries(p), 3U);
 
         /* Intersect with range that covers all entries */
-        ASSERT_OK(uid_range_clip(p, 0, 1000));
+        ASSERT_OK(uid_range_clip(p, /* min= */ 0, 1000));
         ASSERT_EQ(uid_range_entries(p), 3U);
         ASSERT_EQ(p->entries[0].start, 100U);
         ASSERT_EQ(p->entries[0].nr, 100U);
@@ -246,7 +246,7 @@ TEST(uid_range_clip) {
 
         /* Test with max == UINT32_MAX (should not overflow) */
         ASSERT_OK(uid_range_add_str(&p, "100-199"));
-        ASSERT_OK(uid_range_clip(p, 0, UINT32_MAX));
+        ASSERT_OK(uid_range_clip(p, /* min= */ 0, UINT32_MAX));
         ASSERT_EQ(uid_range_entries(p), 1U);
         ASSERT_EQ(p->entries[0].start, 100U);
         ASSERT_EQ(p->entries[0].nr, 100U);
@@ -396,7 +396,7 @@ TEST(uid_range_copy) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL, *copy = NULL;
 
         /* Copy NULL range */
-        ASSERT_OK(uid_range_copy(NULL, &copy));
+        ASSERT_OK(uid_range_copy(/* range= */ NULL, &copy));
         ASSERT_TRUE(uid_range_is_empty(copy));
 
         copy = uid_range_free(copy);
@@ -430,13 +430,13 @@ TEST(uid_range_remove) {
         ASSERT_OK(uid_range_add_str(&p, "100-199"));
 
         /* Remove with size 0 - no-op */
-        ASSERT_OK(uid_range_remove(p, 150, 0));
+        ASSERT_OK(uid_range_remove(p, 150, /* size= */ 0));
         ASSERT_EQ(uid_range_entries(p), 1U);
         ASSERT_EQ(p->entries[0].start, 100U);
         ASSERT_EQ(p->entries[0].nr, 100U);
 
         /* Remove range that doesn't overlap - no change */
-        ASSERT_OK(uid_range_remove(p, 0, 50));
+        ASSERT_OK(uid_range_remove(p, /* start= */ 0, 50));
         ASSERT_EQ(uid_range_entries(p), 1U);
         ASSERT_EQ(p->entries[0].start, 100U);
         ASSERT_EQ(p->entries[0].nr, 100U);
@@ -536,10 +536,10 @@ TEST(uid_range_translate) {
         ASSERT_EQ(uid, 399U);
 
         /* Test UID not in any range returns ESRCH */
-        ASSERT_ERROR(uid_range_translate(o, i, 0, &uid), ESRCH);
+        ASSERT_ERROR(uid_range_translate(o, i, /* uid= */ 0, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(o, i, 199, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(o, i, 400, &uid), ESRCH);
-        ASSERT_ERROR(uid_range_translate(i, o, 0, &uid), ESRCH);
+        ASSERT_ERROR(uid_range_translate(i, o, /* uid= */ 0, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(i, o, 99, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(i, o, 200, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(i, o, 349, &uid), ESRCH);

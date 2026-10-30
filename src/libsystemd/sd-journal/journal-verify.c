@@ -506,7 +506,7 @@ static int offset_array_contains(const OffsetArray *a, uint64_t p) {
         while (lo < hi) {
                 uint64_t c = lo + (hi - lo) / 2, *z;
 
-                r = mmap_cache_fd_get(a->cache_fd, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, /* ret_size= */ NULL);
+                r = mmap_cache_fd_get(a->cache_fd, 0, /* keep_always= */ false, c * sizeof(uint64_t), sizeof(uint64_t), /* st= */ NULL, (void **) &z, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -774,7 +774,7 @@ static int verify_entry(
                 if (r < 0)
                         return r;
 
-                r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, NULL, NULL);
+                r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, /* ret_object= */ NULL, /* ret_offset= */ NULL);
                 if (r < 0)
                         return r;
 

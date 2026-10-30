@@ -36,22 +36,22 @@ TEST(provider_url_parse) {
         test_provider_url_parse_one("provider:[/run/systemd/sysupdate/provider/io.foo]/pool/x-v1.raw", "/run/systemd/sysupdate/provider/io.foo", "pool/x-v1.raw");
         test_provider_url_parse_one("provider:[/run/foobar]/a/b/c", "/run/foobar", "a/b/c");
 
-        test_provider_url_parse_one("", NULL, NULL);
-        test_provider_url_parse_one("provider:", NULL, NULL);
-        test_provider_url_parse_one("provider:[]/waldo", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]/", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]waldo", NULL, NULL);
-        test_provider_url_parse_one("provider:[run/foobar]/waldo", NULL, NULL);     /* socket not absolute */
-        test_provider_url_parse_one("provider:[/run//foobar]/waldo", NULL, NULL);   /* socket not normalized */
-        test_provider_url_parse_one("provider:[/run/foobar]//waldo", NULL, NULL);   /* resource absolute */
-        test_provider_url_parse_one("provider:[/run/foobar]/../waldo", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]/a/./b", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]/wal\ndo", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]/waldo?x", NULL, NULL);
-        test_provider_url_parse_one("provider:[/run/foobar]/waldo#x", NULL, NULL);
-        test_provider_url_parse_one("https://example.com/waldo", NULL, NULL);
-        test_provider_url_parse_one("provider:/run/foobar/waldo", NULL, NULL);
+        test_provider_url_parse_one("", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[]/waldo", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]/", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]waldo", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[run/foobar]/waldo", /* socket= */ NULL, /* resource= */ NULL);     /* socket not absolute */
+        test_provider_url_parse_one("provider:[/run//foobar]/waldo", /* socket= */ NULL, /* resource= */ NULL);   /* socket not normalized */
+        test_provider_url_parse_one("provider:[/run/foobar]//waldo", /* socket= */ NULL, /* resource= */ NULL);   /* resource absolute */
+        test_provider_url_parse_one("provider:[/run/foobar]/../waldo", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]/a/./b", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]/wal\ndo", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]/waldo?x", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:[/run/foobar]/waldo#x", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("https://example.com/waldo", /* socket= */ NULL, /* resource= */ NULL);
+        test_provider_url_parse_one("provider:/run/foobar/waldo", /* socket= */ NULL, /* resource= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

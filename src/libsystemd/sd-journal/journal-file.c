@@ -438,7 +438,7 @@ static int journal_file_init_header(
         else
                 h.seqnum_id = h.file_id;
 
-        return pwrite_full(f->fd, &h, sizeof(h), 0);
+        return pwrite_full(f->fd, &h, sizeof(h), /* offset= */ 0);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
@@ -577,11 +577,11 @@ int journal_file_verify_header(JournalFile *f) {
 
         /* In both read and write mode we refuse to open files with incompatible
          * flags we don't know. */
-        if (warn_wrong_flags(f, false))
+        if (warn_wrong_flags(f, /* compatible= */ false))
                 return -EPROTONOSUPPORT;
 
         /* When open for writing we refuse to open files with compatible flags, too. */
-        if (journal_file_writable(f) && warn_wrong_flags(f, true))
+        if (journal_file_writable(f) && warn_wrong_flags(f, /* compatible= */ true))
                 return -EPROTONOSUPPORT;
 
         uint8_t state = READ_NOW(f->header->state);
@@ -1217,7 +1217,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to_full(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
+        r = journal_file_move_to_full(f, type, /* keep_always= */ false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
         if (r < 0)
                 return r;
 
@@ -1228,7 +1228,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         /* Usually the window of the header contains the whole object, which then needs no second lookup */
         size = le64toh(READ_NOW(o->object.size));
         if (size > available) {
-                r = journal_file_move_to(f, type, false, offset, size, (void**) &o);
+                r = journal_file_move_to(f, type, /* keep_always= */ false, offset, size, (void**) &o);
                 if (r < 0)
                         return r;
 
@@ -1380,7 +1380,7 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, p, size, (void**) &o);
+        r = journal_file_move_to(f, type, /* keep_always= */ false, p, size, (void**) &o);
         if (r < 0)
                 return r;
 
@@ -1482,7 +1482,7 @@ int journal_file_map_data_hash_table(JournalFile *f) {
 
         r = journal_file_move_to(f,
                                  OBJECT_DATA_HASH_TABLE,
-                                 true,
+                                 /* keep_always= */ true,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -1508,7 +1508,7 @@ int journal_file_map_field_hash_table(JournalFile *f) {
 
         r = journal_file_move_to(f,
                                  OBJECT_FIELD_HASH_TABLE,
-                                 true,
+                                 /* keep_always= */ true,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -1905,7 +1905,7 @@ static int journal_file_append_field(
         assert(field);
         assert(size > 0);
 
-        if (!journal_field_valid(field, size, true))
+        if (!journal_field_valid(field, size, /* allow_protected= */ true))
                 return -EBADMSG;
 
         hash = journal_file_hash_data(f, field, size);
@@ -2049,7 +2049,7 @@ static int journal_file_append_data(
                 return r;
 
         /* Create field object ... */
-        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, NULL);
+        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, /* ret_offset= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2709,7 +2709,7 @@ static void schedule_post_change(JournalFile *f) {
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 goto fail;
 
-        r = sd_event_source_get_enabled(f->post_change_timer, NULL);
+        r = sd_event_source_get_enabled(f->post_change_timer, /* ret= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get ftruncate timer state: %m");
                 goto fail;
@@ -2751,7 +2751,7 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return 0;
 
-        r = sd_event_add_time(e, &timer, CLOCK_MONOTONIC, 0, 0, post_change_thunk, f);
+        r = sd_event_add_time(e, &timer, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, post_change_thunk, f);
         if (r < 0)
                 return r;
 
@@ -3556,7 +3556,7 @@ static int generic_array_bisect_for_data(
                  * object. */
         }
 
-        r = generic_array_bisect(f, first, n, needle, test_object, direction, ret_object, ret_offset, NULL);
+        r = generic_array_bisect(f, first, n, needle, test_object, direction, ret_object, ret_offset, /* ret_idx= */ NULL);
         if (r != 0)
                 return r; /* When > 0, the found object is the first (or last, when DIRECTION_UP) object.
                            * Hence, return the found object now. */
@@ -3611,7 +3611,7 @@ int journal_file_move_to_entry_by_offset(
                         p,
                         test_object_offset,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset, /* ret_idx= */ NULL);
 }
 
 static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -3651,7 +3651,7 @@ int journal_file_move_to_entry_by_seqnum(
                         seqnum,
                         test_object_seqnum,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset, /* ret_idx= */ NULL);
 }
 
 static int test_object_realtime(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -3691,7 +3691,7 @@ int journal_file_move_to_entry_by_realtime(
                         realtime,
                         test_object_realtime,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset, /* ret_idx= */ NULL);
 }
 
 static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -3741,7 +3741,7 @@ int journal_file_move_to_entry_by_monotonic(
 
         assert(f);
 
-        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
+        r = find_data_object_by_boot_id(f, boot_id, &o, /* ret_offset= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -3830,8 +3830,8 @@ int journal_file_next_entry(
                                  p,
                                  test_object_offset,
                                  direction,
-                                 NULL, &q, &i); /* Here, do not read entry object, as the result object
-                                                 * may not be the one we want, and it may be broken. */
+                                 /* ret_object= */ NULL, &q, &i); /* Here, do not read entry object, as the result object
+                                                                   * may not be the one we want, and it may be broken. */
         if (r <= 0)
                 return r;
 
@@ -3980,7 +3980,7 @@ static int journal_file_move_to_entry_by_monotonic_for_data(
                 return r;
 
         /* Then, read a data object for _BOOT_ID= and seek by time. */
-        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
+        r = find_data_object_by_boot_id(f, boot_id, &o, /* ret_offset= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -3989,7 +3989,7 @@ static int journal_file_move_to_entry_by_monotonic_for_data(
                                           monotonic,
                                           test_object_monotonic,
                                           direction,
-                                          NULL, &z);
+                                          /* ret_object= */ NULL, &z);
         if (r <= 0)
                 return r;
 
@@ -4090,7 +4090,7 @@ int journal_file_seek_for_match(
         assert(f);
         assert(data || size == 0);
 
-        r = journal_file_find_data_object(f, data, size, &d, NULL);
+        r = journal_file_find_data_object(f, data, size, &d, /* ret_offset= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -4226,7 +4226,7 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->arena_size),
                le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
-               yes_no(journal_file_rotate_suggested(f, 0, LOG_DEBUG)),
+               yes_no(journal_file_rotate_suggested(f, /* max_file_usec= */ 0, LOG_DEBUG)),
                le64toh(f->header->head_entry_seqnum), le64toh(f->header->head_entry_seqnum),
                le64toh(f->header->tail_entry_seqnum), le64toh(f->header->tail_entry_seqnum),
                FORMAT_TIMESTAMP_SAFE(le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
@@ -4453,7 +4453,7 @@ int journal_file_open_full(
                 /* fds we opened here by us should also be closed by us. */
                 f->close_fd = true;
 
-                r = fd_nonblock(f->fd, false);
+                r = fd_nonblock(f->fd, /* nonblock= */ false);
                 if (r < 0)
                         goto fail;
 
@@ -4494,7 +4494,7 @@ int journal_file_open_full(
                  * file systems maintain for each file, but the API to query this is very new, hence let's emulate this
                  * via extended attributes. If extended attributes are not supported we'll just skip this, and rely
                  * solely on mtime/atime/ctime of the file. */
-                (void) fd_setcrtime(f->fd, 0);
+                (void) fd_setcrtime(f->fd, /* usec= */ 0);
 
                 r = journal_file_init_header(f, file_flags, template, seqnum_id);
                 if (r < 0)
@@ -4510,7 +4510,7 @@ int journal_file_open_full(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, /* ret_size= */ NULL);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, /* keep_always= */ true, /* offset= */ 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, /* ret_size= */ NULL);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
@@ -4869,7 +4869,7 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec
                 int r;
 
                 /* The header may be stale on unclean shutdown, so don't trust it. */
-                r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, NULL);
+                r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, /* ret_offset= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -4911,7 +4911,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
                 if (r < 0)
                         return r;
 
-                r = journal_file_move_to_entry_for_data(f, o, DIRECTION_UP, &o, NULL);
+                r = journal_file_move_to_entry_for_data(f, o, DIRECTION_UP, &o, /* ret_offset= */ NULL);
                 if (r <= 0)
                         return r;
 

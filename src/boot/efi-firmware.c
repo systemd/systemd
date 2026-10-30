@@ -66,7 +66,7 @@ EFI_STATUS efi_firmware_match_by_fwid(
         assert(fwid);
 
         const char *blob_fwid;
-        if (!efifw_validate_header(blob, blob_len, &blob_fwid, NULL))
+        if (!efifw_validate_header(blob, blob_len, &blob_fwid, /* ret_payload= */ NULL))
                 return EFI_INVALID_PARAMETER;
 
         return streq8(blob_fwid, fwid) ? EFI_SUCCESS : EFI_NOT_FOUND;

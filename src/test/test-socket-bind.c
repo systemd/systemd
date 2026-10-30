@@ -44,7 +44,7 @@ static int test_socket_bind(
 
         STRV_FOREACH(rule, allow_rules) {
                 r = config_parse_cgroup_socket_bind(
-                                u->id, "filename", 1, "Service", 1, "SocketBindAllow", 0,
+                                u->id, "filename", 1, "Service", 1, "SocketBindAllow", /* ltype= */ 0,
                                 *rule, &cc->socket_bind_allow, u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse SocketBindAllow: %m");
@@ -56,7 +56,7 @@ static int test_socket_bind(
 
         STRV_FOREACH(rule, deny_rules) {
                 r = config_parse_cgroup_socket_bind(
-                                u->id, "filename", 1, "Service", 1, "SocketBindDeny", 0,
+                                u->id, "filename", 1, "Service", 1, "SocketBindDeny", /* ltype= */ 0,
                                 *rule, &cc->socket_bind_deny, u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse SocketBindDeny: %m");
@@ -78,7 +78,7 @@ static int test_socket_bind(
         u->load_state = UNIT_LOADED;
 
         ASSERT_OK(unit_patch_contexts(u));
-        r = unit_start(u, NULL);
+        r = unit_start(u, /* details= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed: %m");
 
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         if (find_netcat_executable(&netcat_path) != 0)
                 return log_tests_skipped("Cannot find netcat executable");
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         assert_se(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL) >= 0);
 
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("2000"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("ipv6:2001-2002"), STRV_MAKE("any")) >= 0);

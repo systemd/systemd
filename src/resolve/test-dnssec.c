@@ -80,10 +80,10 @@ TEST(dnssec_verify_dns_key) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false) > 0);
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, /* mask_revoke= */ false) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, /* mask_revoke= */ false) > 0);
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example1) {
@@ -163,11 +163,11 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -251,11 +251,11 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -338,11 +338,11 @@ TEST(dnssec_verify_rfc6605_example1) {
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -432,11 +432,11 @@ TEST(dnssec_verify_rfc6605_example2) {
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -507,14 +507,14 @@ TEST(dnssec_verify_rrset) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         /* Validate the RR as it if was 2015-12-2 today */
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);
@@ -549,16 +549,16 @@ TEST(dnssec_verify_rrset_invalid_rsa_dnskey) {
         rrsig->rrsig.original_ttl = 3600;
         rrsig->rrsig.expiration = 2000000000;
         rrsig->rrsig.inception = 1000000000;
-        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, false);
+        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, /* mask_revoke= */ false);
         ASSERT_NOT_NULL(rrsig->rrsig.signer = strdup("example.com."));
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         ASSERT_NOT_NULL(rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size));
 
         ASSERT_GT(dnssec_key_match_rrsig(a->key, rrsig), 0);
-        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, false), 0);
+        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false), 0);
 
         ASSERT_NOT_NULL(answer = dns_answer_new(1));
-        ASSERT_OK(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL));
+        ASSERT_OK(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
         ASSERT_ERROR(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
                                          rrsig->rrsig.inception * USEC_PER_SEC, &result),
@@ -566,9 +566,9 @@ TEST(dnssec_verify_rrset_invalid_rsa_dnskey) {
 
         dnskey->dnskey.key = mfree(dnskey->dnskey.key);
         dnskey->dnskey.key_size = 0;
-        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, false);
+        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, /* mask_revoke= */ false);
 
-        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, false), 0);
+        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false), 0);
         ASSERT_ERROR(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
                                          rrsig->rrsig.inception * USEC_PER_SEC, &result),
                      EINVAL);
@@ -651,14 +651,14 @@ TEST(dnssec_verify_rrset2) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
         assert_se(dnssec_key_match_rrsig(nsec->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, nsec, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         /* Validate the RR as it if was 2015-12-11 today */
         assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result) >= 0);
@@ -774,20 +774,20 @@ TEST(dnssec_verify_rrset3) {
         assert_se(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
-        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
+        log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
         assert_se(dnssec_key_match_rrsig(mx1->key, rrsig) > 0);
         assert_se(dnssec_key_match_rrsig(mx2->key, rrsig) > 0);
         assert_se(dnssec_key_match_rrsig(mx3->key, rrsig) > 0);
         assert_se(dnssec_key_match_rrsig(mx4->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
 
         answer = dns_answer_new(4);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx1, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx2, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx3, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx4, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx2, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx3, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx4, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
 
         /* Validate the RR as it if was 2020-02-24 today */
         assert_se(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, &result) >= 0);
@@ -821,7 +821,7 @@ TEST(dnssec_nsec3_hash) {
         k = dnssec_nsec3_hash(rr, "eurid.eu", &h);
         assert_se(k >= 0);
 
-        b = base32hexmem(h, k, false);
+        b = base32hexmem(h, k, /* padding= */ false);
         assert_se(b);
         assert_se(strcasecmp(b, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM") == 0);
 }

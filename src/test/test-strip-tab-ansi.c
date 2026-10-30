@@ -13,13 +13,13 @@ TEST(strip_tab_ansi) {
         char *p, *z;
 
         assert_se(p = strdup("\tFoobar\tbar\twaldo\t"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         fprintf(stdout, "<%s>\n", p);
         ASSERT_STREQ(p, "        Foobar        bar        waldo        ");
         free(p);
 
         assert_se(p = strdup(ANSI_HIGHLIGHT "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         fprintf(stdout, "<%s>\n", p);
         ASSERT_STREQ(p, "Hello world!");
         free(p);
@@ -27,59 +27,59 @@ TEST(strip_tab_ansi) {
         /* Aborted sequences and complete ones are dropped (note that "\x1B[H" below is
          * a complete CSI sequence, hence "Hello" loses its first character) */
         assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "        ello world!");
         free(p);
 
         /* "\x1B[w" is a complete CSI sequence, too */
         assert_se(p = strdup("\x1B[waldo"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "aldo");
         free(p);
 
         /* Non-SGR CSI sequences are dropped as well */
         ASSERT_NOT_NULL(p = strdup("foo\x1B[2Jbar\x1B[?25lbaz"));
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "foobarbaz");
         free(p);
 
         /* Two-character Fe sequences (7-bit C1 controls, such as RI) are dropped as a whole: the final
          * character must not leak through as text */
         ASSERT_NOT_NULL(p = strdup("a\x1BMb\x1B" "Ec\x1B\\d"));
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "abcd");
         free(p);
 
         /* A carriage return followed by a (dropped) sequence is not trailing, and hence kept … */
         ASSERT_NOT_NULL(p = strdup("y\r\x1B[m"));
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "y\r");
         free(p);
 
         /* … also if a (dropped) two-character Fe sequence was encountered earlier … */
         ASSERT_NOT_NULL(p = strdup("\x1BZy\r\x1B[m"));
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "y\r");
         free(p);
 
         /* … or an aborted sequence (the aborting character is replayed as text) */
         ASSERT_NOT_NULL(p = strdup("\x1B\ny\r\x1B[m"));
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\ny\r");
         free(p);
 
         assert_se(p = strdup("\r\rwaldo"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\r\rwaldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "waldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r\n\r\n"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "waldo\n\n");
         free(p);
 
@@ -87,7 +87,7 @@ TEST(strip_tab_ansi) {
         assert_se(p = strjoin("something ", urlified, " something-else"));
         assert_se(q = strdup(p));
         printf("<%s>\n", p);
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         printf("<%s>\n", p);
         ASSERT_STREQ(p, "something i am a fabulous link something-else");
         p = mfree(p);
@@ -98,8 +98,8 @@ TEST(strip_tab_ansi) {
                 *z = 0;
                 _cleanup_free_ char *d = ASSERT_PTR(strdup(z+5));
 
-                ASSERT_NOT_NULL(strip_tab_ansi(&q, NULL, NULL));
-                ASSERT_NOT_NULL(strip_tab_ansi(&d, NULL, NULL));
+                ASSERT_NOT_NULL(strip_tab_ansi(&q, /* _isz= */ NULL, /* highlight= */ NULL));
+                ASSERT_NOT_NULL(strip_tab_ansi(&d, /* _isz= */ NULL, /* highlight= */ NULL));
 
                 ASSERT_STREQ(q, "something ");
                 /* NB: d starts with the tail of the truncated ST, i.e. a stray "ESC \", which is a complete
@@ -112,7 +112,7 @@ TEST(strip_tab_ansi) {
                              "between1" ANSI_OSC "inside2\a"
                              "between2" ANSI_OSC "inside3\x1b\x5c"
                              "after"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "beforebetween1between2after");
         free(p);
 }
@@ -130,7 +130,7 @@ TEST(strip_tab_ansi_highlight) {
         /* A range following a TAB and a dropped sequence, ending right where another sequence starts */
         _cleanup_free_ char *p = ASSERT_PTR(strdup(in));
         size_t highlight[2] = { bar, bar + 3 };
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 11U);
         ASSERT_EQ(highlight[1], 14U);
@@ -141,7 +141,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup(in));
         highlight[0] = qux;
         highlight[1] = qux + 3;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 25U);
         ASSERT_EQ(highlight[1], 28U);
@@ -152,7 +152,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup(in));
         highlight[0] = bar - 2;
         highlight[1] = bar + 3;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 11U);
         ASSERT_EQ(highlight[1], 14U);
@@ -162,7 +162,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup(in));
         highlight[0] = 1; /* "foo" */
         highlight[1] = qux + 3;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 8U);
         ASSERT_EQ(highlight[1], 28U);
@@ -173,7 +173,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("\x1B\x01\tab"));
         highlight[0] = 3;
         highlight[1] = 5;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "\x01        ab");
         ASSERT_EQ(highlight[0], 9U);
         ASSERT_EQ(highlight[1], 11U);
@@ -183,7 +183,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("\x1BZ\tab"));
         highlight[0] = 3;
         highlight[1] = 5;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "        ab");
         ASSERT_EQ(highlight[0], 8U);
         ASSERT_EQ(highlight[1], 10U);
@@ -194,7 +194,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("ab\x1B[31"));
         highlight[0] = 1;
         highlight[1] = 5;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "ab");
         ASSERT_EQ(highlight[0], 1U);
         ASSERT_EQ(highlight[1], 2U);
@@ -205,7 +205,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("ab\r\r\ncd"));
         highlight[0] = 5; /* "cd" */
         highlight[1] = 7;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "ab\ncd");
         ASSERT_EQ(highlight[0], 3U);
         ASSERT_EQ(highlight[1], 5U);
@@ -216,7 +216,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("ab\r\r\ncd"));
         highlight[0] = 1; /* "b\r\r\nc" */
         highlight[1] = 6;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "ab\ncd");
         ASSERT_EQ(highlight[0], 1U);
         ASSERT_EQ(highlight[1], 4U);
@@ -228,7 +228,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("ab\r\r"));
         highlight[0] = 1;
         highlight[1] = 4;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "ab");
         ASSERT_EQ(highlight[0], 1U);
         ASSERT_EQ(highlight[1], 2U);
@@ -238,7 +238,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("a\r\rb"));
         highlight[0] = 3;
         highlight[1] = 4;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "a\r\rb");
         ASSERT_EQ(highlight[0], 3U);
         ASSERT_EQ(highlight[1], 4U);
@@ -248,7 +248,7 @@ TEST(strip_tab_ansi_highlight) {
         p = ASSERT_PTR(strdup("ab\t" ANSI_HIGHLIGHT "c"));
         highlight[0] = 0;
         highlight[1] = 2;
-        ASSERT_NOT_NULL(strip_tab_ansi(&p, NULL, highlight));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
         ASSERT_STREQ(p, "ab        c");
         ASSERT_EQ(highlight[0], 0U);
         ASSERT_EQ(highlight[1], 2U);

@@ -67,8 +67,8 @@ int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 2), 100);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
         (void) table_set_sort(table, (size_t) 2, (size_t) 0);
 

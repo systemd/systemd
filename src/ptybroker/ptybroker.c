@@ -521,7 +521,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 if (p.frontend_type == FRONTEND_TAKE)
                         return sd_varlink_error_invalid_parameter_name(link, "monitor");
                 if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
         }
 
         if (p.osc2811 && !p.monitor)
@@ -701,7 +701,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
 
         if (p.name) {
                 if (hashmap_contains(m->ptys, p.name))
-                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", NULL);
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
         } else {
                 sd_id128_t id;
 
@@ -719,7 +719,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         if (hashmap_size(m->ptys) >= PSEUDO_TTY_MAX)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
 
         _cleanup_(pseudo_tty_freep) PseudoTTY *pty = NULL;
         r = pseudo_tty_new(&pty);
@@ -990,7 +990,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
                 return sd_varlink_error_invalid_parameter_name(link, "ignoreHangup");
 
         if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
 
         if (p.name && !pseudo_tty_name_valid(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
@@ -1044,7 +1044,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
 
         if (p.name) {
                 if (hashmap_contains(m->ptys, p.name))
-                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", NULL);
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
         } else {
                 sd_id128_t id;
 
@@ -1066,7 +1066,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
                 return sd_varlink_error_invalid_parameter_name(link, "terminalSettings");
 
         if (hashmap_size(m->ptys) >= PSEUDO_TTY_MAX)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
 
         _cleanup_close_ int frontend_fd = sd_varlink_take_fd(link, p.frontend_fd_idx);
         if (frontend_fd < 0)
@@ -1220,7 +1220,7 @@ static int vl_method_monitor_pty(sd_varlink *link, sd_json_variant *parameters, 
 
         PseudoTTY *pty = manager_get_alive_pty(m, p.name);
         if (!pty)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may monitor it without further authentication. (Note that once the
          * asynchronous polkit check completed the method call is dispatched again, and hence the lookup
@@ -1238,10 +1238,10 @@ static int vl_method_monitor_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         if (pty->frontend_fd < 0)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.TrackingNotEnabled", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TrackingNotEnabled", /* parameters= */ NULL);
 
         if (pty->n_monitors >= MONITOR_MAX)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyMonitors", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyMonitors", /* parameters= */ NULL);
 
         _cleanup_(terminal_settings_done) TerminalSettings merged_ts = TERMINAL_SETTINGS_NULL;
         r = terminal_settings_copy(&pty->terminal_settings, &merged_ts);
@@ -1335,7 +1335,7 @@ static int vl_method_configure_pty(sd_varlink *link, sd_json_variant *parameters
 
         PseudoTTY *pty = manager_get_alive_pty(m, p.name);
         if (!pty)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may reconfigure it without further authentication. (Note that once the
          * asynchronous polkit check completed the method call is dispatched again, and hence the lookup
@@ -1353,7 +1353,7 @@ static int vl_method_configure_pty(sd_varlink *link, sd_json_variant *parameters
                 return r;
 
         if (pty->frontend_fd < 0)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.TrackingNotEnabled", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TrackingNotEnabled", /* parameters= */ NULL);
 
         _cleanup_(terminal_settings_done) TerminalSettings merged_ts = TERMINAL_SETTINGS_NULL;
         r = terminal_settings_copy(&pty->terminal_settings, &merged_ts);
@@ -1416,7 +1416,7 @@ static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (!name && !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -1475,7 +1475,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
         if (!pty)
-                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", NULL);
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may hang it up without further authentication. (Note that once the
          * asynchronous polkit check completed the method call is dispatched again, and hence the lookup
@@ -1496,7 +1496,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
                 /* The hang-up already completed and its callback (which answers the registered calls) has
                  * run; the pty is merely waiting for the deferred free. Answer right away, registering in
                  * vhangup_links would mean never getting a reply. */
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         /* Register the link first, so that we never hang up the PTY without being able to send a reply */
         r = set_ensure_put(&pty->vhangup_links, &varlink_hash_ops, link);
@@ -1541,7 +1541,7 @@ static int on_exit_on_idle(sd_event_source *s, uint64_t usec, void *userdata) {
                 return 0;
 
         log_debug("Still idle after grace period, exiting.");
-        return sd_event_exit(m->event, 0);
+        return sd_event_exit(m->event, /* code= */ 0);
 }
 
 static void manager_schedule_idle_check(Manager *m) {

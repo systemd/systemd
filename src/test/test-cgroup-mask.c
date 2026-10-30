@@ -26,7 +26,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep, *nomem_parent, *nomem_leaf;
         int r;
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -51,16 +51,16 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
-        assert_se(manager_startup(m, NULL, NULL, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL) >= 0);
 
         /* Load units and verify hierarchy. */
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, LOG_ERR, &parent));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "son.service", NULL, LOG_ERR, &son));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "daughter.service", NULL, LOG_ERR, &daughter));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "grandchild.service", NULL, LOG_ERR, &grandchild));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, LOG_ERR, &parent_deep));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomem.slice", NULL, LOG_ERR, &nomem_parent));
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomemleaf.service", NULL, LOG_ERR, &nomem_leaf));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", /* path= */ NULL, LOG_ERR, &parent));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "son.service", /* path= */ NULL, LOG_ERR, &son));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "daughter.service", /* path= */ NULL, LOG_ERR, &daughter));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "grandchild.service", /* path= */ NULL, LOG_ERR, &grandchild));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent-deep.slice", /* path= */ NULL, LOG_ERR, &parent_deep));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomem.slice", /* path= */ NULL, LOG_ERR, &nomem_parent));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomemleaf.service", /* path= */ NULL, LOG_ERR, &nomem_leaf));
         assert_se(UNIT_GET_SLICE(son) == parent);
         assert_se(UNIT_GET_SLICE(daughter) == parent);
         assert_se(UNIT_GET_SLICE(parent_deep) == parent);
@@ -129,7 +129,7 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
 }
 
 TEST(cg_mask_to_string) {
-        test_cg_mask_to_string_one(0, NULL);
+        test_cg_mask_to_string_one(/* mask= */ 0, NULL);
         test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices bpf-foreign bpf-socket-bind bpf-restrict-network-interfaces bpf-bind-network-interface");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT, "cpuacct");

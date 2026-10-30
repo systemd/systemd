@@ -1775,7 +1775,7 @@ static int assess(const SecurityInfo *info,
                 if (!details_table)
                         return log_oom();
 
-                r = table_set_json_field_name(details_table, 0, "set");
+                r = table_set_json_field_name(details_table, /* idx= */ 0, "set");
                 if (r < 0)
                         return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
 
@@ -2387,7 +2387,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
                         security_map,
                         BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit properties: %s", bus_error_message(&error, r));
@@ -2787,7 +2787,7 @@ static int offline_security_checks(
                                 profile = profile_path;
                         }
 
-                        r = copy_file(profile, dropin, 0, 0644, 0);
+                        r = copy_file(profile, dropin, /* open_flags= */ 0, 0644, /* copy_flags= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy: %m");
                 }
@@ -2847,7 +2847,7 @@ static int analyze_security(sd_bus *bus,
                                 "ListUnits",
                                 &error,
                                 &reply,
-                                NULL);
+                                /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -2897,7 +2897,7 @@ static int analyze_security(sd_bus *bus,
                                 fflush(stdout);
                         }
 
-                        r = unit_name_mangle(*i, 0, &mangled);
+                        r = unit_name_mangle(*i, /* flags= */ 0, &mangled);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 
@@ -2939,7 +2939,7 @@ int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         if (!arg_offline) {
-                r = acquire_bus(&bus, NULL);
+                r = acquire_bus(&bus, /* use_full_bus= */ NULL);
                 if (r < 0)
                         return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
         }

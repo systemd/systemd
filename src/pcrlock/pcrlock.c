@@ -426,7 +426,7 @@ static int event_log_add_algorithms_from_environment(EventLog *el) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&e, &word, ":", 0);
+                r = extract_first_word(&e, &word, ":", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -686,7 +686,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                 if (!d)
                         return log_oom();
 
-                if (string_has_cc(d, NULL)) {
+                if (string_has_cc(d, /* ok= */ NULL)) {
                         log_warning("Unsafe EFI action string in record, ignoring.");
                         goto invalid;
                 }
@@ -1303,7 +1303,7 @@ static int event_log_load_userspace(EventLog *el) {
                         continue;
                 }
 
-                r = sd_json_parse(b, 0, &j, NULL, NULL);
+                r = sd_json_parse(b, /* flags= */ 0, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse local TPM measurement log file: %m");
 
@@ -1481,7 +1481,7 @@ static int event_log_calculate_pcrs(EventLog *el) {
                         if (!mc)
                                 return log_oom();
 
-                        if (sym_EVP_DigestInit_ex(mc, el->mds[i], NULL) != 1)
+                        if (sym_EVP_DigestInit_ex(mc, el->mds[i], /* impl= */ NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s message digest context.", n);
 
                         if (sym_EVP_DigestUpdate(mc, reg_b->calculated.buffer, reg_b->calculated.size) != 1)
@@ -1589,13 +1589,13 @@ static int event_log_record_validate_hash_firmware(
 
         unsigned dsz = mdsz;
 
-        if (sym_EVP_Digest(hdata, hsz, payload_hash.buffer, &dsz, md, NULL) != 1)
+        if (sym_EVP_Digest(hdata, hsz, payload_hash.buffer, &dsz, md, /* impl= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
         assert(dsz == (unsigned) mdsz);
 
         /* If this didn't match then let's try the alternative format here, if we have one, and check things then. */
         if (memcmp_nn(bank->hash.buffer, bank->hash.size, payload_hash.buffer, payload_hash.size) != 0 && hdata_alternative) {
-                if (sym_EVP_Digest(hdata_alternative, hsz_alternative, payload_hash.buffer, &dsz, md, NULL) != 1)
+                if (sym_EVP_Digest(hdata_alternative, hsz_alternative, payload_hash.buffer, &dsz, md, /* impl= */ NULL) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
                 assert(dsz == (unsigned) mdsz);
         }
@@ -1647,7 +1647,7 @@ static int event_log_record_validate_hash_userspace(
         if (!payload_hash)
                 return log_oom();
 
-        if (sym_EVP_Digest(s, strlen(s), payload_hash, &payload_hash_size, md, NULL) != 1)
+        if (sym_EVP_Digest(s, strlen(s), payload_hash, &payload_hash_size, md, /* impl= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
 
         assert((int) payload_hash_size == mdsz);
@@ -1813,7 +1813,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                         /* flags= */ 0,
                         &j,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse component file %s, ignoring: %m", path);
                 return 0;
@@ -1948,7 +1948,7 @@ static int event_log_load_components(EventLog *el) {
                 if (endswith(*f, ".pcrlock.d"))
                         r = event_log_add_component_dir(el, *f, dirs);
                 else if (endswith(*f, ".pcrlock"))
-                        r = event_log_add_component_file(el, NULL, *f);
+                        r = event_log_add_component_file(el, /* component= */ NULL, *f);
                 else
                         continue;
                 if (r < 0)
@@ -2215,7 +2215,7 @@ static int add_algorithm_columns(
 
                 size_t c = table_get_current_column(table);
 
-                r = table_add_cell(table, NULL, TABLE_HEADER, v ?: n);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_HEADER, v ?: n);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2264,7 +2264,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = add_algorithm_columns(el, table, NULL, NULL);
+        r = add_algorithm_columns(el, table, /* prefix= */ NULL, /* json_field_prefix= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2313,18 +2313,18 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
 
                         et = tpm2_log_event_type_to_string(record->firmware_event_type);
                         if (et)
-                                r = table_add_cell(table, NULL, TABLE_STRING, et);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, et);
                         else
-                                r = table_add_cell(table, NULL, TABLE_UINT32_HEX, &record->firmware_event_type);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT32_HEX, &record->firmware_event_type);
                 } else if (EVENT_LOG_RECORD_IS_USERSPACE(record))
-                        r = table_add_cell(table, NULL, TABLE_STRING, tpm2_userspace_event_type_to_string(record->userspace_event_type));
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, tpm2_userspace_event_type_to_string(record->userspace_event_type));
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (record->event_payload_valid < 0 || record->event_payload_valid == EVENT_PAYLOAD_VALID_DONT_KNOW)
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 else
                         r = table_add_many(table,
                                            TABLE_BOOLEAN_CHECKMARK, record->event_payload_valid == EVENT_PAYLOAD_VALID_YES,
@@ -2346,9 +2346,9 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
                                 if (!sd_json_format_enabled(arg_json_format_flags))
                                         strshorten(hex, arg_abbreviate_hash);
 
-                                r = table_add_cell(table, NULL, TABLE_STRING, hex);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, hex);
                         } else
-                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -2478,9 +2478,9 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                         return table_log_add_error(r);
 
                 if (el->registers[pcr].n_measurements > 0)
-                        r = table_add_cell(table, NULL, TABLE_UINT, &el->registers[pcr].n_measurements);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT, &el->registers[pcr].n_measurements);
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2707,7 +2707,7 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         }
 
         if (!ja) {
-                r = sd_json_variant_new_array(&ja, NULL, 0);
+                r = sd_json_variant_new_array(&ja, /* array= */ NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate JSON array: %m");
         }
@@ -2791,7 +2791,7 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        sd_json_variant_dump(array, arg_json_format_flags|SD_JSON_FORMAT_EMPTY_ARRAY, stdout, NULL);
+        sd_json_variant_dump(array, arg_json_format_flags|SD_JSON_FORMAT_EMPTY_ARRAY, stdout, /* prefix= */ NULL);
         return 0;
 }
 
@@ -2957,7 +2957,7 @@ static int make_pcrlock_record(
                 if (!hash)
                         return log_oom();
 
-                if (sym_EVP_Digest(data, data_size, hash, &hash_usize, md, NULL) != 1)
+                if (sym_EVP_Digest(data, data_size, hash, &hash_usize, md, /* impl= */ NULL) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data with algorithm '%s'.", a);
 
                 r = sd_json_variant_append_arraybo(
@@ -3007,7 +3007,7 @@ static int make_pcrlock_record_from_stream(
                 if (!mdctx[i])
                         return log_oom();
 
-                if (sym_EVP_DigestInit_ex(mdctx[i], md, NULL) != 1)
+                if (sym_EVP_DigestInit_ex(mdctx[i], md, /* impl= */ NULL) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize message digest for %s.", a);
         }
@@ -3082,7 +3082,7 @@ static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_pat
         int r;
 
         if (!array) {
-                r = sd_json_variant_new_array(&a, NULL, 0);
+                r = sd_json_variant_new_array(&a, /* array= */ NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate empty array: %m");
 
@@ -3285,7 +3285,7 @@ static int event_log_component_variant_calculate(
                         assert(result->hash[i].size == (size_t) sz);
                         assert(b->hash.size == (size_t) sz);
 
-                        if (sym_EVP_DigestInit_ex(md_ctx, md, NULL) != 1)
+                        if (sym_EVP_DigestInit_ex(md_ctx, md, /* impl= */ NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to initialize message digest.");
 
                         if (sym_EVP_DigestUpdate(md_ctx, result->hash[i].buffer, sz) != 1)
@@ -3434,7 +3434,7 @@ static int event_log_show_predictions(Tpm2PCRPrediction *context, uint16_t alg) 
                 }
 
                 if (!j) {
-                        r = sd_json_variant_new_object(&j, NULL, 0);
+                        r = sd_json_variant_new_object(&j, /* array= */ NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocated empty object: %m");
                 }
@@ -3727,7 +3727,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 return r;
 
         if (DEBUG_LOGGING)
-                (void) sd_json_variant_dump(new_prediction_json, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stderr, NULL);
+                (void) sd_json_variant_dump(new_prediction_json, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stderr, /* prefix= */ NULL);
 
         /* v257 and older mistakenly used --pcrlock= for the path. To keep backward compatibility, let's fallback to it when
          * --policy= is unspecified but --pcrlock is specified. */
@@ -3908,7 +3908,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         tc,
                                         policy_session,
                                         nv_handle,
-                                        NULL);
+                                        /* ret_policy_digest= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to submit AuthorizeNV policy: %m");
 
@@ -4085,7 +4085,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 return log_error_errno(r, "Failed to generate JSON: %m");
 
         _cleanup_free_ char *text = NULL;
-        r = sd_json_variant_format(new_configuration_json, 0, &text);
+        r = sd_json_variant_format(new_configuration_json, /* flags= */ 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format new configuration to JSON: %m");
 
@@ -4522,7 +4522,7 @@ static int lock_secureboot_policy(void) {
 
                 _cleanup_free_ void *data = NULL;
                 size_t data_size;
-                r = efi_get_variable(name, NULL, &data, &data_size);
+                r = efi_get_variable(name, /* ret_attribute= */ NULL, &data, &data_size);
                 if (r < 0) {
                         if (r != -ENOENT || vv->synthesize_empty == 0)
                                 return log_error_errno(r, "Failed to read EFI variable '%s': %m", name);
@@ -4974,13 +4974,13 @@ static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata)
                         return log_error_errno(r, "Failed to append record object: %m");
         }
 
-        return write_pcrlock(array, NULL);
+        return write_pcrlock(array, /* default_pcrlock_path= */ NULL);
 }
 
 VERB_NOARG(verb_unlock_simple, "unlock-pe",
            "Remove .pcrlock file for PE binary");
 static int verb_unlock_simple(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return unlink_pcrlock(NULL);
+        return unlink_pcrlock(/* default_pcrlock_path= */ NULL);
 }
 
 typedef void* SectionHashArray[_UNIFIED_SECTION_MAX * TPM2_N_HASH_ALGORITHMS];
@@ -5084,7 +5084,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                         return log_error_errno(r, "Failed to append record object: %m");
         }
 
-        return write_pcrlock(array, NULL);
+        return write_pcrlock(array, /* default_pcrlock_path= */ NULL);
 }
 
 VERB_NOARG(verb_unlock_simple, "unlock-uki",
@@ -5217,7 +5217,7 @@ static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void
         STRV_FOREACH(p, paths) {
                 _cleanup_free_ char *normalized_path = NULL, *pcrlock_file = NULL;
 
-                r = chase(*p, NULL, 0, &normalized_path, NULL);
+                r = chase(*p, /* root= */ NULL, /* flags= */ 0, &normalized_path, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to normal path '%s': %m", argv[1]);
 
@@ -5242,9 +5242,9 @@ static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, voi
 
         if (argc > 1) {
                 if (empty_or_dash(argv[1]))
-                        r = read_full_stream(stdin, &cmdline, NULL);
+                        r = read_full_stream(stdin, &cmdline, /* ret_size= */ NULL);
                 else
-                        r = read_full_file(argv[1], &cmdline, NULL);
+                        r = read_full_file(argv[1], &cmdline, /* ret_size= */ NULL);
         } else
                 r = proc_cmdline(&cmdline);
         if (r < 0)
@@ -5329,7 +5329,7 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        return write_pcrlock(records, NULL);
+        return write_pcrlock(records, /* default_pcrlock_path= */ NULL);
 }
 
 VERB_NOARG(verb_unlock_simple, "unlock-raw",
@@ -5563,7 +5563,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, NULL);
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 
@@ -5596,7 +5596,7 @@ static int vl_method_list_components(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, NULL);
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 
@@ -5613,7 +5613,7 @@ static int vl_method_list_components(sd_varlink *link, sd_json_variant *paramete
                 }
 
                 if (!variants) {
-                        r = sd_json_variant_new_array(&variants, NULL, 0);
+                        r = sd_json_variant_new_array(&variants, /* array= */ NULL, 0);
                         if (r < 0)
                                 return r;
                 }
@@ -5651,9 +5651,9 @@ static int vl_method_make_policy(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
         if (r == 0)
-                return sd_varlink_error(link, "io.systemd.PCRLock.NoChange", NULL);
+                return sd_varlink_error(link, "io.systemd.PCRLock.NoChange", /* parameters= */ NULL);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -5669,7 +5669,7 @@ static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 typedef enum LockCategory {
@@ -5738,7 +5738,7 @@ static int vl_method_lock(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -5759,7 +5759,7 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int run(int argc, char *argv[]) {

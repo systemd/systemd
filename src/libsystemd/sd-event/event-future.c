@@ -113,7 +113,7 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_io_fd_own(iof->source, true);
+        r = sd_event_source_set_io_fd_own(iof->source, /* own= */ true);
         if (r < 0)
                 return r;
 
@@ -564,7 +564,7 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = sd_event_wait(e, 0);
+                r = sd_event_wait(e, /* timeout= */ 0);
                 if (r < 0)
                         return r;
         }
@@ -622,7 +622,7 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
 
         r = sd_event_prepare(e);
         if (r == 0)
-                r = sd_event_wait(e, 0);
+                r = sd_event_wait(e, /* timeout= */ 0);
         if (r > 0) {
                 r = sd_event_dispatch(e);
                 if (r < 0)

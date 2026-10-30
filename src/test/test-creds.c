@@ -30,7 +30,7 @@ TEST(read_credential_strings) {
         ASSERT_NULL(x);
         ASSERT_NULL(y);
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &tmp));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tmp));
 
         ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true));
 
@@ -89,9 +89,9 @@ TEST(read_credential_with_decryption) {
         ASSERT_OK(free_and_strdup(&saved_plain, getenv("CREDENTIALS_DIRECTORY")));
         ASSERT_OK(free_and_strdup(&saved_encrypted, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")));
         ASSERT_OK(free_and_strdup(&saved_secret, getenv("SYSTEMD_CREDENTIAL_SECRET")));
-        ASSERT_OK(mkdtemp_malloc(NULL, &plain_dir));
-        ASSERT_OK(mkdtemp_malloc(NULL, &encrypted_dir));
-        ASSERT_OK(mkdtemp_malloc(NULL, &secret_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &plain_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &encrypted_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &secret_dir));
         ASSERT_NOT_NULL(secret_path = path_join(secret_dir, "secret"));
         ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", plain_dir, /* overwrite= */ true));
         ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", encrypted_dir, /* overwrite= */ true));
@@ -182,9 +182,9 @@ TEST(read_credential_with_decryption_encrypted) {
         ASSERT_OK(free_and_strdup(&saved_plain, getenv("CREDENTIALS_DIRECTORY")));
         ASSERT_OK(free_and_strdup(&saved_encrypted, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")));
         ASSERT_OK(free_and_strdup(&saved_secret, getenv("SYSTEMD_CREDENTIAL_SECRET")));
-        ASSERT_OK(mkdtemp_malloc(NULL, &plain_dir));
-        ASSERT_OK(mkdtemp_malloc(NULL, &encrypted_dir));
-        ASSERT_OK(mkdtemp_malloc(NULL, &secret_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &plain_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &encrypted_dir));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &secret_dir));
         ASSERT_NOT_NULL(secret_path = path_join(secret_dir, "secret"));
         ASSERT_NOT_NULL(credential_path = path_join(encrypted_dir, "foo"));
         ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", plain_dir, /* overwrite= */ true));
@@ -410,7 +410,7 @@ TEST(credential_encrypt_decrypt) {
 
         test_encrypt_decrypt_with(CRED_AES256_GCM_BY_NULL, UID_INVALID);
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &d));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &d));
         j = path_join(d, "secret");
         ASSERT_NOT_NULL(j);
 
@@ -423,15 +423,15 @@ TEST(credential_encrypt_decrypt) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true));
 
         test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST, UID_INVALID);
-        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_SCOPED, 0);
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_SCOPED, /* uid= */ 0);
 
         if (try_tpm2()) {
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, UID_INVALID);
-                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, 0);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, /* uid= */ 0);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, UID_INVALID);
-                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK, 0);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK, /* uid= */ 0);
         }
 
         if (ec)

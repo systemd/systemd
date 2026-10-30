@@ -76,10 +76,15 @@ macro_rules! __define_main {
 pub unsafe fn __main(argc: c_int, argv: *mut *mut c_char, body: fn(Argv<'_>) -> Result<()>) -> c_int {
     // SAFETY: the caller passes main()'s arguments through.
     unsafe {
-        run(argc, argv, false, |args| match body(args) {
-            Ok(()) => 0,
-            Err(e) => e.negative(),
-        })
+        run(
+            argc,
+            argv,
+            /* positive_failure= */ false,
+            |args| match body(args) {
+                Ok(()) => 0,
+                Err(e) => e.negative(),
+            },
+        )
     }
 }
 
@@ -96,13 +101,18 @@ pub unsafe fn __main_with_positive_failure(
 ) -> c_int {
     // SAFETY: the caller passes main()'s arguments through.
     unsafe {
-        run(argc, argv, true, |args| match body(args) {
-            Ok(status) => {
-                debug_assert!(status >= 0, "exit status must not be negative");
-                status
-            }
-            Err(e) => e.negative(),
-        })
+        run(
+            argc,
+            argv,
+            /* positive_failure= */ true,
+            |args| match body(args) {
+                Ok(status) => {
+                    debug_assert!(status >= 0, "exit status must not be negative");
+                    status
+                }
+                Err(e) => e.negative(),
+            },
+        )
     }
 }
 

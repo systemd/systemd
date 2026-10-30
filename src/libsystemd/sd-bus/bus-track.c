@@ -267,7 +267,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         /* Second, check if it is currently existing, or maybe doesn't, or maybe disappeared already. */
         track->n_adding++; /* again, make sure this isn't dispatch while we are working in it */
-        r = sd_bus_get_name_creds(track->bus, name, 0, NULL);
+        r = sd_bus_get_name_creds(track->bus, name, /* mask= */ 0, /* ret= */ NULL);
         track->n_adding--;
         if (r < 0) {
                 hashmap_remove(track->names, name);
@@ -334,7 +334,7 @@ _public_ const char* sd_bus_track_first(sd_bus_track *track) {
         track->modified = false;
         track->iterator = ITERATOR_FIRST;
 
-        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, /* value= */ NULL, (const void**) &n);
         return n;
 }
 
@@ -347,7 +347,7 @@ _public_ const char* sd_bus_track_next(sd_bus_track *track) {
         if (track->modified)
                 return NULL;
 
-        (void) hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        (void) hashmap_iterate(track->names, &track->iterator, /* value= */ NULL, (const void**) &n);
         return n;
 }
 

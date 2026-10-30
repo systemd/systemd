@@ -74,7 +74,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                                 log_error_errno(r, "Failed to reply to dbus message: %m");
                 } else if (!o->done) {
                         /* when o->done set it's responsible for sending reply in a happy-path case */
-                        r = sd_bus_reply_method_return(o->message, NULL);
+                        r = sd_bus_reply_method_return(o->message, /* types= */ NULL);
                         if (r < 0)
                                 log_error_errno(r, "Failed to reply to dbus message: %m");
                 }
@@ -89,7 +89,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 else if (r < 0)
                         (void) sd_varlink_error_errno(o->link, r);
                 else
-                        (void) sd_varlink_reply(o->link, NULL);
+                        (void) sd_varlink_reply(o->link, /* parameters= */ NULL);
         } else
                 assert_not_reached();
 

@@ -61,7 +61,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = manager_acquire_image(manager, p.name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (ret < 0)
                 return ret;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -122,7 +122,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_TOO_MANY_OPERATIONS, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_TOO_MANY_OPERATIONS, /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
@@ -136,7 +136,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         r = manager_acquire_image(manager, p.name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -194,7 +194,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_TOO_MANY_OPERATIONS, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_TOO_MANY_OPERATIONS, /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &image_name);
         if (r != 0)
@@ -205,7 +205,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = manager_acquire_image(manager, image_name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -287,11 +287,11 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         r = image_set_pool_limit(manager->runtime_scope, IMAGE_MACHINE, limit);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int clean_pool_list_one_image(sd_varlink *link, const char *name, uint64_t usage_exclusive, bool more) {
@@ -352,7 +352,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         if (previous_name)
                 return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ false);
 
-        return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", NULL);
+        return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", /* parameters= */ NULL);
 }
 
 static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
@@ -395,7 +395,7 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
         assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &mode);
         if (r != 0)

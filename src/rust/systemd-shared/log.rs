@@ -127,10 +127,10 @@ pub fn __log(level: c_int, error: c_int, location: &Location<'_>, args: fmt::Arg
             location.file.as_ptr(),
             location.line as c_int,
             location.func.as_ptr(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
+            /* object_field= */ ptr::null(),
+            /* object= */ ptr::null(),
+            /* extra_field= */ ptr::null(),
+            /* extra= */ ptr::null(),
             buffer.bytes.as_mut_ptr().cast(),
         );
     }

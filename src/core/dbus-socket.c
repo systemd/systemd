@@ -453,7 +453,7 @@ static int bus_socket_set_transient_property(
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
-                                r = strv_extend_strv(&s->symlinks, l, true);
+                                r = strv_extend_strv(&s->symlinks, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return -ENOMEM;
 

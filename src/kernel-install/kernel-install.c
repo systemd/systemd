@@ -511,7 +511,7 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         if (c->plugins || !s)
                 return 0;
 
-        r = strv_split_full(&v, s, NULL, EXTRACT_UNQUOTE);
+        r = strv_split_full(&v, s, /* separators= */ NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse plugin paths from %s: %m", source);
 
@@ -589,7 +589,7 @@ static int context_load_machine_info(Context *c) {
                 return 0;
         }
 
-        r = chase_and_fopenat_unlocked(c->rfd, c->rfd, path, /* chase_flags= */ 0, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(c->rfd, c->rfd, path, /* chase_flags= */ 0, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -717,7 +717,7 @@ static int context_ensure_boot_root(Context *c) {
 
         /* If all else fails, use /boot. */
         if (c->rfd >= 0) {
-                r = chaseat(c->rfd, c->rfd, "/boot", 0, &c->boot_root, /* ret_fd= */ NULL);
+                r = chaseat(c->rfd, c->rfd, "/boot", /* flags= */ 0, &c->boot_root, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase '/boot/': %m");
         } else {
@@ -1003,7 +1003,7 @@ static int context_make_entry_dir(Context *c) {
 
         log_debug("mkdir -p %s", c->entry_dir);
         fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, CHASE_MKDIR_0755,
-                              O_CLOEXEC | O_CREAT | O_DIRECTORY | O_PATH, NULL);
+                              O_CLOEXEC | O_CREAT | O_DIRECTORY | O_PATH, /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to make directory '%s': %m", c->entry_dir);
 
@@ -1332,7 +1332,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1539,7 +1539,7 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
         for (size_t row = 1; row < table_get_rows(t); row++) {
                 _cleanup_free_ char *name = NULL;
 
-                name = strdup(table_get_at(t, row, 0));
+                name = strdup(table_get_at(t, row, /* column= */ 0));
                 if (!name)
                         return log_oom();
 
@@ -1562,7 +1562,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1577,7 +1577,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_oom();
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
-        table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 100);
         (void) table_set_sort(table, (size_t) 0);
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
@@ -1654,7 +1654,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (streq(opts.arg, "auto"))
                                 arg_make_entry_directory = -1;
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, /* ret= */ NULL);
                                 if (r < 0)
                                         return r;
 

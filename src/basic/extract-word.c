@@ -83,7 +83,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 char32_t u;
 
                                 if ((flags & EXTRACT_CUNESCAPE) &&
-                                    (r = cunescape_one(*p, SIZE_MAX, &u, &eight_bit, false)) >= 0) {
+                                    (r = cunescape_one(*p, SIZE_MAX, &u, &eight_bit, /* accept_nul= */ false)) >= 0) {
                                         /* A valid escaped sequence */
                                         assert(r >= 1);
 

@@ -332,7 +332,7 @@ int nss_group_to_group_record(
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_utf8_only(&g->members, grp->gr_mem, false);
+        r = strv_extend_strv_utf8_only(&g->members, grp->gr_mem, /* filter_duplicates= */ false);
         if (r < 0)
                 return r;
 
@@ -345,11 +345,11 @@ int nss_group_to_group_record(
                                 return -ENOMEM;
                 }
 
-                r = strv_extend_strv_utf8_only(&g->members, sgrp->sg_mem, true);
+                r = strv_extend_strv_utf8_only(&g->members, sgrp->sg_mem, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv_utf8_only(&g->administrators, sgrp->sg_adm, false);
+                r = strv_extend_strv_utf8_only(&g->administrators, sgrp->sg_adm, /* filter_duplicates= */ false);
                 if (r < 0)
                         return r;
         }

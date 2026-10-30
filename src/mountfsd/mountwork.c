@@ -232,7 +232,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         struct stat stb;
                         const char *e;
 
-                        r = chase(s, NULL, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, &q, &dir_fd);
+                        r = chase(s, /* root= */ NULL, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, &q, &dir_fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0) {
@@ -250,7 +250,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         if (!filename_is_valid(e))
                                 continue;
 
-                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
+                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, /* ret_path= */ NULL, &inode_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't verify that specified image '%s' is in search path '%s': %m", p, s);
 
@@ -523,14 +523,14 @@ static int vl_method_mount_image(
         /* Generate the common dissection directory here. We are not going to use it, but the clients might,
          * and they likely are unprivileged, hence cannot create it themselves. Hence let's just create it
          * here, if it is missing. */
-        r = get_common_dissect_directory(NULL);
+        r = get_common_dissect_directory(/* ret= */ NULL);
         if (r < 0)
                 return r;
 
         r = loop_device_make(
                         image_fd,
                         p.read_only > 0 ? O_RDONLY : -1,
-                        0,
+                        /* offset= */ 0,
                         UINT64_MAX,
                         UINT32_MAX,
                         LO_FLAGS_PARTSCAN,
@@ -592,11 +592,11 @@ static int vl_method_mount_image(
                                 dissect_flags,
                                 &di);
                 if (r == -ENOPKG)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", /* parameters= */ NULL);
                 if (r == -ENOTUNIQ)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", /* parameters= */ NULL);
                 if (r == -ENXIO)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", /* parameters= */ NULL);
                 if (r == -ERFKILL) {
                         /* The image policy refused this, let's retry after trying to get PolicyKit */
 
@@ -621,7 +621,7 @@ static int vl_method_mount_image(
                                 }
                         }
 
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", /* parameters= */ NULL);
                 }
                 if (r < 0)
                         return r;
@@ -700,14 +700,14 @@ static int vl_method_mount_image(
                                  }
                          }
 
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", /* parameters= */ NULL);
                 }
                 if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
                                   * under the assumption that some errors are transitional. Which the errors might
                                   * not actually be. After all retries failed we return EBUSY. Let's turn that into a
                                   * generic Verity error. It's not very helpful, could mean anything, but at least it
                                   * gives client a clear idea that this has to do with Verity. */
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", /* parameters= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1192,7 +1192,7 @@ static int vl_method_mount_directory(
         /* Generate the common dissection directory here. We are not going to use it, but the clients might,
          * and they likely are unprivileged, hence cannot create it themselves. Hence let's just create it
          * here, if it is missing. */
-        r = get_common_dissect_directory(NULL);
+        r = get_common_dissect_directory(/* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1473,7 +1473,7 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(server, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
@@ -1517,7 +1517,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        m = sd_listen_fds(false);
+        m = sd_listen_fds(/* unset_environment= */ false);
         if (m < 0)
                 return log_error_errno(m, "Failed to determine number of listening fds: %m");
         if (m == 0)
@@ -1527,7 +1527,7 @@ static int run(int argc, char *argv[]) {
 
         listen_fd = SD_LISTEN_FDS_START;
 
-        r = fd_nonblock(listen_fd, false);
+        r = fd_nonblock(listen_fd, /* nonblock= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
@@ -1607,7 +1607,7 @@ static int run(int argc, char *argv[]) {
                         /* We only slept a very short time? If so, let's see if there are more sockets
                          * pending, and if so, let's ask our parent for more workers */
 
-                        r = fd_wait_for_event(listen_fd, POLLIN, 0);
+                        r = fd_wait_for_event(listen_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test for POLLIN on listening socket: %m");
 

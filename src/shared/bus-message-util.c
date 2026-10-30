@@ -200,7 +200,7 @@ int bus_message_read_dns_servers(
                         goto clear;
                 }
 
-                r = in_addr_full_new(family, &a, port, 0, server_name, dns + n);
+                r = in_addr_full_new(family, &a, port, /* ifindex= */ 0, server_name, dns + n);
                 if (r < 0)
                         goto clear;
 
@@ -262,7 +262,7 @@ int bus_message_dump_fd(sd_bus_message *message) {
                 return bus_log_parse_error(r);
 
         fflush(stdout);
-        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
+        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to dump contents in received file descriptor: %m");
 

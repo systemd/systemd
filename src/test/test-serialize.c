@@ -19,7 +19,7 @@ TEST(serialize_item) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item(f, "a", NULL) == 0);
+        assert_se(serialize_item(f, "a", /* value= */ NULL) == 0);
         assert_se(serialize_item(f, "a", "bbb") == 1);
         assert_se(serialize_item(f, "a", "bbb") == 1);
         assert_se(serialize_bool_elide(f, "c", true) == 1);
@@ -48,7 +48,7 @@ TEST(serialize_item_escaped) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item_escaped(f, "a", NULL) == 0);
+        assert_se(serialize_item_escaped(f, "a", /* value= */ NULL) == 0);
         assert_se(serialize_item_escaped(f, "a", "bbb") == 1);
         assert_se(serialize_item_escaped(f, "a", "bbb") == 1);
         assert_se(serialize_item_escaped(f, "a", long_string) == -EINVAL);
@@ -74,7 +74,7 @@ TEST(serialize_usec) {
         log_info("/* %s (%s) */", __func__, fn);
 
         assert_se(serialize_usec(f, "usec1", USEC_INFINITY) == 0);
-        assert_se(serialize_usec(f, "usec2", 0) == 1);
+        assert_se(serialize_usec(f, "usec2", /* usec= */ 0) == 1);
         assert_se(serialize_usec(f, "usec3", USEC_INFINITY-1) == 1);
 
         rewind(f);
@@ -238,7 +238,7 @@ TEST(serialize_string_set) {
 
         assert_se(serialize_string_set(f, "a", s) == 0);
 
-        assert_se(set_put_strsplit(s, "abc def,ghi jkl", ",", 0) >= 0);
+        assert_se(set_put_strsplit(s, "abc def,ghi jkl", ",", /* flags= */ 0) >= 0);
 
         assert_se(serialize_string_set(f, "a", s) == 1);
 

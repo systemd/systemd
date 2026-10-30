@@ -35,7 +35,7 @@ int open_file_parse(const char *v, OpenFile **ret) {
                 OpenFileFlag flag;
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", 0);
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

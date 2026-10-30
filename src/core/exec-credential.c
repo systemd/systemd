@@ -601,7 +601,7 @@ static int load_credential_glob(
                                         UINT64_MAX,
                                         args->encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
                                         flags,
-                                        NULL,
+                                        /* bind_name= */ NULL,
                                         &data, &size);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
@@ -701,7 +701,7 @@ static int load_credential(
                                         UINT64_MAX,
                                         maxsz,
                                         flags,
-                                        NULL,
+                                        /* bind_name= */ NULL,
                                         &data, &size);
                         if (r != -ENOENT)
                                 break;

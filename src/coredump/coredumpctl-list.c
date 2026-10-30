@@ -30,7 +30,7 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return log_oom();
 
                 if (arg_full)
-                        table_set_width(t, 0);
+                        table_set_width(t, /* width= */ 0);
 
                 (void) table_set_ellipsize_percent(t, TABLE_HEADER_CELL(1), 100);
 

@@ -220,7 +220,7 @@ static int parse_options(const char *options) {
                         }
                 } else if ((val = startswith(word, "uuid="))) {
 
-                        r = sd_id128_from_string(val, NULL);
+                        r = sd_id128_from_string(val, /* ret= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse UUID '%s': %m", word);
 
@@ -405,7 +405,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         .flags = CRYPT_VERITY_NO_HEADER,
                 };
 
-                r = sym_crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &p);
+                r = sym_crypt_format(cd, CRYPT_VERITY, /* cipher= */ NULL, /* cipher_mode= */ NULL, arg_uuid, /* volume_key= */ NULL, /* volume_key_size= */ 0, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format verity superblock: %m");
         }

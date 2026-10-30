@@ -508,7 +508,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
         if (enabled) {
                 if (crt->ip_accounting_ingress_map_fd < 0) {
                         const char *name = strjoina("I_", u->id);
-                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, /* flags= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -517,7 +517,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
 
                 if (crt->ip_accounting_egress_map_fd < 0) {
                         const char *name = strjoina("E_", u->id);
-                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, /* flags= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -591,11 +591,11 @@ int bpf_firewall_compile(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Preparation of BPF accounting maps failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, ingress_name, true, &crt->ip_bpf_ingress, ip_allow_any, ip_deny_any);
+        r = bpf_firewall_compile_bpf(u, ingress_name, /* is_ingress= */ true, &crt->ip_bpf_ingress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Compilation of ingress BPF program failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, egress_name, false, &crt->ip_bpf_egress, ip_allow_any, ip_deny_any);
+        r = bpf_firewall_compile_bpf(u, egress_name, /* is_ingress= */ false, &crt->ip_bpf_egress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Compilation of egress BPF program failed: %m");
 
@@ -611,7 +611,7 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
                 _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
                 int r;
 
-                r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, NULL, &prog);
+                r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name= */ NULL, &prog);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "bpf-firewall: Allocation of SKB BPF program failed: %m");
 

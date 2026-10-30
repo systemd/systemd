@@ -259,7 +259,7 @@ static void start_long_press(Button *b, sd_event_source **e, sd_event_time_handl
                         m->event,
                         e,
                         CLOCK_MONOTONIC,
-                        LONG_PRESS_DURATION, 0,
+                        LONG_PRESS_DURATION, /* accuracy= */ 0,
                         callback, b);
         if (r < 0)
                 log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");

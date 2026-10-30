@@ -332,7 +332,7 @@ static int make_choice(
         assert(ret);
 
         if (inode_fd < 0) {
-                r = chaseat(root_fd, dir_fd, inode_path, /* flags= */ 0, NULL, &inode_fd);
+                r = chaseat(root_fd, dir_fd, inode_path, /* flags= */ 0, /* ret_path= */ NULL, &inode_fd);
                 if (r < 0)
                         return r;
         }
@@ -382,7 +382,7 @@ static int make_choice(
                                        empty_to_root(root_path), skip_leading_slash(inode_path));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(enumerate_fd, 0, &de);
+        r = readdir_all(enumerate_fd, /* flags= */ 0, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
                                        empty_to_root(root_path), skip_leading_slash(inode_path));

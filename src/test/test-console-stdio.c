@@ -37,7 +37,7 @@ TEST_RET(make_console_stdio) {
         if (access("/dev/console", F_OK) < 0)
                 return log_tests_skipped_errno(errno, "No console mount point");
 
-        if (get_ctty(0, /* ret_devnr= */ NULL, &tty) < 0 || !tty_is_vc(tty))
+        if (get_ctty(/* pid= */ 0, /* ret_devnr= */ NULL, &tty) < 0 || !tty_is_vc(tty))
                 return log_tests_skipped("Not running on a virtual console.");
         path = ASSERT_NOT_NULL(path_join("/dev", tty));
         tty_fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC);
@@ -58,7 +58,7 @@ TEST_RET(make_console_stdio) {
                 return log_tests_skipped("Cannot create a private mount namespace.");
         ASSERT_OK(r);
         if (r == 0) {
-                r = mount(path, "/dev/console", /* fstype= */ NULL, MS_BIND, /* data= */ NULL);
+                r = mount(path, "/dev/console", /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL);
                 if (r < 0 && ERRNO_IS_PRIVILEGE(errno))
                         _exit(EXIT_TEST_SKIP);
                 ASSERT_OK_ERRNO(r);

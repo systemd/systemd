@@ -77,7 +77,7 @@ int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata)
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add dependency: %s", bus_error_message(&error, r));
 

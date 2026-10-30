@@ -80,7 +80,7 @@ static int add_pcr_to_table(Table *table, const char *alg, uint32_t pcr) {
                         return log_oom();
 
                 /* Grey out PCRs that are not sensibly initialized */
-                if (memeqbyte(0, buf, bufsize) ||
+                if (memeqbyte(/* byte= */ 0, buf, bufsize) ||
                     memeqbyte(0xFFU, buf, bufsize))
                         color = ansi_grey();
         }
@@ -113,7 +113,7 @@ int verb_pcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, /* column= */ 0), 100);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         if (!alg) /* hide hash column if we couldn't acquire it */

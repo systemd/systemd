@@ -22,14 +22,14 @@ TEST(parse_json_argument) {
 TEST(parse_path_argument) {
         _cleanup_free_ char *path = NULL, *file = NULL;
 
-        assert_se(parse_path_argument("help", false, &path) == 0);
+        assert_se(parse_path_argument("help", /* suppress_root= */ false, &path) == 0);
         ASSERT_OK(path_extract_filename(path, &file));
         ASSERT_STREQ(file, "help");
 
-        assert_se(parse_path_argument("/", false, &path) == 0);
+        assert_se(parse_path_argument("/", /* suppress_root= */ false, &path) == 0);
         ASSERT_STREQ(path, "/");
 
-        assert_se(parse_path_argument("/", true, &path) == 0);
+        assert_se(parse_path_argument("/", /* suppress_root= */ true, &path) == 0);
         ASSERT_NULL(path);
 }
 

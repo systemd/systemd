@@ -63,22 +63,22 @@ TEST(link_relevant) {
         ASSERT_NOT_NULL(link);
 
         link->flags = IFF_LOOPBACK;
-        ASSERT_FALSE(link_relevant(link, AF_INET, true));
-        ASSERT_FALSE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->flags = IFF_UP;
-        ASSERT_FALSE(link_relevant(link, AF_INET, true));
-        ASSERT_FALSE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->flags = IFF_UP | IFF_LOWER_UP;
-        ASSERT_FALSE(link_relevant(link, AF_INET, true));
-        ASSERT_FALSE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->flags = IFF_UP | IFF_LOWER_UP | IFF_MULTICAST;
         link->operstate = IF_OPER_UP;
 
-        ASSERT_FALSE(link_relevant(link, AF_INET, true));
-        ASSERT_FALSE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         union in_addr_union ip = { .in.s_addr = htobe32(0xc0a84301) };
         union in_addr_union bcast = { .in.s_addr = htobe32(0xc0a843ff) };
@@ -86,18 +86,18 @@ TEST(link_relevant) {
         ASSERT_OK(link_address_new(link, &address, AF_INET, &ip, &bcast));
         ASSERT_NOT_NULL(address);
 
-        ASSERT_TRUE(link_relevant(link, AF_INET, true));
-        ASSERT_TRUE(link_relevant(link, AF_INET, false));
+        ASSERT_TRUE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_TRUE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->flags = IFF_UP | IFF_LOWER_UP;
-        ASSERT_FALSE(link_relevant(link, AF_INET, true));
-        ASSERT_TRUE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ true));
+        ASSERT_TRUE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->is_managed = true;
-        ASSERT_FALSE(link_relevant(link, AF_INET, false));
+        ASSERT_FALSE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 
         link->networkd_operstate = LINK_OPERSTATE_DEGRADED_CARRIER;
-        ASSERT_TRUE(link_relevant(link, AF_INET, false));
+        ASSERT_TRUE(link_relevant(link, AF_INET, /* local_multicast= */ false));
 }
 
 /* ================================================================

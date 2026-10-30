@@ -34,18 +34,18 @@ static void test_journal_file_parse_uid_from_filename_simple(
 
 TEST(journal_file_parse_uid_from_filename) {
 
-        test_journal_file_parse_uid_from_filename_simple("/var/log/journal/", 0, -EISDIR);
+        test_journal_file_parse_uid_from_filename_simple("/var/log/journal/", /* expected_uid= */ 0, -EISDIR);
 
         /* The helper should return -EREMOTE for any filenames that don't look like an online or offline user
          * journals. This includes archived and disposed journal files. */
-        test_journal_file_parse_uid_from_filename_simple("/etc/password", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("system.journal", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("user-1000@0005d26980bdce6e-2f2a4939583822ef.journal~", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("user-1000@xxx-yyy-zzz.journal", 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("/etc/password", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("system.journal", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("user-1000@0005d26980bdce6e-2f2a4939583822ef.journal~", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("user-1000@xxx-yyy-zzz.journal", /* expected_uid= */ 0, -EREMOTE);
 
-        test_journal_file_parse_uid_from_filename_simple("user-1000.journal", 1000, 0);
-        test_journal_file_parse_uid_from_filename_simple("user-foo.journal", 0, -EINVAL);
-        test_journal_file_parse_uid_from_filename_simple("user-65535.journal", 0, -ENXIO);
+        test_journal_file_parse_uid_from_filename_simple("user-1000.journal", 1000, /* expected_error= */ 0);
+        test_journal_file_parse_uid_from_filename_simple("user-foo.journal", /* expected_uid= */ 0, -EINVAL);
+        test_journal_file_parse_uid_from_filename_simple("user-65535.journal", /* expected_uid= */ 0, -ENXIO);
 }
 
 TEST(append_and_read) {
@@ -74,7 +74,7 @@ TEST(append_and_read) {
         model_assert_file(f, &model);
 
         /* A second reader while the file is written */
-        g = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        g = journal_test_open(m, "test.journal", O_RDONLY, /* max_size= */ 0);
         model_assert_file(g, &model);
 
         model_append_generated(f, &model, 301);
@@ -109,9 +109,9 @@ TEST(seek_before_first_entry) {
         f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
         model_append_generated(f, &model, 0);
         ASSERT_OK_ZERO(journal_file_seek_for_match(f, match, strlen(match), JOURNAL_SEEK_OFFSET, /* boot_id= */ SD_ID128_NULL,
-                                                   le64toh(f->header->header_size) - 1, DIRECTION_UP, &o, NULL));
+                                                   le64toh(f->header->header_size) - 1, DIRECTION_UP, &o, /* ret_offset= */ NULL));
         ASSERT_OK_POSITIVE(journal_file_seek_for_match(f, match, strlen(match), JOURNAL_SEEK_OFFSET, /* boot_id= */ SD_ID128_NULL,
-                                                       le64toh(f->header->header_size) - 1, DIRECTION_DOWN, &o, NULL));
+                                                       le64toh(f->header->header_size) - 1, DIRECTION_DOWN, &o, /* ret_offset= */ NULL));
         f = journal_file_offline_close(f);
 }
 
@@ -127,7 +127,7 @@ TEST(sync_and_archive) {
         ASSERT_NOT_NULL(m = mmap_cache_new());
 
         f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 3 * U64_MB);
-        follower = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        follower = journal_test_open(m, "test.journal", O_RDONLY, /* max_size= */ 0);
 
         for (uint64_t i = 0; i < 3000; i++) {
                 model_append_generated(f, &model, i);
@@ -142,12 +142,12 @@ TEST(sync_and_archive) {
         model_assert_file(follower, &model);
 
         /* Before and after a sync */
-        g = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        g = journal_test_open(m, "test.journal", O_RDONLY, /* max_size= */ 0);
         model_assert_file(g, &model);
         g = journal_file_close(g);
 
         ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
-        g = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        g = journal_test_open(m, "test.journal", O_RDONLY, /* max_size= */ 0);
         model_assert_file(g, &model);
         g = journal_file_close(g);
 
@@ -176,7 +176,7 @@ TEST(sync_and_archive) {
         ASSERT_NOT_NULL(path = strdup(f->path));
         f = journal_file_offline_close(f);
 
-        g = journal_test_open(m, path, O_RDONLY, 0);
+        g = journal_test_open(m, path, O_RDONLY, /* max_size= */ 0);
         ASSERT_EQ(g->header->state, STATE_ARCHIVED);
         model_assert_file(g, &model);
         g = journal_file_close(g);
@@ -235,7 +235,7 @@ static void test_sync_then_archive_one(bool sync_done) {
         ASSERT_NOT_NULL(path = strdup(f->path));
         f = journal_file_offline_close(f);
 
-        g = journal_test_open(m, path, O_RDONLY, 0);
+        g = journal_test_open(m, path, O_RDONLY, /* max_size= */ 0);
         ASSERT_EQ(g->header->state, STATE_ARCHIVED);
         model_assert_file(g, &model);
         ASSERT_OK(journal_file_verify(
@@ -265,7 +265,7 @@ TEST(read_deleted) {
 
         f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
         model_append_generated(f, &model, 0);
-        follower = journal_test_open(m, "test.journal", O_RDONLY, 0);
+        follower = journal_test_open(m, "test.journal", O_RDONLY, /* max_size= */ 0);
 
         /* A reader can still read a file that was deleted, including entries appended since */
         model_append_generated(f, &model, 1);
@@ -292,12 +292,12 @@ TEST(enumerate_live) {
         f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
         model_append_generated(f, &model, 0);
 
-        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, 0));
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, /* flags= */ 0));
         SD_JOURNAL_FOREACH_FIELD(j, name)
                 ASSERT_FALSE(streq(name, "NEWFIELD"));
 
         /* Enumeration finds fields that were appended since */
-        model_append(f, NULL, MODEL_REALTIME_BASE + 10, 5010, MODEL_BOOT_A, STRV_MAKE("NEWFIELD=1"));
+        model_append(f, /* model= */ NULL, MODEL_REALTIME_BASE + 10, 5010, MODEL_BOOT_A, STRV_MAKE("NEWFIELD=1"));
 
         SD_JOURNAL_FOREACH_FIELD(j, name)
                 found = found || streq(name, "NEWFIELD");
@@ -321,7 +321,7 @@ TEST(seek_tail_live) {
         f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
         model_append_generated(f, &model, 0);
 
-        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, 0));
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, /* flags= */ 0));
         ASSERT_OK(sd_journal_seek_tail(j));
         ASSERT_OK_POSITIVE(sd_journal_previous(j));
 

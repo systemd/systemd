@@ -258,7 +258,7 @@ int journal_directory_vacuum(
                 if (r > 0) {
                         /* Always vacuum empty non-online files. */
 
-                        r = unlinkat_deallocate(dirfd(d), p, 0);
+                        r = unlinkat_deallocate(dirfd(d), p, /* flags= */ 0);
                         if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
@@ -302,7 +302,7 @@ int journal_directory_vacuum(
                     (n_max_files <= 0 || left <= n_max_files))
                         break;
 
-                r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
+                r = unlinkat_deallocate(dirfd(d), list[i].filename, /* flags= */ 0);
                 if (r >= 0) {
                         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).",
                                  directory, list[i].filename, FORMAT_BYTES(list[i].usage));

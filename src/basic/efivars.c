@@ -182,7 +182,7 @@ int efi_get_variable_string(const char *variable, char **ret) {
 
         assert(variable);
 
-        r = efi_get_variable(variable, NULL, &s, &ss);
+        r = efi_get_variable(variable, /* ret_attribute= */ NULL, &s, &ss);
         if (r < 0)
                 return r;
 
@@ -357,7 +357,7 @@ static int read_flag(const char *variable) {
         if (!is_efi_boot()) /* If this is not an EFI boot, assume the queried flags are zero */
                 return 0;
 
-        r = efi_get_variable(variable, NULL, &v, &s);
+        r = efi_get_variable(variable, /* ret_attribute= */ NULL, &v, &s);
         if (r < 0)
                 return r;
 

@@ -31,7 +31,7 @@ static void assert_decompressed(int fd) {
         size_t size;
 
         ASSERT_OK_POSITIVE(kernel_decompress(fd, &decompressed_fd));
-        ASSERT_OK(read_full_file_full(decompressed_fd, /* filename= */ NULL, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size));
+        ASSERT_OK(read_full_file_full(decompressed_fd, /* filename= */ NULL, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &data, &size));
         ASSERT_EQ(size, strlen(banner));
         ASSERT_EQ(memcmp(data, banner, size), 0);
 }
@@ -262,7 +262,7 @@ static void test_zboot_one(Compression compression, const char *comp_type) {
         log_debug("/* %s(%s) */", __func__, comp_type);
 
         ASSERT_OK(compress_stream(compression, in, payload_fd, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
-        ASSERT_OK(read_full_file_full(payload_fd, /* filename= */ NULL, 0, SIZE_MAX, 0, NULL, &payload, &payload_size));
+        ASSERT_OK(read_full_file_full(payload_fd, /* filename= */ NULL, /* offset= */ 0, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &payload, &payload_size));
 
         /* The header of a ZBOOT image, see drivers/firmware/efi/libstub/zboot-header.S in the kernel */
         uint8_t header[0x40] = { 'M', 'Z', 0, 0, 'z', 'i', 'm', 'g' };

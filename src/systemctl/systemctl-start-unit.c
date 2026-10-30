@@ -157,7 +157,7 @@ static int start_unit_one(
         }
 
         if (wu) {
-                r = bus_wait_for_units_add_unit(wu, name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                r = bus_wait_for_units_add_unit(wu, name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, /* callback= */ NULL, /* userdata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to watch unit %s: %m", name);
         }
@@ -256,7 +256,7 @@ static int start_units_one_transaction(
                 }
 
                 if (wu) {
-                        r = bus_wait_for_units_add_unit(wu, unit_id, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                        r = bus_wait_for_units_add_unit(wu, unit_id, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to watch unit %s: %m", unit_id);
                 }
@@ -294,7 +294,7 @@ static int enqueue_marked_jobs(
         if (arg_dry_run)
                 return 0;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to start jobs: %s", bus_error_message(&error, r));
 
