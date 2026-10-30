@@ -22,7 +22,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
 
         r = cg_path_decode_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
@@ -44,7 +44,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
 
         r = cg_path_get_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
@@ -98,7 +98,7 @@ static void check_p_g_u_p(const char *path, int code, const char *result) {
 
         r = cg_path_get_unit_path(path, &unit_path);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit_path, result);
 }
 
@@ -125,7 +125,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
 
         r = cg_path_get_user_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
@@ -151,7 +151,7 @@ TEST(path_get_user_unit) {
 static void check_p_g_s(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_session(path, &s) == code);
+        ASSERT_EQ(cg_path_get_session(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
@@ -165,8 +165,8 @@ TEST(path_get_session) {
 static void check_p_g_o_u(const char *path, int code, uid_t result) {
         uid_t uid = 0;
 
-        assert_se(cg_path_get_owner_uid(path, &uid) == code);
-        assert_se(uid == result);
+        ASSERT_EQ(cg_path_get_owner_uid(path, &uid), code);
+        ASSERT_EQ(uid, result);
 }
 
 TEST(path_get_owner_uid) {
@@ -178,7 +178,7 @@ TEST(path_get_owner_uid) {
 static void check_p_g_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_slice(path, &s) == code);
+        ASSERT_EQ(cg_path_get_slice(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
@@ -196,7 +196,7 @@ TEST(path_get_slice) {
 static void check_p_g_u_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_user_slice(path, &s) == code);
+        ASSERT_EQ(cg_path_get_user_slice(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
@@ -224,7 +224,7 @@ TEST(path_get_user_slice) {
 TEST(get_paths, .sd_booted = true) {
         _cleanup_free_ char *a = NULL;
 
-        assert_se(cg_get_root_path(&a) >= 0);
+        ASSERT_OK(cg_get_root_path(&a));
         log_info("Root = %s", a);
 }
 
@@ -300,16 +300,16 @@ TEST(proc, .sd_booted = true) {
 static void test_escape_one(const char *s, const char *expected) {
         _cleanup_free_ char *b = NULL;
 
-        assert_se(s);
-        assert_se(expected);
+        ASSERT_NOT_NULL(s);
+        ASSERT_NOT_NULL(expected);
 
         ASSERT_OK(cg_escape(s, &b));
         ASSERT_STREQ(b, expected);
 
         ASSERT_STREQ(cg_unescape(b), s);
 
-        assert_se(filename_is_valid(b));
-        assert_se(!cg_needs_escape(s) || b[0] == '_');
+        ASSERT_TRUE(filename_is_valid(b));
+        ASSERT_TRUE(!cg_needs_escape(s) || b[0] == '_');
 }
 
 TEST(escape, .sd_booted = true) {
@@ -383,7 +383,7 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         r = cg_slice_to_path(unit, &ret);
         log_info("actual: %s / %d", strnull(ret), r);
         log_info("expect: %s / %d", strnull(path), error);
-        assert_se(r == error);
+        ASSERT_EQ(r, error);
         ASSERT_STREQ(ret, path);
 }
 
@@ -449,38 +449,38 @@ TEST(cg_get_keyed_attribute) {
         if (ERRNO_IS_PRIVILEGE(r))
                 return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
 
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
         ASSERT_NULL(val);
 
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0)
                 return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        ASSERT_ERROR(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val), ENXIO);
         ASSERT_NULL(val);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val));
         val = mfree(val);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        ASSERT_ERROR(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3), ENXIO);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
-                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat",
+                                              STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3));
         for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
-                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat",
+                                              STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a));
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
 }
 
 TEST(bfq_weight_conversion) {
-        assert_se(BFQ_WEIGHT(1) == 1);
-        assert_se(BFQ_WEIGHT(50) == 50);
-        assert_se(BFQ_WEIGHT(100) == 100);
-        assert_se(BFQ_WEIGHT(500) == 136);
-        assert_se(BFQ_WEIGHT(5000) == 545);
-        assert_se(BFQ_WEIGHT(10000) == 1000);
+        ASSERT_EQ(BFQ_WEIGHT(1), 1U);
+        ASSERT_EQ(BFQ_WEIGHT(50), 50U);
+        ASSERT_EQ(BFQ_WEIGHT(100), 100U);
+        ASSERT_EQ(BFQ_WEIGHT(500), 136U);
+        ASSERT_EQ(BFQ_WEIGHT(5000), 545U);
+        ASSERT_EQ(BFQ_WEIGHT(10000), 1000U);
 }
 
 TEST(cgroupid) {
