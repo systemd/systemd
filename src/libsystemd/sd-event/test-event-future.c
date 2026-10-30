@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -8,7 +9,9 @@
 #include "sd-future.h"
 
 #include "event-future.h"
+#include "event-internal.h"
 #include "fd-util.h"
+#include "io-uring-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -876,6 +879,59 @@ TEST(sd_event_run_interrupted) {
                         ASSERT_ERROR_ERRNO(fcntl(inner_fd, F_GETFD), EBADF);
                         ASSERT_ERROR_ERRNO(fcntl(outer_fd, F_GETFD), EBADF);
                 }
+}
+
+typedef struct IoUringRecv {
+        int fd;
+        char buf[16];
+        int got;
+} IoUringRecv;
+
+static int io_uring_recv_fiber(void *userdata) {
+        IoUringRecv *st = ASSERT_PTR(userdata);
+        sd_event *e = sd_fiber_get_event();
+        int r;
+
+        struct io_uring_sqe sqe = {};
+        io_uring_prep_recv(&sqe, st->fd, st->buf, sizeof(st->buf), /* flags= */ 0);
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        r = future_new_io_uring(e, &sqe, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_await(f);
+        if (r < 0)
+                return r;
+
+        st->got = sd_future_result(f);
+        return sd_event_exit(e, 0);
+}
+
+TEST(io_uring_future_recv) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!event_io_uring_available(e))
+                return (void) log_tests_skipped("io_uring unavailable");
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        IoUringRecv st = { .fd = sv[0], .got = INT32_MAX };
+
+        static const char payload[] = "hello";
+        ASSERT_OK_EQ_ERRNO(write(sv[1], payload, sizeof(payload)), (ssize_t) sizeof(payload));
+
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        ASSERT_OK(sd_fiber_new(e, "uring-recv", io_uring_recv_fiber, &st, &fiber));
+        ASSERT_OK(sd_fiber_set_floating(fiber, 1));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(st.got, (int) sizeof(payload));
+        ASSERT_STREQ(st.buf, payload);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

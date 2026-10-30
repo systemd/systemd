@@ -6,6 +6,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "event-future.h"
+#include "event-internal.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "pidref.h"
@@ -548,6 +549,51 @@ int future_group_add_time_relative(sd_future *group, clockid_t clock, uint64_t u
         return 0;
 }
 
+/* io_uring_future_cancel() doesn't resolve the future, unlike the cancel ops of IoFuture and TimeFuture. It
+ * only queues a cancel SQE. The future resolves when the CQE of the original SQE arrives, with -ECANCELED
+ * if the kernel cancelled the operation. The buffers that the SQE references have to stay valid until then.
+ * sd_future_cancel_wait_unref() keeps the fiber suspended until the future resolves. */
+static int io_uring_future_cancel(sd_future *f) {
+        return event_cancel_io_uring_sqe(sd_future_get_event(f), f);
+}
+
+static const sd_future_ops io_uring_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .cancel = io_uring_future_cancel,
+};
+
+int future_new_io_uring(sd_event *e, const struct io_uring_sqe *sqe, sd_future **ret) {
+        int r;
+
+        assert(e);
+        assert(sqe);
+        assert(ret);
+
+        /* After the exit, the loop waits for the CQEs of the inflight SQEs and then dispatches the exit
+         * sources. The cancel-all SQE doesn't cover an SQE that is submitted after it, so such an SQE would
+         * delay the exit sources until its operation completes. */
+        if (sd_event_get_exit_code(e, /* ret= */ NULL) != -ENODATA)
+                return -ESHUTDOWN;
+
+        if (!event_io_uring_available(e))
+                return -EOPNOTSUPP;
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &io_uring_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        r = event_add_io_uring_sqe(e, sqe, f);
+        if (r < 0) {
+                /* Without an SQE, no CQE resolves the future, and sd_future_free() asserts that it resolved. */
+                assert_se(sd_future_resolve(f, -ECANCELED) >= 0);
+                return r;
+        }
+
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
 int event_run_suspend(sd_event *e, uint64_t timeout) {
         sd_event *outer = sd_fiber_get_event();
         int r;
@@ -579,9 +625,7 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (timeout == 0)
                 return 0;
 
-        int fd = sd_event_get_fd(e);
-        if (fd < 0)
-                return fd;
+        int fd = event_get_wait_fd(e);
 
         /* Wait for the inner-loop fd to become readable OR (optionally) the timeout to fire. */
         _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;

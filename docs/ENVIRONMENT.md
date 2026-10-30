@@ -96,6 +96,10 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
+* `$SYSTEMD_EVENT_IO_URING=0` — if set to false, sd-event never creates an
+  io_uring instance, and operations that it would submit through io_uring wait
+  for the file descriptor to become ready instead. Only useful for testing.
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
