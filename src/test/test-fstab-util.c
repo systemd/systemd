@@ -38,7 +38,7 @@ static void do_fstab_filter_options(const char *opts,
         log_info("1: \"%s\" → %d, \"%s\", \"%s\", \"%s\", expected %d, \"%s\", \"%s\", \"%s\"",
                  opts, r, strnull(name), value, filtered,
                  r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
-        assert_se(r == r_expected);
+        ASSERT_EQ(r, r_expected);
         ASSERT_STREQ(name, name_expected);
         ASSERT_STREQ(value, value_expected);
         ASSERT_STREQ(filtered, filtered_expected ?: opts);
@@ -46,11 +46,11 @@ static void do_fstab_filter_options(const char *opts,
         /* test mode which returns all the values */
 
         r = fstab_filter_options(opts, remove, &name, /* ret_value= */ NULL, &values, /* ret_filtered= */ NULL);
-        assert_se(joined = strv_join(values, ":"));
+        ASSERT_NOT_NULL(joined = strv_join(values, ":"));
         log_info("2: \"%s\" → %d, \"%s\", \"%s\", expected %d, \"%s\", \"%s\"",
                  opts, r, strnull(name), joined,
                  r_values_expected, strnull(name_expected), strnull(values_expected));
-        assert_se(r == r_values_expected);
+        ASSERT_EQ(r, r_values_expected);
         ASSERT_STREQ(name, r_values_expected > 0 ? name_expected : NULL);
         ASSERT_STREQ(joined, values_expected);
 
@@ -59,7 +59,7 @@ static void do_fstab_filter_options(const char *opts,
         log_info("3: \"%s\" → %d, \"%s\", expected %d, \"%s\"\n-",
                  opts, r, strnull(name),
                  r_expected, strnull(name_expected));
-        assert_se(r == r_expected);
+        ASSERT_EQ(r, r_expected);
         ASSERT_STREQ(name, name_expected);
 }
 
@@ -171,28 +171,28 @@ TEST(fstab_filter_options) {
 TEST(fstab_find_pri) {
         int pri = -1;
 
-        assert_se(fstab_find_pri("pri", &pri) == 0);
-        assert_se(pri == -1);
+        ASSERT_OK_EQ(fstab_find_pri("pri", &pri), 0);
+        ASSERT_EQ(pri, -1);
 
-        assert_se(fstab_find_pri("pri=11", &pri) == 1);
-        assert_se(pri == 11);
+        ASSERT_OK_EQ(fstab_find_pri("pri=11", &pri), 1);
+        ASSERT_EQ(pri, 11);
 
-        assert_se(fstab_find_pri("pri=-2", &pri) == 1);
-        assert_se(pri == -2);
+        ASSERT_OK_EQ(fstab_find_pri("pri=-2", &pri), 1);
+        ASSERT_EQ(pri, -2);
 
-        assert_se(fstab_find_pri("opt,pri=12,opt", &pri) == 1);
-        assert_se(pri == 12);
+        ASSERT_OK_EQ(fstab_find_pri("opt,pri=12,opt", &pri), 1);
+        ASSERT_EQ(pri, 12);
 
-        assert_se(fstab_find_pri("opt,opt,pri=12,pri=13", &pri) == 1);
-        assert_se(pri == 13);
+        ASSERT_OK_EQ(fstab_find_pri("opt,opt,pri=12,pri=13", &pri), 1);
+        ASSERT_EQ(pri, 13);
 }
 
 TEST(fstab_yes_no_option) {
-        assert_se(fstab_test_yes_no_option("nofail,fail,nofail", "nofail\0fail\0") == true);
-        assert_se(fstab_test_yes_no_option("nofail,nofail,fail", "nofail\0fail\0") == false);
-        assert_se(fstab_test_yes_no_option("abc,cde,afail", "nofail\0fail\0") == false);
-        assert_se(fstab_test_yes_no_option("nofail,fail=0,nofail=0", "nofail\0fail\0") == true);
-        assert_se(fstab_test_yes_no_option("nofail,nofail=0,fail=0", "nofail\0fail\0") == false);
+        ASSERT_TRUE(fstab_test_yes_no_option("nofail,fail,nofail", "nofail\0fail\0"));
+        ASSERT_FALSE(fstab_test_yes_no_option("nofail,nofail,fail", "nofail\0fail\0"));
+        ASSERT_FALSE(fstab_test_yes_no_option("abc,cde,afail", "nofail\0fail\0"));
+        ASSERT_TRUE(fstab_test_yes_no_option("nofail,fail=0,nofail=0", "nofail\0fail\0"));
+        ASSERT_FALSE(fstab_test_yes_no_option("nofail,nofail=0,fail=0", "nofail\0fail\0"));
 }
 
 TEST(fstab_node_to_udev_node) {
