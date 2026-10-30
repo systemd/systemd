@@ -13,61 +13,61 @@ TEST(coredump_filter_to_from_string) {
         for (CoredumpFilter i = 0; i < _COREDUMP_FILTER_MAX; i++) {
                 const char *n;
 
-                assert_se(n = coredump_filter_to_string(i));
+                ASSERT_NOT_NULL(n = coredump_filter_to_string(i));
                 log_info("0x%x\t%s", 1u << i, n);
-                assert_se(coredump_filter_from_string(n) == i);
+                ASSERT_EQ(coredump_filter_from_string(n), i);
 
                 uint64_t f;
-                assert_se(coredump_filter_mask_from_string(n, &f) == 0);
-                assert_se(f == 1u << i);
+                ASSERT_OK_ZERO(coredump_filter_mask_from_string(n, &f));
+                ASSERT_EQ(f, 1u << i);
         }
 }
 
 TEST(coredump_filter_mask_from_string) {
         uint64_t f;
-        assert_se(coredump_filter_mask_from_string("default", &f) == 0);
-        assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
-        assert_se(coredump_filter_mask_from_string("all", &f) == 0);
-        assert_se(f == COREDUMP_FILTER_MASK_ALL);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("default", &f));
+        ASSERT_EQ(f, COREDUMP_FILTER_MASK_DEFAULT);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("all", &f));
+        ASSERT_EQ(f, COREDUMP_FILTER_MASK_ALL);
 
-        assert_se(coredump_filter_mask_from_string("  default\tdefault\tdefault  ", &f) == 0);
-        assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("  default\tdefault\tdefault  ", &f));
+        ASSERT_EQ(f, COREDUMP_FILTER_MASK_DEFAULT);
 
-        assert_se(coredump_filter_mask_from_string("defaulta", &f) < 0);
-        assert_se(coredump_filter_mask_from_string("default defaulta default", &f) < 0);
-        assert_se(coredump_filter_mask_from_string("default default defaulta", &f) < 0);
+        ASSERT_FAIL(coredump_filter_mask_from_string("defaulta", &f));
+        ASSERT_FAIL(coredump_filter_mask_from_string("default defaulta default", &f));
+        ASSERT_FAIL(coredump_filter_mask_from_string("default default defaulta", &f));
 
-        assert_se(coredump_filter_mask_from_string("private-anonymous default", &f) == 0);
-        assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("private-anonymous default", &f));
+        ASSERT_EQ(f, COREDUMP_FILTER_MASK_DEFAULT);
 
-        assert_se(coredump_filter_mask_from_string("shared-file-backed shared-dax", &f) == 0);
-        assert_se(f == (1 << COREDUMP_FILTER_SHARED_FILE_BACKED |
-                        1 << COREDUMP_FILTER_SHARED_DAX));
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("shared-file-backed shared-dax", &f));
+        ASSERT_EQ(f, (UINT64_C(1) << COREDUMP_FILTER_SHARED_FILE_BACKED |
+                      UINT64_C(1) << COREDUMP_FILTER_SHARED_DAX));
 
-        assert_se(coredump_filter_mask_from_string("private-file-backed private-dax 0xF", &f) == 0);
-        assert_se(f == (1 << COREDUMP_FILTER_PRIVATE_FILE_BACKED |
-                        1 << COREDUMP_FILTER_PRIVATE_DAX |
-                        0xF));
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("private-file-backed private-dax 0xF", &f));
+        ASSERT_EQ(f, (UINT64_C(1) << COREDUMP_FILTER_PRIVATE_FILE_BACKED |
+                      UINT64_C(1) << COREDUMP_FILTER_PRIVATE_DAX |
+                      0xF));
 
-        assert_se(coredump_filter_mask_from_string("11", &f) == 0);
-        assert_se(f == 0x11);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("11", &f));
+        ASSERT_EQ(f, 0x11U);
 
-        assert_se(coredump_filter_mask_from_string("0x1101", &f) == 0);
-        assert_se(f == 0x1101);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("0x1101", &f));
+        ASSERT_EQ(f, 0x1101U);
 
-        assert_se(coredump_filter_mask_from_string("0", &f) == 0);
-        assert_se(f == 0);
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("0", &f));
+        ASSERT_EQ(f, 0U);
 
-        assert_se(coredump_filter_mask_from_string("all", &f) == 0);
-        assert_se(FLAGS_SET(f, (1 << COREDUMP_FILTER_PRIVATE_ANONYMOUS |
-                                1 << COREDUMP_FILTER_SHARED_ANONYMOUS |
-                                1 << COREDUMP_FILTER_PRIVATE_FILE_BACKED |
-                                1 << COREDUMP_FILTER_SHARED_FILE_BACKED |
-                                1 << COREDUMP_FILTER_ELF_HEADERS |
-                                1 << COREDUMP_FILTER_PRIVATE_HUGE |
-                                1 << COREDUMP_FILTER_SHARED_HUGE |
-                                1 << COREDUMP_FILTER_PRIVATE_DAX |
-                                1 << COREDUMP_FILTER_SHARED_DAX)));
+        ASSERT_OK_ZERO(coredump_filter_mask_from_string("all", &f));
+        ASSERT_TRUE(FLAGS_SET(f, (1 << COREDUMP_FILTER_PRIVATE_ANONYMOUS |
+                                  1 << COREDUMP_FILTER_SHARED_ANONYMOUS |
+                                  1 << COREDUMP_FILTER_PRIVATE_FILE_BACKED |
+                                  1 << COREDUMP_FILTER_SHARED_FILE_BACKED |
+                                  1 << COREDUMP_FILTER_ELF_HEADERS |
+                                  1 << COREDUMP_FILTER_PRIVATE_HUGE |
+                                  1 << COREDUMP_FILTER_SHARED_HUGE |
+                                  1 << COREDUMP_FILTER_PRIVATE_DAX |
+                                  1 << COREDUMP_FILTER_SHARED_DAX)));
 }
 
 static void test_parse_auxv_two(
@@ -84,17 +84,17 @@ static void test_parse_auxv_two(
         int at_secure;
         uid_t uid, euid;
         gid_t gid, egid;
-        assert_se(parse_auxv(LOG_ERR, elf_class, data, data_size,
-                             &at_secure, &uid, &euid, &gid, &egid) == 0);
+        ASSERT_OK_ZERO(parse_auxv(LOG_ERR, elf_class, data, data_size,
+                                  &at_secure, &uid, &euid, &gid, &egid));
 
         log_debug("[offset=%zu] at_secure=%d, uid="UID_FMT", euid="UID_FMT", gid="GID_FMT", egid="GID_FMT,
                   offset,
                   at_secure, uid, euid, gid, egid);
 
-        assert_se(uid == expect_uid);
-        assert_se(euid == expect_euid);
-        assert_se(gid == expect_gid);
-        assert_se(egid == expect_egid);
+        ASSERT_EQ(uid, expect_uid);
+        ASSERT_EQ(euid, expect_euid);
+        ASSERT_EQ(gid, expect_gid);
+        ASSERT_EQ(egid, expect_egid);
 }
 
 static void test_parse_auxv_one(
@@ -111,7 +111,7 @@ static void test_parse_auxv_one(
         const char *data;
         size_t data_size;
         log_info("Parsing %s…", filename);
-        assert_se(read_full_file_at(dir_fd, filename, &buf, &data_size) >= 0);
+        ASSERT_OK(read_full_file_at(dir_fd, filename, &buf, &data_size));
 
         for (size_t offset = 0; offset < 8; offset++) {
                 _cleanup_free_ char *buf2 = NULL;
@@ -119,7 +119,7 @@ static void test_parse_auxv_one(
                 if (offset == 0)
                         data = buf;
                 else {
-                        assert_se(buf2 = malloc(offset + data_size));
+                        ASSERT_NOT_NULL(buf2 = malloc(offset + data_size));
                         memcpy(buf2 + offset, buf, data_size);
                         data = buf2 + offset;
                 }
@@ -133,9 +133,8 @@ TEST(parse_auxv) {
         _cleanup_free_ char *dir = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
 
-        assert_se(get_testdata_dir("auxv", &dir) >= 0);
-        dir_fd = open(dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_PATH);
-        assert_se(dir_fd >= 0);
+        ASSERT_OK(get_testdata_dir("auxv", &dir));
+        dir_fd = ASSERT_OK_ERRNO(open(dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_PATH));
 
         if (__BYTE_ORDER == __LITTLE_ENDIAN) {
                 test_parse_auxv_one(ELFCLASS32, dir_fd, "resolved.arm32", /* expect_at_secure= */ 0, 193, 193, 193, 193);
