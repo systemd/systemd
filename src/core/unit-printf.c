@@ -144,6 +144,21 @@ static int specifier_shared_data_dir(char specifier, const void *data, const cha
         return sd_path_lookup(MANAGER_IS_SYSTEM(u->manager) ? SD_PATH_SYSTEM_SHARED : SD_PATH_USER_SHARED, NULL, ret);
 }
 
+static int specifier_app_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        _cleanup_free_ char *app_id = NULL;
+        r = unit_get_app_id(u, ret);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        *ret = TAKE_PTR(app_id);
+        return 0;
+}
+
 int unit_name_printf(const Unit *u, const char *format, char **ret) {
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
@@ -215,6 +230,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 { 'N', specifier_prefix_and_instance,      NULL },
                 { 'p', specifier_prefix,                   NULL },
                 { 'P', specifier_prefix_unescaped,         NULL },
+                { 'e', specifier_app_id,                   NULL },
 
                 { 'f', specifier_filename,                 NULL },
                 { 'y', specifier_real_path,                u->fragment_path },

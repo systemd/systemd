@@ -355,20 +355,22 @@ int unit_name_unescape(const char *f, char **ret) {
                 if (*f == '-')
                         *(t++) = '/';
                 else if (*f == '\\') {
-                        int a, b;
-
                         if (f[1] != 'x')
                                 return -EINVAL;
 
-                        a = unhexchar(f[2]);
+                        int a = unhexchar(f[2]);
                         if (a < 0)
                                 return -EINVAL;
 
-                        b = unhexchar(f[3]);
+                        int b = unhexchar(f[3]);
                         if (b < 0)
                                 return -EINVAL;
 
-                        *(t++) = (char) (((uint8_t) a << 4U) | (uint8_t) b);
+                        char c = (char) (((uint8_t) a << 4U) | (uint8_t) b);
+                        if (c == '\0')
+                                return -EINVAL;
+
+                        *(t++) = c;
                         f += 3;
                 } else
                         *(t++) = *f;
@@ -939,4 +941,105 @@ bool unit_name_prefix_equal(const char *a, const char *b) {
         assert(q);
 
         return memcmp_nn(a, p - a, b, q - b) == 0;
+}
+
+bool xdg_app_id_is_valid(const char *app_id) {
+        /* App IDs are ultimately derived from the basename of the app's .desktop file, so we implement the
+         * rules specified at https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html */
+
+        if (!filename_is_valid(app_id))
+                return false;
+
+        if (!in_charset(app_id, ALPHANUMERICAL ".-_"))
+                return false;
+
+        /* Apps only "should" use a D-Bus well-known-name as their ID. In practice, apps often skip that
+         * requirement and call themselves after their executable name. App IDs of this form are allowed
+         * to start with numbers */
+        if (!strchr(app_id, '.'))
+                return true;
+
+        /* Otherwise, we enforce the D-Bus well-known-name rules: sections separated by dots, and each must
+         * not be empty or start with a number */
+        const char *s = app_id;
+        for (;;) {
+                if (strchr(DIGITS ".\0", *s))
+                        return false;
+
+                s = strchr(s, '.');
+                if (!s)
+                        return true;
+                s++;
+        }
+}
+
+int unit_name_to_app_id(const char *name, char **ret) {
+        int r;
+
+        /* Parses the app ID unit naming scheme from DESKTOP_ENVIRONMENTS.md:
+         *
+         * app[-<launcher>]-<ApplicationID>[@<RANDOM>].service
+         * app[-<launcher>]-<ApplicationID>-<RANDOM>.scope
+         */
+
+        assert(name);
+        assert(ret);
+
+        UnitType type = unit_name_to_type(name);
+        if (!IN_SET(type, UNIT_SERVICE, UNIT_SCOPE))
+                return -EINVAL;
+
+        UnitNameFlags flags = UNIT_NAME_PLAIN;
+        if (type == UNIT_SERVICE)
+                flags |= UNIT_NAME_INSTANCE;
+        if (!unit_name_is_valid(name, flags))
+                return -EINVAL;
+
+        _cleanup_free_ char *prefix = NULL;
+        r = unit_name_to_prefix(name, &prefix);
+        if (r < 0)
+                return r;
+        char *escaped = prefix;
+
+        escaped = startswith(escaped, "app-");
+        if (!escaped)
+                return -EINVAL;
+
+        char *first_sep = strchr(escaped, '-');
+        if (first_sep == escaped)
+                return -EINVAL; /* <launcher>- is present but empty! */
+        if (type == UNIT_SCOPE) {
+                if (!first_sep)
+                        return -EINVAL; /* Missing required -<RANDOM> */
+
+                char *last_sep = strrchr(escaped, '-');
+                assert(last_sep);
+
+                if (isempty(last_sep + 1))
+                        return -EINVAL; /* <RANDOM> is empty */
+
+                if (first_sep == last_sep) /* There's no <launcher>- */
+                        first_sep = NULL;
+
+                *last_sep = '\0';
+        }
+        if (first_sep)
+                escaped = first_sep + 1;
+
+        if (strchr(escaped, '-'))
+                return -EINVAL;
+
+        if (isempty(escaped))
+                return -EINVAL;
+
+        _cleanup_free_ char *unescaped = NULL;
+        r = unit_name_unescape(escaped, &unescaped);
+        if (r < 0)
+                return r;
+
+        if (!xdg_app_id_is_valid(unescaped))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(unescaped);
+        return 0;
 }
