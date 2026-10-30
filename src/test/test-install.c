@@ -11,7 +11,7 @@
 static void dump_changes(InstallChange *c, unsigned n) {
         unsigned i;
 
-        assert_se(n == 0 || c);
+        ASSERT_TRUE(n == 0 || c);
 
         for (i = 0; i < n; i++) {
                 if (c[i].type == INSTALL_CHANGE_UNLINK)
@@ -44,8 +44,8 @@ int main(int argc, char* argv[]) {
                 ASSERT_OK(path_extract_filename(p->path, &unit_filename));
                 r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, unit_filename, &s);
 
-                assert_se((r < 0 && p->state == UNIT_FILE_BAD) ||
-                          (p->state == s));
+                ASSERT_TRUE((r < 0 && p->state == UNIT_FILE_BAD) ||
+                            (p->state == s));
 
                 fprintf(stderr, "%s (%s)\n",
                         p->path,
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_ENABLED);
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         log_info("/*** disable ***/");
         changes = NULL;
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_DISABLED);
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("/*** mask ***/");
         changes = NULL;
@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_MASKED);
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
         log_info("/*** unmask ***/");
         changes = NULL;
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_DISABLED);
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("/*** mask ***/");
         changes = NULL;
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_MASKED);
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
         log_info("/*** disable ***/");
         changes = NULL;
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_MASKED);
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
         log_info("/*** umask ***/");
         changes = NULL;
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files[0], &state));
-        assert_se(state == UNIT_FILE_DISABLED);
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("/*** enable files2 ***/");
         changes = NULL;
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files2_name, &state));
-        assert_se(state == UNIT_FILE_ENABLED);
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         log_info("/*** disable files2 ***/");
         changes = NULL;
@@ -177,7 +177,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files2_name, &state));
-        assert_se(state == UNIT_FILE_LINKED);
+        ASSERT_EQ(state, UNIT_FILE_LINKED);
 
         log_info("/*** disable files2 ***/");
         changes = NULL;
@@ -200,7 +200,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files2_name, &state));
-        assert_se(state == UNIT_FILE_LINKED);
+        ASSERT_EQ(state, UNIT_FILE_LINKED);
 
         log_info("/*** reenable files2 ***/");
         changes = NULL;
@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files2_name, &state));
-        assert_se(state == UNIT_FILE_ENABLED);
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         log_info("/*** disable files2 ***/");
         changes = NULL;
@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
         install_changes_free(changes, n_changes);
 
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, files_name, &state));
-        assert_se(state == UNIT_FILE_ENABLED);
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         return 0;
 }
