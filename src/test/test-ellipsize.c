@@ -38,23 +38,23 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
         t1 = ellipsize_mem(n, old_length, new_length, 30);
         log_info("30%% → %s utf8_console_width=%zu", t1, utf8_console_width(t1));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t1) == max_width);
+                ASSERT_EQ(utf8_console_width(t1), max_width);
         else
-                assert_se(utf8_console_width(t1) <= max_width);
+                ASSERT_LE(utf8_console_width(t1), max_width);
 
         t2 = ellipsize_mem(n, old_length, new_length, 90);
         log_info("90%% → %s utf8_console_width=%zu", t2, utf8_console_width(t2));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t2) == max_width);
+                ASSERT_EQ(utf8_console_width(t2), max_width);
         else
-                assert_se(utf8_console_width(t2) <= max_width);
+                ASSERT_LE(utf8_console_width(t2), max_width);
 
         t3 = ellipsize_mem(n, old_length, new_length, 100);
         log_info("100%% → %s utf8_console_width=%zu", t3, utf8_console_width(t3));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t3) == max_width);
+                ASSERT_EQ(utf8_console_width(t3), max_width);
         else
-                assert_se(utf8_console_width(t3) <= max_width);
+                ASSERT_LE(utf8_console_width(t3), max_width);
 
         if (new_length >= old_length) {
                 ASSERT_STREQ(t1, n);
@@ -133,7 +133,7 @@ TEST(ellipsize_ansi) {
                 for (ssize_t x = 21; x >= 0; x--) {
                         _cleanup_free_ char *t = ellipsize_mem(s, len, x, percent);
                         printf("%02zd: \"%s\"\n", x, t);
-                        assert_se(utf8_is_valid(t));
+                        ASSERT_NOT_NULL(utf8_is_valid(t));
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *e = cescape(t);
@@ -182,9 +182,8 @@ TEST(ellipsize_esc_infinite_loop) {
         static const char s[] = { 'A', 'B', 0x1B, ' ', 'D', '\0' };
         _cleanup_free_ char *t = NULL;
 
-        t = ellipsize_mem(s, 5, 5, 50);
-        assert_se(t);
-        assert_se(memcmp(t, s, 5) == 0);
+        t = ASSERT_NOT_NULL(ellipsize_mem(s, 5, 5, 50));
+        ASSERT_EQ(memcmp(t, s, 5), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
