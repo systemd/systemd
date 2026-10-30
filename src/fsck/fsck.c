@@ -438,7 +438,7 @@ static int run(int argc, char *argv[]) {
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
 
-                execvp(cmdline[0], (char**) cmdline);
+                (void) execvp_safe(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 

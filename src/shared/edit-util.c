@@ -282,8 +282,8 @@ static int run_editor_child(const EditFileContext *context) {
 
                 *mempcpy_typesafe(mempcpy_typesafe(cmdline, editor, editor_n), args, strv_length(args)) = NULL;
 
-                execvp(cmdline[0], cmdline);
-                log_warning_errno(errno, "Specified editor '%s' not available, trying fallbacks: %m", editor[0]);
+                r = execvp_safe(cmdline[0], cmdline);
+                log_warning_errno(r, "Specified editor '%s' not available, trying fallbacks: %m", editor[0]);
         }
 
         bool prepended = false;
@@ -296,18 +296,18 @@ static int run_editor_child(const EditFileContext *context) {
                 if (r < 0)
                         return log_oom();
 
-                execvp(args[0], (char* const*) args);
+                r = execvp_safe(args[0], (char* const*) args);
 
-                if (errno == ENOTDIR) {
-                        log_debug_errno(errno,
+                if (r == -ENOTDIR) {
+                        log_debug_errno(r,
                                         "Failed to execute '%s': a path component is not a directory, skipping...",
                                         name);
                         continue;
                 }
                 /* We do not fail if the editor doesn't exist because we want to try each one of them
                  * before failing. */
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to execute '%s': %m", name);
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to execute '%s': %m", name);
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),

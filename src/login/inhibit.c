@@ -312,9 +312,9 @@ static int run(int argc, char *argv[]) {
                         return r;
                 if (r == 0) {
                         /* Child */
-                        execvp(arguments[0], arguments);
+                        r = execvp_safe(arguments[0], arguments);
                         log_open();
-                        log_error_errno(errno, "Failed to execute '%s': %m", arguments[0]);
+                        log_error_errno(r, "Failed to execute '%s': %m", arguments[0]);
                         _exit(EXIT_FAILURE);
                 }
 

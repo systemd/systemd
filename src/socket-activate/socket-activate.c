@@ -241,9 +241,9 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                 return log_oom();
 
         log_info("Executing: %s", joined);
-        execvpe(argv[0], argv, envp);
+        r = execvpe_safe(argv[0], argv, envp);
 
-        return log_error_errno(errno, "Failed to execute '%s': %m", joined);
+        return log_error_errno(r, "Failed to execute '%s': %m", joined);
 }
 
 static int fork_and_exec_process(char * const *argv, int fd) {

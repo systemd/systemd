@@ -3685,7 +3685,8 @@ static int inner_child(
                                 return log_error_errno(errno, "Failed to update $PATH: %m");
                 }
 
-                execvpe(arg_parameters[0], arg_parameters, env_use);
+                r = execvpe_safe(arg_parameters[0], arg_parameters, env_use);
+                return log_error_errno(r, "execv(%s) failed: %m", exec_target);
         } else {
                 if (!arg_chdir)
                         /* If we cannot change the directory, we'll end up in /, that is expected. */

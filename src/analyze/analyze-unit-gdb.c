@@ -120,8 +120,8 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "Fork failed: %m");
 
         if (r == 0) {
-                (void) execvp(debugger_call[0], debugger_call);
-                log_error_errno(errno, "Failed to invoke '%s': %m", debugger_call[0]);
+                r = execvp_safe(debugger_call[0], debugger_call);
+                log_error_errno(r, "Failed to invoke '%s': %m", debugger_call[0]);
                 _exit(EXIT_FAILURE);
         }
 
