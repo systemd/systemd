@@ -668,6 +668,7 @@ typedef struct StartTransientContextParameters {
         TransientScopeParameters *scope;
         TransientCGroupContextParameters *cgroup;
 
+        sd_bus_error bus_error; /* For errors mapped through D-Bus machinery */
         char *bad_field; /* Field path for error propagation. */
 } StartTransientContextParameters;
 
@@ -682,6 +683,7 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_scope_parameters_free(p->scope);
         transient_kill_context_parameters_free(p->kill);
         transient_cgroup_context_parameters_free(p->cgroup);
+        sd_bus_error_free(&p->bus_error);
         free(p->bad_field);
 }
 
@@ -698,12 +700,14 @@ typedef struct StartTransientParameters {
         int notify_job_changes;
         int notify_unit_changes;
 
+        sd_bus_error bus_error; /* For errors mapped through D-Bus machinery. */
         char *bad_field; /* Field path for error propagation. */
 } StartTransientParameters;
 
 static void start_transient_parameters_done(StartTransientParameters *p) {
         assert(p);
         start_transient_context_parameters_done(&p->context);
+        sd_bus_error_free(&p->bus_error);
         free(p->bad_field);
 }
 
@@ -774,6 +778,7 @@ static int dispatch_transient_context_preauth(const char *name, sd_json_variant 
          * the post-auth dispatch will validate them and reject unknown fields. */
         r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, &p->context, &bad_field);
         if (r < 0) {
+                sd_bus_error_move(&p->bus_error, &p->context.bus_error);
                 if (bad_field)
                         varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
                 return r;
@@ -832,8 +837,11 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
         /* Don't propagate the caller's flags (in particular SD_JSON_MANDATORY from the outer 'context'
          * field) into the nested dispatch, otherwise every inner field becomes mandatory. */
         r = sd_json_dispatch_full(variant, context_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->context, &bad_field);
-        if (r < 0 && bad_field)
-                varlink_propagate_bad_field(bad_field, p->context.bad_field, &p->bad_field);
+        if (r < 0) {
+                sd_bus_error_move(&p->bus_error, &p->context.bus_error);
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, p->context.bad_field, &p->bad_field);
+        }
         return r;
 }
 
@@ -1144,6 +1152,8 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r == -EMEDIUMTYPE)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (r < 0) {
+                if (sd_bus_error_is_set(&p.bus_error))
+                        return varlink_reply_bus_error(link, r, &p.bus_error);
                 if (bad_field)
                         return varlink_error_unit_invalid_parameter(link, bad_field, p.bad_field);
 
@@ -1165,6 +1175,8 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         r = sd_json_dispatch_full(parameters, dispatch_table_postauth, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
         if (r < 0) {
+                if (sd_bus_error_is_set(&p.bus_error))
+                        return varlink_reply_bus_error(link, r, &p.bus_error);
                 if (bad_field) {
                         if (r == -EADDRNOTAVAIL)
                                 return varlink_error_unit_property_not_supported(link, bad_field, p.bad_field);
