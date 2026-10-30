@@ -48,7 +48,7 @@ static int network_save(Network *network, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);
@@ -82,7 +82,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);
@@ -113,7 +113,7 @@ static int link_save(Link *link, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);
@@ -217,7 +217,7 @@ static int run(int argc, char *argv[]) {
                 return log_oom();
 
         if (strv_isempty(args)) {
-                r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
+                r = proc_cmdline_parse(parse_cmdline_item, &context, /* flags= */ 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
         } else {

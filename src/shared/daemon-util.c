@@ -65,7 +65,7 @@ int notify_push_fd(int fd, const char *name) {
         /* Remove existing fds with the same name in fdstore. */
         (void) notify_remove_fd_warn(name);
 
-        return sd_pid_notify_with_fds(0, /* unset_environment= */ false, state, &fd, 1);
+        return sd_pid_notify_with_fds(/* pid= */ 0, /* unset_environment= */ false, state, &fd, 1);
 }
 
 int notify_push_fdf(int fd, const char *format, ...) {

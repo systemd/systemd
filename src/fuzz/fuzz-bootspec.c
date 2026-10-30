@@ -41,7 +41,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
                 _cleanup_free_ char *data = NULL;
                 ssize_t len = -ENODATA;
 
-                v = sd_json_variant_by_index(entry, 0);
+                v = sd_json_variant_by_index(entry, /* index= */ 0);
                 if (v)
                         id = sd_json_variant_string(v);
                 if (!id)
@@ -72,7 +72,7 @@ static int json_dispatch_loader(const char *name, sd_json_variant *variant, sd_j
         if (r < 0)
                 return r;
 
-        (void) boot_config_augment_from_loader(config, entries, false);
+        (void) boot_config_augment_from_loader(config, entries, /* auto_only= */ false);
         return 0;
 }
 
@@ -88,7 +88,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         int r;
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         fuzz_setup_logging();
@@ -96,11 +96,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(datadup = memdup_suffix0(data, size));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = sd_json_parse(datadup, 0, &v, NULL, NULL);
+        r = sd_json_parse(datadup, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return 0;
 
-        r = sd_json_dispatch(v, data_dispatch, 0, &config);
+        r = sd_json_dispatch(v, data_dispatch, /* flags= */ 0, &config);
         if (r < 0)
                 return 0;
 

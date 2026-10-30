@@ -41,7 +41,7 @@ static int user_manager_get_unit_by_pidref(const PidRef *pidref, char **ret_unit
 
         /* The system unit we are running in, i.e. our own user@.service or capsule@.service */
         _cleanup_free_ char *our_manager_unit = NULL;
-        r = cg_pid_get_unit(0, &our_manager_unit);
+        r = cg_pid_get_unit(/* pid= */ 0, &our_manager_unit);
         if (r < 0)
                 return r;
 
@@ -517,7 +517,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
                 return log_debug_errno(r, "Failed to enable source: %m") ;
 
         _cleanup_(image_unrefp) Image *image = NULL;
-        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, &image);
+        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, /* root= */ NULL, &image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find image: %m");
 

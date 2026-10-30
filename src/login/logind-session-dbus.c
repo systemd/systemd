@@ -218,7 +218,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -237,7 +237,7 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -266,7 +266,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -298,7 +298,7 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -330,7 +330,7 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -375,7 +375,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -401,11 +401,11 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         if (uid != 0 && (force || uid != s->user->user_record->uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
 
-        r = session_set_controller(s, sd_bus_message_get_sender(message), force, true);
+        r = session_set_controller(s, sd_bus_message_get_sender(message), force, /* prepare= */ true);
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_release_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -418,7 +418,7 @@ static int method_release_control(sd_bus_message *message, void *userdata, sd_bu
 
         session_drop_controller(s);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -446,7 +446,7 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
 
         session_set_type(s, type);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -474,7 +474,7 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
                                         "Class may only be set to 'user'");
 
         if (s->class == SESSION_USER) /* No change, shortcut */
-                return sd_bus_reply_method_return(message, NULL);
+                return sd_bus_reply_method_return(message, /* types= */ NULL);
         if (s->class != SESSION_USER_INCOMPLETE)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Only sessions with class 'user-incomplete' may change class");
@@ -526,7 +526,7 @@ static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -557,7 +557,7 @@ static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -591,7 +591,7 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
                  * equivalent). */
                 return sd_bus_error_set(error, BUS_ERROR_DEVICE_IS_TAKEN, "Device already taken");
 
-        r = session_device_new(s, dev, true, &sd);
+        r = session_device_new(s, dev, /* open_device= */ true, &sd);
         if (r < 0)
                 return r;
 
@@ -636,7 +636,7 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
         session_device_free(sd);
         session_save(s);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_pause_device_complete(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -665,7 +665,7 @@ static int method_pause_device_complete(sd_bus_message *message, void *userdata,
 
         session_device_complete_pause(sd);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -885,7 +885,7 @@ int session_send_lock(Session *s, bool lock) {
                         p,
                         "org.freedesktop.login1.Session",
                         lock ? "Lock" : "Unlock",
-                        NULL);
+                        /* types= */ NULL);
 }
 
 int session_send_lock_all(Manager *m, bool lock) {
@@ -967,7 +967,7 @@ int session_send_upgrade_reply(Session *s, const sd_bus_error *error) {
 
         session_save(s);
 
-        return sd_bus_reply_method_return(c, NULL);
+        return sd_bus_reply_method_return(c, /* types= */ NULL);
 }
 
 static const sd_bus_vtable session_vtable[] = {

@@ -438,7 +438,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        return link_find_qdisc(link, TC_H_MAJ(tclass->classid), tclass_get_tca_kind(tclass), NULL) >= 0;
+        return link_find_qdisc(link, TC_H_MAJ(tclass->classid), tclass_get_tca_kind(tclass), /* ret= */ NULL) >= 0;
 }
 
 static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
@@ -472,7 +472,7 @@ int link_request_tclass(Link *link, const TClass *tclass) {
         assert(tclass);
         assert(tclass->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (tclass_get_request(link, tclass, NULL) >= 0)
+        if (tclass_get_request(link, tclass, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = tclass_dup(tclass, &tmp);
@@ -618,7 +618,7 @@ int link_enumerate_tclass(Link *link, uint32_t parent) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_GETTCLASS, link->ifindex, 0, parent);
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_GETTCLASS, link->ifindex, /* handle= */ 0, parent);
         if (r < 0)
                 return r;
 

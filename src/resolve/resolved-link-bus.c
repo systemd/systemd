@@ -72,7 +72,7 @@ static int property_get_dns_internal(
                 return r;
 
         LIST_FOREACH(servers, s, l->dns_servers) {
-                r = bus_dns_server_append(reply, s, false, extended);
+                r = bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
                 if (r < 0)
                         return r;
         }
@@ -88,7 +88,7 @@ static int property_get_dns(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, false);
+        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
 }
 
 static int property_get_dns_ex(
@@ -99,7 +99,7 @@ static int property_get_dns_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, true);
+        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
 }
 
 static int property_get_current_dns_server_internal(
@@ -119,7 +119,7 @@ static int property_get_current_dns_server_internal(
 
         s = *(DnsServer **) userdata;
 
-        return bus_dns_server_append(reply, s, false, extended);
+        return bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
 }
 
 static int property_get_current_dns_server(
@@ -130,7 +130,7 @@ static int property_get_current_dns_server(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, false);
+        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
 }
 
 static int property_get_current_dns_server_ex(
@@ -141,7 +141,7 @@ static int property_get_current_dns_server_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, true);
+        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
 }
 
 static int property_get_domains(
@@ -257,11 +257,22 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         for (size_t i = 0; i < n; i++) {
                 DnsServer *s;
 
-                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, dns[i]->port, /* ifindex= */ 0, dns[i]->server_name);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
+                        r = dns_server_new(
+                                        l->manager,
+                                        /* ret= */ NULL,
+                                        DNS_SERVER_LINK,
+                                        l,
+                                        /* delegate= */ NULL,
+                                        dns[i]->family,
+                                        &dns[i]->address,
+                                        dns[i]->port,
+                                        /* ifindex= */ 0,
+                                        dns[i]->server_name,
+                                        RESOLVE_CONFIG_SOURCE_DBUS);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;
@@ -287,7 +298,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                         log_link_info(l, "Bus client reset DNS server list.");
         }
 
-        r = sd_bus_reply_method_return(message, NULL);
+        r = sd_bus_reply_method_return(message, /* types= */ NULL);
 
 finalize:
         for (size_t i = 0; i < n; i++)
@@ -298,11 +309,11 @@ finalize:
 }
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, false);
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
 }
 
 int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, true);
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -354,7 +365,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return -ENOMEM;
         }
 
-        r = sd_bus_message_rewind(message, false);
+        r = sd_bus_message_rewind(message, /* complete= */ false);
         if (r < 0)
                 return r;
 
@@ -424,7 +435,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         log_link_info(l, "Bus client reset search domain list.");
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 
 clear:
         dns_search_domain_unlink_all(l->search_domains);
@@ -466,7 +477,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
                 log_link_info(l, "Bus client set default route setting: %s", yes_no(b));
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -509,7 +520,7 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         if (l->llmnr_support != mode) {
                 l->llmnr_support = mode;
                 link_allocate_scopes(l);
-                link_add_rrs(l, false);
+                link_add_rrs(l, /* force_remove= */ false);
 
                 (void) link_save_user(l);
 
@@ -518,7 +529,7 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                 log_link_info(l, "Bus client set LLMNR setting: %s", resolve_support_to_string(mode));
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -561,7 +572,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         if (l->mdns_support != mode) {
                 l->mdns_support = mode;
                 link_allocate_scopes(l);
-                link_add_rrs(l, false);
+                link_add_rrs(l, /* force_remove= */ false);
 
                 (void) link_save_user(l);
 
@@ -570,7 +581,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 log_link_info(l, "Bus client set MulticastDNS setting: %s", resolve_support_to_string(mode));
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -620,7 +631,7 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
                               mode < 0 ? "default" : dns_over_tls_mode_to_string(mode));
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -670,7 +681,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                               mode < 0 ? "default" : dnssec_mode_to_string(mode));
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -733,7 +744,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         log_link_info(l, "Bus client reset NTA list.");
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -761,7 +772,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
 
         link_flush_settings(l);
         link_allocate_scopes(l);
-        link_add_rrs(l, false);
+        link_add_rrs(l, /* force_remove= */ false);
 
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
@@ -771,7 +782,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         manager_llmnr_maybe_stop(l->manager);
         manager_mdns_maybe_stop(l->manager);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {

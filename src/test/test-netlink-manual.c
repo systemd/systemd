@@ -19,7 +19,7 @@ static int load_module(const char *mod_name) {
         if (r < 0)
                 return r;
 
-        ctx = sym_kmod_new(NULL, NULL);
+        ctx = sym_kmod_new(/* dirname= */ NULL, /* config_paths= */ NULL);
         if (!ctx)
                 return log_oom();
 
@@ -32,7 +32,7 @@ static int load_module(const char *mod_name) {
 
                 mod = sym_kmod_module_get_module(l);
 
-                r = sym_kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
+                r = sym_kmod_module_probe_insert_module(mod, /* flags= */ 0, /* extra_options= */ NULL, /* run_install= */ NULL, /* data= */ NULL, /* print_action= */ NULL);
                 if (r > 0)
                         r = -EINVAL;
         }
@@ -58,7 +58,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
                 return log_tests_skipped("not root");
 
         /* IPIP tunnel */
-        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0) >= 0);
         assert_se(m);
 
         assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, "ipip-tunnel") >= 0);
@@ -77,12 +77,12 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(m) >= 0);
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
-        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, m, -1, NULL));
+        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, m, -1, /* ret= */ NULL));
 
         ASSERT_NULL(m = sd_netlink_message_unref(m));
 
         /* sit */
-        assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, /* ifindex= */ 0) >= 0);
         assert_se(n);
 
         assert_se(sd_netlink_message_append_string(n, IFLA_IFNAME, "sit-tunnel") >= 0);
@@ -103,7 +103,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(n) >= 0);
         assert_se(sd_netlink_message_close_container(n) >= 0);
 
-        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, n, -1, NULL));
+        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, n, -1, /* ret= */ NULL));
 
         ASSERT_NULL(n = sd_netlink_message_unref(n));
 

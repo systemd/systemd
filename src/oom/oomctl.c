@@ -36,7 +36,7 @@ static int verb_dump_state(int argc, char *argv[], uintptr_t _data, void *userda
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_oom_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_oom_mgr, "DumpByFileDescriptor", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to dump context: %s", bus_error_message(&error, r));
 

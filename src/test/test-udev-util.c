@@ -36,7 +36,7 @@ TEST(udev_replace_whitespace) {
         test_udev_replace_whitespace_one_len("hoge hoge    ", 3, "hog");
         test_udev_replace_whitespace_one_len("hoge hoge    ", 2, "ho");
         test_udev_replace_whitespace_one_len("hoge hoge    ", 1, "h");
-        test_udev_replace_whitespace_one_len("hoge hoge    ", 0, "");
+        test_udev_replace_whitespace_one_len("hoge hoge    ", /* len= */ 0, "");
 
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 16, "hoge_hoge");
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 15, "hoge_hoge");
@@ -54,7 +54,7 @@ TEST(udev_replace_whitespace) {
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 3, "");
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 2, "");
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 1, "");
-        test_udev_replace_whitespace_one_len("    hoge   hoge    ", 0, "");
+        test_udev_replace_whitespace_one_len("    hoge   hoge    ", /* len= */ 0, "");
 }
 
 static void test_udev_replace_whitespace_not_terminated_one(const char *str, size_t len, const char *expected) {

@@ -49,7 +49,7 @@ static int start_lldp_rx(sd_lldp_rx **lldp_rx, sd_event *e, sd_lldp_rx_callback_
         if (r < 0)
                 return r;
 
-        r = sd_lldp_rx_attach_event(*lldp_rx, e, 0);
+        r = sd_lldp_rx_attach_event(*lldp_rx, e, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -105,10 +105,10 @@ static void test_receive_basic_packet(sd_event *e) {
         const char *str;
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(lldp_rx_handler_calls == 1);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
 
@@ -157,10 +157,10 @@ static void test_receive_incomplete_packet(sd_event *e) {
         };
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(lldp_rx_handler_calls == 0);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 0);
 
@@ -198,10 +198,10 @@ static void test_receive_oui_packet(sd_event *e) {
         };
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(lldp_rx_handler_calls == 1);
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
 
@@ -320,20 +320,20 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         uint16_t ttl;
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
 
         assert_se(write(test_fd[1], frame1, sizeof(frame1)) == sizeof(frame1));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(write(test_fd[1], frame2, sizeof(frame2)) == sizeof(frame2));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(write(test_fd[1], frame3, sizeof(frame3)) == sizeof(frame3));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(write(test_fd[1], frame4, sizeof(frame4)) == sizeof(frame4));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(write(test_fd[1], frame5, sizeof(frame5)) == sizeof(frame5));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(write(test_fd[1], frame6, sizeof(frame6)) == sizeof(frame6));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(lldp_rx_handler_calls == 6);
 
         assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 6);
@@ -396,10 +396,10 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
         uint16_t vlanid;
 
         lldp_rx_handler_calls = 0;
-        ASSERT_OK(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL));
+        ASSERT_OK(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
         ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame, sizeof(frame)), (ssize_t)sizeof(frame));
-        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(lldp_rx_handler_calls, 1);
         ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 1);
 
@@ -445,10 +445,10 @@ static void test_receive_reentrant_unref(sd_event *e) {
         sd_lldp_rx *lldp_rx;
 
         reentrant_unref_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, NULL) == 0);
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, /* cb_data= */ NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
-        sd_event_run(e, 0);
+        sd_event_run(e, /* timeout= */ 0);
         assert_se(reentrant_unref_calls == 1);
 
         /* lldp_rx was freed by the callback's unref once the dispatch stack unwound; do not touch it. */

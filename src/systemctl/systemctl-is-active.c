@@ -25,7 +25,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], siz
         if (r < 0)
                 return r;
 
-        r = expand_unit_names(bus, args, NULL, &names, NULL);
+        r = expand_unit_names(bus, args, /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 

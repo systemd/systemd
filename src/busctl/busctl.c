@@ -210,7 +210,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!arg_unique && !arg_acquired && !arg_activatable)
                 arg_unique = arg_acquired = arg_activatable = true;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -250,9 +250,9 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_oom();
 
         if (arg_full > 0)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
-        r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
+        r = table_set_align_percent(table, table_get_cell(table, /* row= */ 0, COLUMN_PID), 100);
         if (r < 0)
                 return log_error_errno(r, "Failed to set alignment: %m");
 
@@ -358,9 +358,9 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 if (!u)
                                         return log_oom();
 
-                                r = table_add_cell(table, NULL, TABLE_STRING, u);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, u);
                         } else
-                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -386,7 +386,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (r < 0)
                                 log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
                         else {
-                                r = table_add_cell(table, NULL, TABLE_ID128, &mid);
+                                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_ID128, &mid);
                                 if (r < 0)
                                         return table_log_add_error(r);
 
@@ -394,7 +394,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         }
                 }
 
-                r = table_fill_empty(table, 0);
+                r = table_fill_empty(table, /* until_column= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fill line: %m");
         }
@@ -485,7 +485,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
 
         r = sd_bus_call_method(bus, service, path,
                                "org.freedesktop.DBus.Introspectable", "Introspect",
-                               &error, &reply, NULL);
+                               &error, &reply, /* types= */ NULL);
         if (r < 0) {
                 notify_bus_error(&error);
                 printf("%sFailed to introspect object %s of service %s: %s%s\n",
@@ -562,7 +562,7 @@ static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!arg_unique && !arg_acquired)
                 arg_acquired = true;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -582,7 +582,7 @@ static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         else {
                 _cleanup_strv_free_ char **names = NULL;
 
-                r = sd_bus_list_names(bus, &names, NULL);
+                r = sd_bus_list_names(bus, &names, /* ret_activatable= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get name list: %m");
 
@@ -653,7 +653,7 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                                         n++;
                                 }
 
-                                r = sd_bus_message_rewind(m, false);
+                                r = sd_bus_message_rewind(m, /* complete= */ false);
                                 if (r < 0)
                                         return r;
 
@@ -1026,7 +1026,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         const char *xml;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -1036,7 +1036,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
 
         r = sd_bus_call_method(bus, argv[1], argv[2],
                                "org.freedesktop.DBus.Introspectable", "Introspect",
-                               &error, &reply_xml, NULL);
+                               &error, &reply_xml, /* types= */ NULL);
         if (r < 0) {
                 notify_bus_error(&error);
                 return log_error_errno(r, "Failed to introspect object %s of service %s: %s",
@@ -1117,11 +1117,11 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         if (!mf)
                                 return log_oom();
 
-                        r = format_cmdline(reply, mf, false);
+                        r = format_cmdline(reply, mf, /* needs_space= */ false);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = memstream_finalize(&ms, &buf, NULL);
+                        r = memstream_finalize(&ms, &buf, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to flush and close memstream: %m");
 
@@ -1158,8 +1158,8 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
-        (void) table_set_maximum_width(table, table_get_cell(table, 0, 3), arg_full ? 100 : 40);
+                table_set_width(table, /* width= */ 0);
+        (void) table_set_maximum_width(table, table_get_cell(table, /* row= */ 0, 3), arg_full ? 100 : 40);
         table_set_header(table, arg_legend);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -1239,7 +1239,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object from DBus message: %m");
 
-        r = sd_json_variant_dump(v, arg_json_format_flags, f, NULL);
+        r = sd_json_variant_dump(v, arg_json_format_flags, f, /* prefix= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to show JSON object: %m");
 
@@ -1255,7 +1255,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         bool is_monitor = false;
         int r;
 
-        r = acquire_bus(true, &bus);
+        r = acquire_bus(/* set_monitor= */ true, &bus);
         if (r < 0)
                 return r;
 
@@ -1314,7 +1314,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
+        r = sd_bus_call(bus, message, arg_timeout, &error, /* ret_reply= */ NULL);
         if (r < 0) {
                 notify_bus_error(&error);
                 return log_error_errno(r, "Call to org.freedesktop.DBus.Monitoring.BecomeMonitor failed: %s",
@@ -1328,7 +1328,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                 log_info("Monitoring bus message stream.");
 
-        (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1434,7 +1434,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         pid_t pid;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -1479,7 +1479,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return log_error_errno(r, "Failed to get credentials: %m");
 
-        bus_creds_dump(creds, NULL, false);
+        bus_creds_dump(creds, NULL, /* terse= */ false);
         return 0;
 }
 
@@ -1767,7 +1767,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to dump DBus message to JSON object: %m");
 
-                r = sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                r = sd_json_variant_dump(v, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to dump JSON object: %m");
 
@@ -1779,7 +1779,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
                         return log_error_errno(r, "Failed to dump DBus message: %m");
         } else {
 
-                fputs(FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) ? contents : sd_bus_message_get_signature(m, true), stdout);
+                fputs(FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) ? contents : sd_bus_message_get_signature(m, /* complete= */ true), stdout);
                 fputc(' ', stdout);
 
                 r = format_cmdline(m, stdout, /* needs_space= */ false);
@@ -1807,7 +1807,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -1851,7 +1851,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         if (!arg_expect_reply) {
-                r = sd_bus_send(bus, m, NULL);
+                r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send message: %m");
 
@@ -1875,7 +1875,7 @@ static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -1907,7 +1907,7 @@ static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                "Too many parameters for signature.");
         }
 
-        r = sd_bus_send(bus, m, NULL);
+        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to send signal: %m");
 
@@ -1928,7 +1928,7 @@ static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *user
         if (!interface_name_is_valid(argv[3]))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -1967,7 +1967,7 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
                         if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                 log_info("Received requested maximum number of signals, exiting.");
 
-                        return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), 0);
+                        return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), /* code= */ 0);
                 }
         }
 
@@ -2000,7 +2000,7 @@ static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_match_signal(bus, NULL, sender, path, interface, member, on_bus_signal, NULL);
+        r = sd_bus_match_signal(bus, /* ret= */ NULL, sender, path, interface, member, on_bus_signal, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to match signal %s on interface %s: %m", member, interface);
 
@@ -2013,7 +2013,7 @@ static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "Failed to attach bus event: %m\n");
 
         if (arg_timeout) {
-                r = sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, arg_timeout, 0, NULL, NULL);
+                r = sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, arg_timeout, /* accuracy= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to schedule timeout: %m\n");
         }
@@ -2041,7 +2041,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
         if (!interface_name_is_valid(argv[3]))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
 
-        r = acquire_bus(false, &bus);
+        r = acquire_bus(/* set_monitor= */ false, &bus);
         if (r < 0)
                 return r;
 
@@ -2070,7 +2070,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
         if (*p)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
 
-        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
+        r = sd_bus_call(bus, m, arg_timeout, &error, /* ret_reply= */ NULL);
         if (r < 0) {
                 notify_bus_error(&error);
                 return log_error_errno(r, "Failed to set property %s on interface %s: %s",

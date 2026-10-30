@@ -56,7 +56,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, LOOPBACK_SETUP_TIMEOUT_USEC, "systemd-start-loopback");
+        r = sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, req, generic_handler, /* destroy_callback= */ NULL, s, LOOPBACK_SETUP_TIMEOUT_USEC, "systemd-start-loopback");
         if (r < 0)
                 return r;
 
@@ -91,7 +91,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv4");
+        r = sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, req, generic_handler, /* destroy_callback= */ NULL, s, USEC_INFINITY, "systemd-loopback-ipv4");
         if (r < 0)
                 return r;
 
@@ -127,7 +127,7 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv6");
+        r = sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, req, generic_handler, /* destroy_callback= */ NULL, s, USEC_INFINITY, "systemd-loopback-ipv6");
         if (r < 0)
                 return r;
 
@@ -200,7 +200,7 @@ int loopback_setup(void) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to wait for netlink event, ignoring: %m");
 
-                r = sd_netlink_process(rtnl, NULL);
+                r = sd_netlink_process(rtnl, /* ret= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to process netlink event, ignoring: %m");
         }

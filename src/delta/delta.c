@@ -79,11 +79,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase(a, NULL, CHASE_TRAIL_SLASH, &x, NULL);
+        r = chase(a, /* root= */ NULL, CHASE_TRAIL_SLASH, &x, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
 
-        r = chase(b, NULL, CHASE_TRAIL_SLASH, &y, NULL);
+        r = chase(b, /* root= */ NULL, CHASE_TRAIL_SLASH, &y, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
 
@@ -452,7 +452,7 @@ static int process_suffix_chop(const char *arg) {
         assert(arg);
 
         if (!path_is_absolute(arg))
-                return process_suffix(arg, NULL);
+                return process_suffix(arg, /* onlyprefix= */ NULL);
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, PREFIXES) {
@@ -532,7 +532,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "diff", "yes|no",
                                   "Show a diff when overridden files differ"):
-                        r = parse_boolean_argument("--diff", opts.arg, NULL);
+                        r = parse_boolean_argument("--diff", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         arg_diff = r;
@@ -577,7 +577,7 @@ static int run(int argc, char *argv[]) {
                                 n_found += k;
                 }
         } else {
-                k = process_suffixes(NULL);
+                k = process_suffixes(/* onlyprefix= */ NULL);
                 if (k < 0)
                         r = k;
                 else

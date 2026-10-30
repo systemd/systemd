@@ -334,7 +334,7 @@ enum nss_status userdb_getgrnam(
 
                 blocked = true;
 
-                r = nss_group_record_by_name(name, false, &g);
+                r = nss_group_record_by_name(name, /* with_shadow= */ false, &g);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0) {
@@ -389,7 +389,7 @@ enum nss_status userdb_getgrgid(
 
                 blocked = true;
 
-                r = nss_group_record_by_gid(gid, false, &g);
+                r = nss_group_record_by_gid(gid, /* with_shadow= */ false, &g);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0) {

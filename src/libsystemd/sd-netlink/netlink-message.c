@@ -98,7 +98,7 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
 
         assert(error <= 0);
 
-        r = message_new(nl, ret, NLMSG_ERROR, 0);
+        r = message_new(nl, ret, NLMSG_ERROR, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -293,7 +293,7 @@ int sd_netlink_message_append_flag(sd_netlink_message *m, uint16_t attr_type) {
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, attr_type, NULL, 0);
+        r = add_rtattr(m, attr_type, /* data= */ NULL, /* data_length= */ 0);
         if (r < 0)
                 return r;
 
@@ -306,7 +306,7 @@ int sd_netlink_message_append_u8(sd_netlink_message *m, uint16_t attr_type, uint
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U8);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_U8);
         if (r < 0)
                 return r;
 
@@ -323,7 +323,7 @@ int sd_netlink_message_append_u16(sd_netlink_message *m, uint16_t attr_type, uin
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U16);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_U16);
         if (r < 0)
                 return r;
 
@@ -340,7 +340,7 @@ int sd_netlink_message_append_u32(sd_netlink_message *m, uint16_t attr_type, uin
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U32);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_U32);
         if (r < 0)
                 return r;
 
@@ -357,7 +357,7 @@ int sd_netlink_message_append_u64(sd_netlink_message *m, uint16_t attr_type, uin
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U64);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_U64);
         if (r < 0)
                 return r;
 
@@ -374,7 +374,7 @@ int sd_netlink_message_append_s8(sd_netlink_message *m, uint16_t attr_type, int8
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_S8);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_S8);
         if (r < 0)
                 return r;
 
@@ -391,7 +391,7 @@ int sd_netlink_message_append_s16(sd_netlink_message *m, uint16_t attr_type, int
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_S16);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_S16);
         if (r < 0)
                 return r;
 
@@ -408,7 +408,7 @@ int sd_netlink_message_append_s32(sd_netlink_message *m, uint16_t attr_type, int
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_S32);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_S32);
         if (r < 0)
                 return r;
 
@@ -425,7 +425,7 @@ int sd_netlink_message_append_s64(sd_netlink_message *m, uint16_t attr_type, int
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_S64);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_S64);
         if (r < 0)
                 return r;
 
@@ -480,7 +480,7 @@ int netlink_message_append_in_addr_union(sd_netlink_message *m, uint16_t attr_ty
         assert_return(data, -EINVAL);
         assert_return(IN_SET(family, AF_INET, AF_INET6), -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_IN_ADDR);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_IN_ADDR);
         if (r < 0)
                 return r;
 
@@ -507,7 +507,7 @@ int netlink_message_append_sockaddr_union(sd_netlink_message *m, uint16_t attr_t
         assert_return(data, -EINVAL);
         assert_return(IN_SET(data->sa.sa_family, AF_INET, AF_INET6), -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_SOCKADDR);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_SOCKADDR);
         if (r < 0)
                 return r;
 
@@ -533,7 +533,7 @@ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, uint16_t attr_ty
         assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
         if (r < 0)
                 return r;
 
@@ -552,7 +552,7 @@ int netlink_message_append_hw_addr(sd_netlink_message *m, uint16_t attr_type, co
         assert_return(data, -EINVAL);
         assert_return(data->length > 0, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
         if (r < 0)
                 return r;
 
@@ -570,7 +570,7 @@ int sd_netlink_message_append_cache_info(sd_netlink_message *m, uint16_t attr_ty
         assert_return(!m->sealed, -EPERM);
         assert_return(info, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_CACHE_INFO);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_CACHE_INFO);
         if (r < 0)
                 return r;
 
@@ -621,7 +621,7 @@ int sd_netlink_message_open_container(sd_netlink_message *m, uint16_t attr_type)
         if (!m->containers[m->n_containers + 1].policy_set)
                 return -EOPNOTSUPP;
 
-        r = add_rtattr(m, attr_type | NLA_F_NESTED, NULL, size);
+        r = add_rtattr(m, attr_type | NLA_F_NESTED, /* data= */ NULL, size);
         if (r < 0)
                 return r;
 
@@ -638,7 +638,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, uint16_t attr
         assert_return(!m->sealed, -EPERM);
         assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_NESTED_UNION_BY_STRING);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_NESTED_UNION_BY_STRING);
         if (r < 0)
                 return r;
 
@@ -660,7 +660,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, uint16_t attr
                 return r;
 
         /* do we ever need non-null size */
-        r = add_rtattr(m, attr_type | NLA_F_NESTED, NULL, 0);
+        r = add_rtattr(m, attr_type | NLA_F_NESTED, /* data= */ NULL, /* data_length= */ 0);
         if (r < 0)
                 return r;
 
@@ -688,7 +688,7 @@ int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t attr_type) {
         assert_return(!m->sealed, -EPERM);
         assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
-        r = add_rtattr(m, attr_type | NLA_F_NESTED, NULL, 0);
+        r = add_rtattr(m, attr_type | NLA_F_NESTED, /* data= */ NULL, /* data_length= */ 0);
         if (r < 0)
                 return r;
 
@@ -771,7 +771,7 @@ static int netlink_message_read_impl(
         assert(m);
 
         if (type >= 0) {
-                r = message_attribute_has_type(m, NULL, attr_type, type);
+                r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, type);
                 if (r < 0)
                         return r;
         }
@@ -810,7 +810,7 @@ int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size
 
         assert_return(m, -EINVAL);
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
+        r = netlink_message_read_internal(m, attr_type, &attr_data, /* ret_net_byteorder= */ NULL);
         if (r < 0)
                 return r;
 
@@ -849,11 +849,11 @@ int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, co
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_STRING);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_STRING);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
+        r = netlink_message_read_internal(m, attr_type, &attr_data, /* ret_net_byteorder= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1016,11 +1016,11 @@ int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type) {
 
         /* This returns 1 when the flag is set, 0 when not set, negative errno on error. */
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_FLAG);
+        r = message_attribute_has_type(m, /* ret_size= */ NULL, attr_type, NETLINK_TYPE_FLAG);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
+        r = netlink_message_read_internal(m, attr_type, &attr_data, /* ret_net_byteorder= */ NULL);
         if (r == -ENODATA)
                 return 0;
         if (r < 0)
@@ -1063,7 +1063,7 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type,
         if (policy_get_type(policy) != NETLINK_TYPE_STRING)
                 return -EINVAL;
 
-        r = netlink_message_read_internal(m, container_type, &container, NULL);
+        r = netlink_message_read_internal(m, container_type, &container, /* ret_net_byteorder= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1195,7 +1195,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type
         if (!policy_set)
                 return -EOPNOTSUPP;
 
-        r = netlink_message_read_internal(m, attr_type, &container, NULL);
+        r = netlink_message_read_internal(m, attr_type, &container, /* ret_net_byteorder= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1224,7 +1224,7 @@ int sd_netlink_message_enter_array(sd_netlink_message *m, uint16_t attr_type) {
         assert_return(m, -EINVAL);
         assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -EINVAL);
 
-        r = netlink_message_read_internal(m, attr_type, &container, NULL);
+        r = netlink_message_read_internal(m, attr_type, &container, /* ret_net_byteorder= */ NULL);
         if (r < 0)
                 return r;
 

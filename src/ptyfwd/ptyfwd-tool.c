@@ -259,11 +259,11 @@ static int run(int argc, char *argv[]) {
          * which would kill the processes in question. Let's instead keep the pty open until the
          * child process died, and close it only then. */
 
-        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, NULL);
+        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child event source: %m");
 
-        r = sd_event_source_set_child_process_own(child, true);
+        r = sd_event_source_set_child_process_own(child, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 

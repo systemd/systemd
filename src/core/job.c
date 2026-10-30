@@ -251,7 +251,7 @@ Job* job_install(Job *j) {
 
         if (uj) {
                 if (job_type_is_conflicting(uj->type, j->type))
-                        job_finish_and_invalidate(uj, JOB_CANCELED, false, false);
+                        job_finish_and_invalidate(uj, JOB_CANCELED, /* recursive= */ false, /* already= */ false);
                 else {
                         /* not conflicting, i.e. mergeable */
 
@@ -318,7 +318,7 @@ int job_install_deserialized(Job *j) {
         if (j->id <= 0)
                 j->id = manager_get_new_job_id(j->manager);
 
-        r = hashmap_ensure_put(&j->manager->jobs, NULL, UINT32_TO_PTR(j->id), j);
+        r = hashmap_ensure_put(&j->manager->jobs, /* hash_ops= */ NULL, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
                 return log_unit_debug_errno(j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
         if (r < 0)
@@ -848,9 +848,9 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                 if (t == JOB_START && result == JOB_FAILED) {
                         _cleanup_free_ char *quoted = NULL;
 
-                        quoted = shell_maybe_quote(u->id, 0);
+                        quoted = shell_maybe_quote(u->id, /* flags= */ 0);
                         if (quoted)
-                                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
+                                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, /* status= */ NULL,
                                                       "See 'systemctl status %s' for details.", quoted);
                 }
         }
@@ -930,7 +930,7 @@ int job_run_and_invalidate(Job *j) {
         if (!job_is_runnable(j))
                 return -EAGAIN;
 
-        job_start_timer(j, true);
+        job_start_timer(j, /* job_running= */ true);
         job_set_state(j, JOB_RUNNING);
         job_add_to_dbus_queue(j);
 
@@ -968,27 +968,27 @@ int job_run_and_invalidate(Job *j) {
                 if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
                 else if (r == -EALREADY) /* already being executed */
-                        r = job_finish_and_invalidate(j, JOB_DONE, true, true);
+                        r = job_finish_and_invalidate(j, JOB_DONE, /* recursive= */ true, /* already= */ true);
                 else if (r == -ECOMM)
-                        r = job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        r = job_finish_and_invalidate(j, JOB_DONE, /* recursive= */ true, /* already= */ false);
                 else if (r == -EBADR)
-                        r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED, /* recursive= */ true, /* already= */ false);
                 else if (r == -ENOEXEC)
-                        r = job_finish_and_invalidate(j, JOB_INVALID, true, false);
+                        r = job_finish_and_invalidate(j, JOB_INVALID, /* recursive= */ true, /* already= */ false);
                 else if (r == -EPROTO)
-                        r = job_finish_and_invalidate(j, JOB_ASSERT, true, false);
+                        r = job_finish_and_invalidate(j, JOB_ASSERT, /* recursive= */ true, /* already= */ false);
                 else if (r == -EOPNOTSUPP)
-                        r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true, false);
+                        r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, /* recursive= */ true, /* already= */ false);
                 else if (r == -ENOLINK)
-                        r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
+                        r = job_finish_and_invalidate(j, JOB_DEPENDENCY, /* recursive= */ true, /* already= */ false);
                 else if (r == -ESTALE)
-                        r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
+                        r = job_finish_and_invalidate(j, JOB_ONCE, /* recursive= */ true, /* already= */ false);
                 else if (r == -EDEADLK)
-                        r = job_finish_and_invalidate(j, JOB_FROZEN, true, false);
+                        r = job_finish_and_invalidate(j, JOB_FROZEN, /* recursive= */ true, /* already= */ false);
                 else if (r == -ETOOMANYREFS)
                         r = job_finish_and_invalidate(j, JOB_CONCURRENCY, /* recursive= */ true, /* already= */ false);
                 else if (r < 0)
-                        r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
+                        r = job_finish_and_invalidate(j, JOB_FAILED, /* recursive= */ true, /* already= */ false);
         }
 
         return r;
@@ -1007,7 +1007,7 @@ static void job_fail_dependencies(Unit *u, UnitDependencyAtom match_atom) {
                 if (!IN_SET(j->type, JOB_START, JOB_VERIFY_ACTIVE))
                         continue;
 
-                job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
+                job_finish_and_invalidate(j, JOB_DEPENDENCY, /* recursive= */ true, /* already= */ false);
         }
 }
 
@@ -1136,7 +1136,7 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
         log_unit_warning(j->unit, "Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
 
         u = j->unit;
-        job_finish_and_invalidate(j, JOB_TIMEOUT, true, false);
+        job_finish_and_invalidate(j, JOB_TIMEOUT, /* recursive= */ true, /* already= */ false);
 
         emergency_action(
                         u->manager,
@@ -1188,7 +1188,7 @@ int job_start_timer(Job *j, bool job_running) {
                         j->manager->event,
                         &j->timer_event_source,
                         CLOCK_MONOTONIC,
-                        timeout_time, 0,
+                        timeout_time, /* accuracy= */ 0,
                         job_dispatch_timer, j);
         if (r < 0)
                 return r;
@@ -1401,7 +1401,7 @@ int job_coldplug(Job *j) {
                         j->manager->event,
                         &j->timer_event_source,
                         CLOCK_MONOTONIC,
-                        timeout_time, 0,
+                        timeout_time, /* accuracy= */ 0,
                         job_dispatch_timer, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
@@ -1443,7 +1443,7 @@ void job_shutdown_magic(Job *j) {
         if (detect_container() > 0)
                 return;
 
-        (void) asynchronous_sync(NULL);
+        (void) asynchronous_sync(/* ret_pid= */ NULL);
 }
 
 int job_get_timeout(Job *j, usec_t *ret) {

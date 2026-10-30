@@ -191,56 +191,56 @@ static void test_common_parse_argv_one(
 TEST(common_parse_argv) {
         /* The common options are defined in libsystemd-shared, hence found even though no options
          * are passed. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help"), 0, SIZE_MAX, 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-h"), 0, SIZE_MAX, 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--version"), 0, SIZE_MAX, 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--introspect-cli"), 0, SIZE_MAX,
-                                   experimental_enabled() ? 0 : -EPERM, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help"), /* min_args= */ 0, SIZE_MAX, /* expected= */ 0, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-h"), /* min_args= */ 0, SIZE_MAX, /* expected= */ 0, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--version"), /* min_args= */ 0, SIZE_MAX, /* expected= */ 0, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--introspect-cli"), /* min_args= */ 0, SIZE_MAX,
+                                   experimental_enabled() ? 0 : -EPERM, /* expected_args= */ NULL);
 
         /* Positional arguments are returned, and "--" is consumed wherever it appears. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, SIZE_MAX, 1, STRV_EMPTY);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "x"), 0, SIZE_MAX, 1,
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), /* min_args= */ 0, SIZE_MAX, 1, STRV_EMPTY);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "x"), /* min_args= */ 0, SIZE_MAX, 1,
                                    STRV_MAKE("alpha", "x"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "alpha"), 0, SIZE_MAX, 1,
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "alpha"), /* min_args= */ 0, SIZE_MAX, 1,
                                    STRV_MAKE("alpha"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--", "-x"), 0, SIZE_MAX, 1,
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--", "-x"), /* min_args= */ 0, SIZE_MAX, 1,
                                    STRV_MAKE("alpha", "-x"));
 
         /* Anything else is an unknown option. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--foo"), 0, SIZE_MAX, -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-x"), 0, SIZE_MAX, -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--foo"), 0, SIZE_MAX, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--foo"), /* min_args= */ 0, SIZE_MAX, -EINVAL, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "-x"), /* min_args= */ 0, SIZE_MAX, -EINVAL, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "alpha", "--foo"), /* min_args= */ 0, SIZE_MAX, -EINVAL, /* expected_args= */ NULL);
 
         /* The number of positional arguments is checked, but only after the options were handled. */
-        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, 0, 1, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--"), 0, 0, 1, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x"), 0, 0, -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help", "x"), 0, 0, 0, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 1, 1, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), /* min_args= */ 0, /* max_args= */ 0, 1, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--"), /* min_args= */ 0, /* max_args= */ 0, 1, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x"), /* min_args= */ 0, /* max_args= */ 0, -EINVAL, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--help", "x"), /* min_args= */ 0, /* max_args= */ 0, /* expected= */ 0, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 1, 1, -EINVAL, /* expected_args= */ NULL);
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x"), 1, 1, 1, STRV_MAKE("x"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 1, -EINVAL, NULL);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs"), 0, 1, 1, STRV_EMPTY);
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), 0, 1, 1, STRV_MAKE("-x"));
-        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 0, 1, -EINVAL, NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 1, -EINVAL, /* expected_args= */ NULL);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs"), /* min_args= */ 0, 1, 1, STRV_EMPTY);
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "--", "-x"), /* min_args= */ 0, 1, 1, STRV_MAKE("-x"));
+        test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), /* min_args= */ 0, 1, -EINVAL, /* expected_args= */ NULL);
         test_common_parse_argv_one(STRV_MAKE("test-verbs", "x", "y"), 1, 2, 1, STRV_MAKE("x", "y"));
 
         /* With OPTION_PARSER_STOP_AT_FIRST_NONOPTION, everything from the first positional argument on
          * is data, even if it looks like an option or "--". */
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "--help", "x"), 0, SIZE_MAX, 0, NULL);
+                                        STRV_MAKE("test-verbs", "--help", "x"), /* min_args= */ 0, SIZE_MAX, /* expected= */ 0, /* expected_args= */ NULL);
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "-x", "y"), 0, SIZE_MAX, -EINVAL, NULL);
+                                        STRV_MAKE("test-verbs", "-x", "y"), /* min_args= */ 0, SIZE_MAX, -EINVAL, /* expected_args= */ NULL);
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "--", "-x", "y"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("test-verbs", "--", "-x", "y"), /* min_args= */ 0, SIZE_MAX, 1,
                                         STRV_MAKE("-x", "y"));
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "x", "--help"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("test-verbs", "x", "--help"), /* min_args= */ 0, SIZE_MAX, 1,
                                         STRV_MAKE("x", "--help"));
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "x", "--", "-y"), 0, SIZE_MAX, 1,
+                                        STRV_MAKE("test-verbs", "x", "--", "-y"), /* min_args= */ 0, SIZE_MAX, 1,
                                         STRV_MAKE("x", "--", "-y"));
         test_common_parse_argv_mode_one(OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
-                                        STRV_MAKE("test-verbs", "x", "--help"), 1, 1, -EINVAL, NULL);
+                                        STRV_MAKE("test-verbs", "x", "--help"), 1, 1, -EINVAL, /* expected_args= */ NULL);
 }
 
 static const CommandDescription multicall_command = {
@@ -305,7 +305,7 @@ static void test_common_parse_argv_multicall_one(const char *invoked_as, const c
 
 TEST(common_parse_argv_multicall) {
         /* The command named like the program is described, regardless of the order in the section. */
-        test_common_parse_argv_multicall_one(NULL, "Test the parser for the common options.");
+        test_common_parse_argv_multicall_one(/* invoked_as= */ NULL, "Test the parser for the common options.");
         test_common_parse_argv_multicall_one("other-program", "The other program of a multicall binary.");
         test_common_parse_argv_multicall_one("/usr/bin/other-program",
                                              "The other program of a multicall binary.");
@@ -350,10 +350,10 @@ static void test_common_parse_argv_passthrough_one(char **argv, int expected) {
 
 TEST(common_parse_argv_passthrough) {
         /* Nothing but common options is handled. */
-        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help"), 0);
-        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "-h"), 0);
-        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--version"), 0);
-        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help", "--version"), 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help"), /* expected= */ 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "-h"), /* expected= */ 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--version"), /* expected= */ 0);
+        test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--help", "--version"), /* expected= */ 0);
 
         /* Abbreviations work, and an option which this build refuses is reported, not passed on. */
         test_common_parse_argv_passthrough_one(STRV_MAKE("test-verbs", "--intro"),
@@ -407,18 +407,18 @@ TEST(generator_main) {
         test_generator_main_one(STRV_MAKE("test-verbs", "--", "/a"), 42, "/a", "/a", "/a");
 
         /* Any other count is rejected before the implementation is called. */
-        test_generator_main_one(STRV_MAKE("test-verbs"), -EINVAL, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b"), -EINVAL, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b", "/c", "/d"), -EINVAL, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs"), -EINVAL, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b"), -EINVAL, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "/a", "/b", "/c", "/d"), -EINVAL, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
 
         /* The common options are handled, and win over the count check. */
-        test_generator_main_one(STRV_MAKE("test-verbs", "--help"), 0, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "-h"), 0, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "--version"), 0, NULL, NULL, NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--help"), /* expected= */ 0, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "-h"), /* expected= */ 0, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--version"), /* expected= */ 0, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
         test_generator_main_one(STRV_MAKE("test-verbs", "--introspect-cli"),
-                                experimental_enabled() ? 0 : -EPERM, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "--help", "/a", "/b"), 0, NULL, NULL, NULL);
-        test_generator_main_one(STRV_MAKE("test-verbs", "--foo", "/a"), -EINVAL, NULL, NULL, NULL);
+                                experimental_enabled() ? 0 : -EPERM, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--help", "/a", "/b"), /* expected= */ 0, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
+        test_generator_main_one(STRV_MAKE("test-verbs", "--foo", "/a"), -EINVAL, /* dest= */ NULL, /* dest_early= */ NULL, /* dest_late= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

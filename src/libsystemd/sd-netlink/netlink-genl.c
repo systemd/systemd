@@ -303,7 +303,7 @@ static int genl_family_get_by_name_internal(
         if (r < 0)
                 return r;
 
-        if (sd_netlink_call(nl, req, 0, &reply) < 0) {
+        if (sd_netlink_call(nl, req, /* timeout= */ 0, &reply) < 0) {
                 (void) genl_family_new_unsupported(nl, name, policy_set);
                 return -EOPNOTSUPP;
         }

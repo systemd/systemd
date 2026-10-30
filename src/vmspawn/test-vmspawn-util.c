@@ -127,10 +127,28 @@ TEST(find_ovmf_config) {
          * descriptors installed on the host can never match and the test stays hermetic. */
 
         /* Stateful vs. stateless selection, in both sort orders. */
-        write_descriptor(dir, "00-a-stateless.json", "/test/a-stateless.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-a"));
-        write_descriptor(dir, "10-a-stateful.json", "/test/a-stateful.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-a"));
-        write_descriptor(dir, "00-b-stateful.json", "/test/b-stateful.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-b"));
-        write_descriptor(dir, "10-b-stateless.json", "/test/b-stateless.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-b"));
+        write_descriptor(
+                        dir,
+                        "00-a-stateless.json",
+                        "/test/a-stateless.fd",
+                        "raw",
+                        /* interface_type= */ NULL,
+                        /* arch= */ NULL,
+                        /* machine= */ NULL,
+                        MAPPING_FLASH_STATELESS,
+                        STRV_MAKE("vmspawn-test-a"));
+        write_descriptor(dir, "10-a-stateful.json", "/test/a-stateful.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-a"));
+        write_descriptor(dir, "00-b-stateful.json", "/test/b-stateful.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-b"));
+        write_descriptor(
+                        dir,
+                        "10-b-stateless.json",
+                        "/test/b-stateless.fd",
+                        "raw",
+                        /* interface_type= */ NULL,
+                        /* arch= */ NULL,
+                        /* machine= */ NULL,
+                        MAPPING_FLASH_STATELESS,
+                        STRV_MAKE("vmspawn-test-b"));
 
         /* By default only firmware with an NVRAM template is considered. */
         check_find(STRV_MAKE("vmspawn-test-a"), /* exclude= */ NULL, /* flags= */ 0, "/test/a-stateful.fd", &config);
@@ -150,8 +168,8 @@ TEST(find_ovmf_config) {
         check_find(STRV_MAKE("vmspawn-test-b"), /* exclude= */ NULL, FIND_OVMF_STATELESS, "/test/b-stateless.fd", /* ret= */ NULL);
 
         /* FIND_OVMF_REQUIRE_RAW skips firmware in other formats, which is accepted otherwise. */
-        write_descriptor(dir, "00-c-qcow2.json", "/test/c.qcow2", "qcow2", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-c"));
-        write_descriptor(dir, "10-c-raw.json", "/test/c.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-c"));
+        write_descriptor(dir, "00-c-qcow2.json", "/test/c.qcow2", "qcow2", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-c"));
+        write_descriptor(dir, "10-c-raw.json", "/test/c.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-c"));
 
         check_find(STRV_MAKE("vmspawn-test-c"), /* exclude= */ NULL, FIND_OVMF_STATELESS, "/test/c.qcow2", &config);
         ASSERT_STREQ(config->format, "qcow2");
@@ -160,7 +178,7 @@ TEST(find_ovmf_config) {
         check_find(STRV_MAKE("vmspawn-test-c"), /* exclude= */ NULL, FIND_OVMF_STATELESS|FIND_OVMF_REQUIRE_RAW, "/test/c.fd", /* ret= */ NULL);
 
         /* Memory-mapped firmware (loaded via -bios) is stateless and raw by definition. */
-        write_descriptor(dir, "00-m-memory.json", "/test/m-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-m"));
+        write_descriptor(dir, "00-m-memory.json", "/test/m-memory.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-m"));
 
         check_find(STRV_MAKE("vmspawn-test-m"), /* exclude= */ NULL, /* flags= */ 0, /* expect_path= */ NULL, /* ret= */ NULL);
         check_find(STRV_MAKE("vmspawn-test-m"), /* exclude= */ NULL, FIND_OVMF_STATELESS|FIND_OVMF_REQUIRE_RAW, "/test/m-memory.fd", &config);
@@ -171,8 +189,8 @@ TEST(find_ovmf_config) {
         config = ovmf_config_free(config);
 
         /* Unless it expects QEMU to provide the UEFI variable store, which also applies to stateless flash. */
-        write_descriptor(dir, "00-h-memory.json", "/test/h-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
-        write_descriptor(dir, "10-h-flash.json", "/test/h-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+        write_descriptor(dir, "00-h-memory.json", "/test/h-memory.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+        write_descriptor(dir, "10-h-flash.json", "/test/h-flash.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
 
         check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, FIND_OVMF_STATELESS, /* expect_path= */ NULL, /* ret= */ NULL);
 
@@ -196,32 +214,50 @@ TEST(find_ovmf_config) {
 
         /* Without a template for the variable store it is skipped, both memory-mapped and as stateless
          * flash, so only the last descriptor matches. */
-        write_descriptor(dir, "00-i-memory.json", "/test/i-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
-        write_descriptor(dir, "05-i-flash.json", "/test/i-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
-        write_descriptor(dir, "10-i-memory-vars.json", "/test/i-memory-vars.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "00-i-memory.json", "/test/i-memory.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "05-i-flash.json", "/test/i-flash.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "10-i-memory-vars.json", "/test/i-memory-vars.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
 
         check_find(STRV_MAKE("vmspawn-test-i"), /* exclude= */ NULL, /* flags= */ 0,
                    QEMU_UEFI_VARS_DEVICE ? "/test/i-memory-vars.fd" : NULL, /* ret= */ NULL);
 
         /* Combined-mode flash firmware carries a writable variable store inside the executable, it must not be treated as stateless. */
-        write_descriptor(dir, "00-f-combined.json", "/test/f-combined.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_COMBINED, STRV_MAKE("vmspawn-test-f"));
+        write_descriptor(
+                        dir,
+                        "00-f-combined.json",
+                        "/test/f-combined.fd",
+                        "raw",
+                        /* interface_type= */ NULL,
+                        /* arch= */ NULL,
+                        /* machine= */ NULL,
+                        MAPPING_FLASH_COMBINED,
+                        STRV_MAKE("vmspawn-test-f"));
 
         check_find(STRV_MAKE("vmspawn-test-f"), /* exclude= */ NULL, /* flags= */ 0, /* expect_path= */ NULL, /* ret= */ NULL);
         check_find(STRV_MAKE("vmspawn-test-f"), /* exclude= */ NULL, FIND_OVMF_STATELESS, /* expect_path= */ NULL, /* ret= */ NULL);
 
         /* Firmware that is not UEFI, uses an unsupported mapping device, or doesn't match the native
          * architecture or machine type, is skipped. */
-        write_descriptor(dir, "00-d-bios.json", "/test/d-bios.fd", "raw", "bios", NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
-        write_descriptor(dir, "05-d-kernel.json", "/test/d-kernel.fd", "raw", NULL, NULL, NULL, MAPPING_KERNEL, STRV_MAKE("vmspawn-test-d"));
-        write_descriptor(dir, "10-d-arch.json", "/test/d-arch.fd", "raw", NULL, "vmspawn-test-arch", NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
-        write_descriptor(dir, "20-d-machine.json", "/test/d-machine.fd", "raw", NULL, NULL, "vmspawn-test-mach", MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
-        write_descriptor(dir, "30-d-good.json", "/test/d-good.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
+        write_descriptor(dir, "00-d-bios.json", "/test/d-bios.fd", "raw", "bios", /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
+        write_descriptor(dir, "05-d-kernel.json", "/test/d-kernel.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_KERNEL, STRV_MAKE("vmspawn-test-d"));
+        write_descriptor(dir, "10-d-arch.json", "/test/d-arch.fd", "raw", /* interface_type= */ NULL, "vmspawn-test-arch", /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
+        write_descriptor(dir, "20-d-machine.json", "/test/d-machine.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, "vmspawn-test-mach", MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
+        write_descriptor(dir, "30-d-good.json", "/test/d-good.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-d"));
 
         check_find(STRV_MAKE("vmspawn-test-d"), /* exclude= */ NULL, /* flags= */ 0, "/test/d-good.fd", /* ret= */ NULL);
 
         /* Feature include/exclude handling. */
-        write_descriptor(dir, "00-e-both.json", "/test/e-both.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-e1", "vmspawn-test-e2", "secure-boot"));
-        write_descriptor(dir, "10-e-one.json", "/test/e-one.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-e1"));
+        write_descriptor(
+                        dir,
+                        "00-e-both.json",
+                        "/test/e-both.fd",
+                        "raw",
+                        /* interface_type= */ NULL,
+                        /* arch= */ NULL,
+                        /* machine= */ NULL,
+                        MAPPING_FLASH_SPLIT,
+                        STRV_MAKE("vmspawn-test-e1", "vmspawn-test-e2", "secure-boot"));
+        write_descriptor(dir, "10-e-one.json", "/test/e-one.fd", "raw", /* interface_type= */ NULL, /* arch= */ NULL, /* machine= */ NULL, MAPPING_FLASH_SPLIT, STRV_MAKE("vmspawn-test-e1"));
 
         /* The first matching descriptor in sort order wins. */
         check_find(STRV_MAKE("vmspawn-test-e1"), /* exclude= */ NULL, /* flags= */ 0, "/test/e-both.fd", &config);

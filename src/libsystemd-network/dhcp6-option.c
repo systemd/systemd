@@ -391,7 +391,7 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *offset, const char *fqdn) {
         buffer[0] = DHCP6_FQDN_FLAG_S; /* Request server to perform AAAA RR DNS updates */
 
         /* Store domain name after flags field */
-        r = dns_name_to_wire_format(fqdn, buffer + 1, sizeof(buffer) - 1, false);
+        r = dns_name_to_wire_format(fqdn, buffer + 1, sizeof(buffer) - 1, /* canonical= */ false);
         if (r <= 0)
                 return r;
 

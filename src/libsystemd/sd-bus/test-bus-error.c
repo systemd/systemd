@@ -35,7 +35,7 @@ TEST(error) {
 
         /* Check with no error */
         assert_se(!sd_bus_error_is_set(&error));
-        assert_se(sd_bus_error_setf(&error, NULL, "yyy %i", -1) == 0);
+        assert_se(sd_bus_error_setf(&error, /* name= */ NULL, "yyy %i", -1) == 0);
         assert_se(error.name == NULL);
         assert_se(error.message == NULL);
         assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
@@ -116,7 +116,7 @@ TEST(error) {
 
         /* Check with no error */
         assert_se(!sd_bus_error_is_set(&error));
-        assert_se(sd_bus_error_set_errnof(&error, 0, "Waldi %c", 'X') == 0);
+        assert_se(sd_bus_error_set_errnof(&error, /* error= */ 0, "Waldi %c", 'X') == 0);
         assert_se(error.name == NULL);
         assert_se(error.message == NULL);
         assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_IO_ERROR));
@@ -141,10 +141,10 @@ static int dump_mapping_table(void) {
 }
 
 TEST(errno_mapping_standard) {
-        assert_se(sd_bus_error_set(NULL, "System.Error.EUCLEAN", NULL) == -EUCLEAN);
-        assert_se(sd_bus_error_set(NULL, "System.Error.EBUSY", NULL) == -EBUSY);
-        assert_se(sd_bus_error_set(NULL, "System.Error.EINVAL", NULL) == -EINVAL);
-        assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "System.Error.EUCLEAN", /* message= */ NULL) == -EUCLEAN);
+        assert_se(sd_bus_error_set(NULL, "System.Error.EBUSY", /* message= */ NULL) == -EBUSY);
+        assert_se(sd_bus_error_set(NULL, "System.Error.EINVAL", /* message= */ NULL) == -EINVAL);
+        assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", /* message= */ NULL) == -EIO);
 }
 
 BUS_ERROR_MAP_ELF_REGISTER static const sd_bus_error_map test_errors[] = {
@@ -183,28 +183,28 @@ static const sd_bus_error_map test_errors_bad2[] = {
 };
 
 TEST(errno_mapping_custom) {
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", NULL) == -5);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", NULL) == -52);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-x", NULL) == -EIO);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-33", NULL) == -333);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", /* message= */ NULL) == -5);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", /* message= */ NULL) == -52);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-x", /* message= */ NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-33", /* message= */ NULL) == -333);
 
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-88", NULL) == -EIO);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-99", NULL) == -EIO);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-77", NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-88", /* message= */ NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-99", /* message= */ NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-77", /* message= */ NULL) == -EIO);
 
         assert_se(sd_bus_error_add_map(test_errors3) > 0);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-88", NULL) == -888);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-88", /* message= */ NULL) == -888);
         assert_se(sd_bus_error_add_map(test_errors4) > 0);
         assert_se(sd_bus_error_add_map(test_errors4) == 0);
         assert_se(sd_bus_error_add_map(test_errors3) == 0);
 
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-99", NULL) == -999);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-77", NULL) == -777);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-78", NULL) == -778);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", NULL) == -52);
-        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-y", NULL) == -EIO);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-99", /* message= */ NULL) == -999);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-77", /* message= */ NULL) == -777);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-78", /* message= */ NULL) == -778);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", /* message= */ NULL) == -52);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-y", /* message= */ NULL) == -EIO);
 
-        assert_se(sd_bus_error_set(NULL, BUS_ERROR_NO_SUCH_UNIT, NULL) == -ENOENT);
+        assert_se(sd_bus_error_set(NULL, BUS_ERROR_NO_SUCH_UNIT, /* message= */ NULL) == -ENOENT);
 
         ASSERT_RETURN_EXPECTED_SE(sd_bus_error_add_map(test_errors_bad1) == -EINVAL);
         ASSERT_RETURN_EXPECTED_SE(sd_bus_error_add_map(test_errors_bad2) == -EINVAL);
@@ -214,37 +214,37 @@ TEST(sd_bus_error_set_errnof) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *str = NULL;
 
-        assert_se(sd_bus_error_set_errnof(NULL, 0, NULL) == 0);
-        assert_se(sd_bus_error_set_errnof(NULL, ENOANO, NULL) == -ENOANO);
+        assert_se(sd_bus_error_set_errnof(NULL, /* error= */ 0, /* format= */ NULL) == 0);
+        assert_se(sd_bus_error_set_errnof(NULL, ENOANO, /* format= */ NULL) == -ENOANO);
 
-        assert_se(sd_bus_error_set_errnof(&error, 0, NULL) == 0);
+        assert_se(sd_bus_error_set_errnof(&error, /* error= */ 0, /* format= */ NULL) == 0);
         assert_se(!bus_error_is_dirty(&error));
 
-        assert_se(sd_bus_error_set_errnof(&error, EACCES, NULL) == -EACCES);
+        assert_se(sd_bus_error_set_errnof(&error, EACCES, /* format= */ NULL) == -EACCES);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
         ASSERT_STREQ(error.message, STRERROR(EACCES));
 
         str = mfree(str);
         sd_bus_error_free(&error);
 
-        assert_se(sd_bus_error_set_errnof(&error, ENOANO, NULL) == -ENOANO);
+        assert_se(sd_bus_error_set_errnof(&error, ENOANO, /* format= */ NULL) == -ENOANO);
         assert_se(sd_bus_error_has_name(&error, "System.Error.ENOANO"));
         ASSERT_STREQ(error.message, STRERROR(ENOANO));
 
         str = mfree(str);
         sd_bus_error_free(&error);
 
-        assert_se(sd_bus_error_set_errnof(&error, 100000, NULL) == -100000);
+        assert_se(sd_bus_error_set_errnof(&error, 100000, /* format= */ NULL) == -100000);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FAILED));
         ASSERT_STREQ(error.message, STRERROR(100000));
 
         str = mfree(str);
         sd_bus_error_free(&error);
 
-        assert_se(sd_bus_error_set_errnof(NULL, 0, "hoge %s: %m", "foo") == 0);
+        assert_se(sd_bus_error_set_errnof(NULL, /* error= */ 0, "hoge %s: %m", "foo") == 0);
         assert_se(sd_bus_error_set_errnof(NULL, ENOANO, "hoge %s: %m", "foo") == -ENOANO);
 
-        assert_se(sd_bus_error_set_errnof(&error, 0, "hoge %s: %m", "foo") == 0);
+        assert_se(sd_bus_error_set_errnof(&error, /* error= */ 0, "hoge %s: %m", "foo") == 0);
         assert_se(!bus_error_is_dirty(&error));
 
         assert_se(sd_bus_error_set_errnof(&error, EACCES, "hoge %s: %m", "foo") == -EACCES);

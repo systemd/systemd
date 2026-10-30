@@ -131,7 +131,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
                 return log_oom();
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, /* off= */ 0, /* size= */ 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", path);
 

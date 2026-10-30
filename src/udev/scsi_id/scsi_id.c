@@ -347,12 +347,12 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path) {
         encode_devnode_name(dev_scsi->model, model_enc_str, sizeof(model_enc_str));
 
         udev_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str)-1);
-        udev_replace_chars(vendor_str, NULL);
+        udev_replace_chars(vendor_str, /* allow= */ NULL);
         udev_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str)-1);
-        udev_replace_chars(model_str, NULL);
+        udev_replace_chars(model_str, /* allow= */ NULL);
         set_type(dev_scsi->type, type_str, sizeof(type_str));
         udev_replace_whitespace(dev_scsi->revision, revision_str, sizeof(revision_str)-1);
-        udev_replace_chars(revision_str, NULL);
+        udev_replace_chars(revision_str, /* allow= */ NULL);
         return 0;
 }
 
@@ -394,10 +394,10 @@ static int scsi_id(char *maj_min_dev) {
                 printf("ID_TYPE=%s\n", type_str);
                 if (dev_scsi.serial[0] != '\0') {
                         udev_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str)-1);
-                        udev_replace_chars(serial_str, NULL);
+                        udev_replace_chars(serial_str, /* allow= */ NULL);
                         printf("ID_SERIAL=%s\n", serial_str);
                         udev_replace_whitespace(dev_scsi.serial_short, serial_str, sizeof(serial_str)-1);
-                        udev_replace_chars(serial_str, NULL);
+                        udev_replace_chars(serial_str, /* allow= */ NULL);
                         printf("ID_SERIAL_SHORT=%s\n", serial_str);
                 }
                 if (scsi_string_is_valid(dev_scsi.wwn)) {
@@ -422,7 +422,7 @@ static int scsi_id(char *maj_min_dev) {
                 char serial_str[MAX_SERIAL_LEN];
 
                 udev_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str)-1);
-                udev_replace_chars(serial_str, NULL);
+                udev_replace_chars(serial_str, /* allow= */ NULL);
                 printf("%s\n", serial_str);
                 return 0;
         }
@@ -442,7 +442,7 @@ static int run(int argc, char **argv) {
         /*
          * Get config file options.
          */
-        r = get_file_options(NULL, NULL, &newargv);
+        r = get_file_options(/* vendor= */ NULL, /* model= */ NULL, &newargv);
         if (r < 0)
                 return r;
         if (r == 1) {

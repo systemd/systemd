@@ -85,7 +85,7 @@ int home_unshare_and_mkdir(void) {
 
         assert(path_startswith(HOME_RUNTIME_WORK_DIR, "/run"));
 
-        r = mount_nofollow_verbose(LOG_ERR, "/run", "/run", NULL, MS_SLAVE|MS_REC, NULL); /* Mark /run as MS_SLAVE in our new namespace */
+        r = mount_nofollow_verbose(LOG_ERR, "/run", "/run", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL); /* Mark /run as MS_SLAVE in our new namespace */
         if (r < 0)
                 return r;
 
@@ -113,7 +113,7 @@ int home_unshare_and_mount(
         if (r < 0)
                 return r;
 
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_PRIVATE, /* options= */ NULL);
         if (r < 0) {
                 (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
                 return r;
@@ -144,11 +144,11 @@ int home_move_mount(const char *mount_suffix, const char *target) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory '%s': %m", target);
 
-        r = mount_nofollow_verbose(LOG_ERR, d, target, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, d, target, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
-        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unmount %s: %m", HOME_RUNTIME_WORK_DIR);
 
@@ -197,7 +197,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
 
         /* Map everything below the homed UID range to itself (except for the UID we actually care about if
          * it is inside this range) */
-        r = append_identity_range(&text, 0, HOME_UID_MIN, stored_uid);
+        r = append_identity_range(&text, /* start= */ 0, HOME_UID_MIN, stored_uid);
         if (r < 0)
                 return log_oom();
 

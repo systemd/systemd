@@ -664,7 +664,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                 pseudo_tty_add_to_free_queue(pty);
 
                 if (pty->io_event_source)
-                        (void) sd_event_source_set_io_events(pty->io_event_source, 0);
+                        (void) sd_event_source_set_io_events(pty->io_event_source, /* events= */ 0);
 
                 return r;
         }
@@ -725,7 +725,7 @@ int pseudo_tty_watch_frontend_fd(PseudoTTY *pty, sd_event *event) {
         if (pty->frontend_fd < 0)
                 return 0;
 
-        r = fd_nonblock(pty->frontend_fd, true);
+        r = fd_nonblock(pty->frontend_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to mark pty fd is non-blocking: %m");
 
@@ -833,7 +833,7 @@ static int vhangup_callback(sd_event_source *s, const siginfo_t *si, void *userd
         PseudoTTY *pty = ASSERT_PTR(userdata);
         int r;
 
-        r = varlink_many_reply(pty->vhangup_links, NULL);
+        r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to issue hangup method call replies, ignoring: %m");
 
@@ -901,7 +901,7 @@ int pseudo_tty_vhangup(PseudoTTY *pty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch vhangup() child: %m");
 
-        r = sd_event_source_set_child_process_own(pty->vhangup_event_source, true);
+        r = sd_event_source_set_child_process_own(pty->vhangup_event_source, /* own= */ true);
         if (r < 0) {
                 pty->vhangup_event_source = sd_event_source_disable_unref(pty->vhangup_event_source);
                 return log_error_errno(r, "Failed to pass ownership of vhangup() child to event source: %m");

@@ -113,7 +113,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = bus_image_acquire(m, message, name, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
+        r = bus_image_acquire(m, message, name, /* image= */ NULL, BUS_IMAGE_REFUSE_BY_PATH, /* polkit_action= */ NULL, &image, error);
         if (r < 0)
                 return r;
 
@@ -158,8 +158,8 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                                 m->runtime_scope,
                                 sd_bus_message_get_bus(message),
                                 image->path,
-                                NULL,
-                                0,
+                                /* extension_image_paths= */ NULL,
+                                /* flags= */ 0,
                                 &state,
                                 &error_state);
                 if (r < 0)
@@ -227,7 +227,7 @@ static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "GetImageStateWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "GetImageStateWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -250,7 +250,7 @@ static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bu
                         sd_bus_message_get_bus(message),
                         name_or_path,
                         extension_images,
-                        0,
+                        /* flags= */ 0,
                         &state,
                         error);
         if (r < 0)
@@ -284,7 +284,7 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "DetachImageWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "DetachImageWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -387,7 +387,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 const sd_bus_vtable manager_vtable[] = {

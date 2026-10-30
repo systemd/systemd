@@ -126,31 +126,31 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, /* ret_slot= */ NULL, "org.freedesktop.network1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_match_signal_async(
                         m->bus,
-                        NULL,
+                        /* ret= */ NULL,
                         "org.freedesktop.DBus.Local",
-                        NULL,
+                        /* path= */ NULL,
                         "org.freedesktop.DBus.Local",
                         "Connected",
-                        on_connected, NULL, m);
+                        on_connected, /* install_callback= */ NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match on Connected signal: %m");
 
         r = bus_match_signal_async(
                         m->bus,
-                        NULL,
+                        /* ret_slot= */ NULL,
                         bus_login_mgr,
                         "PrepareForSleep",
-                        match_prepare_for_sleep, NULL, m);
+                        match_prepare_for_sleep, /* install_callback= */ NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
@@ -195,15 +195,15 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "net", NULL);
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "net", /* devtype= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add device monitor filter for net subsystem: %m");
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "ieee80211", NULL);
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "ieee80211", /* devtype= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add device monitor filter for ieee80211 subsystem: %m");
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "rfkill", NULL);
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "rfkill", /* devtype= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add device monitor filter for rfkill subsystem: %m");
 
@@ -294,7 +294,7 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to increase receive buffer size for general netlink socket, ignoring: %m");
 
-        r = sd_netlink_attach_event(m->genl, m->event, 0);
+        r = sd_netlink_attach_event(m->genl, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -327,7 +327,7 @@ static int manager_connect_nfnl(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to increase receive buffer size for nftables netlink socket, ignoring: %m");
 
-        r = sd_netlink_attach_event(m->nfnl, m->event, 0);
+        r = sd_netlink_attach_event(m->nfnl, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -393,7 +393,7 @@ static int manager_connect_rtnl(Manager *m, int fd) {
                         log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
         }
 
-        r = sd_netlink_attach_event(m->rtnl, m->event, 0);
+        r = sd_netlink_attach_event(m->rtnl, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -489,7 +489,7 @@ static int manager_post_handler(sd_event_source *s, void *userdata) {
 
                 (void) manager_serialize(manager);
                 manager->state = MANAGER_STOPPED;
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         default:
                 assert_not_reached();
@@ -616,7 +616,7 @@ static int manager_watch_hostname(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add hostname event source: %m");
 
-        r = sd_event_source_set_io_fd_own(m->hostname_event_source, true);
+        r = sd_event_source_set_io_fd_own(m->hostname_event_source, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to pass ownership of hostname file descriptor to event source: %m");
 
@@ -642,17 +642,17 @@ int manager_setup(Manager *m) {
                 return r;
 
         (void) sd_event_set_watchdog(m->event, true);
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, signal_restart_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, signal_reload_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, signal_restart_callback, m);
+        (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, signal_reload_callback, m);
+        (void) sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
-        r = sd_event_add_post(m->event, NULL, manager_post_handler, m);
+        r = sd_event_add_post(m->event, /* ret= */ NULL, manager_post_handler, m);
         if (r < 0)
                 return r;
 
@@ -703,7 +703,7 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_resolve_attach_event(m->resolve, m->event, 0);
+        r = sd_resolve_attach_event(m->resolve, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -967,11 +967,11 @@ int manager_enumerate_internal(
         assert(req);
         assert(process);
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(nl, req, 0, &reply);
+        r = sd_netlink_call(nl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -990,7 +990,7 @@ static int manager_enumerate_links(Manager *m) {
         assert(m);
         assert(m->rtnl);
 
-        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -1000,7 +1000,7 @@ static int manager_enumerate_links(Manager *m) {
 
         req = sd_netlink_message_unref(req);
 
-        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -1029,7 +1029,7 @@ static int manager_enumerate_qdisc(Manager *m) {
         assert(m);
         assert(m->rtnl);
 
-        r = sd_rtnl_message_new_traffic_control(m->rtnl, &req, RTM_GETQDISC, 0, 0, 0);
+        r = sd_rtnl_message_new_traffic_control(m->rtnl, &req, RTM_GETQDISC, /* ifindex= */ 0, /* handle= */ 0, /* parent= */ 0);
         if (r < 0)
                 return r;
 
@@ -1046,7 +1046,7 @@ static int manager_enumerate_tclass(Manager *m) {
         /* TC class can be enumerated only per link. See tc_dump_tclass() in net/sched/sched_api.c. */
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                RET_GATHER(r, link_enumerate_tclass(link, 0));
+                RET_GATHER(r, link_enumerate_tclass(link, /* parent= */ 0));
 
         return r;
 }
@@ -1058,7 +1058,7 @@ static int manager_enumerate_addresses(Manager *m) {
         assert(m);
         assert(m->rtnl);
 
-        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, 0);
+        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, /* ifindex= */ 0, /* family= */ 0);
         if (r < 0)
                 return r;
 
@@ -1072,7 +1072,7 @@ static int manager_enumerate_neighbors(Manager *m) {
         assert(m);
         assert(m->rtnl);
 
-        r = sd_rtnl_message_new_neigh(m->rtnl, &req, RTM_GETNEIGH, 0, AF_UNSPEC);
+        r = sd_rtnl_message_new_neigh(m->rtnl, &req, RTM_GETNEIGH, /* ifindex= */ 0, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -1089,7 +1089,7 @@ static int manager_enumerate_routes(Manager *m) {
         if (!m->manage_foreign_routes)
                 return 0;
 
-        r = sd_rtnl_message_new_route(m->rtnl, &req, RTM_GETROUTE, 0, 0);
+        r = sd_rtnl_message_new_route(m->rtnl, &req, RTM_GETROUTE, /* family= */ 0, /* protocol= */ 0);
         if (r < 0)
                 return r;
 
@@ -1106,7 +1106,7 @@ static int manager_enumerate_rules(Manager *m) {
         if (!m->manage_foreign_rules)
                 return 0;
 
-        r = sd_rtnl_message_new_routing_policy_rule(m->rtnl, &req, RTM_GETRULE, 0);
+        r = sd_rtnl_message_new_routing_policy_rule(m->rtnl, &req, RTM_GETRULE, /* family= */ 0);
         if (r < 0)
                 return r;
 
@@ -1123,7 +1123,7 @@ static int manager_enumerate_nexthop(Manager *m) {
         if (!m->manage_foreign_nexthops)
                 return 0;
 
-        r = sd_rtnl_message_new_nexthop(m->rtnl, &req, RTM_GETNEXTHOP, 0, 0);
+        r = sd_rtnl_message_new_nexthop(m->rtnl, &req, RTM_GETNEXTHOP, /* family= */ 0, /* protocol= */ 0);
         if (r < 0)
                 return r;
 
@@ -1287,7 +1287,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 
         r = bus_call_method_async(
                         m->bus,
-                        NULL,
+                        /* ret_slot= */ NULL,
                         bus_hostname,
                         "SetHostname",
                         set_hostname_handler,
@@ -1334,7 +1334,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
 
         r = bus_call_method_async(
                         m->bus,
-                        NULL,
+                        /* ret_slot= */ NULL,
                         bus_timedate,
                         "SetTimezone",
                         set_timezone_handler,

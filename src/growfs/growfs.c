@@ -68,14 +68,14 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_load(cd, CRYPT_LUKS, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS, /* params= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata for %s: %m", devpath);
 
         if (arg_dry_run)
                 return 0;
 
-        r = sym_crypt_resize(cd, main_devpath, 0);
+        r = sym_crypt_resize(cd, main_devpath, /* new_size= */ 0);
         if (r < 0)
                 return log_error_errno(r, "crypt_resize() of %s failed: %m", devpath);
 

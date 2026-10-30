@@ -7,7 +7,7 @@
 
 TEST(errno_name_no_fallback) {
         ASSERT_NULL(errno_names[0]);
-        ASSERT_NULL(errno_name_no_fallback(0));
+        ASSERT_NULL(errno_name_no_fallback(/* id= */ 0));
 
         for (size_t i = 0; i < ELEMENTSOF(errno_names); i++)
                 if (errno_names[i]) {
@@ -37,7 +37,7 @@ TEST(errno_name_no_fallback) {
 TEST(errno_name_full) {
         char buf[ERRNO_NAME_BUF_LEN];
 
-        ASSERT_STREQ(errno_name(0, buf), "0");
+        ASSERT_STREQ(errno_name(/* id= */ 0, buf), "0");
         ASSERT_STREQ(errno_name(EPERM, buf), "EPERM");
         ASSERT_STREQ(errno_name(ENOENT, buf), "ENOENT");
         ASSERT_STREQ(errno_name(200, buf), "200");

@@ -93,7 +93,7 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
                         return r;
         }
 
-        return sd_bus_send(sd->session->manager->bus, m, NULL);
+        return sd_bus_send(sd->session->manager->bus, m, /* ret_cookie= */ NULL);
 }
 
 static void sd_eviocrevoke(int fd) {
@@ -207,7 +207,7 @@ static int session_device_start(SessionDevice *sd) {
         case DEVICE_TYPE_EVDEV:
         case DEVICE_TYPE_HIDRAW:
                 /* Evdev/hidraw devices are revoked while inactive. Reopen it and we are fine. */
-                r = session_device_open(sd, true);
+                r = session_device_open(sd, /* active= */ true);
                 if (r < 0)
                         return r;
 
@@ -319,7 +319,7 @@ static int session_device_verify(SessionDevice *sd) {
         switch (sd->type) {
         case DEVICE_TYPE_EVDEV:
                 /* for evdev devices we need the parent node as device */
-                if (sd_device_get_parent_with_subsystem_devtype(p, "input", NULL, &dev) < 0)
+                if (sd_device_get_parent_with_subsystem_devtype(p, "input", /* devtype= */ NULL, &dev) < 0)
                         return -ENODEV;
                 if (sd_device_get_syspath(dev, &sp) < 0)
                         return -ENODEV;
@@ -395,7 +395,7 @@ int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **
                         /* EINVAL _may_ mean a master is active; retry inactive */
                         if (sd->active && r == -EINVAL) {
                                 sd->active = false;
-                                r = session_device_open(sd, false);
+                                r = session_device_open(sd, /* active= */ false);
                         }
                         if (r < 0)
                                 goto error;

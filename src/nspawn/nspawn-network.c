@@ -46,7 +46,7 @@ static int remove_one_link(sd_netlink *rtnl, const char *name) {
         if (isempty(name))
                 return 0;
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_DELLINK, 0);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_DELLINK, /* ifindex= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate netlink message: %m");
 
@@ -54,7 +54,7 @@ static int remove_one_link(sd_netlink *rtnl, const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r == -ENODEV) /* Already gone */
                 return 0;
         if (r < 0)
@@ -105,7 +105,7 @@ static int add_veth(
         assert(ifname_container);
         assert(mac_container);
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate netlink message: %m");
 
@@ -153,7 +153,7 @@ static int add_veth(
         if (r < 0)
                 return log_error_errno(r, "Failed to close netlink container: %m");
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add new veth interfaces (%s:%s): %m", ifname_host, ifname_container);
 
@@ -187,13 +187,13 @@ int setup_veth(const char *machine_name,
                 a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
         if (ether_addr_is_null(provided_mac)){
-                r = net_generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
+                r = net_generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, /* idx= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
         } else
                 mac_container = *provided_mac;
 
-        r = net_generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
+        r = net_generate_mac(machine_name, &mac_host, HOST_HASH_KEY, /* idx= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
@@ -244,7 +244,7 @@ int setup_veth_extra(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for host side of extra veth link: %m");
 
-                r = add_veth(rtnl, pid, *a, NULL, &mac_host, *b, &mac_container);
+                r = add_veth(rtnl, pid, *a, /* altifname_host= */ NULL, &mac_host, *b, &mac_container);
                 if (r < 0)
                         return r;
 
@@ -266,7 +266,7 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         if (bridge_ifi < 0)
                 return bridge_ifi;
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -282,7 +282,7 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -293,7 +293,7 @@ static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -317,7 +317,7 @@ static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, m, 0, NULL);
+        r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -566,7 +566,7 @@ static int move_wlan_interface_impl(sd_netlink **genl, int netns_fd, sd_device *
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
 
-        r = sd_netlink_call(*genl, m, 0, NULL);
+        r = sd_netlink_call(*genl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to move interface to namespace: %m");
 
@@ -612,13 +612,13 @@ static int move_wlan_interface_one(
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get interface name: %m");
 
-        r = netns_fork_and_wait(*temp_netns_fd, NULL);
+        r = netns_fork_and_wait(*temp_netns_fd, /* ret_original_netns_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process (nspawn-rename-wlan): %m");
         if (r == 0) {
                 _cleanup_(sd_device_unrefp) sd_device *temp_dev = NULL;
 
-                r = rtnl_rename_link(NULL, sysname, name);
+                r = rtnl_rename_link(/* rtnl= */ NULL, sysname, name);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rename network interface '%s' to '%s': %m", sysname, name);
                         goto finalize;
@@ -630,7 +630,7 @@ static int move_wlan_interface_one(
                         goto finalize;
                 }
 
-                r = move_wlan_interface_impl(NULL, netns_fd, temp_dev);
+                r = move_wlan_interface_impl(/* genl= */ NULL, netns_fd, temp_dev);
 
         finalize:
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -672,7 +672,7 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
                         return log_device_error_errno(dev, r, "Failed to add netlink interface name: %m");
         }
 
-        r = sd_netlink_call(*rtnl, m, 0, NULL);
+        r = sd_netlink_call(*rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to move interface to namespace: %m");
 
@@ -762,7 +762,7 @@ int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pair
                 if (r < 0)
                         return log_error_errno(r, "Failed to create MACVLAN MAC address: %m");
 
-                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
@@ -808,7 +808,7 @@ int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pair
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_netlink_call(rtnl, m, 0, NULL);
+                r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new macvlan interfaces: %m");
 
@@ -891,7 +891,7 @@ int setup_ipvlan(const char *machine_name, const PidRef *pid, char **iface_pairs
                 if (ifi < 0)
                         return ifi;
 
-                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
@@ -933,7 +933,7 @@ int setup_ipvlan(const char *machine_name, const PidRef *pid, char **iface_pairs
                 if (r < 0)
                         return log_error_errno(r, "Failed to close netlink container: %m");
 
-                r = sd_netlink_call(rtnl, m, 0, NULL);
+                r = sd_netlink_call(rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new ipvlan interfaces: %m");
 
@@ -1003,7 +1003,7 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
                 _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
                 const char *interface;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse interface name: %m");
                 if (r == 0)
@@ -1045,7 +1045,7 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
 }
 
 int interface_pair_parse(char ***l, const char *p) {
-        return network_iface_pair_parse("Network interface", l, p, NULL);
+        return network_iface_pair_parse("Network interface", l, p, /* ifprefix= */ NULL);
 }
 
 int macvlan_pair_parse(char ***l, const char *p) {

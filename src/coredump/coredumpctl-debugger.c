@@ -46,7 +46,7 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_strv(&debugger_call, arg_debugger_args, false);
+        r = strv_extend_strv(&debugger_call, arg_debugger_args, /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom();
 

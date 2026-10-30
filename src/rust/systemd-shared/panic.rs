@@ -28,7 +28,7 @@ fn panic(info: &PanicInfo<'_>) -> ! {
         match info.location() {
             Some(l) => crate::log::__log(
                 LOG_CRIT,
-                0,
+                /* error= */ 0,
                 &Location {
                     file: to_cstr(l.file(), &mut buf),
                     line: l.line(),
@@ -43,7 +43,7 @@ fn panic(info: &PanicInfo<'_>) -> ! {
             ),
             None => crate::log::__log(
                 LOG_CRIT,
-                0,
+                /* error= */ 0,
                 &Location {
                     file: c"",
                     line: 0,

@@ -34,7 +34,7 @@ int mkfs_exists(const char *fstype) {
         if (!filename_is_valid(mkfs)) /* refuse file system types with slashes and similar */
                 return -EINVAL;
 
-        r = find_executable(mkfs, NULL);
+        r = find_executable(mkfs, /* ret_filename= */ NULL);
         if (r == -ENOENT)
                 return false;
         if (r < 0)
@@ -672,7 +672,7 @@ int make_filesystem(
                         return log_oom();
         }
 
-        if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
+        if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, /* filter_duplicates= */ false) < 0)
                 return log_oom();
 
         if (streq(fstype, "btrfs")) {
@@ -726,7 +726,7 @@ int make_filesystem(
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
                  * information. */
                  if (fork_flags & FORK_NEW_MOUNTNS)
-                        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
+                        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
 
                 execvp(mkfs, argv);
 
@@ -766,7 +766,7 @@ int mkfs_options_from_env(const char *component, const char *fstype, char ***ret
         n = strjoina("SYSTEMD_", component, "_MKFS_OPTIONS_", fstype);
         e = getenv(ascii_strupper(n));
         if (e) {
-                l = strv_split(e, NULL);
+                l = strv_split(e, /* separators= */ NULL);
                 if (!l)
                         return -ENOMEM;
         }

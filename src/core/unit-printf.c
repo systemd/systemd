@@ -141,7 +141,7 @@ static int specifier_shared_data_dir(char specifier, const void *data, const cha
 
         assert(ret);
 
-        return sd_path_lookup(MANAGER_IS_SYSTEM(u->manager) ? SD_PATH_SYSTEM_SHARED : SD_PATH_USER_SHARED, NULL, ret);
+        return sd_path_lookup(MANAGER_IS_SYSTEM(u->manager) ? SD_PATH_SYSTEM_SHARED : SD_PATH_USER_SHARED, /* suffix= */ NULL, ret);
 }
 
 int unit_name_printf(const Unit *u, const char *format, char **ret) {
@@ -173,7 +173,7 @@ int unit_name_printf(const Unit *u, const char *format, char **ret) {
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, UNIT_NAME_MAX, table, NULL, u, ret);
+        return specifier_printf(format, UNIT_NAME_MAX, table, /* root= */ NULL, u, ret);
 }
 
 int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, char **ret) {
@@ -243,7 +243,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 {}
         };
 
-        return specifier_printf(format, max_length, table, NULL, u, ret);
+        return specifier_printf(format, max_length, table, /* root= */ NULL, u, ret);
 }
 
 int unit_full_printf(const Unit *u, const char *text, char **ret) {

@@ -70,8 +70,8 @@ pub fn describe_full(serial: KeySerial) -> Result<Description> {
         sys::keyring_describe_full(
             serial,
             &mut type_,
-            ptr::null_mut(),
-            ptr::null_mut(),
+            /* ret_uid= */ ptr::null_mut(),
+            /* ret_perm= */ ptr::null_mut(),
             &mut description,
         )
     };

@@ -24,7 +24,7 @@ bool route_metric_can_update(const RouteMetric *a, const RouteMetric *b, bool ex
 
 int route_metric_set_full(RouteMetric *metric, uint16_t attr, uint32_t value, bool force);
 static inline int route_metric_set(RouteMetric *metric, uint16_t attr, uint32_t value) {
-        return route_metric_set_full(metric, attr, value, false);
+        return route_metric_set_full(metric, attr, value, /* force= */ false);
 }
 uint32_t route_metric_get(const RouteMetric *metric, uint16_t attr);
 

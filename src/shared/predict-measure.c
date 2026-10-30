@@ -165,7 +165,7 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
         if (!mc)
                 return log_oom_debug();
 
-        if (sym_EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
+        if (sym_EVP_DigestInit_ex(mc, pcr_state->md, /* impl= */ NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", pcr_state->bank);
 
         if (sym_EVP_DigestUpdate(mc, pcr_state->value, pcr_state->value_size) != 1)
@@ -224,7 +224,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                         if (!mdctx[i])
                                 return log_oom_debug();
 
-                        if (sym_EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
@@ -260,7 +260,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                                 return log_oom_debug();
 
                         /* Measure name of section */
-                        if (sym_EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", pcr_states[i].bank);
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
@@ -311,7 +311,7 @@ static int pcr_states_measure_phase(PcrState *pcr_states, size_t n, const char *
                         if (!b)
                                 return log_oom_debug();
 
-                        if (sym_EVP_Digest(*word, wl, b, NULL, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(*word, wl, b, /* size= */ NULL, pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word '%s'.", *word);
 
                         r = pcr_state_extend(pcr_states + i, b, bsz);

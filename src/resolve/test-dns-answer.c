@@ -637,7 +637,7 @@ TEST(dns_answer_dump) {
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr->ttl = 2400;
         rr->a.in_addr.s_addr = htobe32(0xc0a80180);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, 0, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, /* flags= */ 0, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com"));

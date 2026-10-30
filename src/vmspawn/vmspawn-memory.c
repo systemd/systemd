@@ -94,7 +94,7 @@ static int on_balloon_complete(
         req->m->target = req->bytes;
         log_debug("Requested guest memory size %" PRIu64 " KiB.", req->bytes / U64_KB);
 
-        return sd_varlink_reply(req->link, NULL);
+        return sd_varlink_reply(req->link, /* parameters= */ NULL);
 }
 
 static int memory_refresh(VmspawnMemory *m) {

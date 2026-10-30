@@ -43,13 +43,18 @@ impl Table {
     /// `data` must point to what `type_` takes, see `table_data_size()`.
     unsafe fn add(&mut self, type_: sys::TableDataType, data: *const c_void) -> Result<()> {
         // SAFETY: the caller passes data of the shape type_ requires, the cell takes a copy.
-        check(unsafe { sys::table_add_cell(self.0.as_ptr(), ptr::null_mut(), type_, data) }).map(|_| ())
+        check(unsafe {
+            sys::table_add_cell(self.0.as_ptr(), /* ret_cell= */ ptr::null_mut(), type_, data)
+        })
+        .map(|_| ())
     }
 
     /// Adds a `TABLE_EMPTY` cell.
     pub fn add_empty(&mut self) -> Result<()> {
         // SAFETY: TABLE_EMPTY takes nothing.
-        unsafe { self.add(sys::TABLE_EMPTY, ptr::null()) }
+        unsafe {
+            self.add(sys::TABLE_EMPTY, /* data= */ ptr::null())
+        }
     }
 
     /// Adds a `TABLE_STRING` cell.

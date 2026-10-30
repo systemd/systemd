@@ -32,16 +32,16 @@ static int client_run(int ifindex, const struct in_addr *pa, const struct ether_
         sd_ipv4acd *acd;
 
         assert_se(sd_ipv4acd_new(&acd) >= 0);
-        assert_se(sd_ipv4acd_attach_event(acd, e, 0) >= 0);
+        assert_se(sd_ipv4acd_attach_event(acd, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ipv4acd_set_ifindex(acd, ifindex) >= 0);
         assert_se(sd_ipv4acd_set_mac(acd, ha) >= 0);
         assert_se(sd_ipv4acd_set_address(acd, pa) >= 0);
-        assert_se(sd_ipv4acd_set_callback(acd, acd_handler, NULL) >= 0);
+        assert_se(sd_ipv4acd_set_callback(acd, acd_handler, /* userdata= */ NULL) >= 0);
 
         log_info("starting IPv4ACD client");
 
-        assert_se(sd_ipv4acd_start(acd, true) >= 0);
+        assert_se(sd_ipv4acd_start(acd, /* reset_conflicts= */ true) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
@@ -63,11 +63,11 @@ static int test_acd(const char *ifname, const char *address) {
         assert_se(sd_event_new(&e) >= 0);
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
-        assert_se(sd_netlink_attach_event(rtnl, e, 0) >= 0);
+        assert_se(sd_netlink_attach_event(rtnl, e, /* priority= */ 0) >= 0);
 
-        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0) >= 0);
         assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname) >= 0);
-        assert_se(sd_netlink_call(rtnl, m, 0, &reply) >= 0);
+        assert_se(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply) >= 0);
 
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);

@@ -20,7 +20,7 @@ static void target_set_state(Target *t, TargetState state) {
         assert(t);
 
         if (t->state != state)
-                bus_unit_send_pending_change_signal(UNIT(t), false);
+                bus_unit_send_pending_change_signal(UNIT(t), /* including_new= */ false);
 
         old_state = t->state;
         t->state = state;
@@ -64,14 +64,14 @@ static int target_add_default_dependencies(Target *t) {
                 return 0;
 
         /* Make sure targets are unloaded on shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int target_load(Unit *u) {
         Target *t = ASSERT_PTR(TARGET(u));
         int r;
 
-        r = unit_load_fragment_and_dropin(u, true);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ true);
         if (r < 0)
                 return r;
 

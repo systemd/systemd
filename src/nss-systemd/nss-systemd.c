@@ -322,7 +322,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
                 if (streq(name, root_passwd.pw_name))
                         return copy_synthesized_passwd(pwd, &root_passwd,
-                                                       default_root_shell(NULL),
+                                                       default_root_shell(/* root= */ NULL),
                                                        buffer, buflen, errnop);
 
                 if (streq(name, nobody_passwd.pw_name)) {
@@ -330,7 +330,7 @@ enum nss_status _nss_systemd_getpwnam_r(
                                 return NSS_STATUS_NOTFOUND;
 
                         return copy_synthesized_passwd(pwd, &nobody_passwd,
-                                                       NULL,
+                                                       /* fallback_shell= */ NULL,
                                                        buffer, buflen, errnop);
                 }
 
@@ -370,7 +370,7 @@ enum nss_status _nss_systemd_getpwuid_r(
 
                 if (uid == root_passwd.pw_uid)
                         return copy_synthesized_passwd(pwd, &root_passwd,
-                                                       default_root_shell(NULL),
+                                                       default_root_shell(/* root= */ NULL),
                                                        buffer, buflen, errnop);
 
                 if (uid == nobody_passwd.pw_uid) {
@@ -378,7 +378,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                                 return NSS_STATUS_NOTFOUND;
 
                         return copy_synthesized_passwd(pwd, &nobody_passwd,
-                                                       NULL,
+                                                       /* fallback_shell= */ NULL,
                                                        buffer, buflen, errnop);
                 }
 
@@ -831,7 +831,7 @@ enum nss_status _nss_systemd_getgrent_r(
                                 blocked = true;
                         }
 
-                        r = nss_group_record_by_name(group_name, false, &gr);
+                        r = nss_group_record_by_name(group_name, /* with_shadow= */ false, &gr);
                         if (r == -ESRCH)
                                 continue;
                         if (r < 0) {
@@ -1010,7 +1010,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
                 _cleanup_free_ char *group_name = NULL;
 
-                r = membershipdb_iterator_get(iterator, NULL, &group_name);
+                r = membershipdb_iterator_get(iterator, /* user= */ NULL, &group_name);
                 if (r == -ESRCH)
                         break;
                 if (r < 0) {

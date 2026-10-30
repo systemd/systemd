@@ -280,7 +280,7 @@ int coredump_worker(const CoredumpConfig *config, int coredump_fd, usec_t timest
         if (r < 0)
                 return r;
 
-        (void) fd_nonblock(context.input_fd, false);
+        (void) fd_nonblock(context.input_fd, /* nonblock= */ false);
 
         if (coredump_send_to_container(&context) > 0)
                 return 0;

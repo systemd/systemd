@@ -112,7 +112,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 if (m->monotonic != 0 || m->realtime != 0 || m->seqnum != 0)
                         fputs("\n", f);
 
-                bus_creds_dump(&m->creds, f, true);
+                bus_creds_dump(&m->creds, f, /* terse= */ true);
         }
 
         r = sd_bus_message_rewind(m, !FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
@@ -122,7 +122,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
-                prefix = indent(0, flags);
+                prefix = indent(/* level= */ 0, flags);
                 if (!prefix)
                         return log_oom_debug();
 
@@ -259,7 +259,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
-                prefix = indent(0, flags);
+                prefix = indent(/* level= */ 0, flags);
                 if (!prefix)
                         return log_oom_debug();
 
@@ -530,7 +530,7 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
                 len += pcapng_optlen(strlen(os));
         if (app)
                 len += pcapng_optlen(strlen(app));
-        len += pcapng_optlen(0);        /* OPT_END */
+        len += pcapng_optlen(/* len= */ 0);        /* OPT_END */
         len += sizeof(uint32_t);        /* trailer length */
 
         struct pcapng_section hdr = {
@@ -547,7 +547,7 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
                 pcapng_putopt(f, PCAPNG_SHB_OS, os, strlen(os));
         if (app)
                 pcapng_putopt(f, PCAPNG_SHB_USERAPPL, app, strlen(app));
-        pcapng_putopt(f, PCAPNG_OPT_END, NULL, 0);
+        pcapng_putopt(f, PCAPNG_OPT_END, /* data= */ NULL, /* len= */ 0);
         fwrite(&len, 1, sizeof(uint32_t), f);
 }
 

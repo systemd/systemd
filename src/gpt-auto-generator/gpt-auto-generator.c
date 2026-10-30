@@ -108,7 +108,7 @@ static int add_cryptsetup(
         if (r < 0)
                 return r;
 
-        r = generator_write_cryptsetup_unit_section(f, NULL);
+        r = generator_write_cryptsetup_unit_section(f, /* source= */ NULL);
         if (r < 0)
                 return r;
 
@@ -145,7 +145,7 @@ static int add_cryptsetup(
                         log_debug("Will not measure volume key of volume '%s', as OS measurements are not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
         }
 
-        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
+        r = generator_write_cryptsetup_service_section(f, id, what, /* key_file= */ NULL, options);
         if (r < 0)
                 return r;
 
@@ -1188,7 +1188,7 @@ static int enumerate_partitions(dev_t devnum) {
                         &m);
         if (r < 0) {
                 bool ok = r == -ENOPKG;
-                dissect_log_error(ok ? LOG_DEBUG : LOG_ERR, r, devname, NULL);
+                dissect_log_error(ok ? LOG_DEBUG : LOG_ERR, r, devname, /* verity= */ NULL);
                 return ok ? 0 : r;
         }
 
@@ -1381,7 +1381,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

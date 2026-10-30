@@ -11,7 +11,7 @@ int verb_unit_paths(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
         int r;
 
-        r = lookup_paths_init_or_warn(&paths, arg_runtime_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&paths, arg_runtime_scope, /* flags= */ 0, /* root_dir= */ NULL);
         if (r < 0)
                 return r;
 

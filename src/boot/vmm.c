@@ -182,7 +182,7 @@ static bool detect_hyperv_cvm(uint32_t isoltype) {
         uint32_t eax, ebx, ecx, edx, feat;
         char sig[13] = {};
 
-        feat = cpuid_leaf(CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS, sig, false);
+        feat = cpuid_leaf(CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS, sig, /* swapped= */ false);
 
         if (feat < CPUID_HYPERV_MIN || feat > CPUID_HYPERV_MAX)
                 return false;
@@ -235,7 +235,7 @@ static bool detect_tdx(void) {
 
         /* Querying an unsupported CPUID leaf is harmless (it returns the highest basic leaf's data rather
          * than faulting), so reading this leaf and matching the IntelTDX signature is sufficient. */
-        cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
+        cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, /* swapped= */ true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
                 return true;
@@ -254,7 +254,7 @@ bool is_confidential_vm(void) {
         if (!cpuid_in_hypervisor())
                 return false;
 
-        cpuid_leaf(0, sig, true);
+        cpuid_leaf(/* eax= */ 0, sig, /* swapped= */ true);
 
         if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
                 return detect_sev();

@@ -122,7 +122,7 @@ static int unit_file_add_dir(
 
         /* This adds [original_root]/path to dirs, if it exists. */
 
-        r = chase(path, original_root, 0, &chased, NULL);
+        r = chase(path, original_root, /* flags= */ 0, &chased, /* ret_fd= */ NULL);
         if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir. */
                 return 0;
         if (r == -ENAMETOOLONG) {

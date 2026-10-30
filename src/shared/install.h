@@ -196,7 +196,7 @@ int unit_file_exists_full(
                 char **ret_path);
 
 static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
-        return unit_file_exists_full(scope, lp, 0, name, NULL);
+        return unit_file_exists_full(scope, lp, /* flags= */ 0, name, /* ret_path= */ NULL);
 }
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);

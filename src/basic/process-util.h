@@ -187,7 +187,7 @@ int pidref_safe_fork_full(
                 PidRef *ret);
 
 static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
-        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret);
+        return pidref_safe_fork_full(name, /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags, ret);
 }
 
 int namespace_fork_full(

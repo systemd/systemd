@@ -697,7 +697,7 @@ static int display(Context *c) {
                 table_set_header(table, false);
 
         for (Column col = 0; col < _COLUMN_MAX; col++) {
-                TableCell *cell = ASSERT_PTR(table_get_cell(table, 0, col));
+                TableCell *cell = ASSERT_PTR(table_get_cell(table, /* row= */ 0, col));
 
                 (void) table_set_uppercase(table, cell, false);
 
@@ -1022,7 +1022,7 @@ static int redisplay(Context *c) {
          * in sd_fiber_ppoll() at this point, wake it up so that it looks at next_display again. The fiber
          * sees -EBUSY for such an unrelated wakeup. If it is not suspended (anymore), it looks at
          * next_display before it suspends the next time anyway, so a lost wakeup costs nothing. */
-        return sd_fiber_resume(c->fiber, 0);
+        return sd_fiber_resume(c->fiber, /* result= */ 0);
 }
 
 static int on_sigwinch(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {

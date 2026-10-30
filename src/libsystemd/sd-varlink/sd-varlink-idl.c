@@ -628,11 +628,11 @@ _public_ int sd_varlink_idl_format_full(const sd_varlink_interface *interface, s
         if (r < 0)
                 return r;
 
-        return memstream_finalize(&memstream, ret, NULL);
+        return memstream_finalize(&memstream, ret, /* ret_size= */ NULL);
 }
 
 _public_ int sd_varlink_idl_format(const sd_varlink_interface *interface, char **ret) {
-        return sd_varlink_idl_format_full(interface, 0, SIZE_MAX, ret);
+        return sd_varlink_idl_format_full(interface, /* flags= */ 0, SIZE_MAX, ret);
 }
 
 static sd_varlink_symbol* varlink_symbol_free(sd_varlink_symbol *symbol) {
@@ -1309,7 +1309,7 @@ _public_ int sd_varlink_idl_parse(
                                 if (r < 0)
                                         return r;
 
-                                r = varlink_symbol_realloc(&symbol, 0);
+                                r = varlink_symbol_realloc(&symbol, /* n_fields= */ 0);
                                 if (r < 0)
                                         return r;
 
@@ -1368,7 +1368,7 @@ _public_ int sd_varlink_idl_parse(
                                         return r;
 
                                 assert(!symbol);
-                                r = varlink_symbol_realloc(&symbol, 0);
+                                r = varlink_symbol_realloc(&symbol, /* n_fields= */ 0);
                                 if (r < 0)
                                         return r;
 
@@ -1406,7 +1406,7 @@ _public_ int sd_varlink_idl_parse(
                         symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
                         experimental = false;
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_INPUT, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_INPUT, /* depth= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -1423,7 +1423,7 @@ _public_ int sd_varlink_idl_parse(
                         if (!streq(token, "->"))
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *reterr_line, *reterr_column, token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_OUTPUT, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_OUTPUT, /* depth= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -1453,7 +1453,7 @@ _public_ int sd_varlink_idl_parse(
                         symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
                         experimental = false;
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, /* depth= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -1483,7 +1483,7 @@ _public_ int sd_varlink_idl_parse(
                         symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
                         experimental = false;
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, /* depth= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -1884,7 +1884,7 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
         case SD_VARLINK_STRUCT:
         case SD_VARLINK_ENUM:
         case SD_VARLINK_NAMED_TYPE:
-                return varlink_idl_validate_symbol(field->symbol, v, SD_VARLINK_REGULAR, NULL);
+                return varlink_idl_validate_symbol(field->symbol, v, SD_VARLINK_REGULAR, /* bad_field= */ NULL);
 
         case SD_VARLINK_BOOL:
                 if (!sd_json_variant_is_boolean(v))

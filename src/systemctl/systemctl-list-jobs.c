@@ -89,7 +89,7 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -148,7 +148,7 @@ int verb_list_jobs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "ListJobs", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "ListJobs", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list jobs: %s", bus_error_message(&error, r));
 

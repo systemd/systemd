@@ -44,7 +44,7 @@ PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor) {
         if (monitor->link) {
                 /* If the link is still around here the connection never completed its upgrade: close it, so
                  * that the client doesn't hang on to a connection nobody will ever service. */
-                sd_varlink_set_userdata(monitor->link, NULL);
+                sd_varlink_set_userdata(monitor->link, /* userdata= */ NULL);
                 sd_varlink_close_unref(monitor->link);
         }
 
@@ -488,7 +488,7 @@ static int on_upgrade(sd_varlink *vl, int _input_fd, int _output_fd, void *userd
                 goto fail;
         }
 
-        r = fd_nonblock(input_fd, true);
+        r = fd_nonblock(input_fd, /* nonblock= */ true);
         if (r < 0) {
                 log_error_errno(r, "Failed to enable non-blocking mode on upgraded socket: %m");
                 goto fail;
@@ -504,7 +504,7 @@ static int on_upgrade(sd_varlink *vl, int _input_fd, int _output_fd, void *userd
                 goto fail;
         }
 
-        r = sd_event_source_set_io_fd_own(monitor->io_event_source, true);
+        r = sd_event_source_set_io_fd_own(monitor->io_event_source, /* own= */ true);
         if (r < 0) {
                 log_error_errno(r, "Failed to pass ownership of monitor fd to IO event: %m");
                 goto fail;

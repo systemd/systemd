@@ -169,7 +169,7 @@ TEST(write_and_load_env_file) {
                 _cleanup_pclose_ FILE *f = NULL;
                 size_t sz;
 
-                assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
+                assert_se(tempfn_random_child(NULL, /* extra= */ NULL, &p) >= 0);
 
                 assert_se(j = strjoin("TEST=", v));
                 assert_se(write_env_file(AT_FDCWD, p, STRV_MAKE("# header 1", "", "# header 2"), STRV_MAKE(j), /* flags= */ 0) >= 0);

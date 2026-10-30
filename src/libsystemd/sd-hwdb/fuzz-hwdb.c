@@ -40,7 +40,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
 
-        if (outside_size_range(size, 0, 4 * 1024 * 1024))
+        if (outside_size_range(size, /* lower= */ 0, 4 * 1024 * 1024))
                 return 0;
 
         fuzz_setup_logging();

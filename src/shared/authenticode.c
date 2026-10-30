@@ -277,7 +277,7 @@ static int asn1_timestamp(ASN1_TIME **ret) {
         usec_t epoch = parse_source_date_epoch();
 
         if (epoch == USEC_INFINITY) {
-                time = sym_X509_gmtime_adj(NULL, 0);
+                time = sym_X509_gmtime_adj(NULL, /* adj= */ 0);
                 if (!time)
                         return log_openssl_errors(LOG_DEBUG, "Failed to get current time");
         } else {
@@ -325,7 +325,7 @@ int authenticode_pkcs7_new(
         if (sym_PKCS7_add_attrib_smimecap(si, smcap) == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to add smimecap signed attribute to signer info");
 
-        if (sym_PKCS7_add_attrib_content_type(si, NULL) == 0)
+        if (sym_PKCS7_add_attrib_content_type(si, /* coid= */ NULL) == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to add content type signed attribute to signer info");
 
         _cleanup_(ASN1_TIME_freep) ASN1_TIME *time = NULL;
@@ -355,7 +355,7 @@ int authenticode_pkcs7_data_bio(PKCS7 *p7, const void *idc, size_t idc_size, BIO
         assert(idc);
         assert(ret);
 
-        _cleanup_(BIO_free_allp) BIO *bio = sym_PKCS7_dataInit(p7, NULL);
+        _cleanup_(BIO_free_allp) BIO *bio = sym_PKCS7_dataInit(p7, /* bio= */ NULL);
         if (!bio)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create PKCS7 data bio");
 

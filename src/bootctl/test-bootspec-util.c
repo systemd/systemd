@@ -24,20 +24,20 @@ static void test_one(
 }
 
 TEST(boot_entry_commit_filename) {
-        test_one("foo", 1, NULL, 0, UINT_MAX, "foo-commit_1.conf");
-        test_one("foo", 42, "1.0", 0, UINT_MAX, "foo-commit_42.1.0.conf");
+        test_one("foo", 1, /* version= */ NULL, /* profile_nr= */ 0, UINT_MAX, "foo-commit_1.conf");
+        test_one("foo", 42, "1.0", /* profile_nr= */ 0, UINT_MAX, "foo-commit_42.1.0.conf");
         test_one("foo", 42, "1.0", 3, UINT_MAX, "foo-commit_42.1.0@3.conf");
         test_one("foo", 42, "1.0", 3, 5, "foo-commit_42.1.0@3+5.conf");
-        test_one("foo", 42, NULL, 3, UINT_MAX, "foo-commit_42@3.conf");
-        test_one("foo", 42, NULL, 3, 7, "foo-commit_42@3+7.conf");
-        test_one("foo", 42, NULL, 0, 9, "foo-commit_42+9.conf");
-        test_one("my-token", 123456, "v2", 0, UINT_MAX, "my-token-commit_123456.v2.conf");
+        test_one("foo", 42, /* version= */ NULL, 3, UINT_MAX, "foo-commit_42@3.conf");
+        test_one("foo", 42, /* version= */ NULL, 3, 7, "foo-commit_42@3+7.conf");
+        test_one("foo", 42, /* version= */ NULL, /* profile_nr= */ 0, 9, "foo-commit_42+9.conf");
+        test_one("my-token", 123456, "v2", /* profile_nr= */ 0, UINT_MAX, "my-token-commit_123456.v2.conf");
 
         /* Invalid inputs for make */
         _cleanup_free_ char *fn = NULL;
-        ASSERT_ERROR(boot_entry_make_commit_filename("foo/bar", 1, NULL, 0, UINT_MAX, &fn), EINVAL);
-        ASSERT_ERROR(boot_entry_make_commit_filename("foo", 0, NULL, 0, UINT_MAX, &fn), EINVAL);
-        ASSERT_ERROR(boot_entry_make_commit_filename("foo", UINT64_MAX, NULL, 0, UINT_MAX, &fn), EINVAL);
+        ASSERT_ERROR(boot_entry_make_commit_filename("foo/bar", 1, /* version= */ NULL, /* profile_nr= */ 0, UINT_MAX, &fn), EINVAL);
+        ASSERT_ERROR(boot_entry_make_commit_filename("foo", /* entry_commit= */ 0, /* version= */ NULL, /* profile_nr= */ 0, UINT_MAX, &fn), EINVAL);
+        ASSERT_ERROR(boot_entry_make_commit_filename("foo", UINT64_MAX, /* version= */ NULL, /* profile_nr= */ 0, UINT_MAX, &fn), EINVAL);
 
         /* Invalid inputs for parse */
         _cleanup_free_ char *token = NULL;

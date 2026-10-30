@@ -75,7 +75,7 @@ int create_subcgroup(
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
         if (keep_unit)
-                r = cg_pid_get_path(0, &cgroup);
+                r = cg_pid_get_path(/* pid= */ 0, &cgroup);
         else
                 r = cg_pidref_get_path(pid, &cgroup);
         if (r < 0)
@@ -131,13 +131,13 @@ int create_subcgroup(
                 if (!supervisor)
                         return log_oom();
 
-                r = cg_create_and_attach(supervisor, 0);
+                r = cg_create_and_attach(supervisor, /* pid= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
         }
 
         /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable(supported, supported, cgroup, NULL);
+        (void) cg_enable(supported, supported, cgroup, /* ret_result_mask= */ NULL);
         return 0;
 }
 
@@ -175,7 +175,7 @@ int bind_mount_cgroup_hierarchy(void) {
 
         /* NB: This must be called from the inner child, with /sys/fs/cgroup/ being a bind mount in mountns! */
 
-        r = cg_pid_get_path(0, &own_cgroup_path);
+        r = cg_pid_get_path(/* pid= */ 0, &own_cgroup_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
@@ -186,11 +186,11 @@ int bind_mount_cgroup_hierarchy(void) {
         const char *p = strjoina("/sys/fs/cgroup", own_cgroup_path);
 
         /* Make our own cgroup a (writable) bind mount */
-        r = mount_nofollow_verbose(LOG_ERR, p, p, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, p, p, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         /* And then remount the systemd cgroup root read-only */
-        return mount_nofollow_verbose(LOG_ERR, NULL, "/sys/fs/cgroup", NULL,
-                                      MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+        return mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, "/sys/fs/cgroup", /* fstype= */ NULL,
+                                      MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, /* options= */ NULL);
 }

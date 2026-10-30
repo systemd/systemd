@@ -345,7 +345,7 @@ static int recurse_fd(int input_fd, const struct stat *st, uid_t shift, bool is_
                                 if (subdir_fd < 0)
                                         return -errno;
 
-                                r = recurse_fd(subdir_fd, &fst, shift, false);
+                                r = recurse_fd(subdir_fd, &fst, shift, /* is_toplevel= */ false);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -364,7 +364,7 @@ static int recurse_fd(int input_fd, const struct stat *st, uid_t shift, bool is_
         /* After we descended, also patch the directory itself. It's key to do this in this order so that the top-level
          * directory is patched as very last object in the tree, so that we can use it as quick indicator whether the
          * tree is properly chown()ed already. */
-        r = patch_fd(d ? dirfd(d) : fd, NULL, st, shift);
+        r = patch_fd(d ? dirfd(d) : fd, /* name= */ NULL, st, shift);
         if (r == -EROFS)
                 goto read_only;
         if (r > 0)

@@ -29,14 +29,14 @@ TEST(destroy_callback) {
         if (r < 0)
                 return (void) log_error_errno(r, "Failed to connect to bus: %m");
 
-        ASSERT_OK_EQ(sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called),
+        ASSERT_OK_EQ(sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", /* flags= */ 0, callback, &n_called),
                      1);
 
-        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, /* ret= */ NULL), 0);
         ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, &t), 0);
 
         ASSERT_EQ(sd_bus_slot_set_destroy_callback(slot, destroy_callback), 0);
-        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 1);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, /* ret= */ NULL), 1);
         ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, &t), 1);
         assert_se(t == destroy_callback);
 
@@ -69,8 +69,8 @@ static void map_properties_fake_bus(sd_bus **ret) {
 }
 
 static void map_properties_seal_for_read(sd_bus_message *m) {
-        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
-        ASSERT_OK(sd_bus_message_rewind(m, true));
+        ASSERT_OK(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0));
+        ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 }
 
 /* Over-wide scalar wire type must not write past the declared slot. */
@@ -178,7 +178,7 @@ static int record_set_called(sd_bus *bus, const char *member, sd_bus_message *m,
         int r;
 
         /* Consume the value, like a real set callback would. */
-        r = sd_bus_message_skip(m, NULL);
+        r = sd_bus_message_skip(m, /* types= */ NULL);
         if (r < 0)
                 return r;
 
