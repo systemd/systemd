@@ -124,6 +124,30 @@ int exec_context_apply_tty_size(
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
 
+/* Closes the OSC 3008 context of the invocation on 'fd'. */
+static void write_osc_close(int fd, sd_id128_t invocation_id) {
+        int r;
+
+        assert(fd >= 0);
+
+        if (sd_id128_is_null(invocation_id))
+                return;
+
+        sd_id128_t context_id;
+        r = osc_context_id_from_invocation_id(invocation_id, &context_id);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to derive context ID from invocation ID, ignoring: %m");
+
+        _cleanup_free_ char *seq = NULL;
+        r = osc_context_close(context_id, &seq);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to acquire OSC close sequence, ignoring: %m");
+
+        r = loop_write(fd, seq, SIZE_MAX);
+        if (r < 0)
+                log_debug_errno(r, "Failed to write OSC close sequence, ignoring: %m");
+}
+
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
@@ -167,22 +191,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (r < 0)
                 log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
 
-        if (!sd_id128_is_null(invocation_id) && exec_context_shall_ansi_seq_reset(context)) {
-                sd_id128_t context_id;
-
-                r = osc_context_id_from_invocation_id(invocation_id, &context_id);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to derive context ID from invocation ID, ignoring: %m");
-                else {
-                        _cleanup_free_ char *seq = NULL;
-
-                        r = osc_context_close(context_id, &seq);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to acquire OSC close sequence, ignoring: %m");
-                        else
-                                (void) loop_write(fd, seq, SIZE_MAX);
-                }
-        }
+        if (exec_context_shall_ansi_seq_reset(context))
+                write_osc_close(fd, invocation_id);
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
