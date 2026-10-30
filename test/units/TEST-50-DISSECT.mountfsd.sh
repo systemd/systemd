@@ -27,6 +27,8 @@ at_exit() {
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
     rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
+    rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+    rm -rf /var/tmp/test-50-badsig-srv.gpt /tmp/test-50-srv.repart.d
 }
 
 trap at_exit EXIT
@@ -235,6 +237,51 @@ fi
     --property ExtensionImages=/tmp/app1.raw \
     --property ExtensionImagePolicy=root=verity+signed+unprotected+absent:usr=verity+signed+unprotected+absent \
     true)
+
+# An image with an invalid signature partition passes the untrusted image policy during dissection, but is
+# refused when Verity is set up. mountfsd must ask polkit then too, so that a polkit rule can allow it.
+cp "$MINIMAL_IMAGE.gpt" /var/tmp/test-50-badsig.gpt
+printf 'garbage' | dd of=/var/tmp/test-50-badsig.gpt \
+    bs=512 seek="$(sfdisk --json /var/tmp/test-50-badsig.gpt | jq -r '.partitiontable.partitions[2].start')" conv=notrunc
+(! systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true)
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/untrusted.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+systemctl try-reload-or-restart polkit.service
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true
+# A client policy that doesn't overlap with the policy for untrusted images is handled like a refusal by the
+# image policy, so polkit is asked too.
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    --property RootImagePolicy=root=verity:=unused+absent \
+    true
+# mountfsd grants root clients the polkit action without asking polkit, so for root it retries within the
+# same method call. The retry must dissect the image again with the policy for trusted images, because the
+# policy for untrusted images ignores the /srv partition.
+cp /var/tmp/test-50-badsig.gpt /var/tmp/test-50-badsig-srv.gpt
+mkdir -p /tmp/test-50-srv.repart.d
+cat >/tmp/test-50-srv.repart.d/srv.conf <<'EOF'
+[Partition]
+Type=srv
+Format=ext4
+SizeMinBytes=16M
+EOF
+systemd-repart --dry-run=no --size=auto --definitions=/tmp/test-50-srv.repart.d /var/tmp/test-50-badsig-srv.gpt
+varlinkctl --exec --push-fd=/var/tmp/test-50-badsig-srv.gpt call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0}' -- \
+    jq -e '.partitions | map(.designator) | index("srv")' >/dev/null
+rm -rf /var/tmp/test-50-badsig-srv.gpt /tmp/test-50-srv.repart.d
+rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+systemctl try-reload-or-restart polkit.service
 
 # Install key in keychain
 mkdir -p /run/verity.d
