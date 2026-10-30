@@ -275,13 +275,14 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
         bus_job_send_change_signal(j);
 }
 
-static int send_removed_signal(sd_bus *bus, void *userdata) {
+static int removed_signal_new(Job *j, sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Job *j = ASSERT_PTR(userdata);
         int r;
 
+        assert(j);
         assert(bus);
+        assert(ret);
 
         p = job_dbus_path(j);
         if (!p)
@@ -300,7 +301,42 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+static int send_removed_signal(sd_bus *bus, void *userdata) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = removed_signal_new(ASSERT_PTR(userdata), bus, &m);
+        if (r < 0)
+                return r;
+
         return sd_bus_send(bus, m, NULL);
+}
+
+static int hold_removed_signal(Job *j) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(j);
+
+        /* bus_foreach_bus() doesn't send anything on the API bus until it's set up, so keep the signal until
+         * then if anybody might want it by then: the clients of the job, whether tracked already or not yet,
+         * or the subscribers that we're yet to track again. */
+        if (!j->manager->api_bus || j->manager->api_bus_ready)
+                return 0;
+        if (sd_bus_track_count(j->bus_track) <= 0 &&
+            strv_isempty(j->deserialized_clients) &&
+            strv_isempty(j->manager->subscribed_as_strv))
+                return 0;
+
+        r = removed_signal_new(j, j->manager->api_bus, &m);
+        if (r < 0)
+                return r;
+
+        return bus_hold_api_signal(j->manager, m);
 }
 
 void bus_job_send_removed_signal(Job *j) {
@@ -317,6 +353,10 @@ void bus_job_send_removed_signal(Job *j) {
         r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
+
+        r = hold_removed_signal(j);
+        if (r < 0)
+                log_debug_errno(r, "Failed to hold back job remove signal for %u: %m", j->id);
 }
 
 static int bus_job_track_handler(sd_bus_track *t, void *userdata) {
