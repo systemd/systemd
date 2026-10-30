@@ -449,9 +449,9 @@ static unsigned manifest_mtree_fields_to_statx(ManifestField fields) {
 
         if (FLAGS_SET(fields, MANIFEST_FIELD_MODE))
                 mask |= STATX_MODE;
-        if (FLAGS_SET(fields, MANIFEST_FIELD_UID))
+        if (fields & (MANIFEST_FIELD_UID|MANIFEST_FIELD_USER_NAME))
                 mask |= STATX_UID;
-        if (FLAGS_SET(fields, MANIFEST_FIELD_GID))
+        if (fields & (MANIFEST_FIELD_GID|MANIFEST_FIELD_GROUP_NAME))
                 mask |= STATX_GID;
         if (fields & (MANIFEST_FIELD_SIZE|MANIFEST_FIELD_HASH))
                 mask |= STATX_SIZE;
@@ -536,6 +536,33 @@ static int manifest_mtree_item(
                         pick_color_for_uid_gid(c, sx->stx_gid),
                         sx->stx_gid,
                         c->color ?  ansi_normal() : "");
+
+        const char *user_name, *group_name;
+        r = manifest_resolve_names(c, path, sx, &user_name, &group_name);
+        if (r < 0)
+                return r;
+
+        if (user_name) {
+                _cleanup_free_ char *e = xescape(user_name, WHITESPACE COMMENTS);
+                if (!e)
+                        return log_oom();
+
+                fprintf(f, " %suname=%s%s",
+                        c->color ? ansi_grey() : "",
+                        c->color ? ansi_normal() : "",
+                        e);
+        }
+
+        if (group_name) {
+                _cleanup_free_ char *e = xescape(group_name, WHITESPACE COMMENTS);
+                if (!e)
+                        return log_oom();
+
+                fprintf(f, " %sgname=%s%s",
+                        c->color ? ansi_grey() : "",
+                        c->color ? ansi_normal() : "",
+                        e);
+        }
 
         if (FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_SIZE) && S_ISREG(sx->stx_mode)) {
                 if (FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE))
