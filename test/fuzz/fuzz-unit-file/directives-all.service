@@ -971,6 +971,7 @@ TTYPath=
 TTYReset=
 TTYVHangup=
 TTYVTDisallocate=
+TTYExitStatus=
 TTYRows=
 TTYColumns=
 TemporaryFileSystem=

@@ -977,6 +977,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_CONDITION_UNSIGNED(!!c->tty_path, "TTYRows", c->tty_rows),
                         JSON_BUILD_PAIR_CONDITION_UNSIGNED(!!c->tty_path, "TTYColumns", c->tty_cols),
                         JSON_BUILD_PAIR_CONDITION_BOOLEAN(!!c->tty_path, "TTYVTDisallocate", c->tty_vt_disallocate),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("TTYExitStatus", c->tty_exit_status),
 
                         /* Credentials */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("LoadCredential", load_credential_build_json, c->load_credentials),
@@ -1041,6 +1042,7 @@ struct TransientExecContextParameters {
         /* Tristate bools: -1 = absent, 0/1 = no/yes. */
         int dynamic_user;
         int ignore_sigpipe;
+        int tty_exit_status;
         int lock_personality;
         int memory_deny_write_execute;
         int no_new_privileges;
@@ -1379,6 +1381,7 @@ static DEFINE_APPLY_EXEC(user_namespace_path,    "UserNamespacePath",    varlink
 
 static DEFINE_APPLY_EXEC(dynamic_user,              "DynamicUser",            varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(ignore_sigpipe,            "IgnoreSIGPIPE",          varlink_apply_tristate_bool);
+static DEFINE_APPLY_EXEC(tty_exit_status,           "TTYExitStatus",          varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(lock_personality,          "LockPersonality",        varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(memory_deny_write_execute, "MemoryDenyWriteExecute", varlink_apply_tristate_bool);
 static DEFINE_APPLY_EXEC(no_new_privileges,         "NoNewPrivileges",        varlink_apply_tristate_bool);
@@ -1539,6 +1542,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_SETTABLE     ("UMask",                  umask,                     SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_SETTABLE     ("OOMScoreAdjust",         oom_score_adjust,          SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
+        EXEC_PROPERTY_TRISTATE_BOOL("TTYExitStatus",          tty_exit_status),
         EXEC_PROPERTY_SETTABLE     ("Nice",                   nice,                      SD_JSON_VARIANT_INTEGER),
         EXEC_PROPERTY_ENUM         ("ProtectSystem",          protect_system, dispatch_protect_system),
         EXEC_PROPERTY_ENUM         ("ProtectHome",            protect_home,   dispatch_protect_home),

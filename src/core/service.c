@@ -2339,6 +2339,14 @@ static int service_spawn_internal(
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
 
+        /* Random rather than derived from $INVOCATION_ID, so that the service cannot forge its own end record */
+        if (s->exec_context.tty_exit_status && sd_id128_is_null(s->osc_context_id)) {
+                r = sd_id128_randomize(&s->osc_context_id);
+                if (r < 0)
+                        return r;
+        }
+        exec_params.osc_context_id = s->osc_context_id;
+
         if (s->root_directory_fd >= 0) {
                 r = mount_fd_clone(s->root_directory_fd, /* recursive= */ true, &s->root_directory_fd);
                 if (r < 0)
@@ -2613,7 +2621,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 (void) unlink(s->pid_file);
 
         /* Reset TTY ownership if necessary */
-        exec_context_revert_tty(&s->exec_context, UNIT(s)->invocation_id);
+        exec_context_revert_tty(&s->exec_context, s->stdout_fd, &s->main_exec_status, UNIT(s)->invocation_id, s->osc_context_id);
+        s->osc_context_id = SD_ID128_NULL;
 }
 
 static void service_enter_stop_post(Service *s, ServiceResult f) {
@@ -3908,6 +3917,10 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        r = serialize_id128(f, "osc-context-id", s->osc_context_id);
+        if (r < 0)
+                return r;
+
         r = serialize_fd(f, fds, "root-directory-fd", s->root_directory_fd);
         if (r < 0)
                 return r;
@@ -4374,6 +4387,12 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 s->stderr_fd = deserialize_fd(fds, value);
                 if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
+
+        } else if (streq(key, "osc-context-id")) {
+
+                r = sd_id128_from_string(value, &s->osc_context_id);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse osc-context-id value: %s", value);
 
         } else if (streq(key, "root-directory-fd")) {
 

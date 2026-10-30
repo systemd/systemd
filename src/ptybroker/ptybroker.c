@@ -349,6 +349,8 @@ static int start_shell(
                                                                                                                               SD_JSON_BUILD_PAIR_BOOLEAN("noEnvExpand", true)))))),
                                         SD_JSON_BUILD_PAIR("Exec", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_STRING("TTYPath", pty->backend_path),
+                                                                           /* Tell the monitors how the command ended, in-band */
+                                                                           SD_JSON_BUILD_PAIR_BOOLEAN("TTYExitStatus", true),
                                                                            JSON_BUILD_PAIR_STRING_NON_EMPTY("User", user),
                                                                            JSON_BUILD_PAIR_STRING_NON_EMPTY("Group", group),
                                                                            /* Open a PAM session for the shell, the same way run0 does it,

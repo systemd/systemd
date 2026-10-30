@@ -10,8 +10,12 @@ int osc_context_open_container(const char *name, char **ret_seq, sd_id128_t *ret
 int osc_context_open_vm(const char *name, char **ret_seq, sd_id128_t *ret_context_id);
 int osc_context_open_chpriv(const char *target_user, char **ret_seq, sd_id128_t *ret_context_id);
 int osc_context_open_session(const char *user, const char *session_id, char **ret_seq, sd_id128_t *ret_context_id);
-int osc_context_open_service(const char *unit, sd_id128_t invocation_id, char **ret_seq);
+int osc_context_open_service_full(const char *unit, sd_id128_t invocation_id, sd_id128_t context_id, char **ret_seq);
+static inline int osc_context_open_service(const char *unit, sd_id128_t invocation_id, char **ret_seq) {
+        return osc_context_open_service_full(unit, invocation_id, SD_ID128_NULL, ret_seq);
+}
 int osc_context_close(sd_id128_t id, char **ret_seq);
+int osc_context_close_full(sd_id128_t id, int code, int status, char **ret_seq);
 
 static inline void osc_context_closep(sd_id128_t *context_id) {
         (void) osc_context_close(*ASSERT_PTR(context_id), NULL);
