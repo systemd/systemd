@@ -246,8 +246,9 @@ r     -        500-900
       <title>Shell</title>
 
       <para>The login shell of the user. If not specified, this will be set to
-      <filename>/usr/sbin/nologin</filename>, except if the UID of the user is 0, in
-      which case <filename>/bin/sh</filename> will be used.</para>
+      <filename>/usr/sbin/nologin</filename> (or the path configured at build time, or via the
+      <varname>$SYSTEMD_NOLOGIN_PATH</varname> environment variable), except if the UID of the user is 0,
+      in which case <filename>/bin/sh</filename> will be used.</para>
 
       <para>Only applies to lines of type <varname>u</varname> and should otherwise
       be left unset (or <literal>-</literal>). It is recommended to omit this, unless

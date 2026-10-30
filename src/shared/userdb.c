@@ -858,7 +858,7 @@ static int synthetic_nobody_user_build(UserRecord **ret) {
                         SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING(NOBODY_USER_NAME)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("uid", UID_NOBODY),
                         SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
-                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                        SD_JSON_BUILD_PAIR_STRING("shell", nologin_shell()),
                         SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
@@ -885,7 +885,7 @@ static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
                         SD_JSON_BUILD_PAIR_STRING("realName", rn),
                         SD_JSON_BUILD_PAIR_UNSIGNED("uid", FOREIGN_UID_BASE + foreign_uid),
                         SD_JSON_BUILD_PAIR_UNSIGNED("gid", FOREIGN_UID_BASE + foreign_uid),
-                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                        SD_JSON_BUILD_PAIR_STRING("shell", nologin_shell()),
                         SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
