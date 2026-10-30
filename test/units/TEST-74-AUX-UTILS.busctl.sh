@@ -18,6 +18,12 @@ busctl list --acquired --activatable --no-legend -j | jq
 busctl status
 busctl status --machine=.host --augment-creds=no
 busctl status --user --machine=testuser@.host
+t="$(mktemp)"
+(! busctl status --user --machine=nosuchuser@.host 2>"$t")
+grep -E "Unknown user|No such process" "$t" >/dev/null
+(! systemctl --user -M nosuchuser@.host show-environment 2>"$t")
+grep -E "Unknown user|No such process" "$t" >/dev/null
+rm -f "$t"
 busctl status org.freedesktop.systemd1
 # Ignore the exit code here, since this runs during machine bootup, so busctl
 # might attempt to introspect a job that already finished and fail, i.e.:

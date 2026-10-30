@@ -5,12 +5,17 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
+#include "constants.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "iovec-util.h"
 #include "notify-recv.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -109,6 +114,36 @@ TEST(notify_socket_prepare) {
 
         ASSERT_OK(event_add_child_pidref(e, NULL, &c.pidref, WEXITED, on_sigchld, &c));
         ASSERT_OK(sd_event_loop(e));
+}
+
+TEST(notify_recv_invalid_with_fds) {
+        FOREACH_STRING(payload, "missing-creds", "embedded-nul", "oversized") {
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
+                ASSERT_OK(setsockopt_int(pair[0], SOL_SOCKET, SO_PASSCRED, !streq(payload, "missing-creds")));
+
+                _cleanup_free_ char *buffer = NULL;
+                size_t size;
+                if (streq(payload, "oversized")) {
+                        size = NOTIFY_BUFFER_MAX + 1;
+                        buffer = new(char, size);
+                        ASSERT_NOT_NULL(buffer);
+                        memset(buffer, 'a', size);
+                } else {
+                        buffer = strdup("ERRNO=13\nSTATUS=ignored");
+                        size = strlen("ERRNO=13\nSTATUS=ignored");
+                        ASSERT_NOT_NULL(buffer);
+                        /* Include an embedded NUL in the second case. */
+                        if (!streq(payload, "missing-creds"))
+                                buffer[5] = 0;
+                }
+                struct iovec iov = IOVEC_MAKE(buffer, size);
+                ASSERT_EQ(send_one_fd_iov(pair[1], STDIN_FILENO, &iov, 1, 0), (ssize_t) size);
+                _cleanup_free_ char *text = NULL;
+                struct ucred ucred;
+                ASSERT_ERROR(notify_recv(pair[0], &text, &ucred, /* ret_pidref= */ NULL), EAGAIN);
+                ASSERT_NULL(text);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

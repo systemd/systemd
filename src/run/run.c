@@ -35,6 +35,7 @@
 #include "escape.h"
 #include "event-util.h"
 #include "exec-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fork-notify.h"
 #include "format-util.h"
@@ -1633,7 +1634,7 @@ static int connect_bus(sd_bus **ret) {
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
@@ -2366,8 +2367,11 @@ static int start_transient_service(sd_bus *bus) {
                 if (arg_wait && !arg_quiet)
                         (void) unit_result_show(&c.result, stderr, arg_json_format_flags);
 
-                /* Try to propagate the service's return value */
-                return unit_result_to_exit_status(&c.result);
+                /* Try to propagate the service's return value. */
+                r = unit_result_to_exit_status(&c.result);
+                if (r == EXIT_USER)
+                        (void) sd_notifyf(/* unset_environment= */ false, "ERRNO=%i", ESRCH);
+                return r;
         }
 
         return EXIT_SUCCESS;
