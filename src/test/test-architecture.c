@@ -24,7 +24,6 @@ int main(int argc, char *argv[]) {
         v = detect_virtualization();
         if (ERRNO_IS_NEG_PRIVILEGE(v))
                 return log_tests_skipped("Cannot detect virtualization");
-
         ASSERT_OK(v);
 
         log_info("virtualization=%s id=%s",
@@ -32,19 +31,13 @@ int main(int argc, char *argv[]) {
                  VIRTUALIZATION_IS_VM(v)        ? "vm" : "n/a",
                  virtualization_to_string(v));
 
-        a = uname_architecture();
-        ASSERT_OK(a);
-
-        p = architecture_to_string(a);
-        assert_se(p);
+        a = ASSERT_OK(uname_architecture());
+        p = ASSERT_NOT_NULL(architecture_to_string(a));
         log_info("uname architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
 
-        a = native_architecture();
-        ASSERT_OK(a);
-
-        p = architecture_to_string(a);
-        assert_se(p);
+        a = ASSERT_OK(native_architecture());
+        p = ASSERT_NOT_NULL(architecture_to_string(a));
         log_info("native architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
 
@@ -55,9 +48,9 @@ int main(int argc, char *argv[]) {
 
                 /* Let's validate that all architecture names we define are good for inclusion in .v/
                  * filename patterns which use "." and "_" as field separators in the filenames. */
-                assert(filename_part_is_valid(n));
-                assert(!strchr(n, '_'));
-                assert(!strchr(n, '.'));
+                ASSERT_TRUE(filename_part_is_valid(n));
+                ASSERT_NULL(strchr(n, '_'));
+                ASSERT_NULL(strchr(n, '.'));
 
                 log_info("Good for inclusion in .v/ filenames: %s", n);
         }
