@@ -1073,7 +1073,7 @@ static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_err
                 log_debug_errno(r, "Failed to update hashmap: %m");
 
         /* Renew the JobRemoved notification for the Install() call instead. */
-        sd_bus_slot_unref(op->job_finished_slot);
+        sd_bus_slot_unref(TAKE_PTR(op->job_finished_slot));
         r = bus_match_signal_async(
                         op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_install_finished, NULL, op);
         if (r < 0)
