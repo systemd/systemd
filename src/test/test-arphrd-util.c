@@ -18,8 +18,8 @@ TEST(arphrd) {
         }
 
         ASSERT_NULL(arphrd_to_name(ARPHRD_VOID + 1));
-        assert_se(arphrd_from_name("huddlduddl") == -EINVAL);
-        assert_se(arphrd_from_name("") == -EINVAL);
+        ASSERT_ERROR(arphrd_from_name("huddlduddl"), EINVAL);
+        ASSERT_ERROR(arphrd_from_name(""), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
