@@ -18,6 +18,8 @@ at_exit() {
     set +e
 
     systemd-cryptsetup detach test-volume2
+    [ "${DEVICE:-}" != "" ] && systemd-dissect --detach "$DEVICE"
+    [ "${REPART_DEFS:-}" != "" ] && rm -rf "$REPART_DEFS"
     rm -f "${IMAGE:-}" \
         /tmp/passphrase \
         /tmp/pcrsign-private.pem \
@@ -29,6 +31,9 @@ at_exit() {
         /tmp/pcrsign.sig5 \
         /tmp/pcrsign.sig6 \
         /tmp/pcrsign.sig7 \
+        /tmp/pcrsign.sig8 \
+        /tmp/pcrsign.sig9 \
+        /tmp/pcrsign.sig10 \
         /tmp/pcrtestdata \
         /tmp/pcrtestdata.encrypted \
         /tmp/result \
@@ -204,5 +209,40 @@ SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
 tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
 (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
 (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
+
+# Let systemd-repart bind a keyslot to a policyref from the partition definition
+REPART_DEFS="$(mktemp -d /tmp/systemd-measure-defs-XXX)"
+cat >"$REPART_DEFS/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+Encrypt=tpm2
+TPM2PublicKeyPolicyRef=foo
+EOF
+rm -f "$IMAGE"
+# Use --tpm2-pcrlock= and --tpm2-pcrs= to only bind to the signed PCR policy
+systemd-repart --definitions="$REPART_DEFS" \
+               --empty=create \
+               --size=80M \
+               --dry-run=no \
+               --offline=no \
+               --tpm2-device=auto \
+               --tpm2-public-key="/tmp/pcrsign-public.pem" \
+               --tpm2-pcrlock= \
+               --tpm2-pcrs= \
+               "$IMAGE"
+DEVICE="$(systemd-dissect --attach "$IMAGE")"
+udevadm wait --settle --timeout=10 "${DEVICE}p1"
+cryptsetup luksDump --dump-json-metadata "${DEVICE}p1" | jq -e '[.tokens[] | select(.type == "systemd-tpm2")] | length == 1 and .[0].tpm2_pubkey_ref == "foo"'
+
+# Unlocking should fail with a signature for the current PCR state without the policyref
+"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig9"
+(! systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig9",headless=1)
+
+# And work once there is one with it
+"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig9" >"/tmp/pcrsign.sig10"
+systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig10",headless=1
+systemd-cryptsetup detach test-volume2
+systemd-dissect --detach "$DEVICE"
 
 rm -f "$IMAGE"
