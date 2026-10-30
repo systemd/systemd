@@ -184,8 +184,9 @@ static int add_rtattr(sd_netlink_message *m, uint16_t attr_type, const void *dat
         /* get the new message size (with padding at the end) */
         message_length = m->hdr->nlmsg_len + RTA_SPACE(data_length);
 
-        /* buffer should be smaller than both one page or 8K to be accepted by the kernel */
-        if (message_length > MIN(page_size(), 8192UL))
+        /* Keep routing messages small for kernel compatibility. Generic netlink messages may be larger,
+         * but attribute and container lengths must still fit in 16 bits. */
+        if (message_length > (m->protocol == NETLINK_GENERIC ? UINT16_MAX : MIN(page_size(), 8192UL)))
                 return -ENOBUFS;
 
         /* realloc to fit the new attribute */
