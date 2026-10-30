@@ -402,8 +402,8 @@ usec_t service_restart_usec_nth(
          *   r_n : maximum restart usec (restart_max_delay_usec),
          *   i : index of the step (n_restarts - 1)
          *   n : num maximum steps (restart_steps) */
-        return (usec_t) (restart_usec * powl((long double) restart_max_delay_usec / restart_usec,
-                                             (long double) (n_restarts - 1) / restart_steps));
+        return (usec_t) roundl(restart_usec * powl((long double) restart_max_delay_usec / restart_usec,
+                                                   (long double) (n_restarts - 1) / restart_steps));
 }
 
 usec_t service_restart_usec_next(const Service *s) {
