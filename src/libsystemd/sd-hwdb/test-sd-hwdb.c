@@ -18,13 +18,13 @@ TEST(failed_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
 
-        assert_se(sd_hwdb_new(&hwdb) == 0);
+        ASSERT_OK_ZERO(sd_hwdb_new(&hwdb));
 
-        assert_se(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist") == 0);
+        ASSERT_OK_ZERO(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist"));
 
-        assert_se(sd_hwdb_enumerate(hwdb, &key, &value) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, &key, /* ret_value= */ NULL) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, /* ret_key= */ NULL, &value) == -EINVAL);
+        ASSERT_OK_ZERO(sd_hwdb_enumerate(hwdb, &key, &value));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_hwdb_enumerate(hwdb, &key, /* ret_value= */ NULL), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_hwdb_enumerate(hwdb, /* ret_key= */ NULL, &value), EINVAL));
 }
 
 #define DELL_MODALIAS \
@@ -36,17 +36,17 @@ TEST(basic_enumerate) {
         size_t len1 = 0, len2 = 0;
         int r;
 
-        assert_se(sd_hwdb_new(&hwdb) == 0);
+        ASSERT_OK_ZERO(sd_hwdb_new(&hwdb));
 
-        assert_se(sd_hwdb_seek(hwdb, DELL_MODALIAS) == 0);
+        ASSERT_OK_ZERO(sd_hwdb_seek(hwdb, DELL_MODALIAS));
 
         for (;;) {
                 r = sd_hwdb_enumerate(hwdb, &key, &value);
-                assert_se(IN_SET(r, 0, 1));
+                ASSERT_TRUE(IN_SET(r, 0, 1));
                 if (r == 0)
                         break;
-                assert_se(key);
-                assert_se(value);
+                ASSERT_NOT_NULL(key);
+                ASSERT_NOT_NULL(value);
                 log_debug("A: \"%s\" → \"%s\"", key, value);
                 len1 += strlen(key) + strlen(value);
         }
@@ -56,16 +56,16 @@ TEST(basic_enumerate) {
                 len2 += strlen(key) + strlen(value);
         }
 
-        assert_se(len1 == len2);
+        ASSERT_EQ(len1, len2);
 }
 
 TEST(sd_hwdb_new_from_path) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         int r;
 
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path(/* path= */ NULL, &hwdb) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path("", &hwdb) == -EINVAL);
-        assert_se(sd_hwdb_new_from_path("/path/that/should/not/exist", &hwdb) < 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_hwdb_new_from_path(/* path= */ NULL, &hwdb), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_hwdb_new_from_path("", &hwdb), EINVAL));
+        ASSERT_FAIL(sd_hwdb_new_from_path("/path/that/should/not/exist", &hwdb));
 
         NULSTR_FOREACH(hwdb_bin_path, HWDB_BIN_PATHS) {
                 r = sd_hwdb_new_from_path(hwdb_bin_path, &hwdb);
@@ -73,7 +73,7 @@ TEST(sd_hwdb_new_from_path) {
                         break;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 static sd_hwdb* hwdb_new_from_blob(const void *data, size_t size) {
