@@ -60,7 +60,13 @@ if ! [ -d "$UKI_DIR" ]; then
     mkdir -p "$UKI_DIR"
 fi
 
-TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    TRIES_FILE="$KERNEL_INSTALL_CONF_ROOT/tries"
+elif [ -e /etc/kernel/tries ]; then
+    TRIES_FILE=/etc/kernel/tries
+else
+    TRIES_FILE=/usr/lib/kernel/tries
+fi
 
 if [ -f "$TRIES_FILE" ]; then
     # 'read' fails if it hits the end of the file before a newline, even though it assigned TRIES, so
