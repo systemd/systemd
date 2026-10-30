@@ -78,6 +78,105 @@ EOF
     rm -rf /run/systemd/logind.conf.d
 }
 
+test_kill_user_process() {
+    local su=${1:?}
+    local username=${2:?}
+    local should_kill=${3:?}
+    local pid
+
+    pid=$("$su" -l "$username" -c 'nohup sleep 300 </dev/null >/dev/null 2>&1 & echo $!')
+
+    if "$should_kill"; then
+        timeout 30 bash -c "while ps -p $pid >/dev/null; do sleep .5; done"
+    else
+        sleep 2
+        ps -p "$pid" -o pid,args
+        kill -TERM "$pid"
+    fi
+}
+
+testcase_kill_user_processes() {
+    local su="su"
+
+    # Arch does not use pam_systemd.so in su-l pam setting.
+    if ( . /etc/os-release; [[ "$ID" == "arch" ]] ); then
+        su="runuser"
+    fi
+
+    mkdir -p /run/systemd/logind.conf.d
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillUserProcesses=yes
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root false
+    test_kill_user_process "$su" testuser true
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillUserProcesses=yes
+KillExcludeUsers=
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root true
+    test_kill_user_process "$su" testuser true
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillUserProcesses=yes
+KillExcludeUsers=testuser
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root true
+    test_kill_user_process "$su" testuser false
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillUserProcesses=yes
+KillExcludeUsers=testuser root
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root false
+    test_kill_user_process "$su" testuser false
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillOnlyUsers=testuser
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root false
+    test_kill_user_process "$su" testuser true
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillOnlyUsers=testuser root
+KillExcludeUsers=
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root true
+    test_kill_user_process "$su" testuser true
+
+    cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
+[Login]
+KillOnlyUsers=root
+KillExcludeUsers=
+EOF
+
+    systemctl reload systemd-logind.service
+    test_kill_user_process "$su" root true
+    test_kill_user_process "$su" testuser false
+
+    rm -rf /run/systemd/logind.conf.d
+    systemctl reload systemd-logind.service
+}
+
 testcase_sleep_automated() {
     assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperation)" 'as 3 "suspend-then-hibernate" "suspend" "hibernate"'
 
