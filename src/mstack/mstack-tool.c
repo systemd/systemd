@@ -96,7 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION('r', "read-only", NULL, "Mount read-only"):
-                        arg_mstack_flags |= MSTACK_RDONLY;
+                        arg_mstack_flags |= MSTACK_RDONLY|MSTACK_BINDS_RDONLY;
                         break;
 
                 OPTION_LONG("mkdir", NULL, "Make mount directory before mounting, if missing"):
@@ -247,10 +247,13 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
                 if (r == 0)
                         break;
 
-                if (streq(word, "ro"))
+                if (streq(word, "ro")) {
                         SET_FLAG(arg_mstack_flags, MSTACK_RDONLY, true);
-                else if (streq(word, "rw"))
+                        SET_FLAG(arg_mstack_flags, MSTACK_BINDS_RDONLY, true);
+                } else if (streq(word, "rw")) {
                         SET_FLAG(arg_mstack_flags, MSTACK_RDONLY, false);
+                        SET_FLAG(arg_mstack_flags, MSTACK_BINDS_RDONLY, false);
+                }
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown mount option '%s'.", word);
@@ -301,7 +304,7 @@ static int inspect_mstack(void) {
                                 TABLE_STRING, m->what,
                                 TABLE_STRING, image_type_to_string(m->image_type),
                                 TABLE_PATH, w,
-                                TABLE_PATH, m->where ?: ((mstack->root_mount && mstack->root_mount != m) ? "/usr" : "/"),
+                                TABLE_PATH, m->where ?: "/",
                                 TABLE_STRING, m->sort_key);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -326,6 +329,7 @@ static int mount_mstack(void) {
                         arg_image_policy,
                         arg_image_filter,
                         arg_mstack_flags,
+                        /* uid_shift= */ UID_INVALID,
                         /* ret_root_fd= */ NULL);
          if (r < 0)
                  return log_error_errno(r, "Failed to apply .mstack/ directory '%s': %m", arg_what);
