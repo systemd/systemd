@@ -38,7 +38,7 @@ TEST(proc_cmdline_override) {
         ASSERT_STREQ(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"");
         line = mfree(line);
         assert_se(proc_cmdline_strv(&args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa")));
+        ASSERT_STRV_EQ(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa"));
         args = strv_free(args);
 
         /* Test if parsing makes uses of the override */
@@ -57,7 +57,7 @@ TEST(proc_cmdline_override) {
         ASSERT_STREQ(line, "hoge");
         line = mfree(line);
         assert_se(proc_cmdline_strv(&args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("hoge")));
+        ASSERT_STRV_EQ(args, STRV_MAKE("hoge"));
         args = strv_free(args);
 }
 
@@ -239,7 +239,7 @@ TEST(proc_cmdline_key_startswith) {
                 assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
                                                      /* drop_trailing_nuls= */ true)); \
                 assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \
-                assert_se(strv_equal(b, expected));                     \
+                ASSERT_STRV_EQ(b, expected);                            \
         })
 
 TEST(proc_cmdline_filter_pid1_args) {

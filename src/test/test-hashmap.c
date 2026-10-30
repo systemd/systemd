@@ -162,7 +162,7 @@ TEST(hashmap_values_to_strv) {
 
         _cleanup_strv_free_ char **s = hashmap_values_to_strv(m);
         strv_sort(s);
-        ASSERT_TRUE(strv_equal(s, STRV_MAKE("A", "B", "B")));
+        ASSERT_STRV_EQ(s, STRV_MAKE("A", "B", "B"));
 
         ASSERT_TRUE(hashmap_isempty(m));
 }

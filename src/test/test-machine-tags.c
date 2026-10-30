@@ -108,16 +108,16 @@ TEST(machine_tags_from_string) {
 
         /* Sorted and deduplicated */
         ASSERT_OK(machine_tags_from_string("foo:bar:foo:baz", /* graceful= */ false, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("bar", "baz", "foo")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar", "baz", "foo"));
         l = strv_free(l);
 
         ASSERT_OK(machine_tags_from_string("foo:bar:baz", /* graceful= */ false, &l));
-        assert_se(strv_equal(l, STRV_MAKE("bar", "baz", "foo")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar", "baz", "foo"));
         l = strv_free(l);
 
         /* Graceful: invalid tags are dropped, valid ones kept (sorted/deduplicated) */
         ASSERT_OK(machine_tags_from_string("foo:in valid:bar:foo", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("bar", "foo")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar", "foo"));
         l = strv_free(l);
 
         /* Graceful: all tags invalid → empty list */
@@ -131,35 +131,35 @@ TEST(machine_tags_from_string) {
 
         /* With assignment */
         ASSERT_OK(machine_tags_from_string("foo=aa:bar=aaa:foo2=x:baz", /* graceful= */ false, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("bar=aaa", "baz", "foo2=x", "foo=aa")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar=aaa", "baz", "foo2=x", "foo=aa"));
         l = strv_free(l);
 
         /* Graceful: duplicate keys are suppressed, keeping the value specified last */
         ASSERT_OK(machine_tags_from_string("foo=zzz:foo=aaa:foo=mmm", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo=mmm")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("foo=mmm"));
         l = strv_free(l);
 
         /* Graceful: deduplication follows the order in which the tags were specified, sorting happens afterwards */
         ASSERT_OK(machine_tags_from_string("b=1:a=2:b=3:a=4:c", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a=4", "b=3", "c")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("a=4", "b=3", "c"));
         l = strv_free(l);
 
         /* Graceful: a bare key and an assignment for the same name are not considered duplicates */
         ASSERT_OK(machine_tags_from_string("foo:foo=aaa", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "foo=aaa")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "foo=aaa"));
         l = strv_free(l);
 
         ASSERT_OK(machine_tags_from_string("foo:foo=aaa", /* graceful= */ false, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "foo=aaa")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "foo=aaa"));
         l = strv_free(l);
 
         ASSERT_OK(machine_tags_from_string("foo=x:foo:foo=y", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "foo=y")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "foo=y"));
         l = strv_free(l);
 
         /* Graceful: an invalid value is dropped, conflicting keys that remain are deduplicated */
         ASSERT_OK(machine_tags_from_string("foo=a_b:foo=good:foo=zzz", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo=zzz")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("foo=zzz"));
         l = strv_free(l);
 
         /* Fatal: conflicting values for the same key fail the whole parse */
@@ -168,11 +168,11 @@ TEST(machine_tags_from_string) {
 
         /* Fatal: ... and so does repeating the very same assignment */
         ASSERT_OK(machine_tags_from_string("foo=a:bar:foo=a", /* graceful= */ false, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("bar", "foo=a")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar", "foo=a"));
         l = strv_free(l);
 
         ASSERT_OK(machine_tags_from_string("foo=a:bar:foo=a", /* graceful= */ true, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("bar", "foo=a")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("bar", "foo=a"));
         l = strv_free(l);
 
         /* At most MACHINE_TAGS_MAX valid tags are accepted, in both modes, repeated keys included */
@@ -206,7 +206,7 @@ static void check(const char *root, char **base, char **expected) {
         _cleanup_strv_free_ char **l = NULL;
 
         ASSERT_OK(machine_tags_apply_config(root, base, &l));
-        ASSERT_TRUE(strv_equal(l, expected));
+        ASSERT_STRV_EQ(l, expected);
 }
 
 TEST(machine_tags_apply_config) {

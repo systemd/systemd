@@ -33,7 +33,7 @@ static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 
         assert_se(specifier_escape_strv(a, &x) >= 0);
-        assert_se(strv_equal(x, b));
+        ASSERT_STRV_EQ(x, b);
 }
 
 TEST(specifier_escape_strv) {
