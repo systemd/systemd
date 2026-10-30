@@ -373,6 +373,39 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
+bool service_restart_backoff_enabled(usec_t restart_usec, usec_t restart_max_delay_usec, unsigned restart_steps) {
+        return restart_steps > 0 &&
+                restart_usec > 0 &&
+                restart_max_delay_usec != USEC_INFINITY &&
+                restart_usec < restart_max_delay_usec;
+}
+
+usec_t service_restart_usec_nth(
+                usec_t restart_usec,
+                usec_t restart_max_delay_usec,
+                unsigned restart_steps,
+                unsigned n_restarts) {
+
+        if (n_restarts <= 1 || !service_restart_backoff_enabled(restart_usec, restart_max_delay_usec, restart_steps))
+                return restart_usec;
+
+        if (n_restarts > restart_steps)
+                return restart_max_delay_usec;
+
+        /* Enforced in service_verify() and above */
+        assert(restart_max_delay_usec > restart_usec);
+
+        /* r_i / r_0 = (r_n / r_0) ^ (i / n)
+         * where,
+         *   r_0 : initial restart usec (restart_usec),
+         *   r_i : i-th restart usec (value),
+         *   r_n : maximum restart usec (restart_max_delay_usec),
+         *   i : index of the step (n_restarts - 1)
+         *   n : num maximum steps (restart_steps) */
+        return (usec_t) (restart_usec * powl((long double) restart_max_delay_usec / restart_usec,
+                                             (long double) (n_restarts - 1) / restart_steps));
+}
+
 usec_t service_restart_usec_next(const Service *s) {
         unsigned n_restarts_next;
 
@@ -383,28 +416,7 @@ usec_t service_restart_usec_next(const Service *s) {
          * enqueued, i.e. state has transitioned to SERVICE_AUTO_RESTART_QUEUED. */
         n_restarts_next = s->n_restarts + (s->state == SERVICE_AUTO_RESTART_QUEUED ? 0 : 1);
 
-        if (n_restarts_next <= 1 ||
-            s->restart_steps == 0 ||
-            s->restart_usec == 0 ||
-            s->restart_max_delay_usec == USEC_INFINITY ||
-            s->restart_usec >= s->restart_max_delay_usec)
-                return s->restart_usec;
-
-        if (n_restarts_next > s->restart_steps)
-                return s->restart_max_delay_usec;
-
-        /* Enforced in service_verify() and above */
-        assert(s->restart_max_delay_usec > s->restart_usec);
-
-        /* r_i / r_0 = (r_n / r_0) ^ (i / n)
-         * where,
-         *   r_0 : initial restart usec (s->restart_usec),
-         *   r_i : i-th restart usec (value),
-         *   r_n : maximum restart usec (s->restart_max_delay_usec),
-         *   i : index of the next step (n_restarts_next - 1)
-         *   n : num maximum steps (s->restart_steps) */
-        return (usec_t) (s->restart_usec * powl((long double) s->restart_max_delay_usec / s->restart_usec,
-                                                (long double) (n_restarts_next - 1) / s->restart_steps));
+        return service_restart_usec_nth(s->restart_usec, s->restart_max_delay_usec, s->restart_steps, n_restarts_next);
 }
 
 static usec_t service_restart_usec_next_jittered(const Service *s) {

@@ -2,8 +2,10 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "service.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "unit.h"
 
 static void test_unit_escape_setting_one(
@@ -116,6 +118,30 @@ TEST(unit_concat_strv) {
                                   "\"\\n\" \" \" \"\\t\"",
                                   "\"\\n\" \" \" \"\\t\"",
                                   "\"\\n\" \" \" \"\\t\"");
+}
+
+TEST(service_restart_backoff_enabled) {
+        ASSERT_TRUE(service_restart_backoff_enabled(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4));
+        ASSERT_FALSE(service_restart_backoff_enabled(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 0));
+        ASSERT_FALSE(service_restart_backoff_enabled(0, 160 * USEC_PER_SEC, 4));
+        ASSERT_FALSE(service_restart_backoff_enabled(10 * USEC_PER_SEC, USEC_INFINITY, 4));
+        ASSERT_FALSE(service_restart_backoff_enabled(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4));
+}
+
+TEST(service_restart_usec_nth) {
+        static const usec_t expected[] = { 10, 20, 40, 80, 160, 160, 160 };
+
+        /* powl() can return a value just below the exact delay, which the cast to usec_t truncates. */
+        for (unsigned n = 1; n <= ELEMENTSOF(expected); n++) {
+                usec_t d = service_restart_usec_nth(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4, n);
+                ASSERT_LE(expected[n - 1] * USEC_PER_SEC - 1, d);
+                ASSERT_LE(d, expected[n - 1] * USEC_PER_SEC);
+        }
+
+        ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 0, 3), 10 * USEC_PER_SEC);
+        ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, USEC_INFINITY, 4, 3), 10 * USEC_PER_SEC);
+        ASSERT_EQ(service_restart_usec_nth(0, 160 * USEC_PER_SEC, 4, 3), 0u);
+        ASSERT_EQ(service_restart_usec_nth(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4, 3), 160 * USEC_PER_SEC);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
