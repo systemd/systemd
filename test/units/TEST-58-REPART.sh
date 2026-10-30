@@ -453,6 +453,7 @@ Label=luks-format-copy
 UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Format=ext4
 Encrypt=yes
+EncryptKDF=pbkdf2
 CopyFiles=$defs:/def
 SizeMinBytes=48M
 VolumeLabel=schrupfel
