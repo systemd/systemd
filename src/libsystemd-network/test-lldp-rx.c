@@ -105,39 +105,39 @@ static void test_receive_basic_packet(sd_event *e) {
         const char *str;
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
+        ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
-        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame, sizeof(frame)), (ssize_t) sizeof(frame));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(lldp_rx_handler_calls == 1);
-        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
+        ASSERT_EQ(lldp_rx_handler_calls, 1);
+        ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 1);
 
-        assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[0], &type, &data, &length) == 0);
-        assert_se(type == SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS);
-        assert_se(length == ETH_ALEN);
-        assert_se(!memcmp(data, "\x00\x01\x02\x03\x04\x05", ETH_ALEN));
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_chassis_id(neighbors[0], &type, &data, &length));
+        ASSERT_EQ(type, SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS);
+        ASSERT_EQ(length, (size_t) ETH_ALEN);
+        ASSERT_EQ(memcmp(data, "\x00\x01\x02\x03\x04\x05", ETH_ALEN), 0);
 
-        assert_se(sd_lldp_neighbor_get_port_id(neighbors[0], &type, &data, &length) == 0);
-        assert_se(type == SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME);
-        assert_se(length == 3);
-        assert_se(!memcmp(data, "1/3", 3));
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_id(neighbors[0], &type, &data, &length));
+        ASSERT_EQ(type, SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME);
+        ASSERT_EQ(length, 3U);
+        ASSERT_EQ(memcmp(data, "1/3", 3), 0);
 
-        assert_se(sd_lldp_neighbor_get_port_description(neighbors[0], &str) == 0);
-        assert_se(streq(str, "Port"));
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_description(neighbors[0], &str));
+        ASSERT_STREQ(str, "Port");
 
-        assert_se(sd_lldp_neighbor_get_system_name(neighbors[0], &str) == 0);
-        assert_se(streq(str, "SYS"));
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_system_name(neighbors[0], &str));
+        ASSERT_STREQ(str, "SYS");
 
-        assert_se(sd_lldp_neighbor_get_system_description(neighbors[0], &str) == 0);
-        assert_se(streq(str, "foo"));
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_system_description(neighbors[0], &str));
+        ASSERT_STREQ(str, "foo");
 
-        assert_se(sd_lldp_neighbor_get_ttl(neighbors[0], &ttl) == 0);
-        assert_se(ttl == 120);
+        ASSERT_OK_ZERO(sd_lldp_neighbor_get_ttl(neighbors[0], &ttl));
+        ASSERT_EQ(ttl, 120U);
 
         sd_lldp_neighbor_unref(neighbors[0]);
         free(neighbors);
 
-        assert_se(stop_lldp_rx(lldp_rx) == 0);
+        ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
 static void test_receive_incomplete_packet(sd_event *e) {
@@ -157,14 +157,14 @@ static void test_receive_incomplete_packet(sd_event *e) {
         };
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
+        ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
-        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame, sizeof(frame)), (ssize_t) sizeof(frame));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(lldp_rx_handler_calls == 0);
-        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 0);
+        ASSERT_EQ(lldp_rx_handler_calls, 0);
+        ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 0);
 
-        assert_se(stop_lldp_rx(lldp_rx) == 0);
+        ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
 static void test_receive_oui_packet(sd_event *e) {
@@ -198,39 +198,39 @@ static void test_receive_oui_packet(sd_event *e) {
         };
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
+        ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
-        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame, sizeof(frame)), (ssize_t) sizeof(frame));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(lldp_rx_handler_calls == 1);
-        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
+        ASSERT_EQ(lldp_rx_handler_calls, 1);
+        ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 1);
 
-        assert_se(sd_lldp_neighbor_tlv_rewind(neighbors[0]) >= 0);
-        assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_CHASSIS_ID) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_PORT_ID) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_TTL) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_VLAN_NAME) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_MANAGEMENT_VID) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_3, SD_LLDP_OUI_802_3_SUBTYPE_POWER_VIA_MDI) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_END) > 0);
-        assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) == 0);
+        ASSERT_OK(sd_lldp_neighbor_tlv_rewind(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_CHASSIS_ID));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_PORT_ID));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_TTL));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_VLAN_NAME));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_MANAGEMENT_VID));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_3, SD_LLDP_OUI_802_3_SUBTYPE_POWER_VIA_MDI));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_next(neighbors[0]));
+        ASSERT_OK_POSITIVE(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_END));
+        ASSERT_OK_EQ(sd_lldp_neighbor_tlv_next(neighbors[0]), 0);
 
         sd_lldp_neighbor_unref(neighbors[0]);
         free(neighbors);
 
-        assert_se(stop_lldp_rx(lldp_rx) == 0);
+        ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
 static void test_multiple_neighbors_sorted(sd_event *e) {
@@ -320,46 +320,46 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         uint16_t ttl;
 
         lldp_rx_handler_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL) == 0);
+        ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
-        assert_se(write(test_fd[1], frame1, sizeof(frame1)) == sizeof(frame1));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame1, sizeof(frame1)), (ssize_t) sizeof(frame1));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(write(test_fd[1], frame2, sizeof(frame2)) == sizeof(frame2));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame2, sizeof(frame2)), (ssize_t) sizeof(frame2));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(write(test_fd[1], frame3, sizeof(frame3)) == sizeof(frame3));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame3, sizeof(frame3)), (ssize_t) sizeof(frame3));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(write(test_fd[1], frame4, sizeof(frame4)) == sizeof(frame4));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame4, sizeof(frame4)), (ssize_t) sizeof(frame4));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(write(test_fd[1], frame5, sizeof(frame5)) == sizeof(frame5));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame5, sizeof(frame5)), (ssize_t) sizeof(frame5));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(write(test_fd[1], frame6, sizeof(frame6)) == sizeof(frame6));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame6, sizeof(frame6)), (ssize_t) sizeof(frame6));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(lldp_rx_handler_calls == 6);
+        ASSERT_EQ(lldp_rx_handler_calls, 6);
 
-        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 6);
+        ASSERT_OK_EQ(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors), 6);
 
         for (i = 0; i < 6; i++) {
-                assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[i], &type, &data, &length) == 0);
-                assert_se(type == SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT);
+                ASSERT_OK_ZERO(sd_lldp_neighbor_get_chassis_id(neighbors[i], &type, &data, &length));
+                ASSERT_EQ(type, SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT);
                 expected_length = strlen(expected[2 * i]);
-                assert_se(length == expected_length);
-                assert_se(memcmp(data, expected[2 * i], expected_length) == 0);
+                ASSERT_EQ(length, expected_length);
+                ASSERT_EQ(memcmp(data, expected[2 * i], expected_length), 0);
 
-                assert_se(sd_lldp_neighbor_get_port_id(neighbors[i], &type, &data, &length) == 0);
-                assert_se(type == SD_LLDP_PORT_SUBTYPE_PORT_COMPONENT);
+                ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_id(neighbors[i], &type, &data, &length));
+                ASSERT_EQ(type, SD_LLDP_PORT_SUBTYPE_PORT_COMPONENT);
                 expected_length = strlen(expected[2 * i + 1]);
-                assert_se(length == expected_length);
-                assert_se(memcmp(data, expected[2 * i + 1], expected_length) == 0);
+                ASSERT_EQ(length, expected_length);
+                ASSERT_EQ(memcmp(data, expected[2 * i + 1], expected_length), 0);
 
-                assert_se(sd_lldp_neighbor_get_ttl(neighbors[i], &ttl) == 0);
-                assert_se(ttl == 120);
+                ASSERT_OK_ZERO(sd_lldp_neighbor_get_ttl(neighbors[i], &ttl));
+                ASSERT_EQ(ttl, 120U);
         }
 
         for (i = 0; i < 6; i++)
                 sd_lldp_neighbor_unref(neighbors[i]);
         free(neighbors);
 
-        assert_se(stop_lldp_rx(lldp_rx) == 0);
+        ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
 static void test_receive_oui_vlanid_packet(sd_event *e) {
@@ -445,11 +445,11 @@ static void test_receive_reentrant_unref(sd_event *e) {
         sd_lldp_rx *lldp_rx;
 
         reentrant_unref_calls = 0;
-        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, /* cb_data= */ NULL) == 0);
+        ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, /* cb_data= */ NULL));
 
-        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], frame, sizeof(frame)), (ssize_t) sizeof(frame));
         sd_event_run(e, /* timeout= */ 0);
-        assert_se(reentrant_unref_calls == 1);
+        ASSERT_EQ(reentrant_unref_calls, 1);
 
         /* lldp_rx was freed by the callback's unref once the dispatch stack unwound; do not touch it. */
         safe_close(test_fd[1]);
@@ -461,7 +461,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         /* LLDP reception tests */
-        assert_se(sd_event_new(&e) == 0);
+        ASSERT_OK_ZERO(sd_event_new(&e));
         test_receive_basic_packet(e);
         test_receive_incomplete_packet(e);
         test_receive_oui_packet(e);
