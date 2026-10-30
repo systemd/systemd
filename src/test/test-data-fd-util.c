@@ -23,18 +23,16 @@ static void assert_equal_fd(int fd1, int fd2) {
                 uint8_t a[4096], b[4096];
                 ssize_t x, y;
 
-                x = read(fd1, a, sizeof(a));
-                assert_se(x >= 0);
+                x = ASSERT_OK_ERRNO(read(fd1, a, sizeof(a)));
 
-                y = read(fd2, b, sizeof(b));
-                assert_se(y >= 0);
+                y = ASSERT_OK_ERRNO(read(fd2, b, sizeof(b)));
 
-                assert_se(x == y);
+                ASSERT_EQ(x, y);
 
                 if (x == 0)
                         break;
 
-                assert_se(memcmp(a, b, x) == 0);
+                ASSERT_EQ(memcmp(a, b, x), 0);
         }
 }
 
@@ -47,35 +45,31 @@ TEST(copy_data_fd) {
         fd1 = open("/etc/fstab", O_RDONLY|O_CLOEXEC);
         if (fd1 >= 0) {
 
-                fd2 = copy_data_fd(fd1);
-                assert_se(fd2 >= 0);
+                fd2 = ASSERT_OK(copy_data_fd(fd1));
 
-                assert_se(lseek(fd1, 0, SEEK_SET) == 0);
+                ASSERT_OK_ZERO_ERRNO(lseek(fd1, 0, SEEK_SET));
                 assert_equal_fd(fd1, fd2);
         }
 
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = memfd_new_and_seal_string("data", "hallo");
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK(memfd_new_and_seal_string("data", "hallo"));
 
-        fd2 = copy_data_fd(fd1);
-        assert_se(fd2 >= 0);
+        fd2 = ASSERT_OK(copy_data_fd(fd1));
 
         safe_close(fd1);
-        fd1 = memfd_new_and_seal_string("data", "hallo");
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK(memfd_new_and_seal_string("data", "hallo"));
 
         assert_equal_fd(fd1, fd2);
 
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd));
 
-        r = pidref_safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
+                                       &pidref));
 
         if (r == 0) {
                 /* child */
@@ -83,7 +77,7 @@ TEST(copy_data_fd) {
                 sfd[0] = safe_close(sfd[0]);
 
                 for (uint64_t i = 0; i < 1536*1024 / sizeof(uint64_t); i++)
-                        assert_se(write(sfd[1], &i, sizeof(i)) == sizeof(i));
+                        ASSERT_OK_EQ_ERRNO(write(sfd[1], &i, sizeof(i)), (ssize_t) sizeof(i));
 
                 sfd[1] = safe_close(sfd[1]);
 
@@ -92,16 +86,15 @@ TEST(copy_data_fd) {
 
         sfd[1] = safe_close(sfd[1]);
 
-        fd2 = copy_data_fd(sfd[0]);
-        assert_se(fd2 >= 0);
+        fd2 = ASSERT_OK(copy_data_fd(sfd[0]));
 
         uint64_t j;
         for (uint64_t i = 0; i < 1536*1024 / sizeof(uint64_t); i++) {
-                assert_se(read(fd2, &j, sizeof(j)) == sizeof(j));
-                assert_se(i == j);
+                ASSERT_OK_EQ_ERRNO(read(fd2, &j, sizeof(j)), (ssize_t) sizeof(j));
+                ASSERT_EQ(i, j);
         }
 
-        assert_se(read(fd2, &j, sizeof(j)) == 0);
+        ASSERT_OK_ZERO_ERRNO(read(fd2, &j, sizeof(j)));
 }
 
 static int pipe_with_data(const uint8_t *data, size_t size, PidRef *ret_pidref) {
