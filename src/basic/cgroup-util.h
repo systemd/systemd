@@ -224,8 +224,11 @@ static inline int cg_pidref_get_user_unit(const PidRef *pidref, char **ret_unit)
 }
 int cg_pidref_get_user_unit_path(const PidRef *pidref, char **ret_path);
 int cg_pid_get_machine_name(pid_t pid, char **ret_machine);
+int cg_pidref_get_machine_name(const PidRef *pidref, char **ret_machine);
 int cg_pid_get_slice(pid_t pid, char **ret_slice);
+int cg_pidref_get_slice(const PidRef *pidref, char **ret_slice);
 int cg_pid_get_user_slice(pid_t pid, char **ret_slice);
+int cg_pidref_get_user_slice(const PidRef *pidref, char **ret_slice);
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
