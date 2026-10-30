@@ -1717,7 +1717,7 @@ static int execute_dir_client_fiber(void *arg) {
                                        execute_dir_reply,
                                        a->reply_count,
                                        &offline));
-        ASSERT_TRUE(strv_equal(offline, STRV_MAKE("dead")));
+        ASSERT_STRV_EQ(offline, STRV_MAKE("dead"));
         ASSERT_EQ(*a->reply_count, count_before);
 
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));

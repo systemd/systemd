@@ -81,8 +81,8 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
         switch (i) {
         case 0:
                 assert_se(streq(service->exec_string, "/bin/sleep 100"));
-                assert_se(strv_equal(service->only_show_in, STRV_MAKE("A", "B")));
-                assert_se(strv_equal(service->not_show_in, STRV_MAKE("C", "D\\;", "E")));
+                ASSERT_STRV_EQ(service->only_show_in, STRV_MAKE("A", "B"));
+                ASSERT_STRV_EQ(service->not_show_in, STRV_MAKE("C", "D\\;", "E"));
                 assert_se(!service->hidden);
                 break;
         case 1:

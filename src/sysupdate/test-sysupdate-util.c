@@ -45,12 +45,12 @@ TEST(component_json) {
         _cleanup_(component_done) Component d = COMPONENT_NULL;
         ASSERT_OK(component_from_json(&d, v, "test"));
         ASSERT_STREQ(d.description, "Some component");
-        ASSERT_TRUE(strv_equal(d.documentation, c.documentation));
+        ASSERT_STRV_EQ(d.documentation, c.documentation);
         ASSERT_EQ(d.enabled, 0);
         ASSERT_EQ(d.suggest, 1);
         ASSERT_STREQ(d.min_version, "v1");
         ASSERT_STREQ(d.max_version, "v9");
-        ASSERT_TRUE(strv_equal(d.protected_versions, c.protected_versions));
+        ASSERT_STRV_EQ(d.protected_versions, c.protected_versions);
 
         /* Defaults apply for everything left out, or if there is no object at all */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;

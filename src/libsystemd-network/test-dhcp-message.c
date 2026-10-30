@@ -561,7 +561,7 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
 
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len, data));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
-        ASSERT_TRUE(strv_equal(strv, expected));
+        ASSERT_STRV_EQ(strv, expected);
 
         dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
         strv = strv_free(strv);
@@ -569,7 +569,7 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len / 2, data));
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len - len / 2, data + len / 2));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
-        ASSERT_TRUE(strv_equal(strv, expected));
+        ASSERT_STRV_EQ(strv, expected);
 
         strv = strv_free(strv);
 
@@ -579,7 +579,7 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
 
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1, sip));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
-        ASSERT_TRUE(strv_equal(strv, expected));
+        ASSERT_STRV_EQ(strv, expected);
 
         dhcp_message_remove_option(m, SD_DHCP_OPTION_SIP_SERVER);
         strv = strv_free(strv);
@@ -587,7 +587,7 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, (len + 1) / 2, sip));
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1 - (len + 1) / 2, sip + (len + 1) / 2));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
-        ASSERT_TRUE(strv_equal(strv, expected));
+        ASSERT_STRV_EQ(strv, expected);
 
         ASSERT_OK(dump_dhcp_message(m, STRV_MAKE("119", "120"), DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
 }

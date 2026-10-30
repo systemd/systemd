@@ -72,8 +72,8 @@ TEST(read_and_check) {
         ASSERT_EQ(f.n_gpt_type_uuid, 2U);
         ASSERT_TRUE(sd_id128_equal(f.gpt_type_uuid[0], SD_GPT_HOME));
         ASSERT_TRUE(sd_id128_equal(f.gpt_type_uuid[1], SD_GPT_SRV));
-        ASSERT_TRUE(strv_equal(f.gpt_label, STRV_MAKE("foo", "bar")));
-        ASSERT_TRUE(strv_equal(f.mount_point, STRV_MAKE("/home", "/srv")));
+        ASSERT_STRV_EQ(f.gpt_label, STRV_MAKE("foo", "bar"));
+        ASSERT_STRV_EQ(f.mount_point, STRV_MAKE("/home", "/srv"));
 
         ASSERT_OK(validate_fields_check_mount_point(&f, /* root= */ NULL, "/home", LOG_DEBUG));
         ASSERT_OK(validate_fields_check_mount_point(&f, /* root= */ NULL, "/srv", LOG_DEBUG));

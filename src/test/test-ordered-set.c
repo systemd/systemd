@@ -102,7 +102,7 @@ TEST(set_put_string_set) {
         ASSERT_OK_ZERO(ordered_set_put_string_set(&m, q));
 
         ASSERT_NOT_NULL(final = ordered_set_get_strv(m));
-        ASSERT_TRUE(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
+        ASSERT_STRV_EQ(final, STRV_MAKE("1", "22", "333", "11", "33"));
 
         ordered_set_print(stdout, "BAR=", m);
 }
