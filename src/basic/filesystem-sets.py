@@ -256,6 +256,7 @@ def generate_gperf():
     print('''\
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
+_Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
 #if __GNUC__ >= 15
 _Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
 #endif
