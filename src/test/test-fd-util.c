@@ -34,9 +34,9 @@ TEST(close_many) {
 
         close_many(fds, 2);
 
-        assert_se(fd_validate(fds[0]) == -EBADF);
-        assert_se(fd_validate(fds[1]) == -EBADF);
-        assert_se(fd_validate(fds[2]) >= 0);
+        ASSERT_ERROR(fd_validate(fds[0]), EBADF);
+        ASSERT_ERROR(fd_validate(fds[1]), EBADF);
+        ASSERT_OK(fd_validate(fds[2]));
 
         safe_close(fds[2]);
 }
@@ -45,22 +45,21 @@ TEST(close_nointr) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-test-close_nointr.XXXXXX";
         int fd;
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(close_nointr(fd) >= 0);
-        assert_se(close_nointr(fd) < 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
+        ASSERT_OK(close_nointr(fd));
+        ASSERT_FAIL(close_nointr(fd));
 }
 
 TEST(fd_validate) {
-        assert_se(fd_validate(-EINVAL) == -EBADF);
-        assert_se(fd_validate(-EBADF) == -EBADF);
+        ASSERT_ERROR(fd_validate(-EINVAL), EBADF);
+        ASSERT_ERROR(fd_validate(-EBADF), EBADF);
 
         _cleanup_close_ int b = -EBADF;
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        b = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
 
-        assert_se(fd_validate(b) == 0);
+        ASSERT_OK_ZERO(fd_validate(b));
         safe_close(b);
-        assert_se(fd_validate(b) == -EBADF);
+        ASSERT_ERROR(fd_validate(b), EBADF);
         TAKE_FD(b);
 }
 
@@ -68,99 +67,94 @@ TEST(same_fd) {
         _cleanup_close_pair_ int p[2];
         _cleanup_close_ int a, b, c, d, e;
 
-        assert_se(pipe2(p, O_CLOEXEC) >= 0);
-        assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/bin/sh", O_RDONLY|O_CLOEXEC)) >= 0);
-        assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
-        assert_se((d = open("/bin/sh", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
-        assert_se((e = fcntl(d, F_DUPFD, 3)) >= 0);
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+        a = ASSERT_OK_ERRNO(fcntl(p[0], F_DUPFD, 3));
+        b = ASSERT_OK_ERRNO(open("/bin/sh", O_RDONLY|O_CLOEXEC));
+        c = ASSERT_OK_ERRNO(fcntl(a, F_DUPFD, 3));
+        d = ASSERT_OK_ERRNO(open("/bin/sh", O_RDONLY|O_CLOEXEC|O_PATH)); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
+        e = ASSERT_OK_ERRNO(fcntl(d, F_DUPFD, 3));
 
-        assert_se(same_fd(p[0], p[0]) > 0);
-        assert_se(same_fd(p[1], p[1]) > 0);
-        assert_se(same_fd(a, a) > 0);
-        assert_se(same_fd(b, b) > 0);
+        ASSERT_OK_POSITIVE(same_fd(p[0], p[0]));
+        ASSERT_OK_POSITIVE(same_fd(p[1], p[1]));
+        ASSERT_OK_POSITIVE(same_fd(a, a));
+        ASSERT_OK_POSITIVE(same_fd(b, b));
 
-        assert_se(same_fd(a, p[0]) > 0);
-        assert_se(same_fd(p[0], a) > 0);
-        assert_se(same_fd(c, p[0]) > 0);
-        assert_se(same_fd(p[0], c) > 0);
-        assert_se(same_fd(a, c) > 0);
-        assert_se(same_fd(c, a) > 0);
+        ASSERT_OK_POSITIVE(same_fd(a, p[0]));
+        ASSERT_OK_POSITIVE(same_fd(p[0], a));
+        ASSERT_OK_POSITIVE(same_fd(c, p[0]));
+        ASSERT_OK_POSITIVE(same_fd(p[0], c));
+        ASSERT_OK_POSITIVE(same_fd(a, c));
+        ASSERT_OK_POSITIVE(same_fd(c, a));
 
-        assert_se(same_fd(p[0], p[1]) == 0);
-        assert_se(same_fd(p[1], p[0]) == 0);
-        assert_se(same_fd(p[0], b) == 0);
-        assert_se(same_fd(b, p[0]) == 0);
-        assert_se(same_fd(p[1], a) == 0);
-        assert_se(same_fd(a, p[1]) == 0);
-        assert_se(same_fd(p[1], b) == 0);
-        assert_se(same_fd(b, p[1]) == 0);
+        ASSERT_OK_EQ(same_fd(p[0], p[1]), 0);
+        ASSERT_OK_EQ(same_fd(p[1], p[0]), 0);
+        ASSERT_OK_EQ(same_fd(p[0], b), 0);
+        ASSERT_OK_EQ(same_fd(b, p[0]), 0);
+        ASSERT_OK_EQ(same_fd(p[1], a), 0);
+        ASSERT_OK_EQ(same_fd(a, p[1]), 0);
+        ASSERT_OK_EQ(same_fd(p[1], b), 0);
+        ASSERT_OK_EQ(same_fd(b, p[1]), 0);
 
-        assert_se(same_fd(a, b) == 0);
-        assert_se(same_fd(b, a) == 0);
+        ASSERT_OK_EQ(same_fd(a, b), 0);
+        ASSERT_OK_EQ(same_fd(b, a), 0);
 
-        assert_se(same_fd(a, d) == 0);
-        assert_se(same_fd(d, a) == 0);
-        assert_se(same_fd(d, d) > 0);
-        assert_se(same_fd(d, e) > 0);
-        assert_se(same_fd(e, d) > 0);
+        ASSERT_OK_EQ(same_fd(a, d), 0);
+        ASSERT_OK_EQ(same_fd(d, a), 0);
+        ASSERT_OK_POSITIVE(same_fd(d, d));
+        ASSERT_OK_POSITIVE(same_fd(d, e));
+        ASSERT_OK_POSITIVE(same_fd(e, d));
 
         /* Let's now compare with a valid fd nr, that is definitely closed, and verify it returns the right error code */
         safe_close(d);
-        assert_se(same_fd(d, d) == -EBADF);
-        assert_se(same_fd(e, d) == -EBADF);
-        assert_se(same_fd(d, e) == -EBADF);
-        assert_se(same_fd(e, e) > 0);
+        ASSERT_ERROR(same_fd(d, d), EBADF);
+        ASSERT_ERROR(same_fd(e, d), EBADF);
+        ASSERT_ERROR(same_fd(d, e), EBADF);
+        ASSERT_OK_POSITIVE(same_fd(e, e));
         TAKE_FD(d);
 }
 
 TEST(open_serialization_fd) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open_serialization_fd("test");
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(open_serialization_fd("test"));
 
-        assert_se(write(fd, "test\n", 5) == 5);
+        ASSERT_OK_EQ_ERRNO(write(fd, "test\n", 5), 5);
 
-        assert_se(finish_serialization_fd(fd) >= 0);
+        ASSERT_OK(finish_serialization_fd(fd));
 }
 
 TEST(open_serialization_file) {
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
 
-        r = open_serialization_file("test", &f);
-        assert_se(r >= 0);
-        assert_se(f);
+        ASSERT_OK(open_serialization_file("test", &f));
+        ASSERT_NOT_NULL(f);
 
-        assert_se(fwrite("test\n", 1, 5, f) == 5);
+        ASSERT_EQ(fwrite("test\n", 1, 5, f), 5U);
 
-        assert_se(finish_serialization_file(f) >= 0);
+        ASSERT_OK(finish_serialization_file(f));
 }
 
 TEST(fd_move_above_stdio) {
         int original_stdin, new_fd;
 
         original_stdin = fcntl(0, F_DUPFD, 3);
-        assert_se(original_stdin >= 3);
-        assert_se(close_nointr(/* fd= */ 0) != EBADF);
+        ASSERT_GE(original_stdin, 3);
+        ASSERT_OK(close_nointr(/* fd= */ 0));
 
-        new_fd = open("/dev/null", O_RDONLY);
-        assert_se(new_fd == 0);
+        new_fd = ASSERT_OK_ZERO_ERRNO(open("/dev/null", O_RDONLY));
 
         new_fd = fd_move_above_stdio(new_fd);
-        assert_se(new_fd >= 3);
+        ASSERT_GE(new_fd, 3);
 
-        assert_se(fcntl(original_stdin, F_DUPFD, 0) == 0);
-        assert_se(close_nointr(original_stdin) != EBADF);
-        assert_se(close_nointr(new_fd) != EBADF);
+        ASSERT_OK_ZERO_ERRNO(fcntl(original_stdin, F_DUPFD, 0));
+        ASSERT_OK(close_nointr(original_stdin));
+        ASSERT_OK(close_nointr(new_fd));
 }
 
 TEST(rearrange_stdio) {
         int r;
 
-        r = pidref_safe_fork("rearrange", FORK_WAIT|FORK_LOG, /* ret= */ NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("rearrange", FORK_WAIT|FORK_LOG, /* ret= */ NULL));
 
         if (r == 0) {
                 _cleanup_free_ char *path = NULL;
@@ -171,54 +165,54 @@ TEST(rearrange_stdio) {
 
                 safe_close(STDERR_FILENO); /* Let's close an fd < 2, to make it more interesting */
 
-                assert_se(rearrange_stdio(-EBADF, -EBADF, -EBADF) >= 0);
+                ASSERT_OK(rearrange_stdio(-EBADF, -EBADF, -EBADF));
                 /* Reconfigure logging after rearranging stdout/stderr, so we still log to somewhere if the
                  * following tests fail, making it slightly less annoying to debug */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                 log_open();
 
-                assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
-                assert_se(path_equal(path, "/dev/null"));
+                ASSERT_OK(fd_get_path(STDIN_FILENO, &path));
+                ASSERT_PATH_EQ(path, "/dev/null");
                 path = mfree(path);
 
-                assert_se(fd_get_path(STDOUT_FILENO, &path) >= 0);
-                assert_se(path_equal(path, "/dev/null"));
+                ASSERT_OK(fd_get_path(STDOUT_FILENO, &path));
+                ASSERT_PATH_EQ(path, "/dev/null");
                 path = mfree(path);
 
-                assert_se(fd_get_path(STDOUT_FILENO, &path) >= 0);
-                assert_se(path_equal(path, "/dev/null"));
+                ASSERT_OK(fd_get_path(STDOUT_FILENO, &path));
+                ASSERT_PATH_EQ(path, "/dev/null");
                 path = mfree(path);
 
                 safe_close(STDIN_FILENO);
                 safe_close(STDOUT_FILENO);
                 safe_close(STDERR_FILENO);
 
-                assert_se(pipe(pair) >= 0);
-                assert_se(pair[0] == 0);
-                assert_se(pair[1] == 1);
+                ASSERT_OK_ERRNO(pipe(pair));
+                ASSERT_EQ(pair[0], 0);
+                ASSERT_EQ(pair[1], 1);
                 pipe_read_fd = fd_move_above_stdio(/* fd= */ 0);
-                assert_se(pipe_read_fd >= 3);
+                ASSERT_GE(pipe_read_fd, 3);
 
-                assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
-                assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
+                ASSERT_OK_ZERO_ERRNO(open("/dev/full", O_WRONLY|O_CLOEXEC));
+                ASSERT_OK_EQ(memfd_new_and_seal_string("data", "foobar"), 2);
 
-                assert_se(rearrange_stdio(2, /* original_output_fd= */ 0, 1) >= 0);
+                ASSERT_OK(rearrange_stdio(2, /* original_output_fd= */ 0, 1));
 
-                assert_se(write(1, "x", 1) < 0 && errno == ENOSPC);
-                assert_se(write(2, "z", 1) == 1);
-                assert_se(read(pipe_read_fd, buffer, sizeof(buffer)) == 1);
-                assert_se(buffer[0] == 'z');
-                assert_se(read(0, buffer, sizeof(buffer)) == 6);
-                assert_se(memcmp(buffer, "foobar", 6) == 0);
+                ASSERT_ERROR_ERRNO(write(1, "x", 1), ENOSPC);
+                ASSERT_OK_EQ_ERRNO(write(2, "z", 1), 1);
+                ASSERT_OK_EQ_ERRNO(read(pipe_read_fd, buffer, sizeof(buffer)), 1);
+                ASSERT_EQ(buffer[0], 'z');
+                ASSERT_OK_EQ_ERRNO(read(0, buffer, sizeof(buffer)), 6);
+                ASSERT_EQ(memcmp(buffer, "foobar", 6), 0);
 
-                assert_se(rearrange_stdio(-EBADF, 1, 2) >= 0);
-                assert_se(write(1, "a", 1) < 0 && errno == ENOSPC);
-                assert_se(write(2, "y", 1) == 1);
-                assert_se(read(pipe_read_fd, buffer, sizeof(buffer)) == 1);
-                assert_se(buffer[0] == 'y');
+                ASSERT_OK(rearrange_stdio(-EBADF, 1, 2));
+                ASSERT_ERROR_ERRNO(write(1, "a", 1), ENOSPC);
+                ASSERT_OK_EQ_ERRNO(write(2, "y", 1), 1);
+                ASSERT_OK_EQ_ERRNO(read(pipe_read_fd, buffer, sizeof(buffer)), 1);
+                ASSERT_EQ(buffer[0], 'y');
 
-                assert_se(fd_get_path(/* fd= */ 0, &path) >= 0);
-                assert_se(path_equal(path, "/dev/null"));
+                ASSERT_OK(fd_get_path(/* fd= */ 0, &path));
+                ASSERT_PATH_EQ(path, "/dev/null");
                 path = mfree(path);
 
                 _exit(EXIT_SUCCESS);
@@ -248,9 +242,9 @@ static size_t validate_fds(
                         continue;
 
                 if (opened)
-                        assert_se(fd_validate(fds[i]) >= 0);
+                        ASSERT_OK(fd_validate(fds[i]));
                 else
-                        assert_se(fd_validate(fds[i]) == -EBADF);
+                        ASSERT_ERROR(fd_validate(fds[i]), EBADF);
 
                 c++;
         }
@@ -268,7 +262,7 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
         rlimit_nofile_bump(-1);
 
         max_fd = get_max_fd();
-        assert_se(max_fd > 10);
+        ASSERT_GT(max_fd, 10);
 
         if (max_fd > 7000) {
                 /* If the worst fallback is activated we need to iterate through all possible fds, hence,
@@ -281,21 +275,21 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
 
         /* Try to use 5000 fds, but when we can't bump the rlimit to make that happen use the whole limit minus 10 */
         n_fds = MIN(((size_t) max_fd & ~1U) - 10U, 5000U);
-        assert_se((n_fds & 1U) == 0U); /* make sure even number of fds */
+        ASSERT_EQ(n_fds & 1U, 0U); /* make sure even number of fds */
 
         /* Allocate the determined number of fds, always two at a time */
-        assert_se(fds = new(int, n_fds));
+        ASSERT_NOT_NULL(fds = new(int, n_fds));
         for (size_t i = 0; i < n_fds; i += 2)
-                assert_se(pipe2(fds + i, O_CLOEXEC) >= 0);
+                ASSERT_OK_ERRNO(pipe2(fds + i, O_CLOEXEC));
 
         /* Validate this worked */
-        assert_se(validate_fds(/* opened= */ true, fds, n_fds) == n_fds);
+        ASSERT_EQ(validate_fds(/* opened= */ true, fds, n_fds), n_fds);
 
         /* Randomized number of fds to keep, but at most every second */
         n_keep = (random_u64() % (n_fds / 2));
 
         /* Now randomly select a number of fds from the array above to keep */
-        assert_se(keep = new(int, n_keep));
+        ASSERT_NOT_NULL(keep = new(int, n_keep));
         for (size_t k = 0; k < n_keep; k++) {
                 for (;;) {
                         size_t p;
@@ -309,8 +303,8 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
         }
 
         /* Check that all fds from both arrays are still open, and test how many in each are >= 0 */
-        assert_se(validate_fds(/* opened= */ true, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(/* opened= */ true, keep, n_keep) == n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ true, fds, n_fds), n_fds - n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ true, keep, n_keep), n_keep);
 
         /* Close logging fd first, so that we don't confuse it by closing its fd */
         log_close();
@@ -320,14 +314,14 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
         /* Close all but the ones to keep */
         ASSERT_OK(func(keep, n_keep));
 
-        assert_se(validate_fds(/* opened= */ false, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(/* opened= */ true, keep, n_keep) == n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ false, fds, n_fds), n_fds - n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ true, keep, n_keep), n_keep);
 
         /* Close everything else too! */
         ASSERT_OK(func(NULL, 0));
 
-        assert_se(validate_fds(/* opened= */ false, fds, n_fds) == n_fds - n_keep);
-        assert_se(validate_fds(/* opened= */ false, keep, n_keep) == n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ false, fds, n_fds), n_fds - n_keep);
+        ASSERT_EQ(validate_fds(/* opened= */ false, keep, n_keep), n_keep);
 
         log_set_open_when_needed(false);
         log_open();
@@ -370,110 +364,96 @@ TEST(fd_reopen) {
         int fl;
 
         /* Test this with a directory */
-        fd1 = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC);
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC));
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
-        assert_se(S_ISDIR(st1.st_mode));
+        ASSERT_TRUE(S_ISDIR(st1.st_mode));
 
-        fl = fcntl(fd1, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd1, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
         /* fd_reopen() with O_NOFOLLOW will systematically fail, since it is implemented via a symlink in /proc/self/fd/ */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_NOFOLLOW) == -ELOOP);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
+        ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_NOFOLLOW), ELOOP);
+        ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW), ELOOP);
 
-        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
-        assert_se(fd2 >= 0);
+        fd2 = ASSERT_OK(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC));  /* drop the O_PATH */
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
-        assert_se(S_ISDIR(st2.st_mode));
-        assert_se(stat_inode_same(&st1, &st2));
+        ASSERT_TRUE(S_ISDIR(st2.st_mode));
+        ASSERT_TRUE(stat_inode_same(&st1, &st2));
 
-        fl = fcntl(fd2, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(!FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd2, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_FALSE(FLAGS_SET(fl, O_PATH));
 
         safe_close(fd1);
 
-        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC));  /* reacquire the O_PATH */
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
-        assert_se(S_ISDIR(st1.st_mode));
-        assert_se(stat_inode_same(&st1, &st2));
+        ASSERT_TRUE(S_ISDIR(st1.st_mode));
+        ASSERT_TRUE(stat_inode_same(&st1, &st2));
 
-        fl = fcntl(fd1, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd1, F_GETFL));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
         safe_close(fd1);
 
         /* And now, test this with a file. */
-        fd1 = open("/proc/version", O_PATH|O_CLOEXEC);
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(open("/proc/version", O_PATH|O_CLOEXEC));
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
-        assert_se(S_ISREG(st1.st_mode));
+        ASSERT_TRUE(S_ISREG(st1.st_mode));
 
-        fl = fcntl(fd1, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd1, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
-        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC) == -ENOTDIR);
-        fd2 = fd_reopen(fd1, O_RDONLY|O_CLOEXEC);  /* drop the O_PATH */
-        assert_se(fd2 >= 0);
+        ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC), ENOTDIR);
+        fd2 = ASSERT_OK(fd_reopen(fd1, O_RDONLY|O_CLOEXEC));  /* drop the O_PATH */
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
-        assert_se(S_ISREG(st2.st_mode));
-        assert_se(stat_inode_same(&st1, &st2));
+        ASSERT_TRUE(S_ISREG(st2.st_mode));
+        ASSERT_TRUE(stat_inode_same(&st1, &st2));
 
-        fl = fcntl(fd2, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(!FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd2, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_FALSE(FLAGS_SET(fl, O_PATH));
 
         safe_close(fd1);
 
-        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC) == -ENOTDIR);
-        fd1 = fd_reopen(fd2, O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
-        assert_se(fd1 >= 0);
+        ASSERT_ERROR(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC), ENOTDIR);
+        fd1 = ASSERT_OK(fd_reopen(fd2, O_PATH|O_CLOEXEC));  /* reacquire the O_PATH */
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
-        assert_se(S_ISREG(st1.st_mode));
-        assert_se(stat_inode_same(&st1, &st2));
+        ASSERT_TRUE(S_ISREG(st1.st_mode));
+        ASSERT_TRUE(stat_inode_same(&st1, &st2));
 
-        fl = fcntl(fd1, F_GETFL);
-        assert_se(fl >= 0);
-        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(FLAGS_SET(fl, O_PATH));
+        fl = ASSERT_OK_ERRNO(fcntl(fd1, F_GETFL));
+        ASSERT_FALSE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
         /* Also check the right error is generated if the fd is already closed */
         safe_close(fd1);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
+        ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_CLOEXEC), EBADF);
         fd1 = -EBADF;
 
         /* Validate what happens if we reopen a symlink */
-        fd1 = open("/proc/self", O_PATH|O_CLOEXEC|O_NOFOLLOW);
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(open("/proc/self", O_PATH|O_CLOEXEC|O_NOFOLLOW));
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
-        assert_se(S_ISLNK(st1.st_mode));
+        ASSERT_TRUE(S_ISLNK(st1.st_mode));
 
-        fd2 = fd_reopen(fd1, O_PATH|O_CLOEXEC);
-        assert_se(fd2 >= 0);
+        fd2 = ASSERT_OK(fd_reopen(fd1, O_PATH|O_CLOEXEC));
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
-        assert_se(S_ISLNK(st2.st_mode));
-        assert_se(stat_inode_same(&st1, &st2));
+        ASSERT_TRUE(S_ISLNK(st2.st_mode));
+        ASSERT_TRUE(stat_inode_same(&st1, &st2));
         fd2 = safe_close(fd2);
 
         /* So here's the thing: if we have an O_PATH fd to a symlink, we *cannot* convert it to a regular fd
          * with that. i.e. you cannot have the VFS follow a symlink pinned via an O_PATH fd. */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
+        ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_CLOEXEC), ELOOP);
 }
 
 TEST(fd_dup_or_reopen_stdio_nonblock) {
@@ -535,102 +515,99 @@ TEST(fd_reopen_condition) {
         int fd2, fl;
 
         /* Open without O_PATH */
-        fd1 = open("/usr/", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(open("/usr/", O_RDONLY|O_DIRECTORY|O_CLOEXEC));
 
         fl = fcntl(fd1, F_GETFL);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(!FLAGS_SET(fl, O_PATH));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_FALSE(FLAGS_SET(fl, O_PATH));
 
         fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
-        assert_se(fd2 == fd1);
-        assert_se(fd3 < 0);
+        ASSERT_EQ(fd2, fd1);
+        ASSERT_LT(fd3, 0);
 
         /* Switch on O_PATH */
         fd2 = fd_reopen_condition(fd1, O_DIRECTORY|O_PATH, O_DIRECTORY|O_PATH, &fd3);
-        assert_se(fd2 != fd1);
-        assert_se(fd3 == fd2);
+        ASSERT_NE(fd2, fd1);
+        ASSERT_EQ(fd3, fd2);
 
         fl = fcntl(fd2, F_GETFL);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(FLAGS_SET(fl, O_PATH));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
         close_and_replace(fd1, fd3);
 
         fd2 = fd_reopen_condition(fd1, O_DIRECTORY|O_PATH, O_DIRECTORY|O_PATH, &fd3);
-        assert_se(fd2 == fd1);
-        assert_se(fd3 < 0);
+        ASSERT_EQ(fd2, fd1);
+        ASSERT_LT(fd3, 0);
 
         /* Switch off O_PATH again */
         fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
-        assert_se(fd2 != fd1);
-        assert_se(fd3 == fd2);
+        ASSERT_NE(fd2, fd1);
+        ASSERT_EQ(fd3, fd2);
 
         fl = fcntl(fd2, F_GETFL);
-        assert_se(FLAGS_SET(fl, O_DIRECTORY));
-        assert_se(!FLAGS_SET(fl, O_PATH));
+        ASSERT_TRUE(FLAGS_SET(fl, O_DIRECTORY));
+        ASSERT_FALSE(FLAGS_SET(fl, O_PATH));
 
         close_and_replace(fd1, fd3);
 
         fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
-        assert_se(fd2 == fd1);
-        assert_se(fd3 < 0);
+        ASSERT_EQ(fd2, fd1);
+        ASSERT_LT(fd3, 0);
 }
 
 TEST(take_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int array[2] = EBADF_PAIR, i = 0;
 
-        assert_se(fd1 == -EBADF);
-        assert_se(fd2 == -EBADF);
+        ASSERT_EQ(fd1, -EBADF);
+        ASSERT_EQ(fd2, -EBADF);
 
-        fd1 = eventfd(0, EFD_CLOEXEC);
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
 
         fd2 = TAKE_FD(fd1);
-        assert_se(fd1 == -EBADF);
-        assert_se(fd2 >= 0);
+        ASSERT_EQ(fd1, -EBADF);
+        ASSERT_OK(fd2);
 
-        assert_se(array[0] == -EBADF);
-        assert_se(array[1] == -EBADF);
+        ASSERT_EQ(array[0], -EBADF);
+        ASSERT_EQ(array[1], -EBADF);
 
         array[0] = TAKE_FD(fd2);
-        assert_se(fd1 == -EBADF);
-        assert_se(fd2 == -EBADF);
-        assert_se(array[0] >= 0);
-        assert_se(array[1] == -EBADF);
+        ASSERT_EQ(fd1, -EBADF);
+        ASSERT_EQ(fd2, -EBADF);
+        ASSERT_OK(array[0]);
+        ASSERT_EQ(array[1], -EBADF);
 
         array[1] = TAKE_FD(array[i]);
-        assert_se(array[0] == -EBADF);
-        assert_se(array[1] >= 0);
+        ASSERT_EQ(array[0], -EBADF);
+        ASSERT_OK(array[1]);
 
         i = 1 - i;
         array[0] = TAKE_FD(*(array + i));
-        assert_se(array[0] >= 0);
-        assert_se(array[1] == -EBADF);
+        ASSERT_OK(array[0]);
+        ASSERT_EQ(array[1], -EBADF);
 
         i = 1 - i;
-        fd1 = TAKE_FD(array[i]);
-        assert_se(fd1 >= 0);
-        assert_se(array[0] == -EBADF);
-        assert_se(array[1] == -EBADF);
+        fd1 = ASSERT_OK(TAKE_FD(array[i]));
+        ASSERT_EQ(array[0], -EBADF);
+        ASSERT_EQ(array[1], -EBADF);
 }
 
 TEST(dir_fd_is_root) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert_se(dir_fd_is_root_or_cwd(AT_FDCWD) > 0);
+        ASSERT_OK_POSITIVE(dir_fd_is_root_or_cwd(AT_FDCWD));
 
-        assert_se((fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
-        assert_se(dir_fd_is_root(fd) > 0);
-        assert_se(dir_fd_is_root_or_cwd(fd) > 0);
+        fd = ASSERT_OK_ERRNO(open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK_POSITIVE(dir_fd_is_root(fd));
+        ASSERT_OK_POSITIVE(dir_fd_is_root_or_cwd(fd));
 
         fd = safe_close(fd);
 
-        assert_se((fd = open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
-        assert_se(dir_fd_is_root(fd) == 0);
-        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
+        fd = ASSERT_OK_ERRNO(open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK_EQ(dir_fd_is_root(fd), 0);
+        ASSERT_OK_EQ(dir_fd_is_root_or_cwd(fd), 0);
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -639,29 +616,29 @@ TEST(dir_fd_is_root) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_free_ char *x = NULL, *y = NULL;
 
-        assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
-        assert_se(x = path_join(tmp, "x"));
-        assert_se(y = path_join(tmp, "x/y"));
-        assert_se(mkdir_p(y, 0755) >= 0);
-        assert_se(mount_nofollow_verbose(LOG_DEBUG, x, y, /* fstype= */ NULL, MS_BIND, /* options= */ NULL) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp));
+        ASSERT_NOT_NULL(x = path_join(tmp, "x"));
+        ASSERT_NOT_NULL(y = path_join(tmp, "x/y"));
+        ASSERT_OK(mkdir_p(y, 0755));
+        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, x, y, /* fstype= */ NULL, MS_BIND, /* options= */ NULL));
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(tmp, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
-        assert_se(dir_fd_is_root(fd) == 0);
-        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
+        fd = ASSERT_OK_ERRNO(open(tmp, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK_EQ(dir_fd_is_root(fd), 0);
+        ASSERT_OK_EQ(dir_fd_is_root_or_cwd(fd), 0);
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(x, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
-        assert_se(dir_fd_is_root(fd) == 0);
-        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
+        fd = ASSERT_OK_ERRNO(open(x, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK_EQ(dir_fd_is_root(fd), 0);
+        ASSERT_OK_EQ(dir_fd_is_root_or_cwd(fd), 0);
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
-        assert_se(dir_fd_is_root(fd) == 0);
-        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
+        fd = ASSERT_OK_ERRNO(open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK_EQ(dir_fd_is_root(fd), 0);
+        ASSERT_OK_EQ(dir_fd_is_root_or_cwd(fd), 0);
 }
 
 static void test_path_is_root_at_one(bool expected) {
@@ -803,8 +780,8 @@ TEST(fds_inode_and_mount_same) {
         if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
                 return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
 
-        assert_se(fds_inode_and_mount_same(fd1, fd2) == 0);
-        assert_se(fds_inode_and_mount_same(fd2, fd3) > 0);
+        ASSERT_OK_EQ(fds_inode_and_mount_same(fd1, fd2), 0);
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd2, fd3));
 }
 
 TEST(fd_get_path) {
@@ -812,115 +789,104 @@ TEST(fd_get_path) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL, *saved_cwd = NULL;
 
-        tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
-        assert_se(fd_get_path(tfd, &p) >= 0);
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, O_PATH, &t));
+        ASSERT_OK(fd_get_path(tfd, &p));
         ASSERT_STREQ(p, t);
 
         p = mfree(p);
 
-        assert_se(safe_getcwd(&saved_cwd) >= 0);
-        assert_se(chdir(t) >= 0);
+        ASSERT_OK(safe_getcwd(&saved_cwd));
+        ASSERT_OK_ERRNO(chdir(t));
 
-        assert_se(fd_get_path(AT_FDCWD, &p) >= 0);
+        ASSERT_OK(fd_get_path(AT_FDCWD, &p));
         ASSERT_STREQ(p, t);
 
         p = mfree(p);
 
-        assert_se(q = path_join(t, "regular"));
-        assert_se(touch(q) >= 0);
-        assert_se(mkdirat_parents(tfd, "subdir/symlink", 0755) >= 0);
-        assert_se(symlinkat("../regular", tfd, "subdir/symlink") >= 0);
-        assert_se(symlinkat("subdir", tfd, "symdir") >= 0);
+        ASSERT_NOT_NULL(q = path_join(t, "regular"));
+        ASSERT_OK(touch(q));
+        ASSERT_OK(mkdirat_parents(tfd, "subdir/symlink", 0755));
+        ASSERT_OK_ERRNO(symlinkat("../regular", tfd, "subdir/symlink"));
+        ASSERT_OK_ERRNO(symlinkat("subdir", tfd, "symdir"));
 
-        fd = openat(tfd, "regular", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(tfd, "regular", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "regular", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(AT_FDCWD, "regular", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_verify_regular(fd));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_verify_regular(fd));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_verify_regular(fd));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH));
+        ASSERT_OK(fd_verify_regular(fd));
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         q = mfree(q);
         fd = safe_close(fd);
 
-        assert_se(q = path_join(t, "subdir/symlink"));
-        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) == -ELOOP);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        ASSERT_NOT_NULL(q = path_join(t, "subdir/symlink"));
+        fd = ASSERT_OK_ERRNO(openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW));
+        ASSERT_ERROR(fd_verify_regular(fd), ELOOP);
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) == -ELOOP);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW));
+        ASSERT_ERROR(fd_verify_regular(fd), ELOOP);
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) == -ELOOP);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW));
+        ASSERT_ERROR(fd_verify_regular(fd), ELOOP);
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) == -ELOOP);
-        assert_se(fd_get_path(fd, &p) >= 0);
+        fd = ASSERT_OK_ERRNO(openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW));
+        ASSERT_ERROR(fd_verify_regular(fd), ELOOP);
+        ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_STREQ(p, q);
 
-        assert_se(chdir(saved_cwd) >= 0);
+        ASSERT_OK_ERRNO(chdir(saved_cwd));
 }
 
 TEST(fd_vet_accmode) {
