@@ -4,6 +4,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "ask-password-api.h"
 #include "forward.h"
 #include "gpt.h"
 #include "iovec-util.h"
@@ -188,7 +189,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *root, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, AskPasswordFlags ask_password_flags, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
@@ -254,7 +255,18 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
-int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+int mount_image_privately_full(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, const char *passphrase, AskPasswordFlags ask_password_flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+static inline int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device) {
+        return mount_image_privately_full(
+                        image,
+                        image_policy,
+                        flags,
+                        /* passphrase= */ NULL,
+                        /* ask_password_flags= */ 0,
+                        ret_directory,
+                        ret_dir_fd,
+                        ret_loop_device);
+}
 
 int verity_dissect_and_mount(
                 int src_fd,

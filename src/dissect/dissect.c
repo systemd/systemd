@@ -2122,6 +2122,7 @@ static int run(int argc, char *argv[]) {
                                         r = dissected_image_decrypt_interactively(
                                                         m,
                                                         envpw,
+                                                        /* ask_password_flags= */ 0,
                                                         &arg_verity_settings,
                                                         arg_image_policy,
                                                         arg_flags);
