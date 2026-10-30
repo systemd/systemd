@@ -25,7 +25,7 @@ static void wait_fd_closed(int fd) {
         for (unsigned trial = 0; trial < 100; trial++) {
                 usleep_safe(100 * USEC_PER_MSEC);
                 if (fcntl(fd, F_GETFD) < 0) {
-                        assert_se(errno == EBADF);
+                        ASSERT_EQ(errno, EBADF);
                         return;
                 }
         }
@@ -65,7 +65,7 @@ static void wait_rm_rf(const char *path) {
         for (unsigned trial = 0; trial < 100; trial++) {
                 usleep_safe(100 * USEC_PER_MSEC);
                 if (access(path, F_OK) < 0) {
-                        assert_se(errno == ENOENT);
+                        ASSERT_EQ(errno, ENOENT);
                         return;
                 }
         }
@@ -78,7 +78,7 @@ TEST(asynchronous_rm_rf) {
         int r;
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
-        assert_se(k = path_join(t, "somefile"));
+        ASSERT_NOT_NULL(k = path_join(t, "somefile"));
         ASSERT_OK(touch(k));
         ASSERT_OK(asynchronous_rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
         wait_rm_rf(t);
@@ -100,7 +100,7 @@ TEST(asynchronous_rm_rf) {
                 ASSERT_OK(make_reaper_process(true));
 
                 ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tt));
-                assert_se(kk = path_join(tt, "somefile"));
+                ASSERT_NOT_NULL(kk = path_join(tt, "somefile"));
                 ASSERT_OK(touch(kk));
                 ASSERT_OK(asynchronous_rm_rf(tt, REMOVE_ROOT|REMOVE_PHYSICAL));
 
@@ -110,7 +110,7 @@ TEST(asynchronous_rm_rf) {
                         ASSERT_OK_ERRNO(waitid(P_ALL, 0, &si, WEXITED));
 
                         if (access(tt, F_OK) < 0) {
-                                assert_se(errno == ENOENT);
+                                ASSERT_EQ(errno, ENOENT);
                                 break;
                         }
 
