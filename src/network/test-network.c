@@ -16,6 +16,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "vrf.h"
+#include "wireguard.h"
 
 TEST(deserialize_in_addr) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -131,6 +132,19 @@ TEST(vrf_table) {
 
         ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", /* ltype= */ 0, "no-such-table", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 5678U);
+}
+
+TEST(amneziawg_detached_create) {
+        Wireguard w = {
+                .meta = {
+                        .kind = NETDEV_KIND_AMNEZIAWG,
+                        .state = NETDEV_STATE_CREATING,
+                        .ifname = (char*) "awg-test",
+                },
+        };
+
+        /* A creation reply can arrive after a reload has detached the netdev from its manager. */
+        ASSERT_OK(netdev_enter_ready(NETDEV(&w)));
 }
 
 static int test_request_process(Request *req, Link *link, void *userdata) {

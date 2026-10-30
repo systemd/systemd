@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=awg99
+Kind=amneziawg
+
+[WireGuard]
+PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+ListenPort=51822
+RouteTable=1234
+RouteMetric=123
+
+[AmneziaWG]
+Jc=4
+Jmin=40
+Jmax=80
+S1=12
+S2=13
+S3=14
+S4=15
+H1=100-200
+H2=300
+H3=400-500
+H4=4294967295
+I1=<b 0x01020304><r 16>
+I2=<b 0x0506>
+I3=<r 8>
+I4=<rc 4>
+I5=<rd 4>
+HeaderProtectionKey=@network.wireguard.amneziawg.header-protection
+ContentPaddingAddition=16-32
+RekeyAfterTime=120-140
+RekeyTimeout=5
+RejectAfterTime=180-200
+KeepaliveTimeout=10-15
+MaxHandshakeAttempts=18
+RandomTrailers=yes
+DisableCookies=no
+
+# Invalid assignments must not replace the valid values above.
+Jc=65536
+H1=4294967296
+H2=200-100
+RekeyTimeout=65536
+MaxHandshakeAttempts=1-2-3
+RandomTrailers=invalid
+
+[WireGuardPeer]
+PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
+AllowedIPs=192.168.26.0/24,fd31:bf08:57cb::/48
+PersistentKeepalive=20-30
