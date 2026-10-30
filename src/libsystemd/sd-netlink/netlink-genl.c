@@ -12,7 +12,7 @@
 #include "netlink-types.h"
 #include "string-util.h"
 
-typedef struct GenericNetlinkFamily {
+struct GenericNetlinkFamily {
         sd_netlink *genl;
 
         const NLAPolicySet *policy_set;
@@ -21,9 +21,10 @@ typedef struct GenericNetlinkFamily {
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
         uint32_t version;
+        int error;
         uint32_t additional_header_size;
         Hashmap *multicast_group_by_name;
-} GenericNetlinkFamily;
+};
 
 static const GenericNetlinkFamily nlctrl_static = {
         .id = GENL_ID_CTRL,
@@ -70,7 +71,8 @@ void genl_clear_family(sd_netlink *nl) {
 static int genl_family_new_unsupported(
                 sd_netlink *nl,
                 const char *family_name,
-                const NLAPolicySet *policy_set) {
+                const NLAPolicySet *policy_set,
+                int error) {
 
         _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
         int r;
@@ -78,9 +80,9 @@ static int genl_family_new_unsupported(
         assert(nl);
         assert(family_name);
         assert(policy_set);
+        assert(error < 0);
 
-        /* Kernel does not support the genl family? To prevent from resolving the family name again,
-         * let's store the family with zero id to indicate that. */
+        /* Cache unsupported families and version rejections to avoid repeated controller queries. */
 
         f = new(GenericNetlinkFamily, 1);
         if (!f)
@@ -89,6 +91,7 @@ static int genl_family_new_unsupported(
         *f = (GenericNetlinkFamily) {
                 .policy_set = policy_set,
                 .policy_set_indexed_by_command = genl_family_is_indexed_by_command(family_name),
+                .error = error,
         };
 
         f->name = strdup(family_name);
@@ -104,7 +107,7 @@ static int genl_family_new_unsupported(
         return 0;
 }
 
-static int genl_family_new(
+int genl_family_new(
                 sd_netlink *nl,
                 const char *expected_family_name,
                 const NLAPolicySet *policy_set,
@@ -159,6 +162,14 @@ static int genl_family_new(
         r = sd_netlink_message_read_u32(message, CTRL_ATTR_VERSION, &f->version);
         if (r < 0)
                 return r;
+
+        uint32_t required_version = genl_family_get_required_version(f->name);
+        if (required_version != 0 && f->version != required_version) {
+                (void) genl_family_new_unsupported(nl, f->name, policy_set, -EPROTONOSUPPORT);
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                       "sd-netlink: Unsupported %s generic netlink version %"PRIu32" (expected %"PRIu32").",
+                                       f->name, f->version, required_version);
+        }
 
         r = sd_netlink_message_read_u32(message, CTRL_ATTR_HDRSIZE, &f->additional_header_size);
         if (r < 0)
@@ -304,7 +315,7 @@ static int genl_family_get_by_name_internal(
                 return r;
 
         if (sd_netlink_call(nl, req, /* timeout= */ 0, &reply) < 0) {
-                (void) genl_family_new_unsupported(nl, name, policy_set);
+                (void) genl_family_new_unsupported(nl, name, policy_set, -EOPNOTSUPP);
                 return -EOPNOTSUPP;
         }
 
@@ -322,8 +333,8 @@ static int genl_family_get_by_name(sd_netlink *nl, const char *name, const Gener
 
         f = hashmap_get(nl->genl_family_by_name, name);
         if (f) {
-                if (f->id == 0) /* kernel does not support the family. */
-                        return -EOPNOTSUPP;
+                if (f->error < 0)
+                        return f->error;
 
                 *ret = f;
                 return 0;
