@@ -504,6 +504,9 @@ static int dispatch_search_domain_array(const char *name, sd_json_variant *varia
         sd_json_variant *v;
         int r;
 
+        if (sd_json_variant_elements(variant) > LINK_SEARCH_DOMAINS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many search domains for one link.");
+
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
                 _cleanup_(search_domain_freep) SearchDomain *d = NULL;
 
