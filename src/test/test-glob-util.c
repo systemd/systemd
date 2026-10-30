@@ -14,40 +14,30 @@
 TEST(glob_first) {
         char *first, name[] = "/tmp/test-glob_first.XXXXXX";
         int fd = -EBADF;
-        int r;
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
         close(fd);
 
-        r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 1);
+        ASSERT_OK_EQ(glob_first("/tmp/test-glob_first*", &first), 1);
         ASSERT_STREQ(name, first);
         first = mfree(first);
 
-        r = unlink(name);
-        assert_se(r == 0);
-        r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO_ERRNO(unlink(name));
+        ASSERT_OK_ZERO(glob_first("/tmp/test-glob_first*", &first));
         ASSERT_NULL(first);
 }
 
 TEST(glob_exists) {
         char name[] = "/tmp/test-glob_exists.XXXXXX";
         int fd = -EBADF;
-        int r;
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
         close(fd);
 
-        r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 1);
+        ASSERT_OK_EQ(glob_exists("/tmp/test-glob_exists*"), 1);
 
-        r = unlink(name);
-        assert_se(r == 0);
-        r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 0);
+        ASSERT_OK_ZERO_ERRNO(unlink(name));
+        ASSERT_OK_ZERO(glob_exists("/tmp/test-glob_exists*"));
 }
 
 TEST(safe_glob) {
@@ -79,7 +69,7 @@ TEST(safe_glob) {
 static void test_glob_non_glob_prefix_one(const char *path, const char *expected) {
         _cleanup_free_ char *t;
 
-        assert_se(glob_non_glob_prefix(path, &t) == 0);
+        ASSERT_OK_ZERO(glob_non_glob_prefix(path, &t));
         ASSERT_STREQ(t, expected);
 }
 
@@ -92,7 +82,7 @@ TEST(glob_non_glob) {
         test_glob_non_glob_prefix_one("/?", "/");
 
         char *x;
-        assert_se(glob_non_glob_prefix("?", &x) == -ENOENT);
+        ASSERT_ERROR(glob_non_glob_prefix("?", &x), ENOENT);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
