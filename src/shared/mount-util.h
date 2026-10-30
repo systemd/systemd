@@ -23,9 +23,12 @@ static inline int umount_recursive(const char *prefix, int flags) {
 }
 
 int bind_remount_recursive_with_mountinfo(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list, FILE *proc_self_mountinfo);
-static inline int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list) {
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, NULL);
-}
+int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list);
+
+/* Opens /proc/self/mountinfo for the mount table functions in this file, or returns NULL with a
+ * debug log: the listmount()/statmount() enumeration they prefer needs no /proc, and they treat a
+ * NULL file as "no fallback available". */
+FILE* mount_open_proc_self_mountinfo(void);
 
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);

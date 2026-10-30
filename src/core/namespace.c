@@ -2214,7 +2214,6 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
         int r;
 
         assert(m);
-        assert(proc_self_mountinfo);
 
         if (m->state != MOUNT_APPLIED)
                 return 0;
@@ -2260,7 +2259,6 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
         int r;
 
         assert(m);
-        assert(proc_self_mountinfo);
 
         if (m->state != MOUNT_APPLIED)
                 return 0;
@@ -2295,7 +2293,6 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
         int r;
 
         assert(m);
-        assert(proc_self_mountinfo);
 
         if (m->state != MOUNT_APPLIED)
                 return 0;
@@ -2433,16 +2430,11 @@ static int apply_mounts(
                 return 0;
 
         /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of
-         * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. */
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo) {
-                r = -errno;
-
-                if (reterr_path)
-                        *reterr_path = strdup("/proc/self/mountinfo");
-
-                return log_debug_errno(r, "Failed to open %s: %m", "/proc/self/mountinfo");
-        }
+         * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. Not fatal
+         * if it fails: the mount-util functions this is handed to enumerate through
+         * listmount()/statmount() where the kernel and libmount can, and only their fallback needs
+         * the file. */
+        proc_self_mountinfo = mount_open_proc_self_mountinfo();
 
         /* First round, establish all mounts we need */
         for (;;) {
