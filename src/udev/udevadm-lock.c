@@ -264,9 +264,9 @@ int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r == 0) {
                 /* Child */
 
-                execvp(arg_cmdline[0], arg_cmdline);
+                r = execvp_safe(arg_cmdline[0], arg_cmdline);
                 log_open();
-                log_error_errno(errno, "Failed to execute %s: %m", arg_cmdline[0]);
+                log_error_errno(r, "Failed to execute %s: %m", arg_cmdline[0]);
                 _exit(EXIT_FAILURE);
         }
 

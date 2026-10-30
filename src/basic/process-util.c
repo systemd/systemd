@@ -2122,7 +2122,7 @@ int execvpe_safe(const char *file, char * const *argv, char * const *envp) {
 }
 
 int execvp_safe(const char *file, char * const *argv) {
-        return execvpe_safe(file, argv, environ);
+        return execvpe_safe(file, argv, environ ?: STRV_EMPTY);
 }
 
 int posix_spawn_wrapper(
