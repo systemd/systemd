@@ -1791,6 +1791,75 @@ EOF
     systemctl reload systemd-resolved
 }
 
+do_test_varlink_link_methods() {
+    local ifname ifindex socket
+
+    ifname="${1:?}"
+    ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
+    socket="${2:?}"
+
+    # io.systemd.Resolve.Link.SetDNS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,2],"port":53},{"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,2]}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in '10.0.0.2' "$(resolvectl dns "$ifname")"
+    assert_in 'fd00:dead:beef:cafe::2' "$(resolvectl dns "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short dns "$ifname" | jq -rc '.[0].servers')" 'null'
+}
+
+do_test_varlink_link_error () {
+    local ifname ifindex socket error
+
+    ifname="${1:?}"
+    ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
+    socket="${2:?}"
+    error="${3:?}"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNS \
+            '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,2],"port":53},{"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,2]}]}' 2>&1)"
+}
+
+testcase_16_varlink_link_methods() {
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() (
+        set +e
+        resolvectl revert dns0
+        ip link del hoge0
+        rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
+        systemctl reload systemd-resolved.service
+    )
+    trap cleanup RETURN ERR
+
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+        echo "LLMNR=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
+    systemctl reload systemd-resolved.service
+
+    ip link add hoge0 type dummy
+    ip link set hoge0 up
+
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --interface=hoge0:degraded
+
+    do_test_varlink_link_methods "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_link_methods "dns0" "/run/systemd/netif/io.systemd.Network"
+
+    do_test_varlink_link_error "dns0" "/run/systemd/resolve/io.systemd.Resolve" "io.systemd.Resolve.Link.ManagedByNetworkd"
+    do_test_varlink_link_error "hoge0" "/run/systemd/netif/io.systemd.Network" "io.systemd.Network.Link.InterfaceUnmanaged"
+    do_test_varlink_link_error "lo" "/run/systemd/resolve/io.systemd.Resolve" "io.systemd.Resolve.Link.IsLoopback"
+    do_test_varlink_link_error "lo" "/run/systemd/netif/io.systemd.Network" "io.systemd.Resolve.Link.IsLoopback"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service

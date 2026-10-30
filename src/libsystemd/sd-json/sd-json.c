@@ -5446,7 +5446,7 @@ _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, 
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *i = -1;
+                *i = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : -1;
                 return 0;
         }
 
@@ -5469,7 +5469,7 @@ _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant,
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *u = UINT64_MAX;
+                *u = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : UINT64_MAX;
                 return 0;
         }
 
@@ -5497,7 +5497,7 @@ _public_ int sd_json_dispatch_uint32(const char *name, sd_json_variant *variant,
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *u = UINT32_MAX;
+                *u = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : UINT32_MAX;
                 return 0;
         }
 
@@ -5524,7 +5524,7 @@ _public_ int sd_json_dispatch_int32(const char *name, sd_json_variant *variant, 
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *i = -1;
+                *i = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : -1;
                 return 0;
         }
 
@@ -5551,7 +5551,7 @@ _public_ int sd_json_dispatch_int16(const char *name, sd_json_variant *variant, 
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *i = -1;
+                *i = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : -1;
                 return 0;
         }
 
@@ -5575,7 +5575,7 @@ _public_ int sd_json_dispatch_uint16(const char *name, sd_json_variant *variant,
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *u = UINT16_MAX;
+                *u = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : UINT16_MAX;
                 return 0;
         }
 
@@ -5599,7 +5599,7 @@ _public_ int sd_json_dispatch_int8(const char *name, sd_json_variant *variant, s
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *i = -1;
+                *i = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : -1;
                 return 0;
         }
 
@@ -5623,7 +5623,7 @@ _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, 
         assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
-                *u = UINT8_MAX;
+                *u = FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : UINT8_MAX;
                 return 0;
         }
 
