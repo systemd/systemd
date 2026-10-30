@@ -365,6 +365,84 @@ test ! -e "$COMPDIR/root/bad.raw"
 (! "$PULL" raw --verify=no --direct --source-offset=18446744073709551615 --source-size=2 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
 test ! -e "$COMPDIR/out.raw"
 
+# → For unencoded data systemd-pull asks HTTP servers for just the range, and cuts it out itself if they
+#   do not honour the request ← #
+
+# A minimal HTTP server, where the first path component selects how range requests are handled: "honour"
+# returns the requested range, "ignore" always the whole file, and "bogus" a range at the wrong offset. Each
+# request is logged with its "Range:" header.
+RANGE_LOG="$COMPDIR/range.log"
+cat >"$COMPDIR/range-server.py" <<'EOF'
+import http.server, os, re, sys
+
+port, root, log = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        mode, _, name = self.path.lstrip('/').partition('/')
+        rng = self.headers.get('Range')
+        with open(log, 'a') as f:
+            print(mode, name, rng or '-', file=f)
+
+        try:
+            with open(os.path.join(root, os.path.basename(name)), 'rb') as f:
+                data = f.read()
+        except FileNotFoundError:
+            self.send_error(404)
+            return
+
+        m = re.fullmatch(r'bytes=(\d+)-(\d*)', rng or '')
+        if mode == 'ignore' or not m:
+            self.send_response(200)
+            chunk = data
+        else:
+            start = int(m.group(1))
+            end = int(m.group(2)) if m.group(2) else len(data) - 1
+            chunk = data[start:end + 1]
+            if mode == 'bogus':
+                start += 1
+            self.send_response(206)
+            self.send_header('Content-Range', f'bytes {start}-{start + len(chunk) - 1}/{len(data)}')
+        self.send_header('Content-Length', str(len(chunk)))
+        self.end_headers()
+        self.wfile.write(chunk)
+
+http.server.HTTPServer(('127.0.0.1', port), Handler).serve_forever()
+EOF
+systemd-run --unit=test-25-range-server -p Type=exec python3 "$COMPDIR/range-server.py" 8025 "$COMPDIR" "$RANGE_LOG"
+timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8025/ignore/head.raw; do sleep .5; done'
+URL=http://127.0.0.1:8025
+
+for mode in honour ignore; do
+    : >"$RANGE_LOG"
+    "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "$URL/$mode/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    grep -x "$mode payload.raw bytes=1000-5999" "$RANGE_LOG" >/dev/null
+
+    : >"$RANGE_LOG"
+    "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 "$URL/$mode/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/tail.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    grep -x "$mode payload.raw bytes=1000-" "$RANGE_LOG" >/dev/null
+done
+
+# A range starting elsewhere than requested is refused
+(! "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 --source-size=5000 "$URL/bogus/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# No range is requested if the data might be encoded, or if the download is verified as a whole
+: >"$RANGE_LOG"
+"$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 "$URL/honour/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+"$PULL" raw --verify="$PAYLOAD_HASH" --compression=none --direct --source-offset=1000 --source-size=5000 "$URL/honour/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! grep -v -x "honour payload.raw -" "$RANGE_LOG")
+
+systemctl stop test-25-range-server
+
 rm -rf "$COMPDIR"
 
 # → Now, let's test --checksum-file=, i.e. whether the downloaded file is treated as checksum file ← #
